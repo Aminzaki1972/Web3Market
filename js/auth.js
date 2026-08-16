@@ -1,14 +1,32 @@
 /* =========================================================
    Web3Market
    File: js/auth.js
-   Unified Authentication
+   Unified Authentication System
    Version: 1.0
-   Uses js/supabase.js
    ========================================================= */
 
 "use strict";
 
 (function () {
+
+    /* =====================================================
+       GLOBAL STATE
+       ===================================================== */
+
+    const Web3MarketAuth = {
+
+        initialized: false,
+
+        currentUser: null,
+
+        currentSession: null,
+
+        accountType: null,
+
+        loading: false
+
+    };
+
 
     /* =====================================================
        SUPABASE
@@ -21,8 +39,20 @@
             typeof window.Web3MarketSupabase.getClient ===
                 "function"
         ) {
+
             return window.Web3MarketSupabase.getClient();
         }
+
+
+        if (
+            window.supabaseClient &&
+            typeof window.supabaseClient.from ===
+                "function"
+        ) {
+
+            return window.supabaseClient;
+        }
+
 
         console.error(
             "Web3Market Auth: Supabase client is unavailable."
@@ -33,10 +63,95 @@
 
 
     /* =====================================================
-       CURRENT SESSION
+       INITIALIZE
        ===================================================== */
 
-    async function getCurrentSession() {
+    async function initialize() {
+
+        if (
+            Web3MarketAuth.initialized
+        ) {
+
+            return Web3MarketAuth;
+        }
+
+
+        const supabase =
+            getSupabase();
+
+
+        if (!supabase) {
+
+            console.error(
+                "Web3Market Auth: initialization failed."
+            );
+
+            return Web3MarketAuth;
+        }
+
+
+        Web3MarketAuth.initialized =
+            true;
+
+
+        try {
+
+            const session =
+                await getSession();
+
+
+            if (
+                session &&
+                session.user
+            ) {
+
+                Web3MarketAuth.currentSession =
+                    session;
+
+                Web3MarketAuth.currentUser =
+                    session.user;
+
+
+                Web3MarketAuth.accountType =
+                    await getAccountType(
+                        session.user.id
+                    );
+
+
+                syncUserWithApp();
+            }
+
+
+        } catch (error) {
+
+            console.error(
+                "Web3Market Auth initialization error:",
+                error
+            );
+        }
+
+
+        setupAuthListener();
+
+        setupAuthForms();
+
+        updateAuthUI();
+
+
+        console.log(
+            "Web3Market Auth initialized successfully."
+        );
+
+
+        return Web3MarketAuth;
+    }
+
+
+    /* =====================================================
+       SESSION
+       ===================================================== */
+
+    async function getSession() {
 
         if (
             window.Web3MarketSupabase &&
@@ -47,7 +162,47 @@
             return await window.Web3MarketSupabase.getSession();
         }
 
-        return null;
+
+        const supabase =
+            getSupabase();
+
+
+        if (!supabase) {
+            return null;
+        }
+
+
+        try {
+
+            const {
+                data,
+                error
+            } =
+                await supabase.auth.getSession();
+
+
+            if (error) {
+
+                console.error(
+                    "Web3Market Auth getSession:",
+                    error
+                );
+
+                return null;
+            }
+
+
+            return data?.session || null;
+
+        } catch (error) {
+
+            console.error(
+                "Web3Market Auth getSession exception:",
+                error
+            );
+
+            return null;
+        }
     }
 
 
@@ -58,15 +213,73 @@
     async function getCurrentUser() {
 
         if (
+            Web3MarketAuth.currentUser
+        ) {
+
+            return Web3MarketAuth.currentUser;
+        }
+
+
+        if (
             window.Web3MarketSupabase &&
             typeof window.Web3MarketSupabase.getUser ===
                 "function"
         ) {
 
-            return await window.Web3MarketSupabase.getUser();
+            const user =
+                await window.Web3MarketSupabase.getUser();
+
+
+            Web3MarketAuth.currentUser =
+                user || null;
+
+
+            return user || null;
         }
 
-        return null;
+
+        const supabase =
+            getSupabase();
+
+
+        if (!supabase) {
+            return null;
+        }
+
+
+        try {
+
+            const {
+                data,
+                error
+            } =
+                await supabase.auth.getUser();
+
+
+            if (error) {
+
+                return null;
+            }
+
+
+            Web3MarketAuth.currentUser =
+                data?.user || null;
+
+
+            return (
+                Web3MarketAuth.currentUser ||
+                null
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Web3Market Auth getUser:",
+                error
+            );
+
+            return null;
+        }
     }
 
 
@@ -80,6 +293,7 @@
             return false;
         }
 
+
         return Boolean(
             user.email_confirmed_at ||
             user.confirmed_at
@@ -88,7 +302,7 @@
 
 
     /* =====================================================
-       ACCOUNT TYPE NORMALIZATION
+       NORMALIZE ACCOUNT TYPE
        ===================================================== */
 
     function normalizeAccountType(value) {
@@ -97,8 +311,10 @@
             value === null ||
             value === undefined
         ) {
+
             return null;
         }
+
 
         const type =
             String(value)
@@ -111,44 +327,42 @@
                 "admin",
                 "administrator",
                 "superadmin",
-                "super_admin",
-                "admin_account"
+                "super_admin"
             ].includes(type)
         ) {
+
             return "admin";
         }
 
 
         if (
             [
+                "seller",
+                "vendor",
+                "owner",
+                "developer",
                 "company",
-                "companies",
                 "business",
-                "employer",
-                "organization",
-                "company_account",
-                "company-account"
+                "seller_account"
             ].includes(type)
         ) {
-            return "company";
+
+            return "seller";
         }
 
 
         if (
             [
-                "individual",
-                "individuals",
-                "person",
-                "user",
-                "candidate",
-                "freelancer",
                 "buyer",
-                "seller",
-                "individual_account",
-                "individual-account"
+                "user",
+                "customer",
+                "individual",
+                "investor",
+                "buyer_account"
             ].includes(type)
         ) {
-            return "individual";
+
+            return "buyer";
         }
 
 
@@ -166,14 +380,17 @@
             return null;
         }
 
+
         const values = [
 
             object.account_type,
+
             object.accountType,
 
             object.role,
 
             object.user_type,
+
             object.userType,
 
             object.type
@@ -189,6 +406,7 @@
                 normalizeAccountType(
                     value
                 );
+
 
             if (type) {
                 return type;
@@ -231,9 +449,89 @@
         }
 
 
-        /* =================================================
-           1. AUTH METADATA
-        ================================================= */
+        /* -------------------------------------------------
+           1. ADMIN
+        ------------------------------------------------- */
+
+        try {
+
+            const {
+                data,
+                error
+            } =
+                await supabase
+                    .from("profiles")
+                    .select("*")
+                    .eq("id", id)
+                    .maybeSingle();
+
+
+            if (
+                !error &&
+                data
+            ) {
+
+                const type =
+                    findAccountType(data);
+
+
+                if (type) {
+                    return type;
+                }
+            }
+
+        } catch (error) {
+
+            console.warn(
+                "Web3Market profiles.id:",
+                error
+            );
+        }
+
+
+        /* -------------------------------------------------
+           2. PROFILE BY USER ID
+        ------------------------------------------------- */
+
+        try {
+
+            const {
+                data,
+                error
+            } =
+                await supabase
+                    .from("profiles")
+                    .select("*")
+                    .eq("user_id", id)
+                    .maybeSingle();
+
+
+            if (
+                !error &&
+                data
+            ) {
+
+                const type =
+                    findAccountType(data);
+
+
+                if (type) {
+                    return type;
+                }
+            }
+
+        } catch (error) {
+
+            console.warn(
+                "Web3Market profiles.user_id:",
+                error
+            );
+        }
+
+
+        /* -------------------------------------------------
+           3. USER METADATA
+        ------------------------------------------------- */
 
         const metadata =
             user?.user_metadata || {};
@@ -251,9 +549,9 @@
         }
 
 
-        /* =================================================
-           2. PROFILES TABLE
-        ================================================= */
+        /* -------------------------------------------------
+           4. SELLER PROFILE
+        ------------------------------------------------- */
 
         try {
 
@@ -262,49 +560,7 @@
                 error
             } =
                 await supabase
-                    .from("profiles")
-                    .select("*")
-                    .eq("id", id)
-                    .maybeSingle();
-
-
-            if (
-                !error &&
-                data
-            ) {
-
-                const type =
-                    findAccountType(
-                        data
-                    );
-
-
-                if (type) {
-                    return type;
-                }
-            }
-
-        } catch (error) {
-
-            console.warn(
-                "Web3Market profiles check:",
-                error
-            );
-        }
-
-
-        /* =================================================
-           3. PROFILES BY USER ID
-        ================================================= */
-
-        try {
-
-            const {
-                data,
-                error
-            } =
-                await supabase
-                    .from("profiles")
+                    .from("seller_profiles")
                     .select("*")
                     .eq("user_id", id)
                     .maybeSingle();
@@ -315,102 +571,21 @@
                 data
             ) {
 
-                const type =
-                    findAccountType(
-                        data
-                    );
-
-
-                if (type) {
-                    return type;
-                }
+                return "seller";
             }
 
         } catch (error) {
 
             console.warn(
-                "Web3Market profiles.user_id check:",
+                "Web3Market seller_profiles:",
                 error
             );
         }
 
 
-        /* =================================================
-           4. COMPANY PROFILES
-        ================================================= */
-
-        try {
-
-            const {
-                data,
-                error
-            } =
-                await supabase
-                    .from("company_profiles")
-                    .select("*")
-                    .eq("user_id", id)
-                    .maybeSingle();
-
-
-            if (
-                !error &&
-                data
-            ) {
-
-                return "company";
-            }
-
-        } catch (error) {
-
-            /*
-             * The table may not exist yet.
-             * This must not break authentication.
-             */
-
-            console.warn(
-                "Web3Market company_profiles check:",
-                error
-            );
-        }
-
-
-        /* =================================================
-           5. COMPANY PROFILE BY ID
-        ================================================= */
-
-        try {
-
-            const {
-                data,
-                error
-            } =
-                await supabase
-                    .from("company_profiles")
-                    .select("*")
-                    .eq("id", id)
-                    .maybeSingle();
-
-
-            if (
-                !error &&
-                data
-            ) {
-
-                return "company";
-            }
-
-        } catch (error) {
-
-            console.warn(
-                "Web3Market company_profiles.id check:",
-                error
-            );
-        }
-
-
-        /* =================================================
-           6. JOB / PROJECT OWNER FALLBACK
-        ================================================= */
+        /* -------------------------------------------------
+           5. SELLER PROJECTS
+        ------------------------------------------------- */
 
         try {
 
@@ -421,7 +596,7 @@
                 await supabase
                     .from("projects")
                     .select("id")
-                    .eq("user_id", id)
+                    .eq("seller_id", id)
                     .limit(1);
 
 
@@ -431,142 +606,795 @@
                 data.length > 0
             ) {
 
-                return "company";
+                return "seller";
             }
 
         } catch (error) {
 
-            /*
-             * Projects table may not exist yet.
-             */
-
             console.warn(
-                "Web3Market projects account detection:",
+                "Web3Market projects seller check:",
                 error
             );
         }
 
 
-        /* =================================================
-           7. DEFAULT INDIVIDUAL
-        ================================================= */
+        /* -------------------------------------------------
+           6. DEFAULT BUYER
+        ------------------------------------------------- */
 
-        /*
-         * A normal authenticated user is treated
-         * as an individual unless another account
-         * type was explicitly detected.
-         */
-
-        return "individual";
+        return "buyer";
     }
 
 
     /* =====================================================
-       BASE URL
+       SIGN UP
        ===================================================== */
 
-    function getBaseUrl() {
-
-        const pathname =
-            window.location.pathname;
-
-
-        const lastSlash =
-            pathname.lastIndexOf("/");
-
-
-        const directory =
-            lastSlash >= 0
-                ? pathname.substring(
-                    0,
-                    lastSlash + 1
-                )
-                : "/";
-
-
-        return (
-            window.location.origin +
-            directory
-        );
-    }
-
-
-    /* =====================================================
-       LOGIN URL
-       ===================================================== */
-
-    function getLoginUrl() {
-
-        return (
-            getBaseUrl() +
-            "login.html"
-        );
-    }
-
-
-    /* =====================================================
-       HOME URL
-       ===================================================== */
-
-    function getHomeUrl() {
-
-        return (
-            getBaseUrl() +
-            "index.html"
-        );
-    }
-
-
-    /* =====================================================
-       DASHBOARD URL
-       ===================================================== */
-
-    function getDashboardUrl(
-        accountType
+    async function register(
+        email,
+        password,
+        accountType = "buyer",
+        metadata = {}
     ) {
+
+        email =
+            String(email || "")
+                .trim()
+                .toLowerCase();
+
+
+        password =
+            String(password || "");
+
 
         const type =
             normalizeAccountType(
                 accountType
+            ) || "buyer";
+
+
+        if (!email) {
+
+            showMessage(
+                "يرجى إدخال البريد الإلكتروني.",
+                "error"
             );
 
-
-        if (type === "admin") {
-
-            return (
-                getBaseUrl() +
-                "admin-dashboard.html"
-            );
+            return {
+                success: false
+            };
         }
 
 
-        if (type === "company") {
+        if (password.length < 6) {
 
-            return (
-                getBaseUrl() +
-                "company-dashboard.html"
+            showMessage(
+                "كلمة المرور يجب أن تكون 6 أحرف على الأقل.",
+                "error"
             );
+
+            return {
+                success: false
+            };
         }
 
 
-        if (type === "individual") {
+        Web3MarketAuth.loading =
+            true;
 
-            return (
-                getBaseUrl() +
-                "dashboard.html"
+
+        try {
+
+            const options = {
+
+                data: {
+
+                    ...metadata,
+
+                    account_type:
+                        type,
+
+                    role:
+                        type
+
+                },
+
+                emailRedirectTo:
+                    getLoginUrl()
+            };
+
+
+            let result;
+
+
+            if (
+                window.Web3MarketSupabase &&
+                typeof window.Web3MarketSupabase.signUp ===
+                    "function"
+            ) {
+
+                result =
+                    await window.Web3MarketSupabase.signUp(
+                        email,
+                        password,
+                        options
+                    );
+
+            } else {
+
+                const supabase =
+                    getSupabase();
+
+
+                if (!supabase) {
+
+                    throw new Error(
+                        "Supabase client is unavailable."
+                    );
+                }
+
+
+                result =
+                    await supabase.auth.signUp({
+
+                        email,
+
+                        password,
+
+                        options
+                    });
+            }
+
+
+            const {
+                data,
+                error
+            } = result;
+
+
+            if (error) {
+
+                showAuthError(error);
+
+                return {
+                    success: false,
+                    error
+                };
+            }
+
+
+            if (
+                data?.user
+            ) {
+
+                Web3MarketAuth.currentUser =
+                    data.user;
+            }
+
+
+            showMessage(
+                "تم إنشاء الحساب بنجاح. يرجى تأكيد البريد الإلكتروني.",
+                "success"
             );
+
+
+            return {
+
+                success: true,
+
+                user:
+                    data?.user || null,
+
+                session:
+                    data?.session || null,
+
+                accountType:
+                    type,
+
+                emailConfirmationRequired:
+                    !data?.session
+
+            };
+
+        } catch (error) {
+
+            console.error(
+                "Web3Market registration error:",
+                error
+            );
+
+
+            showAuthError(error);
+
+
+            return {
+                success: false,
+                error
+            };
+
+        } finally {
+
+            Web3MarketAuth.loading =
+                false;
         }
-
-
-        return getHomeUrl();
     }
 
 
     /* =====================================================
-       SAVE AUTH DATA
+       LOGIN
        ===================================================== */
 
-    function saveAuthData(
+    async function login(
+        email,
+        password
+    ) {
+
+        email =
+            String(email || "")
+                .trim()
+                .toLowerCase();
+
+
+        password =
+            String(password || "");
+
+
+        if (!email || !password) {
+
+            showMessage(
+                "يرجى إدخال البريد الإلكتروني وكلمة المرور.",
+                "error"
+            );
+
+            return {
+                success: false
+            };
+        }
+
+
+        Web3MarketAuth.loading =
+            true;
+
+
+        try {
+
+            let result;
+
+
+            if (
+                window.Web3MarketSupabase &&
+                typeof window.Web3MarketSupabase.signIn ===
+                    "function"
+            ) {
+
+                result =
+                    await window.Web3MarketSupabase.signIn(
+                        email,
+                        password
+                    );
+
+            } else {
+
+                const supabase =
+                    getSupabase();
+
+
+                if (!supabase) {
+
+                    throw new Error(
+                        "Supabase client is unavailable."
+                    );
+                }
+
+
+                result =
+                    await supabase.auth.signInWithPassword({
+
+                        email,
+
+                        password
+                    });
+            }
+
+
+            const {
+                data,
+                error
+            } = result;
+
+
+            if (error) {
+
+                showAuthError(error);
+
+                return {
+                    success: false,
+                    error
+                };
+            }
+
+
+            const user =
+                data?.user;
+
+
+            const session =
+                data?.session;
+
+
+            if (!user || !session) {
+
+                showMessage(
+                    "تعذر إنشاء جلسة تسجيل الدخول.",
+                    "error"
+                );
+
+                return {
+                    success: false
+                };
+            }
+
+
+            if (
+                !isEmailConfirmed(user)
+            ) {
+
+                await logout(
+                    false
+                );
+
+
+                showMessage(
+                    "يرجى تأكيد البريد الإلكتروني أولاً.",
+                    "error"
+                );
+
+
+                return {
+                    success: false,
+                    emailNotConfirmed: true
+                };
+            }
+
+
+            Web3MarketAuth.currentUser =
+                user;
+
+
+            Web3MarketAuth.currentSession =
+                session;
+
+
+            const accountType =
+                await getAccountType(
+                    user.id
+                );
+
+
+            Web3MarketAuth.accountType =
+                accountType;
+
+
+            saveLocalAuthState(
+                user,
+                accountType
+            );
+
+
+            syncUserWithApp();
+
+            updateAuthUI();
+
+
+            const dashboardUrl =
+                getDashboardUrl(
+                    accountType
+                );
+
+
+            showMessage(
+                "تم تسجيل الدخول بنجاح.",
+                "success"
+            );
+
+
+            return {
+
+                success: true,
+
+                user,
+
+                session,
+
+                accountType,
+
+                dashboardUrl
+            };
+
+        } catch (error) {
+
+            console.error(
+                "Web3Market login error:",
+                error
+            );
+
+
+            showAuthError(error);
+
+
+            return {
+                success: false,
+                error
+            };
+
+        } finally {
+
+            Web3MarketAuth.loading =
+                false;
+        }
+    }
+
+
+    /* =====================================================
+       LOGOUT
+       ===================================================== */
+
+    async function logout(
+        redirect = true
+    ) {
+
+        try {
+
+            if (
+                window.Web3MarketSupabase &&
+                typeof window.Web3MarketSupabase.signOut ===
+                    "function"
+            ) {
+
+                await window.Web3MarketSupabase.signOut();
+
+            } else {
+
+                const supabase =
+                    getSupabase();
+
+
+                if (supabase) {
+
+                    await supabase.auth.signOut();
+                }
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Web3Market logout:",
+                error
+            );
+        }
+
+
+        Web3MarketAuth.currentUser =
+            null;
+
+        Web3MarketAuth.currentSession =
+            null;
+
+        Web3MarketAuth.accountType =
+            null;
+
+
+        clearLocalAuthState();
+
+        syncUserWithApp();
+
+        updateAuthUI();
+
+
+        if (redirect) {
+
+            window.location.href =
+                getLoginUrl();
+        }
+
+
+        return true;
+    }
+
+
+    /* =====================================================
+       RESEND CONFIRMATION
+       ===================================================== */
+
+    async function resendConfirmation(
+        email
+    ) {
+
+        email =
+            String(email || "")
+                .trim()
+                .toLowerCase();
+
+
+        if (!email) {
+
+            showMessage(
+                "يرجى إدخال البريد الإلكتروني.",
+                "error"
+            );
+
+            return false;
+        }
+
+
+        try {
+
+            let result;
+
+
+            if (
+                window.Web3MarketSupabase &&
+                typeof window.Web3MarketSupabase.resendConfirmation ===
+                    "function"
+            ) {
+
+                result =
+                    await window.Web3MarketSupabase.resendConfirmation(
+                        email,
+                        {
+                            emailRedirectTo:
+                                getLoginUrl()
+                        }
+                    );
+
+            } else {
+
+                const supabase =
+                    getSupabase();
+
+
+                if (!supabase) {
+                    return false;
+                }
+
+
+                result =
+                    await supabase.auth.resend({
+
+                        type: "signup",
+
+                        email,
+
+                        options: {
+
+                            emailRedirectTo:
+                                getLoginUrl()
+                        }
+                    });
+            }
+
+
+            if (result?.error) {
+
+                showAuthError(
+                    result.error
+                );
+
+                return false;
+            }
+
+
+            showMessage(
+                "تم إرسال رسالة تأكيد جديدة.",
+                "success"
+            );
+
+
+            return true;
+
+        } catch (error) {
+
+            showAuthError(error);
+
+            return false;
+        }
+    }
+
+
+    /* =====================================================
+       RESET PASSWORD
+       ===================================================== */
+
+    async function resetPassword(
+        email
+    ) {
+
+        email =
+            String(email || "")
+                .trim()
+                .toLowerCase();
+
+
+        if (!email) {
+
+            showMessage(
+                "يرجى إدخال البريد الإلكتروني.",
+                "error"
+            );
+
+            return false;
+        }
+
+
+        try {
+
+            let result;
+
+
+            if (
+                window.Web3MarketSupabase &&
+                typeof window.Web3MarketSupabase.resetPassword ===
+                    "function"
+            ) {
+
+                result =
+                    await window.Web3MarketSupabase.resetPassword(
+                        email,
+                        {
+                            redirectTo:
+                                getLoginUrl()
+                        }
+                    );
+
+            } else {
+
+                const supabase =
+                    getSupabase();
+
+
+                if (!supabase) {
+                    return false;
+                }
+
+
+                result =
+                    await supabase.auth.resetPasswordForEmail(
+                        email,
+                        {
+                            redirectTo:
+                                getLoginUrl()
+                        }
+                    );
+            }
+
+
+            if (result?.error) {
+
+                showAuthError(
+                    result.error
+                );
+
+                return false;
+            }
+
+
+            showMessage(
+                "تم إرسال رابط إعادة تعيين كلمة المرور.",
+                "success"
+            );
+
+
+            return true;
+
+        } catch (error) {
+
+            showAuthError(error);
+
+            return false;
+        }
+    }
+
+
+    /* =====================================================
+       AUTH LISTENER
+       ===================================================== */
+
+    function setupAuthListener() {
+
+        if (
+            Web3MarketAuth.__listenerInitialized
+        ) {
+
+            return;
+        }
+
+
+        Web3MarketAuth.__listenerInitialized =
+            true;
+
+
+        if (
+            window.Web3MarketSupabase &&
+            typeof window.Web3MarketSupabase.onAuthStateChange ===
+                "function"
+        ) {
+
+            window.Web3MarketSupabase.onAuthStateChange(
+                async function (
+                    event,
+                    session
+                ) {
+
+                    console.log(
+                        "Web3Market Auth:",
+                        event
+                    );
+
+
+                    Web3MarketAuth.currentSession =
+                        session || null;
+
+
+                    Web3MarketAuth.currentUser =
+                        session?.user || null;
+
+
+                    if (
+                        session?.user
+                    ) {
+
+                        Web3MarketAuth.accountType =
+                            await getAccountType(
+                                session.user.id
+                            );
+
+                        saveLocalAuthState(
+                            session.user,
+                            Web3MarketAuth.accountType
+                        );
+
+                    } else {
+
+                        Web3MarketAuth.accountType =
+                            null;
+
+                        clearLocalAuthState();
+                    }
+
+
+                    syncUserWithApp();
+
+                    updateAuthUI();
+                }
+            );
+        }
+    }
+
+
+    /* =====================================================
+       SYNC WITH APP.JS
+       ===================================================== */
+
+    function syncUserWithApp() {
+
+        if (
+            window.Web3MarketApp &&
+            typeof window.Web3MarketApp.setCurrentUser ===
+                "function"
+        ) {
+
+            window.Web3MarketApp.setCurrentUser(
+                Web3MarketAuth.currentUser
+            );
+        }
+    }
+
+
+    /* =====================================================
+       LOCAL STORAGE
+       ===================================================== */
+
+    function saveLocalAuthState(
         user,
         accountType
     ) {
@@ -590,21 +1418,18 @@
                 );
             }
 
+
         } catch (error) {
 
             console.warn(
-                "Web3Market auth localStorage:",
+                "Web3Market localStorage:",
                 error
             );
         }
     }
 
 
-    /* =====================================================
-       CLEAR AUTH DATA
-       ===================================================== */
-
-    function clearAuthData() {
+    function clearLocalAuthState() {
 
         try {
 
@@ -619,7 +1444,7 @@
         } catch (error) {
 
             console.warn(
-                "Web3Market clear localStorage:",
+                "Web3Market localStorage:",
                 error
             );
         }
@@ -627,639 +1452,80 @@
 
 
     /* =====================================================
-       LOGIN
+       URL HELPERS
        ===================================================== */
 
-    async function login(
-        email,
-        password
-    ) {
+    function getBaseUrl() {
 
-        if (
-            !window.Web3MarketSupabase ||
-            typeof window.Web3MarketSupabase.signIn !==
-                "function"
-        ) {
-
-            showMessage(
-                "تعذر الاتصال بخدمة تسجيل الدخول.",
-                "Authentication service is unavailable.",
-                "error"
-            );
-
-            return {
-                success: false
-            };
-        }
+        const path =
+            window.location.pathname;
 
 
-        email =
-            String(email || "")
-                .trim()
-                .toLowerCase();
+        const index =
+            path.lastIndexOf("/");
 
 
-        password =
-            String(password || "");
-
-
-        if (!email || !password) {
-
-            showMessage(
-                "يرجى إدخال البريد الإلكتروني وكلمة المرور.",
-                "Please enter your email and password.",
-                "error"
-            );
-
-            return {
-                success: false
-            };
-        }
-
-
-        try {
-
-            const result =
-                await window.Web3MarketSupabase.signIn(
-                    email,
-                    password
-                );
-
-
-            const data =
-                result?.data;
-
-
-            const error =
-                result?.error;
-
-
-            if (error) {
-
-                showAuthError(
-                    error
-                );
-
-                return {
-                    success: false,
-                    error: error
-                };
-            }
-
-
-            const user =
-                data?.user;
-
-
-            const session =
-                data?.session;
-
-
-            if (
-                !user ||
-                !session
-            ) {
-
-                showMessage(
-                    "تعذر إنشاء جلسة تسجيل الدخول.",
-                    "Could not create a login session.",
-                    "error"
-                );
-
-                return {
-                    success: false
-                };
-            }
-
-
-            /* ---------------------------------------------
-               EMAIL CONFIRMATION
-            --------------------------------------------- */
-
-            if (
-                !isEmailConfirmed(
-                    user
+        const directory =
+            index >= 0
+                ? path.substring(
+                    0,
+                    index + 1
                 )
-            ) {
-
-                await logout(
-                    false
-                );
+                : "/";
 
 
-                showMessage(
-                    "البريد الإلكتروني غير مؤكد. يرجى تأكيد البريد أولًا.",
-                    "Your email is not confirmed. Please confirm your email first.",
-                    "error"
-                );
-
-
-                return {
-                    success: false,
-                    emailNotConfirmed: true
-                };
-            }
-
-
-            /* ---------------------------------------------
-               ACCOUNT TYPE
-            --------------------------------------------- */
-
-            const accountType =
-                await getAccountType(
-                    user.id
-                );
-
-
-            saveAuthData(
-                user,
-                accountType
-            );
-
-
-            /* ---------------------------------------------
-               SYNC APP STATE
-            --------------------------------------------- */
-
-            if (
-                window.Web3MarketApp &&
-                typeof
-                window.Web3MarketApp.setCurrentUser ===
-                    "function"
-            ) {
-
-                window.Web3MarketApp.setCurrentUser(
-                    user
-                );
-            }
-
-
-            const dashboardUrl =
-                getDashboardUrl(
-                    accountType
-                );
-
-
-            console.log(
-                "Web3Market login successful:",
-                {
-                    userId:
-                        user.id,
-
-                    email:
-                        user.email,
-
-                    accountType:
-                        accountType
-                }
-            );
-
-
-            return {
-
-                success: true,
-
-                user:
-                    user,
-
-                session:
-                    session,
-
-                accountType:
-                    accountType,
-
-                dashboardUrl:
-                    dashboardUrl
-            };
-
-        } catch (error) {
-
-            console.error(
-                "Web3Market login:",
-                error
-            );
-
-            showAuthError(
-                error
-            );
-
-            return {
-                success: false,
-                error: error
-            };
-        }
+        return (
+            window.location.origin +
+            directory
+        );
     }
 
 
-    /* =====================================================
-       SIGN UP
-       ===================================================== */
+    function getLoginUrl() {
 
-    async function register(
-        email,
-        password,
-        accountType = "individual",
-        metadata = {}
+        return (
+            getBaseUrl() +
+            "login.html"
+        );
+    }
+
+
+    function getDashboardUrl(
+        accountType
     ) {
 
-        if (
-            !window.Web3MarketSupabase ||
-            typeof window.Web3MarketSupabase.signUp !==
-                "function"
-        ) {
-
-            showMessage(
-                "تعذر الاتصال بخدمة التسجيل.",
-                "Registration service is unavailable.",
-                "error"
-            );
-
-            return {
-                success: false
-            };
-        }
-
-
-        email =
-            String(email || "")
-                .trim()
-                .toLowerCase();
-
-
-        password =
-            String(password || "");
-
-
-        const normalizedType =
+        const type =
             normalizeAccountType(
                 accountType
-            ) || "individual";
-
-
-        if (!email || !password) {
-
-            showMessage(
-                "يرجى إدخال البريد الإلكتروني وكلمة المرور.",
-                "Please enter your email and password.",
-                "error"
             );
-
-            return {
-                success: false
-            };
-        }
-
-
-        try {
-
-            const userMetadata =
-                Object.assign(
-                    {},
-                    metadata || {},
-                    {
-                        account_type:
-                            normalizedType
-                    }
-                );
-
-
-            const result =
-                await window.Web3MarketSupabase.signUp(
-                    email,
-                    password,
-                    {
-                        data:
-                            userMetadata,
-
-                        emailRedirectTo:
-                            getLoginUrl()
-                    }
-                );
-
-
-            const data =
-                result?.data;
-
-
-            const error =
-                result?.error;
-
-
-            if (error) {
-
-                showAuthError(
-                    error
-                );
-
-                return {
-                    success: false,
-                    error: error
-                };
-            }
-
-
-            const user =
-                data?.user;
-
-
-            const session =
-                data?.session;
-
-
-            /*
-             * Supabase may create the user without
-             * creating a session when email confirmation
-             * is enabled.
-             */
-
-            if (user) {
-
-                saveAuthData(
-                    user,
-                    normalizedType
-                );
-            }
-
-
-            if (
-                user &&
-                session
-            ) {
-
-                if (
-                    window.Web3MarketApp &&
-                    typeof
-                    window.Web3MarketApp.setCurrentUser ===
-                        "function"
-                ) {
-
-                    window.Web3MarketApp.setCurrentUser(
-                        user
-                    );
-                }
-            }
-
-
-            return {
-
-                success: true,
-
-                user:
-                    user || null,
-
-                session:
-                    session || null,
-
-                accountType:
-                    normalizedType,
-
-                emailConfirmationRequired:
-                    !session
-            };
-
-        } catch (error) {
-
-            console.error(
-                "Web3Market registration:",
-                error
-            );
-
-            showAuthError(
-                error
-            );
-
-            return {
-                success: false,
-                error: error
-            };
-        }
-    }
-
-
-    /* =====================================================
-       LOGOUT
-       ===================================================== */
-
-    async function logout(
-        redirect = true
-    ) {
-
-        try {
-
-            if (
-                window.Web3MarketSupabase &&
-                typeof
-                window.Web3MarketSupabase.signOut ===
-                    "function"
-            ) {
-
-                await window.Web3MarketSupabase.signOut();
-            }
-
-        } catch (error) {
-
-            console.error(
-                "Web3Market logout:",
-                error
-            );
-        }
-
-
-        clearAuthData();
 
 
         if (
-            window.Web3MarketApp &&
-            typeof
-            window.Web3MarketApp.setCurrentUser ===
-                "function"
+            type === "admin"
         ) {
 
-            window.Web3MarketApp.setCurrentUser(
-                null
+            return (
+                getBaseUrl() +
+                "admin-dashboard.html"
             );
         }
 
-
-        if (redirect) {
-
-            window.location.replace(
-                getLoginUrl()
-            );
-        }
-
-
-        return true;
-    }
-
-
-    /* =====================================================
-       RESEND CONFIRMATION
-       ===================================================== */
-
-    async function resendConfirmation(
-        email
-    ) {
 
         if (
-            !window.Web3MarketSupabase ||
-            typeof
-            window.Web3MarketSupabase.resendConfirmation !==
-                "function"
+            type === "seller"
         ) {
 
-            showMessage(
-                "خدمة البريد الإلكتروني غير متاحة.",
-                "Email service is unavailable.",
-                "error"
+            return (
+                getBaseUrl() +
+                "seller-dashboard.html"
             );
-
-            return false;
         }
 
 
-        email =
-            String(email || "")
-                .trim()
-                .toLowerCase();
-
-
-        if (!email) {
-
-            showMessage(
-                "يرجى إدخال البريد الإلكتروني.",
-                "Please enter your email address.",
-                "error"
-            );
-
-            return false;
-        }
-
-
-        try {
-
-            const result =
-                await window.Web3MarketSupabase.resendConfirmation(
-                    email,
-                    {
-                        emailRedirectTo:
-                            getLoginUrl()
-                    }
-                );
-
-
-            if (result?.error) {
-
-                showAuthError(
-                    result.error
-                );
-
-                return false;
-            }
-
-
-            showMessage(
-                "تم إرسال رسالة تأكيد جديدة إلى بريدك الإلكتروني.",
-                "A new confirmation email has been sent.",
-                "success"
-            );
-
-
-            return true;
-
-        } catch (error) {
-
-            showAuthError(
-                error
-            );
-
-            return false;
-        }
-    }
-
-
-    /* =====================================================
-       RESET PASSWORD
-       ===================================================== */
-
-    async function resetPassword(
-        email
-    ) {
-
-        if (
-            !window.Web3MarketSupabase ||
-            typeof
-            window.Web3MarketSupabase.resetPassword !==
-                "function"
-        ) {
-
-            showMessage(
-                "خدمة إعادة تعيين كلمة المرور غير متاحة.",
-                "Password reset service is unavailable.",
-                "error"
-            );
-
-            return false;
-        }
-
-
-        email =
-            String(email || "")
-                .trim()
-                .toLowerCase();
-
-
-        if (!email) {
-
-            showMessage(
-                "يرجى إدخال البريد الإلكتروني.",
-                "Please enter your email address.",
-                "error"
-            );
-
-            return false;
-        }
-
-
-        try {
-
-            const result =
-                await window.Web3MarketSupabase.resetPassword(
-                    email,
-                    {
-                        redirectTo:
-                            getLoginUrl()
-                    }
-                );
-
-
-            if (result?.error) {
-
-                showAuthError(
-                    result.error
-                );
-
-                return false;
-            }
-
-
-            showMessage(
-                "تم إرسال رابط إعادة تعيين كلمة المرور.",
-                "Password reset link has been sent.",
-                "success"
-            );
-
-
-            return true;
-
-        } catch (error) {
-
-            showAuthError(
-                error
-            );
-
-            return false;
-        }
+        return (
+            getBaseUrl() +
+            "dashboard.html"
+        );
     }
 
 
@@ -1272,10 +1538,12 @@
     ) {
 
         const session =
-            await getCurrentSession();
+            await getSession();
 
 
-        if (!session?.user) {
+        if (
+            !session?.user
+        ) {
 
             window.location.replace(
                 getLoginUrl()
@@ -1285,18 +1553,19 @@
         }
 
 
-        const user =
-            session.user;
-
-
         if (
             !isEmailConfirmed(
-                user
+                session.user
             )
         ) {
 
             await logout(
-                true
+                false
+            );
+
+
+            window.location.replace(
+                getLoginUrl()
             );
 
             return false;
@@ -1305,23 +1574,23 @@
 
         const accountType =
             await getAccountType(
-                user.id
+                session.user.id
             );
 
 
-        if (!accountType) {
+        Web3MarketAuth.currentUser =
+            session.user;
 
-            showMessage(
-                "تعذر تحديد نوع الحساب.",
-                "Could not determine account type.",
-                "error"
-            );
+        Web3MarketAuth.currentSession =
+            session;
 
-            return false;
-        }
+        Web3MarketAuth.accountType =
+            accountType;
 
 
-        if (requiredAccountType) {
+        if (
+            requiredAccountType
+        ) {
 
             const required =
                 normalizeAccountType(
@@ -1345,23 +1614,9 @@
         }
 
 
-        saveAuthData(
-            user,
-            accountType
-        );
+        syncUserWithApp();
 
-
-        if (
-            window.Web3MarketApp &&
-            typeof
-            window.Web3MarketApp.setCurrentUser ===
-                "function"
-        ) {
-
-            window.Web3MarketApp.setCurrentUser(
-                user
-            );
-        }
+        updateAuthUI();
 
 
         return {
@@ -1370,291 +1625,332 @@
                 true,
 
             user:
-                user,
+                session.user,
 
-            session:
-                session,
+            session,
 
-            accountType:
-                accountType
+            accountType
         };
     }
 
 
     /* =====================================================
-       AUTH STATE LISTENER
+       AUTH FORMS
        ===================================================== */
 
-    function onAuthStateChange(
-        callback
-    ) {
+    function setupAuthForms() {
 
-        if (
-            !window.Web3MarketSupabase ||
-            typeof
-            window.Web3MarketSupabase.onAuthStateChange !==
-                "function"
-        ) {
+        const loginForm =
+            document.querySelector(
+                "#login-form, " +
+                "#loginForm, " +
+                "[data-login-form]"
+            );
 
-            return null;
+
+        if (loginForm) {
+
+            if (
+                loginForm.dataset.web3marketAuthInitialized !==
+                    "true"
+            ) {
+
+                loginForm.dataset.web3marketAuthInitialized =
+                    "true";
+
+
+                loginForm.addEventListener(
+                    "submit",
+                    async function (event) {
+
+                        event.preventDefault();
+
+
+                        const email =
+                            loginForm.querySelector(
+                                'input[type="email"], #email, [name="email"]'
+                            )?.value;
+
+
+                        const password =
+                            loginForm.querySelector(
+                                'input[type="password"], #password, [name="password"]'
+                            )?.value;
+
+
+                        const result =
+                            await login(
+                                email,
+                                password
+                            );
+
+
+                        if (
+                            result.success
+                        ) {
+
+                            window.location.href =
+                                result.dashboardUrl;
+                        }
+                    }
+                );
+            }
         }
 
 
-        return window.Web3MarketSupabase.onAuthStateChange(
-            function (
-                event,
-                session
+        const registerForm =
+            document.querySelector(
+                "#register-form, " +
+                "#registerForm, " +
+                "#signup-form, " +
+                "#signupForm, " +
+                "[data-register-form]"
+            );
+
+
+        if (registerForm) {
+
+            if (
+                registerForm.dataset.web3marketAuthInitialized !==
+                    "true"
             ) {
 
-                const user =
-                    session?.user ||
-                    null;
+                registerForm.dataset.web3marketAuthInitialized =
+                    "true";
 
 
-                if (user) {
+                registerForm.addEventListener(
+                    "submit",
+                    async function (event) {
 
-                    getAccountType(
-                        user.id
-                    )
-                        .then(
-                            function (
+                        event.preventDefault();
+
+
+                        const email =
+                            registerForm.querySelector(
+                                'input[type="email"], #email, [name="email"]'
+                            )?.value;
+
+
+                        const password =
+                            registerForm.querySelector(
+                                'input[type="password"], #password, [name="password"]'
+                            )?.value;
+
+
+                        const accountTypeElement =
+                            registerForm.querySelector(
+                                "#account-type, " +
+                                "#accountType, " +
+                                "[name='account_type'], " +
+                                "[name='accountType'], " +
+                                "[data-account-type]"
+                            );
+
+
+                        const accountType =
+                            accountTypeElement
+                                ? accountTypeElement.value
+                                : "buyer";
+
+
+                        const result =
+                            await register(
+                                email,
+                                password,
                                 accountType
+                            );
+
+
+                        if (
+                            result.success
+                        ) {
+
+                            if (
+                                result.emailConfirmationRequired
                             ) {
 
-                                saveAuthData(
-                                    user,
-                                    accountType
-                                );
-
-
-                                if (
-                                    window.Web3MarketApp &&
-                                    typeof
-                                    window.Web3MarketApp.setCurrentUser ===
-                                        "function"
-                                ) {
-
-                                    window.Web3MarketApp.setCurrentUser(
-                                        user
-                                    );
-                                }
-
-
-                                if (
-                                    typeof callback ===
-                                        "function"
-                                ) {
-
-                                    callback(
-                                        event,
-                                        session,
-                                        accountType
-                                    );
-                                }
+                                return;
                             }
-                        )
-                        .catch(
-                            function (error) {
 
-                                console.error(
-                                    "Web3Market auth state:",
-                                    error
+
+                            window.location.href =
+                                getDashboardUrl(
+                                    result.accountType
                                 );
-
-                                if (
-                                    typeof callback ===
-                                        "function"
-                                ) {
-
-                                    callback(
-                                        event,
-                                        session,
-                                        null
-                                    );
-                                }
-                            }
-                        );
-
-                } else {
-
-                    clearAuthData();
-
-
-                    if (
-                        window.Web3MarketApp &&
-                        typeof
-                        window.Web3MarketApp.setCurrentUser ===
-                            "function"
-                    ) {
-
-                        window.Web3MarketApp.setCurrentUser(
-                            null
-                        );
+                        }
                     }
+                );
+            }
+        }
 
 
-                    if (
-                        typeof callback ===
-                            "function"
-                    ) {
+        const logoutButtons =
+            document.querySelectorAll(
+                "#logout, " +
+                "#logout-button, " +
+                ".logout-button, " +
+                "[data-logout]"
+            );
 
-                        callback(
-                            event,
-                            null,
-                            null
-                        );
-                    }
+
+        logoutButtons.forEach(
+            function (button) {
+
+                if (
+                    button.dataset.web3marketLogoutInitialized ===
+                        "true"
+                ) {
+
+                    return;
                 }
+
+
+                button.dataset.web3marketLogoutInitialized =
+                    "true";
+
+
+                button.addEventListener(
+                    "click",
+                    async function (event) {
+
+                        event.preventDefault();
+
+                        await logout();
+                    }
+                );
+            }
+        );
+
+
+        const resetForm =
+            document.querySelector(
+                "#reset-password-form, " +
+                "#resetPasswordForm, " +
+                "[data-reset-password-form]"
+            );
+
+
+        if (resetForm) {
+
+            if (
+                resetForm.dataset.web3marketAuthInitialized !==
+                    "true"
+            ) {
+
+                resetForm.dataset.web3marketAuthInitialized =
+                    "true";
+
+
+                resetForm.addEventListener(
+                    "submit",
+                    async function (event) {
+
+                        event.preventDefault();
+
+
+                        const email =
+                            resetForm.querySelector(
+                                'input[type="email"], #email, [name="email"]'
+                            )?.value;
+
+
+                        await resetPassword(
+                            email
+                        );
+                    }
+                );
+            }
+        }
+    }
+
+
+    /* =====================================================
+       AUTH UI
+       ===================================================== */
+
+    function updateAuthUI() {
+
+        const user =
+            Web3MarketAuth.currentUser;
+
+
+        const loggedIn =
+            Boolean(user);
+
+
+        document.querySelectorAll(
+            "[data-auth-user]"
+        ).forEach(
+            function (element) {
+
+                element.textContent =
+                    user?.email || "";
+            }
+        );
+
+
+        document.querySelectorAll(
+            "[data-auth-account-type]"
+        ).forEach(
+            function (element) {
+
+                element.textContent =
+                    Web3MarketAuth.accountType || "";
+            }
+        );
+
+
+        document.querySelectorAll(
+            "[data-auth-logged-in]"
+        ).forEach(
+            function (element) {
+
+                element.style.display =
+                    loggedIn
+                        ? ""
+                        : "none";
+            }
+        );
+
+
+        document.querySelectorAll(
+            "[data-auth-logged-out]"
+        ).forEach(
+            function (element) {
+
+                element.style.display =
+                    loggedIn
+                        ? "none"
+                        : "";
             }
         );
     }
 
 
     /* =====================================================
-       AUTH ERROR
-       ===================================================== */
-
-    function showAuthError(
-        error
-    ) {
-
-        const raw =
-            String(
-                error?.message ||
-                error?.error_description ||
-                error ||
-                "Authentication failed."
-            );
-
-
-        const text =
-            raw.toLowerCase();
-
-
-        console.error(
-            "Web3Market AUTH ERROR:",
-            error
-        );
-
-
-        if (
-            text.includes(
-                "invalid login credentials"
-            )
-        ) {
-
-            showMessage(
-                "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
-                "Invalid email or password.",
-                "error"
-            );
-
-            return;
-        }
-
-
-        if (
-            text.includes(
-                "email not confirmed"
-            )
-        ) {
-
-            showMessage(
-                "البريد الإلكتروني غير مؤكد.",
-                "Email address is not confirmed.",
-                "error"
-            );
-
-            return;
-        }
-
-
-        if (
-            text.includes(
-                "user already registered"
-            )
-        ) {
-
-            showMessage(
-                "هذا البريد الإلكتروني مسجل بالفعل.",
-                "This email address is already registered.",
-                "error"
-            );
-
-            return;
-        }
-
-
-        if (
-            text.includes(
-                "password"
-            ) &&
-            (
-                text.includes("short") ||
-                text.includes("characters") ||
-                text.includes("weak")
-            )
-        ) {
-
-            showMessage(
-                "كلمة المرور غير صالحة أو قصيرة جدًا.",
-                "The password is invalid or too short.",
-                "error"
-            );
-
-            return;
-        }
-
-
-        if (
-            text.includes("rate limit") ||
-            text.includes("too many") ||
-            text.includes("429")
-        ) {
-
-            showMessage(
-                "تم تجاوز عدد المحاولات. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.",
-                "Too many attempts. Please wait and try again.",
-                "error"
-            );
-
-            return;
-        }
-
-
-        if (
-            text.includes("failed to fetch") ||
-            text.includes("network") ||
-            text.includes("fetch")
-        ) {
-
-            showMessage(
-                "تعذر الاتصال بخادم Supabase.",
-                "Could not connect to Supabase.",
-                "error"
-            );
-
-            return;
-        }
-
-
-        showMessage(
-            "حدث خطأ: " + raw,
-            "Authentication error: " + raw,
-            "error"
-        );
-    }
-
-
-    /* =====================================================
-       MESSAGE SYSTEM
+       MESSAGE
        ===================================================== */
 
     function showMessage(
-        arabic,
-        english,
+        message,
         type = "info"
     ) {
+
+        if (
+            window.Web3MarketApp &&
+            typeof window.Web3MarketApp.showMessage ===
+                "function"
+        ) {
+
+            window.Web3MarketApp.showMessage(
+                message,
+                type
+            );
+
+            return;
+        }
+
 
         let element =
             document.getElementById(
@@ -1678,38 +1974,25 @@
                 element.style,
                 {
 
-                    position:
-                        "fixed",
+                    position: "fixed",
 
-                    top:
-                        "20px",
+                    top: "20px",
 
-                    right:
-                        "20px",
+                    right: "20px",
 
-                    zIndex:
-                        "999999",
+                    zIndex: "999999",
 
-                    maxWidth:
-                        "420px",
+                    padding: "14px 18px",
 
-                    padding:
-                        "15px 18px",
+                    borderRadius: "12px",
 
-                    borderRadius:
-                        "12px",
-
-                    boxShadow:
-                        "0 12px 35px rgba(0,0,0,.25)",
+                    maxWidth: "380px",
 
                     fontFamily:
                         "inherit",
 
-                    lineHeight:
-                        "1.5",
-
-                    display:
-                        "none"
+                    boxShadow:
+                        "0 10px 30px rgba(0,0,0,.25)"
 
                 }
             );
@@ -1721,52 +2004,15 @@
         }
 
 
-        element.innerHTML = "";
-
-
-        const arabicElement =
-            document.createElement(
-                "div"
-            );
-
-
-        arabicElement.textContent =
+        element.textContent =
             String(
-                arabic || ""
+                message || ""
             );
 
 
-        const englishElement =
-            document.createElement(
-                "div"
-            );
-
-
-        englishElement.style.marginTop =
-            "4px";
-
-
-        englishElement.style.opacity =
-            "0.85";
-
-
-        englishElement.textContent =
-            String(
-                english || ""
-            );
-
-
-        element.appendChild(
-            arabicElement
-        );
-
-
-        element.appendChild(
-            englishElement
-        );
-
-
-        if (type === "success") {
+        if (
+            type === "success"
+        ) {
 
             element.style.background =
                 "#198754";
@@ -1774,21 +2020,15 @@
             element.style.color =
                 "#ffffff";
 
-        } else if (type === "error") {
+        } else if (
+            type === "error"
+        ) {
 
             element.style.background =
                 "#dc3545";
 
             element.style.color =
                 "#ffffff";
-
-        } else if (type === "warning") {
-
-            element.style.background =
-                "#ffc107";
-
-            element.style.color =
-                "#111111";
 
         } else {
 
@@ -1823,21 +2063,155 @@
 
 
     /* =====================================================
-       GLOBAL API
+       AUTH ERROR
+       ===================================================== */
+
+    function showAuthError(
+        error
+    ) {
+
+        const raw =
+            String(
+                error?.message ||
+                error?.error_description ||
+                error ||
+                "Authentication failed."
+            );
+
+
+        const text =
+            raw.toLowerCase();
+
+
+        console.error(
+            "Web3Market Auth Error:",
+            error
+        );
+
+
+        if (
+            text.includes(
+                "invalid login credentials"
+            )
+        ) {
+
+            showMessage(
+                "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        if (
+            text.includes(
+                "email not confirmed"
+            )
+        ) {
+
+            showMessage(
+                "البريد الإلكتروني غير مؤكد.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        if (
+            text.includes(
+                "user already registered"
+            )
+        ) {
+
+            showMessage(
+                "هذا البريد الإلكتروني مسجل بالفعل.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        if (
+            text.includes(
+                "password should be at least"
+            )
+        ) {
+
+            showMessage(
+                "كلمة المرور قصيرة جدًا.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        if (
+            text.includes(
+                "rate limit"
+            ) ||
+            text.includes(
+                "too many"
+            )
+        ) {
+
+            showMessage(
+                "تم تجاوز عدد المحاولات. حاول لاحقًا.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        if (
+            text.includes(
+                "failed to fetch"
+            ) ||
+            text.includes(
+                "network"
+            ) ||
+            text.includes(
+                "fetch"
+            )
+        ) {
+
+            showMessage(
+                "تعذر الاتصال بخادم Supabase.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        showMessage(
+            "حدث خطأ: " + raw,
+            "error"
+        );
+    }
+
+
+    /* =====================================================
+       PUBLIC API
        ===================================================== */
 
     window.Web3MarketAuth = {
 
-        /* User */
+        initialize:
+            initialize,
+
+        getSupabase:
+            getSupabase,
+
+        getSession:
+            getSession,
 
         getCurrentUser:
             getCurrentUser,
-
-        getCurrentSession:
-            getCurrentSession,
-
-
-        /* Account */
 
         getAccountType:
             getAccountType,
@@ -1848,20 +2222,20 @@
         isEmailConfirmed:
             isEmailConfirmed,
 
-
-        /* Authentication */
-
-        login:
-            login,
-
-        loginUser:
-            login,
-
         register:
+            register,
+
+        signup:
             register,
 
         signUp:
             register,
+
+        login:
+            login,
+
+        signIn:
+            login,
 
         logout:
             logout,
@@ -1869,50 +2243,32 @@
         signOut:
             logout,
 
-
-        /* Email */
-
         resendConfirmation:
             resendConfirmation,
-
-
-        /* Password */
 
         resetPassword:
             resetPassword,
 
-
-        /* Protection */
-
         protectPage:
             protectPage,
-
-
-        /* Events */
-
-        onAuthStateChange:
-            onAuthStateChange,
-
-
-        /* URLs */
-
-        getLoginUrl:
-            getLoginUrl,
-
-        getHomeUrl:
-            getHomeUrl,
 
         getDashboardUrl:
             getDashboardUrl,
 
-
-        /* Messages */
+        getLoginUrl:
+            getLoginUrl,
 
         showMessage:
             showMessage,
 
         showError:
-            showAuthError
+            showAuthError,
+
+        getState:
+            function () {
+
+                return Web3MarketAuth;
+            }
     };
 
 
@@ -1923,96 +2279,23 @@
     window.getCurrentUser =
         getCurrentUser;
 
-
     window.getCurrentSession =
-        getCurrentSession;
-
+        getSession;
 
     window.getAccountType =
         getAccountType;
 
-
     window.loginUser =
         login;
 
+    window.registerUser =
+        register;
 
     window.logoutUser =
         logout;
 
-
     window.protectPage =
         protectPage;
-
-
-    /* =====================================================
-       INITIALIZE AUTH STATE
-       ===================================================== */
-
-    async function initializeAuth() {
-
-        try {
-
-            const session =
-                await getCurrentSession();
-
-
-            if (
-                session?.user
-            ) {
-
-                const user =
-                    session.user;
-
-
-                const accountType =
-                    await getAccountType(
-                        user.id
-                    );
-
-
-                saveAuthData(
-                    user,
-                    accountType
-                );
-
-
-                if (
-                    window.Web3MarketApp &&
-                    typeof
-                    window.Web3MarketApp.setCurrentUser ===
-                        "function"
-                ) {
-
-                    window.Web3MarketApp.setCurrentUser(
-                        user
-                    );
-                }
-
-
-                console.log(
-                    "Web3Market Auth initialized:",
-                    {
-                        userId:
-                            user.id,
-
-                        accountType:
-                            accountType
-                    }
-                );
-
-            } else {
-
-                clearAuthData();
-            }
-
-        } catch (error) {
-
-            console.error(
-                "Web3Market Auth initialization error:",
-                error
-            );
-        }
-    }
 
 
     /* =====================================================
@@ -2026,7 +2309,7 @@
 
         document.addEventListener(
             "DOMContentLoaded",
-            initializeAuth,
+            initialize,
             {
                 once: true
             }
@@ -2034,12 +2317,8 @@
 
     } else {
 
-        initializeAuth();
+        initialize();
     }
 
-
-    console.log(
-        "Web3Market Auth loaded successfully."
-    );
 
 })();
