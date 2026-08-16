@@ -1,0 +1,1553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <!-- =====================================================
+         Web3Market
+         Wallet-Based Registration
+         ===================================================== -->
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="Create your Web3Market account using your Web3 wallet."
+    >
+
+    <meta
+        name="theme-color"
+        content="#07111f"
+    >
+
+    <title>Create Account — Web3Market</title>
+
+
+    <!-- =====================================================
+         FAVICON
+         ===================================================== -->
+
+    <link
+        rel="icon"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2307111f'/%3E%3Cpath d='M25 30h50L62 70H38L25 30z' fill='none' stroke='%236ee7ff' stroke-width='7'/%3E%3Cpath d='M35 42h30M39 53h22' stroke='%236ee7ff' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E"
+    >
+
+
+    <!-- =====================================================
+         GOOGLE FONT
+         ===================================================== -->
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+    >
+
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    >
+
+
+    <!-- =====================================================
+         MAIN CSS
+         ===================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="css/style.css"
+    >
+
+
+    <!-- =====================================================
+         REGISTER PAGE STYLES
+         ===================================================== -->
+
+    <style>
+
+        .register-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 110px 20px 60px;
+            position: relative;
+            overflow: hidden;
+            background:
+                radial-gradient(
+                    circle at 20% 20%,
+                    rgba(110, 231, 255, 0.08),
+                    transparent 35%
+                ),
+                radial-gradient(
+                    circle at 80% 80%,
+                    rgba(59, 130, 246, 0.08),
+                    transparent 35%
+                );
+        }
+
+        .register-background {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .register-glow {
+            position: absolute;
+            width: 420px;
+            height: 420px;
+            border-radius: 50%;
+            filter: blur(90px);
+            opacity: 0.12;
+        }
+
+        .register-glow-one {
+            top: -180px;
+            left: -120px;
+            background: #6ee7ff;
+        }
+
+        .register-glow-two {
+            right: -160px;
+            bottom: -180px;
+            background: #3b82f6;
+        }
+
+        .register-container {
+            width: 100%;
+            max-width: 560px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .register-card {
+            background: rgba(7, 17, 31, 0.92);
+            border: 1px solid rgba(110, 231, 255, 0.14);
+            border-radius: 24px;
+            padding: 42px;
+            box-shadow:
+                0 30px 80px rgba(0, 0, 0, 0.35),
+                inset 0 1px 0 rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(18px);
+        }
+
+        .register-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .register-logo {
+            width: 68px;
+            height: 68px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 18px;
+            border: 1px solid rgba(110, 231, 255, 0.3);
+            background: rgba(110, 231, 255, 0.06);
+            color: #6ee7ff;
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+
+        .register-header h1 {
+            margin: 0 0 12px;
+            font-size: clamp(28px, 5vw, 38px);
+            line-height: 1.15;
+        }
+
+        .register-header h1 span {
+            color: #6ee7ff;
+        }
+
+        .register-header p {
+            margin: 0;
+            color: rgba(255, 255, 255, 0.62);
+            line-height: 1.7;
+        }
+
+        .wallet-section {
+            margin-top: 28px;
+        }
+
+        .wallet-button {
+            width: 100%;
+            min-height: 58px;
+            border: 0;
+            border-radius: 14px;
+            background: linear-gradient(
+                135deg,
+                #6ee7ff,
+                #3b82f6
+            );
+            color: #04101d;
+            font: inherit;
+            font-weight: 800;
+            cursor: pointer;
+            transition:
+                transform 0.2s ease,
+                opacity 0.2s ease,
+                box-shadow 0.2s ease;
+            box-shadow:
+                0 12px 30px rgba(59, 130, 246, 0.18);
+        }
+
+        .wallet-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .wallet-button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .wallet-button.secondary {
+            background: rgba(110, 231, 255, 0.08);
+            color: #6ee7ff;
+            border: 1px solid rgba(110, 231, 255, 0.2);
+            box-shadow: none;
+        }
+
+        .wallet-status {
+            display: none;
+            margin-top: 18px;
+            padding: 18px;
+            border-radius: 14px;
+            background: rgba(110, 231, 255, 0.05);
+            border: 1px solid rgba(110, 231, 255, 0.12);
+        }
+
+        .wallet-status.visible {
+            display: block;
+        }
+
+        .wallet-status-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .wallet-status-label {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .wallet-address {
+            margin-top: 5px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            word-break: break-all;
+        }
+
+        .wallet-badge {
+            flex-shrink: 0;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .verification-section {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .verification-section.visible {
+            display: block;
+        }
+
+        .verification-info {
+            margin-bottom: 16px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.025);
+            color: rgba(255, 255, 255, 0.58);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .email-section {
+            display: none;
+            margin-top: 28px;
+            padding-top: 28px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .email-section.visible {
+            display: block;
+        }
+
+        .field-label {
+            display: block;
+            margin-bottom: 9px;
+            color: rgba(255, 255, 255, 0.78);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .email-input {
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 54px;
+            padding: 0 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            outline: none;
+            background: rgba(255, 255, 255, 0.035);
+            color: #fff;
+            font: inherit;
+            transition:
+                border-color 0.2s ease,
+                background 0.2s ease;
+        }
+
+        .email-input:focus {
+            border-color: rgba(110, 231, 255, 0.55);
+            background: rgba(110, 231, 255, 0.04);
+        }
+
+        .email-input::placeholder {
+            color: rgba(255, 255, 255, 0.35);
+        }
+
+        .email-help {
+            margin-top: 9px;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .register-message {
+            display: none;
+            margin-top: 20px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .register-message.visible {
+            display: block;
+        }
+
+        .register-message.info {
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.18);
+            color: #93c5fd;
+        }
+
+        .register-message.success {
+            background: rgba(34, 197, 94, 0.08);
+            border: 1px solid rgba(34, 197, 94, 0.18);
+            color: #86efac;
+        }
+
+        .register-message.error {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.18);
+            color: #fca5a5;
+        }
+
+        .register-divider {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin: 28px 0;
+            color: rgba(255, 255, 255, 0.28);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .register-divider::before,
+        .register-divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .register-footer {
+            margin-top: 28px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.45);
+            font-size: 13px;
+        }
+
+        .register-footer a {
+            color: #6ee7ff;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .security-note {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            padding: 15px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.025);
+            color: rgba(255, 255, 255, 0.46);
+            font-size: 11px;
+            line-height: 1.6;
+        }
+
+        .security-icon {
+            flex-shrink: 0;
+            color: #6ee7ff;
+            font-size: 17px;
+        }
+
+        @media (max-width: 600px) {
+
+            .register-page {
+                padding: 95px 14px 35px;
+            }
+
+            .register-card {
+                padding: 28px 20px;
+                border-radius: 20px;
+            }
+
+            .register-header h1 {
+                font-size: 29px;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+<!-- =========================================================
+     HEADER
+     ========================================================= -->
+
+<header
+    id="site-header"
+    class="site-header"
+>
+
+    <div class="container header-container">
+
+        <a
+            href="index.html"
+            class="brand"
+            aria-label="Web3Market Home"
+        >
+
+            <span class="brand-mark">
+                W3M
+            </span>
+
+            <span class="brand-text">
+                Web3<span>Market</span>
+            </span>
+
+        </a>
+
+
+        <nav
+            class="main-navigation"
+            aria-label="Main Navigation"
+        >
+
+            <a
+                href="index.html"
+                class="nav-link"
+            >
+                Home
+            </a>
+
+            <a
+                href="marketplace.html"
+                class="nav-link"
+            >
+                Marketplace
+            </a>
+
+            <a
+                href="login.html"
+                class="nav-link"
+            >
+                Sign In
+            </a>
+
+        </nav>
+
+
+        <div class="header-actions">
+
+            <a
+                href="login.html"
+                class="btn btn-outline"
+            >
+                Sign In
+            </a>
+
+        </div>
+
+
+        <button
+            id="menu-toggle"
+            class="menu-toggle"
+            type="button"
+            aria-label="Open navigation"
+            aria-expanded="false"
+            aria-controls="mobile-menu"
+        >
+
+            <span></span>
+            <span></span>
+            <span></span>
+
+        </button>
+
+    </div>
+
+
+    <div
+        id="mobile-menu"
+        class="mobile-menu"
+    >
+
+        <div class="mobile-menu-inner">
+
+            <a
+                href="index.html"
+                class="mobile-nav-link"
+            >
+                Home
+            </a>
+
+            <a
+                href="marketplace.html"
+                class="mobile-nav-link"
+            >
+                Marketplace
+            </a>
+
+            <a
+                href="login.html"
+                class="mobile-nav-link"
+            >
+                Sign In
+            </a>
+
+            <div class="mobile-actions">
+
+                <a
+                    href="login.html"
+                    class="btn btn-outline"
+                >
+                    Sign In
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</header>
+
+
+<!-- =========================================================
+     REGISTER PAGE
+     ========================================================= -->
+
+<main class="register-page">
+
+    <div class="register-background">
+
+        <div class="register-glow register-glow-one"></div>
+
+        <div class="register-glow register-glow-two"></div>
+
+    </div>
+
+
+    <div class="register-container">
+
+        <section class="register-card">
+
+            <div class="register-header">
+
+                <div class="register-logo">
+                    W3M
+                </div>
+
+                <h1>
+                    Create Your
+                    <span>Web3 Account</span>
+                </h1>
+
+                <p>
+                    Connect your Web3 wallet to create
+                    your Web3Market identity.
+                </p>
+
+            </div>
+
+
+            <!-- =================================================
+                 WALLET SECTION
+                 ================================================= -->
+
+            <div class="wallet-section">
+
+                <button
+                    id="connect-wallet"
+                    class="wallet-button"
+                    type="button"
+                >
+                    Connect Web3 Wallet
+                </button>
+
+
+                <div
+                    id="wallet-status"
+                    class="wallet-status"
+                >
+
+                    <div class="wallet-status-row">
+
+                        <div>
+
+                            <div class="wallet-status-label">
+                                Connected Wallet
+                            </div>
+
+                            <div
+                                id="wallet-address"
+                                class="wallet-address"
+                            >
+                                —
+                            </div>
+
+                        </div>
+
+
+                        <span
+                            id="wallet-badge"
+                            class="wallet-badge"
+                        >
+                            Connected
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- =================================================
+                 WALLET VERIFICATION
+                 ================================================= -->
+
+            <div
+                id="verification-section"
+                class="verification-section"
+            >
+
+                <div class="verification-info">
+
+                    To continue, Web3Market needs to verify
+                    that you control this wallet. Your wallet
+                    will ask you to sign a message.
+
+                    <br><br>
+
+                    <strong>
+                        This signature does not send funds
+                        and does not create a blockchain transaction.
+                    </strong>
+
+                </div>
+
+
+                <button
+                    id="verify-wallet"
+                    class="wallet-button secondary"
+                    type="button"
+                >
+                    Verify Wallet Ownership
+                </button>
+
+            </div>
+
+
+            <!-- =================================================
+                 EMAIL
+                 ================================================= -->
+
+            <div
+                id="email-section"
+                class="email-section"
+            >
+
+                <label
+                    for="register-email"
+                    class="field-label"
+                >
+                    Email Address
+                </label>
+
+
+                <input
+                    id="register-email"
+                    class="email-input"
+                    type="email"
+                    placeholder="you@example.com"
+                    autocomplete="email"
+                    inputmode="email"
+                >
+
+
+                <div class="email-help">
+
+                    Your email will be used for account
+                    verification and important Web3Market
+                    notifications.
+
+                </div>
+
+
+                <button
+                    id="create-account"
+                    class="wallet-button"
+                    type="button"
+                    style="margin-top:16px;"
+                >
+                    Create Web3Market Account
+                </button>
+
+            </div>
+
+
+            <!-- =================================================
+                 MESSAGE
+                 ================================================= -->
+
+            <div
+                id="register-message"
+                class="register-message"
+                aria-live="polite"
+            ></div>
+
+
+            <!-- =================================================
+                 SECURITY
+                 ================================================= -->
+
+            <div class="security-note">
+
+                <div class="security-icon">
+                    ◈
+                </div>
+
+                <div>
+
+                    <strong>
+                        Your wallet stays yours.
+                    </strong>
+
+                    Web3Market will never ask for your
+                    private key, recovery phrase or seed phrase.
+                    Only a wallet signature is used to prove
+                    ownership of your address.
+
+                </div>
+
+            </div>
+
+
+            <div class="register-divider">
+                Already have an account?
+            </div>
+
+
+            <div class="register-footer">
+
+                <a href="login.html">
+                    Sign in to Web3Market
+                </a>
+
+            </div>
+
+        </section>
+
+    </div>
+
+</main>
+
+
+<!-- =========================================================
+     GLOBAL MESSAGE
+     ========================================================= -->
+
+<div
+    id="web3market-message"
+    aria-live="polite"
+></div>
+
+
+<!-- =========================================================
+     SUPABASE
+     ========================================================= -->
+
+<script
+    src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+></script>
+
+
+<!-- =========================================================
+     WEB3MARKET CORE
+     ========================================================= -->
+
+<script
+    src="js/supabase.js"
+></script>
+
+
+<script
+    src="js/auth.js"
+></script>
+
+
+<!-- =========================================================
+     WALLET
+     
+     wallet.js is located in the ROOT of the repository.
+     ========================================================= -->
+
+<script
+    src="wallet.js"
+></script>
+
+
+<script
+    src="js/app.js"
+></script>
+
+
+<!-- =========================================================
+     REGISTER PAGE LOGIC
+     ========================================================= -->
+
+<script>
+
+(function () {
+
+    "use strict";
+
+
+    const connectButton =
+        document.getElementById("connect-wallet");
+
+    const verifyButton =
+        document.getElementById("verify-wallet");
+
+    const createAccountButton =
+        document.getElementById("create-account");
+
+    const walletStatus =
+        document.getElementById("wallet-status");
+
+    const walletAddress =
+        document.getElementById("wallet-address");
+
+    const verificationSection =
+        document.getElementById("verification-section");
+
+    const emailSection =
+        document.getElementById("email-section");
+
+    const emailInput =
+        document.getElementById("register-email");
+
+    const message =
+        document.getElementById("register-message");
+
+
+    function showMessage(
+        text,
+        type
+    ) {
+
+        if (!message) {
+            return;
+        }
+
+        message.textContent = text;
+
+        message.className =
+            "register-message visible " +
+            (type || "info");
+
+    }
+
+
+    function hideMessage() {
+
+        if (!message) {
+            return;
+        }
+
+        message.textContent = "";
+
+        message.className =
+            "register-message";
+
+    }
+
+
+    function shortAddress(address) {
+
+        if (!address) {
+            return "—";
+        }
+
+        if (address.length < 12) {
+            return address;
+        }
+
+        return (
+            address.slice(0, 6) +
+            "..." +
+            address.slice(-4)
+        );
+
+    }
+
+
+    function getWalletObject() {
+
+        /*
+         * The existing wallet.js is expected to expose
+         * its public API through window.Web3MarketWallet.
+         */
+
+        if (
+            window.Web3MarketWallet
+        ) {
+
+            return window.Web3MarketWallet;
+
+        }
+
+
+        /*
+         * Fallback for environments where the
+         * wallet manager is exposed differently.
+         */
+
+        if (
+            window.Web3Market &&
+            window.Web3Market.wallet
+        ) {
+
+            return window.Web3Market.wallet;
+
+        }
+
+
+        return null;
+
+    }
+
+
+    function getCurrentAddress() {
+
+        const wallet =
+            getWalletObject();
+
+
+        if (
+            wallet &&
+            typeof wallet.getAddress === "function"
+        ) {
+
+            return wallet.getAddress();
+
+        }
+
+
+        if (
+            wallet &&
+            wallet.address
+        ) {
+
+            return wallet.address;
+
+        }
+
+
+        if (
+            window.ethereum &&
+            Array.isArray(
+                window.ethereum.selectedAddress
+                    ? [window.ethereum.selectedAddress]
+                    : []
+            )
+        ) {
+
+            return window.ethereum.selectedAddress;
+
+        }
+
+
+        return null;
+
+    }
+
+
+    async function connectWallet() {
+
+        hideMessage();
+
+        connectButton.disabled = true;
+
+        connectButton.textContent =
+            "Connecting Wallet...";
+
+
+        try {
+
+            if (!window.ethereum) {
+
+                throw new Error(
+                    "No Web3 wallet was detected. Please install or open a compatible wallet such as MetaMask."
+                );
+
+            }
+
+
+            const wallet =
+                getWalletObject();
+
+
+            let address = null;
+
+
+            if (
+                wallet &&
+                typeof wallet.connect === "function"
+            ) {
+
+                address =
+                    await wallet.connect();
+
+            }
+
+
+            if (!address) {
+
+                const accounts =
+                    await window.ethereum.request({
+                        method: "eth_requestAccounts"
+                    });
+
+
+                if (
+                    !accounts ||
+                    !accounts.length
+                ) {
+
+                    throw new Error(
+                        "No wallet account was returned."
+                    );
+
+                }
+
+
+                address =
+                    accounts[0];
+
+            }
+
+
+            walletAddress.textContent =
+                shortAddress(address);
+
+
+            walletStatus.classList.add(
+                "visible"
+            );
+
+
+            verificationSection.classList.add(
+                "visible"
+            );
+
+
+            connectButton.textContent =
+                "Wallet Connected";
+
+
+            showMessage(
+                "Wallet connected successfully. Continue by verifying ownership.",
+                "success"
+            );
+
+        }
+        catch (error) {
+
+            console.error(
+                "Web3Market wallet connection error:",
+                error
+            );
+
+
+            connectButton.textContent =
+                "Connect Web3 Wallet";
+
+
+            showMessage(
+                error &&
+                error.message
+                    ? error.message
+                    : "Unable to connect your wallet.",
+                "error"
+            );
+
+        }
+        finally {
+
+            connectButton.disabled = false;
+
+        }
+
+    }
+
+
+    async function verifyWallet() {
+
+        hideMessage();
+
+        verifyButton.disabled = true;
+
+        verifyButton.textContent =
+            "Waiting for Signature...";
+
+
+        try {
+
+            const wallet =
+                getWalletObject();
+
+
+            if (
+                !wallet
+            ) {
+
+                throw new Error(
+                    "Wallet module is not available."
+                );
+
+            }
+
+
+            let result = null;
+
+
+            if (
+                typeof wallet.verifyOwnership ===
+                "function"
+            ) {
+
+                result =
+                    await wallet.verifyOwnership();
+
+            }
+            else if (
+                typeof wallet.verifyWallet ===
+                "function"
+            ) {
+
+                result =
+                    await wallet.verifyWallet();
+
+            }
+            else if (
+                typeof wallet.signVerificationMessage ===
+                "function"
+            ) {
+
+                result =
+                    await wallet.signVerificationMessage();
+
+            }
+            else {
+
+                throw new Error(
+                    "The wallet verification function was not found in wallet.js."
+                );
+
+            }
+
+
+            if (
+                result === false
+            ) {
+
+                throw new Error(
+                    "Wallet verification was not completed."
+                );
+
+            }
+
+
+            verifyButton.textContent =
+                "Wallet Verified ✓";
+
+
+            verifyButton.disabled = true;
+
+
+            emailSection.classList.add(
+                "visible"
+            );
+
+
+            showMessage(
+                "Wallet ownership verified successfully.",
+                "success"
+            );
+
+        }
+        catch (error) {
+
+            console.error(
+                "Wallet verification error:",
+                error
+            );
+
+
+            verifyButton.disabled = false;
+
+            verifyButton.textContent =
+                "Verify Wallet Ownership";
+
+
+            showMessage(
+                error &&
+                error.message
+                    ? error.message
+                    : "Wallet verification failed.",
+                "error"
+            );
+
+        }
+
+    }
+
+
+    async function createAccount() {
+
+        hideMessage();
+
+
+        const email =
+            emailInput.value.trim();
+
+
+        if (!email) {
+
+            showMessage(
+                "Please enter your email address.",
+                "error"
+            );
+
+            emailInput.focus();
+
+            return;
+
+        }
+
+
+        if (
+            !email.includes("@") ||
+            !email.includes(".")
+        ) {
+
+            showMessage(
+                "Please enter a valid email address.",
+                "error"
+            );
+
+            emailInput.focus();
+
+            return;
+
+        }
+
+
+        const address =
+            getCurrentAddress();
+
+
+        if (!address) {
+
+            showMessage(
+                "Please connect your Web3 wallet first.",
+                "error"
+            );
+
+            return;
+
+        }
+
+
+        createAccountButton.disabled =
+            true;
+
+        createAccountButton.textContent =
+            "Creating Account...";
+
+
+        try {
+
+            /*
+             * At this stage the wallet has been connected
+             * and verified locally through wallet.js.
+             *
+             * The next integration step will send the
+             * signed message to the backend/Supabase
+             * verification endpoint.
+             */
+
+
+            if (
+                window.Web3MarketAuth &&
+                typeof window.Web3MarketAuth.registerWithWallet ===
+                "function"
+            ) {
+
+                await window.Web3MarketAuth
+                    .registerWithWallet({
+                        walletAddress: address,
+                        email: email
+                    });
+
+            }
+            else {
+
+                /*
+                 * Do NOT pretend that the account has been
+                 * permanently created when no backend
+                 * registration method exists yet.
+                 */
+
+                throw new Error(
+                    "Wallet verification is ready, but the account registration backend is not connected yet."
+                );
+
+            }
+
+
+            showMessage(
+                "Your Web3Market account has been created. Please check your email to complete verification.",
+                "success"
+            );
+
+
+            createAccountButton.textContent =
+                "Account Created ✓";
+
+
+        }
+        catch (error) {
+
+            console.error(
+                "Web3Market account creation error:",
+                error
+            );
+
+
+            createAccountButton.disabled =
+                false;
+
+            createAccountButton.textContent =
+                "Create Web3Market Account";
+
+
+            showMessage(
+                error &&
+                error.message
+                    ? error.message
+                    : "Unable to create your account.",
+                "error"
+            );
+
+        }
+
+    }
+
+
+    connectButton.addEventListener(
+        "click",
+        connectWallet
+    );
+
+
+    verifyButton.addEventListener(
+        "click",
+        verifyWallet
+    );
+
+
+    createAccountButton.addEventListener(
+        "click",
+        createAccount
+    );
+
+
+    /*
+     * Detect wallet account changes.
+     */
+
+    if (window.ethereum) {
+
+        window.ethereum.on(
+            "accountsChanged",
+            function (accounts) {
+
+                if (
+                    !accounts ||
+                    !accounts.length
+                ) {
+
+                    walletStatus.classList.remove(
+                        "visible"
+                    );
+
+                    verificationSection.classList.remove(
+                        "visible"
+                    );
+
+                    emailSection.classList.remove(
+                        "visible"
+                    );
+
+                    walletAddress.textContent =
+                        "—";
+
+                    connectButton.disabled =
+                        false;
+
+                    connectButton.textContent =
+                        "Connect Web3 Wallet";
+
+                    return;
+
+                }
+
+
+                walletAddress.textContent =
+                    shortAddress(accounts[0]);
+
+                walletStatus.classList.add(
+                    "visible"
+                );
+
+            }
+        );
+
+    }
+
+
+})();
+
+</script>
+
+
+<!-- =========================================================
+     MOBILE MENU
+     ========================================================= -->
+
+<script>
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        const menuToggle =
+            document.getElementById(
+                "menu-toggle"
+            );
+
+        const mobileMenu =
+            document.getElementById(
+                "mobile-menu"
+            );
+
+
+        if (
+            !menuToggle ||
+            !mobileMenu
+        ) {
+
+            return;
+
+        }
+
+
+        menuToggle.addEventListener(
+            "click",
+            function () {
+
+                const expanded =
+                    menuToggle.getAttribute(
+                        "aria-expanded"
+                    ) === "true";
+
+
+                menuToggle.setAttribute(
+                    "aria-expanded",
+                    String(!expanded)
+                );
+
+
+                mobileMenu.classList.toggle(
+                    "active"
+                );
+
+            }
+        );
+
+    },
+    {
+        once: true
+    }
+);
+
+</script>
+
+
+</body>
+  </html>
