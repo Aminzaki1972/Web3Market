@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 
@@ -34,9 +34,7 @@
         content="#07111f"
     >
 
-    <title>
-        Web3Market — The Marketplace for Web3
-    </title>
+    <title>Web3Market — The Marketplace for Web3</title>
 
 
     <!-- =====================================================
@@ -53,23 +51,7 @@
          GOOGLE FONT
          ===================================================== -->
 
-    <link<!-- =====================================================
-     SUPABASE
-     ===================================================== -->
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<!-- =====================================================
-     WEB3MARKET JAVASCRIPT
-     ===================================================== -->
-
-<script src="js/supabase.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/app.js"></script>
-<script src="js/marketplace.js"></script>
-
-</body>
-</html>
+    <link
         rel="preconnect"
         href="https://fonts.googleapis.com"
     >
@@ -137,7 +119,6 @@
 >
 
     <div class="container header-container">
-
 
         <!-- LOGO -->
 
@@ -217,7 +198,7 @@
         </div>
 
 
-        <!-- MOBILE MENU BUTTON -->
+        <!-- MOBILE MENU -->
 
         <button
             id="menu-toggle"
@@ -236,8 +217,6 @@
 
     </div>
 
-
-    <!-- MOBILE NAVIGATION -->
 
     <div
         id="mobile-menu"
@@ -311,8 +290,8 @@
          ===================================================== -->
 
     <section
-        class="hero-section"
         id="home"
+        class="hero-section"
     >
 
         <div class="hero-background">
@@ -328,9 +307,7 @@
 
         <div class="container hero-container">
 
-
             <div class="hero-content">
-
 
                 <div class="hero-badge">
 
@@ -381,8 +358,6 @@
                 </div>
 
 
-                <!-- HERO STATS -->
-
                 <div class="hero-stats">
 
                     <div class="hero-stat">
@@ -405,7 +380,7 @@
                         </strong>
 
                         <span>
-                            Buyer & Seller Network
+                            Buyer &amp; Seller Network
                         </span>
 
                     </div>
@@ -492,7 +467,7 @@
                             </strong>
 
                             <small>
-                                Buy & Sell
+                                Buy &amp; Sell
                             </small>
 
                         </div>
@@ -618,7 +593,7 @@
 
 
     <!-- =====================================================
-         FEATURED MARKETPLACE
+         FEATURED PROJECTS
          ===================================================== -->
 
     <section
@@ -627,7 +602,6 @@
     >
 
         <div class="container">
-
 
             <div class="section-heading">
 
@@ -660,8 +634,6 @@
 
             </div>
 
-
-            <!-- PROJECTS -->
 
             <div
                 id="projects-container"
@@ -926,7 +898,6 @@
 
                 </article>
 
-
             </div>
 
         </div>
@@ -944,7 +915,6 @@
     >
 
         <div class="container">
-
 
             <div class="section-heading centered">
 
@@ -1185,7 +1155,6 @@
 
         <div class="container">
 
-
             <div class="section-heading centered">
 
                 <span class="section-label">
@@ -1311,15 +1280,11 @@
          TRUST
          ===================================================== -->
 
-    <section
-        class="section trust-section"
-    >
+    <section class="section trust-section">
 
         <div class="container">
 
-
             <div class="trust-panel">
-
 
                 <div class="trust-content">
 
@@ -1494,7 +1459,6 @@
 
     <div class="container">
 
-
         <div class="footer-main">
 
 
@@ -1607,7 +1571,7 @@
 
 
 <!-- =========================================================
-     APPLICATION MESSAGE
+     GLOBAL APPLICATION MESSAGE
      ========================================================= -->
 
 <div
@@ -1617,29 +1581,89 @@
 
 
 <!-- =========================================================
-     JAVASCRIPT
+     SUPABASE LIBRARY
+     
+     IMPORTANT:
+     Must load BEFORE js/supabase.js
+     ========================================================= -->
+
+<script
+    src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+></script>
+
+
+<!-- =========================================================
+     WEB3MARKET JAVASCRIPT
+     
+     Correct order:
+     
+     1. Supabase library
+     2. supabase.js
+     3. auth.js
+     4. app.js
+     5. marketplace.js
      ========================================================= -->
 
 <script
     src="js/supabase.js"
-    defer
 ></script>
 
 <script
     src="js/auth.js"
-    defer
 ></script>
 
 <script
     src="js/app.js"
-    defer
 ></script>
 
 <script
     src="js/marketplace.js"
-    defer
 ></script>
 
 
+<!-- =========================================================
+     PAGE LOADER CONTROL
+     ========================================================= -->
+
+<script>
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        function () {
+
+            const loader =
+                document.getElementById(
+                    "page-loader"
+                );
+
+            if (!loader) {
+                return;
+            }
+
+            setTimeout(
+                function () {
+
+                    loader.classList.add(
+                        "hidden"
+                    );
+
+                    loader.setAttribute(
+                        "aria-hidden",
+                        "true"
+                    );
+
+                },
+                350
+            );
+
+        },
+        {
+            once: true
+        }
+    );
+
+</script>
+
+
 </body>
-              </html>
+ </html>
