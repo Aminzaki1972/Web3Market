@@ -1,21 +1,23 @@
 /* =========================================================
    Web3Market
    File: js/auth.js
-   Authentication Controller
-   Version: 2.0
 
-   Flow:
-   1. Create account
-   2. Supabase sends email confirmation
-   3. User confirms email
-   4. Connect Web3 wallet
-   5. Sign wallet ownership message
-   6. Account becomes ready
+   Authentication System
+   -----------------------------------------
+   Registration flow:
 
-   No Face Verification
-   No Liveness
-   No Private Keys
-   No Seed Phrases
+   1. Connect Web3 Wallet
+   2. Verify Wallet Ownership
+   3. Enter Email
+   4. Send Supabase Email Verification / OTP
+   5. Complete account after email verification
+
+   Compatible with:
+   register.html
+
+   Required public API:
+   window.Web3MarketAuth.registerWithWallet()
+
    ========================================================= */
 
 "use strict";
@@ -23,63 +25,74 @@
 (function () {
 
     /* =====================================================
-       GLOBAL STATE
+       CONFIGURATION
        ===================================================== */
 
-    const Web3MarketAuth = {
+    const STORAGE_KEY = "web3market_pending_registration";
 
-        initialized: false,
-
-        user: null,
-
-        session: null,
-
-        emailVerified: false,
-
-        walletVerified: false,
-
-        walletAddress: null,
-
-        loading: false
-
-    };
+    const PROFILE_TABLE = "profiles";
 
 
     /* =====================================================
-       GET SUPABASE CLIENT
+       SUPABASE CLIENT
        ===================================================== */
 
-    function getSupabase() {
+    function getSupabaseClient() {
+
+        /*
+         * Preferred Web3Market client.
+         */
 
         if (
             window.Web3MarketSupabase &&
-            typeof
-            window.Web3MarketSupabase.getClient ===
-            "function"
+            window.Web3MarketSupabase.client
         ) {
-
-            return window.Web3MarketSupabase.getClient();
+            return window.Web3MarketSupabase.client;
         }
 
+
+        /*
+         * Alternative naming.
+         */
+
+        if (
+            window.Web3MarketSupabase &&
+            window.Web3MarketSupabase.supabase
+        ) {
+            return window.Web3MarketSupabase.supabase;
+        }
+
+
+        /*
+         * Common global client names.
+         */
 
         if (
             window.supabaseClient
         ) {
-
             return window.supabaseClient;
         }
 
 
         if (
             window.supabase &&
-            typeof
-            window.supabase.createClient ===
-            "function"
+            typeof window.supabase.from === "function"
         ) {
+            return window.supabase;
+        }
 
-            console.error(
-                "Web3Market Auth: use js/supabase.js to create the client."
-            );
+
+        /*
+         * Some projects expose:
+         * window.supabase.client
+         */
+
+        if (
+            window.supabase &&
+            window.supabase.client &&
+            typeof window.supabase.client.from === "function"
+        ) {
+            return window.supabase.client;
         }
 
 
@@ -88,584 +101,942 @@
 
 
     /* =====================================================
-       GET USER
+       VALIDATION
        ===================================================== */
 
-    async function getUser() {
+    function normalizeEmail(email) {
 
-        const supabase =
-            getSupabase();
-
-
-        if (!supabase) {
-            return null;
+        if (
+            typeof email !== "string"
+        ) {
+            return "";
         }
 
-
-        try {
-
-            const {
-                data,
-                error
-            } =
-                await supabase.auth.getUser();
-
-
-            if (error) {
-
-                console.warn(
-                    "Web3Market Auth getUser:",
-                    error
-                );
-
-                return null;
-            }
-
-
-            return (
-                data?.user ||
-                null
-            );
-
-        } catch (error) {
-
-            console.error(
-                "Web3Market Auth getUser exception:",
-                error
-            );
-
-            return null;
-        }
+        return email
+            .trim()
+            .toLowerCase();
     }
 
 
-    /* =====================================================
-       GET SESSION
-       ===================================================== */
+    function isValidEmail(email) {
 
-    async function getSession() {
-
-        const supabase =
-            getSupabase();
-
-
-        if (!supabase) {
-            return null;
-        }
-
-
-        try {
-
-            const {
-                data,
-                error
-            } =
-                await supabase.auth.getSession();
-
-
-            if (error) {
-
-                console.warn(
-                    "Web3Market Auth getSession:",
-                    error
-                );
-
-                return null;
-            }
-
-
-            return (
-                data?.session ||
-                null
-            );
-
-        } catch (error) {
-
-            console.error(
-                "Web3Market Auth getSession exception:",
-                error
-            );
-
-            return null;
-        }
-    }
-
-
-    /* =====================================================
-       CHECK EMAIL VERIFICATION
-       ===================================================== */
-
-    function isEmailVerified(
-        user
-    ) {
-
-        if (!user) {
+        if (!email) {
             return false;
         }
 
+        /*
+         * Practical email validation.
+         */
 
-        return Boolean(
-            user.email_confirmed_at ||
-            user.confirmed_at
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+
+    function normalizeWalletAddress(address) {
+
+        if (
+            typeof address !== "string"
+        ) {
+            return "";
+        }
+
+        return address.trim();
+    }
+
+
+    function isValidWalletAddress(address) {
+
+        return /^0x[a-fA-F0-9]{40}$/.test(
+            address
         );
     }
 
 
     /* =====================================================
-       CREATE ACCOUNT
+       STORAGE
        ===================================================== */
 
-    async function register(
-        email,
-        password,
-        accountType = "buyer"
-    ) {
-
-        const supabase =
-            getSupabase();
-
-
-        if (!supabase) {
-
-            return {
-
-                success: false,
-
-                error:
-                    "Supabase client is not available."
-
-            };
-        }
-
-
-        const cleanEmail =
-            String(
-                email || ""
-            )
-                .trim()
-                .toLowerCase();
-
-
-        const cleanPassword =
-            String(
-                password || ""
-            );
-
-
-        const cleanAccountType =
-            String(
-                accountType || "buyer"
-            )
-                .trim()
-                .toLowerCase();
-
-
-        if (!cleanEmail) {
-
-            return {
-
-                success: false,
-
-                error:
-                    "Please enter your email address."
-
-            };
-        }
-
-
-        if (
-            cleanPassword.length < 6
-        ) {
-
-            return {
-
-                success: false,
-
-                error:
-                    "Password must contain at least 6 characters."
-
-            };
-        }
-
-
-        setLoading(true);
-
+    function savePendingRegistration(data) {
 
         try {
 
-            const redirectUrl =
-                getEmailRedirectUrl();
-
-
-            const result =
-                await supabase.auth.signUp({
+            localStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify({
+                    walletAddress:
+                        data.walletAddress || "",
 
                     email:
-                        cleanEmail,
+                        data.email || "",
 
-                    password:
-                        cleanPassword,
-
-                    options: {
-
-                        emailRedirectTo:
-                            redirectUrl,
-
-                        data: {
-
-                            account_type:
-                                cleanAccountType,
-
-                            platform:
-                                "Web3Market"
-
-                        }
-
-                    }
-
-                });
-
-
-            if (result.error) {
-
-                console.error(
-                    "Web3Market registration error:",
-                    result.error
-                );
-
-
-                return {
-
-                    success: false,
-
-                    error:
-                        formatAuthError(
-                            result.error
-                        ),
-
-                    rawError:
-                        result.error
-
-                };
-            }
-
-
-            Web3MarketAuth.user =
-                result.data?.user ||
-                null;
-
-
-            Web3MarketAuth.session =
-                result.data?.session ||
-                null;
-
-
-            Web3MarketAuth.emailVerified =
-                isEmailVerified(
-                    Web3MarketAuth.user
-                );
-
-
-            syncAppState();
-
-
-            /*
-             * If email confirmation is enabled,
-             * Supabase normally returns a user
-             * without an active session.
-             */
-
-            if (
-                result.data?.user &&
-                !result.data?.session &&
-                !Web3MarketAuth.emailVerified
-            ) {
-
-                showMessage(
-                    "Account created. Please check your email and click the verification link.",
-                    "success"
-                );
-
-            } else {
-
-                showMessage(
-                    "Account created successfully.",
-                    "success"
-                );
-            }
-
-
-            dispatchAuthEvent(
-                "registered"
+                    createdAt:
+                        Date.now()
+                })
             );
 
+        }
+        catch (error) {
 
-            return {
+            console.warn(
+                "Web3Market: unable to save pending registration.",
+                error
+            );
+        }
+    }
 
-                success: true,
 
-                user:
-                    result.data?.user ||
-                    null,
+    function getPendingRegistration() {
 
-                session:
-                    result.data?.session ||
-                    null,
+        try {
 
-                emailVerified:
-                    Web3MarketAuth.emailVerified,
+            const raw =
+                localStorage.getItem(
+                    STORAGE_KEY
+                );
 
-                requiresEmailVerification:
-                    !Web3MarketAuth.emailVerified
+            if (!raw) {
+                return null;
+            }
 
-            };
+            const data =
+                JSON.parse(raw);
 
-        } catch (error) {
+            if (
+                !data ||
+                typeof data !== "object"
+            ) {
+                return null;
+            }
 
-            console.error(
-                "Web3Market registration exception:",
+            return data;
+
+        }
+        catch (error) {
+
+            console.warn(
+                "Web3Market: unable to read pending registration.",
                 error
             );
 
+            return null;
+        }
+    }
 
-            showMessage(
-                formatAuthError(error),
-                "error"
+
+    function clearPendingRegistration() {
+
+        try {
+
+            localStorage.removeItem(
+                STORAGE_KEY
             );
 
+        }
+        catch (error) {
 
-            return {
-
-                success: false,
-
-                error:
-                    formatAuthError(error),
-
-                rawError:
-                    error
-
-            };
-
-        } finally {
-
-            setLoading(false);
+            console.warn(
+                "Web3Market: unable to clear pending registration.",
+                error
+            );
         }
     }
 
 
     /* =====================================================
-       SIGN IN
+       AUTH ERROR NORMALIZATION
        ===================================================== */
 
-    async function login(
-        email,
-        password
-    ) {
+    function normalizeAuthError(error) {
 
-        const supabase =
-            getSupabase();
+        if (!error) {
 
-
-        if (!supabase) {
-
-            return {
-
-                success: false,
-
-                error:
-                    "Supabase client is not available."
-
-            };
+            return new Error(
+                "An unknown authentication error occurred."
+            );
         }
 
 
-        const cleanEmail =
-            String(
-                email || ""
-            )
-                .trim()
-                .toLowerCase();
+        const message =
+            error.message ||
+            error.error_description ||
+            error.msg ||
+            "";
 
 
-        const cleanPassword =
-            String(
-                password || ""
+        const lower =
+            String(message).toLowerCase();
+
+
+        if (
+            lower.includes("rate limit") ||
+            lower.includes("too many") ||
+            lower.includes("email rate limit")
+        ) {
+
+            return new Error(
+                "Too many verification emails were requested. Please wait a few minutes before trying again."
+            );
+        }
+
+
+        if (
+            lower.includes("invalid email")
+        ) {
+
+            return new Error(
+                "Please enter a valid email address."
+            );
+        }
+
+
+        if (
+            lower.includes("user already registered")
+        ) {
+
+            return new Error(
+                "This email is already registered. Please sign in instead."
+            );
+        }
+
+
+        if (
+            lower.includes("failed to fetch") ||
+            lower.includes("network")
+        ) {
+
+            return new Error(
+                "Unable to connect to Web3Market. Please check your internet connection and try again."
+            );
+        }
+
+
+        return new Error(
+            String(message) ||
+            "Authentication failed."
+        );
+    }
+
+
+    /* =====================================================
+       PROFILE HELPERS
+       ===================================================== */
+
+    async function upsertProfile(
+        client,
+        user,
+        walletAddress,
+        email
+    ) {
+
+        if (
+            !client ||
+            !user
+        ) {
+            return null;
+        }
+
+
+        const normalizedWallet =
+            normalizeWalletAddress(
+                walletAddress
             );
 
 
-        if (!cleanEmail || !cleanPassword) {
+        const normalizedEmail =
+            normalizeEmail(
+                email ||
+                user.email ||
+                ""
+            );
+
+
+        /*
+         * The basic profile structure used by
+         * Web3Market.
+         *
+         * id:
+         * Supabase Auth user ID
+         *
+         * email:
+         * User email
+         *
+         * wallet_address:
+         * Connected Web3 wallet
+         *
+         * role:
+         * individual by default
+         *
+         * updated_at:
+         * Current timestamp
+         */
+
+        const profileData = {
+
+            id:
+                user.id,
+
+            email:
+                normalizedEmail,
+
+            wallet_address:
+                normalizedWallet || null,
+
+            role:
+                "individual",
+
+            updated_at:
+                new Date().toISOString()
+        };
+
+
+        /*
+         * First try upsert.
+         */
+
+        const result =
+            await client
+                .from(PROFILE_TABLE)
+                .upsert(
+                    profileData,
+                    {
+                        onConflict: "id"
+                    }
+                )
+                .select()
+                .maybeSingle();
+
+
+        if (result.error) {
+
+            /*
+             * Do not make registration fail solely
+             * because the optional profile table has
+             * a different structure.
+             *
+             * The authenticated Supabase account
+             * has already been created.
+             */
+
+            console.warn(
+                "Web3Market profile upsert warning:",
+                result.error
+            );
+
+            return null;
+        }
+
+
+        return result.data || null;
+    }
+
+
+    /* =====================================================
+       SAVE WALLET DATA TO AUTH USER METADATA
+       ===================================================== */
+
+    async function updateUserMetadata(
+        client,
+        walletAddress,
+        email
+    ) {
+
+        if (
+            !client ||
+            !client.auth
+        ) {
+            return null;
+        }
+
+
+        const metadata = {
+
+            wallet_address:
+                normalizeWalletAddress(
+                    walletAddress
+                ),
+
+            registration_method:
+                "wallet",
+
+            wallet_verified:
+                true,
+
+            web3market_account:
+                true
+        };
+
+
+        /*
+         * Do not overwrite email through metadata.
+         * Supabase Auth controls the real email field.
+         */
+
+        const {
+            data,
+            error
+        } =
+            await client.auth.updateUser({
+
+                data: metadata
+
+            });
+
+
+        if (error) {
+
+            console.warn(
+                "Web3Market metadata update warning:",
+                error
+            );
+
+            return null;
+        }
+
+
+        return data;
+    }
+
+
+    /* =====================================================
+       REGISTER WITH WALLET + EMAIL
+       ===================================================== */
+
+    async function registerWithWallet(
+        registration
+    ) {
+
+        const client =
+            getSupabaseClient();
+
+
+        if (!client) {
+
+            throw new Error(
+                "Supabase client is not initialized. Please check js/supabase.js."
+            );
+        }
+
+
+        if (
+            !registration ||
+            typeof registration !== "object"
+        ) {
+
+            throw new Error(
+                "Registration data is missing."
+            );
+        }
+
+
+        const walletAddress =
+            normalizeWalletAddress(
+                registration.walletAddress
+            );
+
+
+        const email =
+            normalizeEmail(
+                registration.email
+            );
+
+
+        /*
+         * Validate wallet.
+         */
+
+        if (
+            !isValidWalletAddress(
+                walletAddress
+            )
+        ) {
+
+            throw new Error(
+                "The connected wallet address is invalid."
+            );
+        }
+
+
+        /*
+         * Validate email.
+         */
+
+        if (
+            !isValidEmail(email)
+        ) {
+
+            throw new Error(
+                "Please enter a valid email address."
+            );
+        }
+
+
+        /*
+         * Save pending registration locally.
+         *
+         * This allows the wallet address to survive
+         * the email verification step.
+         */
+
+        savePendingRegistration({
+
+            walletAddress:
+                walletAddress,
+
+            email:
+                email
+
+        });
+
+
+        /*
+         * -------------------------------------------------
+         * SUPABASE PASSWORDLESS EMAIL AUTH
+         * -------------------------------------------------
+         *
+         * signInWithOtp() sends a verification email.
+         *
+         * If the email does not exist, Supabase can
+         * create the Auth user automatically.
+         *
+         * No password is required.
+         */
+
+        const {
+            data,
+            error
+        } =
+            await client.auth.signInWithOtp({
+
+                email: email,
+
+                options: {
+
+                    shouldCreateUser: true,
+
+                    data: {
+
+                        wallet_address:
+                            walletAddress,
+
+                        registration_method:
+                            "wallet",
+
+                        wallet_verified:
+                            true,
+
+                        web3market_account:
+                            true
+                    }
+
+                }
+
+            });
+
+
+        if (error) {
+
+            throw normalizeAuthError(
+                error
+            );
+        }
+
+
+        /*
+         * If Supabase returned a session immediately,
+         * update the profile now.
+         *
+         * Usually passwordless signup will require
+         * email confirmation first.
+         */
+
+        if (
+            data &&
+            data.session &&
+            data.user
+        ) {
+
+            try {
+
+                await upsertProfile(
+                    client,
+                    data.user,
+                    walletAddress,
+                    email
+                );
+
+            }
+            catch (profileError) {
+
+                console.warn(
+                    "Web3Market profile creation warning:",
+                    profileError
+                );
+            }
+
+        }
+
+
+        /*
+         * Return a clear result to register.html.
+         */
+
+        return {
+
+            success: true,
+
+            requiresEmailVerification:
+                !(
+                    data &&
+                    data.session
+                ),
+
+            email:
+                email,
+
+            walletAddress:
+                walletAddress,
+
+            user:
+                data
+                    ? data.user || null
+                    : null,
+
+            session:
+                data
+                    ? data.session || null
+                    : null
+        };
+    }
+
+
+    /* =====================================================
+       COMPLETE REGISTRATION AFTER EMAIL VERIFICATION
+       ===================================================== */
+
+    async function completeRegistration() {
+
+        const client =
+            getSupabaseClient();
+
+
+        if (!client) {
+
+            throw new Error(
+                "Supabase client is not initialized."
+            );
+        }
+
+
+        const {
+            data,
+            error
+        } =
+            await client.auth.getUser();
+
+
+        if (error) {
+
+            throw normalizeAuthError(
+                error
+            );
+        }
+
+
+        const user =
+            data &&
+            data.user
+                ? data.user
+                : null;
+
+
+        if (!user) {
 
             return {
 
                 success: false,
 
-                error:
-                    "Please enter your email and password."
+                authenticated: false
 
             };
         }
 
 
-        setLoading(true);
+        const pending =
+            getPendingRegistration();
+
+
+        let walletAddress =
+            pending &&
+            pending.walletAddress
+                ? pending.walletAddress
+                : "";
+
+
+        let email =
+            pending &&
+            pending.email
+                ? pending.email
+                : user.email || "";
+
+
+        /*
+         * If the wallet address is not in localStorage,
+         * try to recover it from Auth metadata.
+         */
+
+        if (
+            !walletAddress &&
+            user.user_metadata
+        ) {
+
+            walletAddress =
+                user.user_metadata.wallet_address ||
+                "";
+        }
+
+
+        /*
+         * Update Auth metadata.
+         */
+
+        try {
+
+            await updateUserMetadata(
+                client,
+                walletAddress,
+                email
+            );
+
+        }
+        catch (metadataError) {
+
+            console.warn(
+                "Web3Market metadata warning:",
+                metadataError
+            );
+        }
+
+
+        /*
+         * Create/update the profile.
+         */
+
+        try {
+
+            await upsertProfile(
+                client,
+                user,
+                walletAddress,
+                email
+            );
+
+        }
+        catch (profileError) {
+
+            console.warn(
+                "Web3Market profile warning:",
+                profileError
+            );
+        }
+
+
+        /*
+         * Registration is complete.
+         */
+
+        clearPendingRegistration();
+
+
+        return {
+
+            success: true,
+
+            authenticated: true,
+
+            user:
+                user,
+
+            walletAddress:
+                walletAddress,
+
+            email:
+                email
+        };
+    }
+
+
+    /* =====================================================
+       GET CURRENT USER
+       ===================================================== */
+
+    async function getCurrentUser() {
+
+        const client =
+            getSupabaseClient();
+
+
+        if (!client) {
+            return null;
+        }
 
 
         try {
 
-            const result =
-                await supabase.auth.signInWithPassword({
-
-                    email:
-                        cleanEmail,
-
-                    password:
-                        cleanPassword
-
-                });
+            const {
+                data,
+                error
+            } =
+                await client.auth.getUser();
 
 
-            if (result.error) {
-
-                console.error(
-                    "Web3Market login error:",
-                    result.error
-                );
-
-
-                showMessage(
-                    formatAuthError(
-                        result.error
-                    ),
-                    "error"
-                );
-
-
-                return {
-
-                    success: false,
-
-                    error:
-                        formatAuthError(
-                            result.error
-                        ),
-
-                    rawError:
-                        result.error
-
-                };
+            if (error) {
+                return null;
             }
 
 
-            Web3MarketAuth.user =
-                result.data?.user ||
-                null;
+            return data &&
+                data.user
+                ? data.user
+                : null;
 
-
-            Web3MarketAuth.session =
-                result.data?.session ||
-                null;
-
-
-            Web3MarketAuth.emailVerified =
-                isEmailVerified(
-                    Web3MarketAuth.user
-                );
-
-
-            syncAppState();
-
-
-            dispatchAuthEvent(
-                "signed_in"
-            );
-
-
-            /*
-             * Supabase normally blocks password login
-             * when email confirmation is required.
-             *
-             * This extra check protects the UI in case
-             * the project's email policy changes.
-             */
-
-            if (
-                Web3MarketAuth.user &&
-                !Web3MarketAuth.emailVerified
-            ) {
-
-                showMessage(
-                    "Please verify your email before continuing.",
-                    "warning"
-                );
-
-
-                return {
-
-                    success: true,
-
-                    requiresEmailVerification:
-                        true,
-
-                    user:
-                        Web3MarketAuth.user,
-
-                    session:
-                        Web3MarketAuth.session
-
-                };
-            }
-
-
-            showMessage(
-                "Signed in successfully.",
-                "success"
-            );
-
-
-            return {
-
-                success: true,
-
-                requiresEmailVerification:
-                    false,
-
-                user:
-                    Web3MarketAuth.user,
-
-                session:
-                    Web3MarketAuth.session
-
-            };
-
-        } catch (error) {
+        }
+        catch (error) {
 
             console.error(
-                "Web3Market login exception:",
+                "Web3Market getCurrentUser error:",
                 error
             );
 
+            return null;
+        }
+    }
 
-            showMessage(
-                formatAuthError(error),
-                "error"
+
+    /* =====================================================
+       GET CURRENT SESSION
+       ===================================================== */
+
+    async function getSession() {
+
+        const client =
+            getSupabaseClient();
+
+
+        if (!client) {
+            return null;
+        }
+
+
+        try {
+
+            const {
+                data,
+                error
+            } =
+                await client.auth.getSession();
+
+
+            if (error) {
+                return null;
+            }
+
+
+            return data &&
+                data.session
+                ? data.session
+                : null;
+
+        }
+        catch (error) {
+
+            console.error(
+                "Web3Market getSession error:",
+                error
+            );
+
+            return null;
+        }
+    }
+
+
+    /* =====================================================
+       EMAIL SIGN-IN
+       ===================================================== */
+
+    async function signInWithEmail(
+        email
+    ) {
+
+        const client =
+            getSupabaseClient();
+
+
+        if (!client) {
+
+            throw new Error(
+                "Supabase client is not initialized."
+            );
+        }
+
+
+        const normalizedEmail =
+            normalizeEmail(
+                email
             );
 
 
-            return {
+        if (
+            !isValidEmail(
+                normalizedEmail
+            )
+        ) {
 
-                success: false,
-
-                error:
-                    formatAuthError(error),
-
-                rawError:
-                    error
-
-            };
-
-        } finally {
-
-            setLoading(false);
+            throw new Error(
+                "Please enter a valid email address."
+            );
         }
+
+
+        const {
+            data,
+            error
+        } =
+            await client.auth.signInWithOtp({
+
+                email:
+                    normalizedEmail,
+
+                options: {
+
+                    shouldCreateUser:
+                        false
+
+                }
+
+            });
+
+
+        if (error) {
+
+            throw normalizeAuthError(
+                error
+            );
+        }
+
+
+        return {
+
+            success: true,
+
+            email:
+                normalizedEmail,
+
+            requiresEmailVerification:
+                true,
+
+            data:
+                data || null
+        };
     }
 
 
@@ -673,1288 +1044,258 @@
        SIGN OUT
        ===================================================== */
 
-    async function logout() {
+    async function signOut() {
 
-        const supabase =
-            getSupabase();
+        const client =
+            getSupabaseClient();
 
 
-        if (!supabase) {
+        if (!client) {
+
+            throw new Error(
+                "Supabase client is not initialized."
+            );
+        }
+
+
+        const {
+            error
+        } =
+            await client.auth.signOut();
+
+
+        if (error) {
+
+            throw normalizeAuthError(
+                error
+            );
+        }
+
+
+        clearPendingRegistration();
+
+
+        return {
+            success: true
+        };
+    }
+
+
+    /* =====================================================
+       AUTH STATE LISTENER
+       ===================================================== */
+
+    function onAuthStateChange(
+        callback
+    ) {
+
+        const client =
+            getSupabaseClient();
+
+
+        if (
+            !client ||
+            !client.auth ||
+            typeof callback !== "function"
+        ) {
 
             return {
-
-                success: false,
-
-                error:
-                    "Supabase client is not available."
-
+                unsubscribe: function () {}
             };
         }
 
 
-        setLoading(true);
+        const {
+            data
+        } =
+            client.auth.onAuthStateChange(
+                function (
+                    event,
+                    session
+                ) {
+
+                    try {
+
+                        callback(
+                            event,
+                            session
+                        );
+
+                    }
+                    catch (error) {
+
+                        console.error(
+                            "Web3Market auth callback error:",
+                            error
+                        );
+
+                    }
+
+                }
+            );
+
+
+        if (
+            data &&
+            data.subscription
+        ) {
+
+            return data.subscription;
+        }
+
+
+        return {
+            unsubscribe: function () {}
+        };
+    }
+
+
+    /* =====================================================
+       GET PROFILE
+       ===================================================== */
+
+    async function getProfile(
+        userId
+    ) {
+
+        const client =
+            getSupabaseClient();
+
+
+        if (
+            !client ||
+            !userId
+        ) {
+            return null;
+        }
 
 
         try {
 
             const {
+                data,
                 error
             } =
-                await supabase.auth.signOut();
+                await client
+                    .from(PROFILE_TABLE)
+                    .select("*")
+                    .eq(
+                        "id",
+                        userId
+                    )
+                    .maybeSingle();
 
 
             if (error) {
 
-                console.error(
-                    "Web3Market logout error:",
+                console.warn(
+                    "Web3Market profile lookup warning:",
                     error
                 );
 
-
-                return {
-
-                    success: false,
-
-                    error:
-                        formatAuthError(error)
-
-                };
+                return null;
             }
 
 
-            Web3MarketAuth.user =
-                null;
+            return data || null;
 
-            Web3MarketAuth.session =
-                null;
-
-            Web3MarketAuth.emailVerified =
-                false;
-
-            Web3MarketAuth.walletVerified =
-                false;
-
-            Web3MarketAuth.walletAddress =
-                null;
-
-
-            syncAppState();
-
-
-            dispatchAuthEvent(
-                "signed_out"
-            );
-
-
-            showMessage(
-                "You have been signed out.",
-                "success"
-            );
-
-
-            return {
-
-                success: true
-
-            };
-
-        } catch (error) {
+        }
+        catch (error) {
 
             console.error(
-                "Web3Market logout exception:",
+                "Web3Market getProfile error:",
                 error
             );
 
-
-            return {
-
-                success: false,
-
-                error:
-                    formatAuthError(error)
-
-            };
-
-        } finally {
-
-            setLoading(false);
+            return null;
         }
     }
 
 
     /* =====================================================
-       RESEND EMAIL CONFIRMATION
+       GET PENDING REGISTRATION
        ===================================================== */
 
-    async function resendConfirmation(
-        email
-    ) {
+    function getPendingRegistrationPublic() {
 
-        const supabase =
-            getSupabase();
-
-
-        if (!supabase) {
-
-            return {
-
-                success: false,
-
-                error:
-                    "Supabase client is not available."
-
-            };
-        }
-
-
-        const cleanEmail =
-            String(
-                email || ""
-            )
-                .trim()
-                .toLowerCase();
-
-
-        if (!cleanEmail) {
-
-            return {
-
-                success: false,
-
-                error:
-                    "Please enter your email address."
-
-            };
-        }
-
-
-        setLoading(true);
-
-
-        try {
-
-            const redirectUrl =
-                getEmailRedirectUrl();
-
-
-            const result =
-                await supabase.auth.resend({
-
-                    type:
-                        "signup",
-
-                    email:
-                        cleanEmail,
-
-                    options: {
-
-                        emailRedirectTo:
-                            redirectUrl
-
-                    }
-
-                });
-
-
-            if (result.error) {
-
-                showMessage(
-                    formatAuthError(
-                        result.error
-                    ),
-                    "error"
-                );
-
-
-                return {
-
-                    success: false,
-
-                    error:
-                        formatAuthError(
-                            result.error
-                        )
-
-                };
-            }
-
-
-            showMessage(
-                "A new verification email has been sent.",
-                "success"
-            );
-
-
-            return {
-
-                success: true
-
-            };
-
-        } catch (error) {
-
-            console.error(
-                "Web3Market resend confirmation error:",
-                error
-            );
-
-
-            showMessage(
-                formatAuthError(error),
-                "error"
-            );
-
-
-            return {
-
-                success: false,
-
-                error:
-                    formatAuthError(error)
-
-            };
-
-        } finally {
-
-            setLoading(false);
-        }
+        return getPendingRegistration();
     }
 
 
     /* =====================================================
-       RESET PASSWORD
+       CHECK AUTHENTICATION
        ===================================================== */
 
-    async function resetPassword(
-        email
-    ) {
-
-        const supabase =
-            getSupabase();
-
-
-        if (!supabase) {
-
-            return {
-
-                success: false,
-
-                error:
-                    "Supabase client is not available."
-
-            };
-        }
-
-
-        const cleanEmail =
-            String(
-                email || ""
-            )
-                .trim()
-                .toLowerCase();
-
-
-        if (!cleanEmail) {
-
-            return {
-
-                success: false,
-
-                error:
-                    "Please enter your email address."
-
-            };
-        }
-
-
-        setLoading(true);
-
-
-        try {
-
-            const redirectUrl =
-                getPasswordResetUrl();
-
-
-            const result =
-                await supabase.auth.resetPasswordForEmail(
-
-                    cleanEmail,
-
-                    {
-
-                        redirectTo:
-                            redirectUrl
-
-                    }
-
-                );
-
-
-            if (result.error) {
-
-                showMessage(
-                    formatAuthError(
-                        result.error
-                    ),
-                    "error"
-                );
-
-
-                return {
-
-                    success: false,
-
-                    error:
-                        formatAuthError(
-                            result.error
-                        )
-
-                };
-            }
-
-
-            showMessage(
-                "Password reset instructions have been sent to your email.",
-                "success"
-            );
-
-
-            return {
-
-                success: true
-
-            };
-
-        } catch (error) {
-
-            console.error(
-                "Web3Market password reset error:",
-                error
-            );
-
-
-            showMessage(
-                formatAuthError(error),
-                "error"
-            );
-
-
-            return {
-
-                success: false,
-
-                error:
-                    formatAuthError(error)
-
-            };
-
-        } finally {
-
-            setLoading(false);
-        }
-    }
-
-
-    /* =====================================================
-       CONNECT + VERIFY WALLET
-       ===================================================== */
-
-    async function connectAndVerifyWallet() {
-
-        if (
-            !window.Web3MarketWallet
-        ) {
-
-            showMessage(
-                "Wallet module is not loaded.",
-                "error"
-            );
-
-
-            return {
-
-                success: false,
-
-                error:
-                    "WALLET_MODULE_NOT_LOADED"
-
-            };
-        }
-
-
-        /*
-         * User must be authenticated first.
-         */
+    async function isAuthenticated() {
 
         const user =
-            Web3MarketAuth.user ||
-            await getUser();
+            await getCurrentUser();
 
-
-        if (!user) {
-
-            showMessage(
-                "Please create an account or sign in before connecting your wallet.",
-                "warning"
-            );
-
-
-            return {
-
-                success: false,
-
-                error:
-                    "AUTH_REQUIRED"
-
-            };
-        }
-
-
-        /*
-         * Email must be verified first.
-         */
-
-        if (
-            !isEmailVerified(user)
-        ) {
-
-            showMessage(
-                "Please verify your email before connecting your wallet.",
-                "warning"
-            );
-
-
-            return {
-
-                success: false,
-
-                error:
-                    "EMAIL_NOT_VERIFIED"
-
-            };
-        }
-
-
-        setLoading(true);
-
-
-        try {
-
-            const connection =
-                await window.Web3MarketWallet.connect();
-
-
-            if (
-                !connection ||
-                !connection.success
-            ) {
-
-                return {
-
-                    success: false,
-
-                    error:
-                        connection?.error ||
-                        "WALLET_CONNECTION_FAILED"
-
-                };
-            }
-
-
-            const verification =
-                await window.Web3MarketWallet.verifyOwnership();
-
-
-            if (
-                !verification ||
-                !verification.success
-            ) {
-
-                return {
-
-                    success: false,
-
-                    error:
-                        verification?.error ||
-                        "WALLET_VERIFICATION_FAILED"
-
-                };
-            }
-
-
-            Web3MarketAuth.walletAddress =
-                verification.address;
-
-
-            Web3MarketAuth.walletVerified =
-                true;
-
-
-            syncAppState();
-
-
-            dispatchAuthEvent(
-                "wallet_verified"
-            );
-
-
-            showMessage(
-                "Your wallet has been successfully verified.",
-                "success"
-            );
-
-
-            return {
-
-                success: true,
-
-                address:
-                    verification.address,
-
-                signature:
-                    verification.signature,
-
-                message:
-                    verification.message
-
-            };
-
-        } catch (error) {
-
-            console.error(
-                "Web3Market wallet verification error:",
-                error
-            );
-
-
-            showMessage(
-                error?.message ||
-                "Wallet verification failed.",
-                "error"
-            );
-
-
-            return {
-
-                success: false,
-
-                error:
-                    error?.message ||
-                    "WALLET_VERIFICATION_FAILED"
-
-            };
-
-        } finally {
-
-            setLoading(false);
-        }
+        return !!user;
     }
 
 
     /* =====================================================
-       CHECK ACCOUNT STATUS
+       INITIALIZE AUTH
        ===================================================== */
 
-    async function getAccountStatus() {
+    async function initialize() {
 
-        const user =
-            Web3MarketAuth.user ||
-            await getUser();
+        const client =
+            getSupabaseClient();
 
 
-        if (!user) {
-
-            return {
-
-                authenticated: false,
-
-                emailVerified: false,
-
-                walletConnected: false,
-
-                walletVerified: false,
-
-                ready: false
-
-            };
-        }
-
-
-        const emailVerified =
-            isEmailVerified(user);
-
-
-        let walletConnected =
-            Boolean(
-                Web3MarketAuth.walletAddress
-            );
-
-
-        let walletAddress =
-            Web3MarketAuth.walletAddress ||
-            null;
-
-
-        if (
-            window.Web3MarketWallet &&
-            typeof
-            window.Web3MarketWallet.getState ===
-            "function"
-        ) {
-
-            const walletState =
-                window.Web3MarketWallet.getState();
-
-
-            walletConnected =
-                Boolean(
-                    walletState?.connected
-                );
-
-
-            walletAddress =
-                walletState?.address ||
-                walletAddress;
-        }
-
-
-        const walletVerified =
-            Boolean(
-                Web3MarketAuth.walletVerified
-            );
-
-
-        return {
-
-            authenticated: true,
-
-            emailVerified:
-                emailVerified,
-
-            walletConnected:
-                walletConnected,
-
-            walletVerified:
-                walletVerified,
-
-            walletAddress:
-                walletAddress,
-
-            ready:
-                emailVerified &&
-                walletVerified
-
-        };
-    }
-
-
-    /* =====================================================
-       EMAIL REDIRECT URL
-       ===================================================== */
-
-    function getEmailRedirectUrl() {
-
-        /*
-         * The current page is used as the default
-         * callback so the project works correctly
-         * on GitHub Pages and other static hosting.
-         */
-
-        try {
-
-            const url =
-                new URL(
-                    window.location.href
-                );
-
-
-            url.search = "";
-
-            url.hash = "";
-
-
-            return url.href;
-
-        } catch (error) {
-
-            return window.location.href;
-        }
-    }
-
-
-    /* =====================================================
-       PASSWORD RESET URL
-       ===================================================== */
-
-    function getPasswordResetUrl() {
-
-        try {
-
-            const url =
-                new URL(
-                    window.location.href
-                );
-
-
-            url.search = "";
-
-            url.hash = "";
-
-
-            return url.href;
-
-        } catch (error) {
-
-            return window.location.href;
-        }
-    }
-
-
-    /* =====================================================
-       SYNC APP STATE
-       ===================================================== */
-
-    function syncAppState() {
-
-        if (
-            window.Web3MarketApp &&
-            typeof
-            window.Web3MarketApp.setCurrentUser ===
-            "function"
-        ) {
-
-            window.Web3MarketApp.setCurrentUser(
-                Web3MarketAuth.user
-            );
-        }
-
-
-        if (
-            Web3MarketAuth.walletAddress &&
-            window.Web3MarketApp &&
-            typeof
-            window.Web3MarketApp.setWalletState ===
-            "function"
-        ) {
-
-            window.Web3MarketApp.setWalletState(
-                Web3MarketAuth.walletAddress
-            );
-        }
-    }
-
-
-    /* =====================================================
-       AUTH EVENT
-       ===================================================== */
-
-    function dispatchAuthEvent(
-        type
-    ) {
-
-        try {
-
-            window.dispatchEvent(
-                new CustomEvent(
-                    "web3market:auth",
-                    {
-                        detail: {
-
-                            type:
-                                type,
-
-                            user:
-                                Web3MarketAuth.user,
-
-                            session:
-                                Web3MarketAuth.session,
-
-                            emailVerified:
-                                Web3MarketAuth.emailVerified,
-
-                            walletVerified:
-                                Web3MarketAuth.walletVerified,
-
-                            walletAddress:
-                                Web3MarketAuth.walletAddress
-
-                        }
-                    }
-                )
-            );
-
-        } catch (error) {
+        if (!client) {
 
             console.warn(
-                "Web3Market auth event error:",
-                error
-            );
-        }
-    }
-
-
-    /* =====================================================
-       AUTH STATE CHANGE
-       ===================================================== */
-
-    function setupAuthListener() {
-
-        const supabase =
-            getSupabase();
-
-
-        if (!supabase) {
-
-            console.error(
-                "Web3Market Auth: Supabase is not available."
+                "Web3Market Auth: Supabase client is not available yet."
             );
 
-            return;
+            return {
+
+                initialized: false,
+
+                user: null
+
+            };
         }
 
 
-        if (
-            Web3MarketAuth.__listenerInstalled
-        ) {
-
-            return;
-        }
-
-
-        Web3MarketAuth.__listenerInstalled =
-            true;
-
-
-        supabase.auth.onAuthStateChange(
-            async function (
-                event,
-                session
-            ) {
-
-                console.log(
-                    "Web3Market Auth Event:",
-                    event
-                );
-
-
-                Web3MarketAuth.session =
-                    session ||
-                    null;
-
-
-                Web3MarketAuth.user =
-                    session?.user ||
-                    null;
-
-
-                Web3MarketAuth.emailVerified =
-                    isEmailVerified(
-                        Web3MarketAuth.user
-                    );
-
-
-                syncAppState();
-
-
-                dispatchAuthEvent(
-                    event
-                );
-            }
-        );
-    }
-
-
-    /* =====================================================
-       HANDLE EMAIL CALLBACK
-       ===================================================== */
-
-    async function handleEmailCallback() {
-
-        const params =
-            new URLSearchParams(
-                window.location.search
-            );
-
-
-        const hash =
-            window.location.hash ||
-            "";
+        const user =
+            await getCurrentUser();
 
 
         /*
-         * Supabase may return authentication
-         * parameters in the URL/hash.
-         *
-         * The Supabase client handles the session.
-         * We only refresh our application state here.
+         * If a verified email session exists,
+         * complete the pending registration.
          */
 
-        if (
-            params.has("code") ||
-            hash.includes("access_token") ||
-            hash.includes("refresh_token")
-        ) {
+        if (user) {
 
-            const session =
-                await getSession();
+            try {
 
+                await completeRegistration();
 
-            if (session) {
-
-                Web3MarketAuth.session =
-                    session;
-
-                Web3MarketAuth.user =
-                    session.user ||
-                    null;
-
-                Web3MarketAuth.emailVerified =
-                    isEmailVerified(
-                        Web3MarketAuth.user
-                    );
-
-
-                syncAppState();
-
-
-                dispatchAuthEvent(
-                    "email_verified"
-                );
-
-
-                /*
-                 * Remove authentication parameters
-                 * from the visible URL without reloading.
-                 */
-
-                try {
-
-                    const cleanUrl =
-                        window.location.pathname +
-                        window.location.search
-                            .replace(
-                                /([?&])code=[^&]*/g,
-                                ""
-                            ) +
-                        window.location.hash;
-
-
-                    /*
-                     * Do not aggressively modify the URL
-                     * because Supabase may still need its
-                     * callback parameters.
-                     */
-
-                    if (
-                        history.replaceState
-                    ) {
-
-                        history.replaceState(
-                            {},
-                            document.title,
-                            window.location.pathname
-                        );
-                    }
-
-                } catch (error) {
-
-                    console.warn(
-                        "Web3Market callback URL cleanup:",
-                        error
-                    );
-                }
             }
-        }
-    }
+            catch (error) {
 
+                console.warn(
+                    "Web3Market registration completion warning:",
+                    error
+                );
+            }
 
-    /* =====================================================
-       LOADING
-       ===================================================== */
-
-    function setLoading(
-        loading
-    ) {
-
-        Web3MarketAuth.loading =
-            Boolean(loading);
-
-
-        if (
-            window.Web3MarketApp &&
-            typeof
-            window.Web3MarketApp.setLoading ===
-            "function"
-        ) {
-
-            window.Web3MarketApp.setLoading(
-                Web3MarketAuth.loading
-            );
         }
 
-
-        document.documentElement.classList.toggle(
-            "web3market-auth-loading",
-            Web3MarketAuth.loading
-        );
-    }
-
-
-    /* =====================================================
-       MESSAGE
-       ===================================================== */
-
-    function showMessage(
-        message,
-        type = "info"
-    ) {
-
-        if (
-            window.Web3MarketApp &&
-            typeof
-            window.Web3MarketApp.showMessage ===
-            "function"
-        ) {
-
-            window.Web3MarketApp.showMessage(
-                message,
-                type
-            );
-
-            return;
-        }
-
-
-        console.log(
-            "Web3Market:",
-            message
-        );
-    }
-
-
-    /* =====================================================
-       AUTH ERROR FORMATTER
-       ===================================================== */
-
-    function formatAuthError(
-        error
-    ) {
-
-        if (!error) {
-
-            return "An unknown authentication error occurred.";
-        }
-
-
-        const message =
-            String(
-                error.message ||
-                error.error_description ||
-                error.msg ||
-                error
-            );
-
-
-        const lower =
-            message.toLowerCase();
-
-
-        if (
-            lower.includes(
-                "invalid login credentials"
-            )
-        ) {
-
-            return "Invalid email or password.";
-        }
-
-
-        if (
-            lower.includes(
-                "email not confirmed"
-            )
-        ) {
-
-            return "Please confirm your email address before signing in.";
-        }
-
-
-        if (
-            lower.includes(
-                "user already registered"
-            )
-        ) {
-
-            return "This email address is already registered.";
-        }
-
-
-        if (
-            lower.includes(
-                "password should be at least"
-            )
-        ) {
-
-            return "Password is too short.";
-        }
-
-
-        if (
-            lower.includes(
-                "rate limit"
-            ) ||
-            lower.includes(
-                "too many requests"
-            )
-        ) {
-
-            return "Too many requests. Please wait a moment and try again.";
-        }
-
-
-        if (
-            lower.includes(
-                "email rate limit"
-            )
-        ) {
-
-            return "Email sending is temporarily rate-limited. Please wait before requesting another email.";
-        }
-
-
-        return message;
-    }
-
-
-    /* =====================================================
-       GET STATE
-       ===================================================== */
-
-    function getState() {
 
         return {
 
-            initialized:
-                Web3MarketAuth.initialized,
-
-            loading:
-                Web3MarketAuth.loading,
+            initialized: true,
 
             user:
-                Web3MarketAuth.user,
-
-            session:
-                Web3MarketAuth.session,
-
-            emailVerified:
-                Web3MarketAuth.emailVerified,
-
-            walletVerified:
-                Web3MarketAuth.walletVerified,
-
-            walletAddress:
-                Web3MarketAuth.walletAddress
+                user
 
         };
-    }
-
-
-    /* =====================================================
-       INITIALIZE
-       ===================================================== */
-
-    async function init() {
-
-        if (
-            Web3MarketAuth.initialized
-        ) {
-
-            return;
-        }
-
-
-        Web3MarketAuth.initialized =
-            true;
-
-
-        try {
-
-            const session =
-                await getSession();
-
-
-            Web3MarketAuth.session =
-                session ||
-                null;
-
-
-            Web3MarketAuth.user =
-                session?.user ||
-                null;
-
-
-            Web3MarketAuth.emailVerified =
-                isEmailVerified(
-                    Web3MarketAuth.user
-                );
-
-
-            setupAuthListener();
-
-
-            await handleEmailCallback();
-
-
-            /*
-             * Restore wallet state if the wallet
-             * module is already available.
-             */
-
-            if (
-                window.Web3MarketWallet &&
-                typeof
-                window.Web3MarketWallet.getState ===
-                "function"
-            ) {
-
-                const walletState =
-                    window.Web3MarketWallet.getState();
-
-
-                if (
-                    walletState?.address
-                ) {
-
-                    Web3MarketAuth.walletAddress =
-                        walletState.address;
-                }
-            }
-
-
-            syncAppState();
-
-
-            dispatchAuthEvent(
-                "initialized"
-            );
-
-
-            console.log(
-                "Web3Market Auth initialized."
-            );
-
-        } catch (error) {
-
-            console.error(
-                "Web3Market Auth initialization error:",
-                error
-            );
-
-
-            Web3MarketAuth.initialized =
-                false;
-        }
     }
 
 
@@ -1964,97 +1305,110 @@
 
     window.Web3MarketAuth = {
 
-        version:
-            "2.0.0",
+        /*
+         * Main registration method used by register.html.
+         */
 
-        init:
-            init,
+        registerWithWallet:
+            registerWithWallet,
 
-        register:
-            register,
 
-        signup:
-            register,
+        /*
+         * Complete account after email verification.
+         */
 
-        login:
-            login,
+        completeRegistration:
+            completeRegistration,
 
-        signin:
-            login,
 
-        logout:
-            logout,
+        /*
+         * Authentication helpers.
+         */
 
-        signout:
-            logout,
+        signInWithEmail:
+            signInWithEmail,
 
-        resendConfirmation:
-            resendConfirmation,
+        signOut:
+            signOut,
 
-        resetPassword:
-            resetPassword,
-
-        connectAndVerifyWallet:
-            connectAndVerifyWallet,
-
-        getUser:
-            getUser,
+        getCurrentUser:
+            getCurrentUser,
 
         getSession:
             getSession,
 
-        getAccountStatus:
-            getAccountStatus,
+        isAuthenticated:
+            isAuthenticated,
 
-        isEmailVerified:
-            function () {
-                return Web3MarketAuth.emailVerified;
-            },
+        getProfile:
+            getProfile,
 
-        isWalletVerified:
-            function () {
-                return Web3MarketAuth.walletVerified;
-            },
+        onAuthStateChange:
+            onAuthStateChange,
 
-        getState:
-            getState,
 
-        getEmailRedirectUrl:
-            getEmailRedirectUrl
+        /*
+         * Registration state.
+         */
+
+        getPendingRegistration:
+            getPendingRegistrationPublic,
+
+        clearPendingRegistration:
+            clearPendingRegistration,
+
+
+        /*
+         * Initialization.
+         */
+
+        initialize:
+            initialize
+
     };
 
 
     /* =====================================================
-       GLOBAL COMPATIBILITY
+       AUTO INITIALIZATION
        ===================================================== */
 
-    window.getWeb3MarketUser =
-        getUser;
+    function startAuth() {
 
-    window.getWeb3MarketSession =
-        getSession;
+        /*
+         * Give js/supabase.js a chance to initialize
+         * before attempting authentication.
+         */
 
+        initialize()
+            .catch(function (error) {
 
-    /* =====================================================
-       START
-       ===================================================== */
+                console.warn(
+                    "Web3Market Auth initialization warning:",
+                    error
+                );
+
+            });
+    }
+
 
     if (
-        document.readyState ===
-        "loading"
+        document.readyState === "loading"
     ) {
 
         document.addEventListener(
             "DOMContentLoaded",
-            init,
+            startAuth,
             {
                 once: true
             }
         );
 
-    } else {
-
-        init();
     }
+    else {
+
+        startAuth();
+
+    }
+
 
 })();
