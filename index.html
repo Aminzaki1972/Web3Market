@@ -1,0 +1,1629 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <!-- =====================================================
+         Web3Market
+         Global Web3 Marketplace
+         ===================================================== -->
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="Web3Market is a next-generation marketplace for buying and selling Web3 projects, digital businesses, blockchain applications and digital assets."
+    >
+
+    <meta
+        name="keywords"
+        content="Web3, Blockchain, Marketplace, Crypto, Digital Assets, Web3 Projects, DApps"
+    >
+
+    <meta
+        name="author"
+        content="Web3Market"
+    >
+
+    <meta
+        name="theme-color"
+        content="#07111f"
+    >
+
+    <title>
+        Web3Market — The Marketplace for Web3
+    </title>
+
+
+    <!-- =====================================================
+         FAVICON
+         ===================================================== -->
+
+    <link
+        rel="icon"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2307111f'/%3E%3Cpath d='M25 30h50L62 70H38L25 30z' fill='none' stroke='%236ee7ff' stroke-width='7'/%3E%3Cpath d='M35 42h30M39 53h22' stroke='%236ee7ff' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E"
+    >
+
+
+    <!-- =====================================================
+         GOOGLE FONT
+         ===================================================== -->
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+    >
+
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    >
+
+
+    <!-- =====================================================
+         MAIN CSS
+         ===================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="css/style.css"
+    >
+
+</head>
+
+
+<body>
+
+<!-- =========================================================
+     PAGE LOADER
+     ========================================================= -->
+
+<div
+    id="page-loader"
+    class="page-loader"
+    aria-hidden="true"
+>
+
+    <div class="loader-content">
+
+        <div class="loader-logo">
+            W3M
+        </div>
+
+        <div class="loader-spinner"></div>
+
+        <p>
+            Loading Web3Market...
+        </p>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     HEADER
+     ========================================================= -->
+
+<header
+    id="site-header"
+    class="site-header"
+>
+
+    <div class="container header-container">
+
+
+        <!-- LOGO -->
+
+        <a
+            href="index.html"
+            class="brand"
+            aria-label="Web3Market Home"
+        >
+
+            <span class="brand-mark">
+                W3M
+            </span>
+
+            <span class="brand-text">
+                Web3<span>Market</span>
+            </span>
+
+        </a>
+
+
+        <!-- DESKTOP NAVIGATION -->
+
+        <nav
+            class="main-navigation"
+            aria-label="Main Navigation"
+        >
+
+            <a
+                href="index.html"
+                class="nav-link active"
+            >
+                Home
+            </a>
+
+            <a
+                href="marketplace.html"
+                class="nav-link"
+            >
+                Marketplace
+            </a>
+
+            <a
+                href="#categories"
+                class="nav-link"
+            >
+                Categories
+            </a>
+
+            <a
+                href="#how-it-works"
+                class="nav-link"
+            >
+                How It Works
+            </a>
+
+        </nav>
+
+
+        <!-- HEADER ACTIONS -->
+
+        <div class="header-actions">
+
+            <a
+                href="login.html"
+                class="btn btn-outline"
+            >
+                Sign In
+            </a>
+
+            <a
+                href="register.html"
+                class="btn btn-primary"
+            >
+                Get Started
+            </a>
+
+        </div>
+
+
+        <!-- MOBILE MENU BUTTON -->
+
+        <button
+            id="menu-toggle"
+            class="menu-toggle"
+            type="button"
+            aria-label="Open navigation"
+            aria-expanded="false"
+            aria-controls="mobile-menu"
+        >
+
+            <span></span>
+            <span></span>
+            <span></span>
+
+        </button>
+
+    </div>
+
+
+    <!-- MOBILE NAVIGATION -->
+
+    <div
+        id="mobile-menu"
+        class="mobile-menu"
+    >
+
+        <div class="mobile-menu-inner">
+
+            <a
+                href="index.html"
+                class="mobile-nav-link active"
+            >
+                Home
+            </a>
+
+            <a
+                href="marketplace.html"
+                class="mobile-nav-link"
+            >
+                Marketplace
+            </a>
+
+            <a
+                href="#categories"
+                class="mobile-nav-link"
+            >
+                Categories
+            </a>
+
+            <a
+                href="#how-it-works"
+                class="mobile-nav-link"
+            >
+                How It Works
+            </a>
+
+            <div class="mobile-actions">
+
+                <a
+                    href="login.html"
+                    class="btn btn-outline"
+                >
+                    Sign In
+                </a>
+
+                <a
+                    href="register.html"
+                    class="btn btn-primary"
+                >
+                    Get Started
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</header>
+
+
+<!-- =========================================================
+     MAIN
+     ========================================================= -->
+
+<main>
+
+
+    <!-- =====================================================
+         HERO
+         ===================================================== -->
+
+    <section
+        class="hero-section"
+        id="home"
+    >
+
+        <div class="hero-background">
+
+            <div class="hero-grid"></div>
+
+            <div class="hero-glow hero-glow-one"></div>
+
+            <div class="hero-glow hero-glow-two"></div>
+
+        </div>
+
+
+        <div class="container hero-container">
+
+
+            <div class="hero-content">
+
+
+                <div class="hero-badge">
+
+                    <span class="status-dot"></span>
+
+                    The Global Marketplace for Web3
+
+                </div>
+
+
+                <h1>
+
+                    Buy.
+                    <span>Sell.</span>
+                    Build.
+                    <strong>Own.</strong>
+
+                </h1>
+
+
+                <p class="hero-description">
+
+                    Discover, buy and sell Web3 projects,
+                    digital businesses, blockchain applications
+                    and digital assets in one next-generation
+                    marketplace.
+
+                </p>
+
+
+                <div class="hero-actions">
+
+                    <a
+                        href="marketplace.html"
+                        class="btn btn-primary btn-large"
+                    >
+                        Explore Marketplace
+                        <span>→</span>
+                    </a>
+
+                    <a
+                        href="register.html"
+                        class="btn btn-ghost btn-large"
+                    >
+                        List Your Project
+                    </a>
+
+                </div>
+
+
+                <!-- HERO STATS -->
+
+                <div class="hero-stats">
+
+                    <div class="hero-stat">
+
+                        <strong>
+                            Web3
+                        </strong>
+
+                        <span>
+                            Native Marketplace
+                        </span>
+
+                    </div>
+
+
+                    <div class="hero-stat">
+
+                        <strong>
+                            Global
+                        </strong>
+
+                        <span>
+                            Buyer & Seller Network
+                        </span>
+
+                    </div>
+
+
+                    <div class="hero-stat">
+
+                        <strong>
+                            On-Chain
+                        </strong>
+
+                        <span>
+                            Future-Ready Infrastructure
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- HERO VISUAL -->
+
+            <div class="hero-visual">
+
+                <div class="marketplace-orbit">
+
+                    <div class="orbit-ring orbit-ring-one"></div>
+
+                    <div class="orbit-ring orbit-ring-two"></div>
+
+                    <div class="orbit-ring orbit-ring-three"></div>
+
+
+                    <div class="marketplace-core">
+
+                        <div class="core-logo">
+                            W3M
+                        </div>
+
+                        <div class="core-title">
+                            Web3Market
+                        </div>
+
+                        <div class="core-subtitle">
+                            Digital Ownership
+                        </div>
+
+                    </div>
+
+
+                    <div class="floating-card floating-card-one">
+
+                        <span class="floating-icon">
+                            ◈
+                        </span>
+
+                        <div>
+
+                            <strong>
+                                Web3 Projects
+                            </strong>
+
+                            <small>
+                                Discover
+                            </small>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="floating-card floating-card-two">
+
+                        <span class="floating-icon">
+                            ◆
+                        </span>
+
+                        <div>
+
+                            <strong>
+                                Digital Assets
+                            </strong>
+
+                            <small>
+                                Buy & Sell
+                            </small>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="floating-card floating-card-three">
+
+                        <span class="floating-icon">
+                            ◎
+                        </span>
+
+                        <div>
+
+                            <strong>
+                                Blockchain
+                            </strong>
+
+                            <small>
+                                Powered
+                            </small>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         SEARCH
+         ===================================================== -->
+
+    <section
+        class="search-section"
+        aria-label="Search Marketplace"
+    >
+
+        <div class="container">
+
+            <div class="search-box">
+
+                <div class="search-input-wrapper">
+
+                    <span class="search-icon">
+                        ⌕
+                    </span>
+
+                    <input
+                        type="search"
+                        id="projectSearch"
+                        placeholder="Search Web3 projects, businesses, apps..."
+                        autocomplete="off"
+                    >
+
+                </div>
+
+
+                <select
+                    id="categoryFilter"
+                    aria-label="Select category"
+                >
+
+                    <option value="">
+                        All Categories
+                    </option>
+
+                    <option value="web3-projects">
+                        Web3 Projects
+                    </option>
+
+                    <option value="dapps">
+                        DApps
+                    </option>
+
+                    <option value="defi">
+                        DeFi
+                    </option>
+
+                    <option value="dao">
+                        DAOs
+                    </option>
+
+                    <option value="nft">
+                        NFT
+                    </option>
+
+                    <option value="gaming">
+                        Web3 Gaming
+                    </option>
+
+                    <option value="infrastructure">
+                        Infrastructure
+                    </option>
+
+                    <option value="digital-business">
+                        Digital Businesses
+                    </option>
+
+                </select>
+
+
+                <button
+                    id="searchButton"
+                    class="btn btn-primary search-button"
+                    type="button"
+                >
+                    Search
+                </button>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         FEATURED MARKETPLACE
+         ===================================================== -->
+
+    <section
+        id="marketplace"
+        class="section featured-section"
+    >
+
+        <div class="container">
+
+
+            <div class="section-heading">
+
+                <div>
+
+                    <span class="section-label">
+                        Marketplace
+                    </span>
+
+                    <h2>
+                        Explore the
+                        <span>Web3 Economy</span>
+                    </h2>
+
+                    <p>
+                        Discover opportunities across the
+                        rapidly growing Web3 ecosystem.
+                    </p>
+
+                </div>
+
+
+                <a
+                    href="marketplace.html"
+                    class="text-link"
+                >
+                    View All Projects
+                    <span>→</span>
+                </a>
+
+            </div>
+
+
+            <!-- PROJECTS -->
+
+            <div
+                id="projects-container"
+                class="projects-grid"
+            >
+
+
+                <!-- PROJECT 1 -->
+
+                <article
+                    class="project-card"
+                    data-project-id="demo-1"
+                >
+
+                    <div class="project-card-top">
+
+                        <span class="project-category">
+                            Web3 Project
+                        </span>
+
+                        <span class="project-status">
+                            Featured
+                        </span>
+
+                    </div>
+
+
+                    <div class="project-icon">
+                        W3
+                    </div>
+
+
+                    <h3>
+                        Web3 SaaS Platform
+                    </h3>
+
+
+                    <p>
+                        A scalable blockchain-powered
+                        software platform designed for
+                        the next generation of Web3 users.
+                    </p>
+
+
+                    <div class="project-meta">
+
+                        <div>
+
+                            <span>
+                                Category
+                            </span>
+
+                            <strong>
+                                SaaS / Web3
+                            </strong>
+
+                        </div>
+
+
+                        <div>
+
+                            <span>
+                                Network
+                            </span>
+
+                            <strong>
+                                EVM
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="project-card-footer">
+
+                        <strong>
+                            Marketplace
+                        </strong>
+
+                        <a
+                            href="project-details.html?id=demo-1"
+                            data-project-link
+                            data-project-id="demo-1"
+                        >
+                            View Project →
+                        </a>
+
+                    </div>
+
+                </article>
+
+
+                <!-- PROJECT 2 -->
+
+                <article
+                    class="project-card"
+                    data-project-id="demo-2"
+                >
+
+                    <div class="project-card-top">
+
+                        <span class="project-category">
+                            DeFi
+                        </span>
+
+                        <span class="project-status">
+                            Featured
+                        </span>
+
+                    </div>
+
+
+                    <div class="project-icon">
+                        DF
+                    </div>
+
+
+                    <h3>
+                        Decentralized Finance App
+                    </h3>
+
+
+                    <p>
+                        A decentralized financial application
+                        designed for transparent and
+                        permissionless digital finance.
+                    </p>
+
+
+                    <div class="project-meta">
+
+                        <div>
+
+                            <span>
+                                Category
+                            </span>
+
+                            <strong>
+                                DeFi
+                            </strong>
+
+                        </div>
+
+
+                        <div>
+
+                            <span>
+                                Network
+                            </span>
+
+                            <strong>
+                                EVM
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="project-card-footer">
+
+                        <strong>
+                            Marketplace
+                        </strong>
+
+                        <a
+                            href="project-details.html?id=demo-2"
+                            data-project-link
+                            data-project-id="demo-2"
+                        >
+                            View Project →
+                        </a>
+
+                    </div>
+
+                </article>
+
+
+                <!-- PROJECT 3 -->
+
+                <article
+                    class="project-card"
+                    data-project-id="demo-3"
+                >
+
+                    <div class="project-card-top">
+
+                        <span class="project-category">
+                            Digital Business
+                        </span>
+
+                        <span class="project-status">
+                            Featured
+                        </span>
+
+                    </div>
+
+
+                    <div class="project-icon">
+                        DB
+                    </div>
+
+
+                    <h3>
+                        Web3 Digital Business
+                    </h3>
+
+
+                    <p>
+                        An established digital business
+                        prepared for acquisition and
+                        expansion within the Web3 economy.
+                    </p>
+
+
+                    <div class="project-meta">
+
+                        <div>
+
+                            <span>
+                                Category
+                            </span>
+
+                            <strong>
+                                Business
+                            </strong>
+
+                        </div>
+
+
+                        <div>
+
+                            <span>
+                                Status
+                            </span>
+
+                            <strong>
+                                Available
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="project-card-footer">
+
+                        <strong>
+                            Marketplace
+                        </strong>
+
+                        <a
+                            href="project-details.html?id=demo-3"
+                            data-project-link
+                            data-project-id="demo-3"
+                        >
+                            View Project →
+                        </a>
+
+                    </div>
+
+                </article>
+
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         CATEGORIES
+         ===================================================== -->
+
+    <section
+        id="categories"
+        class="section categories-section"
+    >
+
+        <div class="container">
+
+
+            <div class="section-heading centered">
+
+                <span class="section-label">
+                    Categories
+                </span>
+
+                <h2>
+                    Everything
+                    <span>Web3</span>
+                </h2>
+
+                <p>
+                    Explore opportunities across the
+                    complete Web3 ecosystem.
+                </p>
+
+            </div>
+
+
+            <div class="categories-grid">
+
+
+                <a
+                    href="marketplace.html?category=web3-projects"
+                    class="category-card"
+                >
+
+                    <div class="category-icon">
+                        ◈
+                    </div>
+
+                    <h3>
+                        Web3 Projects
+                    </h3>
+
+                    <p>
+                        Blockchain-native projects
+                        and platforms.
+                    </p>
+
+                    <span>
+                        Explore →
+                    </span>
+
+                </a>
+
+
+                <a
+                    href="marketplace.html?category=dapps"
+                    class="category-card"
+                >
+
+                    <div class="category-icon">
+                        ◇
+                    </div>
+
+                    <h3>
+                        DApps
+                    </h3>
+
+                    <p>
+                        Decentralized applications
+                        and products.
+                    </p>
+
+                    <span>
+                        Explore →
+                    </span>
+
+                </a>
+
+
+                <a
+                    href="marketplace.html?category=defi"
+                    class="category-card"
+                >
+
+                    <div class="category-icon">
+                        ◆
+                    </div>
+
+                    <h3>
+                        DeFi
+                    </h3>
+
+                    <p>
+                        Decentralized finance
+                        opportunities.
+                    </p>
+
+                    <span>
+                        Explore →
+                    </span>
+
+                </a>
+
+
+                <a
+                    href="marketplace.html?category=dao"
+                    class="category-card"
+                >
+
+                    <div class="category-icon">
+                        ◎
+                    </div>
+
+                    <h3>
+                        DAOs
+                    </h3>
+
+                    <p>
+                        Decentralized organizations
+                        and communities.
+                    </p>
+
+                    <span>
+                        Explore →
+                    </span>
+
+                </a>
+
+
+                <a
+                    href="marketplace.html?category=nft"
+                    class="category-card"
+                >
+
+                    <div class="category-icon">
+                        ✦
+                    </div>
+
+                    <h3>
+                        NFTs
+                    </h3>
+
+                    <p>
+                        NFT projects, collections
+                        and ecosystems.
+                    </p>
+
+                    <span>
+                        Explore →
+                    </span>
+
+                </a>
+
+
+                <a
+                    href="marketplace.html?category=gaming"
+                    class="category-card"
+                >
+
+                    <div class="category-icon">
+                        ◉
+                    </div>
+
+                    <h3>
+                        Web3 Gaming
+                    </h3>
+
+                    <p>
+                        Blockchain games and
+                        gaming ecosystems.
+                    </p>
+
+                    <span>
+                        Explore →
+                    </span>
+
+                </a>
+
+
+                <a
+                    href="marketplace.html?category=infrastructure"
+                    class="category-card"
+                >
+
+                    <div class="category-icon">
+                        ⬡
+                    </div>
+
+                    <h3>
+                        Infrastructure
+                    </h3>
+
+                    <p>
+                        Infrastructure, protocols
+                        and developer tools.
+                    </p>
+
+                    <span>
+                        Explore →
+                    </span>
+
+                </a>
+
+
+                <a
+                    href="marketplace.html?category=digital-business"
+                    class="category-card"
+                >
+
+                    <div class="category-icon">
+                        ▣
+                    </div>
+
+                    <h3>
+                        Digital Businesses
+                    </h3>
+
+                    <p>
+                        Web businesses ready
+                        for acquisition.
+                    </p>
+
+                    <span>
+                        Explore →
+                    </span>
+
+                </a>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         HOW IT WORKS
+         ===================================================== -->
+
+    <section
+        id="how-it-works"
+        class="section how-section"
+    >
+
+        <div class="container">
+
+
+            <div class="section-heading centered">
+
+                <span class="section-label">
+                    How It Works
+                </span>
+
+                <h2>
+                    A Smarter Way to
+                    <span>Own Web3</span>
+                </h2>
+
+                <p>
+                    Designed to make discovering,
+                    evaluating and acquiring Web3
+                    opportunities simple.
+                </p>
+
+            </div>
+
+
+            <div class="steps-grid">
+
+
+                <div class="step-card">
+
+                    <div class="step-number">
+                        01
+                    </div>
+
+                    <div class="step-icon">
+                        ⌕
+                    </div>
+
+                    <h3>
+                        Discover
+                    </h3>
+
+                    <p>
+                        Browse Web3 projects,
+                        digital businesses,
+                        applications and assets.
+                    </p>
+
+                </div>
+
+
+                <div class="step-card">
+
+                    <div class="step-number">
+                        02
+                    </div>
+
+                    <div class="step-icon">
+                        ◫
+                    </div>
+
+                    <h3>
+                        Evaluate
+                    </h3>
+
+                    <p>
+                        Review project information,
+                        technology, business data
+                        and ownership details.
+                    </p>
+
+                </div>
+
+
+                <div class="step-card">
+
+                    <div class="step-number">
+                        03
+                    </div>
+
+                    <div class="step-icon">
+                        ◈
+                    </div>
+
+                    <h3>
+                        Connect
+                    </h3>
+
+                    <p>
+                        Connect your Web3 wallet
+                        when you are ready to
+                        proceed with a transaction.
+                    </p>
+
+                </div>
+
+
+                <div class="step-card">
+
+                    <div class="step-number">
+                        04
+                    </div>
+
+                    <div class="step-icon">
+                        ◆
+                    </div>
+
+                    <h3>
+                        Own
+                    </h3>
+
+                    <p>
+                        Complete the transaction
+                        through blockchain-powered
+                        infrastructure.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         TRUST
+         ===================================================== -->
+
+    <section
+        class="section trust-section"
+    >
+
+        <div class="container">
+
+
+            <div class="trust-panel">
+
+
+                <div class="trust-content">
+
+                    <span class="section-label">
+                        Built for Web3
+                    </span>
+
+                    <h2>
+                        The Marketplace
+                        <span>for Digital Ownership</span>
+                    </h2>
+
+                    <p>
+                        Web3Market is designed around
+                        transparency, digital ownership
+                        and blockchain-native transactions.
+                    </p>
+
+
+                    <a
+                        href="register.html"
+                        class="btn btn-primary"
+                    >
+                        Join Web3Market
+                        <span>→</span>
+                    </a>
+
+                </div>
+
+
+                <div class="trust-features">
+
+
+                    <div class="trust-card">
+
+                        <div class="trust-icon">
+                            ◈
+                        </div>
+
+                        <h3>
+                            Web3 Native
+                        </h3>
+
+                        <p>
+                            Designed from the ground
+                            up for the Web3 economy.
+                        </p>
+
+                    </div>
+
+
+                    <div class="trust-card">
+
+                        <div class="trust-icon">
+                            ◇
+                        </div>
+
+                        <h3>
+                            Transparent
+                        </h3>
+
+                        <p>
+                            Clear project information
+                            and transaction architecture.
+                        </p>
+
+                    </div>
+
+
+                    <div class="trust-card">
+
+                        <div class="trust-icon">
+                            ◆
+                        </div>
+
+                        <h3>
+                            Blockchain Ready
+                        </h3>
+
+                        <p>
+                            Built for wallet and
+                            blockchain integration.
+                        </p>
+
+                    </div>
+
+
+                    <div class="trust-card">
+
+                        <div class="trust-icon">
+                            ◎
+                        </div>
+
+                        <h3>
+                            Global
+                        </h3>
+
+                        <p>
+                            Created for a borderless
+                            digital marketplace.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         CTA
+         ===================================================== -->
+
+    <section class="cta-section">
+
+        <div class="container">
+
+            <div class="cta-content">
+
+                <span class="section-label">
+                    Start Your Journey
+                </span>
+
+                <h2>
+                    Ready to Enter
+                    <span>the Web3 Market?</span>
+                </h2>
+
+                <p>
+                    Discover your next opportunity or
+                    list your Web3 project for a global
+                    audience.
+                </p>
+
+
+                <div class="cta-actions">
+
+                    <a
+                        href="marketplace.html"
+                        class="btn btn-primary btn-large"
+                    >
+                        Explore Marketplace
+                    </a>
+
+                    <a
+                        href="register.html"
+                        class="btn btn-outline btn-large"
+                    >
+                        Create Account
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+</main>
+
+
+<!-- =========================================================
+     FOOTER
+     ========================================================= -->
+
+<footer class="site-footer">
+
+    <div class="container">
+
+
+        <div class="footer-main">
+
+
+            <div class="footer-brand">
+
+                <a
+                    href="index.html"
+                    class="brand"
+                >
+
+                    <span class="brand-mark">
+                        W3M
+                    </span>
+
+                    <span class="brand-text">
+                        Web3<span>Market</span>
+                    </span>
+
+                </a>
+
+
+                <p>
+                    The next-generation marketplace
+                    for the global Web3 economy.
+                </p>
+
+            </div>
+
+
+            <div class="footer-column">
+
+                <h4>
+                    Marketplace
+                </h4>
+
+                <a href="marketplace.html">
+                    Explore
+                </a>
+
+                <a href="#categories">
+                    Categories
+                </a>
+
+                <a href="register.html">
+                    List a Project
+                </a>
+
+            </div>
+
+
+            <div class="footer-column">
+
+                <h4>
+                    Platform
+                </h4>
+
+                <a href="#how-it-works">
+                    How It Works
+                </a>
+
+                <a href="login.html">
+                    Sign In
+                </a>
+
+                <a href="register.html">
+                    Create Account
+                </a>
+
+            </div>
+
+
+            <div class="footer-column">
+
+                <h4>
+                    Web3Market
+                </h4>
+
+                <a href="#">
+                    About
+                </a>
+
+                <a href="#">
+                    Security
+                </a>
+
+                <a href="#">
+                    Terms
+                </a>
+
+            </div>
+
+        </div>
+
+
+        <div class="footer-bottom">
+
+            <p>
+                © 2026 Web3Market. All rights reserved.
+            </p>
+
+            <p>
+                Built for the Web3 economy.
+            </p>
+
+        </div>
+
+    </div>
+
+</footer>
+
+
+<!-- =========================================================
+     APPLICATION MESSAGE
+     ========================================================= -->
+
+<div
+    id="web3market-message"
+    aria-live="polite"
+></div>
+
+
+<!-- =========================================================
+     JAVASCRIPT
+     ========================================================= -->
+
+<script
+    src="js/supabase.js"
+    defer
+></script>
+
+<script
+    src="js/auth.js"
+    defer
+></script>
+
+<script
+    src="js/app.js"
+    defer
+></script>
+
+<script
+    src="js/marketplace.js"
+    defer
+></script>
+
+
+</body>
+              </html>
