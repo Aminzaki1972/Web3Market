@@ -316,9 +316,6 @@
             background: rgba(255, 255, 255, 0.035);
             color: #fff;
             font: inherit;
-            transition:
-                border-color 0.2s ease,
-                background 0.2s ease;
         }
 
         .email-input:focus {
@@ -606,15 +603,15 @@
                 </h1>
 
                 <p>
-                    Connect your Web3 wallet to create
-                    your Web3Market identity.
+                    Connect your Web3 wallet and verify
+                    your email to create your Web3Market identity.
                 </p>
 
             </div>
 
 
             <!-- =================================================
-                 WALLET SECTION
+                 WALLET
                  ================================================= -->
 
             <div class="wallet-section">
@@ -677,8 +674,11 @@
                 <div class="verification-info">
 
                     To continue, Web3Market needs to verify
-                    that you control this wallet. Your wallet
-                    will ask you to sign a message.
+                    that you control this wallet.
+
+                    <br><br>
+
+                    Your wallet will ask you to sign a message.
 
                     <br><br>
 
@@ -730,9 +730,10 @@
 
                 <div class="email-help">
 
-                    Your email will be used for account
-                    verification and important Web3Market
-                    notifications.
+                    We will send a verification message to
+                    this email. Your account will not be
+                    considered fully verified until you
+                    confirm the email.
 
                 </div>
 
@@ -743,7 +744,7 @@
                     type="button"
                     style="margin-top:16px;"
                 >
-                    Create Web3Market Account
+                    Send Verification Email
                 </button>
 
             </div>
@@ -778,6 +779,7 @@
 
                     Web3Market will never ask for your
                     private key, recovery phrase or seed phrase.
+
                     Only a wallet signature is used to prove
                     ownership of your address.
 
@@ -829,30 +831,19 @@
      WEB3MARKET CORE
      ========================================================= -->
 
-<script
-    src="js/supabase.js"
-></script>
+<script src="js/supabase.js"></script>
 
-
-<script
-    src="js/auth.js"
-></script>
+<script src="js/auth.js"></script>
 
 
 <!-- =========================================================
      WALLET
-     
-     wallet.js is located in the ROOT of the repository.
      ========================================================= -->
 
-<script
-    src="wallet.js"
-></script>
+<script src="wallet.js"></script>
 
 
-<script
-    src="js/app.js"
-></script>
+<script src="js/app.js"></script>
 
 
 <!-- =========================================================
@@ -894,6 +885,15 @@
         document.getElementById("register-message");
 
 
+    let walletVerified = false;
+
+    let registrationEmailSent = false;
+
+
+    /* =====================================================
+       MESSAGE
+       ===================================================== */
+
     function showMessage(
         text,
         type
@@ -903,7 +903,8 @@
             return;
         }
 
-        message.textContent = text;
+        message.textContent =
+            text;
 
         message.className =
             "register-message visible " +
@@ -926,6 +927,10 @@
     }
 
 
+    /* =====================================================
+       ADDRESS
+       ===================================================== */
+
     function shortAddress(address) {
 
         if (!address) {
@@ -945,12 +950,11 @@
     }
 
 
-    function getWalletObject() {
+    /* =====================================================
+       WALLET OBJECT
+       ===================================================== */
 
-        /*
-         * The existing wallet.js is expected to expose
-         * its public API through window.Web3MarketWallet.
-         */
+    function getWalletObject() {
 
         if (
             window.Web3MarketWallet
@@ -960,11 +964,6 @@
 
         }
 
-
-        /*
-         * Fallback for environments where the
-         * wallet manager is exposed differently.
-         */
 
         if (
             window.Web3Market &&
@@ -981,6 +980,10 @@
     }
 
 
+    /* =====================================================
+       CURRENT WALLET
+       ===================================================== */
+
     function getCurrentAddress() {
 
         const wallet =
@@ -992,7 +995,19 @@
             typeof wallet.getAddress === "function"
         ) {
 
-            return wallet.getAddress();
+            const address =
+                wallet.getAddress();
+
+            if (
+                address &&
+                typeof address.then === "function"
+            ) {
+
+                return null;
+
+            }
+
+            return address;
 
         }
 
@@ -1009,11 +1024,7 @@
 
         if (
             window.ethereum &&
-            Array.isArray(
-                window.ethereum.selectedAddress
-                    ? [window.ethereum.selectedAddress]
-                    : []
-            )
+            window.ethereum.selectedAddress
         ) {
 
             return window.ethereum.selectedAddress;
@@ -1026,11 +1037,16 @@
     }
 
 
+    /* =====================================================
+       CONNECT WALLET
+       ===================================================== */
+
     async function connectWallet() {
 
         hideMessage();
 
-        connectButton.disabled = true;
+        connectButton.disabled =
+            true;
 
         connectButton.textContent =
             "Connecting Wallet...";
@@ -1069,7 +1085,10 @@
 
                 const accounts =
                     await window.ethereum.request({
-                        method: "eth_requestAccounts"
+
+                        method:
+                            "eth_requestAccounts"
+
                     });
 
 
@@ -1105,12 +1124,32 @@
             );
 
 
+            emailSection.classList.remove(
+                "visible"
+            );
+
+
+            walletVerified =
+                false;
+
+
+            registrationEmailSent =
+                false;
+
+
+            verifyButton.disabled =
+                false;
+
+            verifyButton.textContent =
+                "Verify Wallet Ownership";
+
+
             connectButton.textContent =
                 "Wallet Connected";
 
 
             showMessage(
-                "Wallet connected successfully. Continue by verifying ownership.",
+                "Wallet connected successfully. Please verify ownership by signing the message.",
                 "success"
             );
 
@@ -1138,18 +1177,24 @@
         }
         finally {
 
-            connectButton.disabled = false;
+            connectButton.disabled =
+                false;
 
         }
 
     }
 
 
+    /* =====================================================
+       VERIFY WALLET
+       ===================================================== */
+
     async function verifyWallet() {
 
         hideMessage();
 
-        verifyButton.disabled = true;
+        verifyButton.disabled =
+            true;
 
         verifyButton.textContent =
             "Waiting for Signature...";
@@ -1161,9 +1206,7 @@
                 getWalletObject();
 
 
-            if (
-                !wallet
-            ) {
+            if (!wallet) {
 
                 throw new Error(
                     "Wallet module is not available."
@@ -1222,11 +1265,15 @@
             }
 
 
+            walletVerified =
+                true;
+
+
             verifyButton.textContent =
                 "Wallet Verified ✓";
 
-
-            verifyButton.disabled = true;
+            verifyButton.disabled =
+                true;
 
 
             emailSection.classList.add(
@@ -1235,8 +1282,18 @@
 
 
             showMessage(
-                "Wallet ownership verified successfully.",
+                "Wallet ownership verified successfully. Enter your email to continue.",
                 "success"
+            );
+
+
+            setTimeout(
+                function () {
+
+                    emailInput.focus();
+
+                },
+                100
             );
 
         }
@@ -1248,7 +1305,8 @@
             );
 
 
-            verifyButton.disabled = false;
+            verifyButton.disabled =
+                false;
 
             verifyButton.textContent =
                 "Verify Wallet Ownership";
@@ -1267,9 +1325,25 @@
     }
 
 
+    /* =====================================================
+       CREATE ACCOUNT / SEND EMAIL
+       ===================================================== */
+
     async function createAccount() {
 
         hideMessage();
+
+
+        if (!walletVerified) {
+
+            showMessage(
+                "Please verify your wallet ownership first.",
+                "error"
+            );
+
+            return;
+
+        }
 
 
         const email =
@@ -1291,8 +1365,9 @@
 
 
         if (
-            !email.includes("@") ||
-            !email.includes(".")
+            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+                email
+            )
         ) {
 
             showMessage(
@@ -1314,8 +1389,20 @@
         if (!address) {
 
             showMessage(
-                "Please connect your Web3 wallet first.",
+                "Your wallet connection is no longer available. Please connect your wallet again.",
                 "error"
+            );
+
+            return;
+
+        }
+
+
+        if (registrationEmailSent) {
+
+            showMessage(
+                "A verification email has already been sent. Please check your inbox and spam folder.",
+                "info"
             );
 
             return;
@@ -1327,64 +1414,95 @@
             true;
 
         createAccountButton.textContent =
-            "Creating Account...";
+            "Sending Verification Email...";
 
 
         try {
 
-            /*
-             * At this stage the wallet has been connected
-             * and verified locally through wallet.js.
-             *
-             * The next integration step will send the
-             * signed message to the backend/Supabase
-             * verification endpoint.
-             */
-
-
             if (
-                window.Web3MarketAuth &&
-                typeof window.Web3MarketAuth.registerWithWallet ===
+                !window.Web3MarketAuth ||
+                typeof window.Web3MarketAuth.registerWithWallet !==
                 "function"
             ) {
 
-                await window.Web3MarketAuth
-                    .registerWithWallet({
-                        walletAddress: address,
-                        email: email
-                    });
-
-            }
-            else {
-
-                /*
-                 * Do NOT pretend that the account has been
-                 * permanently created when no backend
-                 * registration method exists yet.
-                 */
-
                 throw new Error(
-                    "Wallet verification is ready, but the account registration backend is not connected yet."
+                    "Web3Market authentication module is not available."
                 );
 
             }
 
 
+            const result =
+                await window.Web3MarketAuth
+                    .registerWithWallet({
+
+                        walletAddress:
+                            address,
+
+                        email:
+                            email
+
+                    });
+
+
+            /*
+             * The auth module successfully requested
+             * the Supabase email.
+             */
+
+            registrationEmailSent =
+                true;
+
+
+            createAccountButton.textContent =
+                "Verification Email Sent ✓";
+
+
+            createAccountButton.disabled =
+                true;
+
+
             showMessage(
-                "Your Web3Market account has been created. Please check your email to complete verification.",
+                "Verification email sent successfully to " +
+                email +
+                ". Please open your email and click the verification link. Check your spam folder if you do not see it.",
                 "success"
             );
 
 
-            createAccountButton.textContent =
-                "Account Created ✓";
+            /*
+             * Hide the email form after successful
+             * request so the user does not accidentally
+             * request multiple emails.
+             */
 
+            emailInput.disabled =
+                true;
+
+
+            /*
+             * If a session was returned immediately,
+             * the account can already be considered
+             * authenticated.
+             */
+
+            if (
+                result &&
+                result.session
+            ) {
+
+                showMessage(
+                    "Your email has been verified and your Web3Market account is ready.",
+                    "success"
+                );
+
+            }
 
         }
         catch (error) {
 
             console.error(
-                "Web3Market account creation error:",
+                "Web3Market account registration error:",
                 error
             );
 
@@ -1393,14 +1511,14 @@
                 false;
 
             createAccountButton.textContent =
-                "Create Web3Market Account";
+                "Send Verification Email";
 
 
             showMessage(
                 error &&
                 error.message
                     ? error.message
-                    : "Unable to create your account.",
+                    : "Unable to send the verification email.",
                 "error"
             );
 
@@ -1409,33 +1527,90 @@
     }
 
 
-    connectButton.addEventListener(
-        "click",
-        connectWallet
-    );
+    /* =====================================================
+       CONNECT BUTTON
+       ===================================================== */
+
+    if (connectButton) {
+
+        connectButton.addEventListener(
+            "click",
+            connectWallet
+        );
+
+    }
 
 
-    verifyButton.addEventListener(
-        "click",
-        verifyWallet
-    );
+    /* =====================================================
+       VERIFY BUTTON
+       ===================================================== */
+
+    if (verifyButton) {
+
+        verifyButton.addEventListener(
+            "click",
+            verifyWallet
+        );
+
+    }
 
 
-    createAccountButton.addEventListener(
-        "click",
-        createAccount
-    );
+    /* =====================================================
+       CREATE ACCOUNT BUTTON
+       ===================================================== */
+
+    if (createAccountButton) {
+
+        createAccountButton.addEventListener(
+            "click",
+            createAccount
+        );
+
+    }
 
 
-    /*
-     * Detect wallet account changes.
-     */
+    /* =====================================================
+       EMAIL ENTER KEY
+       ===================================================== */
+
+    if (emailInput) {
+
+        emailInput.addEventListener(
+            "keydown",
+            function (event) {
+
+                if (
+                    event.key === "Enter"
+                ) {
+
+                    event.preventDefault();
+
+                    createAccount();
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /* =====================================================
+       WALLET ACCOUNT CHANGES
+       ===================================================== */
 
     if (window.ethereum) {
 
         window.ethereum.on(
             "accountsChanged",
             function (accounts) {
+
+                walletVerified =
+                    false;
+
+                registrationEmailSent =
+                    false;
+
 
                 if (
                     !accounts ||
@@ -1463,6 +1638,30 @@
                     connectButton.textContent =
                         "Connect Web3 Wallet";
 
+
+                    verifyButton.disabled =
+                        false;
+
+                    verifyButton.textContent =
+                        "Verify Wallet Ownership";
+
+
+                    createAccountButton.disabled =
+                        false;
+
+                    createAccountButton.textContent =
+                        "Send Verification Email";
+
+
+                    emailInput.disabled =
+                        false;
+
+
+                    showMessage(
+                        "Wallet disconnected. Please connect your wallet again.",
+                        "info"
+                    );
+
                     return;
 
                 }
@@ -1471,8 +1670,43 @@
                 walletAddress.textContent =
                     shortAddress(accounts[0]);
 
+
                 walletStatus.classList.add(
                     "visible"
+                );
+
+
+                verificationSection.classList.add(
+                    "visible"
+                );
+
+
+                emailSection.classList.remove(
+                    "visible"
+                );
+
+
+                verifyButton.disabled =
+                    false;
+
+                verifyButton.textContent =
+                    "Verify Wallet Ownership";
+
+
+                createAccountButton.disabled =
+                    false;
+
+                createAccountButton.textContent =
+                    "Send Verification Email";
+
+
+                emailInput.disabled =
+                    false;
+
+
+                showMessage(
+                    "Wallet changed. Please verify ownership of the new wallet.",
+                    "info"
                 );
 
             }
@@ -1550,4 +1784,4 @@ document.addEventListener(
 
 
 </body>
-  </html>
+                    </html>
