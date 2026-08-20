@@ -1,0 +1,10 @@
+"use strict";
+(function(){
+ const form=document.querySelector('#projectForm'),out=document.querySelector('#formStatus');
+ const sb=()=>window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase;
+ const slug=s=>s.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,120);
+ function val(fd,n){const v=fd.get(n);return v===null?'':String(v).trim()}
+ form.addEventListener('submit',async e=>{e.preventDefault();out.textContent='Checking your account…';const client=sb();if(!client){out.textContent='Database connection unavailable.';return}const {data:{user},error:ue}=await client.auth.getUser();if(ue||!user){out.textContent='Please sign in before listing a project.';return}const fd=new FormData(form),title=val(fd,'title');let base=slug(title)||'web3-project',unique=base,attempt=0;while(true){const {data}=await client.from('marketplace_projects').select('id').eq('slug',unique).maybeSingle();if(!data)break;attempt++;unique=`${base}-${attempt}`;if(attempt>20){out.textContent='Unable to create a unique project URL.';return}}
+ const payload={owner_id:user.id,title,slug:unique,short_description:val(fd,'short_description'),description:val(fd,'description'),category:val(fd,'category'),blockchain:val(fd,'blockchain')||null,project_url:val(fd,'project_url')||null,github_url:val(fd,'github_url')||null,logo_url:val(fd,'logo_url')||null,sale_type:val(fd,'sale_type'),asking_price:Number(val(fd,'asking_price'))||null,price_currency:'USD',monthly_revenue:Number(val(fd,'monthly_revenue'))||null,monthly_profit:Number(val(fd,'monthly_profit'))||null,users_count:Number(val(fd,'users_count'))||null,monthly_volume:Number(val(fd,'monthly_volume'))||null,status:'draft'};
+out.textContent='Creating draft…';const {data,error}=await client.from('marketplace_projects').insert(payload).select('id').single();if(error){console.error(error);out.textContent=error.message||'Unable to create listing.';return}out.innerHTML=`Draft created successfully. <a href="project.html?id=${encodeURIComponent(data.id)}">Open project</a>`;form.reset();});
+})();
