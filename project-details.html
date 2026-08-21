@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="View a Web3Market project listing and make an offer.">
+  <meta http-equiv="refresh" content="0;url=project.html">
+  <title>Project Details | Web3Market</title>
+  <script>
+    (function () {
+      var query = window.location.search || "";
+      window.location.replace("project.html" + query);
+    })();
+  </script>
+</head>
+<body>
+  <p>Opening project details…</p>
+  <p><a id="fallback" href="project.html">Continue to project details</a></p>
+  <script>
+    document.getElementById("fallback").href = "project.html" + (window.location.search || "");
+  </script>
+</body>
+</html>
