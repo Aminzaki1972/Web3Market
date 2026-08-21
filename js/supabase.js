@@ -2,7 +2,7 @@
    Web3Market
    File: js/supabase.js
    Unified Supabase Client
-   Version: 1.2
+   Version: 1.3
    ========================================================= */
 
 "use strict";
@@ -12,7 +12,7 @@
     // Web3Market has its own isolated Supabase project.
     // DO NOT point this client at Web3Jobs/web3jobs-v3.
     const SUPABASE_URL = "https://hzhqlexnhtukfljcvnyd.supabase.co";
-    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_JZuODPmD72gqSauHBTGNYg_cbN7gVsp";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
     const STORAGE_KEY = "web3market-auth";
 
     let client = null;
