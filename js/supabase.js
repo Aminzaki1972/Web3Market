@@ -2,14 +2,16 @@
    Web3Market
    File: js/supabase.js
    Unified Supabase Client
-   Version: 1.1
+   Version: 1.2
    ========================================================= */
 
 "use strict";
 
 (function () {
 
-    const SUPABASE_URL = "https://jqhemwskrnlycximjpag.supabase.co";
+    // Web3Market has its own isolated Supabase project.
+    // DO NOT point this client at Web3Jobs/web3jobs-v3.
+    const SUPABASE_URL = "https://hzhqlexnhtukfljcvnyd.supabase.co";
     const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_JZuODPmD72gqSauHBTGNYg_cbN7gVsp";
     const STORAGE_KEY = "web3market-auth";
 
@@ -44,14 +46,12 @@
 
             initialized = true;
 
-            /* Canonical global used by Web3Market files. */
             window.Web3MarketSupabase = {
                 client: client,
                 supabase: client,
                 getClient: function () { return client; }
             };
 
-            /* Backward-compatible globals. */
             window.web3marketSupabase = client;
             window.supabaseClient = client;
 
@@ -114,7 +114,6 @@
     window.Web3MarketSupabase.getUser = getUser;
     window.Web3MarketSupabase.isInitialized = isInitialized;
 
-    /* Initialize after the script has loaded. */
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", initialize, { once: true });
     } else {
