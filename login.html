@@ -7,48 +7,55 @@
 <title>Sign In — Web3Market</title>
 <link rel="stylesheet" href="css/style.css">
 <style>
-body{min-height:100vh;display:grid;place-items:center;padding:24px;background:#07111f;color:#f8fafc;font-family:Inter,system-ui,sans-serif}.card{width:min(100%,460px);padding:36px;border:1px solid rgba(148,163,184,.16);border-radius:22px;background:#0d1b2d;box-shadow:0 20px 60px rgba(0,0,0,.28)}h1{margin:0 0 10px;font-size:34px}p{color:#94a3b8;line-height:1.6}.field{margin:22px 0}.field label{display:block;margin-bottom:8px;color:#cbd5e1;font-weight:600;font-size:14px}.field input{width:100%;padding:15px;border-radius:12px;border:1px solid rgba(148,163,184,.22);background:#07111f;color:#fff;box-sizing:border-box;font:inherit;outline:none}.field input:focus{border-color:#38bdf8}.btn{width:100%;padding:15px;border:0;border-radius:12px;font:inherit;font-weight:800;cursor:pointer}.primary{background:#38bdf8;color:#06101b}.secondary{display:block;text-align:center;margin-top:12px;text-decoration:none;color:#cbd5e1;border:1px solid rgba(148,163,184,.22);padding:14px;border-radius:12px}.msg{display:none;margin-top:18px;padding:13px;border-radius:10px;font-size:14px;line-height:1.5}.msg.show{display:block}.ok{background:rgba(34,197,94,.08);color:#86efac}.err{background:rgba(239,68,68,.08);color:#fca5a5}.home{display:inline-block;margin-bottom:25px;color:#6ee7ff;text-decoration:none}.small{font-size:12px;color:#64748b;margin-top:16px}
+body{min-height:100vh;display:grid;place-items:center;padding:24px;background:#07111f;color:#f8fafc;font-family:Inter,system-ui,sans-serif}.card{width:min(100%,460px);padding:36px;border:1px solid rgba(148,163,184,.16);border-radius:22px;background:#0d1b2d;box-shadow:0 20px 60px rgba(0,0,0,.28)}h1{margin:0 0 10px;font-size:34px}p{color:#94a3b8;line-height:1.6}.field{margin:22px 0}.field label{display:block;margin-bottom:8px;color:#cbd5e1;font-weight:600;font-size:14px}.field input{width:100%;padding:15px;border-radius:12px;border:1px solid rgba(148,163,184,.22);background:#07111f;color:#fff;box-sizing:border-box;font:inherit;outline:none}.field input:focus{border-color:#38bdf8}.btn{width:100%;padding:15px;border:0;border-radius:12px;font:inherit;font-weight:800;cursor:pointer}.btn:disabled{opacity:.55;cursor:not-allowed}.primary{background:#38bdf8;color:#06101b}.secondary{display:block;text-align:center;margin-top:12px;text-decoration:none;color:#cbd5e1;border:1px solid rgba(148,163,184,.22);padding:14px;border-radius:12px}.msg{display:none;margin-top:18px;padding:13px;border-radius:10px;font-size:14px;line-height:1.5}.msg.show{display:block}.ok{background:rgba(34,197,94,.08);color:#86efac}.err{background:rgba(239,68,68,.08);color:#fca5a5}.home{display:inline-block;margin-bottom:25px;color:#6ee7ff;text-decoration:none}.small{font-size:12px;color:#64748b;margin-top:16px}.link{display:block;margin-top:14px;color:#6ee7ff;text-align:center;text-decoration:none;font-size:14px}
 </style>
 </head>
 <body>
 <main class="card">
 <a class="home" href="index.html">← Web3Market</a>
 <h1>Welcome back</h1>
-<p>Sign in securely with your email. We will send a one-time verification link.</p>
+<p>Sign in with the email and password you used to create your account.</p>
 <form id="loginForm" novalidate>
 <div class="field"><label for="email">Email address</label><input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com"></div>
-<button id="submit" class="btn primary" type="submit">Send sign-in link</button>
+<div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required placeholder="Your password"></div>
+<button id="submit" class="btn primary" type="submit">Sign in</button>
 </form>
+<a id="resend" class="link" href="#">Resend confirmation email</a>
 <div id="message" class="msg" role="status" aria-live="polite"></div>
 <a class="secondary" href="register.html">Create a new account</a>
-<p class="small">Never share your verification link with anyone.</p>
+<p class="small">Your email must be confirmed before access to your Web3Market account is allowed.</p>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/supabase.js?v=20260821-4"></script>
-<script src="js/auth.js?v=20260821-6"></script>
+<script src="js/supabase.js?v=20260821-7"></script>
+<script src="js/auth.js?v=20260821-8"></script>
 <script>
 (function(){
- const form=document.getElementById('loginForm'),email=document.getElementById('email'),button=document.getElementById('submit'),msg=document.getElementById('message');
+ const form=document.getElementById('loginForm'),email=document.getElementById('email'),password=document.getElementById('password'),button=document.getElementById('submit'),resend=document.getElementById('resend'),msg=document.getElementById('message');
  function show(text,ok){msg.textContent=text;msg.className='msg show '+(ok?'ok':'err')}
  function client(){return window.Web3MarketSupabase?.getClient?.()||window.Web3MarketSupabase?.client||window.supabaseClient||null}
  async function redirectByRole(){
-   const sb=client(); if(!sb) throw new Error('Unable to connect to Web3Market.');
-   const {data,error}=await sb.auth.getUser(); if(error) throw error;
-   const user=data?.user; if(!user) throw new Error('Your session could not be loaded. Please sign in again.');
-   let role=window.Web3MarketAuth?.normalizeRole?.(user.user_metadata?.role)||'';
-   if(!role){ const result=await sb.from('profiles').select('role').eq('id',user.id).maybeSingle(); if(result.error) throw result.error; role=window.Web3MarketAuth?.normalizeRole?.(result.data?.role)||''; }
-   if(role==='seller'){ location.replace('seller-dashboard.html'); return; }
-   if(role==='buyer'){ location.replace('buyer-dashboard.html'); return; }
-   location.replace('index.html');
+  const sb=client();if(!sb)throw new Error('Unable to connect to Web3Market.');
+  const {data,error}=await sb.auth.getUser();if(error)throw error;const user=data?.user;if(!user)throw new Error('Your session could not be loaded. Please sign in again.');
+  if(!user.email_confirmed_at)throw new Error('Please confirm your email before signing in.');
+  let role=window.Web3MarketAuth?.normalizeRole?.(user.user_metadata?.role)||'';
+  if(!role){const result=await sb.from('profiles').select('role').eq('id',user.id).maybeSingle();if(result.error)throw result.error;role=window.Web3MarketAuth?.normalizeRole?.(result.data?.role)||'';}
+  await window.Web3MarketAuth?.completeRegistration?.();
+  if(role==='seller'){location.replace('seller-dashboard.html');return}
+  if(role==='buyer'){location.replace('buyer-dashboard.html');return}
+  location.replace('index.html');
  }
  async function handleCallback(){
-   const sb=client(); if(!sb) return;
-   const hash=location.hash||''; const query=location.search||'';
-   if(hash.includes('access_token=')||query.includes('code=')){
-      try{ const {data,error}=await sb.auth.getSession(); if(error) throw error; if(data?.session){ await redirectByRole(); } }catch(err){ show(String(err?.message||'Unable to complete sign in.'),false); }
-   }
+  const sb=client();if(!sb)return;
+  const query=location.search||'';
+  if(query.includes('code=')||location.hash.includes('access_token=')){
+   try{const {data,error}=await sb.auth.getSession();if(error)throw error;if(data?.session){show('Email confirmed successfully. Please sign in with your password.',true);await sb.auth.signOut()}}catch(err){show(String(err?.message||'Unable to complete email confirmation.'),false)}
+  }
  }
- form.addEventListener('submit',async function(e){e.preventDefault();const value=email.value.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)){show('Please enter a valid email address.',false);return}const sb=client();if(!sb){show('Unable to connect to Web3Market. Please refresh and try again.',false);return}button.disabled=true;button.textContent='Sending…';try{const {error}=await sb.auth.signInWithOtp({email:value,options:{shouldCreateUser:false,emailRedirectTo:new URL('login.html',location.href).href}});if(error)throw error;show('Sign-in link sent. Check your email and open the link on this device.',true);form.reset()}catch(err){const text=String(err?.message||'Sign-in failed.');show(text.toLowerCase().includes('not found')?'No account was found for this email. Create an account first.':text,false)}finally{button.disabled=false;button.textContent='Send sign-in link'}});
+ form.addEventListener('submit',async function(e){
+  e.preventDefault();const value=email.value.trim().toLowerCase(),pass=password.value;if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)){show('Please enter a valid email address.',false);return}if(!pass){show('Please enter your password.',false);return}
+  const sb=client();if(!sb){show('Unable to connect to Web3Market. Please refresh and try again.',false);return}button.disabled=true;button.textContent='Signing in…';
+  try{const {data,error}=await sb.auth.signInWithPassword({email:value,password:pass});if(error)throw error;if(!data?.user)throw new Error('Sign in failed.');if(!data.user.email_confirmed_at){await sb.auth.signOut();throw new Error('Please confirm your email before signing in.');}await redirectByRole()}catch(err){const text=String(err?.message||'Sign in failed.');if(/invalid login credentials/i.test(text))show('Incorrect email or password.',false);else show(text,false)}finally{button.disabled=false;button.textContent='Sign in'}});
+ resend.addEventListener('click',async function(e){e.preventDefault();const value=email.value.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)){show('Enter your email address first.',false);return}const sb=client();if(!sb){show('Unable to connect to Web3Market.',false);return}try{const {error}=await sb.auth.resend({type:'signup',email:value,options:{emailRedirectTo:new URL('login.html',location.href).href}});if(error)throw error;show('A new confirmation email has been sent. Open the link to return to Web3Market login.',true)}catch(err){show(String(err?.message||'Unable to resend confirmation email.'),false)}});
  handleCallback();
 })();
 </script>
