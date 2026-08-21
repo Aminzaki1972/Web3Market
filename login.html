@@ -25,12 +25,31 @@ body{min-height:100vh;display:grid;place-items:center;padding:24px;background:#0
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js?v=20260821-4"></script>
+<script src="js/auth.js?v=20260821-6"></script>
 <script>
 (function(){
  const form=document.getElementById('loginForm'),email=document.getElementById('email'),button=document.getElementById('submit'),msg=document.getElementById('message');
  function show(text,ok){msg.textContent=text;msg.className='msg show '+(ok?'ok':'err')}
- function client(){return window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||null}
- form.addEventListener('submit',async function(e){e.preventDefault();const value=email.value.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)){show('Please enter a valid email address.',false);return}const sb=client();if(!sb){show('Unable to connect to Web3Market. Please refresh and try again.',false);return}button.disabled=true;button.textContent='Sending…';try{const {error}=await sb.auth.signInWithOtp({email:value,options:{shouldCreateUser:false,emailRedirectTo:new URL('index.html',location.href).href}});if(error)throw error;show('Sign-in link sent. Check your email and open the link on this device.',true);form.reset()}catch(err){const text=String(err?.message||'Sign-in failed.');show(text.toLowerCase().includes('not found')?'No account was found for this email. Create an account first.':text,false)}finally{button.disabled=false;button.textContent='Send sign-in link'}});
+ function client(){return window.Web3MarketSupabase?.getClient?.()||window.Web3MarketSupabase?.client||window.supabaseClient||null}
+ async function redirectByRole(){
+   const sb=client(); if(!sb) throw new Error('Unable to connect to Web3Market.');
+   const {data,error}=await sb.auth.getUser(); if(error) throw error;
+   const user=data?.user; if(!user) throw new Error('Your session could not be loaded. Please sign in again.');
+   let role=window.Web3MarketAuth?.normalizeRole?.(user.user_metadata?.role)||'';
+   if(!role){ const result=await sb.from('profiles').select('role').eq('id',user.id).maybeSingle(); if(result.error) throw result.error; role=window.Web3MarketAuth?.normalizeRole?.(result.data?.role)||''; }
+   if(role==='seller'){ location.replace('seller-dashboard.html'); return; }
+   if(role==='buyer'){ location.replace('buyer-dashboard.html'); return; }
+   location.replace('index.html');
+ }
+ async function handleCallback(){
+   const sb=client(); if(!sb) return;
+   const hash=location.hash||''; const query=location.search||'';
+   if(hash.includes('access_token=')||query.includes('code=')){
+      try{ const {data,error}=await sb.auth.getSession(); if(error) throw error; if(data?.session){ await redirectByRole(); } }catch(err){ show(String(err?.message||'Unable to complete sign in.'),false); }
+   }
+ }
+ form.addEventListener('submit',async function(e){e.preventDefault();const value=email.value.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)){show('Please enter a valid email address.',false);return}const sb=client();if(!sb){show('Unable to connect to Web3Market. Please refresh and try again.',false);return}button.disabled=true;button.textContent='Sending…';try{const {error}=await sb.auth.signInWithOtp({email:value,options:{shouldCreateUser:false,emailRedirectTo:new URL('login.html',location.href).href}});if(error)throw error;show('Sign-in link sent. Check your email and open the link on this device.',true);form.reset()}catch(err){const text=String(err?.message||'Sign-in failed.');show(text.toLowerCase().includes('not found')?'No account was found for this email. Create an account first.':text,false)}finally{button.disabled=false;button.textContent='Send sign-in link'}});
+ handleCallback();
 })();
 </script>
 </body>
