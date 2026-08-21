@@ -7,47 +7,70 @@
 <title>Create Account — Web3Market</title>
 <link rel="stylesheet" href="css/style.css">
 <style>
-body{min-height:100vh;display:grid;place-items:center;padding:24px;background:#07111f;color:#f8fafc;font-family:Inter,system-ui,sans-serif}.card{width:min(100%,520px);padding:36px;border:1px solid rgba(148,163,184,.16);border-radius:22px;background:#0d1b2d;box-shadow:0 20px 60px rgba(0,0,0,.28)}h1{margin:0 0 10px;font-size:34px}p{color:#94a3b8;line-height:1.6}.field{margin:20px 0}.field label{display:block;margin-bottom:8px;color:#cbd5e1;font-weight:600;font-size:14px}.field input{width:100%;padding:15px;border-radius:12px;border:1px solid rgba(148,163,184,.22);background:#07111f;color:#fff;box-sizing:border-box;font:inherit;outline:none}.field input:focus{border-color:#38bdf8}.role-label{display:block;margin-bottom:10px;color:#cbd5e1;font-weight:600;font-size:14px}.roles{display:grid;grid-template-columns:1fr 1fr;gap:12px}.role{position:relative}.role input{position:absolute;opacity:0;pointer-events:none}.role label{display:block;padding:16px;border-radius:14px;border:1px solid rgba(148,163,184,.22);background:#07111f;cursor:pointer;color:#cbd5e1;text-align:center;font-weight:800;transition:.15s}.role label span{display:block;font-size:12px;color:#64748b;font-weight:500;margin-top:5px}.role input:checked+label{border-color:#38bdf8;background:rgba(56,189,248,.08);color:#fff;box-shadow:0 0 0 1px #38bdf8 inset}.btn{width:100%;padding:15px;border:0;border-radius:12px;font:inherit;font-weight:800;cursor:pointer}.btn:disabled{opacity:.55;cursor:not-allowed}.primary{background:#38bdf8;color:#06101b}.secondary{display:block;text-align:center;margin-top:12px;text-decoration:none;color:#cbd5e1;border:1px solid rgba(148,163,184,.22);padding:14px;border-radius:12px}.divider{display:flex;align-items:center;gap:12px;margin:24px 0;color:#64748b;font-size:12px}.divider:before,.divider:after{content:"";height:1px;flex:1;background:rgba(148,163,184,.16)}.wallet{background:transparent;color:#6ee7ff;border:1px solid rgba(110,231,255,.25)}.msg{display:none;margin-top:18px;padding:13px;border-radius:10px;font-size:14px;line-height:1.5}.msg.show{display:block}.ok{background:rgba(34,197,94,.08);color:#86efac}.err{background:rgba(239,68,68,.08);color:#fca5a5}.home{display:inline-block;margin-bottom:25px;color:#6ee7ff;text-decoration:none}.small{font-size:12px;color:#64748b;margin-top:16px}.countdown{font-size:12px;color:#94a3b8;margin-top:8px}
+body{min-height:100vh;display:grid;place-items:center;padding:24px;background:#07111f;color:#f8fafc;font-family:Inter,system-ui,sans-serif}.card{width:min(100%,520px);padding:36px;border:1px solid rgba(148,163,184,.16);border-radius:22px;background:#0d1b2d;box-shadow:0 20px 60px rgba(0,0,0,.28)}h1{margin:0 0 10px;font-size:34px}p{color:#94a3b8;line-height:1.6}.field{margin:20px 0}.field label{display:block;margin-bottom:8px;color:#cbd5e1;font-weight:600;font-size:14px}.field input{width:100%;padding:15px;border-radius:12px;border:1px solid rgba(148,163,184,.22);background:#07111f;color:#fff;box-sizing:border-box;font:inherit;outline:none}.field input:focus{border-color:#38bdf8}.role-label{display:block;margin-bottom:10px;color:#cbd5e1;font-weight:600;font-size:14px}.roles{display:grid;grid-template-columns:1fr 1fr;gap:12px}.role{position:relative}.role input{position:absolute;opacity:0;pointer-events:none}.role label{display:block;padding:16px;border-radius:14px;border:1px solid rgba(148,163,184,.22);background:#07111f;cursor:pointer;color:#cbd5e1;text-align:center;font-weight:800}.role label span{display:block;font-size:12px;color:#64748b;font-weight:500;margin-top:5px}.role input:checked+label{border-color:#38bdf8;background:rgba(56,189,248,.08);color:#fff;box-shadow:0 0 0 1px #38bdf8 inset}.btn{width:100%;padding:15px;border:0;border-radius:12px;font:inherit;font-weight:800;cursor:pointer}.btn:disabled{opacity:.55;cursor:not-allowed}.primary{background:#38bdf8;color:#06101b}.secondary{display:block;text-align:center;margin-top:12px;text-decoration:none;color:#cbd5e1;border:1px solid rgba(148,163,184,.22);padding:14px;border-radius:12px}.divider{display:flex;align-items:center;gap:12px;margin:24px 0;color:#64748b;font-size:12px}.divider:before,.divider:after{content:"";height:1px;flex:1;background:rgba(148,163,184,.16)}.wallet{background:transparent;color:#6ee7ff;border:1px solid rgba(110,231,255,.25)}.msg{display:none;margin-top:18px;padding:13px;border-radius:10px;font-size:14px;line-height:1.5}.msg.show{display:block}.ok{background:rgba(34,197,94,.08);color:#86efac}.err{background:rgba(239,68,68,.08);color:#fca5a5}.home{display:inline-block;margin-bottom:25px;color:#6ee7ff;text-decoration:none}.small{font-size:12px;color:#64748b;margin-top:16px}.countdown{font-size:12px;color:#94a3b8;margin-top:8px}
 </style>
 </head>
 <body>
 <main class="card">
 <a class="home" href="index.html">← Web3Market</a>
 <h1>Create your account</h1>
-<p>Choose how you will use Web3Market, then create your account with email.</p>
+<p>Choose Buyer or Seller and create your Web3Market account with email and password.</p>
 <form id="registerForm" novalidate>
-<div class="field"><span class="role-label">I want to join as</span><div class="roles">
+<div class="field"><span class="role-label">Account type</span><div class="roles">
 <div class="role"><input id="roleBuyer" name="role" type="radio" value="buyer"><label for="roleBuyer">Buyer<span>Buy Web3 projects and services</span></label></div>
 <div class="role"><input id="roleSeller" name="role" type="radio" value="seller"><label for="roleSeller">Seller<span>Sell Web3 projects and services</span></label></div>
 </div></div>
+<div class="field"><label for="fullName">Full name</label><input id="fullName" name="fullName" type="text" autocomplete="name" required minlength="2" maxlength="120" placeholder="Your full name"></div>
 <div class="field"><label for="email">Email address</label><input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com"></div>
-<button id="emailSubmit" class="btn primary" type="submit">Create account with email</button>
+<div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters"></div>
+<div class="field"><label for="confirmPassword">Confirm password</label><input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" required minlength="8" placeholder="Repeat your password"></div>
+<button id="emailSubmit" class="btn primary" type="submit">Create account</button>
 <div id="countdown" class="countdown" aria-live="polite"></div>
 </form>
 <div id="message" class="msg" role="status" aria-live="polite"></div>
 <div class="divider"><span>OR</span></div>
 <button id="walletButton" class="btn wallet" type="button">Connect Wallet After Choosing a Role</button>
 <a class="secondary" href="login.html">Already have an account? Sign in</a>
-<p class="small">Your role is saved when the account is created. The wallet can be connected and verified after email activation.</p>
+<p class="small">After registration, we will email you a confirmation link. Opening it takes you to Web3Market login. Your account is not activated until the email is confirmed.</p>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/supabase.js?v=20260821-5"></script>
+<script src="js/supabase.js?v=20260821-6"></script>
 <script src="wallet.js?v=20260821-1"></script>
-<script src="js/auth.js?v=20260821-5"></script>
+<script src="js/auth.js?v=20260821-7"></script>
 <script>
 (function(){
- const form=document.getElementById('registerForm'),email=document.getElementById('email'),button=document.getElementById('emailSubmit'),wallet=document.getElementById('walletButton'),msg=document.getElementById('message'),countdown=document.getElementById('countdown');
- const COOLDOWN=60, KEY='web3market_register_email_cooldown';
- let timer=null;
+ const form=document.getElementById('registerForm'),email=document.getElementById('email'),fullName=document.getElementById('fullName'),password=document.getElementById('password'),confirmPassword=document.getElementById('confirmPassword'),button=document.getElementById('emailSubmit'),wallet=document.getElementById('walletButton'),msg=document.getElementById('message'),countdown=document.getElementById('countdown');
+ const COOLDOWN=60, KEY='web3market_register_email_cooldown'; let timer=null;
  function show(text,ok){msg.textContent=text;msg.className='msg show '+(ok?'ok':'err')}
  function client(){return window.Web3MarketSupabase?.getClient?.()||window.Web3MarketSupabase?.client||window.supabaseClient||null}
  function selectedRole(){return document.querySelector('input[name="role"]:checked')?.value||''}
  function remaining(){const until=Number(localStorage.getItem(KEY)||0);return Math.max(0,Math.ceil((until-Date.now())/1000))}
- function updateCooldown(){const left=remaining();button.disabled=left>0;if(left>0){countdown.textContent='Please wait '+left+' seconds before requesting another email.'}else{countdown.textContent='';clearInterval(timer);timer=null}}
+ function updateCooldown(){const left=remaining();if(left>0){button.disabled=true;countdown.textContent='Please wait '+left+' seconds before requesting another email.'}else{button.disabled=false;countdown.textContent='';if(timer){clearInterval(timer);timer=null}}}
  function startCooldown(){localStorage.setItem(KEY,String(Date.now()+COOLDOWN*1000));updateCooldown();if(!timer)timer=setInterval(updateCooldown,1000)}
- updateCooldown();if(remaining()>0)timer=setInterval(updateCooldown,1000);
- form.addEventListener('submit',async function(e){e.preventDefault();if(remaining()>0){updateCooldown();return}const role=selectedRole();if(!role){show('Please choose Buyer or Seller.',false);return}const value=email.value.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)){show('Please enter a valid email address.',false);return}const sb=client();if(!sb){show('Unable to connect to Web3Market. Please refresh and try again.',false);return}button.disabled=true;button.textContent='Sending…';try{localStorage.setItem('web3market_pending_registration',JSON.stringify({email:value,role,createdAt:Date.now()}));const {error}=await sb.auth.signInWithOtp({email:value,options:{shouldCreateUser:true,emailRedirectTo:new URL('index.html',location.href).href,data:{role,registration_method:'email',web3market_account:true}}});if(error)throw error;startCooldown();show('Account created as '+(role==='buyer'?'Buyer':'Seller')+'. Check your email and open the verification link.',true);form.reset()}catch(err){const text=String(err?.message||'Account creation failed.');if(/rate limit|too many requests/i.test(text)){startCooldown();show('Email sending is temporarily rate-limited. Please wait before trying again.',false)}else{show(text,false)}}finally{button.textContent='Create account with email';updateCooldown()}});
- wallet.addEventListener('click',async function(){const role=selectedRole();if(!role){show('Please choose Buyer or Seller first.',false);return}const w=window.Web3MarketWallet;if(!w||typeof w.connect!=='function'){show('Web3 wallet support is unavailable. Please use email registration.',false);return}wallet.disabled=true;try{const connected=await w.connect();if(!connected?.success)throw new Error(connected?.error||'Wallet connection failed.');const verified=await w.verifyOwnership();if(!verified?.success)throw new Error(verified?.error||'Wallet verification failed.');const value=prompt('Enter the email address you want to associate with this wallet:','');if(!value)return;const normalized=value.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized))throw new Error('Please enter a valid email address.');if(!window.Web3MarketAuth?.registerWithWallet)throw new Error('Wallet registration module is unavailable.');await window.Web3MarketAuth.registerWithWallet({walletAddress:verified.address,email:normalized,role});show('Verification email sent. Open the link to complete your '+(role==='buyer'?'Buyer':'Seller')+' account.',true);startCooldown()}catch(err){const text=String(err?.message||'Wallet registration failed.');if(/rate limit|too many requests/i.test(text)){startCooldown();show('Email sending is temporarily rate-limited. Please wait before trying again.',false)}else{show(text,false)}}finally{wallet.disabled=false}});
+ updateCooldown(); if(remaining()>0)timer=setInterval(updateCooldown,1000);
+ form.addEventListener('submit',async function(e){
+  e.preventDefault(); if(remaining()>0){updateCooldown();return}
+  const role=selectedRole(),name=fullName.value.trim(),value=email.value.trim().toLowerCase(),pass=password.value,confirm=confirmPassword.value;
+  if(!role){show('Please choose Buyer or Seller.',false);return}
+  if(name.length<2){show('Please enter your full name.',false);return}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)){show('Please enter a valid email address.',false);return}
+  if(pass.length<8){show('Password must be at least 8 characters.',false);return}
+  if(pass!==confirm){show('Passwords do not match.',false);return}
+  const sb=client();if(!sb){show('Unable to connect to Web3Market. Please refresh and try again.',false);return}
+  button.disabled=true;button.textContent='Creating…';
+  try{
+   localStorage.setItem('web3market_pending_registration',JSON.stringify({email:value,role,fullName:name,createdAt:Date.now()}));
+   const redirect=new URL('login.html',location.href).href;
+   const {data,error}=await sb.auth.signUp({email:value,password:pass,options:{emailRedirectTo:redirect,data:{role,full_name:name,registration_method:'email',web3market_account:true}}});
+   if(error)throw error;
+   startCooldown();
+   if(data?.session){await window.Web3MarketAuth?.completeRegistration?.();show('Account created. Your email is already confirmed. Please sign in.',true)}
+   else{show('Account created successfully. Check your email and click the confirmation link. It will open Web3Market login.',true)}
+   form.reset();
+  }catch(err){const text=String(err?.message||'Account creation failed.');if(/rate limit|too many requests/i.test(text)){startCooldown();show('Email sending is temporarily rate-limited. Please wait before trying again.',false)}else if(/already registered/i.test(text)){show('This email is already registered. Please sign in instead.',false)}else{show(text,false)}}
+  finally{button.textContent='Create account';updateCooldown()}
+ });
+ wallet.addEventListener('click',async function(){const role=selectedRole();if(!role){show('Please choose Buyer or Seller first.',false);return}const w=window.Web3MarketWallet;if(!w||typeof w.connect!=='function'){show('Web3 wallet support is unavailable. Please use email registration.',false);return}wallet.disabled=true;try{const connected=await w.connect();if(!connected?.success)throw new Error(connected?.error||'Wallet connection failed.');const verified=await w.verifyOwnership();if(!verified?.success)throw new Error(verified?.error||'Wallet verification failed.');const value=prompt('Enter the email address you want to associate with this wallet:','');if(!value)return;const normalized=value.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized))throw new Error('Please enter a valid email address.');if(!window.Web3MarketAuth?.registerWithWallet)throw new Error('Wallet registration module is unavailable.');await window.Web3MarketAuth.registerWithWallet({walletAddress:verified.address,email:normalized,role});show('Verification email sent. Open the link to complete your '+(role==='buyer'?'Buyer':'Seller')+' account.',true);startCooldown()}catch(err){show(String(err?.message||'Wallet registration failed.'),false)}finally{wallet.disabled=false}});
 })();
 </script>
 </body>
