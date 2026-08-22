@@ -4,42 +4,33 @@
   if(!root)return;
   const sb=window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase;
   if(!sb){root.innerHTML='<div class="notice">Database connection unavailable.</div>';return;}
-
   const esc=v=>String(v??"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
   const {data:auth,error:authError}=await sb.auth.getUser();
   const user=auth?.user;
   if(authError||!user){location.replace("login.html?next=buyer-dashboard.html");return;}
-
-  // Authorization is based ONLY on the server-backed profiles.role.
   const {data:profile,error:profileError}=await sb.from("profiles").select("id,display_name,email,bio,wallet_address,role").eq("id",user.id).maybeSingle();
   const role=String(profile?.role||"").toLowerCase();
   if(profileError||!profile||role!=="buyer"){
     root.innerHTML='<div class="notice">This account is not a Buyer account. Redirecting…</div>';
-    setTimeout(()=>location.replace(role==="seller"?"seller-dashboard.html":"marketplace.html"),700);
-    return;
+    setTimeout(()=>location.replace(role==="seller"?"seller-dashboard.html":"marketplace.html"),700);return;
   }
-
-  const name=profile.display_name||"Web3 Buyer";
-  const email=profile.email||user.email||"";
+  const name=profile.display_name||"Web3 Buyer", email=profile.email||user.email||"", wallet=profile.wallet_address||"";
   const initials=(name.match(/[A-Za-z0-9]/g)||["B"]).slice(0,2).join("").toUpperCase();
-  const wallet=profile.wallet_address||"";
-
-  // Buyer data is always scoped to this authenticated user's id.
   const {data:deals,error:dealsError}=await sb.from("deals").select("id,project_id,amount,currency,status,created_at").eq("buyer_id",user.id).order("created_at",{ascending:false});
-  const rows=dealsError?[]:(deals||[]);
-  const ids=[...new Set(rows.map(x=>x.project_id).filter(Boolean))];
-  let projects=[];
-  if(ids.length){const q=await sb.from("projects").select("id,title,status").in("id",ids);if(!q.error)projects=q.data||[];}
+  const rows=dealsError?[]:(deals||[]), ids=[...new Set(rows.map(x=>x.project_id).filter(Boolean))];
+  let projects=[]; if(ids.length){const q=await sb.from("projects").select("id,title,status").in("id",ids);if(!q.error)projects=q.data||[];}
   const pmap=new Map(projects.map(p=>[p.id,p]));
   const done=rows.filter(x=>["completed","released","closed"].includes(String(x.status||"").toLowerCase()));
   const active=rows.filter(x=>!["completed","released","closed","cancelled","rejected"].includes(String(x.status||"").toLowerCase()));
   const spent=done.reduce((n,x)=>n+Number(x.amount||0),0);
   const money=n=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(n||0);
-  const row=x=>{const p=pmap.get(x.project_id);return `<div class="row"><div><strong>${esc(p?.title||"Web3 Project")}</strong><div class="muted">${money(x.amount)} · ${x.created_at?new Date(x.created_at).toLocaleDateString():""}</div></div><span class="badge">${esc(String(x.status||"pending").replace(/[_-]+/g," "))}</span></div>`};
-
-  root.innerHTML=`<section class="hero"><div class="eyebrow">Buyer Center</div><h1>Welcome, ${esc(name)}</h1><p>This is your independent Web3Market buyer account.</p><div class="actions"><a class="btn primary" href="marketplace.html">Browse Marketplace</a><a class="btn" href="verification.html">Manage Profile</a></div></section>
-  <div class="notice">✓ Verified Buyer · ${esc(email)} · Data below belongs only to this authenticated Buyer ID.</div>
-  <section class="grid"><div class="card"><div class="label">TOTAL SPENT</div><div class="value">${money(spent)}</div></div><div class="card"><div class="label">PURCHASES</div><div class="value">${done.length}</div></div><div class="card"><div class="label">ACTIVE DEALS</div><div class="value">${active.length}</div></div></section>
-  <section class="layout"><div><div class="panel"><h2>Active Deals</h2>${active.slice(0,8).map(row).join("")||'<div class="empty">No active purchases yet.</div>'}</div><div class="panel"><h2>Purchase History</h2>${done.slice(0,8).map(row).join("")||'<div class="empty">No completed purchases yet.</div>'}</div></div>
-  <aside><div class="panel"><h2>Buyer Identity</h2><strong>${esc(name)}</strong><div class="muted" style="margin-top:5px">${esc(email)}</div><div class="badge" style="display:inline-block;margin-top:10px">BUYER</div></div><div class="panel"><h2>Wallet</h2><strong>${esc(wallet?wallet.slice(0,6)+"…"+wallet.slice(-4):"Not connected")}</strong><div class="muted" style="margin:7px 0 12px">${wallet?"Connected to this Buyer profile.":"No wallet connected yet."}</div><a class="btn primary" href="verification.html">${wallet?"Manage Wallet":"Connect Wallet"}</a></div><div class="panel"><h2>Quick Access</h2><div class="actions" style="flex-direction:column"><a class="btn" href="marketplace.html">Marketplace</a><a class="btn" href="deal-room.html">Deal Room</a><a class="btn" href="escrow-testnet.html">Escrow</a></div></div></aside></section>`;
+  const statusClass=s=>{s=String(s||"pending").toLowerCase();return s.includes("complete")||s==="released"||s==="closed"?"success":s.includes("cancel")||s.includes("reject")?"danger":"pending"};
+  const row=x=>{const p=pmap.get(x.project_id),st=String(x.status||"pending").replace(/[_-]+/g," ");return `<div class="deal-row"><div class="deal-icon">◈</div><div class="deal-info"><strong>${esc(p?.title||"Web3 Project")}</strong><div class="muted">${money(x.amount)} · ${x.created_at?new Date(x.created_at).toLocaleDateString():""}</div></div><span class="status ${statusClass(x.status)}">${esc(st)}</span><span class="arrow">›</span></div>`};
+  root.innerHTML=`
+  <section class="dash-head"><div><div class="eyebrow">BUYER DASHBOARD</div><h1>Good to see you, ${esc(name)} <span class="wave">✦</span></h1><p>Discover Web3 projects, manage purchases and keep every deal in one place.</p></div><div class="profile-chip"><div class="avatar">${esc(initials)}</div><div><strong>${esc(name)}</strong><small>Verified Buyer</small></div></div></section>
+  <section class="quick-search"><div class="search-icon">⌕</div><div><strong>Looking for a Web3 project?</strong><small>Search the marketplace and find your next opportunity.</small></div><a class="btn primary" href="marketplace.html">Explore Marketplace <span>→</span></a></section>
+  <div class="notice">● <b>Buyer account verified</b><span> · ${esc(email)}</span><span class="secure">🔒 Your data is scoped to your account</span></div>
+  <section class="grid"><div class="card stat"><div class="stat-top"><span class="stat-label">TOTAL SPENT</span><span class="stat-icon purple">$</span></div><div class="value">${money(spent)}</div><small>Completed purchases</small></div><div class="card stat"><div class="stat-top"><span class="stat-label">PURCHASES</span><span class="stat-icon blue">✓</span></div><div class="value">${done.length}</div><small>Successfully completed</small></div><div class="card stat"><div class="stat-top"><span class="stat-label">ACTIVE DEALS</span><span class="stat-icon violet">↗</span></div><div class="value">${active.length}</div><small>Currently in progress</small></div></section>
+  <section class="layout"><div class="main-column"><div class="panel section-panel"><div class="section-title"><div><h2>Active Deals</h2><p>Track your ongoing purchases</p></div><a href="deal-room.html">View all →</a></div>${active.slice(0,8).map(row).join("")||'<div class="empty"><b>No active purchases</b><span>Your new deals will appear here.</span><a class="btn primary" href="marketplace.html">Browse Marketplace</a></div>'}</div><div class="panel section-panel"><div class="section-title"><div><h2>Purchase History</h2><p>Your completed transactions</p></div><span class="count-pill">${done.length}</span></div>${done.slice(0,8).map(row).join("")||'<div class="empty"><b>No completed purchases yet</b><span>Complete your first deal to see it here.</span></div>'}</div></div>
+  <aside><div class="panel profile-card"><div class="side-title"><span>BUYER IDENTITY</span><span class="online">●</span></div><div class="identity"><div class="big-avatar">${esc(initials)}</div><div><strong>${esc(name)}</strong><div class="muted">${esc(email)}</div></div></div><div class="buyer-badge">✓ VERIFIED BUYER</div><a class="side-link" href="verification.html">Edit profile <span>→</span></a></div><div class="panel wallet-card"><div class="side-title"><span>WALLET</span><span class="chain-dot">◆</span></div><div class="wallet-address">${esc(wallet?wallet.slice(0,8)+"…"+wallet.slice(-6):"Not connected")}</div><div class="muted wallet-text">${wallet?"Connected to your Buyer profile.":"Connect a wallet when you're ready to transact."}</div><a class="btn primary full" href="verification.html">${wallet?"Manage Wallet":"Connect Wallet"}</a></div><div class="panel quick-card"><div class="side-title"><span>QUICK ACCESS</span></div><a class="quick-link" href="marketplace.html"><span>⌂</span> Marketplace <b>›</b></a><a class="quick-link" href="deal-room.html"><span>◈</span> Deal Room <b>›</b></a><a class="quick-link" href="escrow-testnet.html"><span>◉</span> Escrow <b>›</b></a></div></aside></section>`;
 })();
