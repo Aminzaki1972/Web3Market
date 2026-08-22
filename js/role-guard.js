@@ -1,4 +1,4 @@
-/* Web3Market role guard — protects Buyer/Seller pages client-side. */
+/* Web3Market role guard — protects Buyer/Seller pages using the server-backed profile role. */
 "use strict";
 
 (function () {
@@ -18,21 +18,22 @@
     const sb = client();
     if (!sb?.auth) { location.replace("login.html"); return; }
 
-    const { data: sessionData } = await sb.auth.getSession();
-    const session = sessionData?.session;
-    if (!session?.user) { location.replace("login.html"); return; }
+    const { data: userData, error: userError } = await sb.auth.getUser();
+    if (userError || !userData?.user) { location.replace("login.html"); return; }
 
-    const user = session.user;
-    let role = String(user.user_metadata?.role || "").toLowerCase();
+    const user = userData.user;
+    // Never authorize from user_metadata: it is user-editable.
+    const { data: profile, error: profileError } = await sb.from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
 
-    if (!role) {
-      const { data: profile } = await sb.from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
-      role = String(profile?.role || "").toLowerCase();
+    if (profileError || !profile?.role) {
+      location.replace("index.html");
+      return;
     }
 
+    const role = String(profile.role).toLowerCase();
     if (role !== requiredRole) {
       location.replace(role === "buyer" ? "buyer-dashboard.html"
         : role === "seller" ? "seller-dashboard.html" : "index.html");
