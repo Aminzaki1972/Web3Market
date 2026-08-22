@@ -27,7 +27,7 @@ body{min-height:100vh;display:grid;place-items:center;padding:24px;background:#0
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js?v=20260821-7"></script>
-<script src="js/auth.js?v=20260821-8"></script>
+<script src="js/auth.js?v=20260822-3"></script>
 <script>
 (function(){
  const form=document.getElementById('loginForm'),email=document.getElementById('email'),password=document.getElementById('password'),button=document.getElementById('submit'),resend=document.getElementById('resend'),msg=document.getElementById('message');
@@ -37,12 +37,16 @@ body{min-height:100vh;display:grid;place-items:center;padding:24px;background:#0
   const sb=client();if(!sb)throw new Error('Unable to connect to Web3Market.');
   const {data,error}=await sb.auth.getUser();if(error)throw error;const user=data?.user;if(!user)throw new Error('Your session could not be loaded. Please sign in again.');
   if(!user.email_confirmed_at)throw new Error('Please confirm your email before signing in.');
-  let role=window.Web3MarketAuth?.normalizeRole?.(user.user_metadata?.role)||'';
-  if(!role){const result=await sb.from('profiles').select('role').eq('id',user.id).maybeSingle();if(result.error)throw result.error;role=window.Web3MarketAuth?.normalizeRole?.(result.data?.role)||'';}
-  await window.Web3MarketAuth?.completeRegistration?.();
+
+  // Authorization is server-backed: never change or persist the role during login.
+  // The profiles.role trigger intentionally blocks client-side role changes.
+  const result=await sb.from('profiles').select('role').eq('id',user.id).maybeSingle();
+  if(result.error)throw result.error;
+  const role=window.Web3MarketAuth?.normalizeRole?.(result.data?.role)||'';
+
   if(role==='seller'){location.replace('seller-dashboard.html');return}
   if(role==='buyer'){location.replace('buyer-dashboard.html');return}
-  location.replace('index.html');
+  throw new Error('Your account role is missing or invalid. Please contact support.');
  }
  async function handleCallback(){
   const sb=client();if(!sb)return;
