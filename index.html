@@ -3,75 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Web3Market — The first fully on-chain marketplace for buying and selling Web3 products and services.">
-  <title>Web3Market — The First Fully On-Chain Marketplace</title>
+  <meta name="description" content="Web3Market — a modern decentralized marketplace for Web3 products and services.">
+  <title>Web3Market — The Marketplace for Web3</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    :root{--bg:#070b14;--panel:#0d1422;--text:#f5f7fb;--muted:#9aa7bd;--accent:#5ee7ff;--accent2:#7c5cff;--border:rgba(255,255,255,.09)}
+    :root{--bg:#05070d;--panel:#0b101a;--panel2:#0f1623;--text:#f7f9fc;--muted:#9aa6ba;--line:rgba(255,255,255,.09);--cyan:#65e7ff;--violet:#8067ff;--green:#65e6a4}
     html{scroll-behavior:smooth}
-    body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:radial-gradient(circle at 80% 10%,rgba(124,92,255,.18),transparent 30%),radial-gradient(circle at 20% 20%,rgba(94,231,255,.1),transparent 28%),var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
-    a{text-decoration:none;color:inherit}
-    .container{width:min(1160px,92%);margin:auto}
-    header{position:sticky;top:0;z-index:20;background:rgba(7,11,20,.82);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
-    .nav{height:72px;display:flex;align-items:center;justify-content:space-between;gap:24px}
-    .logo{font-size:23px;font-weight:800;letter-spacing:-.6px}.logo span{color:var(--accent)}
-    nav{display:flex;align-items:center;gap:26px;color:#c8d1df;font-size:14px}
-    nav a:hover{color:white}
-    .nav-actions{display:flex;gap:10px;align-items:center}
-    .btn{display:inline-flex;align-items:center;justify-content:center;padding:11px 18px;border-radius:12px;border:1px solid var(--border);font-weight:700;font-size:14px;transition:.2s}
-    .btn:hover{transform:translateY(-1px)}
-    .btn-primary{background:linear-gradient(135deg,var(--accent),#8b7cff);color:#06101a;border:0}
-    .hero{padding:110px 0 90px;text-align:center;position:relative;overflow:hidden}
-    .hero:before{content:"";position:absolute;width:520px;height:520px;border-radius:50%;border:1px solid rgba(94,231,255,.08);left:50%;top:30px;transform:translateX(-50%);box-shadow:0 0 120px rgba(124,92,255,.12)}
-    .hero>*{position:relative}
-    .badge{display:inline-flex;align-items:center;gap:9px;padding:8px 13px;border:1px solid rgba(94,231,255,.2);border-radius:999px;background:rgba(94,231,255,.06);color:#b9f6ff;font-size:11px;font-weight:800;letter-spacing:1.3px}
-    .dot{width:7px;height:7px;border-radius:50%;background:#53f5a6;box-shadow:0 0 12px #53f5a6}
-    h1{font-size:clamp(44px,8vw,82px);line-height:1.02;letter-spacing:-3px;margin:26px auto 22px;max-width:900px}
-    h1 span{background:linear-gradient(90deg,var(--accent),#9b8aff);-webkit-background-clip:text;background-clip:text;color:transparent}
-    h1 strong{font-weight:800}
-    .hero p{max-width:690px;margin:0 auto 32px;color:var(--muted);font-size:18px}
-    .hero-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
-    .section{padding:70px 0}.section-title{text-align:center;font-size:32px;margin-bottom:12px}.section-sub{text-align:center;color:var(--muted);max-width:650px;margin:0 auto 35px}
-    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-    .card{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018));border:1px solid var(--border);border-radius:18px;padding:25px}
-    .icon{font-size:26px;margin-bottom:15px}.card h3{font-size:19px;margin-bottom:7px}.card p{color:var(--muted);font-size:14px}
-    footer{border-top:1px solid var(--border);padding:28px 0;color:var(--muted);font-size:13px}
-    .footer-inner{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
-    @media(max-width:800px){nav{display:none}.grid{grid-template-columns:1fr}.hero{padding:80px 0 65px}h1{letter-spacing:-2px}.nav-actions .btn:not(.btn-primary){display:none}}
+    body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+    a{text-decoration:none;color:inherit}.container{width:min(1180px,92%);margin:auto}
+    header{position:sticky;top:0;z-index:50;background:rgba(5,7,13,.78);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+    .nav{height:74px;display:flex;align-items:center;justify-content:space-between;gap:24px}.logo{font-size:24px;font-weight:900;letter-spacing:-1px}.logo span{color:var(--cyan)}
+    nav{display:flex;gap:30px;color:#b9c3d4;font-size:14px;font-weight:600}nav a:hover{color:#fff}
+    .actions{display:flex;gap:10px;align-items:center}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border:1px solid var(--line);border-radius:12px;font-size:14px;font-weight:800;transition:.2s}.btn:hover{transform:translateY(-2px);border-color:rgba(101,231,255,.35)}
+    .primary{border:0;background:linear-gradient(135deg,var(--cyan),#9a82ff);color:#061019;box-shadow:0 10px 35px rgba(101,231,255,.12)}
+    .hero{position:relative;padding:118px 0 105px;text-align:center}.hero:before,.hero:after{content:"";position:absolute;border-radius:50%;filter:blur(2px);pointer-events:none}.hero:before{width:520px;height:520px;left:50%;top:10px;transform:translateX(-50%);border:1px solid rgba(101,231,255,.08);box-shadow:0 0 180px rgba(128,103,255,.12)}.hero:after{width:280px;height:280px;left:12%;top:100px;background:rgba(101,231,255,.045);filter:blur(70px)}.hero>*{position:relative;z-index:1}
+    .eyebrow{display:inline-flex;align-items:center;gap:9px;padding:8px 13px;border:1px solid rgba(101,231,255,.18);border-radius:999px;background:rgba(101,231,255,.05);color:#bdf5ff;font-size:11px;font-weight:900;letter-spacing:1.2px}.live{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 12px rgba(101,230,164,.8)}
+    h1{font-size:clamp(46px,8vw,88px);line-height:.98;letter-spacing:-4px;max-width:950px;margin:28px auto 24px}h1 .grad{background:linear-gradient(90deg,var(--cyan),#a58fff);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .lead{max-width:720px;margin:0 auto 34px;color:var(--muted);font-size:18px}.hero-buttons{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+    .trust{padding:18px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:rgba(255,255,255,.015)}.trust-row{display:flex;justify-content:center;gap:45px;flex-wrap:wrap;color:#748197;font-size:12px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase}
+    section{padding:88px 0}.section-head{text-align:center;margin-bottom:42px}.section-head h2{font-size:36px;letter-spacing:-1.5px}.section-head p{max-width:650px;margin:10px auto 0;color:var(--muted)}
+    .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.card{background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018));border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.12)}.card:hover{border-color:rgba(101,231,255,.22)}.num{font-size:12px;font-weight:900;color:var(--cyan);letter-spacing:1px}.card h3{margin:18px 0 8px;font-size:20px}.card p{color:var(--muted);font-size:14px}
+    .split{display:grid;grid-template-columns:1.1fr .9fr;gap:22px;align-items:stretch}.feature{padding:34px;border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,#0d1522,#080c14)}.feature h2{font-size:34px;line-height:1.1;letter-spacing:-1.5px;margin:10px 0 14px}.feature p{color:var(--muted);max-width:620px}.checks{display:grid;gap:12px;margin-top:24px}.check{display:flex;gap:10px;align-items:center;color:#dce4f0;font-size:14px}.check b{color:var(--green)}.role-card{display:grid;grid-template-columns:1fr 1fr;gap:12px}.role{border:1px solid var(--line);border-radius:18px;padding:24px;background:rgba(255,255,255,.025)}.role strong{display:block;font-size:18px;margin-bottom:7px}.role span{color:var(--muted);font-size:13px}
+    .cta{text-align:center;padding:80px 20px;border:1px solid var(--line);border-radius:28px;background:radial-gradient(circle at 50% 0,rgba(101,231,255,.08),transparent 45%),#0a0f18}.cta h2{font-size:38px;letter-spacing:-1.5px}.cta p{color:var(--muted);margin:10px auto 25px}.cta .btn{margin:4px}
+    footer{border-top:1px solid var(--line);padding:30px 0;color:#748197;font-size:13px}.foot{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+    @media(max-width:850px){nav{display:none}.cards,.split{grid-template-columns:1fr}.hero{padding:85px 0 75px}h1{letter-spacing:-2.5px}.role-card{grid-template-columns:1fr}.actions .btn:first-child{display:none}}
+    @media(max-width:520px){.nav{height:66px}.actions .primary{padding:0 13px}.hero h1{font-size:48px}.lead{font-size:16px}.trust-row{gap:18px}.section-head h2,.cta h2{font-size:29px}}
   </style>
 </head>
 <body>
 <header><div class="container nav">
   <a class="logo" href="index.html">Web3<span>Market</span></a>
-  <nav><a href="#marketplace">Marketplace</a><a href="#how">How it works</a><a href="login.html">Login</a></nav>
-  <div class="nav-actions"><a class="btn" href="login.html">Login</a><a class="btn btn-primary" href="register.html">Create account</a></div>
+  <nav><a href="#marketplace">Marketplace</a><a href="#why">Why Web3Market</a><a href="#how">How it works</a><a href="login.html">Login</a></nav>
+  <div class="actions"><a class="btn" href="login.html">Login</a><a class="btn primary" href="register.html">Create account</a></div>
 </div></header>
 <main>
-<section class="hero"><div class="container">
-  <div class="badge"><span class="dot"></span>THE FIRST FULLY ON-CHAIN MARKETPLACE</div>
-  <h1>Buy. <span>Sell.</span> Build. <strong>Own.</strong></h1>
-  <p>Web3Market is a decentralized marketplace designed for the Web3 economy — connecting buyers and sellers with transparent, blockchain-powered transactions.</p>
-  <div class="hero-actions"><a class="btn btn-primary" href="register.html">Start selling</a><a class="btn" href="#marketplace">Explore marketplace</a></div>
-</div></section>
-<section class="section" id="marketplace"><div class="container">
-  <h2 class="section-title">Built for the Web3 economy</h2>
-  <p class="section-sub">A clean, secure foundation for buying and selling digital products and services.</p>
-  <div class="grid">
-    <article class="card"><div class="icon">⛓️</div><h3>On-chain ready</h3><p>Designed around blockchain-based ownership and transparent transactions, starting with BNB Chain.</p></article>
-    <article class="card"><div class="icon">🛡️</div><h3>Secure accounts</h3><p>Create a verified account with email authentication, then connect your Web3 wallet when you're ready.</p></article>
-    <article class="card"><div class="icon">🌐</div><h3>Global marketplace</h3><p>Built to connect buyers and sellers worldwide through one modern Web3 marketplace.</p></article>
-  </div>
-</div></section>
-<section class="section" id="how"><div class="container">
-  <h2 class="section-title">Simple by design</h2>
-  <p class="section-sub">Create your account, choose your role, and start using the marketplace.</p>
-  <div class="grid">
-    <article class="card"><div class="icon">01</div><h3>Create an account</h3><p>Register as a buyer or seller using your email and verify your account.</p></article>
-    <article class="card"><div class="icon">02</div><h3>Connect your wallet</h3><p>After verification, connect a compatible Web3 wallet for blockchain features.</p></article>
-    <article class="card"><div class="icon">03</div><h3>Trade</h3><p>Discover products and services or publish your own offers as the marketplace grows.</p></article>
-  </div>
-</div></section>
+  <section class="hero"><div class="container">
+    <div class="eyebrow"><span class="live"></span>THE MARKETPLACE FOR WEB3</div>
+    <h1>Buy. Sell. Build.<br><span class="grad">Own the Web3 economy.</span></h1>
+    <p class="lead">Web3Market is a modern marketplace for discovering and selling Web3 products and services — built for transparent, global digital commerce.</p>
+    <div class="hero-buttons"><a class="btn primary" href="register.html">Start selling</a><a class="btn" href="#marketplace">Explore marketplace</a></div>
+  </div></section>
+  <div class="trust"><div class="container trust-row"><span>Web3 native</span><span>Global</span><span>Transparent</span><span>Secure by design</span><span>BNB Chain ready</span></div></div>
+  <section id="marketplace"><div class="container"><div class="section-head"><h2>One marketplace. Two sides.</h2><p>A focused experience for people buying Web3 products and services and creators building the next generation of digital commerce.</p></div>
+    <div class="split">
+      <div class="feature"><div class="num">WEB3MARKET</div><h2>Built to make Web3 commerce simple.</h2><p>Start with a secure account, discover what you need, publish what you build, and move toward blockchain-powered transactions as the platform grows.</p><div class="checks"><div class="check"><b>✓</b> Buyer and seller experiences are separated</div><div class="check"><b>✓</b> Email authentication with account verification</div><div class="check"><b>✓</b> Wallet connection ready for on-chain features</div><div class="check"><b>✓</b> Designed for global Web3 commerce</div></div></div>
+      <div class="role-card"><div class="role"><strong>Buyer</strong><span>Discover products and services, manage purchases and track your marketplace activity.</span></div><div class="role"><strong>Seller</strong><span>Build your storefront, publish offers and manage sales from a dedicated workspace.</span></div><div class="role"><strong>On-chain ready</strong><span>Designed to support transparent blockchain transactions starting with BNB Chain.</span></div><div class="role"><strong>Global by default</strong><span>A digital marketplace designed to connect Web3 users across borders.</span></div></div>
+    </div>
+  </div></section>
+  <section id="why"><div class="container"><div class="section-head"><h2>Why Web3Market</h2><p>Professional infrastructure without making the experience complicated.</p></div><div class="cards"><article class="card"><div class="num">01 — SECURITY</div><h3>Account-first architecture</h3><p>Authentication and profiles are designed as separate layers so buyer and seller data can remain isolated.</p></article><article class="card"><div class="num">02 — WEB3</div><h3>Blockchain ready</h3><p>Wallet and on-chain functionality can be connected after account verification without making registration difficult.</p></article><article class="card"><div class="num">03 — SCALE</div><h3>Built to grow</h3><p>A clean marketplace foundation that can expand into payments, escrow, listings and additional networks.</p></article></div></div></section>
+  <section id="how"><div class="container"><div class="section-head"><h2>Simple by design</h2><p>Three steps from account creation to Web3 commerce.</p></div><div class="cards"><article class="card"><div class="num">01</div><h3>Create your account</h3><p>Register with email and choose whether you are joining as a Buyer or Seller.</p></article><article class="card"><div class="num">02</div><h3>Enter your workspace</h3><p>Your role determines your dedicated dashboard and keeps the experience focused.</p></article><article class="card"><div class="num">03</div><h3>Start trading</h3><p>Discover or publish Web3 products and services as the marketplace ecosystem expands.</p></article></div></div></section>
+  <section><div class="container"><div class="cta"><h2>Ready to enter the Web3 marketplace?</h2><p>Create your account and start building your presence on Web3Market.</p><a class="btn primary" href="register.html">Create your account</a><a class="btn" href="login.html">I already have an account</a></div></div></section>
 </main>
-<footer><div class="container footer-inner"><div>© 2026 Web3Market. All rights reserved.</div><div>The marketplace for Web3.</div></div></footer>
+<footer><div class="container foot"><div>© 2026 Web3Market. All rights reserved.</div><div>The marketplace for Web3.</div></div></footer>
 </body>
 </html>
