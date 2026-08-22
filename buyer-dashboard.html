@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Buyer Center | Web3Market</title>
+<link rel="stylesheet" href="css/marketplace.css">
+<style>
+:root{font-family:Inter,system-ui,-apple-system,sans-serif;color:#111827;background:#f8fafc}*{box-sizing:border-box}body{margin:0;background:#f8fafc}.top{height:68px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;padding:0 24px}.brand{font-weight:900;text-decoration:none;color:#111827}.mark{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:9px;background:#2563eb;color:#fff;font-size:11px;margin-right:8px}.nav{display:flex;gap:18px}.nav a{font-size:13px;font-weight:800;color:#64748b;text-decoration:none}.wrap{max-width:1120px;margin:auto;padding:30px 18px}.hero{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:25px;margin-bottom:18px}.eyebrow{font-size:11px;font-weight:900;letter-spacing:1.4px;color:#2563eb;text-transform:uppercase}.hero h1{margin:7px 0;font-size:30px}.hero p{margin:0;color:#64748b}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}.card,.panel{background:#fff;border:1px solid #e5e7eb;border-radius:15px;padding:18px}.label{font-size:10px;font-weight:900;color:#64748b}.value{font-size:25px;font-weight:900;margin-top:7px}.layout{display:grid;grid-template-columns:1.5fr .8fr;gap:16px}.panel{margin-bottom:16px}.panel h2{font-size:15px;margin:0 0 13px}.row{padding:13px 0;border-top:1px solid #eef2f7;display:flex;justify-content:space-between;gap:12px}.row:first-of-type{border-top:0}.muted{font-size:11px;color:#64748b}.badge{font-size:10px;font-weight:900;padding:5px 8px;border-radius:99px;background:#eff6ff;color:#1d4ed8;height:max-content}.notice{padding:12px 14px;border-radius:11px;background:#eff6ff;border:1px solid #dbeafe;color:#1e40af;font-size:12px;font-weight:700;margin-bottom:18px}.btn{display:inline-block;padding:10px 13px;border:1px solid #e5e7eb;border-radius:9px;text-decoration:none;color:#334155;font-size:11px;font-weight:800}.primary{background:#2563eb;border-color:#2563eb;color:#fff}.actions{display:flex;gap:8px;margin-top:16px}.empty{padding:16px;border:1px dashed #d1d5db;border-radius:10px;color:#64748b;font-size:12px}@media(max-width:800px){.nav{display:none}.grid{grid-template-columns:1fr 1fr}.layout{grid-template-columns:1fr}}@media(max-width:520px){.grid{grid-template-columns:1fr}.top{padding:0 14px}.wrap{padding:20px 12px}}
+</style>
+</head>
+<body>
+<header class="top"><a class="brand" href="marketplace.html"><span class="mark">W3</span>Web3Market</a><nav class="nav"><a href="marketplace.html">Marketplace</a><a href="buyer-dashboard.html">Buyer Center</a><a href="verification.html">Profile</a></nav><a class="btn" href="index.html">Home</a></header>
+<main class="wrap" id="buyerRoot"><div class="notice">Authenticating buyer account…</div></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js?v=20260823-2"></script>
+<script src="js/role-guard.js?v=20260823-2"></script>
+<script src="js/buyer-dashboard.js?v=20260823-2"></script>
+</body>
+</html>
