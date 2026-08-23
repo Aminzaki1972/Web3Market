@@ -23,6 +23,11 @@
   function value(name){const el=form.elements.namedItem(name);return el?String(el.value||'').trim():'';}
   function set(name,v){const el=form.elements.namedItem(name);if(!el||v===null||v===undefined)return;if(el.type==='checkbox')el.checked=Boolean(v);else el.value=String(v);}
   function checks(name,v){const a=Array.isArray(v)?v:String(v||'').split(',').map(x=>x.trim()).filter(Boolean);form.querySelectorAll('input[name="'+name+'"]').forEach(x=>x.checked=a.includes(x.value));}
+  function normalizeDate(v){
+    const s=String(v??'').trim();
+    if(!s)return null;
+    return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:null;
+  }
   function fill(p){
     const fields=['title','project_url','website_url','short_description','full_description','description','project_status','year_created','logo_url','demo_url','app_store_url','documentation_url','facebook_url','twitter_url','x_url','github_url','linkedin_url','instagram_url','telegram_url','discord_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','blockchain','tech_stack','technology_stack','development_stage','target_markets','business_model','competitive_advantage','competitors','market_opportunity','has_revenue','revenue_period','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','sale_type','transfer_terms','reason_for_sale','transfer_period','domain_ownership','github_ownership','business_verification','identity_verification','ownership_declaration','asking_price','currency','currency_code','primary_type'];
     fields.forEach(k=>{if(Object.prototype.hasOwnProperty.call(p,k))set(k,p[k]);});
@@ -49,10 +54,12 @@
   function collect(){
     const p={};
     form.querySelectorAll('input[name],textarea[name],select[name]').forEach(el=>{if(['project_types','services','audience','assets'].includes(el.name))return;if(el.name==='users_count')return;p[el.name]=el.type==='number'?(el.value===''?null:Number(el.value)):el.value;});
+    // Date fields are optional. Never send an empty string to PostgreSQL date columns.
+    if(Object.prototype.hasOwnProperty.call(p,'last_active_date'))p.last_active_date=normalizeDate(p.last_active_date);
     p.description=value('full_description')||value('description')||value('short_description');p.website_url=value('project_url')||value('website_url');p.full_description=value('full_description')||p.description;p.short_description=value('short_description');
     p.project_types=[...form.querySelectorAll('input[name="project_types"]:checked')].map(x=>x.value);p.services=[...form.querySelectorAll('input[name="services"]:checked')].map(x=>x.value);p.target_audience=[...form.querySelectorAll('input[name="audience"]:checked')].map(x=>x.value);p.assets=[...form.querySelectorAll('input[name="assets"]:checked')].map(x=>x.value);
     p.social_accounts={facebook_url:p.facebook_url,x_url:p.x_url||p.twitter_url,github_url:p.github_url,linkedin_url:p.linkedin_url,instagram_url:p.instagram_url,telegram_url:p.telegram_url,discord_url:p.discord_url,youtube_url:p.youtube_url,tiktok_url:p.tiktok_url,reddit_url:p.reddit_url,medium_url:p.medium_url,other_social_url:p.other_social_url};
-    p.performance={active_users:p.active_users,customers_count:p.customers_count,monthly_visits:p.monthly_visits,total_sales:p.total_sales,monthly_volume:p.monthly_volume,conversion_rate:p.conversion_rate,last_active_date:p.last_active_date,traffic_sources:p.traffic_sources};
+    p.performance={active_users:p.active_users,customers_count:p.customers_count,monthly_visits:p.monthly_visits,total_sales:p.total_sales,monthly_volume:p.monthly_volume,conversion_rate:p.conversion_rate,last_active_date:normalizeDate(p.last_active_date),traffic_sources:p.traffic_sources};
     p.financials={has_revenue:p.has_revenue,revenue_period:p.revenue_period,monthly_revenue:p.monthly_revenue,yearly_revenue:p.yearly_revenue,monthly_net_profit:p.monthly_net_profit||p.monthly_profit,yearly_net_profit:p.yearly_net_profit||p.yearly_profit,monthly_expenses:p.monthly_expenses,growth_rate:p.growth_rate,revenue_sources:p.revenue_sources,financial_notes:p.financial_notes};
     delete p.currency_code;p.currency=value('currency')||'USD';p.price=value('asking_price')===''?null:Number(value('asking_price'));p.status='draft';return p;
   }
