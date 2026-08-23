@@ -43,6 +43,14 @@
  <div class="panel" id="messages"><h2>Messages</h2><div class="empty">No new messages.</div></div>
  </aside></section>`;
  const sideWallet=document.getElementById('sideWallet');if(sideWallet)sideWallet.textContent=walletLabel;
- root.querySelectorAll('[data-accept]').forEach(btn=>btn.addEventListener('click',async()=>{const id=btn.dataset.accept;if(!confirm('Accept this 80 USD offer and create the deal?'))return;btn.disabled=true;try{const {error}=await sb.from('deals').update({status:'accepted',updated_at:new Date().toISOString()}).eq('id',id).eq('seller_id',user.id).eq('status','pending');if(error)throw error;alert('Offer accepted. The deal is now ready for the next escrow step.');location.reload();}catch(e){btn.disabled=false;alert(e.message||'Unable to accept offer.')}}));
- root.querySelectorAll('[data-reject]').forEach(btn=>btn.addEventListener('click',async()=>{const id=btn.dataset.reject;if(!confirm('Reject this offer?'))return;btn.disabled=true;try{const {error}=await sb.from('deals').update({status:'rejected',updated_at:new Date().toISOString()}).eq('id',id).eq('seller_id',user.id).eq('status','pending');if(error)throw error;alert('Offer rejected.');location.reload();}catch(e){btn.disabled=false;alert(e.message||'Unable to reject offer.')}}));
+ async function offerAction(id,action){
+   const {data:{session}}=await sb.auth.getSession();
+   if(!session) throw new Error('Please sign in again.');
+   const r=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/seller-offer-action',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({deal_id:id,action})});
+   const j=await r.json().catch(()=>({error:'Invalid server response'}));
+   if(!r.ok||!j.ok) throw new Error(j.error||'Offer action failed');
+   return j;
+ }
+ root.querySelectorAll('[data-accept]').forEach(btn=>btn.addEventListener('click',async()=>{const id=btn.dataset.accept;if(!confirm('Accept this 80 USD offer and create the deal?'))return;btn.disabled=true;try{await offerAction(id,'accept');alert('Offer accepted successfully.');location.reload();}catch(e){btn.disabled=false;alert(e.message||'Unable to accept offer.')}}));
+ root.querySelectorAll('[data-reject]').forEach(btn=>btn.addEventListener('click',async()=>{const id=btn.dataset.reject;if(!confirm('Reject this offer?'))return;btn.disabled=true;try{await offerAction(id,'reject');alert('Offer rejected.');location.reload();}catch(e){btn.disabled=false;alert(e.message||'Unable to reject offer.')}}));
 })();
