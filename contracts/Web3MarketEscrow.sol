@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 /// @title Web3Market Escrow
-/// @notice Native-XPT escrow for a single Web3Market deal. Testnet-first design.
+/// @notice Native-XPT escrow for Web3Market deals. Testnet-first design.
 /// @dev Deploy on Xphere Testnet (chainId 1998991) using a disposable testnet deployer.
 contract Web3MarketEscrow {
     enum Status { Created, Funded, Delivered, Released, Refunded, Disputed }
@@ -24,7 +24,6 @@ contract Web3MarketEscrow {
     uint256 public platformFeeBps;
     uint256 public accumulatedFees;
     uint256 public nextDealId;
-
     mapping(uint256 => Deal) public deals;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -52,23 +51,24 @@ contract Web3MarketEscrow {
         emit ArbiterChanged(address(0), _arbiter);
     }
 
-    function createDeal(address seller) external payable returns (uint256 dealId) {
+    /// @notice Creates the on-chain escrow record without moving funds.
+    function createDeal(address seller, uint256 amount) external returns (uint256 dealId) {
         require(seller != address(0) && seller != msg.sender, "Invalid seller");
-        require(msg.value > 0, "Amount required");
+        require(amount > 0, "Amount required");
         dealId = nextDealId++;
         deals[dealId] = Deal({
             buyer: msg.sender,
             seller: seller,
-            amount: msg.value,
+            amount: amount,
             createdAt: uint64(block.timestamp),
-            fundedAt: uint64(block.timestamp),
+            fundedAt: 0,
             deliveredAt: 0,
-            status: Status.Funded
+            status: Status.Created
         });
-        emit DealCreated(dealId, msg.sender, seller, msg.value);
-        emit DealFunded(dealId, msg.value);
+        emit DealCreated(dealId, msg.sender, seller, amount);
     }
 
+    /// @notice Buyer deposits exactly the agreed native XPT amount.
     function fundDeal(uint256 dealId) external payable {
         Deal storage d = deals[dealId];
         require(d.buyer != address(0), "Deal not found");
@@ -103,7 +103,7 @@ contract Web3MarketEscrow {
         require(block.timestamp >= uint256(d.fundedAt) + fundingTimeout, "Timeout not reached");
         uint256 amount = d.amount;
         d.status = Status.Refunded;
-        (bool ok,) = d.buyer.call{value: amount}("");
+        (bool ok,) = payable(d.buyer).call{value: amount}("");
         require(ok, "Refund failed");
         emit DealRefunded(dealId, amount);
     }
@@ -127,7 +127,7 @@ contract Web3MarketEscrow {
         require(d.status == Status.Disputed, "Not disputed");
         uint256 amount = d.amount;
         d.status = Status.Refunded;
-        (bool ok,) = d.buyer.call{value: amount}("");
+        (bool ok,) = payable(d.buyer).call{value: amount}("");
         require(ok, "Refund failed");
         emit DealRefunded(dealId, amount);
     }
@@ -174,5 +174,5 @@ contract Web3MarketEscrow {
         emit DealReleased(dealId, sellerAmount, fee);
     }
 
-    receive() external payable { revert("Use createDeal or fundDeal"); }
+    receive() external payable { revert("Use fundDeal"); }
 }
