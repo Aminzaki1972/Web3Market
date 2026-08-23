@@ -1,99 +1,75 @@
 "use strict";
 (function(){
- const form=document.querySelector('#projectForm');
- if(!form)return;
- const out=document.querySelector('#formStatus');
- const sb=()=>window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase||null;
- const val=(fd,n)=>{const v=fd.get(n);return v===null?'':String(v).trim()};
- const num=(fd,n)=>{const v=val(fd,n);return v===''?null:Number(v)};
- const projectIdKey='web3market_project_id';
- let currentProjectId=localStorage.getItem(projectIdKey)||'';
- const numeric=['year_created','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','active_users','customers_count','monthly_visits','total_sales','monthly_volume','asking_price'];
- const scalar=['title','project_url','website_url','short_description','full_description','project_status','year_created','logo_url','demo_url','app_store_url','documentation_url','facebook_url','twitter_url','x_url','github_url','linkedin_url','instagram_url','telegram_url','discord_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','blockchain','tech_stack','technology_stack','development_stage','target_markets','business_model','competitive_advantage','competitors','market_opportunity','has_revenue','revenue_period','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','sale_type','transfer_terms','reason_for_sale','transfer_period','domain_ownership','github_ownership','business_verification','identity_verification','ownership_declaration','currency','currency_code','asking_price','project_types_text','audience','services_text'];
- const setField=(name,value)=>{const el=form.elements.namedItem(name); if(!el||value===undefined||value===null)return; if(el.type==='checkbox'||el.type==='radio')el.checked=!!value; else el.value=String(value);};
- const setChecks=(name,values)=>{const arr=Array.isArray(values)?values:String(values||'').split(',').map(x=>x.trim()).filter(Boolean); form.querySelectorAll('input[name="'+name+'"]').forEach(el=>el.checked=arr.includes(el.value));};
- const jsonObj=v=>v&&typeof v==='object'?v:{};
- async function waitForClient(){
-   for(let i=0;i<30;i++){const c=sb(); if(c)return c; await new Promise(r=>setTimeout(r,250));}
-   return null;
- }
- async function loadDraft(){
-  const client=await waitForClient();
-  if(!client){if(out)out.textContent='Database connection unavailable.';return;}
-  const {data:{user},error:ue}=await client.auth.getUser();
-  if(ue||!user){if(out)out.textContent='Please sign in before listing a project.';return;}
-  let project=null,error=null;
-  if(currentProjectId){
-    const r=await client.from('projects').select('*').eq('id',currentProjectId).eq('owner_id',user.id).maybeSingle(); project=r.data; error=r.error;
+  const form=document.querySelector('#projectForm');
+  if(!form)return;
+  const out=document.querySelector('#formStatus');
+  const PROJECT_ID_KEY='web3market_project_id';
+  let currentProjectId=localStorage.getItem(PROJECT_ID_KEY)||'';
+  const SUPABASE_URL='https://hzhqlexnhtukfljcvnyd.supabase.co';
+  const SUPABASE_KEY='sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI';
+
+  function client(){
+    return window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase||null;
   }
-  if(!project){
-    const r=await client.from('projects').select('*').eq('owner_id',user.id).eq('status','draft').order('created_at',{ascending:false}).limit(1); project=Array.isArray(r.data)?r.data[0]:r.data; error=r.error;
+  function getClient(){
+    const existing=client();
+    if(existing)return existing;
+    if(window.supabase?.createClient){
+      try{return window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'web3market-auth'}});}catch(e){console.error(e);}
+    }
+    return null;
   }
-  if(error||!project){if(out)out.textContent='No saved draft found.';return;}
-  currentProjectId=project.id; localStorage.setItem(projectIdKey,project.id);
-  scalar.forEach(k=>{if(Object.prototype.hasOwnProperty.call(project,k))setField(k,project[k]);});
-  if(!project.project_url&&project.website_url)setField('project_url',project.website_url);
-  if(!project.short_description||!project.full_description){
-    const description=String(project.description||'').trim();
-    const parts=description.split(/\n\s*\n/);
-    if(!project.short_description)setField('short_description',parts[0]||description);
-    if(!project.full_description)setField('full_description',parts.slice(1).join('\n\n')||description);
+  async function waitClient(){for(let i=0;i<40;i++){const c=getClient();if(c)return c;await new Promise(r=>setTimeout(r,250));}return null;}
+  function value(name){const el=form.elements.namedItem(name);return el?String(el.value||'').trim():'';}
+  function set(name,v){const el=form.elements.namedItem(name);if(!el||v===null||v===undefined)return;if(el.type==='checkbox')el.checked=Boolean(v);else el.value=String(v);}
+  function checks(name,v){const a=Array.isArray(v)?v:String(v||'').split(',').map(x=>x.trim()).filter(Boolean);form.querySelectorAll('input[name="'+name+'"]').forEach(x=>x.checked=a.includes(x.value));}
+  function fill(p){
+    const fields=['title','project_url','website_url','short_description','full_description','description','project_status','year_created','logo_url','demo_url','app_store_url','documentation_url','facebook_url','twitter_url','x_url','github_url','linkedin_url','instagram_url','telegram_url','discord_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','blockchain','tech_stack','technology_stack','development_stage','target_markets','business_model','competitive_advantage','competitors','market_opportunity','has_revenue','revenue_period','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','sale_type','transfer_terms','reason_for_sale','transfer_period','domain_ownership','github_ownership','business_verification','identity_verification','ownership_declaration','asking_price','currency','currency_code','primary_type'];
+    fields.forEach(k=>{if(Object.prototype.hasOwnProperty.call(p,k))set(k,p[k]);});
+    if(!p.project_url&&p.website_url)set('project_url',p.website_url);
+    if(!p.full_description&&p.description)set('full_description',p.description);
+    if(!p.description&&p.full_description)set('description',p.full_description);
+    const f=p.financials&&typeof p.financials==='object'?p.financials:{};
+    const perf=p.performance&&typeof p.performance==='object'?p.performance:{};
+    const social=p.social_accounts&&typeof p.social_accounts==='object'?p.social_accounts:{};
+    Object.keys(f).forEach(k=>set(k,f[k]));Object.keys(perf).forEach(k=>set(k,perf[k]));Object.keys(social).forEach(k=>set(k,social[k]));
+    checks('project_types',p.project_types||p.project_types_text);checks('services',p.services||p.services_text);checks('audience',p.target_audience||p.audience);checks('assets',p.assets);
   }
-  const financials=jsonObj(project.financials); Object.keys(financials).forEach(k=>setField(k,financials[k]));
-  const performance=jsonObj(project.performance); Object.keys(performance).forEach(k=>setField(k,performance[k]));
-  const social=jsonObj(project.social_accounts); Object.keys(social).forEach(k=>setField(k,social[k]));
-  setChecks('project_types',project.project_types||project.project_types_text);
-  setChecks('services',project.services||project.services_text);
-  setChecks('audience',project.target_audience||project.audience);
-  setChecks('assets',project.assets);
-  if(out)out.textContent='Saved draft loaded.';
- }
- function collect(){
-  const fd=new FormData(form),p={};
-  scalar.forEach(k=>{const el=form.elements.namedItem(k);if(!el)return;if(numeric.includes(k))p[k]=num(fd,k);else if(k==='negotiable')p[k]=!!el.checked;else p[k]=val(fd,k);});
-  p.owner_id=undefined;
-  p.description=(val(fd,'full_description')||val(fd,'description')||val(fd,'short_description')).trim();
-  p.website_url=val(fd,'project_url')||val(fd,'website_url');
-  p.full_description=val(fd,'full_description')||p.description;
-  p.short_description=val(fd,'short_description');
-  p.project_types=[...form.querySelectorAll('input[name="project_types"]:checked')].map(x=>x.value);
-  p.services=[...form.querySelectorAll('input[name="services"]:checked')].map(x=>x.value);
-  p.target_audience=[...form.querySelectorAll('input[name="audience"]:checked')].map(x=>x.value);
-  p.assets=[...form.querySelectorAll('input[name="assets"]:checked')].map(x=>x.value);
-  p.social_accounts={facebook_url:p.facebook_url,x_url:p.x_url||p.twitter_url,github_url:p.github_url,linkedin_url:p.linkedin_url,instagram_url:p.instagram_url,telegram_url:p.telegram_url,discord_url:p.discord_url,youtube_url:p.youtube_url,tiktok_url:p.tiktok_url,reddit_url:p.reddit_url,medium_url:p.medium_url,other_social_url:p.other_social_url};
-  p.performance={active_users:p.active_users,customers_count:p.customers_count,monthly_visits:p.monthly_visits,total_sales:p.total_sales,monthly_volume:p.monthly_volume,conversion_rate:p.conversion_rate,last_active_date:p.last_active_date,traffic_sources:p.traffic_sources};
-  p.financials={has_revenue:p.has_revenue,revenue_period:p.revenue_period,monthly_revenue:p.monthly_revenue,yearly_revenue:p.yearly_revenue,monthly_net_profit:p.monthly_net_profit||p.monthly_profit,yearly_net_profit:p.yearly_net_profit||p.yearly_profit,monthly_expenses:p.monthly_expenses,growth_rate:p.growth_rate,revenue_sources:p.revenue_sources,financial_notes:p.financial_notes};
-  delete p.owner_id; delete p.currency_code; delete p.currency; delete p.project_types_text; delete p.services_text; delete p.audience; delete p.description; delete p.users_count;
-  p.currency=val(fd,'currency')||val(fd,'currency_code')||'USD'; p.price=num(fd,'asking_price'); p.status='draft';
-  return p;
- }
- async function saveDraft(){
-  const client=await waitForClient();
-  if(!client){if(out)out.textContent='Database connection unavailable.';return null;}
-  const {data:{user},error:ue}=await client.auth.getUser();
-  if(ue||!user){if(out)out.textContent='Please sign in before listing a project.';return null;}
-  const fd=new FormData(form),title=val(fd,'title'),short=val(fd,'short_description'),full=val(fd,'full_description')||val(fd,'description');
-  if(!title||short.length<20||full.length<50){if(out)out.textContent='Please complete the required project information.';return null;}
-  const payload=collect();payload.owner_id=user.id;
-  if(out)out.textContent='Saving draft…';
-  let result=currentProjectId?await client.from('projects').update(payload).eq('id',currentProjectId).eq('owner_id',user.id).select('id').single():await client.from('projects').insert(payload).select('id').single();
-  if(result.error){console.error(result.error);if(out)out.textContent=result.error.message||'Unable to save listing.';return null;}
-  currentProjectId=result.data.id;localStorage.setItem(projectIdKey,currentProjectId);if(out)out.textContent='Draft saved successfully.';return currentProjectId;
- }
- async function submitForReview(){
-  const id=await saveDraft();if(!id)return;
-  const client=await waitForClient();if(!client)return;
-  if(out)out.textContent='Submitting for AI Review…';
-  const {data,error}=await client.functions.invoke('ai-review-project',{body:{project_id:id}});
-  if(error){console.error(error);if(out)out.textContent='AI Review could not start: '+(error.message||'unknown error');return;}
-  const r=data?.result||{};
-  if(out)out.innerHTML=`AI Review completed. Score: <strong>${r.ai_score??0}/100</strong> — ${r.ai_status||'completed'}.`;
-  let banner=document.getElementById('reviewResult');if(!banner){banner=document.createElement('div');banner.id='reviewResult';banner.className='hint';form.after(banner);}
-  banner.textContent=r.ai_status==='recommended_for_admin_review'?'AI Review: Recommended for admin review.':'AI Review: Changes are needed before admin review.';
- }
- form.addEventListener('submit',async e=>{e.preventDefault();await saveDraft();});
- let reviewBtn=form.querySelector('[data-submit-review]')||document.querySelector('[data-submit-review]');
- if(!reviewBtn){reviewBtn=document.createElement('button');reviewBtn.type='button';reviewBtn.className='btn btn-primary';reviewBtn.textContent='Submit for Review';reviewBtn.setAttribute('data-submit-review','');const actions=form.querySelector('.actions')||form.lastElementChild;(actions||form).appendChild(reviewBtn);}
- reviewBtn.addEventListener('click',submitForReview);
- loadDraft().catch(err=>{console.error(err);if(out)out.textContent='Could not load saved draft.';});
+  async function loadDraft(){
+    const c=await waitClient();
+    if(!c){out.textContent='Database connection unavailable.';return;}
+    const u=await c.auth.getUser();
+    if(u.error||!u.data?.user){out.textContent='Please sign in before listing a project.';return;}
+    const user=u.data.user;let p=null;
+    if(currentProjectId){const r=await c.from('projects').select('*').eq('id',currentProjectId).eq('owner_id',user.id).maybeSingle();p=r.data||null;}
+    if(!p){const r=await c.from('projects').select('*').eq('owner_id',user.id).eq('status','draft').order('updated_at',{ascending:false}).limit(1);p=r.data?.[0]||null;}
+    if(!p){out.textContent='No saved draft found.';return;}
+    currentProjectId=p.id;localStorage.setItem(PROJECT_ID_KEY,p.id);fill(p);out.textContent='Saved draft loaded successfully.';
+  }
+  function collect(){
+    const p={};
+    form.querySelectorAll('input[name],textarea[name],select[name]').forEach(el=>{if(['project_types','services','audience','assets'].includes(el.name))return;if(el.name==='users_count')return;p[el.name]=el.type==='number'?(el.value===''?null:Number(el.value)):el.value;});
+    p.description=value('full_description')||value('description')||value('short_description');p.website_url=value('project_url')||value('website_url');p.full_description=value('full_description')||p.description;p.short_description=value('short_description');
+    p.project_types=[...form.querySelectorAll('input[name="project_types"]:checked')].map(x=>x.value);p.services=[...form.querySelectorAll('input[name="services"]:checked')].map(x=>x.value);p.target_audience=[...form.querySelectorAll('input[name="audience"]:checked')].map(x=>x.value);p.assets=[...form.querySelectorAll('input[name="assets"]:checked')].map(x=>x.value);
+    p.social_accounts={facebook_url:p.facebook_url,x_url:p.x_url||p.twitter_url,github_url:p.github_url,linkedin_url:p.linkedin_url,instagram_url:p.instagram_url,telegram_url:p.telegram_url,discord_url:p.discord_url,youtube_url:p.youtube_url,tiktok_url:p.tiktok_url,reddit_url:p.reddit_url,medium_url:p.medium_url,other_social_url:p.other_social_url};
+    p.performance={active_users:p.active_users,customers_count:p.customers_count,monthly_visits:p.monthly_visits,total_sales:p.total_sales,monthly_volume:p.monthly_volume,conversion_rate:p.conversion_rate,last_active_date:p.last_active_date,traffic_sources:p.traffic_sources};
+    p.financials={has_revenue:p.has_revenue,revenue_period:p.revenue_period,monthly_revenue:p.monthly_revenue,yearly_revenue:p.yearly_revenue,monthly_net_profit:p.monthly_net_profit||p.monthly_profit,yearly_net_profit:p.yearly_net_profit||p.yearly_profit,monthly_expenses:p.monthly_expenses,growth_rate:p.growth_rate,revenue_sources:p.revenue_sources,financial_notes:p.financial_notes};
+    delete p.currency_code;p.currency=value('currency')||'USD';p.price=value('asking_price')===''?null:Number(value('asking_price'));p.status='draft';return p;
+  }
+  async function saveDraft(){
+    const c=await waitClient();if(!c){out.textContent='Database connection unavailable.';return null;}
+    const u=await c.auth.getUser();if(u.error||!u.data?.user){out.textContent='Please sign in before listing a project.';return null;}const uid=u.data.user.id;
+    if(!value('title')||value('short_description').length<20||(value('full_description')||value('description')).length<50){out.textContent='Please complete the required project information.';return null;}
+    const payload=collect();payload.owner_id=uid;out.textContent='Saving draft…';
+    const r=currentProjectId?await c.from('projects').update(payload).eq('id',currentProjectId).eq('owner_id',uid).select('id').single():await c.from('projects').insert(payload).select('id').single();
+    if(r.error){console.error(r.error);out.textContent=r.error.message||'Unable to save listing.';return null;}currentProjectId=r.data.id;localStorage.setItem(PROJECT_ID_KEY,currentProjectId);out.textContent='Draft saved successfully.';return currentProjectId;
+  }
+  async function submitForReview(){
+    const id=await saveDraft();if(!id)return;const c=await waitClient();if(!c)return;out.textContent='Submitting for AI Review…';
+    const r=await c.functions.invoke('ai-review-project',{body:{project_id:id}});if(r.error){out.textContent='AI Review could not start: '+(r.error.message||'unknown error');return;}
+    const x=r.data?.result||{};out.innerHTML='AI Review completed. Score: <strong>'+(x.ai_score??0)+'/100</strong> — '+(x.ai_status||'completed')+'.';
+  }
+  form.addEventListener('submit',e=>{e.preventDefault();saveDraft();});
+  let b=form.querySelector('[data-submit-review]');if(!b){b=document.createElement('button');b.type='button';b.className='btn btn-primary';b.textContent='Submit for Review';b.dataset.submitReview='';(form.querySelector('.actions')||form).appendChild(b);}b.addEventListener('click',submitForReview);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadDraft,{once:true});else loadDraft();
 })();
