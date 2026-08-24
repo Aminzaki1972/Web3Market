@@ -5,51 +5,18 @@
   const SUPABASE_PUBLISHABLE_KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
   const STORAGE_KEY="web3market-auth";
   let client=null;
-  function initialize(){
-    if(client)return client;
-    if(!window.supabase||typeof window.supabase.createClient!=="function")return null;
-    try{
-      client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:STORAGE_KEY}});
-      window.Web3MarketSupabase={client:client,supabase:client,getClient:function(){return client;},initialize:initialize,getSession:getSession,getUser:getUser,isInitialized:function(){return !!client;}};
-      window.web3marketSupabase=client;window.supabaseClient=client;return client;
-    }catch(e){console.error("Web3Market Supabase:",e);return null;}
-  }
+  function initialize(){if(client)return client;if(!window.supabase||typeof window.supabase.createClient!=="function")return null;try{client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:STORAGE_KEY}});window.Web3MarketSupabase={client:client,supabase:client,getClient:function(){return client;},initialize:initialize,getSession:getSession,getUser:getUser,isInitialized:function(){return !!client;}};window.web3marketSupabase=client;window.supabaseClient=client;return client;}catch(e){console.error("Web3Market Supabase:",e);return null;}}
   function getClient(){return client||initialize();}
   async function getSession(){const s=getClient();if(!s)return null;try{const r=await s.auth.getSession();return r.data&&r.data.session||null;}catch(e){return null;}}
   async function getUser(){const s=getClient();if(!s)return null;try{const r=await s.auth.getUser();return r.data&&r.data.user||null;}catch(e){return null;}}
-
+  function addStyle(){if(document.getElementById("web3market-ticker-style"))return;const s=document.createElement("style");s.id="web3market-ticker-style";s.textContent="#web3market-news-ticker,#web3market-price-ticker{display:block;width:100%;overflow:hidden;background:#141820;color:#d8dde6;border-radius:10px;margin:4px 0 8px;height:34px;line-height:34px;white-space:nowrap;box-shadow:0 4px 14px rgba(20,24,32,.08)}#web3market-news-ticker .wm-track,#web3market-price-ticker .wm-price-track{display:inline-flex;width:max-content}#web3market-news-ticker .wm-track{animation:wmTicker 42s linear infinite}#web3market-news-ticker a{color:#d8dde6;text-decoration:none;font-size:11px;font-weight:700;padding:0 18px}#web3market-news-ticker a:hover{color:#fff}#web3market-news-ticker b{color:#635bff;padding:0 4px}#web3market-price-ticker{background:#fff;border:1px solid #e3e6eb;color:#202631}#web3market-price-ticker .wm-price-track{gap:28px;align-items:center;padding:0 18px;min-width:100%;justify-content:center}#web3market-price-ticker .coin{font-size:11px;font-weight:850}#web3market-price-ticker .coin span{margin-left:5px;color:#596270;font-weight:750}.up{color:#168253!important}.down{color:#c13c3c!important}.flat{color:#737b88!important}@keyframes wmTicker{from{transform:translateX(0)}to{transform:translateX(-50%)}}@media(max-width:620px){#web3market-news-ticker,#web3market-price-ticker{height:31px;line-height:31px}#web3market-news-ticker a{font-size:10px;padding:0 12px}#web3market-price-ticker .wm-price-track{gap:18px;padding:0 12px;justify-content:flex-start}}@media(prefers-reduced-motion:reduce){#web3market-news-ticker .wm-track{animation:none}}";document.head.appendChild(s)}
   function installHomepageUI(){
-    if(location.pathname!="/" && !/index\.html$/i.test(location.pathname))return false;
-    const counters=document.querySelector(".projectCounters");
-    if(!counters)return false;
-
-    const labels=["Listed","Under AI Review","Pending Execution","Sold"];
-    document.querySelectorAll(".projectCounters .counter span").forEach(function(el,i){if(labels[i])el.textContent=labels[i];});
-
-    if(document.getElementById("web3market-news-ticker"))return true;
-    const style=document.createElement("style");
-    style.id="web3market-news-style";
-    style.textContent="#web3market-news-ticker{display:block;width:100%;overflow:hidden;background:#141820;color:#d8dde6;border-radius:10px;margin:4px 0 14px;height:34px;line-height:34px;white-space:nowrap;box-shadow:0 4px 14px rgba(20,24,32,.08)}#web3market-news-ticker .wm-track{display:inline-flex;width:max-content;animation:wmTicker 42s linear infinite}#web3market-news-ticker a{color:#d8dde6;text-decoration:none;font-size:11px;font-weight:700;padding:0 18px}#web3market-news-ticker a:hover{color:#fff}#web3market-news-ticker b{color:#635bff;padding:0 4px}@keyframes wmTicker{from{transform:translateX(0)}to{transform:translateX(-50%)}}@media(max-width:620px){#web3market-news-ticker{height:31px;line-height:31px}#web3market-news-ticker a{font-size:10px;padding:0 12px}}@media(prefers-reduced-motion:reduce){#web3market-news-ticker .wm-track{animation:none}}";
-    document.head.appendChild(style);
-
-    const items=[
-      ["Metaplanet agrees to acquire 96% of Super League in a 2,100 BTC and cash deal","https://www.theblock.co/news/deals","The Block · Aug 24, 2026"],
-      ["IREN delivers first AI cloud deployment to Microsoft under a reported $9.7B deal","https://www.theblock.co/news/deals","The Block · Aug 24, 2026"],
-      ["HIVE signs a five-year $350M AI cloud contract","https://www.theblock.co/news/deals","The Block · Aug 24, 2026"],
-      ["Vangrid raises $9M to build a spatial-data network for physical AI","https://www.theblock.co/news/deals","The Block · Aug 24, 2026"],
-      ["July crypto M&A activity reached 19 announced acquisitions","https://www.thetie.io/insights/july-2026-crypto-funding-brief","The Tie · Aug 2026"]
-    ];
-    const ticker=document.createElement("div");ticker.id="web3market-news-ticker";ticker.setAttribute("aria-label","Latest market news");
-    const track=document.createElement("div");track.className="wm-track";
-    const all=items.concat(items);
-    all.forEach(function(item){
-      const a=document.createElement("a");a.href=item[1];a.target="_blank";a.rel="noopener noreferrer";a.textContent=item[0]+"  |  Source: "+item[2];track.appendChild(a);
-      const b=document.createElement("b");b.textContent="•";track.appendChild(b);
-    });
-    ticker.appendChild(track);counters.parentNode.insertBefore(ticker,counters.nextSibling);return true;
+    if(location.pathname!=="/"&&!/index\.html$/i.test(location.pathname))return false;const counters=document.querySelector(".projectCounters");if(!counters)return false;const labels=["Listed","Under AI Review","Pending Execution","Sold"];document.querySelectorAll(".projectCounters .counter span").forEach(function(el,i){if(labels[i])el.textContent=labels[i]});addStyle();
+    if(!document.getElementById("web3market-news-ticker")){const items=[["Metaplanet agrees to acquire 96% of Super League in a 2,100 BTC and cash deal","https://www.theblock.co/news/deals","The Block · Aug 24, 2026"],["IREN delivers first AI cloud deployment to Microsoft under a reported $9.7B deal","https://www.theblock.co/news/deals","The Block · Aug 24, 2026"],["HIVE signs a five-year $350M AI cloud contract","https://www.theblock.co/news/deals","The Block · Aug 24, 2026"],["Vangrid raises $9M to build a spatial-data network for physical AI","https://www.theblock.co/news/deals","The Block · Aug 24, 2026"],["July crypto M&A activity reached 19 announced acquisitions","https://www.thetie.io/insights/july-2026-crypto-funding-brief","The Tie · Aug 2026"]];const ticker=document.createElement("div");ticker.id="web3market-news-ticker";ticker.setAttribute("aria-label","Latest market news");const track=document.createElement("div");track.className="wm-track";items.concat(items).forEach(function(item){const a=document.createElement("a");a.href=item[1];a.target="_blank";a.rel="noopener noreferrer";a.textContent=item[0]+"  |  Source: "+item[2];track.appendChild(a);const b=document.createElement("b");b.textContent="•";track.appendChild(b)});ticker.appendChild(track);counters.parentNode.insertBefore(ticker,counters.nextSibling)}
+    installPriceTicker(counters);return true;
   }
-
-  function boot(){initialize();if(installHomepageUI())return;let n=0;const timer=setInterval(function(){n++;if(installHomepageUI()||n>30)clearInterval(timer);},250);}
-  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
-  window.addEventListener("load",installHomepageUI);
+  function installPriceTicker(counters){let ticker=document.getElementById("web3market-price-ticker");if(!ticker){ticker=document.createElement("div");ticker.id="web3market-price-ticker";ticker.setAttribute("aria-label","Live cryptocurrency prices");ticker.innerHTML='<div class="wm-price-track"><span class="coin" data-symbol="BNB">BNB <span>Loading...</span></span><span class="coin" data-symbol="ETH">ETH <span>Loading...</span></span><span class="coin" data-symbol="SOL">SOL <span>Loading...</span></span></div>';counters.parentNode.insertBefore(ticker,counters.nextSibling.nextSibling)}updatePrices(ticker);if(!ticker.dataset.timer){ticker.dataset.timer="1";setInterval(function(){updatePrices(ticker)},30000)}}
+  async function updatePrices(ticker){try{const r=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=binancecoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true",{cache:"no-store"});if(!r.ok)throw new Error("price api "+r.status);const d=await r.json();const map={BNB:d.binancecoin,ETH:d.ethereum,SOL:d.solana};Object.keys(map).forEach(function(symbol){const el=ticker.querySelector('[data-symbol="'+symbol+'"] span');const v=map[symbol];if(!el||!v)return;const price=Number(v.usd);const change=Number(v.usd_24h_change||0);el.textContent="$"+price.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:6})+" "+(change>0?"▲ ":change<0?"▼ ":"• ")+Math.abs(change).toFixed(2)+"%";el.className=change>0?"up":change<0?"down":"flat"})}catch(e){console.warn("Crypto price ticker:",e)}}
+  function boot(){initialize();if(installHomepageUI())return;let n=0;const timer=setInterval(function(){n++;if(installHomepageUI()||n>30)clearInterval(timer)},250)}
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();window.addEventListener("load",installHomepageUI);
 })();
