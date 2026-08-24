@@ -19,7 +19,7 @@
   async function getUser(){const s=getClient();if(!s)return null;try{const r=await s.auth.getUser();return r.data&&r.data.user||null;}catch(e){return null;}}
 
   function installHomepageUI(){
-    if(location.pathname!="/" && !/index\.html$/i.test(location.pathname))return;
+    if(location.pathname!="/" && !/index\.html$/i.test(location.pathname))return false;
     const counters=document.querySelector(".projectCounters");
     if(!counters)return false;
 
@@ -33,16 +33,19 @@
     document.head.appendChild(style);
 
     const items=[
-      ["Metaplanet agrees to acquire 96% of Super League in a 2,100 BTC and cash deal","https://www.theblock.co/news/deals"],
-      ["IREN delivers first AI cloud deployment to Microsoft under a reported $9.7B deal","https://www.theblock.co/news/deals"],
-      ["HIVE signs a five-year $350M AI cloud contract","https://www.theblock.co/news/deals"],
-      ["Vangrid raises $9M to build a spatial-data network for physical AI","https://www.theblock.co/news/deals"],
-      ["July crypto M&A activity reached 19 announced acquisitions","https://www.thetie.io/insights/july-2026-crypto-funding-brief"]
+      ["Metaplanet agrees to acquire 96% of Super League in a 2,100 BTC and cash deal","https://www.theblock.co/news/deals","The Block · Aug 24, 2026"],
+      ["IREN delivers first AI cloud deployment to Microsoft under a reported $9.7B deal","https://www.theblock.co/news/deals","The Block · Aug 24, 2026"],
+      ["HIVE signs a five-year $350M AI cloud contract","https://www.theblock.co/news/deals","The Block · Aug 24, 2026"],
+      ["Vangrid raises $9M to build a spatial-data network for physical AI","https://www.theblock.co/news/deals","The Block · Aug 24, 2026"],
+      ["July crypto M&A activity reached 19 announced acquisitions","https://www.thetie.io/insights/july-2026-crypto-funding-brief","The Tie · Aug 2026"]
     ];
     const ticker=document.createElement("div");ticker.id="web3market-news-ticker";ticker.setAttribute("aria-label","Latest market news");
     const track=document.createElement("div");track.className="wm-track";
     const all=items.concat(items);
-    all.forEach(function(item,i){const a=document.createElement("a");a.href=item[1];a.target="_blank";a.rel="noopener noreferrer";a.textContent=item[0];track.appendChild(a);const b=document.createElement("b");b.textContent="•";track.appendChild(b);});
+    all.forEach(function(item){
+      const a=document.createElement("a");a.href=item[1];a.target="_blank";a.rel="noopener noreferrer";a.textContent=item[0]+"  |  Source: "+item[2];track.appendChild(a);
+      const b=document.createElement("b");b.textContent="•";track.appendChild(b);
+    });
     ticker.appendChild(track);counters.parentNode.insertBefore(ticker,counters.nextSibling);return true;
   }
 
