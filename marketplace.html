@@ -5,21 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Web3Market — discover, evaluate and acquire Web3 projects worldwide.">
   <title>Web3Market — Buy & Sell Web3 Projects</title>
-  <link rel="stylesheet" href="css/marketplace.css">
+  <link rel="stylesheet" href="css/marketplace.css?v=20260828-1">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="marketplace.html"><span class="brand-mark">W3</span><span>Web3Market</span></a>
-    <nav><a class="active" href="marketplace.html">Marketplace</a><a href="sell-project.html">Sell a Project</a></nav>
-    <a class="btn btn-ghost" href="register.html">Sign in</a>
+    <a class="brand" href="index.html">Web3<span style="color:#635bff">Market</span></a>
+    <nav>
+      <a class="active" href="marketplace.html">Marketplace</a>
+      <a href="index.html#categories">Categories</a>
+      <a href="sell-project.html">Sell</a>
+      <a href="index.html#how">How it works</a>
+    </nav>
+    <a class="btn btn-secondary" href="login.html">Login</a>
+    <a class="btn btn-primary" href="sell-project.html">Sell a Project</a>
   </header>
   <main>
     <section class="hero">
-      <div class="hero-copy"><span class="eyebrow">GLOBAL WEB3 ACQUISITION MARKET</span><h1>Buy, sell and invest in <span>Web3 projects.</span></h1><p>Discover Web3 businesses, protocols, SaaS products and digital assets with transparent operating metrics.</p><div class="hero-actions"><a class="btn btn-primary" href="sell-project.html">List your project</a><a class="btn btn-secondary" href="#projects">Explore projects</a></div></div>
-      <div class="hero-card"><div class="hero-card-title">Marketplace intelligence</div><div class="metric"><strong id="projectCount">—</strong><span>listed projects</span></div><div class="metric"><strong id="verifiedCount">—</strong><span>verified</span></div><div class="metric"><strong id="categoryCount">—</strong><span>categories</span></div></div>
+      <div class="hero-copy">
+        <span class="eyebrow">AI + ON-CHAIN WEB3 MARKETPLACE</span>
+        <h1>Buy, sell and invest in <span>Web3 projects.</span></h1>
+        <p>Discover, evaluate, buy and sell Web3 businesses, protocols, SaaS products and digital assets with AI-powered review and blockchain-secured transactions.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="sell-project.html">List your project</a>
+          <a class="btn btn-secondary" href="#projects">Explore projects</a>
+        </div>
+      </div>
+      <div class="hero-card">
+        <div class="hero-card-title">Marketplace intelligence</div>
+        <div class="metric"><strong id="projectCount">—</strong><span>listed projects</span></div>
+        <div class="metric"><strong id="verifiedCount">—</strong><span>verified</span></div>
+        <div class="metric"><strong id="categoryCount">—</strong><span>categories</span></div>
+      </div>
     </section>
-    <section class="filters" id="projects"><div class="search"><input id="search" type="search" placeholder="Search projects, categories, blockchains..."></div><select id="category"><option value="">All categories</option><option>DeFi</option><option>Web3 SaaS</option><option>DApp</option><option>Gaming</option><option>Infrastructure</option><option>NFT</option><option>Exchange</option><option>DAO</option><option>Other</option></select><select id="saleType"><option value="">Any sale type</option><option value="fixed_price">Fixed price</option><option value="make_offer">Make an offer</option><option value="auction">Auction</option><option value="private_sale">Private sale</option></select><select id="sort"><option value="newest">Newest</option><option value="price_low">Price: low to high</option><option value="price_high">Price: high to low</option><option value="score">Highest score</option></select></section>
-    <div id="status" class="status">Loading projects…</div><section id="projectGrid" class="grid" aria-live="polite"></section>
+    <section class="filters" id="projects">
+      <div class="search"><input id="search" type="search" placeholder="Search projects, categories, blockchains..." aria-label="Search projects"></div>
+      <select id="category" aria-label="Category"><option value="">All categories</option><option>DeFi</option><option>Web3 SaaS</option><option>DApp</option><option>Gaming</option><option>Infrastructure</option><option>NFT</option><option>Exchange</option><option>DAO</option><option>Other</option></select>
+      <select id="saleType" aria-label="Sale type"><option value="">Any sale type</option><option value="fixed_price">Fixed price</option><option value="make_offer">Make an offer</option><option value="auction">Auction</option><option value="private_sale">Private sale</option></select>
+      <select id="sort" aria-label="Sort"><option value="newest">Newest</option><option value="price_low">Price: low to high</option><option value="price_high">Price: high to low</option><option value="score">Highest score</option></select>
+    </section>
+    <div id="status" class="status">Loading projects…</div>
+    <section id="projectGrid" class="grid" aria-live="polite"></section>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase.js?v=20260821-4"></script>
