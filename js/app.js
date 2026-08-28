@@ -75,9 +75,41 @@
         button?.addEventListener("click", apply);
     }
 
+    /* Remove the legacy Total Transaction Volume widget from the homepage.
+       A MutationObserver is used because the widget may be injected later by
+       another script or by a cached/deployed version of the homepage. */
+    function removeLegacyVolumeCounter() {
+        const remove = () => {
+            const selectors = [
+                "#web3market-volume-counter",
+                ".wm-volume-counter",
+                '[aria-label="Total completed transaction volume"]'
+            ];
+
+            document.querySelectorAll(selectors.join(",")).forEach((el) => el.remove());
+
+            document.querySelectorAll("body *").forEach((el) => {
+                if (el.children.length === 0 && /total transaction volume/i.test(el.textContent || "")) {
+                    const parent = el.closest(".counter, .wm-volume-counter, [class*="counter"], [id*="volume"]");
+                    (parent || el).remove();
+                }
+            });
+
+            const grid = document.querySelector(".projectCounters .counterGrid");
+            if (grid) {
+                grid.style.gridTemplateColumns = "repeat(4,minmax(0,1fr))";
+            }
+        };
+
+        remove();
+        const observer = new MutationObserver(remove);
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+
     function init() {
         initMobileMenu();
         initSearchFallback();
+        removeLegacyVolumeCounter();
     }
 
     if (document.readyState === "loading") {
