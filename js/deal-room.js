@@ -1,9 +1,10 @@
 "use strict";
 (async function(){
  const root=document.querySelector('#dealApp')||document.querySelector('.room');
- const sb=window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase;
  if(!root)return;
- if(!sb){root.innerHTML='<div class="status">Database connection unavailable.</div>';return;}
+ let sb=null;
+ for(let i=0;i<40&&!sb;i++){sb=window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase||null;if(!sb)await new Promise(r=>setTimeout(r,100));}
+ if(!sb){root.innerHTML='<div class="status">Database connection unavailable. Please refresh the page.</div>';return;}
  const {data:{user},error:ue}=await sb.auth.getUser();
  if(ue||!user){location.replace('login.html?next='+encodeURIComponent(location.pathname+location.search));return;}
  const params=new URLSearchParams(location.search),dealId=params.get('deal')||params.get('id');
