@@ -1,1 +1,22 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Web3Market Score</title><link rel="stylesheet" href="css/marketplace.css"></head><body><header class="topbar"><a class="brand" href="marketplace.html"><span class="brand-mark">W3</span><span>Web3Market</span></a><nav><a href="marketplace.html">Marketplace</a><a href="verification.html">Trust Center</a></nav></header><main><section class="hero-copy"><span class="eyebrow">PROJECT INTELLIGENCE</span><h1>Web3Market <span>Score.</span></h1><p>A transparent confidence indicator based on available project data. It is not financial advice or an investment rating.</p></section><section id="scoreApp" class="card"><div class="status">Loading…</div></section></main><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/supabase.js"></script><script src="js/project-score.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Web3Market Score</title>
+<link rel="stylesheet" href="css/marketplace.css">
+<style>
+.score-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:18px}.score-grid .card{margin-top:0!important}.valuation{font-size:30px;font-weight:800;line-height:1.2}.valuation-note{opacity:.8;font-size:.92rem}.risk-list{margin:10px 0 0;padding-left:22px}.risk-list li{margin:7px 0}.intel-pill{display:inline-block;padding:6px 10px;border:1px solid currentColor;border-radius:999px;font-size:.85rem;font-weight:700}.meter{height:8px;border-radius:99px;background:rgba(127,127,127,.18);overflow:hidden;margin:12px 0}.meter>span{display:block;height:100%;background:currentColor;border-radius:99px}.valuation-card{border:1px solid currentColor}.muted{opacity:.75}
+</style>
+</head>
+<body>
+<header class="topbar"><a class="brand" href="marketplace.html"><span class="brand-mark">W3</span><span>Web3Market</span></a><nav><a href="marketplace.html">Marketplace</a><a href="verification.html">Trust Center</a></nav></header>
+<main>
+<section class="hero-copy"><span class="eyebrow">PROJECT INTELLIGENCE</span><h1>Web3Market <span>Score.</span></h1><p>Project quality, acquisition readiness and valuation signals based on available data. Informational only — not financial advice, an audit, or a guarantee.</p></section>
+<section id="scoreApp" class="card"><div class="status">Loading…</div></section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/project-score.js"></script>
+</body>
+</html>
