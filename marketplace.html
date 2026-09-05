@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Web3Market marketplace.">
 <title>Marketplace | Web3Market</title>
-<link rel="stylesheet" href="css/marketplace.css">
+<link rel="stylesheet" href="css/marketplace.css?v=20260906-4">
 </head>
 <body>
 <header class="topbar">
@@ -31,10 +31,9 @@
     <div class="hero-card">
       <div class="hero-card-title">Marketplace</div>
       <div class="metric"><strong id="countListed">—</strong><span>Active projects</span></div>
-      <div class="metric"><strong>AI</strong><span>Due Diligence & Valuation available on project pages</span></div>
+      <div class="metric"><strong>AI</strong><span>Due Diligence &amp; Valuation available on project pages</span></div>
     </div>
   </section>
-
   <section id="listings">
     <div class="filters">
       <input id="projectSearch" type="search" placeholder="Search projects…" aria-label="Search projects">
@@ -50,8 +49,7 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/supabase.js?v=20260906-3"></script>
-<script src="js/real-marketplace.js?v=20260906-3"></script>
+<script src="js/supabase.js?v=20260906-4"></script>
 <script>
 (function(){
   const grid=document.querySelector('.listingGrid');
@@ -66,7 +64,9 @@
       card.hidden=!!((q&&!text.includes(q))||(c&&!text.includes(c)));
     });
   }
-  search.addEventListener('input',filter); category.addEventListener('change',filter); button.addEventListener('click',filter);
+  search.addEventListener('input',filter);
+  category.addEventListener('change',filter);
+  button.addEventListener('click',filter);
   window.addEventListener('web3market:projects-rendered',function(e){
     const n=e.detail?.count;
     if(typeof n==='number') document.getElementById('countListed').textContent=n;
