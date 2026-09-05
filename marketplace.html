@@ -1,16 +1,84 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex,follow">
-  <link rel="canonical" href="https://web3market.xyz/">
-  <title>Web3Market</title>
-  <meta http-equiv="refresh" content="0; url=./index.html">
-  <script>window.location.replace('./index.html');</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Web3Market marketplace — discover and evaluate active Web3 projects for sale.">
+<title>Marketplace | Web3Market</title>
+<link rel="stylesheet" href="css/marketplace.css">
+<style>
+  .marketplace-intro{padding:56px 0 20px}
+  .marketplace-intro h1{font-size:clamp(38px,5vw,58px);line-height:1.05;letter-spacing:-2.5px;margin:16px 0 12px}
+  .marketplace-intro p{max-width:720px;color:#687180;font-size:17px;line-height:1.65}
+  .projectCounters{padding:12px 0 4px}
+  .counterGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .counter{background:#fff;border:1px solid #e3e6eb;border-radius:16px;padding:16px;display:flex;align-items:center;gap:12px;box-shadow:0 7px 20px rgba(20,24,32,.04)}
+  .counter strong{display:block;font-size:23px}.counter span{display:block;color:#737b88;font-size:11px;font-weight:800;margin-top:4px}
+  .counterIcon{width:40px;height:40px;border-radius:11px;background:#eeedff;color:#5149db;display:grid;place-items:center;font-weight:900}
+  .counter.pending .counterIcon{background:#fff4dc;color:#a36b00}.counter.sold .counterIcon{background:#e5f7ef;color:#168253}.counter.review .counterIcon{background:#eaf4ff;color:#2372b8}
+  .listingGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:10px 0 20px}
+  .listing{background:#fff;border:1px solid #e4e7eb;border-radius:17px;overflow:hidden;transition:.2s;box-shadow:0 7px 20px rgba(20,24,32,.04)}
+  .listing:hover{transform:translateY(-3px);box-shadow:0 16px 35px rgba(20,24,32,.08)}
+  .listingArt{height:190px;background:linear-gradient(135deg,#ecebff,#d8d5ff);position:relative;background-size:cover;background-position:center}
+  .listingArt.a2{background:linear-gradient(135deg,#dce9f2,#b9c7d8)}.listingArt.a3{background:linear-gradient(135deg,#f9e4c6,#f1c1a6)}.listingArt.a4{background:linear-gradient(135deg,#d8f1e8,#a8d7c7)}
+  .listingBody{padding:16px}.seller{display:flex;align-items:center;gap:7px;color:#7a828f;font-size:10px;font-weight:800}.avatar{width:22px;height:22px;border-radius:50%;background:#dfe2e8}
+  .listing h3{font-size:18px;margin:10px 0 6px}.listing h3 a{color:#141820;text-decoration:none}.desc{font-size:13px;color:#737b88;line-height:1.55;min-height:42px}
+  .meta{display:flex;justify-content:space-between;align-items:end;gap:10px;margin-top:16px}.price2 strong{display:block;font-size:17px}.price2 span{font-size:10px;color:#8a919c}.buy{font-size:12px;font-weight:900;color:#5149db;text-decoration:none;white-space:nowrap}
+  .ai-badge{display:inline-flex;align-items:center;margin-left:4px;padding:3px 7px;border-radius:999px;background:#eeedff;color:#5149db;font-size:9px;font-weight:900}
+  .marketplace-note{margin:10px 0 28px;padding:15px 17px;border:1px solid #d9d6ff;border-radius:14px;background:#f7f6ff;color:#5149db;font-size:13px;font-weight:750}
+  .empty{grid-column:1/-1;border:1px dashed #cfd5dd;border-radius:18px;padding:50px;text-align:center;color:#737b88;background:#fff}
+  @media(max-width:950px){.listingGrid{grid-template-columns:repeat(2,1fr)}.counterGrid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:620px){.listingGrid{grid-template-columns:1fr}.counterGrid{grid-template-columns:1fr 1fr}.marketplace-intro{padding-top:38px}.marketplace-intro h1{font-size:40px}}
+</style>
 </head>
 <body>
-  <p>Redirecting to the Web3Market homepage…</p>
-  <p><a href="./index.html">Open Web3Market homepage</a></p>
+<header class="topbar">
+  <a class="brand" href="index.html"><span>Web3Market</span></a>
+  <nav>
+    <a class="active" href="marketplace.html">Marketplace</a>
+    <a href="sell-project.html">Sell a Project</a>
+    <a href="ai-due-diligence.html">AI Due Diligence</a>
+  </nav>
+  <a class="btn btn-ghost" href="login.html">Sign in</a>
+</header>
+
+<main>
+  <section class="marketplace-intro">
+    <span class="eyebrow">WEB3MARKET MARKETPLACE</span>
+    <h1>Discover Web3 Projects Ready for Acquisition.</h1>
+    <p>Browse active listings, review asking prices, and open each project to inspect Web3Market's AI Due Diligence, AI Valuation, trust and verification data.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="#listings">Browse active projects</a>
+      <a class="btn btn-ghost" href="sell-project.html">List your project</a>
+    </div>
+  </section>
+
+  <section class="projectCounters" aria-label="Project status counters">
+    <div class="counterGrid">
+      <div class="counter"><div class="counterIcon">▦</div><div><strong id="countListed">—</strong><span>Listed</span></div></div>
+      <div class="counter review"><div class="counterIcon">AI</div><div><strong id="countAiReview">—</strong><span>Under AI Review</span></div></div>
+      <div class="counter pending"><div class="counterIcon">↗</div><div><strong id="countPending">—</strong><span>Pending Execution</span></div></div>
+      <div class="counter sold"><div class="counterIcon">✓</div><div><strong id="countSold">—</strong><span>Sold</span></div></div>
+    </div>
+  </section>
+
+  <div class="marketplace-note">🔐 Only projects with <strong>status = active</strong> are shown here. Project data is read from Supabase without changing the underlying listing.</div>
+
+  <section id="listings">
+    <div class="filters">
+      <input id="projectSearch" type="search" placeholder="Search active projects…" aria-label="Search active projects">
+      <select id="categoryFilter" aria-label="Filter by category"><option value="">All categories</option><option value="web3">Web3</option><option value="defi">DeFi</option><option value="ai">AI</option><option value="gaming">Gaming</option><option value="infrastructure">Infrastructure</option></select>
+      <select aria-label="Listing status"><option>Active listings</option></select>
+      <button id="searchButton" class="btn btn-primary" type="button">Search</button>
+    </div>
+    <div class="listingGrid" data-projects-container aria-live="polite">
+      <div class="empty">Loading active Web3 projects…</div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js?v=20260906-1"></script>
+<script src="js/marketplace.js?v=20260906-1"></script>
 </body>
 </html>
