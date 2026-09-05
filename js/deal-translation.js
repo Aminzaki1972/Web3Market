@@ -2,7 +2,7 @@
    Presentation-only: original deal_messages.message is never modified. */
 (() => {
   'use strict';
-  const LANGS = {en:'English',zh:'中文',hi:'हिन्दी',es:'Español',ar:'العربية',fr:'Français',pt:'Português',ru:'Русский',ja:'日本語',de:'Deutsch',ko:'한국어',tr:'Türkçe',he:'עברית'};
+  const LANGS = {en:'English',zh:'中文',es:'Español',ar:'العربية',fr:'Français',pt:'Português',ru:'Русский',ja:'日本語',de:'Deutsch',ko:'한국어',tr:'Türkçe',he:'עברית'};
   const cache = new Map();
   const pending = new Map();
   let preferred = 'en';
