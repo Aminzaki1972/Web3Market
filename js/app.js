@@ -106,10 +106,20 @@
         observer.observe(document.body, { childList: true, subtree: true });
     }
 
+    function loadTrustScoreUI() {
+        if (document.querySelector('script[data-wm-trust-score-ui]')) return;
+        const script = document.createElement("script");
+        script.src = "js/trust-score-ui.js?v=20260905-1";
+        script.async = true;
+        script.dataset.wmTrustScoreUi = "true";
+        document.head.appendChild(script);
+    }
+
     function init() {
         initMobileMenu();
         initSearchFallback();
         removeLegacyVolumeCounter();
+        loadTrustScoreUI();
     }
 
     if (document.readyState === "loading") {
