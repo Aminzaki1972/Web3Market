@@ -14,7 +14,9 @@
  if(profileError||String(profile?.role||'').toLowerCase()!=='seller'){location.replace('marketplace.html');return;}
  const projectsResult=await sb.from('projects').select('id,title,status,price,currency,created_at').eq('owner_id',user.id).order('created_at',{ascending:false});
  const projects=projectsResult.error?[]:(projectsResult.data||[]); const ids=projects.map(p=>p.id); let deals=[];
- if(ids.length){const r=await sb.from('deals').select('id,project_id,buyer_id,amount,currency,status,created_at,platform_fee_percent,platform_fee_amount,seller_net_amount,payment_status,payment_tx_hash').in('project_id',ids).order('created_at',{ascending:false});if(!r.error)deals=r.data||[];}
+ // Deals belong to the seller identity, not necessarily the current project's owner record.
+ const directDeals=await sb.from('deals').select('id,project_id,buyer_id, seller_id,amount,currency,status,created_at,platform_fee_percent,platform_fee_amount,seller_net_amount,payment_status,payment_tx_hash').eq('seller_id',user.id).order('created_at',{ascending:false});
+ if(!directDeals.error) deals=directDeals.data||[];
  const closedStatuses=['completed','released','closed'];
  const cancelledStatuses=['cancelled','rejected'];
  const completed=deals.filter(d=>closedStatuses.includes(String(d.status||'').toLowerCase()));
