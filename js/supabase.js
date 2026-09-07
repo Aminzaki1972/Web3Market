@@ -5,7 +5,7 @@ const SUPABASE_URL="https://hzhqlexnhtukfljcvnyd.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
 const STORAGE_KEY="web3market-auth";
 let client=null;
-function initialize(){if(client)return client;if(!window.supabase||typeof window.supabase.createClient!=="function")return null;try{client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:STORAGE_KEY}});window.Web3MarketSupabase={client:client,supabase:client,getClient:()=>client,getSession:getSession,getUser:getUser,isInitialized:()=>!!client};window.web3marketSupabase=client;window.supabaseClient=client;return client}catch(e){console.error("Web3Market Supabase:",e);return null}}
+function initialize(){if(client)return client;if(!window.supabase||typeof window.supabase.createClient!=="function")return null;try{client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:STORAGE_KEY}});window.Web3MarketSupabase={client:client,supabase:client,getClient:getClient,getSession:getSession,getUser:getUser,isInitialized:()=>!!client};window.web3marketSupabase=client;window.supabaseClient=client;return client}catch(e){console.error("Web3Market Supabase:",e);return null}}
 function getClient(){return client||initialize()}
 async function getSession(){const s=getClient();if(!s)return null;try{return (await s.auth.getSession()).data?.session||null}catch(e){return null}}
 async function getUser(){const s=getClient();if(!s)return null;try{return (await s.auth.getUser()).data?.user||null}catch(e){return null}}
@@ -27,8 +27,21 @@ window.addEventListener("load",()=>{installHomepageUI();installDeveloperContact(
 /* Homepage-only isolated enhancements loader. */
 (function(){
   "use strict";
-  var path=(window.location.pathname||"").replace(/\\/+$/,'')||'/';
-  if(!(path==='/'||path==='/index.html'||/\/index\.html$/i.test(path)))return;
-  function load(){if(document.getElementById('wmx-homepage-enhancements'))return;var s=document.createElement('script');s.id='wmx-homepage-enhancements';s.src='js/homepage-enhancements.js?v=20260907-1';s.async=true;s.onerror=function(){console.warn('Web3Market homepage enhancements unavailable')};document.body.appendChild(s)}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
+  function loadHomepageEnhancements(){
+    if(document.getElementById('wmx-homepage-enhancements'))return;
+    var s=document.createElement('script');
+    s.id='wmx-homepage-enhancements';
+    s.src='/js/homepage-enhancements.js?v=20260907-2';
+    s.async=true;
+    s.onload=function(){console.log('Web3Market homepage enhancements loaded')};
+    s.onerror=function(){console.warn('Web3Market homepage enhancements unavailable')};
+    (document.head||document.body||document.documentElement).appendChild(s);
+  }
+  function bootHomepageEnhancements(){
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadHomepageEnhancements,{once:true});
+    else loadHomepageEnhancements();
+    window.addEventListener('load',loadHomepageEnhancements,{once:true});
+    setTimeout(loadHomepageEnhancements,1200);
+  }
+  bootHomepageEnhancements();
 })();
