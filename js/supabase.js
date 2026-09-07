@@ -23,3 +23,21 @@ function boot(){initialize();loadTrustScoreUI();if(installHomepageUI()){}install
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 window.addEventListener("load",()=>{installHomepageUI();installDeveloperContact();loadTrustScoreUI()})
 })();
+
+/* Homepage-only isolated enhancements loader. Does not touch auth, wallet, checkout, Deal Room, or Supabase data. */
+(function(){
+  "use strict";
+  var path=(window.location.pathname||"").replace(/\\/+$/,'')||'/';
+  var isHome=path==='/'||path==='/index.html'||/\/index\.html$/i.test(path);
+  if(!isHome)return;
+  function load(){
+    if(document.getElementById('wmx-homepage-enhancements'))return;
+    var s=document.createElement('script');
+    s.id='wmx-homepage-enhancements';
+    s.src='js/homepage-enhancements.js?v=20260907-1';
+    s.async=true;
+    s.onerror=function(){console.warn('Web3Market homepage enhancements unavailable')};
+    document.body.appendChild(s);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
+})();
