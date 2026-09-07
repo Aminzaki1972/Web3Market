@@ -49,4 +49,21 @@
       listing.insertAdjacentHTML('beforeend',html);
     });
   }catch(e){console.warn('Web3Market intelligence UI unavailable',e);}
+
+  /* Resilient homepage enhancements fallback: this path is already loaded by the homepage,
+     so it also works when an older cached supabase.js has not picked up the enhancement loader. */
+  function loadHomepageEnhancementsFallback(){
+    if(document.getElementById('wmx-enhancements')||document.getElementById('wmx-homepage-enhancements'))return;
+    var s=document.createElement('script');
+    s.id='wmx-homepage-enhancements';
+    s.src='/js/homepage-enhancements.js?v=20260907-4';
+    s.async=true;
+    s.onload=function(){console.log('Web3Market homepage enhancements loaded via fallback')};
+    s.onerror=function(){console.warn('Web3Market homepage enhancements fallback unavailable')};
+    (document.head||document.body||document.documentElement).appendChild(s);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadHomepageEnhancementsFallback,{once:true});
+  else loadHomepageEnhancementsFallback();
+  window.addEventListener('load',loadHomepageEnhancementsFallback,{once:true});
+  setTimeout(loadHomepageEnhancementsFallback,1200);
 })();
