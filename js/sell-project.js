@@ -48,19 +48,18 @@
     const u=await c.auth.getUser();if(u.error||!u.data?.user){out.textContent='Please sign in before listing a project.';return null;}const uid=u.data.user.id;
     if(!value('title')||value('short_description').length<20||(value('full_description')||value('description')).length<50){out.textContent='Please complete the required project information.';return null;}
     const payload=collect();payload.owner_id=uid;out.textContent='Saving draft…';
-    let r;
     if(currentProjectId){
       const q=await c.from('projects').update(payload).eq('id',currentProjectId).eq('owner_id',uid).select('id');
       if(q.error){console.error(q.error);out.textContent=q.error.message||'Unable to save listing.';return null;}
       if(!q.data?.length){currentProjectId='';localStorage.removeItem(PROJECT_ID_KEY);out.textContent='The previous draft was not found. Please save again.';return null;}
-      r={data:q.data[0],error:null};
+      currentProjectId=q.data[0].id;
     }else{
       const q=await c.from('projects').insert(payload).select('id');
       if(q.error){console.error(q.error);out.textContent=q.error.message||'Unable to save listing.';return null;}
       if(!q.data?.length){out.textContent='Listing was not returned after save. Please try again.';return null;}
-      r={data:q.data[0],error:null};
+      currentProjectId=q.data[0].id;
     }
-    currentProjectId=r.data.id;localStorage.setItem(PROJECT_ID_KEY,currentProjectId);out.textContent='Draft saved successfully.';return currentProjectId;
+    localStorage.setItem(PROJECT_ID_KEY,currentProjectId);out.textContent='Draft saved successfully.';return currentProjectId;
   }
   async function submitForReview(){const id=await saveDraft();if(!id)return;const c=await waitClient();if(!c)return;out.textContent='Submitting for AI Review…';const r=await c.functions.invoke('ai-review-project',{body:{project_id:id}});if(r.error){out.textContent='AI Review could not start: '+(r.error.message||'unknown error');return;}const x=r.data?.result||{};out.innerHTML='AI Review completed. Score: <strong>'+(x.ai_score??0)+'/100</strong> — '+(x.ai_status||'completed')+'.';}
   form.addEventListener('submit',e=>{e.preventDefault();saveDraft();});
