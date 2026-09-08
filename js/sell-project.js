@@ -2,6 +2,7 @@
 (function(){
   const form=document.querySelector('#projectForm');
   if(!form)return;
+  form.noValidate=true;
   const out=document.querySelector('#formStatus');
   const PROJECT_ID_KEY='web3market_project_id';
   let currentProjectId=localStorage.getItem(PROJECT_ID_KEY)||'';
