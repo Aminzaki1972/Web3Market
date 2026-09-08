@@ -7,7 +7,6 @@
   let currentProjectId=localStorage.getItem(PROJECT_ID_KEY)||'';
   const SUPABASE_URL='https://hzhqlexnhtukfljcvnyd.supabase.co';
   const SUPABASE_KEY='sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI';
-
   function client(){return window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase||null;}
   function getClient(){const existing=client();if(existing)return existing;if(window.supabase?.createClient){try{return window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'web3market-auth'}});}catch(e){console.error(e);}}return null;}
   async function waitClient(){for(let i=0;i<40;i++){const c=getClient();if(c)return c;await new Promise(r=>setTimeout(r,250));}return null;}
@@ -29,7 +28,7 @@
     const c=await waitClient();if(!c){out.textContent='Database connection unavailable.';return;}
     const u=await c.auth.getUser();if(u.error||!u.data?.user){out.textContent='Please sign in before listing a project.';return;}
     const user=u.data.user;let p=null;
-    if(currentProjectId){const r=await c.from('projects').select('*').eq('id',currentProjectId).eq('owner_id',user.id).maybeSingle();if(r.error)console.error('Draft lookup:',r.error);p=r.data||null;}
+    if(currentProjectId){const r=await c.from('projects').select('*').eq('id',currentProjectId).eq('owner_id',user.id).maybeSingle();if(r.error)console.error('Project lookup:',r.error);p=r.data||null;}
     if(!p){const r=await c.from('projects').select('*').eq('owner_id',user.id).eq('status','draft').order('updated_at',{ascending:false}).limit(1);if(r.error)console.error('Draft list:',r.error);p=r.data?.[0]||null;}
     if(!p){out.textContent='No saved draft found. Your form is ready for a new listing.';return;}
     currentProjectId=p.id;localStorage.setItem(PROJECT_ID_KEY,p.id);fill(p);out.textContent='Saved draft loaded successfully.';
