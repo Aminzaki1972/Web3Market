@@ -2,7 +2,7 @@
 (function(){
   const form=document.querySelector('#projectForm');
   if(!form)return;
-  const VERSION='20260909-6';
+  const VERSION='20260909-7';
   const out=document.querySelector('#formStatus');
   const submitBtn=document.querySelector('#submitReviewBtn');
   const ID_KEY='web3market_project_id';
@@ -51,7 +51,7 @@
     if(!x){local();if(out)out.textContent='Database unavailable — saved on this device. Engine '+VERSION;return {ok:false,offline:true};}
     const u=await x.auth.getUser();
     if(u.error||!u.data?.user){local();if(out)out.textContent='Please sign in. Form saved on this device. Engine '+VERSION;return {ok:false,auth:false};}
-    if(!val('title')||!val('short_description').length<20||(val('full_description')||val('description')).length<50){local();if(out)out.textContent='Please complete the required information. Form saved on this device. Engine '+VERSION;return {ok:false,validation:false};}
+    if(!val('title')||val('short_description').length<20||(val('full_description')||val('description')).length<50){local();if(out)out.textContent='Please complete the required information. Form saved on this device. Engine '+VERSION;return {ok:false,validation:false};}
     const payload=collect();payload.owner_id=u.data.user.id;payload.status='draft';
     if(out)out.textContent='Saving draft… Engine '+VERSION;
     let r;
