@@ -2,8 +2,9 @@
 (function(){
   const form=document.querySelector('#projectForm');
   if(!form)return;
-  const VERSION='20260909-4';
+  const VERSION='20260909-5';
   const out=document.querySelector('#formStatus');
+  const submitBtn=document.querySelector('#submitReviewBtn');
   const ID_KEY='web3market_project_id';
   const LOCAL_KEY='web3market_sell_project_draft_v2';
   const LEGACY_KEY='web3market_sell_project_draft';
@@ -33,7 +34,7 @@
     p.assets=[...form.querySelectorAll('input[name="assets"]:checked')].map(x=>x.value);
     p.social_accounts={facebook_url:p.facebook_url||null,x_url:p.x_url||p.twitter_url||null,github_url:p.github_url||null,linkedin_url:p.linkedin_url||null,instagram_url:p.instagram_url||null,telegram_url:p.telegram_url||null,discord_url:p.discord_url||null,youtube_url:p.youtube_url||null,tiktok_url:p.tiktok_url||null,reddit_url:p.reddit_url||null,medium_url:p.medium_url||null,other_social_url:p.other_social_url||null};
     p.performance={users_count:num(p.users_count),active_users:num(p.active_users),customers_count:num(p.customers_count),monthly_visits:num(p.monthly_visits),total_sales:num(p.total_sales),monthly_volume:num(p.monthly_volume),growth_rate:num(p.growth_rate),conversion_rate:p.conversion_rate||null,last_active_date:date(p.last_active_date),traffic_sources:p.traffic_sources||null};
-    p.financials={has_revenue:p.has_revenue||null,revenue_period:p.revenue_period||null,monthly_revenue:num(p.monthly_revenue),yearly_revenue:num(p.yearly_revenue),monthly_net_profit:num(p.monthly_net_profit||p.monthly_profit),yearly_net_profit:num(p.yearly_net_profit||p.yearly_profit),monthly_expenses:num(p.monthly_expenses),growth_rate:num(p.growth_rate),revenue_sources:p.revenue_sources||null,financial_notes:p.financial_notes||null};
+    p.financials={has_revenue:p.has_revenue||null,revenue_period:p.revenue_period||null,monthly_revenue:num(p.monthly_revenue),yearly_revenue:num(p.yearly_revenue),monthly_net_profit:num(p.monthly_profit||p.monthly_net_profit),yearly_net_profit:num(p.yearly_profit||p.yearly_net_profit),monthly_expenses:num(p.monthly_expenses),growth_rate:num(p.growth_rate),revenue_sources:p.revenue_sources||null,financial_notes:p.financial_notes||null};
     const ask=num(p.asking_price||val('asking_price'));p.asking_price=ask;p.price=ask;p.currency=val('currency')||'USD';p.negotiable=bool(val('negotiable'));p.status='draft';
     const cleanPayload={};DB.forEach(k=>{const v=clean(p[k],k);if(v!==undefined)cleanPayload[k]=v;});
     return cleanPayload;
@@ -43,20 +44,42 @@
   async function load(){const x=await wait();if(!x){return local();}const u=await x.auth.getUser();if(u.error||!u.data?.user)return local();let p=null;if(currentProjectId){const r=await x.from('projects').select('*').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();p=r.data||null;}if(!p){const r=await x.from('projects').select('*').eq('owner_id',u.data.user.id).eq('status','draft').order('updated_at',{ascending:false}).limit(1);p=r.data?.[0]||null;}if(p){currentProjectId=p.id;localStorage.setItem(ID_KEY,p.id);fill(p);localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);}else{try{const raw=localStorage.getItem(LOCAL_KEY)||localStorage.getItem(LEGACY_KEY);if(raw)fill(JSON.parse(raw).data)}catch(e){}}}
   async function save(){
     const x=await wait();
-    if(!x){local();if(out)out.textContent='Database unavailable — saved on this device. Engine '+VERSION;return;}
+    if(!x){local();if(out)out.textContent='Database unavailable — saved on this device. Engine '+VERSION;return {ok:false,offline:true};}
     const u=await x.auth.getUser();
-    if(u.error||!u.data?.user){local();if(out)out.textContent='Please sign in. Form saved on this device. Engine '+VERSION;return;}
-    if(!val('title')||val('short_description').length<20||(val('full_description')||val('description')).length<50){local();if(out)out.textContent='Please complete the required information. Form saved on this device. Engine '+VERSION;return;}
+    if(u.error||!u.data?.user){local();if(out)out.textContent='Please sign in. Form saved on this device. Engine '+VERSION;return {ok:false,auth:false};}
+    if(!val('title')||val('short_description').length<20||(val('full_description')||val('description')).length<50){local();if(out)out.textContent='Please complete the required information. Form saved on this device. Engine '+VERSION;return {ok:false,validation:false};}
     const payload=collect();payload.owner_id=u.data.user.id;payload.status='draft';
     if(out)out.textContent='Saving draft… Engine '+VERSION;
     let r;
     if(currentProjectId)r=await x.from('projects').update(payload).eq('id',currentProjectId).eq('owner_id',u.data.user.id).select('id');
-    if(!currentProjectId||!r?.data?.length){r=await x.from('projects').insert(payload).select('id');}
-    if(r.error){console.error('SAVE ERROR',r.error,payload);local();const bad=NUM.filter(k=>Object.prototype.hasOwnProperty.call(payload,k)&&typeof payload[k]==='string');if(out)out.textContent=(r.error.message||'Unable to save listing.')+' | Engine '+VERSION+(bad.length?' | Numeric strings: '+bad.join(', '):' | No numeric strings sent')+' | Form saved on this device.';return;}
-    const id=r.data?.[0]?.id;if(id){currentProjectId=id;localStorage.setItem(ID_KEY,id);localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);if(out)out.textContent='Draft saved successfully. Engine '+VERSION;}
+    if(!currentProjectId||!r?.data?.length)r=await x.from('projects').insert(payload).select('id');
+    if(r.error){console.error('SAVE ERROR',r.error,payload);local();if(out)out.textContent=(r.error.message||'Unable to save listing.')+' | Engine '+VERSION+' | Form saved on this device.';return {ok:false,error:r.error};}
+    const id=r.data?.[0]?.id;if(id){currentProjectId=id;localStorage.setItem(ID_KEY,id);localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);if(out)out.textContent='Draft saved successfully. Engine '+VERSION;return {ok:true,id};}
+    return {ok:false,error:new Error('No project id returned')};
+  }
+  async function submitForReview(){
+    if(submitBtn)submitBtn.disabled=true;
+    try{
+      const saved=await save();
+      if(!saved.ok){return;}
+      const x=await wait();
+      const sessionResult=await x.auth.getSession();
+      const token=sessionResult.data?.session?.access_token;
+      if(!token)throw new Error('Please sign in again before submitting.');
+      if(out)out.textContent='Running AI Review…';
+      const r=await fetch(URL+'/functions/v1/ai-review-project',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':KEY},body:JSON.stringify({project_id:saved.id})});
+      const j=await r.json().catch(()=>({error:'Invalid server response'}));
+      if(!r.ok||!j.success)throw new Error(j.error||'AI Review failed.');
+      const score=j.review?.overall_score??j.result?.ai_score??'—';
+      const status=j.review?.recommendation||j.result?.ai_status||'submitted';
+      if(out)out.textContent='Submitted successfully. AI Score: '+score+'. '+String(status).replace(/_/g,' ')+'.';
+      if(submitBtn)submitBtn.textContent='Submitted for AI Review';
+    }catch(e){console.error('SUBMIT REVIEW ERROR',e);if(out)out.textContent='Saved as draft, but submission failed: '+(e.message||'Please try again.');}
+    finally{if(submitBtn&&submitBtn.textContent!=='Submitted for AI Review')submitBtn.disabled=false;}
   }
   form.addEventListener('input',()=>{clearTimeout(window.__wmTimer);window.__wmTimer=setTimeout(local,350);});
   form.addEventListener('change',local);
   form.addEventListener('submit',e=>{e.preventDefault();save();});
+  if(submitBtn)submitBtn.addEventListener('click',submitForReview);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
 })();
