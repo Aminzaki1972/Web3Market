@@ -30,6 +30,9 @@
   }
   function collect(){
     const p={};form.querySelectorAll('input[name],textarea[name],select[name]').forEach(el=>{if(['project_types','services','audience','assets'].includes(el.name))return;p[el.name]=el.type==='number'?(el.value===''?null:Number(el.value)):el.value;});
+    // Normalize every numeric database field, including text/select inputs that may contain an empty string.
+    const numericFields=['price','year_created','ai_score','monthly_revenue','yearly_revenue','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','monthly_profit','yearly_profit','active_users','customers_count','monthly_visits','total_sales','monthly_volume','asking_price','users_count'];
+    numericFields.forEach(k=>{if(Object.prototype.hasOwnProperty.call(p,k)){const s=String(p[k]??'').trim();p[k]=s===''?null:Number(s);if(typeof p[k]==='number'&&!Number.isFinite(p[k]))p[k]=null;}});
     if(Object.prototype.hasOwnProperty.call(p,'last_active_date'))p.last_active_date=normalizeDate(p.last_active_date);
     p.description=value('full_description')||value('description')||value('short_description');
     p.website_url=value('project_url')||value('website_url');
@@ -42,7 +45,6 @@
     p.social_accounts={facebook_url:p.facebook_url,x_url:p.x_url||p.twitter_url,github_url:p.github_url,linkedin_url:p.linkedin_url,instagram_url:p.instagram_url,telegram_url:p.telegram_url,discord_url:p.discord_url,youtube_url:p.youtube_url,tiktok_url:p.tiktok_url,reddit_url:p.reddit_url,medium_url:p.medium_url,other_social_url:p.other_social_url};
     p.performance={users_count:p.users_count,active_users:p.active_users,customers_count:p.customers_count,monthly_visits:p.monthly_visits,total_sales:p.total_sales,monthly_volume:p.monthly_volume,conversion_rate:p.conversion_rate,last_active_date:normalizeDate(p.last_active_date),traffic_sources:p.traffic_sources};
     p.financials={has_revenue:p.has_revenue,revenue_period:p.revenue_period,monthly_revenue:p.monthly_revenue,yearly_revenue:p.yearly_revenue,monthly_net_profit:p.monthly_net_profit||p.monthly_profit,yearly_net_profit:p.yearly_net_profit||p.yearly_profit,monthly_expenses:p.monthly_expenses,growth_rate:p.growth_rate,revenue_sources:p.revenue_sources,financial_notes:p.financial_notes};
-    // users_count is kept inside performance JSON only; projects has no top-level users_count column.
     delete p.users_count;
     delete p.currency_code;p.currency=value('currency')||'USD';p.price=value('asking_price')===''?null:Number(value('asking_price'));p.status='draft';return p;
   }
