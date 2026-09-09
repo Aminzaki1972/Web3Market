@@ -2,11 +2,24 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Update Evidence</title>
+<style>body{font-family:system-ui;margin:0;padding:24px;max-width:900px;margin:auto}label{display:block;margin:14px 0 6px}input,textarea{width:100%;padding:10px;box-sizing:border-box}button{margin-top:18px;padding:11px 18px}.status{margin-top:16px}</style>
 </head>
 <body>
-<!-- Existing page content preserved in repository; cache-buster update follows. -->
+<h1>Update Evidence</h1>
+<p>Add or update evidence for your project. New evidence is re-validated before the project can return to admin review.</p>
+<form id="evidence-form">
+<label for="project_url">Project URL</label><input id="project_url" name="project_url" type="url">
+<label for="website_url">Website URL</label><input id="website_url" name="website_url" type="url">
+<label for="github_url">GitHub URL</label><input id="github_url" name="github_url" type="url">
+<label for="documentation_url">Documentation URL</label><input id="documentation_url" name="documentation_url" type="url">
+<label for="demo_url">Demo URL</label><input id="demo_url" name="demo_url" type="url">
+<label for="domain_ownership">Domain ownership evidence</label><textarea id="domain_ownership" name="domain_ownership"></textarea>
+<label for="github_ownership">GitHub ownership evidence</label><textarea id="github_ownership" name="github_ownership"></textarea>
+<button type="submit">Submit Evidence</button>
+<div id="status" class="status"></div>
+</form>
 <script src="js/evidence-update.js?v=20260910-2"></script>
 </body>
 </html>
