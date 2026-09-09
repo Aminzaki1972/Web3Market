@@ -8,7 +8,10 @@
  const wait=()=>new Promise(r=>{let n=0;const t=setInterval(()=>{if(document.querySelector(".project-card[data-project-id]")){clearInterval(t);r()}if(++n>50){clearInterval(t);r()}},100)});
  try{
   await wait();
-  const {data:projects,error}=await sb.from("projects").select("id,price,currency,verification,ai_score").eq("status","active").limit(50);if(error||!projects?.length)return;
+  const {data:projects,error}=await sb.from("projects").select("id,price,currency,verification,ai_score").eq("status","active").limit(50);
+  const activeIds=new Set((projects||[]).map(p=>p.id));
+  document.querySelectorAll(".project-card[data-project-id]").forEach(card=>{if(!activeIds.has(card.getAttribute("data-project-id")))card.remove()});
+  if(error||!projects?.length)return;
   const ids=projects.map(p=>p.id);
   const {data:intel}=await sb.from("project_intelligence").select("project_id,overall_score,confidence_score,risk_level,valuation_mid,valuation_low,valuation_high,price_position,valuation_method").in("project_id",ids);
   const im=Object.fromEntries((intel||[]).map(x=>[x.project_id,x]));
