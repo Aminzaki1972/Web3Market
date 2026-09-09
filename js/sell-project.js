@@ -42,6 +42,8 @@
     p.social_accounts={facebook_url:p.facebook_url,x_url:p.x_url||p.twitter_url,github_url:p.github_url,linkedin_url:p.linkedin_url,instagram_url:p.instagram_url,telegram_url:p.telegram_url,discord_url:p.discord_url,youtube_url:p.youtube_url,tiktok_url:p.tiktok_url,reddit_url:p.reddit_url,medium_url:p.medium_url,other_social_url:p.other_social_url};
     p.performance={users_count:p.users_count,active_users:p.active_users,customers_count:p.customers_count,monthly_visits:p.monthly_visits,total_sales:p.total_sales,monthly_volume:p.monthly_volume,conversion_rate:p.conversion_rate,last_active_date:normalizeDate(p.last_active_date),traffic_sources:p.traffic_sources};
     p.financials={has_revenue:p.has_revenue,revenue_period:p.revenue_period,monthly_revenue:p.monthly_revenue,yearly_revenue:p.yearly_revenue,monthly_net_profit:p.monthly_net_profit||p.monthly_profit,yearly_net_profit:p.yearly_net_profit||p.yearly_profit,monthly_expenses:p.monthly_expenses,growth_rate:p.growth_rate,revenue_sources:p.revenue_sources,financial_notes:p.financial_notes};
+    // users_count is kept inside performance JSON only; projects has no top-level users_count column.
+    delete p.users_count;
     delete p.currency_code;p.currency=value('currency')||'USD';p.price=value('asking_price')===''?null:Number(value('asking_price'));p.status='draft';return p;
   }
   function saveLocalDraft(){try{const p=collect();if(p.title||p.short_description||p.full_description)localStorage.setItem(LOCAL_DRAFT_KEY,JSON.stringify({saved_at:new Date().toISOString(),data:p}));}catch(e){console.warn('Local draft save failed',e);}}
