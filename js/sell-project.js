@@ -2,7 +2,7 @@
 (function(){
   const form=document.querySelector('#projectForm');
   if(!form)return;
-  const VERSION='20260909-5';
+  const VERSION='20260909-6';
   const out=document.querySelector('#formStatus');
   const submitBtn=document.querySelector('#submitReviewBtn');
   const ID_KEY='web3market_project_id';
@@ -36,6 +36,10 @@
     p.performance={users_count:num(p.users_count),active_users:num(p.active_users),customers_count:num(p.customers_count),monthly_visits:num(p.monthly_visits),total_sales:num(p.total_sales),monthly_volume:num(p.monthly_volume),growth_rate:num(p.growth_rate),conversion_rate:p.conversion_rate||null,last_active_date:date(p.last_active_date),traffic_sources:p.traffic_sources||null};
     p.financials={has_revenue:p.has_revenue||null,revenue_period:p.revenue_period||null,monthly_revenue:num(p.monthly_revenue),yearly_revenue:num(p.yearly_revenue),monthly_net_profit:num(p.monthly_profit||p.monthly_net_profit),yearly_net_profit:num(p.yearly_profit||p.yearly_net_profit),monthly_expenses:num(p.monthly_expenses),growth_rate:num(p.growth_rate),revenue_sources:p.revenue_sources||null,financial_notes:p.financial_notes||null};
     const ask=num(p.asking_price||val('asking_price'));p.asking_price=ask;p.price=ask;p.currency=val('currency')||'USD';p.negotiable=bool(val('negotiable'));p.status='draft';
+    // Backward-compatible verification mapping: the form historically names this input
+    // domain_verification, while AI review evaluates domain_ownership.
+    if(!p.domain_ownership && p.domain_verification)p.domain_ownership=p.domain_verification;
+    if(!p.domain_verification && p.domain_ownership)p.domain_verification=p.domain_ownership;
     const cleanPayload={};DB.forEach(k=>{const v=clean(p[k],k);if(v!==undefined)cleanPayload[k]=v;});
     return cleanPayload;
   }
@@ -47,7 +51,7 @@
     if(!x){local();if(out)out.textContent='Database unavailable — saved on this device. Engine '+VERSION;return {ok:false,offline:true};}
     const u=await x.auth.getUser();
     if(u.error||!u.data?.user){local();if(out)out.textContent='Please sign in. Form saved on this device. Engine '+VERSION;return {ok:false,auth:false};}
-    if(!val('title')||val('short_description').length<20||(val('full_description')||val('description')).length<50){local();if(out)out.textContent='Please complete the required information. Form saved on this device. Engine '+VERSION;return {ok:false,validation:false};}
+    if(!val('title')||!val('short_description').length<20||(val('full_description')||val('description')).length<50){local();if(out)out.textContent='Please complete the required information. Form saved on this device. Engine '+VERSION;return {ok:false,validation:false};}
     const payload=collect();payload.owner_id=u.data.user.id;payload.status='draft';
     if(out)out.textContent='Saving draft… Engine '+VERSION;
     let r;
