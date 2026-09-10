@@ -16,21 +16,11 @@
   'use strict';
   function bootStats(){
     if(!document.querySelector('.projectCounters')||document.getElementById('wm-home-stats'))return;
-    var style=document.createElement('style');
-    style.id='wm-home-stats-style';
-    style.textContent='.wm-home-stats{padding:8px 0 24px;background:#f6f7f9}.wm-home-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.wm-home-stat{background:#fff;border:1px solid #e3e6eb;border-radius:16px;padding:17px 18px;text-align:center;box-shadow:0 7px 20px rgba(20,24,32,.04)}.wm-home-stat strong{display:block;font-size:27px;line-height:1;color:#141820}.wm-home-stat span{display:block;margin-top:6px;color:#737b88;font-size:11px;font-weight:800}.wm-home-stat small{display:block;margin-top:5px;color:#9aa1ac;font-size:9px}@media(max-width:620px){.wm-home-stats-grid{gap:8px}.wm-home-stat{padding:14px 8px}.wm-home-stat strong{font-size:22px}.wm-home-stat span{font-size:9px}}';
-    document.head.appendChild(style);
-    var s=document.createElement('section');s.id='wm-home-stats';s.className='wm-home-stats';s.setAttribute('aria-label','Live platform statistics');
-    s.innerHTML='<div class="wrap wm-home-stats-grid"><div class="wm-home-stat"><strong id="wmCustomers">—</strong><span>Registered Users</span><small>Real platform accounts</small></div><div class="wm-home-stat"><strong id="wmVisits24">—</strong><span>Visits — Last 24h</span><small>Homepage visits</small></div><div class="wm-home-stat"><strong id="wmActiveListings">—</strong><span>Active Listings</span><small>Currently listed projects</small></div></div></section>';
+    var style=document.createElement('style');style.id='wm-home-stats-style';style.textContent='.wm-home-stats{padding:8px 0 24px;background:#f6f7f9}.wm-home-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.wm-home-stat{background:#fff;border:1px solid #e3e6eb;border-radius:16px;padding:17px 18px;text-align:center;box-shadow:0 7px 20px rgba(20,24,32,.04)}.wm-home-stat strong{display:block;font-size:27px;line-height:1;color:#141820}.wm-home-stat span{display:block;margin-top:6px;color:#737b88;font-size:11px;font-weight:800}.wm-home-stat small{display:block;margin-top:5px;color:#9aa1ac;font-size:9px}@media(max-width:620px){.wm-home-stats-grid{gap:8px}.wm-home-stat{padding:14px 8px}.wm-home-stat strong{font-size:22px}.wm-home-stat span{font-size:9px}}';document.head.appendChild(style);
+    var s=document.createElement('section');s.id='wm-home-stats';s.className='wm-home-stats';s.setAttribute('aria-label','Live platform statistics');s.innerHTML='<div class="wrap wm-home-stats-grid"><div class="wm-home-stat"><strong id="wmCustomers">—</strong><span>Registered Users</span><small>Real platform accounts</small></div><div class="wm-home-stat"><strong id="wmVisits24">—</strong><span>Visits — Last 24h</span><small>Homepage visits</small></div><div class="wm-home-stat"><strong id="wmActiveListings">—</strong><span>Active Listings</span><small>Currently listed projects</small></div></div>';
     var counters=document.querySelector('.projectCounters');counters.parentNode.insertBefore(s,counters.nextSibling);
-    var client=window.Web3MarketSupabase&&window.Web3MarketSupabase.client;
-    if(!client){setTimeout(bootStats,700);return}
-    (async function(){
-      try{await client.rpc('record_homepage_visit');}catch(e){console.warn('Homepage visit recording unavailable',e)}
-      try{var r=await client.rpc('get_homepage_stats');if(r.error)throw r.error;var d=r.data||{};document.getElementById('wmCustomers').textContent=Number(d.customers||0).toLocaleString();document.getElementById('wmVisits24').textContent=Number(d.visits_24h||0).toLocaleString();document.getElementById('wmActiveListings').textContent=Number(d.active_listings||0).toLocaleString()}catch(e){console.warn('Homepage statistics unavailable',e)}
-    })();
+    var client=window.Web3MarketSupabase&&window.Web3MarketSupabase.client;if(!client){setTimeout(bootStats,700);return}
+    (async function(){try{await client.rpc('record_homepage_visit')}catch(e){console.warn('Homepage visit recording unavailable',e)}try{var r=await client.rpc('get_homepage_stats');if(r.error)throw r.error;var d=r.data||{};var a=document.getElementById('wmCustomers'),b=document.getElementById('wmVisits24'),c=document.getElementById('wmActiveListings');if(a)a.textContent=Number(d.customers||0).toLocaleString();if(b)b.textContent=Number(d.visits_24h||0).toLocaleString();if(c)c.textContent=Number(d.active_listings||0).toLocaleString()}catch(e){console.warn('Homepage statistics unavailable',e)}})();
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootStats,{once:true});else bootStats();
-  window.addEventListener('load',bootStats,{once:true});
-  setTimeout(bootStats,1200);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootStats,{once:true});else bootStats();window.addEventListener('load',bootStats,{once:true});setTimeout(bootStats,1200);
 })();
