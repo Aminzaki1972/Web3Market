@@ -31,7 +31,7 @@ window.addEventListener("load",()=>{installHomepageUI();installDeveloperContact(
     if(document.getElementById('wmx-homepage-enhancements'))return;
     var s=document.createElement('script');
     s.id='wmx-homepage-enhancements';
-    s.src='/js/homepage-enhancements.js?v=20260910-3';
+    s.src='/js/homepage-enhancements.js?v=20260910-4';
     s.async=true;
     s.onload=function(){console.log('Web3Market homepage enhancements loaded')};
     s.onerror=function(){console.warn('Web3Market homepage enhancements unavailable')};
