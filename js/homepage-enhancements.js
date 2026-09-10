@@ -1,4 +1,4 @@
-/* Web3Market homepage enhancements — cache-busting deployment marker: 20260911-1 */
+/* Web3Market homepage enhancements — cache-busting deployment marker: 20260911-2 */
 (function () {
   'use strict';
   var styles=`.wmx-section{padding:76px 0}.wmx-about{background:#fff;border-top:1px solid #e4e7eb;border-bottom:1px solid #e4e7eb}.wmx-head{max-width:760px;margin:0 auto;text-align:center}.wmx-kicker{display:inline-block;color:#635bff;font-size:11px;font-weight:950;letter-spacing:1px;margin-bottom:10px}.wmx-head h2{margin:0 0 12px;font-size:38px;letter-spacing:-1.4px;color:#141820}.wmx-head p{margin:0;color:#737b88;font-size:15px;line-height:1.75}.wmx-about-grid,.wmx-roadmap-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:30px}.wmx-card{background:#f8f9fb;border:1px solid #e3e6eb;border-radius:18px;padding:25px}.wmx-card strong{display:block;font-size:17px;margin-bottom:8px;color:#141820}.wmx-card p{margin:0;color:#737b88;font-size:13px;line-height:1.7}.wmx-roadmap{background:#f6f7f9}.wmx-phase{background:#fff;border:1px solid #e3e6eb;border-radius:20px;padding:25px}.wmx-phase.current{border-color:#c9c5ff;box-shadow:0 12px 30px rgba(99,91,255,.08)}.wmx-phase-badge{display:inline-flex;padding:6px 9px;border-radius:999px;background:#eeedff;color:#5149db;font-size:10px;font-weight:950;letter-spacing:.6px}.wmx-phase h3{margin:14px 0 7px;font-size:20px}.wmx-phase p{margin:0 0 16px;color:#737b88;font-size:13px;line-height:1.65}.wmx-phase ul{padding:0;margin:0;list-style:none;display:grid;gap:9px}.wmx-phase li{font-size:12px;color:#515966}.wmx-phase li:before{content:'✓';color:#635bff;font-weight:950;margin-right:8px}.wmx-ai{background:#141820;color:#fff}.wmx-ai .wmx-head h2{color:#fff}.wmx-ai .wmx-head p{color:#b3bac5}.wmx-ai-shell{max-width:900px;margin:30px auto 0;background:#202631;border:1px solid #343b48;border-radius:22px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.18)}.wmx-ai-top{padding:18px 20px;border-bottom:1px solid #343b48;display:flex;justify-content:space-between;align-items:center;gap:15px}.wmx-ai-title{font-weight:950}.wmx-ai-title span{color:#9e98ff}.wmx-ai-status{font-size:10px;color:#aeb6c4}.wmx-chat{height:330px;overflow:auto;padding:20px;display:grid;gap:12px}.wmx-msg{max-width:82%;padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.6}.wmx-msg.ai{background:#2a313d;color:#e8ebf0;justify-self:start}.wmx-msg.user{background:#635bff;color:#fff;justify-self:end}.wmx-quick{display:flex;gap:8px;flex-wrap:wrap;padding:0 20px 15px}.wmx-q{border:1px solid #3b4351;background:#272e39;color:#e5e8ee;border-radius:999px;padding:8px 11px;font-size:11px;font-weight:800;cursor:pointer}.wmx-input{display:flex;gap:8px;padding:15px 20px;border-top:1px solid #343b48}.wmx-input input{flex:1;min-width:0;height:42px;border:1px solid #3b4351;background:#171c24;color:#fff;border-radius:11px;padding:0 12px;outline:none}.wmx-input button{height:42px;border:0;border-radius:11px;background:#635bff;color:#fff;padding:0 15px;font-weight:900;cursor:pointer}@media(max-width:700px){.wmx-section{padding:58px 0}.wmx-head h2{font-size:30px}.wmx-about-grid,.wmx-roadmap-grid{grid-template-columns:1fr}.wmx-msg{max-width:92%}.wmx-chat{height:360px}.wmx-ai-top{align-items:flex-start;flex-direction:column}}`;
@@ -22,4 +22,22 @@
     if(offer){var fee=offer.querySelector('.feeLine');if(fee)fee.innerHTML='No upfront listing fees • No monthly fees • <b>7.5% success fee</b> when your deal closes.';}
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',polish,{once:true});else polish();setTimeout(polish,900);setTimeout(polish,2200);
+})();
+
+/* Live marketplace bootstrap — independent of the removed homepage counters. */
+(function(){
+  'use strict';
+  function load(){
+    if(!document.querySelector('.listingGrid')||document.getElementById('wm-live-marketplace-bootstrap'))return;
+    var s=document.createElement('script');
+    s.id='wm-live-marketplace-bootstrap';
+    s.src='/js/real-marketplace.js?v=20260911-2';
+    s.async=true;
+    s.onload=function(){console.log('Web3Market live marketplace loaded')};
+    s.onerror=function(){console.warn('Web3Market live marketplace unavailable')};
+    (document.head||document.body||document.documentElement).appendChild(s);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
+  window.addEventListener('load',load,{once:true});
+  setTimeout(load,1500);
 })();
