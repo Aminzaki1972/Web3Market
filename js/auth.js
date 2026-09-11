@@ -2,8 +2,10 @@
 "use strict";
 (function(){
  const STORAGE_KEY="web3market_pending_registration";
+ const RETURN_KEY="web3market_offer_return_to";
  const VALID_ROLES=new Set(["buyer","seller"]);
  const COMPLETE_REGISTRATION_URL="https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/complete-registration";
+ try{const params=new URLSearchParams(location.search);const returnTo=String(params.get("returnTo")||"").trim();if(returnTo.startsWith("project.html?id=")&&!returnTo.includes("://"))localStorage.setItem(RETURN_KEY,returnTo);}catch(_){}
  function getSupabaseClient(){return window.Web3MarketSupabase?.client||window.Web3MarketSupabase?.supabase||window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||null;}
  function normalizeEmail(email){return typeof email==="string"?email.trim().toLowerCase():"";}
  function normalizeRole(role){const value=typeof role==="string"?role.trim().toLowerCase():"";return VALID_ROLES.has(value)?value:"";}
