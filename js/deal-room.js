@@ -1,28 +1,82 @@
 "use strict";
 (async function(){
- const root=document.querySelector('#dealApp')||document.querySelector('.room'); if(!root)return;
- const sleep=ms=>new Promise(r=>setTimeout(r,ms)); let sb=null;
- for(let i=0;i<40;i++){sb=window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase||null;if(sb)break;await sleep(100)}
+ const root=document.querySelector('#dealApp')||document.querySelector('.room');
+ if(!root)return;
+ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+ let sb=null;
+ for(let i=0;i<40;i++){
+  sb=window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase||null;
+  if(sb)break;
+  await sleep(100);
+ }
  if(!sb){root.innerHTML='<div class="status">Database connection unavailable. Please refresh the page.</div>';return}
- const {data:{user},error:ue}=await sb.auth.getUser(); if(ue||!user){location.replace('login.html?next='+encodeURIComponent(location.pathname+location.search));return}
+ const {data:{user},error:ue}=await sb.auth.getUser();
+ if(ue||!user){location.replace('login.html?next='+encodeURIComponent(location.pathname+location.search));return}
  const {data:profile}=await sb.from('profiles').select('role').eq('id',user.id).maybeSingle();
  const isAdmin=String(profile?.role||'').toLowerCase()==='admin';
- const params=new URLSearchParams(location.search),dealId=params.get('deal')||params.get('id'); if(!dealId){root.innerHTML='<div class="status">Deal not specified.</div>';return}
- const {data:deal,error}=await sb.from('marketplace_deals').select('*').eq('id',dealId).maybeSingle();
- if(error||!deal){console.error(error);root.innerHTML='<div class="status">Deal information is unavailable.</div>';return}
- const participant=String(deal.buyer_id)===String(user.id)?'buyer':String(deal.seller_id)===String(user.id)?'seller':isAdmin?'platform':null;
- if(!participant){root.innerHTML='<div class="status">You are not a participant in this deal.</div>';return}
+ const params=new URLSearchParams(location.search),dealId=params.get('deal')||params.get('id');
+ if(!dealId){root.innerHTML='<div class="status">Deal not specified.</div>';return}
  const esc=v=>String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[m]));
- const money=v=>Number(v||0).toLocaleString(undefined,{maximumFractionDigits:2})+' '+(deal.currency||'USDT');
- document.querySelector('#dealMeta').textContent=`Deal ${deal.id} · ${money(deal.amount)}`;
- document.querySelector('#dealStatus').textContent=String(deal.status||'pending').replace(/[_-]+/g,' ');
- const paid=Boolean(deal.payment_tx_hash)||String(deal.status||'').toLowerCase()==='payment_confirmed';
- const details=document.querySelector('#details'); if(details)details.innerHTML=`<p>Amount: <strong>${esc(money(deal.amount))}</strong></p><p>Platform fee: <strong>${esc(money(deal.fee_amount||0))}</strong> (${Number(deal.fee_percent||7.5).toFixed(2)}%)</p><p>Seller net: <strong>${esc(money(deal.seller_net_amount||Number(deal.amount||0)-Number(deal.fee_amount||0)))}</strong></p><p>Payment: <strong>${paid?'Verified on-chain':'Pending'}</strong></p><p>Role: <strong>${participant}</strong></p>${deal.payment_tx_hash?`<p>TX: <code>${esc(deal.payment_tx_hash)}</code></p>`:''}`;
- async function loadAgreement(){const {data,error}=await sb.from('deal_party_agreements').select('party_role,party_id,agreed_at').eq('deal_id',deal.id);if(error){console.error('agreement',error);return []}return data||[]}
- async function loadMessages(){const {data,error}=await sb.from('deal_messages').select('message,created_at,sender_id').eq('deal_id',deal.id).order('created_at',{ascending:true});if(error){console.error(error);return}const box=document.querySelector('#messages');if(!box)return;box.innerHTML=(data||[]).map(m=>`<div class="msg ${String(m.sender_id)===String(user.id)?'mine':''}"><span class="translation-text">${esc(m.message)}</span><small>${new Date(m.created_at).toLocaleString()}</small></div>`).join('')||'<div class="info">No messages yet.</div>';box.scrollTop=box.scrollHeight}
- async function renderSafe(){const box=document.querySelector('#safeStatus');if(!box)return;const safe=String(deal.safe_wallet||'').trim(),chain=Number(deal.chain_id||0);if(!/^0x[a-fA-F0-9]{40}$/.test(safe)){box.innerHTML='<div class="safe-panel warn"><strong>Safe not configured.</strong><br>Payment and release remain disabled until a verified Safe is attached.</div>';return}if(chain!==56){box.innerHTML=`<div class="safe-panel warn"><strong>Chain mismatch.</strong><br>Expected BNB Smart Chain (56), got ${esc(chain||'unknown')}.</div>`;return}try{if(!window.ethers?.JsonRpcProvider)throw new Error('Safe verification library unavailable');const provider=new ethers.JsonRpcProvider('https://bsc-dataseed.binance.org');const c=new ethers.Contract(safe,['function getOwners() view returns (address[])','function getThreshold() view returns (uint256)','function nonce() view returns (uint256)'],provider);const [owners,threshold,nonce]=await Promise.all([c.getOwners(),c.getThreshold(),c.nonce()]);const code=await provider.getCode(safe);const ok=code!=='0x'&&owners.length===3&&Number(threshold)===2;box.innerHTML=`<div class="safe-panel ${ok?'ok':'warn'}"><strong>Safe 2-of-3 verification</strong><br>${code!=='0x'?'Contract detected':'Not a contract'} · ${owners.length} owner(s) · threshold ${Number(threshold)}<br>Nonce: ${esc(nonce)}<div class="safe-note">${ok?'The Safe configuration is valid. Web3Market cannot release funds alone.':'Expected exactly 3 owners with a 2-signature threshold.'}</div>${ok?`<a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:${encodeURIComponent(safe)}" target="_blank" rel="noopener noreferrer">Open Safe Queue</a>`:''}</div>`}catch(e){console.error(e);box.innerHTML='<div class="safe-panel warn"><strong>Safe could not be verified.</strong><br>No release action will be enabled.</div>'}}
- async function renderTerms(){const rows=await loadAgreement(),mine=rows.find(x=>x.party_role===participant&&String(x.party_id)===String(user.id)),buyer=rows.find(x=>x.party_role==='buyer')?.agreed_at,seller=rows.find(x=>x.party_role==='seller')?.agreed_at,actions=document.querySelector('#actions');if(!actions)return;actions.innerHTML=`<div class="notice"><strong>Dispute Resolution — Model B</strong><br>Buyer and Seller agree that Web3Market acts as the dispute resolution party. Funds are held by the 2-of-3 Safe, not by Web3Market. ${buyer?'Buyer ✓':'Buyer pending'} · ${seller?'Seller ✓':'Seller pending'}</div>${participant==='platform'?'<div class="notice ok">Platform moderator view — monitoring and dispute resolution only.</div>':''}<button id="agreeBtn" class="btn primary" ${participant==='platform'||mine?.agreed_at?'disabled':''}>${mine?.agreed_at?'Terms Accepted':'I Agree to Deal Terms'}</button><button id="disputeBtn" class="btn" style="background:#fff7ed;color:#9a3412">Open Dispute</button>`;const agreeBtn=document.querySelector('#agreeBtn');if(agreeBtn&&!mine?.agreed_at&&participant!=='platform')agreeBtn.onclick=async()=>{agreeBtn.disabled=true;const {error}=await sb.from('deal_party_agreements').upsert({deal_id:deal.id,party_role:participant,party_id:user.id,agreed_at:new Date().toISOString()},{onConflict:'deal_id,party_role,party_id'});if(error){alert(error.message||'Could not save agreement');agreeBtn.disabled=false;return}await renderTerms()};const db=document.querySelector('#disputeBtn');if(db)db.onclick=async()=>{const reason=prompt('Describe the dispute');if(!reason)return;const {error}=await sb.from('deal_disputes').insert({deal_id:deal.id,opened_by:user.id,reason,status:'open'});if(error)alert(error.message||'Could not open dispute');else alert('Dispute opened for Web3Market review.')}}
+ let deal=null,participant=null,channel=null,disposed=false;
+ const setStatus=(text,kind='')=>{const el=document.querySelector('#dealStatus');if(el){el.textContent=text;el.className='status'+(kind?' '+kind:'')}};
+ const loadDeal=async()=>{
+  const {data,error}=await sb.from('deals').select('*').eq('id',dealId).maybeSingle();
+  if(error||!data){console.error('deal load',error);return false}
+  const nextParticipant=String(data.buyer_id)===String(user.id)?'buyer':String(data.seller_id)===String(user.id)?'seller':isAdmin?'platform':null;
+  if(!nextParticipant){setStatus('You are not a participant in this deal.','warn');return false}
+  deal=data;participant=nextParticipant;
+  const money=v=>Number(v||0).toLocaleString(undefined,{maximumFractionDigits:2})+' '+(deal.currency||'USD');
+  const meta=document.querySelector('#dealMeta');if(meta)meta.textContent=`Deal ${deal.id} · ${money(deal.amount)}`;
+  setStatus(String(deal.status||'pending').replace(/[_-]+/g,' '));
+  const paid=Boolean(deal.payment_tx_hash)||String(deal.payment_status||'').toLowerCase()==='confirmed'||String(deal.status||'').toLowerCase()==='payment_confirmed';
+  const details=document.querySelector('#details');
+  if(details)details.innerHTML=`<p>Amount: <strong>${esc(money(deal.amount))}</strong></p><p>Platform fee: <strong>${esc(money(deal.platform_fee_amount??deal.platform_fee??0))}</strong> (${Number(deal.platform_fee_percent??7.5).toFixed(2)}%)</p><p>Seller net: <strong>${esc(money(deal.seller_net_amount??Number(deal.amount||0)-Number(deal.platform_fee_amount??deal.platform_fee??0)))}</strong></p><p>Payment: <strong>${paid?'Verified on-chain':'Pending'}</strong></p><p>Role: <strong>${participant}</strong></p>${deal.payment_tx_hash?`<p>TX: <code>${esc(deal.payment_tx_hash)}</code></p>`:''}`;
+  return true;
+ };
+ if(!await loadDeal()){if(!deal){root.innerHTML='<div class="status">Deal information is unavailable.</div>';return}}
+ async function loadAgreement(){
+  const {data,error}=await sb.from('deal_party_agreements').select('party_role,party_id,agreed_at').eq('deal_id',deal.id);
+  if(error){console.error('agreement',error);return []}return data||[];
+ }
+ async function loadMessages(){
+  if(!deal)return;
+  const {data,error}=await sb.from('deal_messages').select('message,created_at,sender_id').eq('deal_id',deal.id).order('created_at',{ascending:true});
+  if(error){console.error('messages',error);return}
+  const box=document.querySelector('#messages');if(!box)return;
+  box.innerHTML=(data||[]).map(m=>`<div class="msg ${String(m.sender_id)===String(user.id)?'mine':''}"><span class="translation-text">${esc(m.message)}</span><small>${new Date(m.created_at).toLocaleString()}</small></div>`).join('')||'<div class="info">No messages yet.</div>';
+  box.scrollTop=box.scrollHeight;
+ }
+ async function renderSafe(){
+  if(!deal)return;
+  const box=document.querySelector('#safeStatus');if(!box)return;
+  const safe=String(deal.safe_address||'').trim(),chain=Number(deal.chain_id||0);
+  if(!/^0x[a-fA-F0-9]{40}$/.test(safe)){box.innerHTML='<div class="safe-panel warn"><strong>Safe not configured.</strong><br>Payment and release remain disabled until a verified Safe is attached.</div>';return}
+  if(chain!==56){box.innerHTML=`<div class="safe-panel warn"><strong>Chain mismatch.</strong><br>Expected BNB Smart Chain (56), got ${esc(chain||'unknown')}.</div>`;return}
+  try{
+   if(!window.ethers?.JsonRpcProvider)throw new Error('Safe verification library unavailable');
+   const provider=new ethers.JsonRpcProvider('https://bsc-dataseed.binance.org');
+   const c=new ethers.Contract(safe,['function getOwners() view returns (address[])','function getThreshold() view returns (uint256)','function nonce() view returns (uint256)'],provider);
+   const [owners,threshold,nonce]=await Promise.all([c.getOwners(),c.getThreshold(),c.nonce()]);
+   const code=await provider.getCode(safe),ok=code!=='0x'&&owners.length===3&&Number(threshold)===2;
+   box.innerHTML=`<div class="safe-panel ${ok?'ok':'warn'}"><strong>Safe 2-of-3 verification</strong><br>${code!=='0x'?'Contract detected':'Not a contract'} · ${owners.length} owner(s) · threshold ${Number(threshold)}<br>Nonce: ${esc(nonce)}<div class="safe-note">${ok?'The Safe configuration is valid. Web3Market cannot release funds alone.':'Expected exactly 3 owners with a 2-signature threshold.'}</div>${ok?`<a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:${encodeURIComponent(safe)}" target="_blank" rel="noopener noreferrer">Open Safe Queue</a>`:''}</div>`;
+  }catch(e){console.error('safe verification',e);box.innerHTML='<div class="safe-panel warn"><strong>Safe could not be verified.</strong><br>No release action will be enabled.</div>'}
+ }
+ async function renderTerms(){
+  if(!deal)return;
+  const rows=await loadAgreement(),mine=rows.find(x=>x.party_role===participant&&String(x.party_id)===String(user.id)),buyer=rows.find(x=>x.party_role==='buyer')?.agreed_at,seller=rows.find(x=>x.party_role==='seller')?.agreed_at,actions=document.querySelector('#actions');
+  if(!actions)return;
+  actions.innerHTML=`<div class="notice"><strong>Dispute Resolution — Model B</strong><br>Buyer and Seller agree that Web3Market acts as the dispute resolution party. Funds are held by the 2-of-3 Safe, not by Web3Market. ${buyer?'Buyer ✓':'Buyer pending'} · ${seller?'Seller ✓':'Seller pending'}</div>${participant==='platform'?'<div class="notice ok">Platform moderator view — monitoring and dispute resolution only.</div>':''}<button id="agreeBtn" class="btn primary" ${participant==='platform'||mine?.agreed_at?'disabled':''}>${mine?.agreed_at?'Terms Accepted':'I Agree to Deal Terms'}</button><button id="disputeBtn" class="btn" style="background:#fff7ed;color:#9a3412">Open Dispute</button>`;
+  const agreeBtn=document.querySelector('#agreeBtn');
+  if(agreeBtn&&!mine?.agreed_at&&participant!=='platform')agreeBtn.onclick=async()=>{agreeBtn.disabled=true;const {error}=await sb.from('deal_party_agreements').upsert({deal_id:deal.id,party_role:participant,party_id:user.id,agreed_at:new Date().toISOString()},{onConflict:'deal_id,party_role,party_id'});if(error){alert(error.message||'Could not save agreement');agreeBtn.disabled=false;return}await renderTerms()};
+  const db=document.querySelector('#disputeBtn');
+  if(db)db.onclick=async()=>{const reason=prompt('Describe the dispute');if(!reason)return;const {error}=await sb.from('deal_disputes').insert({deal_id:deal.id,opened_by:user.id,reason,status:'open'});if(error)alert(error.message||'Could not open dispute');else alert('Dispute opened for Web3Market review.')};
+ }
  await loadMessages();await renderTerms();await renderSafe();
- const form=document.querySelector('#chatForm');if(form&&participant!=='platform')form.addEventListener('submit',async e=>{e.preventDefault();const input=document.querySelector('#messageInput'),message=input?.value.trim();if(!message)return;const btn=form.querySelector('button');btn.disabled=true;const {error}=await sb.from('deal_messages').insert({deal_id:deal.id,sender_id:user.id,message});btn.disabled=false;if(error){alert(error.message||'Unable to send message.');return}input.value='';await loadMessages()});
- const channel=sb.channel('deal-messages-'+deal.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'deal_messages',filter:'deal_id=eq.'+deal.id},loadMessages).subscribe();window.addEventListener('beforeunload',()=>sb.removeChannel(channel));
+ const form=document.querySelector('#chatForm');
+ if(form&&participant!=='platform')form.addEventListener('submit',async e=>{e.preventDefault();const input=document.querySelector('#messageInput'),message=input?.value.trim();if(!message)return;const btn=form.querySelector('button');btn.disabled=true;const {error}=await sb.from('deal_messages').insert({deal_id:deal.id,sender_id:user.id,message});btn.disabled=false;if(error){alert(error.message||'Unable to send message.');return}input.value='';await loadMessages()});
+ channel=sb.channel('deal-room-'+deal.id)
+  .on('postgres_changes',{event:'INSERT',schema:'public',table:'deal_messages',filter:'deal_id=eq.'+deal.id},loadMessages)
+  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'deals',filter:'id=eq.'+deal.id},async()=>{if(disposed)return;if(await loadDeal()){await renderTerms();await renderSafe()}})
+  .subscribe();
+ window.addEventListener('beforeunload',()=>{disposed=true;if(channel)sb.removeChannel(channel)});
 })();
