@@ -11,11 +11,17 @@
    if(pe||!project) throw new Error('Project not found.');
    const isBuyer=user.id===offer.buyer_id,isSeller=user.id===project.owner_id;
    if(!isBuyer&&!isSeller) throw new Error('You are not a participant in this offer.');
-   const allowed={accepted:isSeller,rejected:isSeller,withdrawn:isBuyer,countered:true};
+   if(action==='accepted'){
+    if(!isSeller) throw new Error('Only the seller can accept this offer.');
+    const {data:dealId,error:acceptError}=await client.rpc('accept_marketplace_offer',{p_offer_id:offerId});
+    if(acceptError) throw acceptError;
+    return {ok:true,status:'accepted',deal_id:dealId};
+   }
+   const allowed={rejected:isSeller,withdrawn:isBuyer,countered:true};
    if(!allowed[action]) throw new Error('Action not allowed.');
-   if(['accepted','rejected','withdrawn'].includes(action)&&offer.status!=='pending'&&offer.status!=='countered') throw new Error('This offer is no longer active.');
+   if(['rejected','withdrawn'].includes(action)&&!['pending','countered'].includes(offer.status)) throw new Error('This offer is no longer active.');
    if(action==='countered' && (!amount||Number(amount)<=0)) throw new Error('Counter offer amount must be greater than zero.');
-   const nextStatus=action==='countered'?'countered':action;
+   const nextStatus='countered';
    const patch={status:nextStatus,updated_at:new Date().toISOString()};
    if(action==='countered'){patch.amount=Number(amount);patch.currency=currency||offer.currency;patch.message=message||null;}
    const {error:up}=await client.from('marketplace_offers').update(patch).eq('id',offerId); if(up) throw up;
