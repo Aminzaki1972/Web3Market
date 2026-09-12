@@ -3,13 +3,30 @@
  const root=document.querySelector('#dealApp')||document.querySelector('.room');
  if(!root)return;
  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
- let sb=null;
- for(let i=0;i<40;i++){
+ let sb=null,lastInitError='';
+ // Use the shared client first, but also initialize directly as a fallback.
+ // This prevents the Deal Room from failing when supabase.js loads before the CDN client is ready.
+ for(let i=0;i<80;i++){
   sb=window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase||null;
+  if(!sb&&window.supabase&&typeof window.supabase.createClient==='function'){
+   try{
+    sb=window.supabase.createClient('https://hzhqlexnhtukfljcvnyd.supabase.co','sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'web3market-auth'}});
+    window.Web3MarketSupabase=window.Web3MarketSupabase||{};
+    window.Web3MarketSupabase.client=sb;
+    window.Web3MarketSupabase.supabase=sb;
+    window.Web3MarketSupabase.getClient=()=>sb;
+    window.supabaseClient=sb;
+    window.web3marketSupabase=sb;
+   }catch(e){lastInitError=e?.message||String(e)}
+  }
   if(sb)break;
   await sleep(100);
  }
- if(!sb){root.innerHTML='<div class="status">Database connection unavailable. Please refresh the page.</div>';return}
+ if(!sb){
+  root.innerHTML='<div class="status">Database connection unavailable. Please refresh the page.<br><small style="font-weight:400">The Supabase client could not be initialized'+(lastInitError?': '+String(lastInitError).replace(/[<>]/g,''):'')+'.</small></div>';
+  console.error('Deal Room Supabase client unavailable',lastInitError);
+  return;
+ }
  const {data:{user},error:ue}=await sb.auth.getUser();
  if(ue||!user){location.replace('login.html?next='+encodeURIComponent(location.pathname+location.search));return}
  const {data:profile}=await sb.from('profiles').select('role').eq('id',user.id).maybeSingle();
