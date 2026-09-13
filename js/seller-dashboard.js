@@ -27,13 +27,13 @@
     const projects=pq.data||[];
     const dq=await sb.from("deals").select("id,project_id,buyer_id,seller_id,amount,currency,status,created_at,platform_fee_percent,platform_fee_amount,seller_net_amount,payment_tx_hash").eq("seller_id",user.id).order("created_at",{ascending:false});
     const deals=dq.data||[];
-    const esc=v=>String(v??"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;"," >":"&gt;","\"":"&quot;","'":"&#039;"}[m]||m));
+    const esc=v=>String(v??"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
     const money=(v,c)=>`${Number(v||0).toLocaleString(undefined,{maximumFractionDigits:2})} ${c||"USD"}`;
     const completed=deals.filter(d=>["completed","released","closed"].includes(String(d.status||"").toLowerCase()));
     const active=deals.filter(d=>!["completed","released","closed","cancelled","rejected"].includes(String(d.status||"").toLowerCase()));
     const gross=completed.reduce((s,d)=>s+Number(d.amount||0),0);
     const fees=completed.reduce((s,d)=>s+Number(d.platform_fee_amount||0),0);
-    const net=completed.reduce((s,d)=>s+Number(d.seller_net_amount??(Number(d.amount||0)-Number(d.platform_fee_amount||0)),0);
+    const net=completed.reduce((s,d)=>s+Number(d.seller_net_amount ?? (Number(d.amount||0)-Number(d.platform_fee_amount||0))),0);
     const initials=(profile.display_name||user.email||"S").split(/[\s@._-]+/).filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase();
     const listingHtml=projects.slice(0,8).map(p=>`<article class="listing"><div><h3>${esc(p.title||"Untitled project")}</h3><div class="muted">${money(p.asking_price,p.currency)} · ${esc(p.status||"draft")}</div></div></article>`).join("")||'<div class="empty">No listings yet. <a href="sell-project.html">Create your first listing</a>.</div>';
     const dealHtml=deals.slice(0,10).map(d=>{const p=projects.find(x=>x.id===d.project_id);return `<article class="listing"><div style="flex:1"><h3><a href="deal-room.html?deal=${encodeURIComponent(d.id)}">${esc(p?.title||"Deal Room")}</a></h3><div class="muted">${money(d.amount,d.currency)} · ${esc(d.status||"pending")}</div><div class="muted">${d.payment_tx_hash?"Payment verified":"Payment pending"} · Fee ${money(d.platform_fee_amount,d.currency)}</div></div><span class="status-pill">${esc(d.status||"pending")}</span></article>`;}).join("")||'<div class="empty">No deals yet.</div>';
