@@ -27,7 +27,7 @@
     const projects=pq.data||[];
     const dq=await sb.from("deals").select("id,project_id,buyer_id,seller_id,amount,currency,status,created_at,platform_fee_percent,platform_fee_amount,seller_net_amount,payment_tx_hash").eq("seller_id",user.id).order("created_at",{ascending:false});
     const deals=dq.data||[];
-    const esc=v=>String(v??"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
+    const esc=v=>String(v??"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;"," >":"&gt;","\"":"&quot;","'":"&#039;"}[m]||m));
     const money=(v,c)=>`${Number(v||0).toLocaleString(undefined,{maximumFractionDigits:2})} ${c||"USD"}`;
     const completed=deals.filter(d=>["completed","released","closed"].includes(String(d.status||"").toLowerCase()));
     const active=deals.filter(d=>!["completed","released","closed","cancelled","rejected"].includes(String(d.status||"").toLowerCase()));
