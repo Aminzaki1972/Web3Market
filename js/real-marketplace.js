@@ -1,5 +1,15 @@
 "use strict";
 (function(){
+  function isHomepage(){
+    var p=(location.pathname||"").replace(/\/+$/,'');
+    return p===""||p==="/index.html"||p.endsWith("/index.html");
+  }
+  function ensureHomepageUsesLiveListings(grid){
+    if(!isHomepage()||!grid||grid.dataset.wmLiveCleaned==="1")return;
+    grid.dataset.wmLiveCleaned="1";
+    // Remove all legacy/demo cards from the homepage before rendering real Supabase listings.
+    grid.innerHTML='<div class="empty">Loading active Web3 projects…</div>';
+  }
   async function ensureSupabase(){
     if(window.Web3MarketSupabase?.getClient)return window.Web3MarketSupabase.getClient();
     if(window.supabaseClient)return window.supabaseClient;
@@ -21,6 +31,7 @@
   async function render(){
     var grid=document.querySelector('.listingGrid');
     if(!grid)return;
+    ensureHomepageUsesLiveListings(grid);
     try{
       var sb=await ensureSupabase();
       if(!sb){console.warn('Web3Market: Supabase client unavailable');return;}
