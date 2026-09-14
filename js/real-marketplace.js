@@ -83,3 +83,24 @@
   function boot(){render();setTimeout(render,1200);setTimeout(render,3000)}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
+
+/* Restore the homepage AI Guide after the live-listings loader runs. */
+(function(){
+  'use strict';
+  function loadGuide(){
+    var p=(location.pathname||'').replace(/\/+$/,'');
+    var home=p===''||p==='/index.html'||p.endsWith('/index.html');
+    if(!home||document.getElementById('wmx-homepage-enhancements'))return;
+    var s=document.createElement('script');
+    s.id='wmx-homepage-enhancements';
+    s.src='/js/homepage-enhancements.js?v=20260914-restore-ai';
+    s.async=true;
+    s.onload=function(){console.log('Web3Market AI Guide restored')};
+    s.onerror=function(){console.warn('Web3Market AI Guide unavailable')};
+    (document.head||document.body||document.documentElement).appendChild(s);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadGuide,{once:true});
+  else loadGuide();
+  window.addEventListener('load',loadGuide,{once:true});
+  setTimeout(loadGuide,500);
+})();
