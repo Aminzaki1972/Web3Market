@@ -40,15 +40,19 @@
         console.warn('Web3Market: Supabase client unavailable');
         return;
       }
-      // Server-side filter: only rows explicitly marked status = active can reach the homepage.
-      var q=await sb.from('projects').select('id,title,description,short_description,price,currency,category,status,created_at,ai_score,ai_status,logo_url,cover_image_url').eq('status','active').order('created_at',{ascending:false});
+      // Homepage rule: only active + approved + AI-approved projects are eligible, maximum 2.
+      var q=await sb.from('projects').select('id,title,description,short_description,price,currency,category,status,project_status,created_at,ai_score,ai_status,logo_url,cover_image_url').eq('status','active').eq('project_status','approved').eq('ai_status','approved').order('created_at',{ascending:false}).limit(2);
       if(q.error)throw q.error;
-      // Defense-in-depth: never render a non-active row even if the API response changes.
-      var data=(Array.isArray(q.data)?q.data:[]).filter(function(p){return String(p?.status||'').trim().toLowerCase()==='active';});
+      // Defense-in-depth: never render a row that fails the homepage eligibility rules.
+      var data=(Array.isArray(q.data)?q.data:[]).filter(function(p){
+        return String(p?.status||'').trim().toLowerCase()==='active' &&
+               String(p?.project_status||'').trim().toLowerCase()==='approved' &&
+               String(p?.ai_status||'').trim().toLowerCase()==='approved';
+      }).slice(0,2);
       var old=document.getElementById('wm-live-projects-heading');
       if(!old){
         old=document.createElement('div');old.id='wm-live-projects-heading';
-        old.innerHTML='<div style="display:flex;align-items:end;justify-content:space-between;gap:16px;margin:0 0 18px"><div><div style="font-size:11px;font-weight:950;letter-spacing:1px;color:#635bff">LIVE ACTIVE LISTINGS</div><h2 style="margin:5px 0 4px;font-size:32px;letter-spacing:-1px">Projects currently for sale</h2><p style="margin:0;color:#737b88;font-size:13px">Only approved projects with <b>status = active</b> are displayed below.</p></div><div style="font-size:13px;font-weight:900;color:#5149db">'+data.length+' active project'+(data.length===1?'':'s')+'</div></div>';
+        old.innerHTML='<div style="display:flex;align-items:end;justify-content:space-between;gap:16px;margin:0 0 18px"><div><div style="font-size:11px;font-weight:950;letter-spacing:1px;color:#635bff">LIVE ACTIVE LISTINGS</div><h2 style="margin:5px 0 4px;font-size:32px;letter-spacing:-1px">Projects currently for sale</h2><p style="margin:0;color:#737b88;font-size:13px">Only approved, AI-reviewed projects with <b>status = active</b> are displayed below.</p></div><div style="font-size:13px;font-weight:900;color:#5149db">'+data.length+' active project'+(data.length===1?'':'s')+'</div></div>';
         grid.parentNode.insertBefore(old,grid);
       }else{
         var count=old.querySelector('div[style*="color:#5149db"]');if(count)count.textContent=data.length+' active project'+(data.length===1?'':'s');
@@ -63,8 +67,8 @@
         var image=p.cover_image_url||p.logo_url||'';
         var art=image?'<div class="listingArt" style="background-image:url(\''+esc(image)+'\');background-size:cover;background-position:center"></div>':'<div class="listingArt '+(i%4===1?'a2':i%4===2?'a3':i%4===3?'a4':'')+'"></div>';
         var desc=String(p.short_description||p.description||'Active Web3 project available for acquisition.').slice(0,140);
-        var ai=String(p.ai_status||'').toLowerCase()==='approved'?'<span class="ai-badge">AI '+(Number.isFinite(Number(p.ai_score))?esc(p.ai_score)+'/100':'Reviewed')+'</span>':'';
-        return '<article class="listing" data-project-id="'+esc(p.id)+'"><a href="project.html?id='+encodeURIComponent(p.id)+'">'+art+'</a><div class="listingBody"><div class="seller"><span class="avatar"></span><span>Web3 Project</span>'+ai+'</div><h3><a href="project.html?id='+encodeURIComponent(p.id)+'">'+esc(p.title||'Untitled Web3 Project')+'</a></h3><div class="desc">'+esc(desc)+'</div><div class="meta"><div class="price2"><strong>'+money(p.price,p.currency)+'</strong><span>'+esc(p.category||'Web3 Project')+'</span></div><a class="buy" href="project.html?id='+encodeURIComponent(p.id)+'">View project →</a></div></div></article>';
+        var ai='<span class="ai-badge">AI '+(Number.isFinite(Number(p.ai_score))?esc(p.ai_score)+'/100':'Approved')+'</span>';
+        return '<article class="listing" data-project-id="'+esc(p.id)+'"><a href="project.html?id='+encodeURIComponent(p.id)+'">'+art+'</a><div class="listingBody"><div class="seller"><span class="avatar"></span><span>Verified project</span>'+ai+'</div><h3><a href="project.html?id='+encodeURIComponent(p.id)+'">'+esc(p.title||'Untitled Web3 Project')+'</a></h3><div class="desc">'+esc(desc)+'</div><div class="meta"><div class="price2"><strong>'+money(p.price,p.currency)+'</strong><span>'+esc(p.category||'Web3 Project')+'</span></div><a class="buy" href="project.html?id='+encodeURIComponent(p.id)+'">View project →</a></div></div></article>';
       }).join('');
       grid.innerHTML=html;
       grid.style.visibility='visible';
