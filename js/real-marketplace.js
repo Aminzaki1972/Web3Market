@@ -65,20 +65,42 @@
   window.addEventListener('load',loadGuide,{once:true});setTimeout(loadGuide,500);
 })();
 
-/* Homepage seller architecture: unauthenticated users must create a seller account first. */
+/* Seller entry architecture: every seller CTA on the homepage goes to account creation first. */
 (function(){
   'use strict';
-  function fixSellerEntry(){
-    var p=(location.pathname||'').replace(/\/+$/,'');
-    var home=p===''||p==='/index.html'||p.endsWith('/index.html');
-    if(!home)return;
-    document.querySelectorAll('a[href="sell-project.html"]').forEach(function(a){
-      if(a.dataset.wmSellerEntryFixed==='1')return;
-      a.dataset.wmSellerEntryFixed='1';
-      a.href='register.html?role=seller';
-      a.setAttribute('aria-label','Create seller account');
+  function sellerRegisterUrl(){return 'register.html?role=seller';}
+  function normalizeSellerLinks(){
+    if(!isHomepage())return;
+    document.querySelectorAll('a').forEach(function(a){
+      var href=(a.getAttribute('href')||'').trim().toLowerCase();
+      var text=(a.textContent||'').trim().toLowerCase();
+      if(href==='sell-project.html' || text==='list your project' || text==='create seller account'){
+        a.setAttribute('href',sellerRegisterUrl());
+        a.setAttribute('aria-label','Create seller account');
+        a.dataset.wmSellerEntryFixed='1';
+      }
     });
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fixSellerEntry,{once:true});else fixSellerEntry();
-  setTimeout(fixSellerEntry,500);setTimeout(fixSellerEntry,1500);setTimeout(fixSellerEntry,3000);
+  function isHomepage(){
+    var p=(location.pathname||'').replace(/\/+$/,'');
+    return p===''||p==='/index.html'||p.endsWith('/index.html');
+  }
+  function installClickGuard(){
+    if(!isHomepage()||document.documentElement.dataset.wmSellerClickGuard==='1')return;
+    document.documentElement.dataset.wmSellerClickGuard='1';
+    document.addEventListener('click',function(ev){
+      var a=ev.target&&ev.target.closest?ev.target.closest('a'):null;
+      if(!a)return;
+      var href=(a.getAttribute('href')||'').trim().toLowerCase();
+      var text=(a.textContent||'').trim().toLowerCase();
+      if(href==='sell-project.html' || text==='list your project' || text==='create seller account'){
+        ev.preventDefault();ev.stopPropagation();ev.stopImmediatePropagation();
+        window.location.assign(sellerRegisterUrl());
+      }
+    },true);
+  }
+  function bootSellerGuard(){installClickGuard();normalizeSellerLinks();}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootSellerGuard,{once:true});else bootSellerGuard();
+  window.addEventListener('load',bootSellerGuard,{once:true});
+  [100,500,1000,2000,4000,7000].forEach(function(ms){setTimeout(bootSellerGuard,ms)});
 })();
