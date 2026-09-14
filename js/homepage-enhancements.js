@@ -41,3 +41,47 @@
   window.addEventListener('load',load,{once:true});
   setTimeout(load,1500);
 })();
+
+/* Logo background visibility fix — use the supplied Web3Market artwork as a real background layer.
+   This intentionally overrides the old negative-z-index pseudo-element implementation. */
+(function(){
+  'use strict';
+  function applyLogoBackground(){
+    if(document.getElementById('wm-logo-background-fix'))return;
+    var style=document.createElement('style');
+    style.id='wm-logo-background-fix';
+    style.textContent=`
+      .hero{
+        position:relative!important;
+        isolation:isolate!important;
+        overflow:hidden!important;
+        min-height:620px!important;
+        padding:84px 0 58px!important;
+        color:#fff!important;
+        background-color:#04091e!important;
+        background-image:
+          linear-gradient(90deg,rgba(4,9,30,.98) 0%,rgba(4,9,30,.94) 28%,rgba(4,9,30,.70) 54%,rgba(4,9,30,.18) 82%,rgba(4,9,30,.06) 100%),
+          url("assets/web3market-home-background.svg")!important;
+        background-position:center,right 5% center!important;
+        background-size:cover,620px 620px!important;
+        background-repeat:no-repeat!important;
+      }
+      .hero:before{display:none!important}
+      .hero:after{z-index:0!important;pointer-events:none!important;background:radial-gradient(circle at 78% 46%,rgba(38,133,255,.10),transparent 34%),linear-gradient(180deg,rgba(3,7,25,.03),rgba(3,7,25,.22))!important}
+      .heroGrid{position:relative!important;z-index:2!important;min-height:480px!important}
+      .heroGrid>div{max-width:700px!important}
+      @media(max-width:950px){
+        .hero{min-height:640px!important;background-position:center,right center!important;background-size:cover,560px 560px!important}
+        .heroGrid{min-height:520px!important}
+      }
+      @media(max-width:620px){
+        .hero{min-height:720px!important;padding:48px 0 34px!important;background-image:linear-gradient(180deg,rgba(4,9,30,.97) 0%,rgba(4,9,30,.91) 45%,rgba(4,9,30,.57) 72%,rgba(4,9,30,.18) 100%),url("assets/web3market-home-background.svg")!important;background-position:center,center bottom!important;background-size:cover,100% auto!important}
+        .heroGrid{min-height:610px!important;align-items:start!important}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',applyLogoBackground,{once:true});else applyLogoBackground();
+  setTimeout(applyLogoBackground,400);
+  setTimeout(applyLogoBackground,1200);
+})();
