@@ -7,7 +7,8 @@
   function ensureHomepageUsesLiveListings(grid){
     if(!isHomepage()||!grid||grid.dataset.wmLiveCleaned==="1")return;
     grid.dataset.wmLiveCleaned="1";
-    // Remove all legacy/demo cards from the homepage before rendering real Supabase listings.
+    // Homepage must never display legacy/demo/inactive project cards.
+    // This only changes what is rendered on the homepage; it does not delete database rows.
     grid.innerHTML='<div class="empty">Loading active Web3 projects…</div>';
   }
   async function ensureSupabase(){
@@ -34,19 +35,28 @@
     ensureHomepageUsesLiveListings(grid);
     try{
       var sb=await ensureSupabase();
-      if(!sb){console.warn('Web3Market: Supabase client unavailable');return;}
+      if(!sb){
+        grid.innerHTML='<div class="empty">No active projects are currently listed for sale.</div>';
+        console.warn('Web3Market: Supabase client unavailable');
+        return;
+      }
+      // Server-side filter: only rows explicitly marked status = active can reach the homepage.
       var q=await sb.from('projects').select('id,title,description,short_description,price,currency,category,status,created_at,ai_score,ai_status,logo_url,cover_image_url').eq('status','active').order('created_at',{ascending:false});
       if(q.error)throw q.error;
-      var data=Array.isArray(q.data)?q.data:[];
+      // Defense-in-depth: never render a non-active row even if the API response changes.
+      var data=(Array.isArray(q.data)?q.data:[]).filter(function(p){return String(p?.status||'').trim().toLowerCase()==='active';});
       var old=document.getElementById('wm-live-projects-heading');
       if(!old){
         old=document.createElement('div');old.id='wm-live-projects-heading';
-        old.innerHTML='<div style="display:flex;align-items:end;justify-content:space-between;gap:16px;margin:0 0 18px"><div><div style="font-size:11px;font-weight:950;letter-spacing:1px;color:#635bff">LIVE ACTIVE LISTINGS</div><h2 style="margin:5px 0 4px;font-size:32px;letter-spacing:-1px">Projects currently for sale</h2><p style="margin:0;color:#737b88;font-size:13px">Every approved project with <b>status = active</b> is displayed below.</p></div><div style="font-size:13px;font-weight:900;color:#5149db">'+data.length+' active project'+(data.length===1?'':'s')+'</div></div>';
+        old.innerHTML='<div style="display:flex;align-items:end;justify-content:space-between;gap:16px;margin:0 0 18px"><div><div style="font-size:11px;font-weight:950;letter-spacing:1px;color:#635bff">LIVE ACTIVE LISTINGS</div><h2 style="margin:5px 0 4px;font-size:32px;letter-spacing:-1px">Projects currently for sale</h2><p style="margin:0;color:#737b88;font-size:13px">Only approved projects with <b>status = active</b> are displayed below.</p></div><div style="font-size:13px;font-weight:900;color:#5149db">'+data.length+' active project'+(data.length===1?'':'s')+'</div></div>';
         grid.parentNode.insertBefore(old,grid);
       }else{
         var count=old.querySelector('div[style*="color:#5149db"]');if(count)count.textContent=data.length+' active project'+(data.length===1?'':'s');
       }
-      if(!data.length){grid.innerHTML='<div class="empty">No active projects are currently listed for sale.</div>';return;}
+      if(!data.length){
+        grid.innerHTML='<div class="empty">No active projects are currently listed for sale.</div>';
+        return;
+      }
       var esc=function(v){return String(v??'').replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]})};
       var money=function(v,c){var n=Number(v);if(!Number.isFinite(n)||n<=0)return 'Price on request';return esc(c||'USD')+' '+new Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(n)};
       var html=data.map(function(p,i){
@@ -60,7 +70,11 @@
       grid.style.visibility='visible';
       if(!document.getElementById('web3market-live-project-style')){var st=document.createElement('style');st.id='web3market-live-project-style';st.textContent='.listingGrid{opacity:1!important;visibility:visible!important}.listingGrid .listing{min-height:100%}.listingGrid .listing h3 a{color:#141820;text-decoration:none}.listingGrid .listingArt:after{content:none}.ai-badge{display:inline-flex;align-items:center;margin-left:4px;padding:3px 6px;border-radius:999px;background:#eeedff;color:#5149db;font-size:9px;font-weight:900}';document.head.appendChild(st)}
       window.dispatchEvent(new CustomEvent('web3market:projects-rendered',{detail:{count:data.length}}));
-    }catch(e){console.warn('Web3Market live marketplace unavailable',e)}
+    }catch(e){
+      // Never fall back to static/inactive cards after an API error.
+      grid.innerHTML='<div class="empty">No active projects are currently listed for sale.</div>';
+      console.warn('Web3Market live marketplace unavailable',e);
+    }
   }
   function boot(){render();setTimeout(render,1200);setTimeout(render,3000)}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
