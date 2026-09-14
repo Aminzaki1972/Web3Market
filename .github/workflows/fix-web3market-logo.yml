@@ -1,82 +1,47 @@
-name: Fix Web3Market Hero Logo
+name: Web3Market Hero Logo Fix
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
-  fix-logo:
+  logo:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply reliable hero logo background
-        shell: bash
+      - name: Replace background asset
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          marker = 'WEB3MARKET-HERO-LOGO-FIX-20260914'
-          index = Path('index.html')
-          text = index.read_text(encoding='utf-8')
-
-          svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" role="img" aria-label="Web3Market">
-          <defs>
-            <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1ea7ff"/><stop offset=".48" stop-color="#276cff"/><stop offset="1" stop-color="#b04cff"/></linearGradient>
-            <linearGradient id="w" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b84cff"/><stop offset=".42" stop-color="#2877ff"/><stop offset=".72" stop-color="#16c8ff"/><stop offset="1" stop-color="#35f2d1"/></linearGradient>
-            <radialGradient id="bg"><stop offset="0" stop-color="#071e56"/><stop offset=".62" stop-color="#020b2a"/><stop offset="1" stop-color="#010719"/></radialGradient>
-            <filter id="glow"><feGaussianBlur stdDeviation="14" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-            <clipPath id="globe"><circle cx="627" cy="500" r="420"/></clipPath>
-          </defs>
-          <rect width="1254" height="1254" fill="#010719"/>
-          <circle cx="627" cy="627" r="560" fill="url(#bg)"/>
-          <circle cx="627" cy="627" r="555" fill="none" stroke="url(#ring)" stroke-width="18"/>
-          <circle cx="627" cy="500" r="420" fill="#031044" opacity=".78" stroke="#0d5eff" stroke-opacity=".45" stroke-width="3"/>
-          <g clip-path="url(#globe)" fill="none" stroke="#169cff" stroke-opacity=".32" stroke-width="2">
-            <ellipse cx="627" cy="500" rx="420" ry="150"/><ellipse cx="627" cy="500" rx="420" ry="285"/>
-            <ellipse cx="627" cy="500" rx="150" ry="420"/><ellipse cx="627" cy="500" rx="285" ry="420"/>
-            <path d="M160 500h934M190 350h874M190 650h874"/>
-          </g>
-          <g fill="#15b8ff" filter="url(#glow)" opacity=".9">
-            <circle cx="260" cy="350" r="9"/><circle cx="385" cy="250" r="7"/><circle cx="820" cy="240" r="10"/><circle cx="1010" cy="390" r="8"/><circle cx="1030" cy="650" r="9"/><circle cx="240" cy="650" r="8"/>
-          </g>
-          <g stroke="#168fff" stroke-opacity=".5" stroke-width="2"><path d="M260 350L385 250L627 200L820 240L1010 390L1030 650L850 760"/><path d="M240 650L400 570L260 350"/></g>
-          <g transform="translate(0,35)" filter="url(#glow)"><path d="M285 355 L455 680 Q470 705 500 705 L535 705 Q558 705 572 680 L627 585 L682 680 Q696 705 719 705 L754 705 Q784 705 799 680 L969 355 L855 355 L735 575 L684 470 L741 355 L627 355 L513 575 L399 355 Z" fill="url(#w)"/></g>
-          <text x="627" y="865" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="112" font-weight="900" letter-spacing="-5" fill="#fff">Web3<tspan fill="#159cff">Market</tspan></text>
-          <text x="627" y="930" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="42" fill="#fff" letter-spacing="8">Buy  •  Sell  •  Grow</text>
-          <text x="627" y="986" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="25" fill="#aebee8" letter-spacing="9">WEB3 PROJECT MARKETPLACE</text>
-          </svg>'''
-
-          Path('assets/web3market-home-background.svg').write_text(svg, encoding='utf-8')
-
-          # Make the hero use the supplied artwork reliably and visibly on desktop/mobile.
-          if marker not in text:
-              text = text.replace('</style>', '''
-/* WEB3MARKET-HERO-LOGO-FIX-20260914 */
-.hero{background:#020719!important;color:#fff!important;min-height:650px!important;overflow:hidden!important}
-.hero:before{display:block!important;z-index:0!important;opacity:1!important;background-image:linear-gradient(90deg,rgba(2,7,25,.97) 0%,rgba(2,7,25,.86) 30%,rgba(2,7,25,.38) 58%,rgba(2,7,25,.08) 100%),url("assets/web3market-home-background.svg")!important;background-position:center!important;background-size:cover!important;background-repeat:no-repeat!important}
-.hero:after{z-index:1!important;background:linear-gradient(180deg,rgba(2,7,25,.04),rgba(2,7,25,.22))!important}
-.heroGrid{position:relative!important;z-index:2!important;min-height:520px!important}
-.heroGrid>div{max-width:720px!important}
-@media(max-width:620px){.hero{min-height:720px!important}.hero:before{background-position:center top!important;background-size:auto 100%!important}.heroGrid{min-height:590px!important}}
-''', '</style>')
-              index.write_text(text, encoding='utf-8')
-
-          # Prevent this workflow from committing repeatedly.
-          print('Hero logo fix applied.')
-          PY
-      - name: Commit changes
-        shell: bash
+          cat > assets/web3market-home-background.svg <<'SVG'
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254">
+            <defs>
+              <linearGradient id="r" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#169cff"/><stop offset=".55" stop-color="#345cff"/><stop offset="1" stop-color="#b34cff"/></linearGradient>
+              <linearGradient id="w" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#c04cff"/><stop offset=".45" stop-color="#2677ff"/><stop offset=".75" stop-color="#19d5ff"/><stop offset="1" stop-color="#37efd0"/></linearGradient>
+              <radialGradient id="b"><stop stop-color="#06215b"/><stop offset=".7" stop-color="#020c2d"/><stop offset="1" stop-color="#010719"/></radialGradient>
+              <filter id="g"><feGaussianBlur stdDeviation="10" result="x"/><feMerge><feMergeNode in="x"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            </defs>
+            <rect width="1254" height="1254" fill="#010719"/>
+            <circle cx="627" cy="627" r="555" fill="url(#b)" stroke="url(#r)" stroke-width="18"/>
+            <circle cx="627" cy="490" r="405" fill="#031044" stroke="#168fff" stroke-opacity=".45" stroke-width="3"/>
+            <g fill="none" stroke="#159cff" stroke-opacity=".35" stroke-width="2">
+              <ellipse cx="627" cy="490" rx="405" ry="145"/><ellipse cx="627" cy="490" rx="405" ry="275"/>
+              <ellipse cx="627" cy="490" rx="145" ry="405"/><ellipse cx="627" cy="490" rx="275" ry="405"/>
+              <path d="M190 490h874M215 355h824M215 625h824"/>
+              <path d="M245 330L390 245L627 195L815 235L1010 385L1030 650"/>
+            </g>
+            <g fill="#18bfff" filter="url(#g)"><circle cx="260" cy="350" r="8"/><circle cx="390" cy="245" r="7"/><circle cx="815" cy="235" r="10"/><circle cx="1010" cy="385" r="8"/><circle cx="1030" cy="650" r="9"/></g>
+            <path d="M285 355L455 680Q470 705 500 705H535Q558 705 572 680L627 585L682 680Q696 705 719 705H754Q784 705 799 680L969 355H855L735 575L684 470L741 355H627L513 575L399 355Z" fill="url(#w)" filter="url(#g)"/>
+            <text x="627" y="865" text-anchor="middle" font-family="Arial,sans-serif" font-size="112" font-weight="900" fill="white">Web3<tspan fill="#18bfff">Market</tspan></text>
+            <text x="627" y="930" text-anchor="middle" font-family="Arial,sans-serif" font-size="42" fill="white" letter-spacing="8">Buy • Sell • Grow</text>
+            <text x="627" y="986" text-anchor="middle" font-family="Arial,sans-serif" font-size="25" fill="#b9c8ed" letter-spacing="8">WEB3 PROJECT MARKETPLACE</text>
+          </svg>
+          SVG
+      - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html assets/web3market-home-background.svg
-          if git diff --cached --quiet; then
-            echo "No changes to commit."
-          else
-            git commit -m "fix: render Web3Market hero logo reliably"
-            git push
-          fi
+          git add assets/web3market-home-background.svg
+          git diff --cached --quiet || (git commit -m "fix: render Web3Market hero logo" && git push)
