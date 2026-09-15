@@ -85,3 +85,25 @@
   setTimeout(applyLogoBackground,400);
   setTimeout(applyLogoBackground,1200);
 })();
+
+/* Social footer — Join Our Ecosystem */
+(function(){
+  'use strict';
+  function addSocialFooter(){
+    if(document.getElementById('wm-social-footer'))return;
+    var footer=document.querySelector('.footer');
+    if(!footer)return;
+    var wrap=footer.querySelector('.wrap')||footer.querySelector('.footerIn');
+    if(!wrap)return;
+    var section=document.createElement('div');
+    section.id='wm-social-footer';
+    section.innerHTML=`<div class="wm-social-title">Join Our Ecosystem</div><div class="wm-social-links"><a href="https://x.com/Web3MarketXYZ" target="_blank" rel="noopener noreferrer" aria-label="Web3Market on X">𝕏 <span>X / Twitter</span></a><a href="https://t.me/Web3market_Global" target="_blank" rel="noopener noreferrer" aria-label="Web3Market on Telegram">✈ <span>Telegram</span></a></div>`;
+    var style=document.createElement('style');
+    style.id='wm-social-footer-style';
+    style.textContent=`#wm-social-footer{width:100%;padding:0 0 24px;margin:0 0 24px;border-bottom:1px solid rgba(255,255,255,.12);text-align:center}.wm-social-title{color:#fff;font-size:15px;font-weight:900;letter-spacing:.2px;margin-bottom:12px}.wm-social-links{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap}.wm-social-links a{display:inline-flex;align-items:center;gap:7px;padding:9px 13px;border:1px solid rgba(255,255,255,.14);border-radius:999px;color:#c9d0da;font-size:12px;font-weight:800;transition:all .2s ease}.wm-social-links a:hover{color:#fff;border-color:rgba(255,255,255,.35);transform:translateY(-1px)}.wm-social-links a:first-child{font-size:12px}.wm-social-links a:first-child::first-letter{font-size:17px}@media(max-width:620px){#wm-social-footer{padding-bottom:20px;margin-bottom:20px}.wm-social-links{gap:8px}.wm-social-links a{padding:8px 11px}}`;
+    document.head.appendChild(style);
+    wrap.insertBefore(section,wrap.firstChild);
+  }
+  function boot(){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',addSocialFooter,{once:true});else addSocialFooter();setTimeout(addSocialFooter,800);setTimeout(addSocialFooter,2000)}
+  boot();
+})();
