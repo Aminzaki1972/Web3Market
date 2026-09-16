@@ -6,25 +6,28 @@
   const short=a=>a.slice(0,8)+"…"+a.slice(-6);
   const getSb=()=>window.Web3MarketSupabase?.getClient?.()||window.Web3MarketSupabase?.client||window.supabaseClient||window.web3marketSupabase;
   const esc=v=>String(v??"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
+  const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const isSafePalBrowser=()=>Boolean(window.isSafePal||window.safepalProvider||/SafePal/i.test(navigator.userAgent));
 
   function addProvider(provider,info){if(!provider||typeof provider.request!=="function"||seen.has(provider))return;seen.add(provider);discovered.push({provider,info:info||{name:"Web3 Wallet",icon:""}})}
   function discover(){
+    try{if(window.safepalProvider)addProvider(window.safepalProvider,{name:"SafePal",rdns:"com.safepal.wallet"})}catch(_){ }
     const eth=window.ethereum;
     if(eth?.providers?.length)eth.providers.forEach(p=>addProvider(p,p.info||{})); else if(eth)addProvider(eth,eth.info||{});
     try{window.dispatchEvent(new Event("eip6963:requestProvider"))}catch(_){ }
   }
   window.addEventListener("eip6963:announceProvider",e=>{const d=e.detail;if(d?.provider)addProvider(d.provider,d.info||{})});
-  function nameOf(info,provider){const n=String(info?.name||info?.rdns||"").toLowerCase();if(n.includes("metamask"))return "MetaMask";if(n.includes("trust"))return "Trust Wallet";if(n.includes("coinbase"))return "Coinbase Wallet";if(n.includes("okx"))return "OKX Wallet";if(n.includes("binance"))return "Binance Wallet";if(n.includes("rabby"))return "Rabby Wallet";if(n.includes("phantom"))return "Phantom";if(n.includes("zerion"))return "Zerion";return info?.name||provider?.name||"Web3 Wallet"}
+  function nameOf(info,provider){const n=String(info?.name||info?.rdns||"").toLowerCase();if(n.includes("safepal"))return "SafePal";if(n.includes("metamask"))return "MetaMask";if(n.includes("trust"))return "Trust Wallet";if(n.includes("coinbase"))return "Coinbase Wallet";if(n.includes("okx"))return "OKX Wallet";if(n.includes("binance"))return "Binance Wallet";if(n.includes("rabby"))return "Rabby Wallet";if(n.includes("phantom"))return "Phantom";if(n.includes("zerion"))return "Zerion";return info?.name||provider?.name||"Web3 Wallet"}
   function openModal(){
     discover();
     setTimeout(()=>{
       const modal=document.getElementById("walletModal"),list=document.getElementById("walletList");if(!modal||!list)return;
       list.innerHTML="";
-      const preferred=["MetaMask","Trust Wallet","Coinbase Wallet","OKX Wallet","Binance Wallet","Rabby Wallet","Phantom","Zerion"];
+      const preferred=["MetaMask","Trust Wallet","SafePal","Coinbase Wallet","OKX Wallet","Binance Wallet","Rabby Wallet","Phantom","Zerion"];
       const rows=[],used=new Set();
       discovered.forEach(x=>{const n=nameOf(x.info,x.provider);if(!used.has(n)){used.add(n);rows.push({name:n,provider:x.provider,icon:x.info?.icon||"",detected:true})}});
       preferred.forEach(n=>{if(!used.has(n)){used.add(n);rows.push({name:n,provider:null,icon:"",detected:false})}});
-      rows.forEach(row=>{const b=document.createElement("button");b.type="button";b.className="wallet-option"+(row.detected?"":" unavailable");b.innerHTML=`<span class="wallet-icon">${row.icon?`<img src="${esc(row.icon)}" alt="">`:"◈"}</span><span><strong>${esc(row.name)}</strong><small>${row.detected?"Detected on this device":"Open wallet app / browser"}</small></span><span class="wallet-arrow">›</span>`;b.addEventListener("click",()=>row.provider?connect(row.provider,row.name):openWalletApp(row.name));list.appendChild(b)});
+      rows.forEach(row=>{const b=document.createElement("button");b.type="button";b.className="wallet-option"+(row.detected?"":" unavailable");b.innerHTML=`<span class="wallet-icon">${row.icon?`<img src="${esc(row.icon)}" alt="">`:"◈"}</span><span><strong>${esc(row.name)}</strong><small>${row.detected?(row.name==="SafePal"&&isMobile&&!isSafePalBrowser()?"Detected — open SafePal browser":"Detected on this device"):"Open wallet app / browser"}</small></span><span class="wallet-arrow">›</span>`;b.addEventListener("click",()=>row.provider?connect(row.provider,row.name):openWalletApp(row.name));list.appendChild(b)});
       modal.hidden=false;
     },150);
   }
@@ -32,6 +35,10 @@
   function openWalletApp(name){
     const page=encodeURIComponent(location.href.split("#")[0]);
     const links={"MetaMask":`https://metamask.app.link/dapp/${location.host}${location.pathname}`,"Trust Wallet":`https://link.trustwallet.com/open_url?url=${page}`,"OKX Wallet":`okx://wallet/dapp/url?dappUrl=${page}`,"Binance Wallet":`https://www.binance.com/en/web3wallet?url=${page}`,"Coinbase Wallet":`https://go.cb-w.com/dapp?cb_url=${page}`};
+    if(name==="SafePal"){
+      const n=document.getElementById("walletNotice");if(n)n.textContent="SafePal does not publish a public mobile DApp deep-link in its current developer documentation. Open SafePal → Explore/DApp Browser → enter web3market.xyz. Once Web3Market is open inside SafePal, choose SafePal and connect.";
+      return;
+    }
     const url=links[name];if(url){window.location.href=url;setTimeout(()=>{const n=document.getElementById("walletNotice");if(n)n.textContent="If the wallet did not open, open its app and use its built-in browser, then return to Web3Market."},1200)}
     else {const n=document.getElementById("walletNotice");if(n)n.textContent=`Open ${name} and use its built-in browser to visit Web3Market, then choose Connect Wallet again.`}
   }
