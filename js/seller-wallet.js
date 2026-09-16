@@ -8,6 +8,7 @@
   const esc=v=>String(v??"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
   const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const isSafePalBrowser=()=>Boolean(window.isSafePal||window.safepalProvider||/SafePal/i.test(navigator.userAgent));
+  const walletParam=()=>new URLSearchParams(location.search).get("wm_wallet");
 
   function addProvider(provider,info){if(!provider||typeof provider.request!=="function"||seen.has(provider))return;seen.add(provider);discovered.push({provider,info:info||{name:"Web3 Wallet",icon:""}})}
   function discover(){
@@ -33,14 +34,14 @@
   }
   function closeModal(){const m=document.getElementById("walletModal");if(m)m.hidden=true}
   function openWalletApp(name){
-    const page=encodeURIComponent(location.href.split("#")[0]);
-    const links={"MetaMask":`https://metamask.app.link/dapp/${location.host}${location.pathname}`,"Trust Wallet":`https://link.trustwallet.com/open_url?url=${page}`,"OKX Wallet":`okx://wallet/dapp/url?dappUrl=${page}`,"Binance Wallet":`https://www.binance.com/en/web3wallet?url=${page}`,"Coinbase Wallet":`https://go.cb-w.com/dapp?cb_url=${page}`};
+    const page=encodeURIComponent(location.href.split("#")[0]+`?wm_wallet=${encodeURIComponent(name)}`);
+    const links={"MetaMask":`https://metamask.app.link/dapp/${location.host}${location.pathname}?wm_wallet=${encodeURIComponent(name)}`,"Trust Wallet":`https://link.trustwallet.com/open_url?url=${page}`,"OKX Wallet":`okx://wallet/dapp/url?dappUrl=${page}`,"Binance Wallet":`https://www.binance.com/en/web3wallet?url=${page}`,"Coinbase Wallet":`https://go.cb-w.com/dapp?cb_url=${page}`};
     if(name==="SafePal"){
-      const n=document.getElementById("walletNotice");if(n)n.textContent="SafePal does not publish a public mobile DApp deep-link in its current developer documentation. Open SafePal → Explore/DApp Browser → enter web3market.xyz. Once Web3Market is open inside SafePal, choose SafePal and connect.";
+      const n=document.getElementById("walletNotice");if(n)n.textContent="Open SafePal → Explore/DApp Browser → enter web3market.xyz. Once Web3Market is open inside SafePal, the ownership signature will be requested automatically.";
       return;
     }
     const url=links[name];if(url){window.location.href=url;setTimeout(()=>{const n=document.getElementById("walletNotice");if(n)n.textContent="If the wallet did not open, open its app and use its built-in browser, then return to Web3Market."},1200)}
-    else {const n=document.getElementById("walletNotice");if(n)n.textContent=`Open ${name} and use its built-in browser to visit Web3Market, then choose Connect Wallet again.`}
+    else {const n=document.getElementById("walletNotice");if(n)n.textContent=`Open ${name} and use its built-in browser to visit Web3Market. The next action is the FREE ownership signature.`}
   }
   async function connect(provider,walletName){
     const button=document.getElementById("connectSellerWallet"),notice=document.getElementById("walletNotice");
@@ -52,7 +53,7 @@
       if(chain!==BSC)throw new Error("Please switch the wallet to BNB Smart Chain.");
       const sb=getSb();if(!sb?.auth)throw new Error("Web3Market authentication is unavailable.");const {data:{session}}=await sb.auth.getSession();if(!session?.access_token)throw new Error("Please sign in again.");
       const message=`Web3Market Seller Wallet Verification\n\nI am connecting this wallet to my Web3Market seller account.\n\nWallet: ${address}\nChain: BNB Smart Chain\nTimestamp: ${new Date().toISOString()}\n\nThis signature does not authorize any transaction or transfer of funds.`;
-      if(notice)notice.textContent="Confirm the verification signature in your wallet…";
+      if(notice)notice.textContent="Confirm the FREE ownership signature in your wallet…";
       const signature=await provider.request({method:"personal_sign",params:[message,address]});if(!signature)throw new Error("Signature was cancelled.");
       if(notice)notice.textContent="Verifying and saving your wallet…";
       const r=await fetch(SUPABASE_FUNCTION,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token},body:JSON.stringify({address,message,signature})});const body=await r.json().catch(()=>({}));if(!r.ok||!body.ok)throw new Error(body.error||"Wallet verification failed.");
@@ -60,6 +61,22 @@
       window.dispatchEvent(new CustomEvent("web3market:seller-wallet-connected",{detail:{address,walletName}}));
     }catch(err){console.warn("Web3Market seller wallet connection failed",err);if(notice)notice.textContent=err?.message||"Wallet connection failed.";if(button){button.disabled=false;button.textContent="Connect Wallet"}}
   }
-  function bind(){const b=document.getElementById("connectSellerWallet");if(b&&!b.dataset.bound){b.dataset.bound="1";b.addEventListener("click",openModal)}const c=document.getElementById("walletModalClose");if(c&&!c.dataset.bound){c.dataset.bound="1";c.addEventListener("click",closeModal)}const m=document.getElementById("walletModal");if(m&&!m.dataset.bound){m.dataset.bound="1";m.addEventListener("click",e=>{if(e.target===m)closeModal()})}}
-  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bind,{once:true});else bind();
+  async function autoFromWallet(){
+    const requested=walletParam();if(!requested)return;
+    discover();
+    for(let i=0;i<16;i++){
+      await new Promise(r=>setTimeout(r,250));
+      const x=discovered.find(v=>nameOf(v.info,v.provider)===requested);
+      if(x){
+        const modal=document.getElementById("walletModal");if(modal)modal.hidden=false;
+        await connect(x.provider,requested);
+        history.replaceState({},"",location.pathname);
+        return;
+      }
+    }
+    const notice=document.getElementById("walletNotice");
+    if(notice)notice.textContent=`${requested} was selected. Open Web3Market inside ${requested}'s DApp browser; the FREE ownership signature will appear there.`;
+  }
+  function bind(){const b=document.getElementById("connectSellerWallet");if(b&&!b.dataset.bound){b.dataset.bound="1";b.addEventListener("click",openModal)}const c=document.getElementById("walletModalClose");if(c&&!c.dataset.bound){c.dataset.bound="1";c.addEventListener("click",closeModal)}const m=document.getElementById("walletModal");if(m&&!m.dataset.bound){m.dataset.bound="1";m.addEventListener("click",e=>{if(e.target===m)closeModal())}}}
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>{bind();autoFromWallet()},{once:true});else{bind();autoFromWallet()}
 })();
