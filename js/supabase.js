@@ -6,45 +6,13 @@ const SUPABASE_PUBLISHABLE_KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
 const STORAGE_KEY="web3market-auth";
 let client=null;
 let initStarted=false;
-function publish(){
-  if(!client)return;
-  window.Web3MarketSupabase={client:client,supabase:client,getClient:getClient,getSession:getSession,getUser:getUser,isInitialized:()=>!!client};
-  window.web3marketSupabase=client;window.supabaseClient=client;
-}
-function initialize(){
-  if(client)return client;
-  if(!window.supabase||typeof window.supabase.createClient!=="function")return null;
-  try{
-    client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:STORAGE_KEY}});
-    publish();
-    return client;
-  }catch(e){console.error("Web3Market Supabase:",e);client=null;return null}
-}
+function publish(){if(!client)return;window.Web3MarketSupabase={client:client,supabase:client,getClient:getClient,getSession:getSession,getUser:getUser,isInitialized:()=>!!client};window.web3marketSupabase=client;window.supabaseClient=client}
+function initialize(){if(client)return client;if(!window.supabase||typeof window.supabase.createClient!=="function")return null;try{client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:STORAGE_KEY}});publish();return client}catch(e){console.error("Web3Market Supabase:",e);client=null;return null}}
 function getClient(){return client||initialize()}
-async function waitForClient(timeout=8000){
-  const started=Date.now();
-  while(!client && Date.now()-started<timeout){
-    initialize();
-    if(client)break;
-    await new Promise(r=>setTimeout(r,100));
-  }
-  return client;
-}
-async function getSession(){const s=await waitForClient();if(!s)return null;try{return (await s.auth.getSession()).data?.session||null}catch(e){return null}}
-async function getUser(){const s=await waitForClient();if(!s)return null;try{return (await s.auth.getUser()).data?.user||null}catch(e){return null}}
-async function restoreDirectSession(){
-  const s=await waitForClient(); if(!s?.auth)return null;
-  try{
-    const raw=localStorage.getItem(STORAGE_KEY); if(!raw)return null;
-    const saved=JSON.parse(raw); const access=saved?.access_token, refresh=saved?.refresh_token;
-    if(!access||!refresh)return null;
-    const current=await s.auth.getSession();
-    if(current?.data?.session?.user)return current.data.session;
-    const result=await s.auth.setSession({access_token:access,refresh_token:refresh});
-    if(result?.data?.session?.user)return result.data.session;
-  }catch(e){console.warn("Web3Market session restore:",e)}
-  return null;
-}
+async function waitForClient(timeout=8000){const started=Date.now();while(!client&&Date.now()-started<timeout){initialize();if(client)break;await new Promise(r=>setTimeout(r,100))}return client}
+async function getSession(){const s=await waitForClient();if(!s)return null;try{return(await s.auth.getSession()).data?.session||null}catch(e){return null}}
+async function getUser(){const s=await waitForClient();if(!s)return null;try{return(await s.auth.getUser()).data?.user||null}catch(e){return null}}
+async function restoreDirectSession(){const s=await waitForClient();if(!s?.auth)return null;try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return null;const saved=JSON.parse(raw),access=saved?.access_token,refresh=saved?.refresh_token;if(!access||!refresh)return null;const current=await s.auth.getSession();if(current?.data?.session?.user)return current.data.session;const result=await s.auth.setSession({access_token:access,refresh_token:refresh});if(result?.data?.session?.user)return result.data.session}catch(e){console.warn("Web3Market session restore:",e)}return null}
 window.Web3MarketSupabaseRestoreSession=restoreDirectSession;
 function addStyle(){if(document.getElementById("web3market-ticker-style"))return;const s=document.createElement("style");s.id="web3market-ticker-style";s.textContent="#web3market-news-ticker,#web3market-price-ticker{display:block;width:100%;overflow:hidden;border-radius:10px;margin:4px 0 8px;height:34px;line-height:34px;white-space:nowrap;box-shadow:0 4px 14px rgba(20,24,32,.08)}#web3market-news-ticker{background:#141820;color:#d8dde6}#web3market-news-ticker .wm-track{display:inline-flex;width:max-content;animation:wmTicker 42s linear infinite}#web3market-news-ticker a{color:#d8dde6;text-decoration:none;font-size:11px;font-weight:700;padding:0 18px}#web3market-news-ticker b{color:#635bff;padding:0 4px}#web3market-price-ticker{background:#fff;border:1px solid #e3e6eb;color:#202631}#web3market-price-ticker .wm-price-track{display:inline-flex;gap:28px;align-items:center;padding:0 18px;min-width:100%;justify-content:center}.coin span{margin-left:5px;font-weight:750}.coin{font-size:11px;font-weight:850}.up{color:#168253!important}.down{color:#c13c3c!important}.flat{color:#737b88!important}@keyframes wmTicker{from{transform:translateX(0)}to{transform:translateX(-50%)}}@media(max-width:620px){#web3market-news-ticker,#web3market-price-ticker{height:31px;line-height:31px}#web3market-news-ticker a{font-size:10px;padding:0 12px}#web3market-price-ticker .wm-price-track{gap:18px;justify-content:flex-start}}@media(prefers-reduced-motion:reduce){#web3market-news-ticker .wm-track{animation:none}}";document.head.appendChild(s)}
 function loadMarketplaceIntelligence(){if(!document.querySelector(".projectCounters")||document.getElementById("web3market-marketplace-intelligence"))return;const s=document.createElement("script");s.id="web3market-marketplace-intelligence";s.src="js/marketplace-intelligence.js?v=20260904-3";s.async=true;s.onerror=function(){console.warn("Web3Market marketplace intelligence unavailable")};document.body.appendChild(s)}
@@ -54,12 +22,7 @@ function installHomepageUI(){loadRealMarketplace();const counters=document.query
 function installPriceTicker(c){let t=document.getElementById("web3market-price-ticker");if(!t){t=document.createElement("div");t.id="web3market-price-ticker";t.setAttribute("aria-label","Live cryptocurrency prices");t.innerHTML='<div class="wm-price-track"><span class="coin" data-symbol="BNB">BNB <span>Loading...</span></span><span class="coin" data-symbol="ETH">ETH <span>Loading...</span></span><span class="coin" data-symbol="SOL">SOL <span>Loading...</span></span></div>';c.parentNode.insertBefore(t,c.nextSibling.nextSibling)}updatePrices(t);if(!t.dataset.timer){t.dataset.timer="1";setInterval(()=>updatePrices(t),30000)}}
 async function updatePrices(t){try{const r=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=binancecoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true",{cache:"no-store"});if(!r.ok)throw Error(r.status);const d=await r.json(),m={BNB:d.binancecoin,ETH:d.ethereum,SOL:d.solana};Object.keys(m).forEach(x=>{const e=t.querySelector('[data-symbol="'+x+'"] span'),v=m[x];if(!e||!v)return;const p=Number(v.usd),ch=Number(v.usd_24h_change||0);e.textContent="$"+p.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:6})+" "+(ch>0?"▲ ":ch<0?"▼ ":"• ")+Math.abs(ch).toFixed(2)+"%";e.className=ch>0?"up":ch<0?"down":"flat"})}catch(e){console.warn("Crypto price ticker:",e)}}
 function installDeveloperContact(){if(!document.querySelector(".projectCounters")||document.getElementById("web3market-developer-contact"))return;const footer=document.createElement("div");footer.id="web3market-developer-contact";footer.innerHTML='<strong>FOR DEVELOPER CONTACT: @Web3j_Global</strong>';footer.style.cssText="width:100%;text-align:center;background:#141820;color:#fff;padding:24px 16px;font-size:18px;font-weight:900;letter-spacing:.2px;box-sizing:border-box";document.body.appendChild(footer)}
-async function boot(){
-  if(initStarted)return;initStarted=true;
-  await waitForClient(8000);
-  loadTrustScoreUI();if(installHomepageUI()){}installDeveloperContact();setTimeout(installDeveloperContact,800);let n=0;const timer=setInterval(()=>{n++;if(installHomepageUI()||n>30)clearInterval(timer);installDeveloperContact()},250)
-}
-if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
-window.addEventListener("load",()=>{waitForClient(3000).then(()=>{installHomepageUI();installDeveloperContact();loadTrustScoreUI()})})
+async function boot(){if(initStarted)return;initStarted=true;await waitForClient(8000);loadTrustScoreUI();installHomepageUI();installDeveloperContact();setTimeout(installDeveloperContact,800);let n=0;const timer=setInterval(()=>{n++;if(installHomepageUI()||n>30)clearInterval(timer);installDeveloperContact()},250)}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();window.addEventListener("load",()=>{waitForClient(3000).then(()=>{installHomepageUI();installDeveloperContact();loadTrustScoreUI()})})
 })();
 (function(){"use strict";function isHomepage(){const p=(location.pathname||"").replace(/\\/+$/,'');return p===""||p==="/index.html"||p.endsWith("/index.html")}function loadHomepageEnhancements(){if(!isHomepage())return;if(document.getElementById('wmx-homepage-enhancements'))return;var s=document.createElement('script');s.id='wmx-homepage-enhancements';s.src='/js/homepage-enhancements.js?v=20260911-3';s.async=true;s.onload=function(){console.log('Web3Market homepage enhancements loaded')};s.onerror=function(){console.warn('Web3Market homepage enhancements unavailable')};(document.head||document.body||document.documentElement).appendChild(s)}function bootHomepageEnhancements(){if(!isHomepage())return;if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadHomepageEnhancements,{once:true});else loadHomepageEnhancements();window.addEventListener('load',loadHomepageEnhancements,{once:true});setTimeout(loadHomepageEnhancements,1200)}bootHomepageEnhancements()})();
