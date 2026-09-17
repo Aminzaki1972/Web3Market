@@ -1,15 +1,78 @@
 "use strict";
 (function(){
-const BSC="0x38",SUPABASE_FUNCTION="https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/verify-wallet";const discovered=[],seen=new Set();const getSb=()=>window.Web3MarketSupabase?.getClient?.()||window.Web3MarketSupabase?.client||window.supabaseClient||window.web3marketSupabase;const short=a=>a.slice(0,8)+"…"+a.slice(-6);const esc=v=>String(v??"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));const wanted=()=>new URLSearchParams(location.search).get("wm_wallet");
-function addProvider(provider,info){if(!provider||typeof provider.request!=="function"||seen.has(provider))return;seen.add(provider);discovered.push({provider,info:info||{name:"Web3 Wallet",icon:""}})}
-function discover(){try{if(window.safepalProvider)addProvider(window.safepalProvider,{name:"SafePal",rdns:"com.safepal.wallet"});const tw=window.trustwallet?.ethereum||window.trustwallet;if(tw?.request)addProvider(tw,{name:"Trust Wallet",rdns:"com.trustwallet.app"});const eth=window.ethereum;if(eth?.providers?.length)eth.providers.forEach(p=>addProvider(p,p.info||{}));else if(eth)addProvider(eth,eth.info||{});window.dispatchEvent(new Event("eip6963:requestProvider"))}catch(_){}}
-window.addEventListener("eip6963:announceProvider",e=>{const d=e.detail;if(d?.provider)addProvider(d.provider,d.info||{})});window.addEventListener("trustwallet#initialized",discover);
-function nameOf(info,provider){const n=String(info?.name||info?.rdns||"").toLowerCase();if(n.includes("metamask"))return"MetaMask";if(n.includes("trust"))return"Trust Wallet";if(n.includes("coinbase"))return"Coinbase Wallet";if(n.includes("okx"))return"OKX Wallet";if(n.includes("binance"))return"Binance Wallet";if(n.includes("safepal"))return"SafePal";if(n.includes("rabby"))return"Rabby Wallet";if(n.includes("phantom"))return"Phantom";if(n.includes("zerion"))return"Zerion";return info?.name||provider?.name||"Web3 Wallet"}
-function openModal(){discover();const modal=document.getElementById("walletModal"),list=document.getElementById("walletList");if(!modal||!list)return;list.innerHTML="";const preferred=["MetaMask","Trust Wallet","SafePal","Coinbase Wallet","OKX Wallet","Binance Wallet","Rabby Wallet","Phantom","Zerion"],rows=[],used=new Set();discovered.forEach(x=>{const n=nameOf(x.info,x.provider);if(!used.has(n)){used.add(n);rows.push({name:n,provider:x.provider,icon:x.info?.icon||"",detected:true})}});preferred.forEach(n=>{if(!used.has(n)){used.add(n);rows.push({name:n,provider:null,icon:"",detected:false})}});rows.forEach(row=>{const b=document.createElement("button");b.type="button";b.className="wallet-option"+(row.detected?"":" unavailable");b.style.touchAction="manipulation";b.innerHTML=`<span class="wallet-icon">${row.icon?`<img src="${esc(row.icon)}" alt="">`:"◈"}</span><span><strong>${esc(row.name)}</strong><small>${row.detected?"Detected on this device":"Open wallet app / browser"}</small></span><span class="wallet-arrow">›</span>`;b.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();row.provider?connect(row.provider,row.name):openWalletApp(row.name)});list.appendChild(b)});modal.hidden=false}
-function closeModal(){const m=document.getElementById("walletModal");if(m)m.hidden=true}
-function openWalletApp(name){const page=location.origin+location.pathname+`?wm_wallet=${encodeURIComponent(name)}`,u=encodeURIComponent(page);const links={"MetaMask":`https://metamask.app.link/dapp/${location.host}${location.pathname}?wm_wallet=${encodeURIComponent(name)}`,"Trust Wallet":`https://link.trustwallet.com/open_url?coin_id=60&url=${u}`,"SafePal":`https://link.safepal.io/wallet/openurl?url=${u}`,"OKX Wallet":`https://www.okx.com/download?deeplink=okx%3A%2F%2Fwallet%2Fdapp%2Furl%3FdappUrl%3D${u}`,"Binance Wallet":`https://www.binance.com/en/web3wallet?url=${u}`,"Coinbase Wallet":`https://go.cb-w.com/dapp?cb_url=${u}`};const url=links[name],notice=document.getElementById("walletNotice");if(!url){if(notice)notice.textContent=`Open ${name} and use its built-in browser to visit Web3Market.`;return}if(notice)notice.textContent=`Opening ${name}…`;try{const a=document.createElement("a");a.href=url;a.rel="noopener";a.style.display="none";document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),1500)}catch(_){location.href=url}}
-async function connect(provider,walletName){const button=document.getElementById("connectSellerWallet"),notice=document.getElementById("walletNotice");try{closeModal();if(button){button.disabled=true;button.textContent="Connecting…"}if(notice)notice.textContent=`Connecting ${walletName}…`;const accounts=await provider.request({method:"eth_requestAccounts"});const address=accounts?.[0];if(!address)throw new Error("No wallet account was returned.");let chain=await provider.request({method:"eth_chainId"});if(chain!==BSC){try{await provider.request({method:"wallet_switchEthereumChain",params:[{chainId:BSC}]})}catch(err){if(err?.code===4902)await provider.request({method:"wallet_addEthereumChain",params:[{chainId:BSC,chainName:"BNB Smart Chain",nativeCurrency:{name:"BNB",symbol:"BNB",decimals:18},rpcUrls:["https://bsc-dataseed.binance.org/"],blockExplorerUrls:["https://bscscan.com/"]}]});else throw err}chain=await provider.request({method:"eth_chainId"})}if(chain!==BSC)throw new Error("Please switch the wallet to BNB Smart Chain.");const sb=getSb();if(!sb?.auth)throw new Error("Web3Market authentication is unavailable.");const {data:{session}}=await sb.auth.getSession();if(!session?.access_token)throw new Error("Please sign in again.");const message=`Web3Market Seller Wallet Verification\n\nI am connecting this wallet to my Web3Market seller account.\n\nWallet: ${address}\nChain: BNB Smart Chain\nTimestamp: ${new Date().toISOString()}\n\nThis signature does not authorize any transaction or transfer of funds.`;if(notice)notice.textContent="Confirm the verification signature in your wallet…";const signature=await provider.request({method:"personal_sign",params:[message,address]});if(!signature)throw new Error("Signature was cancelled.");if(notice)notice.textContent="Verifying and saving your wallet…";const r=await fetch(SUPABASE_FUNCTION,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token},body:JSON.stringify({address,message,signature})});const body=await r.json().catch(()=>({}));if(!r.ok||!body.ok)throw new Error(body.error||"Wallet verification failed.");const addressEl=document.getElementById("sellerWalletAddress"),statusEl=document.getElementById("sellerWalletStatus");if(addressEl)addressEl.textContent=short(address);if(statusEl)statusEl.textContent="Connected & verified ✓";if(notice)notice.textContent="Wallet verified and saved to your seller profile.";if(button){button.textContent="Wallet Connected ✓";button.disabled=false;button.classList.add("connected")}history.replaceState({},"",location.pathname);window.dispatchEvent(new CustomEvent("web3market:seller-wallet-connected",{detail:{address,walletName}}));}catch(err){console.warn("Web3Market seller wallet connection failed",err);if(notice)notice.textContent=err?.message||"Wallet connection failed.";if(button){button.disabled=false;button.textContent="Connect Wallet"}}}
-async function autoConnect(){const target=wanted();if(!target)return;discover();const modal=document.getElementById("walletModal");if(modal)modal.hidden=false;const notice=document.getElementById("walletNotice");for(let i=0;i<40;i++){discover();const x=discovered.find(v=>nameOf(v.info,v.provider)===target);if(x){await connect(x.provider,target);return}await new Promise(r=>setTimeout(r,250))}if(notice)notice.textContent=`${target} opened, but its wallet provider was not exposed to this page. Tap Connect Wallet inside the wallet browser.`}
-function bind(){const b=document.getElementById("connectSellerWallet");if(b&&!b.dataset.bound){b.dataset.bound="1";b.addEventListener("click",openModal)}const c=document.getElementById("walletModalClose");if(c&&!c.dataset.bound){c.dataset.bound="1";c.addEventListener("click",closeModal)}const m=document.getElementById("walletModal");if(m&&!m.dataset.bound){m.dataset.bound="1";m.addEventListener("click",e=>{if(e.target===m)closeModal()})}}
-discover();if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>{bind();autoConnect()},{once:true});else{bind();autoConnect()}
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const manager=()=>window.Web3MarketWalletManager||null;
+  const wanted=()=>new URLSearchParams(location.search).get("wm_wallet");
+
+  function closeModal(){const m=document.getElementById("walletModal");if(m)m.hidden=true}
+
+  function renderModal(){
+    const wm=manager(),modal=document.getElementById("walletModal"),list=document.getElementById("walletList");
+    if(!wm||!modal||!list)return;
+    list.innerHTML="";
+    wm.listWallets().forEach(row=>{
+      const b=document.createElement("button");
+      b.type="button";b.className="wallet-option"+(row.detected?"":" unavailable");b.style.touchAction="manipulation";
+      b.innerHTML=`<span class="wallet-icon">${row.icon?`<img src="${wm.esc(row.icon)}" alt="">`:"◈"}</span><span><strong>${wm.esc(row.name)}</strong><small>${row.detected?"Detected on this device":"Open wallet app / browser"}</small></span><span class="wallet-arrow">›</span>`;
+      b.addEventListener("click",async e=>{
+        e.preventDefault();e.stopPropagation();
+        const notice=document.getElementById("walletNotice");
+        if(row.provider){
+          closeModal();
+          await connect(row.provider,row.name);
+        }else{
+          wm.launch(row.name,notice);
+        }
+      });
+      list.appendChild(b);
+    });
+    modal.hidden=false;
+  }
+
+  async function connect(provider,walletName){
+    const wm=manager(),button=document.getElementById("connectSellerWallet"),notice=document.getElementById("walletNotice");
+    if(!wm){if(notice)notice.textContent="Web3Market wallet manager is unavailable. Please refresh the page.";return}
+    try{
+      if(button){button.disabled=true;button.textContent="Connecting…"}
+      const result=await wm.connectAndVerify(provider,walletName,{role:"seller",purpose:"seller_wallet_ownership",setNotice:v=>{if(notice)notice.textContent=v}});
+      const addressEl=document.getElementById("sellerWalletAddress"),statusEl=document.getElementById("sellerWalletStatus");
+      if(addressEl)addressEl.textContent=wm.short(result.address);
+      if(statusEl)statusEl.textContent="Connected & verified ✓";
+      if(notice)notice.textContent="Wallet verified and saved to your seller profile.";
+      if(button){button.textContent="Wallet Connected ✓";button.disabled=false;button.classList.add("connected")}
+      history.replaceState({},"",location.pathname);
+      window.dispatchEvent(new CustomEvent("web3market:seller-wallet-connected",{detail:{address:result.address,walletName}}));
+    }catch(err){
+      console.warn("Web3Market seller wallet connection failed",err);
+      if(notice)notice.textContent=err?.message||"Wallet connection failed.";
+      if(button){button.disabled=false;button.textContent="Connect Wallet"}
+    }
+  }
+
+  async function autoConnect(){
+    const target=wanted(),wm=manager();if(!target||!wm)return;
+    const notice=document.getElementById("walletNotice"),modal=document.getElementById("walletModal");
+    if(modal)modal.hidden=false;
+    for(let i=0;i<40;i++){
+      const provider=wm.getDetected(target);
+      if(provider){await connect(provider,target);return}
+      await sleep(250);
+    }
+    if(notice)notice.textContent=`${target} opened, but its wallet provider was not exposed to this page. Tap Connect Wallet inside the wallet browser.`;
+  }
+
+  function bind(){
+    const b=document.getElementById("connectSellerWallet");
+    if(b&&!b.dataset.bound){b.dataset.bound="1";b.addEventListener("click",e=>{e.preventDefault();renderModal()})}
+    const c=document.getElementById("walletModalClose");
+    if(c&&!c.dataset.bound){c.dataset.bound="1";c.addEventListener("click",closeModal)}
+    const m=document.getElementById("walletModal");
+    if(m&&!m.dataset.bound){m.dataset.bound="1";m.addEventListener("click",e=>{if(e.target===m)closeModal()})}
+  }
+
+  function boot(){
+    if(!manager()){setTimeout(boot,100);return}
+    bind();autoConnect();
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 })();
