@@ -7,7 +7,7 @@
   var AUTH_TOKEN = SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token";
   var STORAGE_KEY = "web3market-auth";
   var CHAIN_HEX = "0x38";
-  var VERSION = "REST-AUTH-20260918-7";
+  var VERSION = "REST-AUTH-20260918-8";
 
   function esc(v) {
     return String(v == null ? "" : v).replace(/[&<>\"']/g, function (m) {
@@ -53,6 +53,7 @@
     var out = [];
     var eth = window.ethereum;
     if (eth) out.push(eth);
+    if (window.safepalProvider && out.indexOf(window.safepalProvider) === -1) out.push(window.safepalProvider);
     if (eth && eth.providers && eth.providers.length) {
       eth.providers.forEach(function (p) { if (p && out.indexOf(p) === -1) out.push(p); });
     }
@@ -65,7 +66,7 @@
       trust: p.find(function (x) { return x.isTrust; }),
       coinbase: p.find(function (x) { return x.isCoinbaseWallet; }),
       okx: p.find(function (x) { return x.isOkxWallet || x.isOKExWallet; }),
-      safepal: p.find(function (x) { return x.isSafePal; }),
+      safepal: (window.safepalProvider || p.find(function (x) { return x.isSafePal; })),
       binance: p.find(function (x) { return x.isBinance; })
     };
   }
@@ -190,6 +191,7 @@
       "binance wallet":"bnc://app.binance.com/cedefi/dapp?url=" + encodeURIComponent(location.href)
     };
     var u = urls[n];
+    if (n === "safepal" && window.safepalProvider) { if (notice) notice("SafePal provider detected. Connect again to continue."); return false; }
     if (!u) { if (notice) notice("Open your wallet browser and visit Web3Market again."); return false; }
     location.href = u;
     return true;
