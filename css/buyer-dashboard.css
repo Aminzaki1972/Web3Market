@@ -1,0 +1,192 @@
+/* Web3Market — Buyer Center UI */
+:root{
+  --buyer-bg:#070b14;
+  --buyer-panel:#0d1320;
+  --buyer-panel-2:#111a2a;
+  --buyer-line:rgba(148,163,184,.16);
+  --buyer-text:#f5f7fb;
+  --buyer-muted:#94a3b8;
+  --buyer-accent:#7c5cff;
+  --buyer-accent-2:#3b82f6;
+  --buyer-ok:#22c55e;
+}
+
+html,body{min-height:100%;}
+body.buyer-page{
+  margin:0;
+  background:radial-gradient(circle at 15% 0%,rgba(124,92,255,.14),transparent 30%),radial-gradient(circle at 85% 10%,rgba(59,130,246,.10),transparent 28%),var(--buyer-bg);
+  color:var(--buyer-text);
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+body.buyer-page a{color:inherit;text-decoration:none;}
+
+body.buyer-page .topbar{
+  min-height:68px;
+  box-sizing:border-box;
+  padding:0 5%;
+  background:rgba(7,11,20,.88);
+  border-bottom:1px solid var(--buyer-line);
+  backdrop-filter:blur(14px);
+  display:flex;
+  align-items:center;
+  gap:28px;
+  position:sticky;
+  top:0;
+  z-index:20;
+}
+body.buyer-page .topbar .brand{font-weight:800;font-size:20px;letter-spacing:-.02em;color:#fff;}
+body.buyer-page .topbar nav{display:flex;align-items:center;gap:8px;flex:1;}
+body.buyer-page .topbar nav a{padding:9px 13px;border-radius:10px;color:var(--buyer-muted);font-size:14px;}
+body.buyer-page .topbar nav a:hover,
+body.buyer-page .topbar nav a.active{background:rgba(124,92,255,.12);color:#fff;}
+body.buyer-page .topbar > .btn{margin-left:auto;}
+
+body.buyer-page .btn,
+body.buyer-page button{
+  border:1px solid var(--buyer-line);
+  border-radius:10px;
+  padding:9px 14px;
+  background:#121a29;
+  color:#fff;
+  cursor:pointer;
+  font:inherit;
+}
+body.buyer-page .btn:hover,body.buyer-page button:hover{border-color:rgba(124,92,255,.55);background:#182238;}
+
+body.buyer-page .wrap{width:min(1180px,92%);margin:0 auto;padding:42px 0 70px;}
+body.buyer-page #buyerRoot{color:var(--buyer-text);}
+body.buyer-page #buyerRoot h1,
+body.buyer-page #buyerRoot h2,
+body.buyer-page #buyerRoot h3,
+body.buyer-page #buyerRoot p{color:inherit;}
+
+body.buyer-page #buyerRoot .dash-head,
+body.buyer-page #buyerRoot .dashboard-header{margin-bottom:28px;}
+body.buyer-page #buyerRoot .dash-head h1,
+body.buyer-page #buyerRoot .dashboard-header h1{margin:0 0 8px;font-size:clamp(28px,4vw,42px);letter-spacing:-.035em;}
+body.buyer-page #buyerRoot .dash-head p,
+body.buyer-page #buyerRoot .dashboard-header p{margin:0;color:var(--buyer-muted);font-size:15px;}
+
+body.buyer-page #buyerRoot .notice{
+  padding:16px 18px;
+  border:1px solid var(--buyer-line);
+  border-radius:14px;
+  background:var(--buyer-panel);
+  color:var(--buyer-muted);
+  box-shadow:0 14px 40px rgba(0,0,0,.18);
+}
+
+body.buyer-page #buyerRoot .stats-grid,
+body.buyer-page #buyerRoot .stat-grid,
+body.buyer-page #buyerRoot .stats{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:16px;
+  margin:0 0 24px;
+}
+body.buyer-page #buyerRoot .stat-card,
+body.buyer-page #buyerRoot .stat{
+  padding:22px;
+  min-height:112px;
+  box-sizing:border-box;
+  border:1px solid var(--buyer-line);
+  border-radius:16px;
+  background:linear-gradient(145deg,rgba(17,26,42,.96),rgba(10,15,26,.96));
+  box-shadow:0 18px 45px rgba(0,0,0,.18);
+}
+body.buyer-page #buyerRoot .stat-card .label,
+body.buyer-page #buyerRoot .stat .label{display:block;color:var(--buyer-muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em;}
+body.buyer-page #buyerRoot .stat-card .value,
+body.buyer-page #buyerRoot .stat .value{display:block;margin-top:8px;color:#fff;font-size:28px;font-weight:800;}
+body.buyer-page #buyerRoot .stat-card .meta,
+body.buyer-page #buyerRoot .stat .meta{display:block;margin-top:4px;color:#7f8da3;font-size:12px;}
+
+body.buyer-page #buyerRoot .section-panel,
+body.buyer-page #buyerRoot .panel,
+body.buyer-page #buyerRoot .dashboard-section{
+  margin-top:18px;
+  padding:22px;
+  border:1px solid var(--buyer-line);
+  border-radius:18px;
+  background:rgba(13,19,32,.94);
+  box-shadow:0 18px 55px rgba(0,0,0,.16);
+}
+body.buyer-page #buyerRoot .section-head{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:16px;}
+body.buyer-page #buyerRoot .section-head h2,
+body.buyer-page #buyerRoot .panel-title{margin:0;font-size:18px;}
+body.buyer-page #buyerRoot .section-head p,
+body.buyer-page #buyerRoot .panel-subtitle{margin:5px 0 0;color:var(--buyer-muted);font-size:13px;}
+
+body.buyer-page #buyerRoot .deal-row,
+body.buyer-page #buyerRoot .purchase-row,
+body.buyer-page #buyerRoot .history-row{
+  display:flex;align-items:center;justify-content:space-between;gap:18px;
+  padding:16px 0;
+  border-top:1px solid var(--buyer-line);
+}
+body.buyer-page #buyerRoot .deal-row:first-child,
+body.buyer-page #buyerRoot .purchase-row:first-child,
+body.buyer-page #buyerRoot .history-row:first-child{border-top:0;}
+body.buyer-page #buyerRoot .deal-info{min-width:0;}
+body.buyer-page #buyerRoot .deal-info strong,
+body.buyer-page #buyerRoot .purchase-row strong{display:block;color:#fff;}
+body.buyer-page #buyerRoot .deal-info small,
+body.buyer-page #buyerRoot .purchase-row small{display:block;margin-top:4px;color:var(--buyer-muted);}
+
+body.buyer-page #buyerRoot .status,
+body.buyer-page #buyerRoot .deal-status,
+body.buyer-page #buyerRoot .verified,
+body.buyer-page #buyerRoot .badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 9px;border-radius:999px;
+  border:1px solid var(--buyer-line);
+  background:#111a29;color:#cbd5e1;font-size:12px;font-weight:700;
+}
+body.buyer-page #buyerRoot .status-success,
+body.buyer-page #buyerRoot .verified,
+body.buyer-page #buyerRoot .badge.success{color:#86efac;border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.08);}
+
+body.buyer-page #buyerRoot .profile-grid,
+body.buyer-page #buyerRoot .protection-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;
+}
+body.buyer-page #buyerRoot .profile-card,
+body.buyer-page #buyerRoot .wallet-card,
+body.buyer-page #buyerRoot .protection-card{
+  padding:18px;border:1px solid var(--buyer-line);border-radius:14px;background:var(--buyer-panel-2);
+}
+body.buyer-page #buyerRoot .profile-card strong,
+body.buyer-page #buyerRoot .wallet-card strong,
+body.buyer-page #buyerRoot .protection-card strong{color:#fff;}
+body.buyer-page #buyerRoot .muted,
+body.buyer-page #buyerRoot .wallet-status,
+body.buyer-page #buyerRoot .wallet-address{color:var(--buyer-muted);}
+body.buyer-page #buyerRoot .wallet-address{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-all;margin-top:7px;}
+body.buyer-page #buyerRoot .wallet-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+body.buyer-page #buyerRoot .wallet-actions .btn-primary,
+body.buyer-page #buyerRoot .btn-primary{background:linear-gradient(135deg,var(--buyer-accent),var(--buyer-accent-2));border-color:transparent;color:#fff;font-weight:700;}
+body.buyer-page #buyerRoot .protection-icon{font-size:22px;margin-bottom:8px;}
+body.buyer-page #buyerRoot .protection-value{display:block;margin-top:7px;color:#fff;font-weight:700;}
+
+body.buyer-page #buyerRoot .empty,
+body.buyer-page #buyerRoot .empty-state,
+body.buyer-page #buyerRoot .loading{padding:20px 0;color:var(--buyer-muted);}
+
+@media(max-width:900px){
+  body.buyer-page .topbar{gap:12px;padding:0 4%;}
+  body.buyer-page .topbar nav{overflow:auto;white-space:nowrap;}
+  body.buyer-page #buyerRoot .stats-grid,
+  body.buyer-page #buyerRoot .stat-grid,
+  body.buyer-page #buyerRoot .stats{grid-template-columns:1fr;}
+}
+@media(max-width:620px){
+  body.buyer-page .topbar{min-height:62px;flex-wrap:wrap;padding:10px 4%;}
+  body.buyer-page .topbar nav{order:3;width:100%;}
+  body.buyer-page .topbar > .btn{display:none;}
+  body.buyer-page .wrap{width:92%;padding-top:28px;}
+  body.buyer-page #buyerRoot .profile-grid,
+  body.buyer-page #buyerRoot .protection-grid{grid-template-columns:1fr;}
+  body.buyer-page #buyerRoot .deal-row,
+  body.buyer-page #buyerRoot .purchase-row,
+  body.buyer-page #buyerRoot .history-row{align-items:flex-start;flex-direction:column;}
+}
