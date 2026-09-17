@@ -2,7 +2,24 @@
 (function(){
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   function manager(){return window.Web3MarketWalletManager||null}
-  async function waitForManager(){for(let i=0;i<30;i++){const wm=manager();if(wm)return wm;await sleep(100)}return null}
+  async function ensureManager(){
+    let wm=manager();
+    if(wm)return wm;
+    const notice=document.getElementById("walletNotice");
+    if(notice)notice.textContent="Loading wallet connection…";
+    try{
+      const s=document.createElement("script");
+      s.src="js/wallet-manager.js?v=20260918-walletfix7";
+      s.async=false;
+      document.head.appendChild(s);
+    }catch(e){console.warn("Web3Market wallet manager reload failed",e)}
+    for(let i=0;i<60;i++){
+      wm=manager();
+      if(wm)return wm;
+      await sleep(100);
+    }
+    return null;
+  }
   const wanted=()=>new URLSearchParams(location.search).get("wm_wallet");
   function closeModal(){const m=document.getElementById("walletModal");if(m)m.hidden=true}
   function renderModal(){
@@ -57,8 +74,8 @@
     if(m&&!m.dataset.bound){m.dataset.bound="1";m.addEventListener("click",e=>{if(e.target===m)closeModal()})}
   }
   async function boot(){
-    const wm=await waitForManager();
-    if(!wm){const n=document.getElementById("walletNotice");if(n)n.textContent="Wallet connection is unavailable. Please refresh the page.";return}
+    const wm=await ensureManager();
+    if(!wm){const n=document.getElementById("walletNotice");if(n)n.textContent="Wallet connection engine failed to load. Please open this page inside your wallet browser.";return}
     bind();
     autoConnect();
   }
