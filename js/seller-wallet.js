@@ -1,16 +1,8 @@
 "use strict";
 (function(){
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-  function loadManager(){
-    if(window.Web3MarketWalletManager)return Promise.resolve();
-    return new Promise(resolve=>{
-      const id="wm-wallet-manager-loader";
-      let s=document.getElementById(id);
-      if(!s){s=document.createElement("script");s.id=id;s.src="js/wallet-manager.js?v=20260918-walletmanager1";s.async=false;s.onload=()=>resolve();s.onerror=()=>resolve();document.head.appendChild(s)}else s.addEventListener("load",resolve,{once:true});
-      setTimeout(resolve,2500);
-    });
-  }
-  const manager=()=>window.Web3MarketWalletManager||null;
+  function manager(){return window.Web3MarketWalletManager||null}
+  async function waitForManager(){for(let i=0;i<30;i++){const wm=manager();if(wm)return wm;await sleep(100)}return null}
   const wanted=()=>new URLSearchParams(location.search).get("wm_wallet");
   function closeModal(){const m=document.getElementById("walletModal");if(m)m.hidden=true}
   function renderModal(){
@@ -32,22 +24,43 @@
       if(button){button.disabled=true;button.textContent="Connecting…"}
       const result=await wm.connectAndVerify(provider,walletName,{role:"seller",purpose:"seller_wallet_ownership",setNotice:v=>{if(notice)notice.textContent=v}});
       const addressEl=document.getElementById("sellerWalletAddress"),statusEl=document.getElementById("sellerWalletStatus");
-      if(addressEl)addressEl.textContent=wm.short(result.address);if(statusEl)statusEl.textContent="Connected & verified ✓";
+      if(addressEl)addressEl.textContent=wm.short(result.address);
+      if(statusEl)statusEl.textContent="Connected & verified ✓";
       if(notice)notice.textContent="Wallet verified and saved to your seller profile.";
       if(button){button.textContent="Wallet Connected ✓";button.disabled=false;button.classList.add("connected")}
-      history.replaceState({},"",location.pathname);window.dispatchEvent(new CustomEvent("web3market:seller-wallet-connected",{detail:{address:result.address,walletName}}));
-    }catch(err){console.warn("Web3Market seller wallet connection failed",err);if(notice)notice.textContent=err?.message||"Wallet connection failed.";if(button){button.disabled=false;button.textContent="Connect Wallet"}}
+      history.replaceState({},"",location.pathname);
+      window.dispatchEvent(new CustomEvent("web3market:seller-wallet-connected",{detail:{address:result.address,walletName}}));
+    }catch(err){
+      console.warn("Web3Market seller wallet connection failed",err);
+      if(notice)notice.textContent=err?.message||"Wallet connection failed.";
+      if(button){button.disabled=false;button.textContent="Connect Wallet"}
+    }
   }
   async function autoConnect(){
-    const target=wanted(),wm=manager();if(!target||!wm)return;const notice=document.getElementById("walletNotice"),modal=document.getElementById("walletModal");if(modal)modal.hidden=false;
-    for(let i=0;i<40;i++){const provider=wm.getDetected(target);if(provider){await connect(provider,target);return}await sleep(250)}
+    const target=wanted(),wm=manager();
+    if(!target||!wm)return;
+    const notice=document.getElementById("walletNotice"),modal=document.getElementById("walletModal");
+    if(modal)modal.hidden=false;
+    for(let i=0;i<40;i++){
+      const provider=wm.getDetected(target);
+      if(provider){await connect(provider,target);return}
+      await sleep(250)
+    }
     if(notice)notice.textContent=`${target} opened, but its wallet provider was not exposed to this page. Tap Connect Wallet inside the wallet browser.`;
   }
   function bind(){
-    const b=document.getElementById("connectSellerWallet");if(b&&!b.dataset.bound){b.dataset.bound="1";b.addEventListener("click",e=>{e.preventDefault();renderModal()})}
-    const c=document.getElementById("walletModalClose");if(c&&!c.dataset.bound){c.dataset.bound="1";c.addEventListener("click",closeModal)}
-    const m=document.getElementById("walletModal");if(m&&!m.dataset.bound){m.dataset.bound="1";m.addEventListener("click",e=>{if(e.target===m)closeModal()})}
+    const b=document.getElementById("connectSellerWallet");
+    if(b&&!b.dataset.bound){b.dataset.bound="1";b.addEventListener("click",e=>{e.preventDefault();renderModal()})}
+    const c=document.getElementById("walletModalClose");
+    if(c&&!c.dataset.bound){c.dataset.bound="1";c.addEventListener("click",closeModal)}
+    const m=document.getElementById("walletModal");
+    if(m&&!m.dataset.bound){m.dataset.bound="1";m.addEventListener("click",e=>{if(e.target===m)closeModal()})}
   }
-  async function boot(){await loadManager();if(!manager()){const n=document.getElementById("walletNotice");if(n)n.textContent="Wallet connection is unavailable. Please refresh the page.";return}bind();autoConnect()}
+  async function boot(){
+    const wm=await waitForManager();
+    if(!wm){const n=document.getElementById("walletNotice");if(n)n.textContent="Wallet connection is unavailable. Please refresh the page.";return}
+    bind();
+    autoConnect();
+  }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 })();
