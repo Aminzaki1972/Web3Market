@@ -1,58 +1,81 @@
 "use strict";
 (function(){
-  const BSC="0x38",BSC_DECIMAL=56;
-  const SUPABASE_URL="https://hzhqlexnhtukfljcvnyd.supabase.co";
-  const SUPABASE_KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
-  const VERIFY_FN=SUPABASE_URL+"/functions/v1/verify-wallet",AUTH_USER=SUPABASE_URL+"/auth/v1/user",AUTH_TOKEN=SUPABASE_URL+"/auth/v1/token?grant_type=refresh_token",STORAGE_KEY="web3market-auth";
-  const providers=[],seen=new Set(),sleep=ms=>new Promise(r=>setTimeout(r,ms));
-  const short=a=>String(a).slice(0,8)+"…"+String(a).slice(-6);
-  const esc=v=>String(v??"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
-  function getSaved(){try{const raw=localStorage.getItem(STORAGE_KEY);return raw?JSON.parse(raw):null}catch(e){return null}}
-  async function authUser(token){const r=await fetch(AUTH_USER,{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+token}});if(!r.ok)throw new Error("Web3Market session could not be validated.");return await r.json()}
-  async function getAuth(){
-    const saved=getSaved();
-    if(!saved?.access_token)throw new Error("Your Web3Market session is unavailable. Please sign in again.");
-    try{return {session:saved,user:await authUser(saved.access_token)}}catch(e){
-      if(!saved.refresh_token)throw e;
-      const r=await fetch(AUTH_TOKEN,{method:"POST",headers:{"Content-Type":"application/json",apikey:SUPABASE_KEY},body:JSON.stringify({refresh_token:saved.refresh_token})});
-      if(!r.ok)throw e;
-      const fresh=await r.json();
-      if(!fresh?.access_token)throw e;
-      try{localStorage.setItem(STORAGE_KEY,JSON.stringify({...saved,...fresh}));}catch(_){ }
-      return {session:fresh,user:await authUser(fresh.access_token)};
-    }
-  }
-  function addProvider(provider,info){if(!provider||typeof provider.request!=="function"||seen.has(provider))return;seen.add(provider);providers.push({provider,info:info||{}})}
-  function discover(){try{if(window.safepalProvider)addProvider(window.safepalProvider,{name:"SafePal",rdns:"com.safepal.wallet"});if(window.okxwallet)addProvider(window.okxwallet,{name:"OKX Wallet",rdns:"com.okex.wallet"});const tw=window.trustwallet?.ethereum||window.trustwallet;if(tw?.request)addProvider(tw,{name:"Trust Wallet",rdns:"com.trustwallet.app"});const eth=window.ethereum;if(eth?.providers?.length)eth.providers.forEach(p=>addProvider(p,p.info||{}));else if(eth)addProvider(eth,eth.info||{});window.dispatchEvent(new Event("eip6963:requestProvider"))}catch(e){}}
-  window.addEventListener("eip6963:announceProvider",e=>{const d=e.detail||{};addProvider(d.provider,d.info||{})});window.addEventListener("trustwallet#initialized",discover);
-  function providerName(x){const s=String(x.info?.name||x.info?.rdns||x.provider?.name||"").toLowerCase();if(s.includes("metamask"))return"MetaMask";if(s.includes("trust"))return"Trust Wallet";if(s.includes("coinbase"))return"Coinbase Wallet";if(s.includes("okx")||s.includes("okex"))return"OKX Wallet";if(s.includes("binance"))return"Binance Wallet";if(s.includes("safepal"))return"SafePal";if(s.includes("rabby"))return"Rabby Wallet";if(s.includes("phantom"))return"Phantom";if(s.includes("zerion"))return"Zerion";return x.info?.name||x.provider?.name||"Web3 Wallet"}
-  function getDetected(name){discover();return providers.find(x=>providerName(x)===name)?.provider||null}
-  function pageUrl(name){return location.origin+location.pathname+"?wm_wallet="+encodeURIComponent(name)}
-  function deepLink(name){const u=encodeURIComponent(pageUrl(name));if(name==="MetaMask")return"https://metamask.app.link/dapp/"+location.host+location.pathname+"?wm_wallet="+encodeURIComponent(name);if(name==="Trust Wallet")return"https://link.trustwallet.com/open_url?coin_id=60&url="+u;if(name==="Coinbase Wallet")return"https://go.cb-w.com/dapp?cb_url="+u;if(name==="SafePal")return"https://link.safepal.io/wallet/openurl?url="+u;if(name==="OKX Wallet")return"https://www.okx.com/download?deeplink=okx%3A%2F%2Fwallet%2Fdapp%2Furl%3FdappUrl%3D"+u;if(name==="Binance Wallet")return"https://www.binance.com/en/web3wallet?url="+u;return null}
-  function launch(name,notice){const url=deepLink(name);if(!url){if(notice)notice.textContent="Open "+name+" and use its built-in browser to visit Web3Market.";return false}if(notice)notice.textContent="Opening "+name+"…";try{if(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent))location.assign(url);else{const w=window.open(url,"_blank","noopener,noreferrer");if(!w)location.assign(url)}return true}catch(e){try{location.assign(url);return true}catch(_){return false}}}
-  async function connectAndVerify(provider,walletName,opts={}){
-    if(!provider||typeof provider.request!=="function")throw new Error("Wallet provider is unavailable. Open Web3Market inside the wallet browser.");
-    const purpose=String(opts.purpose||"wallet_ownership"),role=String(opts.role||"user").toLowerCase(),setNotice=typeof opts.setNotice==="function"?opts.setNotice:()=>{};
-    setNotice("Connecting "+walletName+"…");
-    const accounts=await provider.request({method:"eth_requestAccounts"}),address=accounts?.[0];
-    if(!/^0x[0-9a-fA-F]{40}$/.test(String(address||"")))throw new Error("No valid wallet account was selected.");
-    let chain=String(await provider.request({method:"eth_chainId"})).toLowerCase();
-    if(chain!==BSC){try{await provider.request({method:"wallet_switchEthereumChain",params:[{chainId:BSC}]})}catch(e){if(e?.code===4902)await provider.request({method:"wallet_addEthereumChain",params:[{chainId:BSC,chainName:"BNB Smart Chain",nativeCurrency:{name:"BNB",symbol:"BNB",decimals:18},rpcUrls:["https://bsc-dataseed.binance.org/"],blockExplorerUrls:["https://bscscan.com/"]}]});else throw e}chain=String(await provider.request({method:"eth_chainId"})).toLowerCase()}
-    if(chain!==BSC)throw new Error("Please switch the wallet to BNB Smart Chain.");
-    setNotice("Checking your Web3Market login session…");
-    const auth=await getAuth();
-    if(!auth.user?.id)throw new Error("Your Web3Market session is invalid. Please sign in again.");
-    const timestamp=new Date().toISOString(),host=location.host;
-    const message=["Web3Market Wallet Ownership Verification","","I am connecting this wallet to my authenticated Web3Market account.","","Domain: "+host,"Account: "+auth.user.id,"Role: "+role,"Purpose: "+purpose,"Wallet: "+address,"Chain ID: "+BSC_DECIMAL+" (BNB Smart Chain)","Timestamp: "+timestamp,"","This signature does not authorize any transaction or transfer of funds.","This signature is proof of wallet ownership only.","It does not authorize a transaction, token approval, or transfer of funds."].join("\n");
-    setNotice("Confirm the ownership signature in your wallet…");
-    const signature=await provider.request({method:"personal_sign",params:[message,address]});if(!signature)throw new Error("Wallet signature was cancelled.");
-    setNotice("Signature received. Verifying wallet ownership and saving it…");
-    const response=await fetch(VERIFY_FN,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+auth.session.access_token},body:JSON.stringify({address,message,signature,chain_id:BSC_DECIMAL,purpose,role})});
-    const result=await response.json().catch(()=>({}));
-    if(!response.ok||result.ok!==true||result.verified!==true)throw new Error(result.error||`Wallet verification failed (${response.status}).`);
-    setNotice("Wallet ownership verified and saved ✓");
-    return {address:String(result.address||address),walletName,role,chainId:BSC_DECIMAL,signature,result};
-  }
-  function listWallets(){discover();const preferred=["MetaMask","Trust Wallet","SafePal","Coinbase Wallet","OKX Wallet","Binance Wallet","Rabby Wallet","Phantom","Zerion"],rows=[],used=new Set();providers.forEach(x=>{const name=providerName(x);if(!used.has(name)){used.add(name);rows.push({name,provider:x.provider,detected:true,icon:x.info?.icon||""})}});preferred.forEach(name=>{if(!used.has(name)){used.add(name);rows.push({name,provider:null,detected:false,icon:""})}});return rows}
-  window.Web3MarketWalletManager={BSC,discover,getDetected,listWallets,launch,deepLink,connectAndVerify,short,esc};discover();
+const SUPABASE_URL="https://hzhqlexnhtukfljcvnyd.supabase.co";
+const SUPABASE_KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
+const VERIFY_FN=SUPABASE_URL+"/functions/v1/verify-wallet";
+const AUTH_USER=SUPABASE_URL+"/auth/v1/user";
+const AUTH_TOKEN=SUPABASE_URL+"/auth/v1/token?grant_type=refresh_token";
+const STORAGE_KEY="web3market-auth";
+const CHAIN_ID="0x38";
+const CHAIN_HEX="0x38";
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function esc(v){return String(v??"").replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[m])}
+function short(a){return a?a.slice(0,6)+"…"+a.slice(-4):""}
+function saved(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"null")}catch(e){return null}}
+async function authUser(token){if(!token)return null;try{const r=await fetch(AUTH_USER,{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+token},cache:"no-store"});if(!r.ok)return null;return await r.json()}catch(e){return null}}
+async function getAuth(){
+ let s=saved();let user=await authUser(s?.access_token);
+ if(user?.id)return {session:s,user};
+ if(!s?.refresh_token)return null;
+ try{
+  const r=await fetch(AUTH_TOKEN,{method:"POST",headers:{apikey:SUPABASE_KEY,"Content-Type":"application/json"},body:JSON.stringify({refresh_token:s.refresh_token})});
+  if(!r.ok)return null;
+  const next=await r.json();
+  if(!next?.access_token)return null;
+  const merged={...s,...next,refresh_token:next.refresh_token||s.refresh_token};
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(merged));
+  user=await authUser(merged.access_token);
+  return user?.id?{session:merged,user}:null;
+ }catch(e){return null}
+}
+function providers(){return [window.ethereum,...(window.ethereum?.providers||[])].filter(Boolean)}
+function findByName(name){const n=String(name||"").toLowerCase();return providers().find(p=>String(p?.info?.name||p?.name||"").toLowerCase().includes(n.split(" ")[0]))||null}
+function detect(){
+ const p=providers();
+ return {metamask:p.find(x=>x.isMetaMask&&!x.isBraveWallet),trust:p.find(x=>x.isTrust),coinbase:p.find(x=>x.isCoinbaseWallet),okx:p.find(x=>x.isOkxWallet||x.isOKExWallet),safepal:p.find(x=>x.isSafePal),binance:p.find(x=>x.isBinance)}
+}
+function listWallets(){const d=detect();return [
+ {name:"MetaMask",provider:d.metamask,icon:"https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg"},
+ {name:"Trust Wallet",provider:d.trust,icon:"https://trustwallet.com/assets/images/media/assets/TWT.png"},
+ {name:"OKX Wallet",provider:d.okx},
+ {name:"SafePal",provider:d.safepal},
+ {name:"Coinbase Wallet",provider:d.coinbase},
+ {name:"Binance Wallet",provider:d.binance}
+ ].map(x=>({...x,detected:!!x.provider}))}
+function getDetected(name){return findByName(name)||null}
+async function switchBSC(provider){try{await provider.request({method:"wallet_switchEthereumChain",params:[{chainId:CHAIN_HEX}]})}catch(e){if(e?.code!==4902)throw e;await provider.request({method:"wallet_addEthereumChain",params:[{chainId:CHAIN_HEX,chainName:"BNB Smart Chain",nativeCurrency:{name:"BNB",symbol:"BNB",decimals:18},rpcUrls:["https://bsc-dataseed.binance.org"],blockExplorerUrls:["https://bscscan.com"]}]})}}
+function message({address,user,role,purpose}){return [
+"Web3Market Wallet Ownership Verification","",
+"I am connecting this wallet to my authenticated Web3Market account.","",
+"Domain: "+location.host,"Account: "+user.id,"Role: "+role,"Purpose: "+purpose,"Wallet: "+address,"Chain ID: 56 (BNB Smart Chain)","Timestamp: "+new Date().toISOString(),"",
+"This signature does not authorize any transaction or transfer of funds.","This signature is proof of wallet ownership only.","It does not authorize a transaction, token approval, or transfer of funds."
+].join("\n")}
+async function connectAndVerify(provider,walletName,opts={}){
+ if(!provider)throw Error(walletName+" wallet provider was not detected. Open its wallet browser and try again.");
+ const notice=opts.setNotice||(()=>{});
+ notice("Connecting to "+walletName+"…");
+ const accounts=await provider.request({method:"eth_requestAccounts"});
+ const address=accounts?.[0];
+ if(!/^0x[a-fA-F0-9]{40}$/.test(address||""))throw Error("Wallet address could not be read.");
+ notice("Wallet connected. Preparing free ownership signature…");
+ await switchBSC(provider);
+ const auth=await getAuth();
+ if(!auth)throw Error("Your Web3Market login session is unavailable. Please sign in again.");
+ const role=opts.role||"seller",purpose=opts.purpose||"wallet_ownership";
+ const msg=message({address,user:auth.user,role,purpose});
+ notice("Approve the ownership signature in your wallet. No funds will move.");
+ const signature=await provider.request({method:"personal_sign",params:[msg,address]});
+ if(!signature)throw Error("Wallet signature was not received.");
+ notice("Signature received. Verifying wallet ownership and saving it…");
+ const r=await fetch(VERIFY_FN,{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+auth.session.access_token,"Content-Type":"application/json"},body:JSON.stringify({address,message:msg,signature,chain_id:56,purpose,role})});
+ let data=null;try{data=await r.json()}catch(e){}
+ if(!r.ok||!data?.ok||!data?.verified)throw Error(data?.error||data?.message||("Wallet verification failed ("+r.status+")."));
+ notice("Wallet ownership verified and saved ✓");
+ return {address,user:auth.user,walletName,verified:true,data};
+}
+function launch(name,notice){
+ const n=String(name||"").toLowerCase();const ua=navigator.userAgent.toLowerCase();const mobile=/android|iphone|ipad|ipod/i.test(ua);if(!mobile){if(notice)notice("Open "+name+" in this browser, then connect again.");return false}
+ const urls={"metamask":"https://metamask.app.link/dapp/"+location.host+location.pathname,"trust wallet":"https://link.trustwallet.com/open_url?coin_id=20000714&url="+encodeURIComponent(location.href),"okx wallet":"okx://wallet/dapp/details?dappUrl="+encodeURIComponent(location.href),"safepal":"safepalwallet://dapp?url="+encodeURIComponent(location.href),"coinbase wallet":"https://go.cb-w.com/dapp?cb_url="+encodeURIComponent(location.href),"binance wallet":"bnc://app.binance.com/cedefi/dapp?url="+encodeURIComponent(location.href)};const u=urls[n];if(!u){if(notice)notice("Open your wallet browser and visit Web3Market again.");return false}location.href=u;return true
+}
+window.Web3MarketWalletManager={connectAndVerify,listWallets,getDetected,launch,short,esc,detect,version:"REST-AUTH-20260918-5"};
 })();
