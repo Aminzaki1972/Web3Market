@@ -1,1 +1,17 @@
-"use strict";(function(){const target="/functions/v1/verify-wallet",replacement="https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/wallet-verify-v2";const original=window.fetch.bind(window);window.fetch=async function(input,init){try{const url=typeof input==="string"?input:(input&&input.url)||"";if(url.includes(target)){const next=url.replace(target,replacement);return original(next,init)}}catch(e){}return original(input,init)}})();
+/* Compatibility bridge for the wallet launcher. */
+(function () {
+  'use strict';
+  window.Web3MarketWalletCompat = {
+    isMobile: /Android|iPhone|iPad|iPod/i.test(navigator.userAgent),
+    getProvider: function () { return window.ethereum || null; },
+    open: function (url) {
+      if (!url) return false;
+      if (this.isMobile) {
+        window.location.href = url;
+        return true;
+      }
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return true;
+    }
+  };
+})();
