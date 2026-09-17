@@ -28,30 +28,26 @@
       return r.json();
     }).catch(function () { return null; });
   }
-  function getAuth() {
-    var s = saved();
-    return authUser(s && s.access_token).then(function (user) {
-      if (user && user.id) return { session: s, user: user };
-      if (!s || !s.refresh_token) return null;
-      return fetch(AUTH_TOKEN, {
-        method: "POST",
-        headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: s.refresh_token })
-      }).then(function (r) {
-        if (!r.ok) return null;
-        return r.json();
-      }).then(function (next) {
-        if (!next || !next.access_token) return null;
-        var merged = {};
-        Object.keys(s).forEach(function (k) { merged[k] = s[k]; });
-        Object.keys(next).forEach(function (k) { merged[k] = next[k]; });
-        if (!merged.refresh_token) merged.refresh_token = s.refresh_token;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-        return authUser(merged.access_token).then(function (u) {
-          return u && u.id ? { session: merged, user: u } : null;
-        });
-      }).catch(function () { return null; });
-    });
+  async function getAuth() {
+    try {
+      var unified = window.Web3MarketSupabase && (
+        (typeof window.Web3MarketSupabase.getClient === "function" && window.Web3MarketSupabase.getClient()) ||
+        window.Web3MarketSupabase.client ||
+        window.Web3MarketSupabase.supabase
+      );
+      if (unified && unified.auth) {
+        var current = await unified.auth.getSession();
+        var session = current && current.data && current.data.session;
+        if (session && session.access_token) {
+          var me = await unified.auth.getUser();
+          var user = me && me.data && me.data.user;
+          if (user && user.id) return {session:session,user:user};
+        }
+      }
+    } catch (e) {
+      console.warn("Web3Market unified auth session unavailable", e);
+    }
+    return null;
   }
   function providers() {
     var out = [];
