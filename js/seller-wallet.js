@@ -9,7 +9,7 @@
     if(notice)notice.textContent="Loading wallet connection…";
     try{
       const s=document.createElement("script");
-      s.src="js/wallet-manager.js?v=20260918-walletfix7";
+      s.src="js/wallet-manager.js?v=20260918-walletfix8";
       s.async=false;
       document.head.appendChild(s);
     }catch(e){console.warn("Web3Market wallet manager reload failed",e)}
@@ -65,6 +65,57 @@
     }
     if(notice)notice.textContent=`${target} opened, but its wallet provider was not exposed to this page. Tap Connect Wallet inside the wallet browser.`;
   }
+  async function loadWalletState(){
+    try{
+      const sb=window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase;
+      if(!sb?.auth)return;
+      const {data:{user}}=await sb.auth.getUser();
+      if(!user)return;
+      const {data:profile}=await sb.from("profiles").select("wallet_address,wallet_verified,role").eq("id",user.id).maybeSingle();
+      const actions=document.querySelector(".wallet-actions"), button=document.getElementById("connectSellerWallet"), addressEl=document.getElementById("sellerWalletAddress"), statusEl=document.getElementById("sellerWalletStatus");
+      if(!actions||!button||!profile)return;
+      let disconnect=document.getElementById("disconnectSellerWallet");
+      if(profile.wallet_verified && profile.wallet_address){
+        if(addressEl)addressEl.textContent=wmShort(profile.wallet_address);
+        if(statusEl)statusEl.textContent="Connected & verified ✓";
+        button.textContent="Connect another wallet";
+        button.classList.add("connected");
+        if(!disconnect){
+          disconnect=document.createElement("button"); disconnect.id="disconnectSellerWallet"; disconnect.type="button"; disconnect.className="wallet-btn"; disconnect.style.background="#7f1d1d"; disconnect.textContent="Disconnect";
+          actions.insertBefore(disconnect,actions.querySelector("#walletNotice"));
+          disconnect.addEventListener("click",disconnectWallet);
+        }
+      }else{
+        if(addressEl)addressEl.textContent="Not connected";
+        if(statusEl)statusEl.textContent="Wallet ownership not verified";
+        button.textContent="Connect Wallet"; button.classList.remove("connected");
+        if(disconnect)disconnect.remove();
+      }
+    }catch(e){console.warn("Wallet state load failed",e)}
+  }
+  function wmShort(a){const wm=manager();return wm&&wm.short?wm.short(a):(a?a.slice(0,6)+"…"+a.slice(-4):"Not connected")}
+  async function disconnectWallet(){
+    const wm=manager(), notice=document.getElementById("walletNotice"), button=document.getElementById("disconnectSellerWallet");
+    try{
+      if(button)button.disabled=true;
+      if(notice)notice.textContent="Disconnecting wallet…";
+      const sb=window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase;
+      const {data:{session}}=await sb.auth.getSession();
+      if(!session?.access_token)throw new Error("Your Web3Market login session is unavailable. Please sign in again.");
+      const r=await fetch("https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/verify-wallet",{
+        method:"POST",
+        headers:{apikey:"sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI",Authorization:"Bearer "+session.access_token,"Content-Type":"application/json"},
+        body:JSON.stringify({action:"disconnect"})
+      });
+      const data=await r.json().catch(()=>null);
+      if(!r.ok||!data?.disconnected)throw new Error(data?.error||"Wallet disconnect failed.");
+      if(notice)notice.textContent="Wallet disconnected from your seller profile.";
+      await loadWalletState();
+    }catch(e){
+      if(button)button.disabled=false;
+      if(notice)notice.textContent=e?.message||"Wallet disconnect failed.";
+    }
+  }
   function bind(){
     const b=document.getElementById("connectSellerWallet");
     if(b&&!b.dataset.bound){b.dataset.bound="1";b.addEventListener("click",e=>{e.preventDefault();renderModal()})}
@@ -77,7 +128,7 @@
     const wm=await ensureManager();
     if(!wm){const n=document.getElementById("walletNotice");if(n)n.textContent="Wallet connection engine failed to load. Please open this page inside your wallet browser.";return}
     bind();
-    autoConnect();
+    autoConnect();\n    loadWalletState();
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 })();
