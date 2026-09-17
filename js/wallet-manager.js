@@ -1,81 +1,186 @@
 "use strict";
-(function(){
-const SUPABASE_URL="https://hzhqlexnhtukfljcvnyd.supabase.co";
-const SUPABASE_KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
-const VERIFY_FN=SUPABASE_URL+"/functions/v1/verify-wallet";
-const AUTH_USER=SUPABASE_URL+"/auth/v1/user";
-const AUTH_TOKEN=SUPABASE_URL+"/auth/v1/token?grant_type=refresh_token";
-const STORAGE_KEY="web3market-auth";
-const CHAIN_ID="0x38";
-const CHAIN_HEX="0x38";
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-function esc(v){return String(v??"").replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[m])}
-function short(a){return a?a.slice(0,6)+"…"+a.slice(-4):""}
-function saved(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"null")}catch(e){return null}}
-async function authUser(token){if(!token)return null;try{const r=await fetch(AUTH_USER,{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+token},cache:"no-store"});if(!r.ok)return null;return await r.json()}catch(e){return null}}
-async function getAuth(){
- let s=saved();let user=await authUser(s?.access_token);
- if(user?.id)return {session:s,user};
- if(!s?.refresh_token)return null;
- try{
-  const r=await fetch(AUTH_TOKEN,{method:"POST",headers:{apikey:SUPABASE_KEY,"Content-Type":"application/json"},body:JSON.stringify({refresh_token:s.refresh_token})});
-  if(!r.ok)return null;
-  const next=await r.json();
-  if(!next?.access_token)return null;
-  const merged={...s,...next,refresh_token:next.refresh_token||s.refresh_token};
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(merged));
-  user=await authUser(merged.access_token);
-  return user?.id?{session:merged,user}:null;
- }catch(e){return null}
-}
-function providers(){return [window.ethereum,...(window.ethereum?.providers||[])].filter(Boolean)}
-function findByName(name){const n=String(name||"").toLowerCase();return providers().find(p=>String(p?.info?.name||p?.name||"").toLowerCase().includes(n.split(" ")[0]))||null}
-function detect(){
- const p=providers();
- return {metamask:p.find(x=>x.isMetaMask&&!x.isBraveWallet),trust:p.find(x=>x.isTrust),coinbase:p.find(x=>x.isCoinbaseWallet),okx:p.find(x=>x.isOkxWallet||x.isOKExWallet),safepal:p.find(x=>x.isSafePal),binance:p.find(x=>x.isBinance)}
-}
-function listWallets(){const d=detect();return [
- {name:"MetaMask",provider:d.metamask,icon:"https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg"},
- {name:"Trust Wallet",provider:d.trust,icon:"https://trustwallet.com/assets/images/media/assets/TWT.png"},
- {name:"OKX Wallet",provider:d.okx},
- {name:"SafePal",provider:d.safepal},
- {name:"Coinbase Wallet",provider:d.coinbase},
- {name:"Binance Wallet",provider:d.binance}
- ].map(x=>({...x,detected:!!x.provider}))}
-function getDetected(name){return findByName(name)||null}
-async function switchBSC(provider){try{await provider.request({method:"wallet_switchEthereumChain",params:[{chainId:CHAIN_HEX}]})}catch(e){if(e?.code!==4902)throw e;await provider.request({method:"wallet_addEthereumChain",params:[{chainId:CHAIN_HEX,chainName:"BNB Smart Chain",nativeCurrency:{name:"BNB",symbol:"BNB",decimals:18},rpcUrls:["https://bsc-dataseed.binance.org"],blockExplorerUrls:["https://bscscan.com"]}]})}}
-function message({address,user,role,purpose}){return [
-"Web3Market Wallet Ownership Verification","",
-"I am connecting this wallet to my authenticated Web3Market account.","",
-"Domain: "+location.host,"Account: "+user.id,"Role: "+role,"Purpose: "+purpose,"Wallet: "+address,"Chain ID: 56 (BNB Smart Chain)","Timestamp: "+new Date().toISOString(),"",
-"This signature does not authorize any transaction or transfer of funds.","This signature is proof of wallet ownership only.","It does not authorize a transaction, token approval, or transfer of funds."
-].join("\n")}
-async function connectAndVerify(provider,walletName,opts={}){
- if(!provider)throw Error(walletName+" wallet provider was not detected. Open its wallet browser and try again.");
- const notice=opts.setNotice||(()=>{});
- notice("Connecting to "+walletName+"…");
- const accounts=await provider.request({method:"eth_requestAccounts"});
- const address=accounts?.[0];
- if(!/^0x[a-fA-F0-9]{40}$/.test(address||""))throw Error("Wallet address could not be read.");
- notice("Wallet connected. Preparing free ownership signature…");
- await switchBSC(provider);
- const auth=await getAuth();
- if(!auth)throw Error("Your Web3Market login session is unavailable. Please sign in again.");
- const role=opts.role||"seller",purpose=opts.purpose||"wallet_ownership";
- const msg=message({address,user:auth.user,role,purpose});
- notice("Approve the ownership signature in your wallet. No funds will move.");
- const signature=await provider.request({method:"personal_sign",params:[msg,address]});
- if(!signature)throw Error("Wallet signature was not received.");
- notice("Signature received. Verifying wallet ownership and saving it…");
- const r=await fetch(VERIFY_FN,{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+auth.session.access_token,"Content-Type":"application/json"},body:JSON.stringify({address,message:msg,signature,chain_id:56,purpose,role})});
- let data=null;try{data=await r.json()}catch(e){}
- if(!r.ok||!data?.ok||!data?.verified)throw Error(data?.error||data?.message||("Wallet verification failed ("+r.status+")."));
- notice("Wallet ownership verified and saved ✓");
- return {address,user:auth.user,walletName,verified:true,data};
-}
-function launch(name,notice){
- const n=String(name||"").toLowerCase();const ua=navigator.userAgent.toLowerCase();const mobile=/android|iphone|ipad|ipod/i.test(ua);if(!mobile){if(notice)notice("Open "+name+" in this browser, then connect again.");return false}
- const urls={"metamask":"https://metamask.app.link/dapp/"+location.host+location.pathname,"trust wallet":"https://link.trustwallet.com/open_url?coin_id=20000714&url="+encodeURIComponent(location.href),"okx wallet":"okx://wallet/dapp/details?dappUrl="+encodeURIComponent(location.href),"safepal":"safepalwallet://dapp?url="+encodeURIComponent(location.href),"coinbase wallet":"https://go.cb-w.com/dapp?cb_url="+encodeURIComponent(location.href),"binance wallet":"bnc://app.binance.com/cedefi/dapp?url="+encodeURIComponent(location.href)};const u=urls[n];if(!u){if(notice)notice("Open your wallet browser and visit Web3Market again.");return false}location.href=u;return true
-}
-window.Web3MarketWalletManager={connectAndVerify,listWallets,getDetected,launch,short,esc,detect,version:"REST-AUTH-20260918-5"};
+(function () {
+  var SUPABASE_URL = "https://hzhqlexnhtukfljcvnyd.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
+  var VERIFY_FN = SUPABASE_URL + "/functions/v1/verify-wallet";
+  var AUTH_USER = SUPABASE_URL + "/auth/v1/user";
+  var AUTH_TOKEN = SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token";
+  var STORAGE_KEY = "web3market-auth";
+  var CHAIN_HEX = "0x38";
+  var VERSION = "REST-AUTH-20260918-6";
+
+  function esc(v) {
+    return String(v == null ? "" : v).replace(/[&<>\"']/g, function (m) {
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m];
+    });
+  }
+  function short(a) { return a ? a.slice(0, 6) + "…" + a.slice(-4) : ""; }
+  function saved() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch (e) { return null; }
+  }
+  function authUser(token) {
+    if (!token) return Promise.resolve(null);
+    return fetch(AUTH_USER, {
+      headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + token },
+      cache: "no-store"
+    }).then(function (r) {
+      if (!r.ok) return null;
+      return r.json();
+    }).catch(function () { return null; });
+  }
+  function getAuth() {
+    var s = saved();
+    return authUser(s && s.access_token).then(function (user) {
+      if (user && user.id) return { session: s, user: user };
+      if (!s || !s.refresh_token) return null;
+      return fetch(AUTH_TOKEN, {
+        method: "POST",
+        headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: s.refresh_token })
+      }).then(function (r) {
+        if (!r.ok) return null;
+        return r.json();
+      }).then(function (next) {
+        if (!next || !next.access_token) return null;
+        var merged = {};
+        Object.keys(s).forEach(function (k) { merged[k] = s[k]; });
+        Object.keys(next).forEach(function (k) { merged[k] = next[k]; });
+        if (!merged.refresh_token) merged.refresh_token = s.refresh_token;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        return authUser(merged.access_token).then(function (u) {
+          return u && u.id ? { session: merged, user: u } : null;
+        });
+      }).catch(function () { return null; });
+    });
+  }
+  function providers() {
+    var out = [];
+    var eth = window.ethereum;
+    if (eth) out.push(eth);
+    if (eth && eth.providers && eth.providers.length) {
+      eth.providers.forEach(function (p) { if (p && out.indexOf(p) === -1) out.push(p); });
+    }
+    return out;
+  }
+  function detect() {
+    var p = providers();
+    return {
+      metamask: p.find(function (x) { return x.isMetaMask && !x.isBraveWallet; }),
+      trust: p.find(function (x) { return x.isTrust; }),
+      coinbase: p.find(function (x) { return x.isCoinbaseWallet; }),
+      okx: p.find(function (x) { return x.isOkxWallet || x.isOKExWallet; }),
+      safepal: p.find(function (x) { return x.isSafePal; }),
+      binance: p.find(function (x) { return x.isBinance; })
+    };
+  }
+  function findByName(name) {
+    var n = String(name || "").toLowerCase().split(" ")[0];
+    var p = providers();
+    for (var i = 0; i < p.length; i++) {
+      var label = String((p[i].info && p[i].info.name) || p[i].name || "").toLowerCase();
+      if (label.indexOf(n) !== -1) return p[i];
+    }
+    return null;
+  }
+  function listWallets() {
+    var d = detect();
+    return [
+      {name:"MetaMask",provider:d.metamask,icon:"https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg"},
+      {name:"Trust Wallet",provider:d.trust,icon:"https://trustwallet.com/assets/images/media/assets/TWT.png"},
+      {name:"OKX Wallet",provider:d.okx},
+      {name:"SafePal",provider:d.safepal},
+      {name:"Coinbase Wallet",provider:d.coinbase},
+      {name:"Binance Wallet",provider:d.binance}
+    ].map(function (x) { x.detected = !!x.provider; return x; });
+  }
+  function getDetected(name) { return findByName(name); }
+  function switchBSC(provider) {
+    return provider.request({method:"wallet_switchEthereumChain",params:[{chainId:CHAIN_HEX}]}).catch(function (e) {
+      if (!e || e.code !== 4902) throw e;
+      return provider.request({method:"wallet_addEthereumChain",params:[{
+        chainId:CHAIN_HEX,
+        chainName:"BNB Smart Chain",
+        nativeCurrency:{name:"BNB",symbol:"BNB",decimals:18},
+        rpcUrls:["https://bsc-dataseed.binance.org"],
+        blockExplorerUrls:["https://bscscan.com"]
+      }]});
+    });
+  }
+  function buildMessage(address, user, role, purpose) {
+    return [
+      "Web3Market Wallet Ownership Verification", "",
+      "I am connecting this wallet to my authenticated Web3Market account.", "",
+      "Domain: " + location.host,
+      "Account: " + user.id,
+      "Role: " + role,
+      "Purpose: " + purpose,
+      "Wallet: " + address,
+      "Chain ID: 56 (BNB Smart Chain)",
+      "Timestamp: " + new Date().toISOString(), "",
+      "This signature does not authorize any transaction or transfer of funds.",
+      "This signature is proof of wallet ownership only.",
+      "It does not authorize a transaction, token approval, or transfer of funds."
+    ].join("\n");
+  }
+  function connectAndVerify(provider, walletName, opts) {
+    opts = opts || {};
+    if (!provider) return Promise.reject(new Error(walletName + " wallet provider was not detected. Open its wallet browser and try again."));
+    var notice = opts.setNotice || function () {};
+    notice("Connecting to " + walletName + "…");
+    return provider.request({method:"eth_requestAccounts"}).then(function (accounts) {
+      var address = accounts && accounts[0];
+      if (!/^0x[a-fA-F0-9]{40}$/.test(address || "")) throw new Error("Wallet address could not be read.");
+      notice("Wallet connected. Preparing free ownership signature…");
+      return switchBSC(provider).then(function () { return getAuth(); }).then(function (auth) {
+        if (!auth) throw new Error("Your Web3Market login session is unavailable. Please sign in again.");
+        var role = opts.role || "seller";
+        var purpose = opts.purpose || "wallet_ownership";
+        var msg = buildMessage(address, auth.user, role, purpose);
+        notice("Approve the ownership signature in your wallet. No funds will move.");
+        return provider.request({method:"personal_sign",params:[msg,address]}).then(function (signature) {
+          if (!signature) throw new Error("Wallet signature was not received.");
+          notice("Signature received. Verifying wallet ownership and saving it…");
+          return fetch(VERIFY_FN, {
+            method:"POST",
+            headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+auth.session.access_token,"Content-Type":"application/json"},
+            body:JSON.stringify({address:address,message:msg,signature:signature,chain_id:56,purpose:purpose,role:role})
+          }).then(function (r) {
+            return r.json().catch(function () { return null; }).then(function (data) {
+              if (!r.ok || !data || !data.ok || !data.verified) throw new Error((data && (data.error || data.message)) || ("Wallet verification failed (" + r.status + ")."));
+              notice("Wallet ownership verified and saved ✓");
+              return {address:address,user:auth.user,walletName:walletName,verified:true,data:data};
+            });
+          });
+        });
+      });
+    });
+  }
+  function launch(name, notice) {
+    var n = String(name || "").toLowerCase();
+    var mobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+    if (!mobile) { if (notice) notice("Open " + name + " in this browser, then connect again."); return false; }
+    var urls = {
+      "metamask":"https://metamask.app.link/dapp/" + location.host + location.pathname,
+      "trust wallet":"https://link.trustwallet.com/open_url?coin_id=20000714&url=" + encodeURIComponent(location.href),
+      "okx wallet":"okx://wallet/dapp/details?dappUrl=" + encodeURIComponent(location.href),
+      "safepal":"safepalwallet://dapp?url=" + encodeURIComponent(location.href),
+      "coinbase wallet":"https://go.cb-w.com/dapp?cb_url=" + encodeURIComponent(location.href),
+      "binance wallet":"bnc://app.binance.com/cedefi/dapp?url=" + encodeURIComponent(location.href)
+    };
+    var u = urls[n];
+    if (!u) { if (notice) notice("Open your wallet browser and visit Web3Market again."); return false; }
+    location.href = u;
+    return true;
+  }
+
+  window.Web3MarketWalletManager = {
+    connectAndVerify: connectAndVerify,
+    listWallets: listWallets,
+    getDetected: getDetected,
+    launch: launch,
+    short: short,
+    esc: esc,
+    detect: detect,
+    version: VERSION
+  };
 })();
