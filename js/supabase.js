@@ -5,20 +5,35 @@ const SUPABASE_URL="https://hzhqlexnhtukfljcvnyd.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
 const STORAGE_KEY="web3market-auth";
 let client=null;
+let initStarted=false;
+function publish(){
+  if(!client)return;
+  window.Web3MarketSupabase={client:client,supabase:client,getClient:getClient,getSession:getSession,getUser:getUser,isInitialized:()=>!!client};
+  window.web3marketSupabase=client;window.supabaseClient=client;
+}
 function initialize(){
   if(client)return client;
   if(!window.supabase||typeof window.supabase.createClient!=="function")return null;
   try{
     client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:STORAGE_KEY}});
-    window.Web3MarketSupabase={client:client,supabase:client,getClient:getClient,getSession:getSession,getUser:getUser,isInitialized:()=>!!client};
-    window.web3marketSupabase=client;window.supabaseClient=client;return client;
-  }catch(e){console.error("Web3Market Supabase:",e);return null}
+    publish();
+    return client;
+  }catch(e){console.error("Web3Market Supabase:",e);client=null;return null}
 }
 function getClient(){return client||initialize()}
-async function getSession(){const s=getClient();if(!s)return null;try{return (await s.auth.getSession()).data?.session||null}catch(e){return null}}
-async function getUser(){const s=getClient();if(!s)return null;try{return (await s.auth.getUser()).data?.user||null}catch(e){return null}}
+async function waitForClient(timeout=8000){
+  const started=Date.now();
+  while(!client && Date.now()-started<timeout){
+    initialize();
+    if(client)break;
+    await new Promise(r=>setTimeout(r,100));
+  }
+  return client;
+}
+async function getSession(){const s=await waitForClient();if(!s)return null;try{return (await s.auth.getSession()).data?.session||null}catch(e){return null}}
+async function getUser(){const s=await waitForClient();if(!s)return null;try{return (await s.auth.getUser()).data?.user||null}catch(e){return null}}
 async function restoreDirectSession(){
-  const s=getClient(); if(!s?.auth)return null;
+  const s=await waitForClient(); if(!s?.auth)return null;
   try{
     const raw=localStorage.getItem(STORAGE_KEY); if(!raw)return null;
     const saved=JSON.parse(raw); const access=saved?.access_token, refresh=saved?.refresh_token;
@@ -37,10 +52,14 @@ function loadRealMarketplace(){if(!document.querySelector('.listingGrid')||docum
 function loadTrustScoreUI(){const p=(location.pathname||"").toLowerCase();const page=p.endsWith("/index.html")||p.endsWith("/marketplace.html")||p.endsWith("/project.html")||p==="";if(!page)return;if(document.getElementById("web3market-trust-score-ui"))return;const s=document.createElement("script");s.id="web3market-trust-score-ui";s.src="js/trust-score-ui.js?v=20260905-2";s.async=true;s.onerror=function(){console.warn("Web3Market Trust/Verification UI unavailable")};document.body.appendChild(s)}
 function installHomepageUI(){loadRealMarketplace();const counters=document.querySelector(".projectCounters");if(!counters)return false;const grid=counters.querySelector(".counterGrid")||counters.querySelector(".wrap");if(!grid)return false;["Listed","Under AI Review","Pending Execution","Sold"].forEach((x,i)=>{const el=document.querySelectorAll(".projectCounters .counter span")[i];if(el)el.textContent=x});addStyle();installPriceTicker(counters);loadRealMarketplace();loadMarketplaceIntelligence();loadTrustScoreUI();return true}
 function installPriceTicker(c){let t=document.getElementById("web3market-price-ticker");if(!t){t=document.createElement("div");t.id="web3market-price-ticker";t.setAttribute("aria-label","Live cryptocurrency prices");t.innerHTML='<div class="wm-price-track"><span class="coin" data-symbol="BNB">BNB <span>Loading...</span></span><span class="coin" data-symbol="ETH">ETH <span>Loading...</span></span><span class="coin" data-symbol="SOL">SOL <span>Loading...</span></span></div>';c.parentNode.insertBefore(t,c.nextSibling.nextSibling)}updatePrices(t);if(!t.dataset.timer){t.dataset.timer="1";setInterval(()=>updatePrices(t),30000)}}
-async function updatePrices(t){try{const r=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=binancecoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true",{cache:"no-store"});if(!r.ok)throw Error(r.status);const d=await r.json(),m={BNB:d.binancecoin,ETH:d.ethereum, SOL:d.solana};Object.keys(m).forEach(x=>{const e=t.querySelector('[data-symbol="'+x+'"] span'),v=m[x];if(!e||!v)return;const p=Number(v.usd),ch=Number(v.usd_24h_change||0);e.textContent="$"+p.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:6})+" "+(ch>0?"▲ ":ch<0?"▼ ":"• ")+Math.abs(ch).toFixed(2)+"%";e.className=ch>0?"up":ch<0?"down":"flat"})}catch(e){console.warn("Crypto price ticker:",e)}}
+async function updatePrices(t){try{const r=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=binancecoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true",{cache:"no-store"});if(!r.ok)throw Error(r.status);const d=await r.json(),m={BNB:d.binancecoin,ETH:d.ethereum,SOL:d.solana};Object.keys(m).forEach(x=>{const e=t.querySelector('[data-symbol="'+x+'"] span'),v=m[x];if(!e||!v)return;const p=Number(v.usd),ch=Number(v.usd_24h_change||0);e.textContent="$"+p.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:6})+" "+(ch>0?"▲ ":ch<0?"▼ ":"• ")+Math.abs(ch).toFixed(2)+"%";e.className=ch>0?"up":ch<0?"down":"flat"})}catch(e){console.warn("Crypto price ticker:",e)}}
 function installDeveloperContact(){if(!document.querySelector(".projectCounters")||document.getElementById("web3market-developer-contact"))return;const footer=document.createElement("div");footer.id="web3market-developer-contact";footer.innerHTML='<strong>FOR DEVELOPER CONTACT: @Web3j_Global</strong>';footer.style.cssText="width:100%;text-align:center;background:#141820;color:#fff;padding:24px 16px;font-size:18px;font-weight:900;letter-spacing:.2px;box-sizing:border-box";document.body.appendChild(footer)}
-function boot(){initialize();loadTrustScoreUI();if(installHomepageUI()){}installDeveloperContact();setTimeout(installDeveloperContact,800);let n=0;const timer=setInterval(()=>{n++;if(installHomepageUI()||n>30)clearInterval(timer);installDeveloperContact()},250)}
+async function boot(){
+  if(initStarted)return;initStarted=true;
+  await waitForClient(8000);
+  loadTrustScoreUI();if(installHomepageUI()){}installDeveloperContact();setTimeout(installDeveloperContact,800);let n=0;const timer=setInterval(()=>{n++;if(installHomepageUI()||n>30)clearInterval(timer);installDeveloperContact()},250)
+}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
-window.addEventListener("load",()=>{installHomepageUI();installDeveloperContact();loadTrustScoreUI()})
+window.addEventListener("load",()=>{waitForClient(3000).then(()=>{installHomepageUI();installDeveloperContact();loadTrustScoreUI()})})
 })();
 (function(){"use strict";function isHomepage(){const p=(location.pathname||"").replace(/\\/+$/,'');return p===""||p==="/index.html"||p.endsWith("/index.html")}function loadHomepageEnhancements(){if(!isHomepage())return;if(document.getElementById('wmx-homepage-enhancements'))return;var s=document.createElement('script');s.id='wmx-homepage-enhancements';s.src='/js/homepage-enhancements.js?v=20260911-3';s.async=true;s.onload=function(){console.log('Web3Market homepage enhancements loaded')};s.onerror=function(){console.warn('Web3Market homepage enhancements unavailable')};(document.head||document.body||document.documentElement).appendChild(s)}function bootHomepageEnhancements(){if(!isHomepage())return;if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadHomepageEnhancements,{once:true});else loadHomepageEnhancements();window.addEventListener('load',loadHomepageEnhancements,{once:true});setTimeout(loadHomepageEnhancements,1200)}bootHomepageEnhancements()})();
