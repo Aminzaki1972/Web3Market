@@ -5,13 +5,14 @@
  root.innerHTML='<div class="status">Loading Web3Market verification…</div>';
  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  let sb=null;
- for(let i=0;i<20&&!sb;i++){
+ for(let i=0;i<30&&!sb;i++){
   sb=window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase||null;
+  if(!sb&&window.supabase?.createClient){try{sb=window.supabase.createClient('https://hzhqlexnhtukfljcvnyd.supabase.co','sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'web3market-auth'}});window.Web3MarketSupabase=window.Web3MarketSupabase||{};window.Web3MarketSupabase.client=sb;window.Web3MarketSupabase.supabase=sb;window.Web3MarketSupabase.getClient=()=>sb;window.supabaseClient=sb;window.web3marketSupabase=sb}catch(e){}}
   if(!sb)await sleep(150);
  }
  if(!sb){root.innerHTML='<div class="status">Web3Market connection could not be initialized. Please refresh the page.</div>';return;}
  try{
-  const restored=window.Web3MarketSupabaseRestoreSession?await window.Web3MarketSupabaseRestoreSession():null;
+  if(window.Web3MarketSupabaseRestoreSession)await window.Web3MarketSupabaseRestoreSession();
   const {data:{user},error:authError}=await sb.auth.getUser();
   if(authError||!user){root.innerHTML='<div class="status">Please sign in before requesting verification.</div>';return;}
   const esc=v=>String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[m]));
