@@ -7,7 +7,7 @@
   var AUTH_TOKEN = SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token";
   var STORAGE_KEY = "web3market-auth";
   var CHAIN_HEX = "0x38";
-  var VERSION = "REST-AUTH-20260918-6";
+  var VERSION = "REST-AUTH-20260918-7";
 
   function esc(v) {
     return String(v == null ? "" : v).replace(/[&<>\"']/g, function (m) {
@@ -122,6 +122,27 @@
       "It does not authorize a transaction, token approval, or transfer of funds."
     ].join("\n");
   }
+  function utf8Hex(text) {
+    try {
+      var bytes = new TextEncoder().encode(text), out = "";
+      for (var i = 0; i < bytes.length; i++) out += bytes[i].toString(16).padStart(2, "0");
+      return "0x" + out;
+    } catch (e) { return text; }
+  }
+  function withTimeout(promise, ms, message) {
+    return Promise.race([promise, new Promise(function (_, reject) {
+      setTimeout(function () { reject(new Error(message)); }, ms);
+    })]);
+  }
+  async function requestOwnershipSignature(provider, address, message, notice) {
+    var hexMessage = utf8Hex(message);
+    try {
+      return await withTimeout(provider.request({method:"personal_sign",params:[hexMessage,address]}), 45000, "Wallet signature request timed out. Please approve the signature in your wallet and return to Web3Market.");
+    } catch (firstError) {
+      notice("The wallet did not return the signature. Retrying the ownership signature…");
+      return await withTimeout(provider.request({method:"personal_sign",params:[message,address]}), 45000, firstError && firstError.message ? firstError.message : "Wallet signature was not received.");
+    }
+  }
   function connectAndVerify(provider, walletName, opts) {
     opts = opts || {};
     if (!provider) return Promise.reject(new Error(walletName + " wallet provider was not detected. Open its wallet browser and try again."));
@@ -137,14 +158,19 @@
         var purpose = opts.purpose || "wallet_ownership";
         var msg = buildMessage(address, auth.user, role, purpose);
         notice("Approve the ownership signature in your wallet. No funds will move.");
-        return provider.request({method:"personal_sign",params:[msg,address]}).then(function (signature) {
+        return requestOwnershipSignature(provider,address,msg,notice).then(function (signature) {
           if (!signature) throw new Error("Wallet signature was not received.");
           notice("Signature received. Verifying wallet ownership and saving it…");
+          var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+          var verifyTimer = controller ? setTimeout(function(){controller.abort();}, 20000) : null;
           return fetch(VERIFY_FN, {
             method:"POST",
             headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+auth.session.access_token,"Content-Type":"application/json"},
-            body:JSON.stringify({address:address,message:msg,signature:signature,chain_id:56,purpose:purpose,role:role})
+            body:JSON.stringify({address:address,message:msg,signature:signature,chain_id:56,purpose:purpose,role:role}),
+            signal: controller ? controller.signal : undefined,
+            cache:"no-store"
           }).then(function (r) {
+            if (verifyTimer) clearTimeout(verifyTimer);
             return r.json().catch(function () { return null; }).then(function (data) {
               if (!r.ok || !data || !data.ok || !data.verified) throw new Error((data && (data.error || data.message)) || ("Wallet verification failed (" + r.status + ")."));
               notice("Wallet ownership verified and saved ✓");
