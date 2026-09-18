@@ -182,6 +182,17 @@
     }
    }
    if(!session?.access_token){addSafeLog('Authentication session is missing or expired.');throw new Error('Session expired. Please sign in again.');}
+   addSafeLog('Testing safe-connect-test from the same authenticated browser session…');
+   try{
+    const probe=await sb.functions.invoke('safe-connect-test',{body:{probe:'deal-room'}});
+    if(probe?.error){
+     addSafeLog('safe-connect-test result: '+(probe.error.name||'error')+' — '+(probe.error.message||String(probe.error)));
+    }else{
+     addSafeLog('safe-connect-test result: '+JSON.stringify(probe?.data||{}));
+    }
+   }catch(probeError){
+    addSafeLog('safe-connect-test exception: '+String(probeError?.message||probeError));
+   }
    addSafeLog('Authenticated session ready. Calling create-safe Edge Function…');
    const invokeResult=await sb.functions.invoke('create-safe',{body:{deal_id:deal.id},headers:{Authorization:'Bearer '+session.access_token}});
    let result=invokeResult?.data||{};
