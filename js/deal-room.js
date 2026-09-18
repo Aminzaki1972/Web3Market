@@ -50,7 +50,35 @@
   if(details)details.innerHTML=`<p>Amount: <strong>${esc(money(deal.amount))}</strong></p><p>Platform fee: <strong>${esc(money(deal.platform_fee_amount??deal.platform_fee??0))}</strong> (${Number(deal.platform_fee_percent??7.5).toFixed(2)}%)</p><p>Seller net: <strong>${esc(money(deal.seller_net_amount??Number(deal.amount||0)-Number(deal.platform_fee_amount??deal.platform_fee??0)))}</strong></p><p>Payment: <strong>${paid?'Verified on-chain':'Pending'}</strong></p><p>Role: <strong>${participant}</strong></p>${deal.payment_tx_hash?`<p>TX: <code>${esc(deal.payment_tx_hash)}</code></p>`:''}`;
   return true;
  };
+
  if(!await loadDeal()){if(!deal){root.innerHTML='<div class="status">Deal information is unavailable.</div>';return}}
+ async function connectDealWallet(){
+  const wm=window.Web3MarketWalletManager;
+  const btn=document.querySelector('#dealConnectWallet'),status=document.querySelector('#dealWalletStatus'),notice=document.querySelector('#dealWalletNotice');
+  if(!wm){if(notice)notice.textContent='Wallet connection engine unavailable. Please refresh the page.';return}
+  try{
+   if(btn){btn.disabled=true;btn.textContent='Choose Wallet…'}
+   const detected=wm.listWallets();
+   let row=detected.find(x=>x.detected);
+   if(!row){
+    const choice=prompt('Enter wallet name: MetaMask, Trust Wallet, OKX Wallet, SafePal, Coinbase Wallet, or Binance Wallet');
+    if(!choice){if(btn){btn.disabled=false;btn.textContent='Connect & Verify Wallet'};return}
+    row=detected.find(x=>x.name.toLowerCase()===choice.trim().toLowerCase())||{name:choice.trim(),provider:wm.getDetected(choice.trim()),detected:false};
+    if(!row.provider){wm.launch(row.name,notice);if(btn){btn.disabled=false;btn.textContent='Connect & Verify Wallet'};return}
+   }
+   if(!row.provider){if(notice)notice.textContent='Open your wallet browser and try again.';return}
+   const result=await wm.connectAndVerify(row.provider,row.name,{role:participant,purpose:'deal_room_wallet_ownership',setNotice:v=>{if(notice)notice.textContent=v}});
+   if(status)status.innerHTML='Connected & verified ✓ <code>'+wm.esc(result.address)+'</code>';
+   if(btn){btn.textContent='Wallet Verified ✓';btn.disabled=false}
+  }catch(e){
+   console.warn('Deal Room wallet verification failed',e);
+   if(notice)notice.textContent=e?.message||'Wallet verification failed.';
+   if(btn){btn.disabled=false;btn.textContent='Connect & Verify Wallet'}
+  }
+ }
+ const dealWalletBtn=document.querySelector('#dealConnectWallet');
+ if(dealWalletBtn)dealWalletBtn.addEventListener('click',connectDealWallet);
+
  async function loadAgreement(){
   const {data,error}=await sb.from('deal_party_agreements').select('party_role,party_id,agreed_at').eq('deal_id',deal.id);
   if(error){console.error('agreement',error);return []}return data||[];
