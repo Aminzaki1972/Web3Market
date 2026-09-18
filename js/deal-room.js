@@ -45,7 +45,8 @@
  const params=new URLSearchParams(location.search),dealId=params.get('deal')||params.get('id');
  if(!dealId){root.innerHTML='<div class="status">Deal not specified.</div>';return}
  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
- let deal=null,participant=null,channel=null,disposed=false,safeDeploymentError='',safeDeploymentBusy=false;
+ let deal=null,participant=null,channel=null,disposed=false,safeDeploymentError='',safeDeploymentBusy=false,safeDeploymentLog=[];
+ const addSafeLog=(message)=>{safeDeploymentLog.push(new Date().toLocaleTimeString()+' — '+String(message));const logBox=document.querySelector('#safeDiagnostic');if(logBox){logBox.style.display='block';logBox.innerHTML='<div class="safe-panel warn"><strong>Safe deployment diagnostic</strong><hr><pre style="white-space:pre-wrap;margin:0;font:inherit">'+esc(safeDeploymentLog.join('\n'))+'</pre><small>No payment is enabled and no USDT was moved.</small></div>'}};
  const setStatus=(text,kind='')=>{const el=document.querySelector('#dealStatus');if(el){el.textContent=text;el.className='status'+(kind?' '+kind:'')}};
  const loadDeal=async()=>{
   const {data,error}=await sb.from('deals').select('*').eq('id',dealId).maybeSingle();
@@ -121,7 +122,7 @@
  const dealWalletBtn=document.querySelector('#dealConnectWallet');
  if(dealWalletBtn)dealWalletBtn.addEventListener('click',connectDealWallet);
  const createSafeBtn=document.querySelector('#createSafeBtn');
- if(createSafeBtn)createSafeBtn.addEventListener('click',async()=>{safeDeploymentError='';await ensureSafeDeployment(true);await renderSafe()});
+ if(createSafeBtn)createSafeBtn.addEventListener('click',async()=>{safeDeploymentError='';safeDeploymentLog=[];await ensureSafeDeployment(true);if(deal?.safe_address)await renderSafe()});
 
  async function loadAgreement(){
   const {data,error}=await sb.from('deal_party_agreements').select('party_role,party_id,agreed_at').eq('deal_id',deal.id);
@@ -138,12 +139,18 @@
  async function ensureSafeDeployment(manual=false){
   if(safeDeploymentBusy)return false;
   safeDeploymentBusy=true;
+  if(manual)safeDeploymentLog=[];
+  addSafeLog('Starting Safe deployment flow.');
   const createBtn=document.querySelector('#createSafeBtn');
   if(createBtn){createBtn.disabled=true;createBtn.textContent='Creating Safe…'}
-  if(!deal || String(deal.status||'').toLowerCase()!=='accepted') return;
-  if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && /^0x[a-fA-F0-9]{40}$/.test(String(deal.safe_address||''))) return;
+  if(!deal || String(deal.status||'').toLowerCase()!=='accepted'){addSafeLog('Stopped: deal is not in accepted status.');return false;}
+  addSafeLog('Deal verified: accepted / BNB Smart Chain (56).');
+  if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && /^0x[a-fA-F0-9]{40}$/.test(String(deal.safe_address||''))){addSafeLog('Safe is already deployed: '+deal.safe_address);return true;}
   const box=document.querySelector('#safeStatus');
-  if(box) box.innerHTML='<div class="safe-panel">Preparing a dedicated 2-of-3 Safe for this deal…<br><small>The platform wallet pays the BNB deployment gas. No USDT is moved at this stage.</small></div>';
+  addSafeLog('Preparing a dedicated 2-of-3 Safe for this deal.');
+  addSafeLog('The platform wallet is intended to pay the BNB deployment gas.');
+  addSafeLog('No USDT is moved during Safe creation.');
+  if(canonicalWalletAddress)addSafeLog('Current verified profile wallet: '+canonicalWalletAddress);
   try{
    let session=null;
    try{
@@ -172,7 +179,8 @@
      }
     }
    }
-   if(!session?.access_token) throw new Error('Session expired. Please sign in again.');
+   if(!session?.access_token){addSafeLog('Authentication session is missing or expired.');throw new Error('Session expired. Please sign in again.');}
+   addSafeLog('Authenticated session ready. Calling create-safe Edge Function…');
    const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/create-safe',{
     method:'POST',
     headers:{'Content-Type':'application/json','apikey':'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI','Authorization':'Bearer '+session.access_token},
@@ -181,17 +189,21 @@
    const raw=await response.text();
    let result={};
    try{result=raw?JSON.parse(raw):{}}catch(e){result={error:raw||'Empty response'}}
+   addSafeLog('create-safe HTTP response: '+response.status);
    console.error('create-safe response',response.status,result);
    if(!response.ok || !result.success){
     safeDeploymentError='HTTP '+response.status+': '+String(result.error||result.message||raw||'Empty response');
+    addSafeLog('ERROR: '+safeDeploymentError);
     if(box) box.innerHTML='<div class="safe-panel warn"><strong>Safe deployment diagnostic</strong><br>'+esc(safeDeploymentError)+'<br><small>No payment is enabled and no USDT was moved.</small></div>';
     return false;
    }
    const refreshed=await sb.from('deals').select('*').eq('id',deal.id).maybeSingle();
    if(refreshed.data) deal=refreshed.data;
+   addSafeLog('create-safe reported success. Deal record refreshed.');
    return true;
   }catch(e){
    console.error('Safe deployment',e); safeDeploymentError='Fetch/Network error: '+String(e?.message||'Unknown error');
+   addSafeLog('ERROR: '+safeDeploymentError);
    if(box) box.innerHTML='<div class="safe-panel warn"><strong>Safe deployment could not be completed.</strong><br>'+esc(e?.message||'Please try again.')+'<br><small>No funds were moved.</small></div>';
    return false;
   }finally{
@@ -205,6 +217,7 @@
   const box=document.querySelector('#safeStatus');if(!box)return;
   const safe=String(deal.safe_address||'').trim(),chain=Number(deal.chain_id||0);
   if(!/^0x[a-fA-F0-9]{40}$/.test(safe)){
+   if(safeDeploymentLog.length)return;
    if(safeDeploymentError){box.innerHTML='<div class="safe-panel warn"><strong>Safe deployment diagnostic</strong><br>'+esc(safeDeploymentError)+'<br><small>No payment is enabled and no USDT was moved.</small></div>';return}
    box.innerHTML='<div class="safe-panel warn"><strong>Safe not configured.</strong><br>Payment and release remain disabled until a verified Safe is attached.</div>';return}
   if(chain!==56){box.innerHTML=`<div class="safe-panel warn"><strong>Chain mismatch.</strong><br>Expected BNB Smart Chain (56), got ${esc(chain||'unknown')}.</div>`;return}
