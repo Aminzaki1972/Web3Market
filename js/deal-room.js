@@ -184,12 +184,56 @@
    if(!session?.access_token){addSafeLog('Authentication session is missing or expired.');throw new Error('Session expired. Please sign in again.');}
    addSafeLog('Authenticated session ready. Calling create-safe Edge Function…');
    const invokeResult=await sb.functions.invoke('create-safe',{body:{deal_id:deal.id},headers:{Authorization:'Bearer '+session.access_token}});
-   const result=invokeResult?.data||{};
-   const invokeError=invokeResult?.error||null;
+   let result=invokeResult?.data||{};
+   let invokeError=invokeResult?.error||null;
    addSafeLog('create-safe SDK invocation completed.');
    console.error('create-safe response',invokeError,result);
    if(invokeError || !result.success){
-    safeDeploymentError=invokeError?.message||String(result.error||result.message||'create-safe returned an error');
+    const detail=[
+     invokeError?.name ? 'name='+invokeError.name : '',
+     invokeError?.message ? 'message='+invokeError.message : '',
+     invokeError?.status ? 'status='+invokeError.status : '',
+     invokeError?.context ? 'context='+String(invokeError.context) : '',
+     invokeError?.cause ? 'cause='+String(invokeError.cause) : ''
+    ].filter(Boolean).join(' | ');
+    if(detail)addSafeLog('SDK error detail: '+detail);
+    const isFetchError=String(invokeError?.name||'').toLowerCase().includes('fetch')||String(invokeError?.message||'').toLowerCase().includes('failed to send a request');
+    if(isFetchError){
+     addSafeLog('SDK could not expose the HTTP response. Running a direct Edge Function diagnostic…');
+     try{
+      const direct=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/create-safe',{
+       method:'POST',
+       headers:{
+        'Content-Type':'application/json',
+        'apikey':'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI',
+        'Authorization':'Bearer '+session.access_token
+       },
+       body:JSON.stringify({deal_id:deal.id})
+      });
+      const raw=await direct.text();
+      let parsed={};
+      try{parsed=raw?JSON.parse(raw):{};}catch(_){}
+      addSafeLog('Direct create-safe HTTP status: '+direct.status+' '+direct.statusText);
+      addSafeLog('Direct response: '+(parsed?.error||parsed?.message||raw||'(empty response)'));
+      if(direct.ok && parsed?.success){
+       result=parsed; invokeError=null;
+      }else{
+       safeDeploymentError=String(parsed?.error||parsed?.message||('HTTP '+direct.status));
+       return false;
+      }
+     }catch(fetchError){
+      safeDeploymentError='Direct Edge Function fetch failed: '+String(fetchError?.message||fetchError);
+      addSafeLog('ERROR: '+safeDeploymentError);
+      return false;
+     }
+    }else{
+     safeDeploymentError=invokeError?.message||String(result.error||result.message||'create-safe returned an error');
+     addSafeLog('ERROR: '+safeDeploymentError);
+     return false;
+    }
+   }
+   if(!result.success){
+    safeDeploymentError=String(result.error||result.message||'create-safe returned an error');
     addSafeLog('ERROR: '+safeDeploymentError);
     return false;
    }
