@@ -2,7 +2,7 @@
 (function(){
   const form=document.querySelector('#projectForm');
   if(!form)return;
-  const VERSION='20260909-7';
+  const VERSION='20260918-listing-edit-safe1';
   const out=document.querySelector('#formStatus');
   const submitBtn=document.querySelector('#submitReviewBtn');
   const ID_KEY='web3market_project_id';
@@ -44,7 +44,7 @@
     return cleanPayload;
   }
   function local(){try{const p=collect();if(p.title||p.short_description||p.full_description)localStorage.setItem(LOCAL_KEY,JSON.stringify({saved_at:new Date().toISOString(),data:p}));}catch(e){console.warn(e)}}
-  function fill(p){const fields=['title','project_url','website_url','short_description','full_description','description','project_status','year_created','logo_url','demo_url','app_store_url','documentation_url','facebook_url','twitter_url','x_url','github_url','linkedin_url','instagram_url','telegram_url','discord_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','blockchain','tech_stack','technology_stack','development_stage','target_markets','business_model','competitive_advantage','competitors','market_opportunity','has_revenue','revenue_period','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','sale_type','transfer_terms','reason_for_sale','sale_reason','transfer_period','domain_ownership','domain_verification','github_ownership','business_verification','identity_verification','ownership_declaration','asking_price','price','currency','currency_code','primary_type','buyer_pitch','cover_image_url','video_url','screenshots','negotiable'];fields.forEach(k=>{const e=form.elements.namedItem(k);if(!e||p[k]===undefined||p[k]===null)return;if(e.type==='checkbox')e.checked=!!p[k];else e.value=String(p[k]);});['project_types','services','audience','assets'].forEach(n=>{const a=Array.isArray(p[n])?p[n]:[];form.querySelectorAll('input[name="'+n+'"]').forEach(e=>e.checked=a.includes(e.value));});}
+  function fill(p){const fields=['title','project_url','website_url','short_description','full_description','description','project_status','year_created','logo_url','demo_url','app_store_url','documentation_url','facebook_url','twitter_url','x_url','github_url','linkedin_url','instagram_url','telegram_url','discord_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','blockchain','tech_stack','technology_stack','development_stage','target_markets','business_model','competitive_advantage','competitors','market_opportunity','has_revenue','revenue_period','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','sale_type','transfer_terms','reason_for_sale','sale_reason','transfer_period','domain_ownership','domain_verification','github_ownership','business_verification','identity_verification','ownership_declaration','asking_price','price','currency','currency_code','primary_type','buyer_pitch','cover_image_url','video_url','screenshots','negotiable'];fields.forEach(k=>{const e=form.elements.namedItem(k);if(!e||p[k]===undefined||p[k]===null)return;if(e.type==='checkbox')e.checked=!!p[k];else e.value=String(p[k]);});if(Array.isArray(p.target_audience))form.querySelectorAll('input[name="audience"]').forEach(e=>e.checked=p.target_audience.includes(e.value));['project_types','services','audience','assets'].forEach(n=>{const a=Array.isArray(p[n])?p[n]:[];form.querySelectorAll('input[name="'+n+'"]').forEach(e=>e.checked=a.includes(e.value));});}
   async function load(){const x=await wait();if(!x){return local();}const u=await x.auth.getUser();if(u.error||!u.data?.user)return local();let p=null;if(currentProjectId){const r=await x.from('projects').select('*').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();p=r.data||null;}if(!p){const r=await x.from('projects').select('*').eq('owner_id',u.data.user.id).eq('status','draft').order('updated_at',{ascending:false}).limit(1);p=r.data?.[0]||null;}if(p){currentProjectId=p.id;localStorage.setItem(ID_KEY,p.id);fill(p);localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);}else{try{const raw=localStorage.getItem(LOCAL_KEY)||localStorage.getItem(LEGACY_KEY);if(raw)fill(JSON.parse(raw).data)}catch(e){}}}
   async function save(){
     const x=await wait();
@@ -55,8 +55,17 @@
     const payload=collect();payload.owner_id=u.data.user.id;payload.status='draft';
     if(out)out.textContent='Saving draft… Engine '+VERSION;
     let r;
-    if(currentProjectId)r=await x.from('projects').update(payload).eq('id',currentProjectId).eq('owner_id',u.data.user.id).select('id');
-    if(!currentProjectId||!r?.data?.length)r=await x.from('projects').insert(payload).select('id');
+    if(currentProjectId){
+      r=await x.from('projects').update(payload).eq('id',currentProjectId).eq('owner_id',u.data.user.id).select('id');
+      if(r.error)return {ok:false,error:r.error};
+      if(!r.data?.length){
+        const e=new Error('The selected listing could not be updated. No new listing was created.');
+        if(out)out.textContent=e.message+' Please reopen the listing from Seller Dashboard.';
+        return {ok:false,error:e};
+      }
+    }else{
+      r=await x.from('projects').insert(payload).select('id');
+    }
     if(r.error){console.error('SAVE ERROR',r.error,payload);local();if(out)out.textContent=(r.error.message||'Unable to save listing.')+' | Engine '+VERSION+' | Form saved on this device.';return {ok:false,error:r.error};}
     const id=r.data?.[0]?.id;if(id){currentProjectId=id;localStorage.setItem(ID_KEY,id);localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);if(out)out.textContent='Draft saved successfully. Engine '+VERSION;return {ok:true,id};}
     return {ok:false,error:new Error('No project id returned')};
