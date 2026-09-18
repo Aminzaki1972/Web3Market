@@ -9,7 +9,7 @@
     if(notice)notice.textContent="Loading wallet connection…";
     try{
       const s=document.createElement("script");
-      s.src="js/wallet-manager.js?v=20260918-walletfix9";
+      s.src="js/wallet-manager.js?v=20260918-walletfix10";
       s.async=false;
       document.head.appendChild(s);
     }catch(e){console.warn("Web3Market wallet manager reload failed",e)}
@@ -57,7 +57,7 @@
     const target=wanted(),wm=manager();
     if(!target||!wm)return;
     const notice=document.getElementById("walletNotice"),modal=document.getElementById("walletModal");
-    if(modal){modal.hidden=false;modal.style.display="grid"}
+    if(modal){modal.hidden=false;modal.style.setProperty("display","grid","important")}
     for(let i=0;i<40;i++){
       const provider=wm.getDetected(target);
       if(provider){await connect(provider,target);return}
