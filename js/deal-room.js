@@ -120,6 +120,8 @@
  await loadCanonicalWallet().catch(e=>console.error('wallet state refresh before render',e));
  const dealWalletBtn=document.querySelector('#dealConnectWallet');
  if(dealWalletBtn)dealWalletBtn.addEventListener('click',connectDealWallet);
+ const createSafeBtn=document.querySelector('#createSafeBtn');
+ if(createSafeBtn)createSafeBtn.addEventListener('click',async()=>{safeDeploymentError='';await ensureSafeDeployment(true);await renderSafe()});
 
  async function loadAgreement(){
   const {data,error}=await sb.from('deal_party_agreements').select('party_role,party_id,agreed_at').eq('deal_id',deal.id);
