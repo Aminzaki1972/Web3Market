@@ -45,7 +45,7 @@
  const params=new URLSearchParams(location.search),dealId=params.get('deal')||params.get('id');
  if(!dealId){root.innerHTML='<div class="status">Deal not specified.</div>';return}
  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
- let deal=null,participant=null,channel=null,disposed=false;
+ let deal=null,participant=null,channel=null,disposed=false,safeDeploymentError='';
  const setStatus=(text,kind='')=>{const el=document.querySelector('#dealStatus');if(el){el.textContent=text;el.className='status'+(kind?' '+kind:'')}};
  const loadDeal=async()=>{
   const {data,error}=await sb.from('deals').select('*').eq('id',dealId).maybeSingle();
@@ -172,9 +172,13 @@
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
     body:JSON.stringify({deal_id:deal.id})
    });
-   const result=await response.json().catch(()=>({error:'Invalid Safe deployment response'}));
+   const raw=await response.text();
+   let result={};
+   try{result=raw?JSON.parse(raw):{}}catch(e){result={error:raw||'Empty response'}}
+   console.error('create-safe response',response.status,result);
    if(!response.ok || !result.success){
-    if(box) box.innerHTML='<div class="safe-panel warn"><strong>Safe is not ready yet.</strong><br>'+esc(result.error||'Safe deployment could not be completed.')+'<br><small>No payment is enabled until the Safe is deployed and verified.</small></div>';
+    safeDeploymentError='HTTP '+response.status+': '+String(result.error||result.message||raw||'Empty response');
+    if(box) box.innerHTML='<div class="safe-panel warn"><strong>Safe deployment diagnostic</strong><br>'+esc(safeDeploymentError)+'<br><small>No payment is enabled and no USDT was moved.</small></div>';
     return false;
    }
    const refreshed=await sb.from('deals').select('*').eq('id',deal.id).maybeSingle();
@@ -190,7 +194,9 @@
   if(!deal)return;
   const box=document.querySelector('#safeStatus');if(!box)return;
   const safe=String(deal.safe_address||'').trim(),chain=Number(deal.chain_id||0);
-  if(!/^0x[a-fA-F0-9]{40}$/.test(safe)){box.innerHTML='<div class="safe-panel warn"><strong>Safe not configured.</strong><br>Payment and release remain disabled until a verified Safe is attached.</div>';return}
+  if(!/^0x[a-fA-F0-9]{40}$/.test(safe)){
+   if(safeDeploymentError){box.innerHTML='<div class="safe-panel warn"><strong>Safe deployment diagnostic</strong><br>'+esc(safeDeploymentError)+'<br><small>No payment is enabled and no USDT was moved.</small></div>';return}
+   box.innerHTML='<div class="safe-panel warn"><strong>Safe not configured.</strong><br>Payment and release remain disabled until a verified Safe is attached.</div>';return}
   if(chain!==56){box.innerHTML=`<div class="safe-panel warn"><strong>Chain mismatch.</strong><br>Expected BNB Smart Chain (56), got ${esc(chain||'unknown')}.</div>`;return}
   try{
    if(!window.ethers?.JsonRpcProvider)throw new Error('Safe verification library unavailable');
