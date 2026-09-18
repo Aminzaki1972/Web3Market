@@ -16,6 +16,7 @@ pre{white-space:pre-wrap;background:#020617;padding:14px;border-radius:10px;over
 <main>
 <h2>Web3Market — Edge Function Connectivity Test</h2>
 <p>This page only tests browser → Supabase Edge Function connectivity. It does not create a Safe and does not move BNB or USDT.</p>
+<p><strong>Deployment check:</strong> v2</p>
 <button id="run">Run connectivity test</button>
 <pre id="out">Ready.</pre>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -32,7 +33,7 @@ document.getElementById("run").onclick=async()=>{
     if(error) throw error;
     if(!data.session) throw new Error("No active Web3Market session found. Sign in first, then run the test again.");
     const r=await client.functions.invoke("safe-connect-test",{
-      body:{source:"edge-connectivity-test"},
+      body:{source:"edge-connectivity-test-v2"},
       headers:{Authorization:"Bearer "+data.session.access_token}
     });
     if(r.error) throw r.error;
