@@ -46,8 +46,10 @@
  if(!dealId){root.innerHTML='<div class="status">Deal not specified.</div>';return}
  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
  let deal=null,participant=null,channel=null,disposed=false,safeDeploymentError='',safeDeploymentBusy=false,safeDeploymentLog=[];
- const addSafeLog=(message)=>{safeDeploymentLog.push(new Date().toLocaleTimeString()+' — '+String(message));const logBox=document.querySelector('#safeDiagnostic');if(logBox){logBox.style.display='block';logBox.innerHTML='<div class="safe-panel warn"><strong>Safe deployment diagnostic</strong><hr><pre style="white-space:pre-wrap;margin:0;font:inherit">'+esc(safeDeploymentLog.join('\n'))+'</pre><small>No payment is enabled and no USDT was moved.</small></div>'}};
+
  const setStatus=(text,kind='')=>{const el=document.querySelector('#dealStatus');if(el){el.textContent=text;el.className='status'+(kind?' '+kind:'')}};
+ const safeLogBox=()=>document.querySelector('#safeStatus');
+ const addSafeLog=(message)=>{safeDeploymentLog.push(new Date().toLocaleTimeString()+' — '+String(message));const box=safeLogBox();if(box){box.innerHTML='<div class="safe-panel warn"><strong>Safe deployment diagnostic</strong><hr><pre style="white-space:pre-wrap;margin:0;font:inherit">'+esc(safeDeploymentLog.join('\n'))+'</pre><small>No payment is enabled and no USDT was moved.</small></div>'}};
  const loadDeal=async()=>{
   const {data,error}=await sb.from('deals').select('*').eq('id',dealId).maybeSingle();
   if(error||!data){console.error('deal load',error);return false}
@@ -194,7 +196,7 @@
    if(!response.ok || !result.success){
     safeDeploymentError='HTTP '+response.status+': '+String(result.error||result.message||raw||'Empty response');
     addSafeLog('ERROR: '+safeDeploymentError);
-    if(box) box.innerHTML='<div class="safe-panel warn"><strong>Safe deployment diagnostic</strong><br>'+esc(safeDeploymentError)+'<br><small>No payment is enabled and no USDT was moved.</small></div>';
+    addSafeLog('ERROR: '+safeDeploymentError);
     return false;
    }
    const refreshed=await sb.from('deals').select('*').eq('id',deal.id).maybeSingle();
@@ -204,7 +206,7 @@
   }catch(e){
    console.error('Safe deployment',e); safeDeploymentError='Fetch/Network error: '+String(e?.message||'Unknown error');
    addSafeLog('ERROR: '+safeDeploymentError);
-   if(box) box.innerHTML='<div class="safe-panel warn"><strong>Safe deployment could not be completed.</strong><br>'+esc(e?.message||'Please try again.')+'<br><small>No funds were moved.</small></div>';
+   addSafeLog('ERROR: '+safeDeploymentError);
    return false;
   }finally{
    safeDeploymentBusy=false;
@@ -241,12 +243,14 @@
   if(db)db.onclick=async()=>{const reason=prompt('Describe the dispute');if(!reason)return;const {error}=await sb.from('deal_disputes').insert({deal_id:deal.id,opened_by:user.id,reason,status:'open'});if(error)alert(error.message||'Could not open dispute');else alert('Dispute opened for Web3Market review.')};
  }
  renderDealWalletState();
- await loadMessages();await renderTerms();await ensureSafeDeployment();await renderSafe();
+ await loadMessages();await renderTerms();
+ // Safe deployment is manual-only from the Deal Room button to prevent automatic rerenders from hiding diagnostics or starting repeated deployment attempts.
+ if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && deal.safe_address) await renderSafe();
  const form=document.querySelector('#chatForm');
  if(form&&participant!=='platform')form.addEventListener('submit',async e=>{e.preventDefault();const input=document.querySelector('#messageInput'),message=input?.value.trim();if(!message)return;const btn=form.querySelector('button');btn.disabled=true;const {error}=await sb.from('deal_messages').insert({deal_id:deal.id,sender_id:user.id,message});btn.disabled=false;if(error){alert(error.message||'Unable to send message.');return}input.value='';await loadMessages()});
  channel=sb.channel('deal-room-'+deal.id)
   .on('postgres_changes',{event:'INSERT',schema:'public',table:'deal_messages',filter:'deal_id=eq.'+deal.id},loadMessages)
-  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'deals',filter:'id=eq.'+deal.id},async()=>{if(disposed)return;if(await loadDeal()){await renderTerms();await ensureSafeDeployment();await renderSafe()}})
+  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'deals',filter:'id=eq.'+deal.id},async()=>{if(disposed)return;if(await loadDeal()){await renderTerms();if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && deal.safe_address)await renderSafe()}})
   .subscribe();
  window.addEventListener('beforeunload',()=>{disposed=true;if(channel)sb.removeChannel(channel)});
 })();
