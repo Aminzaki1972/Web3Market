@@ -109,6 +109,33 @@
   box.innerHTML=(data||[]).map(m=>`<div class="msg ${String(m.sender_id)===String(user.id)?'mine':''}"><span class="translation-text">${esc(m.message)}</span><small>${new Date(m.created_at).toLocaleString()}</small></div>`).join('')||'<div class="info">No messages yet.</div>';
   box.scrollTop=box.scrollHeight;
  }
+ async function ensureSafeDeployment(){
+  if(!deal || String(deal.status||'').toLowerCase()!=='accepted') return;
+  if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && /^0x[a-fA-F0-9]{40}$/.test(String(deal.safe_address||''))) return;
+  const box=document.querySelector('#safeStatus');
+  if(box) box.innerHTML='<div class="safe-panel">Preparing a dedicated 2-of-3 Safe for this deal…<br><small>The platform wallet pays the BNB deployment gas. No USDT is moved at this stage.</small></div>';
+  try{
+   const {data:{session}}=await sb.auth.getSession();
+   if(!session) throw new Error('Session expired. Please sign in again.');
+   const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/create-safe',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+    body:JSON.stringify({deal_id:deal.id})
+   });
+   const result=await response.json().catch(()=>({error:'Invalid Safe deployment response'}));
+   if(!response.ok || !result.success){
+    if(box) box.innerHTML='<div class="safe-panel warn"><strong>Safe is not ready yet.</strong><br>'+esc(result.error||'Safe deployment could not be completed.')+'<br><small>No payment is enabled until the Safe is deployed and verified.</small></div>';
+    return false;
+   }
+   const refreshed=await sb.from('deals').select('*').eq('id',deal.id).maybeSingle();
+   if(refreshed.data) deal=refreshed.data;
+   return true;
+  }catch(e){
+   console.error('Safe deployment',e);
+   if(box) box.innerHTML='<div class="safe-panel warn"><strong>Safe deployment could not be completed.</strong><br>'+esc(e?.message||'Please try again.')+'<br><small>No funds were moved.</small></div>';
+   return false;
+  }
+ }
  async function renderSafe(){
   if(!deal)return;
   const box=document.querySelector('#safeStatus');if(!box)return;
