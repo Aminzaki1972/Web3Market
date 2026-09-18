@@ -74,6 +74,11 @@
       const {data:profile}=await sb.from("profiles").select("wallet_address,wallet_verified,role").eq("id",user.id).maybeSingle();
       const actions=document.querySelector(".wallet-actions"), button=document.getElementById("connectSellerWallet"), addressEl=document.getElementById("sellerWalletAddress"), statusEl=document.getElementById("sellerWalletStatus");
       if(!actions||!button||!profile)return;
+      // Wallet action must always remain user-clickable; only the connection flow may temporarily disable it.
+      button.disabled=false;
+      button.removeAttribute("disabled");
+      button.style.pointerEvents="auto";
+      button.style.cursor="pointer";
       let disconnect=document.getElementById("disconnectSellerWallet");
       if(profile.wallet_verified && profile.wallet_address){
         if(addressEl)addressEl.textContent=wmShort(profile.wallet_address);
@@ -89,6 +94,7 @@
         if(addressEl)addressEl.textContent="Not connected";
         if(statusEl)statusEl.textContent="Wallet ownership not verified";
         button.textContent="Connect Wallet"; button.classList.remove("connected");
+        button.disabled=false; button.removeAttribute("disabled"); button.style.pointerEvents="auto"; button.style.cursor="pointer";
         if(disconnect)disconnect.remove();
       }
     }catch(e){console.warn("Wallet state load failed",e)}
