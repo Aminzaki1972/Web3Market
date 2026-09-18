@@ -2,8 +2,7 @@
 (function(){
   const SUPABASE_URL="https://hzhqlexnhtukfljcvnyd.supabase.co";
   const ENDPOINT=SUPABASE_URL+"/functions/v1/account-session-lock";
-  const HEARTBEAT_MS=60000;
-  let timer=null,claimed=false,session=null;
+  let claimed=false,session=null;
 
   function client(){return window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase||null}
   async function getSession(){
@@ -36,18 +35,12 @@
     claimed=true;
     const root=document.getElementById("sellerGrid")||document.getElementById("buyerRoot");
     if(root)root.style.visibility="visible";
-    if(timer)clearInterval(timer);
-    timer=setInterval(async()=>{
-      if(!claimed)return;
-      const r=await call("touch");
-      if(!r.ok){claimed=false;clearInterval(timer);try{await client()?.auth?.signOut({scope:"local"})}catch(_){}blockedUI();}
-    },HEARTBEAT_MS);
+    bindLogout();
     return true;
   }
   async function release(){
     if(!claimed)return;
     claimed=false;
-    if(timer)clearInterval(timer);
     try{await call("release",true)}catch(_){}
   }
   async function signOut(){
@@ -60,9 +53,9 @@
     if(!ok)throw new Error("ACCOUNT_ALREADY_OPEN");
     return true;
   }
+  function bindLogout(){const b=document.getElementById("accountLogoutButton");if(!b||b.dataset.bound==="1")return;b.dataset.bound="1";b.addEventListener("click",async()=>{b.disabled=true;b.textContent="Signing out…";try{await signOut()}catch(_){}location.replace("login.html")})}
   window.Web3MarketAccountLock={claim,release,signOut,loginClaim,isClaimed:()=>claimed};
-  window.addEventListener("pagehide",()=>{release()});
-  window.addEventListener("beforeunload",()=>{release()});
+  bindLogout();
   const isDashboard=/\/((seller|buyer)-dashboard)\.html$/i.test(location.pathname||"");
   if(isDashboard){
     const root=document.getElementById("sellerGrid")||document.getElementById("buyerRoot");
