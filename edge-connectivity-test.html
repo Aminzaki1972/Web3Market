@@ -19,7 +19,7 @@ pre{white-space:pre-wrap;background:#020617;padding:14px;border-radius:10px;over
 <p><strong>Test version:</strong> 7 — connectivity + Safe SDK + RPC/funding isolation.</p>
 <button id="run" type="button">Run connectivity test</button>
 <button id="sdk" type="button">Test Safe SDK only</button>
-<button id="rpc" type="button">Test RPC + deployer balance</button>
+<button id="rpc" type="button">Test RPC + deployer balance</button>\n<button id="reach" type="button">Test Edge reachability only</button>
 <pre id="out">Ready.</pre>
 <script>
 "use strict";
@@ -27,7 +27,7 @@ const OUT=document.getElementById("out");
 const log=(s,cls)=>{OUT.className=cls||"";OUT.textContent=s};
 const FN_URL="https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/safe-connect-test";
 const SDK_URL="https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/safe-sdk-test";
-const RPC_URL="https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/safe-rpc-test";
+const RPC_URL="https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/safe-rpc-test";\nconst REACH_URL="https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/safe-rpc-reachability-test";
 const API_KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
 
 async function sessionToken(){
@@ -64,7 +64,7 @@ document.getElementById("sdk").addEventListener("click",async()=>{
   }catch(e){log("SAFE SDK TEST FAILED\n\n"+(e?.message||String(e)),"err");console.error(e)}
 });
 
-document.getElementById("rpc").addEventListener("click",async()=>{
+document.getElementById("reach").addEventListener("click",async()=>{\n  log("Testing Edge Function reachability only...");\n  try{\n    const res=await fetch(REACH_URL,{method:"POST",mode:"cors",headers:{"apikey":API_KEY,"Content-Type":"application/json"},body:JSON.stringify({source:"edge-connectivity-test-v8"})});\n    log("EDGE REACHABILITY TEST SUCCESS\\n\\n"+JSON.stringify(await parseResponse(res),null,2),"ok");\n  }catch(e){log("EDGE REACHABILITY TEST FAILED\\n\\n"+(e?.message||String(e)),"err");console.error(e)}\n});\n\ndocument.getElementById("rpc").addEventListener("click",async()=>{
   log("Testing RPC + deployer balance (read-only)...");
   try{
     const token=await sessionToken();
