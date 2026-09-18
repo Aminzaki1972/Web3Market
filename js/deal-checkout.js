@@ -12,6 +12,19 @@
  if(String(deal.buyer_id)!==String(user.id)&&String(deal.seller_id)!==String(user.id)){root.innerHTML='<div class="status">You are not a participant in this deal.</div>';return;}
  const esc=v=>String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[m]));
  const amount=Number(deal.expected_amount??deal.amount??0),feePct=Number(deal.platform_fee_percent??7.5),fee=Number(deal.platform_fee_amount??deal.platform_fee??amount*feePct/100),net=Number(deal.seller_net_amount??amount-fee),currency=esc(deal.token_symbol||deal.currency||'USDT');
+ if(String(deal.status||'').toLowerCase()==='accepted' && !(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && /^0x[0-9a-fA-F]{40}$/.test(String(deal.safe_address||'')))){
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){
+   try{
+    const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/create-safe',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({deal_id:deal.id})});
+    const result=await response.json().catch(()=>({error:'Invalid Safe deployment response'}));
+    if(response.ok && result.success){
+      const refreshed=await sb.from('deals').select('id,project_id,buyer_id,seller_id,amount,currency,status,platform_fee_percent,platform_fee_amount,platform_fee,seller_net_amount,payment_tx_hash,payment_status,chain_id,safe_address,token_contract,token_symbol,expected_amount,safe_deployment_status').eq('id',dealId).maybeSingle();
+      if(refreshed.data) deal=refreshed.data;
+    }
+   }catch(e){console.warn('Safe auto-deployment from checkout failed',e)}
+  }
+ }
  const configured=Number(deal.chain_id||0)===56&&/^0x[0-9a-fA-F]{40}$/.test(String(deal.safe_address||''))&&/^0x[0-9a-fA-F]{40}$/.test(String(deal.token_contract||''));
  const paid=Boolean(deal.payment_tx_hash)||String(deal.payment_status||'').toLowerCase()==='confirmed'||String(deal.status||'').toLowerCase()==='funded';
  root.innerHTML=`<h2>Deal Checkout</h2><div class="card"><p>Deal amount: <strong>${amount.toLocaleString()} ${currency}</strong></p><p>Web3Market fee: <strong>${fee.toLocaleString()} ${currency}</strong> (${feePct.toFixed(2)}%)</p><p>Seller net amount: <strong>${net.toLocaleString()} ${currency}</strong></p><p>Status: <strong>${esc(deal.status)}</strong></p><p>Payment: <strong>${paid?'Confirmed on-chain':'Pending'}</strong>${deal.payment_tx_hash?` · <code>${esc(deal.payment_tx_hash)}</code>`:''}</p>${configured&&String(deal.buyer_id)===String(user.id)&&!paid?'<button class="btn primary" id="payBtn">Pay from connected wallet</button>':'<div class="status">'+(paid?'Payment is already verified.':'Live payment is not enabled for this deal yet. The platform must assign a verified BNB Smart Chain Safe and token contract before funds can move.')+'</div>'}<a class="btn" href="deal-room.html?deal=${encodeURIComponent(deal.id)}">Open Deal Room</a></div>`;
