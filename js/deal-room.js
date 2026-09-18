@@ -191,7 +191,7 @@
    if(refreshed.data) deal=refreshed.data;
    return true;
   }catch(e){
-   console.error('Safe deployment',e);
+   console.error('Safe deployment',e); safeDeploymentError='Fetch/Network error: '+String(e?.message||'Unknown error');
    if(box) box.innerHTML='<div class="safe-panel warn"><strong>Safe deployment could not be completed.</strong><br>'+esc(e?.message||'Please try again.')+'<br><small>No funds were moved.</small></div>';
    return false;
   }finally{
