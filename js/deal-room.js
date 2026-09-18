@@ -45,7 +45,7 @@
  const params=new URLSearchParams(location.search),dealId=params.get('deal')||params.get('id');
  if(!dealId){root.innerHTML='<div class="status">Deal not specified.</div>';return}
  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
- let deal=null,participant=null,channel=null,disposed=false,safeDeploymentError='';
+ let deal=null,participant=null,channel=null,disposed=false,safeDeploymentError='',safeDeploymentBusy=false;
  const setStatus=(text,kind='')=>{const el=document.querySelector('#dealStatus');if(el){el.textContent=text;el.className='status'+(kind?' '+kind:'')}};
  const loadDeal=async()=>{
   const {data,error}=await sb.from('deals').select('*').eq('id',dealId).maybeSingle();
@@ -133,7 +133,11 @@
   box.innerHTML=(data||[]).map(m=>`<div class="msg ${String(m.sender_id)===String(user.id)?'mine':''}"><span class="translation-text">${esc(m.message)}</span><small>${new Date(m.created_at).toLocaleString()}</small></div>`).join('')||'<div class="info">No messages yet.</div>';
   box.scrollTop=box.scrollHeight;
  }
- async function ensureSafeDeployment(){
+ async function ensureSafeDeployment(manual=false){
+  if(safeDeploymentBusy)return false;
+  safeDeploymentBusy=true;
+  const createBtn=document.querySelector('#createSafeBtn');
+  if(createBtn){createBtn.disabled=true;createBtn.textContent='Creating Safe…'}
   if(!deal || String(deal.status||'').toLowerCase()!=='accepted') return;
   if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && /^0x[a-fA-F0-9]{40}$/.test(String(deal.safe_address||''))) return;
   const box=document.querySelector('#safeStatus');
@@ -169,7 +173,7 @@
    if(!session?.access_token) throw new Error('Session expired. Please sign in again.');
    const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/create-safe',{
     method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+    headers:{'Content-Type':'application/json','apikey':'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI','Authorization':'Bearer '+session.access_token},
     body:JSON.stringify({deal_id:deal.id})
    });
    const raw=await response.text();
@@ -188,6 +192,10 @@
    console.error('Safe deployment',e);
    if(box) box.innerHTML='<div class="safe-panel warn"><strong>Safe deployment could not be completed.</strong><br>'+esc(e?.message||'Please try again.')+'<br><small>No funds were moved.</small></div>';
    return false;
+  }finally{
+   safeDeploymentBusy=false;
+   const createBtn=document.querySelector('#createSafeBtn');
+   if(createBtn){createBtn.disabled=false;createBtn.textContent='Create / Retry Safe'}
   }
  }
  async function renderSafe(){
