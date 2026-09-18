@@ -21,7 +21,7 @@
     return null;
   }
   const wanted=()=>new URLSearchParams(location.search).get("wm_wallet");
-  function closeModal(){const m=document.getElementById("walletModal");if(m)m.hidden=true}
+  function closeModal(){const m=document.getElementById("walletModal");if(m){m.hidden=true;m.style.display="none"}}
   function renderModal(){
     const wm=manager(),modal=document.getElementById("walletModal"),list=document.getElementById("walletList");
     if(!wm||!modal||!list)return;
@@ -57,7 +57,7 @@
     const target=wanted(),wm=manager();
     if(!target||!wm)return;
     const notice=document.getElementById("walletNotice"),modal=document.getElementById("walletModal");
-    if(modal)modal.hidden=false;
+    if(modal){modal.hidden=false;modal.style.display="grid"}
     for(let i=0;i<40;i++){
       const provider=wm.getDetected(target);
       if(provider){await connect(provider,target);return}
