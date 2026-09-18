@@ -5,7 +5,7 @@
     if(window.Web3MarketWalletManager)return Promise.resolve();
     return new Promise(resolve=>{
       const id="wm-wallet-manager-loader";let s=document.getElementById(id);
-      if(!s){s=document.createElement("script");s.id=id;s.src="js/wallet-manager.js?v=20260918-walletmanager1";s.async=false;s.onload=resolve;s.onerror=resolve;document.head.appendChild(s)}else s.addEventListener("load",resolve,{once:true});
+      if(!s){s=document.createElement("script");s.id=id;s.src="js/wallet-manager.js?v=20260918-walletfix11";s.async=false;s.onload=resolve;s.onerror=resolve;document.head.appendChild(s)}else s.addEventListener("load",resolve,{once:true});
       setTimeout(resolve,2500);
     });
   }
