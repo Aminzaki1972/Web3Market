@@ -9,11 +9,11 @@
     if(notice)notice.textContent="Loading wallet connection…";
     try{
       const s=document.createElement("script");
-      s.src="js/wallet-manager.js?v=20260918-walletfix11";
+      s.src="/js/wallet-manager.js?v=20260918-walletfix12";
       s.async=false;
       document.head.appendChild(s);
     }catch(e){console.warn("Web3Market wallet manager reload failed",e)}
-    for(let i=0;i<60;i++){
+    for(let i=0;i<80;i++){
       wm=manager();
       if(wm)return wm;
       await sleep(100);
@@ -132,7 +132,7 @@
   }
   async function boot(){
     const wm=await ensureManager();
-    if(!wm){const n=document.getElementById("walletNotice");if(n)n.textContent="Wallet connection engine failed to load. Please open this page inside your wallet browser.";return}
+    if(!wm){const n=document.getElementById("walletNotice");if(n)n.textContent="Wallet connection engine could not load. Please refresh the page."; const b=document.getElementById("connectSellerWallet"); if(b){b.disabled=false;b.removeAttribute("disabled");b.style.pointerEvents="auto";b.style.cursor="pointer";} return}
     bind();
     // Do not open the wallet modal automatically on dashboard load.\n    // The user must explicitly press Connect Wallet.\n    loadWalletState();
   }
