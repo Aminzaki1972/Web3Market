@@ -16,7 +16,7 @@ pre{white-space:pre-wrap;background:#020617;padding:14px;border-radius:10px;over
 <main>
 <h2>Web3Market — Edge Function Connectivity Test</h2>
 <p>This diagnostic performs read-only tests only. It does not create a Safe and does not move BNB or USDT.</p>
-<p><strong>Test version:</strong> 8 — added isolated Edge reachability test — connectivity + Safe SDK + RPC/funding isolation.</p>
+<p><strong>Test version:</strong> 10 — isolated Edge reachability + Safe SDK + RPC diagnostics.</p>
 <button id="run" type="button">Run connectivity test</button>
 <button id="sdk" type="button">Test Safe SDK only</button>
 <button id="rpc" type="button">Test RPC + deployer balance</button>
@@ -40,7 +40,6 @@ async function sessionToken(){
   if(!token)throw new Error("No access_token found in the Web3Market session.");
   return token;
 }
-
 async function parseResponse(res){
   const responseText=await res.text();
   let data=responseText;
@@ -48,56 +47,31 @@ async function parseResponse(res){
   if(!res.ok)throw new Error("HTTP "+res.status+" — "+(typeof data==="string"?data:JSON.stringify(data)));
   return data;
 }
-
+async function call(url,needsAuth,source){
+  const headers={"apikey":API_KEY,"Content-Type":"application/json"};
+  if(needsAuth)headers.Authorization="Bearer "+await sessionToken();
+  const res=await fetch(url,{method:"POST",mode:"cors",headers,body:JSON.stringify({source})});
+  return parseResponse(res);
+}
 document.getElementById("run").addEventListener("click",async()=>{
   log("Testing...");
-  try{
-    const token=await sessionToken();
-    const res=await fetch(FN_URL,{method:"POST",mode:"cors",headers:{"Authorization":"Bearer "+token,"apikey":API_KEY,"Content-Type":"application/json"},body:JSON.stringify({source:"edge-connectivity-test-v7"})});
-    log("SUCCESS
-
-"+JSON.stringify(await parseResponse(res),null,2),"ok");
-  }catch(e){log("FAILED
-
-"+(e?.message||String(e)),"err");console.error(e)}
+  try{log("SUCCESS\n\n"+JSON.stringify(await call(FN_URL,true,"edge-connectivity-test-v10"),null,2),"ok")}
+  catch(e){log("FAILED\n\n"+(e?.message||String(e)),"err");console.error(e)}
 });
-
 document.getElementById("sdk").addEventListener("click",async()=>{
   log("Testing Safe SDK isolation...");
-  try{
-    const res=await fetch(SDK_URL,{method:"POST",mode:"cors",headers:{"apikey":API_KEY,"Content-Type":"application/json"},body:JSON.stringify({source:"edge-connectivity-test-v7"})});
-    log("SAFE SDK TEST SUCCESS
-
-"+JSON.stringify(await parseResponse(res),null,2),"ok");
-  }catch(e){log("SAFE SDK TEST FAILED
-
-"+(e?.message||String(e)),"err");console.error(e)}
+  try{log("SAFE SDK TEST SUCCESS\n\n"+JSON.stringify(await call(SDK_URL,false,"edge-connectivity-test-v10"),null,2),"ok")}
+  catch(e){log("SAFE SDK TEST FAILED\n\n"+(e?.message||String(e)),"err");console.error(e)}
 });
-
-document.getElementById("reach").addEventListener("click",async()=>{
-  log("Testing Edge Function reachability only...");
-  try{
-    const res=await fetch(REACH_URL,{method:"POST",mode:"cors",headers:{"apikey":API_KEY,"Content-Type":"application/json"},body:JSON.stringify({source:"edge-connectivity-test-v8"})});
-    log("EDGE REACHABILITY TEST SUCCESS\
-\
-"+JSON.stringify(await parseResponse(res),null,2),"ok");
-  }catch(e){log("EDGE REACHABILITY TEST FAILED\
-\
-"+(e?.message||String(e)),"err");console.error(e)}
-});
-
 document.getElementById("rpc").addEventListener("click",async()=>{
   log("Testing RPC + deployer balance (read-only)...");
-  try{
-    const token=await sessionToken();
-    const res=await fetch(RPC_URL,{method:"POST",mode:"cors",headers:{"Authorization":"Bearer "+token,"apikey":API_KEY,"Content-Type":"application/json"},body:JSON.stringify({source:"edge-connectivity-test-v7"})});
-    const data=await parseResponse(res);
-    log("RPC / DEPLOYER TEST SUCCESS
-
-"+JSON.stringify(data,null,2),"ok");
-  }catch(e){log("RPC / DEPLOYER TEST FAILED
-
-"+(e?.message||String(e)),"err");console.error(e)}
+  try{log("RPC / DEPLOYER TEST SUCCESS\n\n"+JSON.stringify(await call(RPC_URL,true,"edge-connectivity-test-v10"),null,2),"ok")}
+  catch(e){log("RPC / DEPLOYER TEST FAILED\n\n"+(e?.message||String(e)),"err");console.error(e)}
+});
+document.getElementById("reach").addEventListener("click",async()=>{
+  log("Testing Edge Function reachability only...");
+  try{log("EDGE REACHABILITY TEST SUCCESS\n\n"+JSON.stringify(await call(REACH_URL,false,"edge-connectivity-test-v10"),null,2),"ok")}
+  catch(e){log("EDGE REACHABILITY TEST FAILED\n\n"+(e?.message||String(e)),"err");console.error(e)}
 });
 </script>
 </main>
