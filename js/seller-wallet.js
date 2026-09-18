@@ -78,7 +78,7 @@
       if(profile.wallet_verified && profile.wallet_address){
         if(addressEl)addressEl.textContent=wmShort(profile.wallet_address);
         if(statusEl)statusEl.textContent="Connected & verified ✓";
-        button.textContent="Connect another wallet";
+        button.textContent="Connect Wallet";
         button.classList.add("connected");
         if(!disconnect){
           disconnect=document.createElement("button"); disconnect.id="disconnectSellerWallet"; disconnect.type="button"; disconnect.className="wallet-btn"; disconnect.style.background="#7f1d1d"; disconnect.textContent="Disconnect";
