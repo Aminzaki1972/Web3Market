@@ -16,16 +16,19 @@ pre{white-space:pre-wrap;background:#020617;padding:14px;border-radius:10px;over
 <main>
 <h2>Web3Market — Edge Function Connectivity Test</h2>
 <p>This diagnostic bypasses the Supabase JavaScript client. It only tests browser → Supabase Edge Function connectivity. It does not create a Safe and does not move BNB or USDT.</p>
-<p><strong>Test version:</strong> 5 — connectivity + Safe SDK isolation.</p>
-<button id="run">Run connectivity test</button>
-<button id="sdk" style="margin-left:8px">Test Safe SDK only</button>
+<p><strong>Test version:</strong> 6 — connectivity + Safe SDK isolation.</p>
+<button id="run" type="button">Run connectivity test</button>
+<button id="sdk" type="button" style="margin-left:8px">Test Safe SDK only</button>
 <pre id="out">Ready.</pre>
 <script>
+"use strict";
 const OUT=document.getElementById("out");
 const log=(s,cls)=>{OUT.className=cls||"";OUT.textContent=s};
 const FN_URL="https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/safe-connect-test";
 const SDK_URL="https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/safe-sdk-test";
-document.getElementById("run").onclick=async()=>{
+const API_KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
+
+document.getElementById("run").addEventListener("click",async()=>{
   log("Testing...");
   try{
     const raw=localStorage.getItem("web3market-auth");
@@ -38,22 +41,45 @@ document.getElementById("run").onclick=async()=>{
       mode:"cors",
       headers:{
         "Authorization":"Bearer "+token,
-        "apikey":"sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI",
+        "apikey":API_KEY,
         "Content-Type":"application/json"
       },
-      body:JSON.stringify({source:"edge-connectivity-test-v4"})
+      body:JSON.stringify({source:"edge-connectivity-test-v6"})
     });
-    const text=await res.text();
-    let data=text;
-    try{data=JSON.parse(text)}catch(_){}
+    const responseText=await res.text();
+    let data=responseText;
+    try{data=JSON.parse(responseText)}catch(_){}
     if(!res.ok)throw new Error("HTTP "+res.status+" — "+(typeof data==="string"?data:JSON.stringify(data)));
     log("SUCCESS\n\n"+JSON.stringify(data,null,2),"ok");
   }catch(e){
-    log("FAILED\n\n"+(e&&e.message?e.message:String(e)), "err");
+    log("FAILED\n\n"+(e&&e.message?e.message:String(e)),"err");
     console.error("Edge connectivity test:",e);
   }
-};
-document.getElementById("sdk").onclick=async()=>{\n  log("Testing Safe SDK isolation...");\n  try{\n    const res=await fetch(SDK_URL,{method:"POST",mode:"cors",headers:{"apikey":"sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI","Content-Type":"application/json"},body:JSON.stringify({source:"edge-connectivity-test-v5"})});\n    const text=await res.text(); let data=text; try{data=JSON.parse(text)}catch(_){}\n    if(!res.ok)throw new Error("HTTP "+res.status+" — "+(typeof data==="string"?data:JSON.stringify(data)));\n    log("SAFE SDK TEST SUCCESS\\n\\n"+JSON.stringify(data,null,2),"ok");\n  }catch(e){log("SAFE SDK TEST FAILED\\n\\n"+(e&&e.message?e.message:String(e)),"err");console.error("Safe SDK test:",e)}\n};\n</script>
+});
+
+document.getElementById("sdk").addEventListener("click",async()=>{
+  log("Testing Safe SDK isolation...");
+  try{
+    const res=await fetch(SDK_URL,{
+      method:"POST",
+      mode:"cors",
+      headers:{
+        "apikey":API_KEY,
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({source:"edge-connectivity-test-v6"})
+    });
+    const responseText=await res.text();
+    let data=responseText;
+    try{data=JSON.parse(responseText)}catch(_){}
+    if(!res.ok)throw new Error("HTTP "+res.status+" — "+(typeof data==="string"?data:JSON.stringify(data)));
+    log("SAFE SDK TEST SUCCESS\n\n"+JSON.stringify(data,null,2),"ok");
+  }catch(e){
+    log("SAFE SDK TEST FAILED\n\n"+(e&&e.message?e.message:String(e)),"err");
+    console.error("Safe SDK test:",e);
+  }
+});
+</script>
 </main>
 </body>
 </html>
