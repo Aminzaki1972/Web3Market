@@ -182,6 +182,17 @@
     }
    }
    if(!session?.access_token){addSafeLog('Authentication session is missing or expired.');throw new Error('Session expired. Please sign in again.');}
+   addSafeLog('Testing safe-sdk-test (Safe Protocol Kit runtime) from the same authenticated browser session…');
+   try{
+    const sdkProbe=await sb.functions.invoke('safe-sdk-test',{body:{probe:'deal-room-safe-sdk'}});
+    if(sdkProbe?.error){
+     addSafeLog('safe-sdk-test result: '+(sdkProbe.error.name||'error')+' — '+(sdkProbe.error.message||String(sdkProbe.error)));
+    }else{
+     addSafeLog('safe-sdk-test result: '+JSON.stringify(sdkProbe?.data||{}));
+    }
+   }catch(sdkProbeError){
+    addSafeLog('safe-sdk-test exception: '+String(sdkProbeError?.message||sdkProbeError));
+   }
    addSafeLog('Testing safe-connect-test from the same authenticated browser session…');
    try{
     const probe=await sb.functions.invoke('safe-connect-test',{body:{probe:'deal-room'}});
