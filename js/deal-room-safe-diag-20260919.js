@@ -209,6 +209,7 @@
    let result=invokeResult?.data||{};
    let invokeError=invokeResult?.error||null;
    addSafeLog('create-safe SDK invocation completed.');
+   addSafeLog('create-safe raw response: '+JSON.stringify(result||{}));
    console.error('create-safe response',invokeError,result);
    if(invokeError || !result.success){
     const detail=[
