@@ -44,7 +44,7 @@
  const isAdmin=String(profile?.role||'').toLowerCase()==='admin';
  const params=new URLSearchParams(location.search),dealId=params.get('deal')||params.get('id');
  if(!dealId){root.innerHTML='<div class="status">Deal not specified.</div>';return}
- const esc=v=>String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[m]));
+ const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
  let deal=null,participant=null,channel=null,disposed=false;
  const setStatus=(text,kind='')=>{const el=document.querySelector('#dealStatus');if(el){el.textContent=text;el.className='status'+(kind?' '+kind:'')}};
  const loadDeal=async()=>{
@@ -139,8 +139,34 @@
   const box=document.querySelector('#safeStatus');
   if(box) box.innerHTML='<div class="safe-panel">Preparing a dedicated 2-of-3 Safe for this deal…<br><small>The platform wallet pays the BNB deployment gas. No USDT is moved at this stage.</small></div>';
   try{
-   const {data:{session}}=await sb.auth.getSession();
-   if(!session) throw new Error('Session expired. Please sign in again.');
+   let session=null;
+   try{
+    const current=await sb.auth.getSession();
+    session=current?.data?.session||null;
+   }catch(e){
+    console.warn('Deal Room getSession failed',e);
+   }
+   if(!session && typeof window.Web3MarketSupabaseRestoreSession==='function'){
+    try{
+     await window.Web3MarketSupabaseRestoreSession();
+     const restored=await sb.auth.getSession();
+     session=restored?.data?.session||null;
+    }catch(e){
+     console.warn('Deal Room session restore failed',e);
+    }
+   }
+   if(!session){
+    for(let i=0;i<20&&!session;i++){
+     await sleep(250);
+     try{
+      const retry=await sb.auth.getSession();
+      session=retry?.data?.session||null;
+     }catch(e){
+      console.warn('Deal Room session retry failed',e);
+     }
+    }
+   }
+   if(!session?.access_token) throw new Error('Session expired. Please sign in again.');
    const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/create-safe',{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
