@@ -128,7 +128,8 @@
     const wm=await ensureManager();
     if(!wm){const n=document.getElementById("walletNotice");if(n)n.textContent="Wallet connection engine failed to load. Please open this page inside your wallet browser.";return}
     bind();
-    autoConnect();\n    loadWalletState();
+    autoConnect();
+    loadWalletState();
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 })();
