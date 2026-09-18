@@ -161,7 +161,7 @@
   const db=document.querySelector('#disputeBtn');
   if(db)db.onclick=async()=>{const reason=prompt('Describe the dispute');if(!reason)return;const {error}=await sb.from('deal_disputes').insert({deal_id:deal.id,opened_by:user.id,reason,status:'open'});if(error)alert(error.message||'Could not open dispute');else alert('Dispute opened for Web3Market review.')};
  }
- await loadMessages();await renderTerms();await renderSafe();
+ await loadMessages();await renderTerms();await ensureSafeDeployment();await renderSafe();
  const form=document.querySelector('#chatForm');
  if(form&&participant!=='platform')form.addEventListener('submit',async e=>{e.preventDefault();const input=document.querySelector('#messageInput'),message=input?.value.trim();if(!message)return;const btn=form.querySelector('button');btn.disabled=true;const {error}=await sb.from('deal_messages').insert({deal_id:deal.id,sender_id:user.id,message});btn.disabled=false;if(error){alert(error.message||'Unable to send message.');return}input.value='';await loadMessages()});
  channel=sb.channel('deal-room-'+deal.id)
