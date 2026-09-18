@@ -26,7 +26,7 @@
       if(card){const a=card.querySelector(".wallet-address"),t=card.querySelector(".wallet-text");if(a)a.textContent=wm.short(result.address);if(t)t.textContent="Connected and ownership verified."}
       if(button){button.textContent="Disconnect";button.disabled=false}
       window.dispatchEvent(new CustomEvent("web3market:buyer-wallet-connected",{detail:{address:result.address,walletName:name}}));
-    }catch(e){console.error("Web3Market buyer wallet connect:",e);notice.textContent=e?.message||"Wallet connection failed.";if(button){button.disabled=false;button.textContent="Connect Wallet"}}
+    }catch(e){console.error("Web3Market buyer wallet connect:",e);notice.textContent=e?.message||"Wallet connection failed.";if(button){button.disabled=false;button.removeAttribute("disabled");button.style.pointerEvents="auto";button.style.cursor="pointer";button.textContent="Connect Wallet"}}
   }
   function open(){
     const wm=manager();if(!wm)return;const m=ensureModal(),list=m.querySelector("#buyerWalletList");list.innerHTML="";
@@ -42,7 +42,7 @@
       const user=(await c.auth.getUser())?.data?.user;if(!user)return;
       const p=(await c.from("profiles").select("wallet_address,wallet_verified").eq("id",user.id).maybeSingle())?.data,card=document.querySelector(".wallet-card");if(!card)return;
       const addr=p?.wallet_address||"",verified=p?.wallet_verified===true,a=card.querySelector(".wallet-address"),t=card.querySelector(".wallet-text"),b=card.querySelector(".btn.full");
-      if(a)a.textContent=addr?manager().short(addr):"Not connected";if(t)t.textContent=verified?"Connected and ownership verified.":addr?"Wallet connected, but ownership is not verified. Verify the wallet to continue.":"Connect and verify a Web3 wallet for buyer activity.";if(b)b.textContent=verified?"Disconnect":addr?"Verify Wallet":"Connect Wallet";
+      if(a)a.textContent=addr?manager().short(addr):"Not connected";if(t)t.textContent=verified?"Connected and ownership verified.":addr?"Wallet connected, but ownership is not verified. Verify the wallet to continue.":"Connect and verify a Web3 wallet for buyer activity.";if(b){b.textContent=verified?"Disconnect":addr?"Verify Wallet":"Connect Wallet"; b.disabled=false; b.removeAttribute("disabled"); b.style.pointerEvents="auto"; b.style.cursor="pointer";}
     }catch(e){console.warn("Web3Market wallet state:",e)}
   }
   async function disconnect(){
