@@ -6,8 +6,8 @@
 <title>Web3Market Edge Connectivity Test</title>
 <style>
 body{font-family:Arial,sans-serif;background:#0f172a;color:#e5e7eb;padding:24px;line-height:1.5}
-main{max-width:720px;margin:auto;background:#111827;border:1px solid #334155;border-radius:16px;padding:20px}
-button{padding:12px 18px;border:0;border-radius:10px;cursor:pointer}
+main{max-width:760px;margin:auto;background:#111827;border:1px solid #334155;border-radius:16px;padding:20px}
+button{padding:12px 18px;border:0;border-radius:10px;cursor:pointer;margin:4px}
 pre{white-space:pre-wrap;background:#020617;padding:14px;border-radius:10px;overflow:auto}
 .ok{color:#86efac}.err{color:#fca5a5}
 </style>
@@ -15,10 +15,11 @@ pre{white-space:pre-wrap;background:#020617;padding:14px;border-radius:10px;over
 <body>
 <main>
 <h2>Web3Market — Edge Function Connectivity Test</h2>
-<p>This diagnostic bypasses the Supabase JavaScript client. It only tests browser → Supabase Edge Function connectivity. It does not create a Safe and does not move BNB or USDT.</p>
-<p><strong>Test version:</strong> 6 — connectivity + Safe SDK isolation.</p>
+<p>This diagnostic performs read-only tests only. It does not create a Safe and does not move BNB or USDT.</p>
+<p><strong>Test version:</strong> 7 — connectivity + Safe SDK + RPC/funding isolation.</p>
 <button id="run" type="button">Run connectivity test</button>
-<button id="sdk" type="button" style="margin-left:8px">Test Safe SDK only</button>
+<button id="sdk" type="button">Test Safe SDK only</button>
+<button id="rpc" type="button">Test RPC + deployer balance</button>
 <pre id="out">Ready.</pre>
 <script>
 "use strict";
@@ -26,58 +27,51 @@ const OUT=document.getElementById("out");
 const log=(s,cls)=>{OUT.className=cls||"";OUT.textContent=s};
 const FN_URL="https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/safe-connect-test";
 const SDK_URL="https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/safe-sdk-test";
+const RPC_URL="https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/safe-rpc-test";
 const API_KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
+
+async function sessionToken(){
+  const raw=localStorage.getItem("web3market-auth");
+  if(!raw)throw new Error("No web3market-auth session found. Sign in to Web3Market first.");
+  const saved=JSON.parse(raw);
+  const token=saved?.access_token;
+  if(!token)throw new Error("No access_token found in the Web3Market session.");
+  return token;
+}
+
+async function parseResponse(res){
+  const responseText=await res.text();
+  let data=responseText;
+  try{data=JSON.parse(responseText)}catch(_){}
+  if(!res.ok)throw new Error("HTTP "+res.status+" — "+(typeof data==="string"?data:JSON.stringify(data)));
+  return data;
+}
 
 document.getElementById("run").addEventListener("click",async()=>{
   log("Testing...");
   try{
-    const raw=localStorage.getItem("web3market-auth");
-    if(!raw)throw new Error("No web3market-auth session found. Sign in to Web3Market first.");
-    const saved=JSON.parse(raw);
-    const token=saved?.access_token;
-    if(!token)throw new Error("No access_token found in the Web3Market session.");
-    const res=await fetch(FN_URL,{
-      method:"POST",
-      mode:"cors",
-      headers:{
-        "Authorization":"Bearer "+token,
-        "apikey":API_KEY,
-        "Content-Type":"application/json"
-      },
-      body:JSON.stringify({source:"edge-connectivity-test-v6"})
-    });
-    const responseText=await res.text();
-    let data=responseText;
-    try{data=JSON.parse(responseText)}catch(_){}
-    if(!res.ok)throw new Error("HTTP "+res.status+" — "+(typeof data==="string"?data:JSON.stringify(data)));
-    log("SUCCESS\n\n"+JSON.stringify(data,null,2),"ok");
-  }catch(e){
-    log("FAILED\n\n"+(e&&e.message?e.message:String(e)),"err");
-    console.error("Edge connectivity test:",e);
-  }
+    const token=await sessionToken();
+    const res=await fetch(FN_URL,{method:"POST",mode:"cors",headers:{"Authorization":"Bearer "+token,"apikey":API_KEY,"Content-Type":"application/json"},body:JSON.stringify({source:"edge-connectivity-test-v7"})});
+    log("SUCCESS\n\n"+JSON.stringify(await parseResponse(res),null,2),"ok");
+  }catch(e){log("FAILED\n\n"+(e?.message||String(e)),"err");console.error(e)}
 });
 
 document.getElementById("sdk").addEventListener("click",async()=>{
   log("Testing Safe SDK isolation...");
   try{
-    const res=await fetch(SDK_URL,{
-      method:"POST",
-      mode:"cors",
-      headers:{
-        "apikey":API_KEY,
-        "Content-Type":"application/json"
-      },
-      body:JSON.stringify({source:"edge-connectivity-test-v6"})
-    });
-    const responseText=await res.text();
-    let data=responseText;
-    try{data=JSON.parse(responseText)}catch(_){}
-    if(!res.ok)throw new Error("HTTP "+res.status+" — "+(typeof data==="string"?data:JSON.stringify(data)));
-    log("SAFE SDK TEST SUCCESS\n\n"+JSON.stringify(data,null,2),"ok");
-  }catch(e){
-    log("SAFE SDK TEST FAILED\n\n"+(e&&e.message?e.message:String(e)),"err");
-    console.error("Safe SDK test:",e);
-  }
+    const res=await fetch(SDK_URL,{method:"POST",mode:"cors",headers:{"apikey":API_KEY,"Content-Type":"application/json"},body:JSON.stringify({source:"edge-connectivity-test-v7"})});
+    log("SAFE SDK TEST SUCCESS\n\n"+JSON.stringify(await parseResponse(res),null,2),"ok");
+  }catch(e){log("SAFE SDK TEST FAILED\n\n"+(e?.message||String(e)),"err");console.error(e)}
+});
+
+document.getElementById("rpc").addEventListener("click",async()=>{
+  log("Testing RPC + deployer balance (read-only)...");
+  try{
+    const token=await sessionToken();
+    const res=await fetch(RPC_URL,{method:"POST",mode:"cors",headers:{"Authorization":"Bearer "+token,"apikey":API_KEY,"Content-Type":"application/json"},body:JSON.stringify({source:"edge-connectivity-test-v7"})});
+    const data=await parseResponse(res);
+    log("RPC / DEPLOYER TEST SUCCESS\n\n"+JSON.stringify(data,null,2),"ok");
+  }catch(e){log("RPC / DEPLOYER TEST FAILED\n\n"+(e?.message||String(e)),"err");console.error(e)}
 });
 </script>
 </main>
