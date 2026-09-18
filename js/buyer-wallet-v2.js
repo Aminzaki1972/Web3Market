@@ -16,10 +16,28 @@
     m.innerHTML='<div style="width:min(430px,100%);max-height:85vh;overflow:auto;background:#15132a;border:1px solid #443270;border-radius:18px;padding:18px;color:#fff"><div style="display:flex;justify-content:space-between;align-items:center"><div><strong style="font-size:17px">Connect Web3 Wallet</strong><div style="font-size:10px;color:#aaa3c3;margin-top:4px">Choose your wallet to connect and verify ownership</div></div><button id="buyerWalletClose" type="button" style="border:0;background:transparent;color:#aaa3c3;font-size:24px">×</button></div><div id="buyerWalletList"></div><div id="buyerWalletNotice" style="font-size:10px;color:#a9a2bd;margin-top:10px;line-height:1.5"></div></div>';
     document.body.appendChild(m);m.addEventListener("click",e=>{if(e.target===m)m.hidden=true});m.querySelector("#buyerWalletClose").onclick=()=>m.hidden=true;return m;
   }
+  async function waitForBuyerAuth(){
+    for(let i=0;i<20;i++){
+      try{
+        const c=window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase;
+        if(c?.auth){
+          const s=await c.auth.getSession();
+          if(s?.data?.session?.access_token){
+            const u=await c.auth.getUser();
+            if(u?.data?.user?.id)return true;
+          }
+        }
+        try{await window.Web3MarketSupabaseRestoreSession?.()}catch(e){}
+      }catch(e){}
+      await sleep(250);
+    }
+    return false;
+  }
   async function connect(entry,name,m){
     const wm=manager(),notice=m.querySelector("#buyerWalletNotice"),card=document.querySelector(".wallet-card"),button=card?.querySelector(".btn.full");
     if(!wm){notice.textContent="Wallet connection is unavailable. Please refresh the page.";return}
     try{
+      if(!(await waitForBuyerAuth())) throw new Error("Your Web3Market login session is unavailable. Please sign in again.");
       if(button){button.disabled=true;button.textContent="Connecting…"}
       const result=await wm.connectAndVerify(entry.provider,name,{role:"buyer",purpose:"buyer_wallet_ownership",setNotice:v=>{notice.textContent=v}});
       m.hidden=true;history.replaceState({},"",location.pathname);
