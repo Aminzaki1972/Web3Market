@@ -128,8 +128,7 @@
     const wm=await ensureManager();
     if(!wm){const n=document.getElementById("walletNotice");if(n)n.textContent="Wallet connection engine failed to load. Please open this page inside your wallet browser.";return}
     bind();
-    autoConnect();
-    loadWalletState();
+    // Do not open the wallet modal automatically on dashboard load.\n    // The user must explicitly press Connect Wallet.\n    loadWalletState();
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 })();
