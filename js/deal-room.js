@@ -56,25 +56,43 @@
   const wm=window.Web3MarketWalletManager;
   const btn=document.querySelector('#dealConnectWallet'),status=document.querySelector('#dealWalletStatus'),notice=document.querySelector('#dealWalletNotice');
   if(!wm){if(notice)notice.textContent='Wallet connection engine unavailable. Please refresh the page.';return}
-  try{
-   if(btn){btn.disabled=true;btn.textContent='Choose Wallet…'}
-   const detected=wm.listWallets();
-   let row=detected.find(x=>x.detected);
-   if(!row){
-    const choice=prompt('Enter wallet name: MetaMask, Trust Wallet, OKX Wallet, SafePal, Coinbase Wallet, or Binance Wallet');
-    if(!choice){if(btn){btn.disabled=false;btn.textContent='Connect & Verify Wallet'};return}
-    row=detected.find(x=>x.name.toLowerCase()===choice.trim().toLowerCase())||{name:choice.trim(),provider:wm.getDetected(choice.trim()),detected:false};
-    if(!row.provider){wm.launch(row.name,notice);if(btn){btn.disabled=false;btn.textContent='Connect & Verify Wallet'};return}
-   }
-   if(!row.provider){if(notice)notice.textContent='Open your wallet browser and try again.';return}
-   const result=await wm.connectAndVerify(row.provider,row.name,{role:participant,purpose:'deal_room_wallet_ownership',setNotice:v=>{if(notice)notice.textContent=v}});
-   if(status)status.innerHTML='Connected & verified ✓ <code>'+wm.esc(result.address)+'</code>';
-   if(btn){btn.textContent='Wallet Verified ✓';btn.disabled=false}
-  }catch(e){
-   console.warn('Deal Room wallet verification failed',e);
-   if(notice)notice.textContent=e?.message||'Wallet verification failed.';
-   if(btn){btn.disabled=false;btn.textContent='Connect & Verify Wallet'}
+  let modal=document.querySelector('#dealWalletModal');
+  if(!modal){
+   modal=document.createElement('div');
+   modal.id='dealWalletModal';
+   modal.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.65);display:flex;align-items:center;justify-content:center;padding:20px;z-index:9999';
+   modal.innerHTML='<div style="background:#fff;border-radius:16px;max-width:420px;width:100%;padding:18px"><div style="display:flex;justify-content:space-between;align-items:center"><strong>Connect Web3 Wallet</strong><button id="dealWalletClose" type="button" class="btn">×</button></div><div id="dealWalletList" style="display:grid;gap:8px;margin-top:14px"></div><div id="dealWalletModalNotice" class="info" style="margin-top:10px">Choose your wallet. Ownership verification uses a free signature only.</div></div>';
+   document.body.appendChild(modal);
+   modal.addEventListener('click',e=>{if(e.target===modal)modal.remove()});
+   modal.querySelector('#dealWalletClose').onclick=()=>modal.remove();
   }
+  const list=modal.querySelector('#dealWalletList'),mn=modal.querySelector('#dealWalletModalNotice');
+  list.innerHTML='';
+  wm.listWallets().forEach(row=>{
+   const b=document.createElement('button');b.type='button';b.className='btn';b.style.cssText='width:100%;background:#f8fafc;color:#111827;border:1px solid #dbe4ef;text-align:left';
+   b.innerHTML='<strong>'+wm.esc(row.name)+'</strong><br><small>'+ (row.detected?'Detected on this device':'Open wallet app / browser')+'</small>';
+   b.onclick=async()=>{
+    try{
+     if(row.provider){
+      modal.remove();
+      if(btn){btn.disabled=true;btn.textContent='Connecting…'}
+      const result=await wm.connectAndVerify(row.provider,row.name,{role:participant,purpose:'deal_room_wallet_ownership',setNotice:v=>{if(notice)notice.textContent=v}});
+      if(status)status.innerHTML='Connected & verified ✓ <code>'+wm.esc(result.address)+'</code>';
+      if(btn){btn.textContent='Wallet Verified ✓';btn.disabled=false}
+     }else{
+      mn.textContent='Opening '+row.name+'…';
+      wm.launch(row.name,mn);
+     }
+    }catch(e){
+     console.warn('Deal Room wallet verification failed',e);
+     if(notice)notice.textContent=e?.message||'Wallet verification failed.';
+     if(btn){btn.disabled=false;btn.textContent='Connect & Verify Wallet'}
+     modal.remove();
+    }
+   };
+   list.appendChild(b);
+  });
+  modal.hidden=false;
  }
  const dealWalletBtn=document.querySelector('#dealConnectWallet');
  if(dealWalletBtn)dealWalletBtn.addEventListener('click',connectDealWallet);
