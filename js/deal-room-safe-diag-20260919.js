@@ -220,7 +220,7 @@
     ].filter(Boolean).join(' | ');
     if(detail)addSafeLog('SDK error detail: '+detail);
     const isFetchError=String(invokeError?.name||'').toLowerCase().includes('fetch')||String(invokeError?.message||'').toLowerCase().includes('failed to send a request');
-    if(isFetchError){
+    if(invokeError){
      addSafeLog('SDK could not expose the HTTP response. Running a direct Edge Function diagnostic…');
      try{
       const direct=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/create-safe',{
