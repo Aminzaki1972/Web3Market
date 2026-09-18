@@ -208,6 +208,7 @@
    const invokeResult=await sb.functions.invoke('create-safe',{body:{deal_id:deal.id},headers:{Authorization:'Bearer '+session.access_token}});
    let result=invokeResult?.data||{};
    let invokeError=invokeResult?.error||null;
+   addSafeLog('DIAGNOSTIC BUILD v6 loaded.');
    addSafeLog('create-safe SDK invocation completed.');
    addSafeLog('create-safe raw response: '+JSON.stringify(result||{}));
    console.error('create-safe response',invokeError,result);
