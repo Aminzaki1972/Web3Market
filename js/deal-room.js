@@ -29,8 +29,10 @@
  }
  const {data:{user},error:ue}=await sb.auth.getUser();
  if(ue||!user){location.replace('login.html?next='+encodeURIComponent(location.pathname+location.search));return}
- const {data:profile}=await sb.from('profiles').select('role').eq('id',user.id).maybeSingle();
+ const {data:profile}=await sb.from('profiles').select('role,wallet_address,wallet_verified,wallet_verified_at').eq('id',user.id).maybeSingle();
  const isAdmin=String(profile?.role||'').toLowerCase()==='admin';
+ const canonicalWalletAddress=String(profile?.wallet_address||'').trim();
+ const canonicalWalletVerified=profile?.wallet_verified===true && /^0x[a-fA-F0-9]{40}$/.test(canonicalWalletAddress);
  const params=new URLSearchParams(location.search),dealId=params.get('deal')||params.get('id');
  if(!dealId){root.innerHTML='<div class="status">Deal not specified.</div>';return}
  const esc=v=>String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[m]));
@@ -52,6 +54,16 @@
  };
 
  if(!await loadDeal()){if(!deal){root.innerHTML='<div class="status">Deal information is unavailable.</div>';return}}
+ function renderDealWalletState(){
+  const status=document.querySelector('#dealWalletStatus'),btn=document.querySelector('#dealConnectWallet');
+  if(!status||!btn)return;
+  if(canonicalWalletVerified){
+   status.innerHTML='Connected & verified ✓ <code>'+esc(canonicalWalletAddress)+'</code><br><small>Using your verified Web3Market profile wallet.</small>';
+   btn.textContent='Wallet Verified ✓'; btn.disabled=true; return;
+  }
+  status.textContent='Not verified. Connect and verify your wallet from your Web3Market profile.';
+  btn.textContent='Connect & Verify Wallet'; btn.disabled=false;
+ }
  async function connectDealWallet(){
   const wm=window.Web3MarketWalletManager;
   const btn=document.querySelector('#dealConnectWallet'),status=document.querySelector('#dealWalletStatus'),notice=document.querySelector('#dealWalletNotice');
@@ -161,6 +173,7 @@
   const db=document.querySelector('#disputeBtn');
   if(db)db.onclick=async()=>{const reason=prompt('Describe the dispute');if(!reason)return;const {error}=await sb.from('deal_disputes').insert({deal_id:deal.id,opened_by:user.id,reason,status:'open'});if(error)alert(error.message||'Could not open dispute');else alert('Dispute opened for Web3Market review.')};
  }
+ renderDealWalletState();
  await loadMessages();await renderTerms();await ensureSafeDeployment();await renderSafe();
  const form=document.querySelector('#chatForm');
  if(form&&participant!=='platform')form.addEventListener('submit',async e=>{e.preventDefault();const input=document.querySelector('#messageInput'),message=input?.value.trim();if(!message)return;const btn=form.querySelector('button');btn.disabled=true;const {error}=await sb.from('deal_messages').insert({deal_id:deal.id,sender_id:user.id,message});btn.disabled=false;if(error){alert(error.message||'Unable to send message.');return}input.value='';await loadMessages()});
