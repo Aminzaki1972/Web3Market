@@ -7,7 +7,7 @@
   var AUTH_TOKEN = SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token";
   var STORAGE_KEY = "web3market-auth";
   var CHAIN_HEX = "0x38";
-  var VERSION = "REST-AUTH-20260918-8";
+  var VERSION = "REST-AUTH-20260918-9";
 
   function esc(v) {
     return String(v == null ? "" : v).replace(/[&<>\"']/g, function (m) {
@@ -29,23 +29,37 @@
     }).catch(function () { return null; });
   }
   async function getAuth() {
-    try {
-      var unified = window.Web3MarketSupabase && (
-        (typeof window.Web3MarketSupabase.getClient === "function" && window.Web3MarketSupabase.getClient()) ||
-        window.Web3MarketSupabase.client ||
-        window.Web3MarketSupabase.supabase
-      );
-      if (unified && unified.auth) {
-        var current = await unified.auth.getSession();
-        var session = current && current.data && current.data.session;
-        if (session && session.access_token) {
-          var me = await unified.auth.getUser();
-          var user = me && me.data && me.data.user;
-          if (user && user.id) return {session:session,user:user};
+    for (var attempt = 0; attempt < 40; attempt++) {
+      try {
+        var unified = window.Web3MarketSupabase && (
+          (typeof window.Web3MarketSupabase.getClient === "function" && window.Web3MarketSupabase.getClient()) ||
+          window.Web3MarketSupabase.client ||
+          window.Web3MarketSupabase.supabase
+        );
+        if (unified && unified.auth) {
+          var current = await unified.auth.getSession();
+          var session = current && current.data && current.data.session;
+          if (!session) {
+            try {
+              if (typeof window.Web3MarketSupabaseRestoreSession === "function") {
+                await window.Web3MarketSupabaseRestoreSession();
+                current = await unified.auth.getSession();
+                session = current && current.data && current.data.session;
+              }
+            } catch (restoreError) {
+              console.warn("Web3Market session restore failed", restoreError);
+            }
+          }
+          if (session && session.access_token) {
+            var me = await unified.auth.getUser();
+            var user = me && me.data && me.data.user;
+            if (user && user.id) return {session:session,user:user};
+          }
         }
+      } catch (e) {
+        console.warn("Web3Market unified auth session unavailable", e);
       }
-    } catch (e) {
-      console.warn("Web3Market unified auth session unavailable", e);
+      await new Promise(function(resolve){ setTimeout(resolve, 250); });
     }
     return null;
   }
@@ -132,12 +146,15 @@
     })]);
   }
   async function requestOwnershipSignature(provider, address, message, notice) {
-    var hexMessage = utf8Hex(message);
     try {
-      return await withTimeout(provider.request({method:"personal_sign",params:[hexMessage,address]}), 45000, "Wallet signature request timed out. Please approve the signature in your wallet and return to Web3Market.");
+      return await withTimeout(provider.request({method:"personal_sign",params:[message,address]}), 45000, "Wallet signature request timed out. Please approve the signature in your wallet and return to Web3Market.");
     } catch (firstError) {
-      notice("The wallet did not return the signature. Retrying the ownership signature…");
-      return await withTimeout(provider.request({method:"personal_sign",params:[message,address]}), 45000, firstError && firstError.message ? firstError.message : "Wallet signature was not received.");
+      var code = firstError && firstError.code;
+      var text = String(firstError && firstError.message || "").toLowerCase();
+      var shouldRetry = code === -32602 || text.indexOf("invalid params") !== -1 || text.indexOf("invalid parameter") !== -1;
+      if (!shouldRetry) throw firstError;
+      notice("Preparing the wallet signature in a compatible format…");
+      return await withTimeout(provider.request({method:"personal_sign",params:[utf8Hex(message),address]}), 45000, firstError && firstError.message ? firstError.message : "Wallet signature was not received.");
     }
   }
   function connectAndVerify(provider, walletName, opts) {
