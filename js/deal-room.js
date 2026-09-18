@@ -183,19 +183,13 @@
    }
    if(!session?.access_token){addSafeLog('Authentication session is missing or expired.');throw new Error('Session expired. Please sign in again.');}
    addSafeLog('Authenticated session ready. Calling create-safe Edge Function…');
-   const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/create-safe',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','apikey':'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI','Authorization':'Bearer '+session.access_token},
-    body:JSON.stringify({deal_id:deal.id})
-   });
-   const raw=await response.text();
-   let result={};
-   try{result=raw?JSON.parse(raw):{}}catch(e){result={error:raw||'Empty response'}}
-   addSafeLog('create-safe HTTP response: '+response.status);
-   console.error('create-safe response',response.status,result);
-   if(!response.ok || !result.success){
-    safeDeploymentError='HTTP '+response.status+': '+String(result.error||result.message||raw||'Empty response');
-    addSafeLog('ERROR: '+safeDeploymentError);
+   const invokeResult=await sb.functions.invoke('create-safe',{body:{deal_id:deal.id},headers:{Authorization:'Bearer '+session.access_token}});
+   const result=invokeResult?.data||{};
+   const invokeError=invokeResult?.error||null;
+   addSafeLog('create-safe SDK invocation completed.');
+   console.error('create-safe response',invokeError,result);
+   if(invokeError || !result.success){
+    safeDeploymentError=invokeError?.message||String(result.error||result.message||'create-safe returned an error');
     addSafeLog('ERROR: '+safeDeploymentError);
     return false;
    }
