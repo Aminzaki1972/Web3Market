@@ -15,39 +15,37 @@ pre{white-space:pre-wrap;background:#020617;padding:14px;border-radius:10px;over
 <body>
 <main>
 <h2>Web3Market — Edge Function Connectivity Test</h2>
-<p>This page only tests browser → Supabase Edge Function connectivity. It does not create a Safe and does not move BNB or USDT.</p>
-<p><strong>Test version:</strong> 3 — uses the same Web3Market Supabase client as the live site.</p>
+<p>This diagnostic bypasses the Supabase JavaScript client. It only tests browser → Supabase Edge Function connectivity. It does not create a Safe and does not move BNB or USDT.</p>
+<p><strong>Test version:</strong> 4 — direct Edge Function request.</p>
 <button id="run">Run connectivity test</button>
 <pre id="out">Ready.</pre>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="/js/supabase.js?v=20260918-edge-test-3"></script>
 <script>
-const out=document.getElementById("out");
-const log=(s,cls)=>{out.className=cls||"";out.textContent=s};
-async function waitForClient(timeout=10000){
-  const start=Date.now();
-  while(Date.now()-start<timeout){
-    if(window.Web3MarketSupabase?.getClient){
-      const c=window.Web3MarketSupabase.getClient();
-      if(c)return c;
-    }
-    await new Promise(r=>setTimeout(r,200));
-  }
-  throw new Error("Web3Market Supabase client did not initialize.");
-}
+const OUT=document.getElementById("out");
+const log=(s,cls)=>{OUT.className=cls||"";OUT.textContent=s};
+const FN_URL="https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/safe-connect-test";
 document.getElementById("run").onclick=async()=>{
   log("Testing...");
   try{
-    const client=await waitForClient();
-    const {data,error}=await client.auth.getSession();
-    if(error)throw error;
-    if(!data.session)throw new Error("No active Web3Market session found. Sign in first, then run the test again.");
-    const r=await client.functions.invoke("safe-connect-test",{
-      body:{source:"edge-connectivity-test-v3"},
-      headers:{Authorization:"Bearer "+data.session.access_token}
+    const raw=localStorage.getItem("web3market-auth");
+    if(!raw)throw new Error("No web3market-auth session found. Sign in to Web3Market first.");
+    const saved=JSON.parse(raw);
+    const token=saved?.access_token;
+    if(!token)throw new Error("No access_token found in the Web3Market session.");
+    const res=await fetch(FN_URL,{
+      method:"POST",
+      mode:"cors",
+      headers:{
+        "Authorization":"Bearer "+token,
+        "apikey":"sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI",
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({source:"edge-connectivity-test-v4"})
     });
-    if(r.error)throw r.error;
-    log("SUCCESS\n\n"+JSON.stringify(r.data,null,2),"ok");
+    const text=await res.text();
+    let data=text;
+    try{data=JSON.parse(text)}catch(_){}
+    if(!res.ok)throw new Error("HTTP "+res.status+" — "+(typeof data==="string"?data:JSON.stringify(data)));
+    log("SUCCESS\n\n"+JSON.stringify(data,null,2),"ok");
   }catch(e){
     log("FAILED\n\n"+(e&&e.message?e.message:String(e)), "err");
     console.error("Edge connectivity test:",e);
