@@ -24,7 +24,7 @@
       const result=await wm.connectAndVerify(entry.provider,name,{role:"buyer",purpose:"buyer_wallet_ownership",setNotice:v=>{notice.textContent=v}});
       m.hidden=true;history.replaceState({},"",location.pathname);
       if(card){const a=card.querySelector(".wallet-address"),t=card.querySelector(".wallet-text");if(a)a.textContent=wm.short(result.address);if(t)t.textContent="Connected and ownership verified."}
-      if(button){button.textContent="Manage Wallet";button.disabled=false}
+      if(button){button.textContent="Disconnect";button.disabled=false}
       window.dispatchEvent(new CustomEvent("web3market:buyer-wallet-connected",{detail:{address:result.address,walletName:name}}));
     }catch(e){console.error("Web3Market buyer wallet connect:",e);notice.textContent=e?.message||"Wallet connection failed.";if(button){button.disabled=false;button.textContent="Connect Wallet"}}
   }
@@ -42,10 +42,31 @@
       const user=(await c.auth.getUser())?.data?.user;if(!user)return;
       const p=(await c.from("profiles").select("wallet_address,wallet_verified").eq("id",user.id).maybeSingle())?.data,card=document.querySelector(".wallet-card");if(!card)return;
       const addr=p?.wallet_address||"",verified=p?.wallet_verified===true,a=card.querySelector(".wallet-address"),t=card.querySelector(".wallet-text"),b=card.querySelector(".btn.full");
-      if(a)a.textContent=addr?manager().short(addr):"Not connected";if(t)t.textContent=verified?"Connected and ownership verified.":addr?"Wallet connected, but ownership is not verified. Verify the wallet to continue.":"Connect and verify a Web3 wallet for buyer activity.";if(b)b.textContent=verified?"Manage Wallet":addr?"Verify Wallet":"Connect Wallet";
+      if(a)a.textContent=addr?manager().short(addr):"Not connected";if(t)t.textContent=verified?"Connected and ownership verified.":addr?"Wallet connected, but ownership is not verified. Verify the wallet to continue.":"Connect and verify a Web3 wallet for buyer activity.";if(b)b.textContent=verified?"Disconnect":addr?"Verify Wallet":"Connect Wallet";
     }catch(e){console.warn("Web3Market wallet state:",e)}
   }
-  function bind(){document.querySelectorAll(".wallet-card .btn.full").forEach(b=>{if(b.dataset.walletModalBound)return;b.dataset.walletModalBound="1";b.href="#";b.addEventListener("click",e=>{e.preventDefault();open()})});refresh()}
+  async function disconnect(){
+    const card=document.querySelector(".wallet-card"),button=card?.querySelector(".btn.full"),notice=document.getElementById("buyerNotice");
+    try{
+      if(button){button.disabled=true;button.textContent="Disconnecting…"}
+      const c=window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase;
+      const {data:{session}}=await c.auth.getSession();
+      if(!session?.access_token)throw new Error("Your Web3Market login session is unavailable. Please sign in again.");
+      const r=await fetch("https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/verify-wallet",{
+        method:"POST",
+        headers:{apikey:"sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI",Authorization:"Bearer "+session.access_token,"Content-Type":"application/json"},
+        body:JSON.stringify({action:"disconnect"})
+      });
+      const data=await r.json().catch(()=>null);
+      if(!r.ok||!data?.disconnected)throw new Error(data?.error||"Wallet disconnect failed.");
+      await refresh();
+      if(notice)notice.textContent="Wallet disconnected from your Buyer profile.";
+    }catch(e){
+      if(button){button.disabled=false;button.textContent="Disconnect"}
+      if(notice)notice.textContent=e?.message||"Wallet disconnect failed.";
+    }
+  }
+  function bind(){document.querySelectorAll(".wallet-card .btn.full").forEach(b=>{if(b.dataset.walletModalBound)return;b.dataset.walletModalBound="1";b.href="#";b.addEventListener("click",e=>{e.preventDefault();if(b.textContent.trim()==="Disconnect")disconnect();else open()})});refresh()}
   async function boot(){await loadManager();if(!manager())return;bind();new MutationObserver(bind).observe(document.documentElement,{childList:true,subtree:true})}
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 })();
