@@ -7,7 +7,7 @@
  const {data:{user},error:authError}=await sb.auth.getUser();
  if(authError||!user){root.innerHTML='<div class="status">Please sign in.</div>';return;}
  // Canonical deal source: public.deals. The Deal Room and payment verifier use this table too.
- const {data:deal,error}=await sb.from('deals').select('id,project_id,buyer_id,seller_id,amount,currency,status,platform_fee_percent,platform_fee_amount,platform_fee,seller_net_amount,payment_tx_hash,payment_status,chain_id,safe_address,token_contract,token_symbol,expected_amount').eq('id',dealId).maybeSingle();
+ const {data:deal,error}=await sb.from('deals').select('id,project_id,buyer_id,seller_id,amount,currency,status,platform_fee_percent,platform_fee_amount,platform_fee,seller_net_amount,payment_tx_hash,payment_status,chain_id,safe_address,token_contract,token_symbol,expected_amount,safe_deployment_status').eq('id',dealId).maybeSingle();
  if(error||!deal){root.innerHTML='<div class="status">Deal not found.</div>';return;}
  if(String(deal.buyer_id)!==String(user.id)&&String(deal.seller_id)!==String(user.id)){root.innerHTML='<div class="status">You are not a participant in this deal.</div>';return;}
  const esc=v=>String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[m]));
