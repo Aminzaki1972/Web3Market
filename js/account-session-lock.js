@@ -10,11 +10,30 @@
     try{return (await sb.auth.getSession()).data?.session||null}catch(_){return null}
   }
   async function call(action,keepalive=false){
-    const s=await getSession(); if(!s?.access_token)return {ok:false,error:"NO_SESSION"};
+    const sb=client();
+    const s=await getSession();
+    if(!sb?.auth||!s?.access_token)return {ok:false,error:"NO_SESSION"};
     session=s;
-    const res=await fetch(ENDPOINT,{method:"POST",headers:{Authorization:"Bearer "+s.access_token,"Content-Type":"application/json"},body:JSON.stringify({action}),cache:"no-store",keepalive});
-    const data=await res.json().catch(()=>({}));
-    return {ok:res.ok,...data,status:res.status};
+    try{
+      if(sb.functions?.invoke){
+        const {data,error}=await sb.functions.invoke("account-session-lock",{body:{action}});
+        if(error){
+          console.error("Web3Market account lock:",error);
+          return {ok:false,error:error.message||"ACCOUNT_LOCK_REQUEST_FAILED"};
+        }
+        return {ok:true,...(data||{})};
+      }
+    }catch(e){
+      console.error("Web3Market account lock invoke:",e);
+      return {ok:false,error:e?.message||"ACCOUNT_LOCK_REQUEST_FAILED"};
+    }
+    try{
+      const res=await fetch(ENDPOINT,{method:"POST",headers:{Authorization:"Bearer "+s.access_token,apikey:""+(sb.supabaseKey||""),"Content-Type":"application/json"},body:JSON.stringify({action}),cache:"no-store",keepalive});
+      const data=await res.json().catch(()=>({}));
+      return {ok:res.ok,...data,status:res.status};
+    }catch(e){
+      return {ok:false,error:e?.message||"ACCOUNT_LOCK_REQUEST_FAILED"};
+    }
   }
   function blockedUI(){
     const root=document.getElementById("sellerGrid")||document.getElementById("buyerRoot");
