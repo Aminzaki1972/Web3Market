@@ -29,10 +29,19 @@
  }
  const {data:{user},error:ue}=await sb.auth.getUser();
  if(ue||!user){location.replace('login.html?next='+encodeURIComponent(location.pathname+location.search));return}
- const {data:profile}=await sb.from('profiles').select('role,wallet_address,wallet_verified,wallet_verified_at').eq('id',user.id).maybeSingle();
+ let profile=null;
+ let canonicalWalletAddress='';
+ let canonicalWalletVerified=false;
+ const loadCanonicalWallet=async()=>{
+  const {data,error}=await sb.from('profiles').select('role,wallet_address,wallet_verified,wallet_verified_at').eq('id',user.id).maybeSingle();
+  if(error) throw error;
+  profile=data||null;
+  canonicalWalletAddress=String(profile?.wallet_address||'').trim();
+  canonicalWalletVerified=profile?.wallet_verified===true && /^0x[a-fA-F0-9]{40}$/.test(canonicalWalletAddress);
+  return profile;
+ };
+ try{await loadCanonicalWallet()}catch(e){console.error('canonical wallet profile load',e)}
  const isAdmin=String(profile?.role||'').toLowerCase()==='admin';
- const canonicalWalletAddress=String(profile?.wallet_address||'').trim();
- const canonicalWalletVerified=profile?.wallet_verified===true && /^0x[a-fA-F0-9]{40}$/.test(canonicalWalletAddress);
  const params=new URLSearchParams(location.search),dealId=params.get('deal')||params.get('id');
  if(!dealId){root.innerHTML='<div class="status">Deal not specified.</div>';return}
  const esc=v=>String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[m]));
@@ -65,6 +74,8 @@
   btn.textContent='Connect & Verify Wallet'; btn.disabled=false;
  }
  async function connectDealWallet(){
+  try{await loadCanonicalWallet();}catch(e){console.error('wallet state refresh',e)}
+  if(canonicalWalletVerified){renderDealWalletState();return;}
   const wm=window.Web3MarketWalletManager;
   const btn=document.querySelector('#dealConnectWallet'),status=document.querySelector('#dealWalletStatus'),notice=document.querySelector('#dealWalletNotice');
   if(!wm){if(notice)notice.textContent='Wallet connection engine unavailable. Please refresh the page.';return}
@@ -106,6 +117,7 @@
   });
   modal.hidden=false;
  }
+ await loadCanonicalWallet().catch(e=>console.error('wallet state refresh before render',e));
  const dealWalletBtn=document.querySelector('#dealConnectWallet');
  if(dealWalletBtn)dealWalletBtn.addEventListener('click',connectDealWallet);
 
