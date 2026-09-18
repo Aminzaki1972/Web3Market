@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Web3Market Edge Connectivity Test</title>
+<style>
+body{font-family:Arial,sans-serif;background:#0f172a;color:#e5e7eb;padding:24px;line-height:1.5}
+main{max-width:720px;margin:auto;background:#111827;border:1px solid #334155;border-radius:16px;padding:20px}
+button{padding:12px 18px;border:0;border-radius:10px;cursor:pointer}
+pre{white-space:pre-wrap;background:#020617;padding:14px;border-radius:10px;overflow:auto}
+.ok{color:#86efac}.err{color:#fca5a5}
+</style>
+</head>
+<body>
+<main>
+<h2>Web3Market — Edge Function Connectivity Test</h2>
+<p>This page only tests browser → Supabase Edge Function connectivity. It does not create a Safe and does not move BNB or USDT.</p>
+<button id="run">Run connectivity test</button>
+<pre id="out">Ready.</pre>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const URL="https://hzhqlexnhtukfljcvnyd.supabase.co";
+const KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
+const out=document.getElementById("out");
+const log=(s,cls)=>{out.className=cls||"";out.textContent=s};
+document.getElementById("run").onclick=async()=>{
+  log("Testing...");
+  try{
+    const client=supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:"web3market-auth"}});
+    const {data,error}=await client.auth.getSession();
+    if(error) throw error;
+    if(!data.session) throw new Error("No active Web3Market session found. Sign in first, then run the test again.");
+    const r=await client.functions.invoke("safe-connect-test",{
+      body:{source:"edge-connectivity-test"},
+      headers:{Authorization:"Bearer "+data.session.access_token}
+    });
+    if(r.error) throw r.error;
+    log("SUCCESS\n\n"+JSON.stringify(r.data,null,2),"ok");
+  }catch(e){
+    log("FAILED\n\n"+(e&&e.message?e.message:String(e)),"err");
+  }
+};
+</script>
+</main>
+</body>
+</html>
