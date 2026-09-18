@@ -8,7 +8,7 @@
   const ID_KEY='web3market_project_id';
   const LOCAL_KEY='web3market_sell_project_draft_v2';
   const LEGACY_KEY='web3market_sell_project_draft';
-  let currentProjectId=localStorage.getItem(ID_KEY)||'';
+  let currentProjectId=new URLSearchParams(window.location.search).get('project')||localStorage.getItem(ID_KEY)||'';
   const URL='https://hzhqlexnhtukfljcvnyd.supabase.co';
   const KEY='sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI';
   const NUM=['year_created','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_expenses','growth_rate','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','asking_price','price','monthly_net_profit','yearly_net_profit','ai_score'];
