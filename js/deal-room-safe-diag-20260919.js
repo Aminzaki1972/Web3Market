@@ -379,7 +379,7 @@
   }
   return false;
  }
- let paymentPollTimer=null;
+ let paymentPollTimer=null;\n let paymentCheckBusy=false;
  const startAutomaticPaymentMonitor=()=>{
   if(!['buyer','seller'].includes(participant)||paymentPollTimer)return;
   autoDetectPayment();
