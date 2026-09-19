@@ -339,10 +339,12 @@
  // Safe deployment is manual-only from the Deal Room button to prevent automatic rerenders from hiding diagnostics or starting repeated deployment attempts.
  if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && deal.safe_address) await renderSafe();
  async function autoDetectPayment(){
+  if(paymentCheckBusy)return false;
   if(!deal || !['buyer','seller'].includes(participant))return false;
   const paymentStatus=String(deal.payment_status||'').toLowerCase();
   const dealStatus=String(deal.status||'').toLowerCase();
   if(deal.payment_tx_hash||paymentStatus==='confirmed'||dealStatus==='funded')return false;
+  paymentCheckBusy=true;
   try{
    const sessionResult=await sb.auth.getSession();
    const session=sessionResult?.data?.session;
@@ -376,10 +378,13 @@
   }catch(e){
    console.warn('Automatic payment verification exception',e);
    setStatus('Automatic payment check failed. Retrying…','warn');
+  }finally{
+   paymentCheckBusy=false;
   }
   return false;
  }
- let paymentPollTimer=null;\n let paymentCheckBusy=false;
+ let paymentPollTimer=null;
+ let paymentCheckBusy=false;
  const startAutomaticPaymentMonitor=()=>{
   if(!['buyer','seller'].includes(participant)||paymentPollTimer)return;
   autoDetectPayment();
