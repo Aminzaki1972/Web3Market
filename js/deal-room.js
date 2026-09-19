@@ -285,7 +285,7 @@
  // Safe deployment is manual-only from the Deal Room button to prevent automatic rerenders from hiding diagnostics or starting repeated deployment attempts.
  if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && deal.safe_address) await renderSafe();
  async function autoDetectPayment(){
-  if(!deal || participant!=='buyer')return false;
+  if(!deal || !['buyer','seller'].includes(participant))return false;
   const st=String(deal.payment_status||'').toLowerCase();
   const status=String(deal.status||'').toLowerCase();
   if(deal.payment_tx_hash||st==='confirmed'||status==='funded')return false;
@@ -322,7 +322,7 @@
   return false;
  }
  let paymentPollTimer=null;
- const startAutomaticPaymentMonitor=()=>{if(participant!=='buyer')return;if(paymentPollTimer)return;autoDetectPayment();paymentPollTimer=setInterval(()=>{if(disposed){clearInterval(paymentPollTimer);paymentPollTimer=null;return}autoDetectPayment()},15000)};
+ const startAutomaticPaymentMonitor=()=>{if(!['buyer','seller'].includes(participant))return;if(paymentPollTimer)return;autoDetectPayment();paymentPollTimer=setInterval(()=>{if(disposed){clearInterval(paymentPollTimer);paymentPollTimer=null;return}autoDetectPayment()},15000)};
  startAutomaticPaymentMonitor();
  const form=document.querySelector('#chatForm');
  if(form&&participant!=='platform')form.addEventListener('submit',async e=>{e.preventDefault();const input=document.querySelector('#messageInput'),message=input?.value.trim();if(!message)return;const btn=form.querySelector('button');btn.disabled=true;const {error}=await sb.from('deal_messages').insert({deal_id:deal.id,sender_id:user.id,message});btn.disabled=false;if(error){alert(error.message||'Unable to send message.');return}input.value='';await loadMessages()});
