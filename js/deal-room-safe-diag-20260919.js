@@ -49,7 +49,7 @@
   canonicalWalletVerified=profile?.wallet_verified===true && /^0x[a-fA-F0-9]{40}$/.test(canonicalWalletAddress);
   return profile;
  };
- const isAdmin=String(profile?.role||'').toLowerCase()==='admin';
+ let isAdmin=false;
  const params=new URLSearchParams(location.search),dealId=params.get('deal')||params.get('id');
  if(!dealId){root.innerHTML='<div class="status">Deal not specified.</div>';return}
  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
@@ -59,8 +59,25 @@
  const safeLogBox=()=>document.querySelector('#safeStatus');
  const addSafeLog=(message)=>{safeDeploymentLog.push(new Date().toLocaleTimeString()+' — '+String(message));const box=safeLogBox();if(box){box.innerHTML='<div class="safe-panel warn"><strong>Safe deployment diagnostic</strong><hr><pre style="white-space:pre-wrap;margin:0;font:inherit">'+esc(safeDeploymentLog.join('\n'))+'</pre><small>No payment is enabled and no USDT was moved.</small></div>'}};
  const loadDeal=async()=>{
-  const {data,error}=await sb.from('deals').select('*').eq('id',dealId).maybeSingle();
-  if(error||!data){console.error('deal load',error);return false}
+  let response;
+  try{
+   response=await Promise.race([
+    sb.from('deals').select('*').eq('id',dealId).maybeSingle(),
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error('Deal query timed out after 10 seconds')),10000))
+   ]);
+  }catch(error){
+   console.error('deal load exception',error);
+   setStatus('Deal loading failed: '+String(error?.message||error),'warn');
+   return false;
+  }
+  const {data,error}=response||{};
+  if(error||!data){
+   console.error('deal load',error);
+   setStatus(error?'Deal query failed: '+String(error.message||error):'Deal not found for this account.','warn');
+   const details=document.querySelector('#details');
+   if(details)details.innerHTML='<strong>Deal could not be loaded.</strong><br><small>'+esc(error?.message||'The signed-in account is not allowed to read this deal, or the deal id is unavailable.')+'</small>';
+   return false
+  }
   const nextParticipant=String(data.buyer_id)===String(user.id)?'buyer':String(data.seller_id)===String(user.id)?'seller':isAdmin?'platform':null;
   if(!nextParticipant){setStatus('You are not a participant in this deal.','warn');return false}
   deal=data;participant=nextParticipant;
@@ -73,7 +90,16 @@
   return true;
  };
 
- if(!await loadDeal()){if(!deal){root.innerHTML='<div class="status">Deal information is unavailable.</div>';return}}
+ try{
+  const p=await loadCanonicalWallet();
+  isAdmin=String(p?.role||'').toLowerCase()==='admin';
+ }catch(e){ console.warn('profile load before deal',e); }
+ if(!await loadDeal()){
+  if(!deal){
+   root.querySelector('#createSafeBtn')?.setAttribute('disabled','disabled');
+   return;
+  }
+ }
  function renderDealWalletState(){
   const status=document.querySelector('#dealWalletStatus'),btn=document.querySelector('#dealConnectWallet');
   if(!status||!btn)return;
