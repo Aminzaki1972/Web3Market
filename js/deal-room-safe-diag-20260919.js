@@ -90,10 +90,6 @@
   return true;
  };
 
- try{
-  const p=await loadCanonicalWallet();
-  isAdmin=String(p?.role||'').toLowerCase()==='admin';
- }catch(e){ console.warn('profile load before deal',e); }
  if(!await loadDeal()){
   if(!deal){
    root.querySelector('#createSafeBtn')?.setAttribute('disabled','disabled');
