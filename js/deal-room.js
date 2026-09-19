@@ -307,14 +307,22 @@
     await loadDeal();await renderTerms();
     return true;
    }
-   if(result?.error&&!/No matching automatic payment found yet|waiting for additional/i.test(String(result.error))){
-    console.warn('Automatic payment verification:',result.error);
+   if(result?.error){
+    const msg=String(result.error);
+    console.warn('Automatic payment verification:',msg,result);
+    const diagnostic=result.scanned_from_block&&result.scanned_to_block
+      ? msg+' (blocks '+result.scanned_from_block+' → '+result.scanned_to_block+')'
+      : msg;
+    setStatus(diagnostic,'warn');
    }
-  }catch(e){console.warn('Automatic payment verification',e)}
+  }catch(e){
+   console.warn('Automatic payment verification',e);
+   setStatus('Automatic payment check failed. Retrying…','warn');
+  }
   return false;
  }
  let paymentPollTimer=null;
- const startAutomaticPaymentMonitor=()=>{if(participant!=='buyer')return;if(paymentPollTimer)return;autoDetectPayment();paymentPollTimer=setInterval(()=>{if(disposed){clearInterval(paymentPollTimer);paymentPollTimer=null;return}autoDetectPayment()},30000)};
+ const startAutomaticPaymentMonitor=()=>{if(participant!=='buyer')return;if(paymentPollTimer)return;autoDetectPayment();paymentPollTimer=setInterval(()=>{if(disposed){clearInterval(paymentPollTimer);paymentPollTimer=null;return}autoDetectPayment()},15000)};
  startAutomaticPaymentMonitor();
  const form=document.querySelector('#chatForm');
  if(form&&participant!=='platform')form.addEventListener('submit',async e=>{e.preventDefault();const input=document.querySelector('#messageInput'),message=input?.value.trim();if(!message)return;const btn=form.querySelector('button');btn.disabled=true;const {error}=await sb.from('deal_messages').insert({deal_id:deal.id,sender_id:user.id,message});btn.disabled=false;if(error){alert(error.message||'Unable to send message.');return}input.value='';await loadMessages()});
