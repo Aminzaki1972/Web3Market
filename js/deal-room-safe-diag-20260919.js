@@ -208,11 +208,11 @@
    const invokeResult=await sb.functions.invoke('create-safe',{body:{deal_id:deal.id},headers:{Authorization:'Bearer '+session.access_token}});
    let result=invokeResult?.data||{};
    let invokeError=invokeResult?.error||null;
-   addSafeLog('DIAGNOSTIC BUILD v6 loaded.');
+   addSafeLog('DIAGNOSTIC BUILD v7 loaded.');
    addSafeLog('create-safe SDK invocation completed.');
    addSafeLog('create-safe raw response: '+JSON.stringify(result||{}));
    console.error('create-safe response',invokeError,result);
-   if(invokeError || !result.success){
+   if(invokeError || !(result.ok===true || result.success===true)){
     const detail=[
      invokeError?.name ? 'name='+invokeError.name : '',
      invokeError?.message ? 'message='+invokeError.message : '',
@@ -238,8 +238,8 @@
       let parsed={};
       try{parsed=raw?JSON.parse(raw):{};}catch(_){}
       addSafeLog('Direct create-safe HTTP status: '+direct.status+' '+direct.statusText);
-      addSafeLog('Direct response: '+(parsed?.error||parsed?.message||raw||'(empty response)'));
-      if(direct.ok && parsed?.success){
+      addSafeLog('Direct response: '+JSON.stringify(parsed||{}) || raw || '(empty response)');
+      if(direct.ok && (parsed?.ok===true || parsed?.success===true)){
        result=parsed; invokeError=null;
       }else{
        safeDeploymentError=String(parsed?.error||parsed?.message||('HTTP '+direct.status));
@@ -256,7 +256,7 @@
      return false;
     }
    }
-   if(!result.success){
+   if(!(result.ok===true || result.success===true)){
     safeDeploymentError=String(result.error||result.message||'create-safe returned an error');
     addSafeLog('ERROR: '+safeDeploymentError);
     return false;
