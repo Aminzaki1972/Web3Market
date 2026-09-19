@@ -338,6 +338,57 @@
  await loadMessages();await renderTerms();
  // Safe deployment is manual-only from the Deal Room button to prevent automatic rerenders from hiding diagnostics or starting repeated deployment attempts.
  if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && deal.safe_address) await renderSafe();
+ async function autoDetectPayment(){
+  if(!deal || !['buyer','seller'].includes(participant))return false;
+  const paymentStatus=String(deal.payment_status||'').toLowerCase();
+  const dealStatus=String(deal.status||'').toLowerCase();
+  if(deal.payment_tx_hash||paymentStatus==='confirmed'||dealStatus==='funded')return false;
+  try{
+   const sessionResult=await sb.auth.getSession();
+   const session=sessionResult?.data?.session;
+   if(!session?.access_token){setStatus('Waiting for authenticated session…','warn');return false}
+   setStatus('Checking blockchain payment automatically…');
+   const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/verify-deal-payment',{
+    method:'POST',
+    headers:{
+     'Content-Type':'application/json',
+     'apikey':'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI',
+     'Authorization':'Bearer '+session.access_token
+    },
+    body:JSON.stringify({deal_id:deal.id})
+   });
+   const result=await response.json().catch(()=>({}));
+   if(response.ok&&result.ok){
+    await loadDeal();
+    await renderTerms();
+    if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed'&&deal.safe_address)await renderSafe();
+    setStatus('Payment verified on-chain ✓','ok');
+    return true;
+   }
+   const msg=String(result?.error||('Automatic verification HTTP '+response.status));
+   const detail=[];
+   if(result?.detail)detail.push(String(result.detail));
+   if(result?.scanned_from_block&&result?.scanned_to_block)detail.push('blocks '+result.scanned_from_block+' → '+result.scanned_to_block);
+   if(result?.scan_step)detail.push('scan step '+result.scan_step);
+   if(result?.log_rpc)detail.push('log provider available');
+   setStatus(msg+(detail.length?' — '+detail.join(' · '):''),'warn');
+   console.warn('Automatic payment verification:',result);
+  }catch(e){
+   console.warn('Automatic payment verification exception',e);
+   setStatus('Automatic payment check failed. Retrying…','warn');
+  }
+  return false;
+ }
+ let paymentPollTimer=null;
+ const startAutomaticPaymentMonitor=()=>{
+  if(!['buyer','seller'].includes(participant)||paymentPollTimer)return;
+  autoDetectPayment();
+  paymentPollTimer=setInterval(async()=>{
+   if(disposed){clearInterval(paymentPollTimer);paymentPollTimer=null;return}
+   await autoDetectPayment();
+  },15000);
+ };
+ startAutomaticPaymentMonitor();
  const form=document.querySelector('#chatForm');
  if(form&&participant!=='platform')form.addEventListener('submit',async e=>{e.preventDefault();const input=document.querySelector('#messageInput'),message=input?.value.trim();if(!message)return;const btn=form.querySelector('button');btn.disabled=true;const {error}=await sb.from('deal_messages').insert({deal_id:deal.id,sender_id:user.id,message});btn.disabled=false;if(error){alert(error.message||'Unable to send message.');return}input.value='';await loadMessages()});
  channel=sb.channel('deal-room-'+deal.id)
