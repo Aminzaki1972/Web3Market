@@ -154,7 +154,7 @@
  const dealWalletBtn=document.querySelector('#dealConnectWallet');
  if(dealWalletBtn)dealWalletBtn.addEventListener('click',connectDealWallet);
  const createSafeBtn=document.querySelector('#createSafeBtn');
- if(createSafeBtn){createSafeBtn.disabled=true;createSafeBtn.textContent='Escrow: Preparing Secure Safe…';}
+ if(createSafeBtn){createSafeBtn.disabled=true;createSafeBtn.hidden=true;createSafeBtn.setAttribute('aria-hidden','true');}
 
  async function loadAgreement(){
   const {data,error}=await sb.from('deal_party_agreements').select('party_role,party_id,agreed_at').eq('deal_id',deal.id);
@@ -174,7 +174,7 @@
   if(manual)safeDeploymentLog=[];
   addSafeLog('Starting Safe deployment flow.');
   const createBtn=document.querySelector('#createSafeBtn');
-  if(createBtn){createBtn.disabled=true;createBtn.textContent='Escrow: Creating Secure Safe…'}
+  if(createBtn){createBtn.disabled=true;createBtn.hidden=true;createBtn.setAttribute('aria-hidden','true')}
   if(!deal || String(deal.status||'').toLowerCase()!=='accepted'){addSafeLog('Stopped: deal is not in accepted status.');return false;}
   addSafeLog('Deal verified: accepted / BNB Smart Chain (56).');
   if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && /^0x[a-fA-F0-9]{40}$/.test(String(deal.safe_address||''))){addSafeLog('Safe is already deployed: '+deal.safe_address);return true;}
@@ -303,7 +303,7 @@
   }finally{
    safeDeploymentBusy=false;
    const createBtn=document.querySelector('#createSafeBtn');
-   if(createBtn){createBtn.disabled=true;createBtn.textContent=deal?.safe_address?'Escrow: Safe Verified ✓':'Escrow: Setup handled by Web3Market'}
+   if(createBtn){createBtn.disabled=true;createBtn.hidden=true;createBtn.setAttribute('aria-hidden','true')}
   }
  }
  async function renderSafe(){
