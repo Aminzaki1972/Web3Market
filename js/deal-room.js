@@ -282,8 +282,49 @@
  }
  renderDealWalletState();
  await loadMessages();await renderTerms();
+ startAutomaticPaymentMonitor();
  // Safe deployment is manual-only from the Deal Room button to prevent automatic rerenders from hiding diagnostics or starting repeated deployment attempts.
  if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && deal.safe_address) await renderSafe();
+ async function autoDetectPayment(){
+  if(!deal || participant!=='buyer')return false;
+  const st=String(deal.payment_status||'').toLowerCase();
+  const status=String(deal.status||'').toLowerCase();
+  if(deal.payment_tx_hash||st==='confirmed'||status==='funded')return false;
+  if(Number(deal.chain_id)!==56||!/^(0x[a-fA-F0-9]{40})$/.test(String(deal.safe_address||''))||!/^(0x[a-fA-F0-9]{40})$/.test(String(deal.token_contract||'')))return false;
+  try{
+   const {data:{session}}=await sb.auth.getSession(); if(!session?.access_token)return false;
+   const {data:buyer}=await sb.from('profiles').select('wallet_address,wallet_verified').eq('id',deal.buyer_id).maybeSingle();
+   if(!buyer?.wallet_address||buyer.wallet_verified!==true)return false;
+   const rpcUrl='https://bsc-dataseed.binance.org';
+   const rpc=async(method,params)=>{const r=await fetch(rpcUrl,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:Date.now(),method,params})});if(!r.ok)throw new Error('RPC HTTP '+r.status);const j=await r.json();if(j.error)throw new Error(j.error.message||'RPC error');return j.result};
+   const latest=await rpc('eth_blockNumber',[]),latestN=Number(BigInt(latest));
+   const fromBlock='0x'+Math.max(0,latestN-5000).toString(16);
+   const topic0='0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a0c8a4e5d9';
+   const buyerTopic='0x'+String(buyer.wallet_address).toLowerCase().replace(/^0x/,'').padStart(64,'0');
+   const safeTopic='0x'+String(deal.safe_address).toLowerCase().replace(/^0x/,'').padStart(64,'0');
+   const logs=await rpc('eth_getLogs',[{address:String(deal.token_contract).toLowerCase(),fromBlock,toBlock:'latest',topics:[topic0,buyerTopic,safeTopic]}]);
+   if(!Array.isArray(logs)||!logs.length)return false;
+   const decimalsRaw=await rpc('eth_call',[{to:deal.token_contract,data:'0x313ce567'},'latest']);
+   const decimals=Number(BigInt(decimalsRaw));
+   const value=String(deal.expected_amount??deal.amount??'0'),parts=value.split('.'),whole=BigInt(parts[0]||'0'),frac=(parts[1]||'').padEnd(decimals,'0');
+   if(frac.length>decimals)return false;
+   const expected=whole*(10n**BigInt(decimals))+BigInt(frac||'0');
+   for(const log of logs.slice().reverse()){
+    const received=BigInt(log.data||'0x0');
+    if(received!==expected)continue;
+    const txHash=String(log.transactionHash||'');
+    if(!/^0x[0-9a-fA-F]{64}$/.test(txHash))continue;
+    setStatus('Payment detected — verifying on-chain…');
+    const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/verify-deal-payment',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI','Authorization':'Bearer '+session.access_token},body:JSON.stringify({deal_id:deal.id,tx_hash:txHash})});
+    const result=await response.json().catch(()=>({}));
+    if(response.ok&&result.ok){await loadDeal();await renderTerms();return true;}
+    if(result?.error&&/waiting for additional/i.test(String(result.error)))return false;
+   }
+  }catch(e){console.warn('Automatic payment detection',e)}
+  return false;
+ }
+ let paymentPollTimer=null;
+ const startAutomaticPaymentMonitor=()=>{if(participant!=='buyer')return;if(paymentPollTimer)return;autoDetectPayment();paymentPollTimer=setInterval(()=>{if(disposed){clearInterval(paymentPollTimer);paymentPollTimer=null;return}autoDetectPayment()},8000)};
  const form=document.querySelector('#chatForm');
  if(form&&participant!=='platform')form.addEventListener('submit',async e=>{e.preventDefault();const input=document.querySelector('#messageInput'),message=input?.value.trim();if(!message)return;const btn=form.querySelector('button');btn.disabled=true;const {error}=await sb.from('deal_messages').insert({deal_id:deal.id,sender_id:user.id,message});btn.disabled=false;if(error){alert(error.message||'Unable to send message.');return}input.value='';await loadMessages()});
  channel=sb.channel('deal-room-'+deal.id)
