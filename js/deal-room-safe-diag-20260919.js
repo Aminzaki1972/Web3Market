@@ -308,21 +308,21 @@
  }
  async function renderSafe(){
   if(!deal)return;
-  const box=document.querySelector('#safeStatus');if(!box)return;
-  const safe=String(deal.safe_address||'').trim(),chain=Number(deal.chain_id||0);
+  const box=document.querySelector('#safeStatus');
+  if(!box)return;
+  const safe=String(deal.safe_address||'').trim();
+  const chain=Number(deal.chain_id||0);
   if(!/^0x[a-fA-F0-9]{40}$/.test(safe)){
-   if(safeDeploymentLog.length)return;
-   if(safeDeploymentError){box.innerHTML='<div class="safe-panel warn"><strong>Safe deployment diagnostic</strong><br>'+esc(safeDeploymentError)+'<br><small>No payment is enabled and no USDT was moved.</small></div>';return}
-   box.innerHTML='<div class="safe-panel warn"><strong>Safe not configured.</strong><br>Payment and release remain disabled until a verified Safe is attached.</div>';return}
-  if(chain!==56){box.innerHTML=`<div class="safe-panel warn"><strong>Chain mismatch.</strong><br>Expected BNB Smart Chain (56), got ${esc(chain||'unknown')}.</div>`;return}
-  try{
-   if(!window.ethers?.JsonRpcProvider)throw new Error('Safe verification library unavailable');
-   const provider=new ethers.JsonRpcProvider('https://bsc-dataseed.binance.org');
-   const c=new ethers.Contract(safe,['function getOwners() view returns (address[])','function getThreshold() view returns (uint256)','function nonce() view returns (uint256)'],provider);
-   const [owners,threshold,nonce]=await Promise.all([c.getOwners(),c.getThreshold(),c.nonce()]);
-   const code=await provider.getCode(safe),ok=code!=='0x'&&owners.length===3&&Number(threshold)===2;
-   box.innerHTML=`<div class="safe-panel ${ok?'ok':'warn'}"><strong>Safe 2-of-3 verification</strong><br>${code!=='0x'?'Contract detected':'Not a contract'} · ${owners.length} owner(s) · threshold ${Number(threshold)}<br>Nonce: ${esc(nonce)}<div class="safe-note">${ok?'The Safe configuration is valid. Web3Market cannot release funds alone.':'Expected exactly 3 owners with a 2-signature threshold.'}</div>${ok?`<a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:${encodeURIComponent(safe)}" target="_blank" rel="noopener noreferrer">Open Safe Queue</a>${participant==='buyer'&&!Boolean(deal.payment_tx_hash)&&String(deal.payment_status||'').toLowerCase()!=='confirmed'?`<a id="dealPayBtn" class="btn primary" href="deal-checkout.html?deal=${encodeURIComponent(deal.id)}" style="margin-top:8px">Pay ${esc(deal.expected_amount??deal.amount??0)} ${esc(deal.token_symbol||'USDT')}</a>`:''}:''}</div>`;
-  }catch(e){console.error('safe verification',e);box.innerHTML='<div class="safe-panel warn"><strong>Safe could not be verified.</strong><br>No release action will be enabled.</div>'}
+   box.innerHTML='<div class="safe-panel warn"><strong>Safe not configured.</strong><br>Payment remains disabled until a verified Safe is attached.</div>';
+   return;
+  }
+  if(chain!==56){
+   box.innerHTML='<div class="safe-panel warn"><strong>Chain mismatch.</strong><br>Expected BNB Smart Chain (56).</div>';
+   return;
+  }
+  const paid=Boolean(deal.payment_tx_hash)||String(deal.payment_status||'').toLowerCase()==='confirmed';
+  const pay=participant==='buyer'&&!paid?'<a id="dealPayBtn" class="btn primary" href="deal-checkout.html?deal='+encodeURIComponent(deal.id)+'" style="margin-top:8px">Pay '+esc(deal.expected_amount??deal.amount??0)+' '+esc(deal.token_symbol||'USDT')+'</a>':'';
+  box.innerHTML='<div class="safe-panel ok"><strong>Safe 2-of-3 configured</strong><br>Safe: <code>'+esc(safe)+'</code><br>BNB Smart Chain (56)<br><small>No USDT has been moved during Safe creation.</small><a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:'+encodeURIComponent(safe)+'" target="_blank" rel="noopener noreferrer">Open Safe Queue</a>'+pay+'</div>';
  }
  async function renderTerms(){
   if(!deal)return;
