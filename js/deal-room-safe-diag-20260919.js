@@ -27,8 +27,17 @@
   console.error('Deal Room Supabase client unavailable',lastInitError);
   return;
  }
- const {data:{user},error:ue}=await sb.auth.getUser();
- if(ue||!user){location.replace('login.html?next='+encodeURIComponent(location.pathname+location.search));return}
+ let authUser=null;
+ try{
+  const authResult=await Promise.race([sb.auth.getUser(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Authentication request timed out')),10000))]);
+  authUser=authResult?.data?.user||null;
+  if(!authUser){location.replace('login.html?next='+encodeURIComponent(location.pathname+location.search));return}
+ }catch(e){
+  console.error('Deal Room auth',e);
+  root.innerHTML='<div class="status">Unable to load your session. Please refresh or sign in again.</div>';
+  return;
+ }
+ const user=authUser;
  let profile=null;
  let canonicalWalletAddress='';
  let canonicalWalletVerified=false;
@@ -40,7 +49,6 @@
   canonicalWalletVerified=profile?.wallet_verified===true && /^0x[a-fA-F0-9]{40}$/.test(canonicalWalletAddress);
   return profile;
  };
- try{await loadCanonicalWallet()}catch(e){console.error('canonical wallet profile load',e)}
  const isAdmin=String(profile?.role||'').toLowerCase()==='admin';
  const params=new URLSearchParams(location.search),dealId=params.get('deal')||params.get('id');
  if(!dealId){root.innerHTML='<div class="status">Deal not specified.</div>';return}
@@ -120,7 +128,7 @@
   });
   modal.hidden=false;
  }
- await loadCanonicalWallet().catch(e=>console.error('wallet state refresh before render',e));
+ loadCanonicalWallet().then(()=>renderDealWalletState()).catch(e=>console.error('wallet state refresh before render',e));
  const dealWalletBtn=document.querySelector('#dealConnectWallet');
  if(dealWalletBtn)dealWalletBtn.addEventListener('click',connectDealWallet);
  const createSafeBtn=document.querySelector('#createSafeBtn');
