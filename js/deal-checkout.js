@@ -1,13 +1,15 @@
 "use strict";
 (async function(){
  const root=document.querySelector('#checkoutApp');
- const sb=window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase;
+ let sb=null;
  const dealId=new URLSearchParams(location.search).get('deal');
- if(!root||!sb||!dealId){if(root)root.innerHTML='<div class="status">Deal information is unavailable.</div>';return;}
+ const waitForClient=async(timeout=8000)=>{const started=Date.now();while(Date.now()-started<timeout){try{sb=window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase||null;if(!sb&&window.supabase&&typeof window.supabase.createClient==='function'){sb=window.supabase.createClient('https://hzhqlexnhtukfljcvnyd.supabase.co','sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'web3market-auth'}});window.supabaseClient=sb;window.web3marketSupabase=sb;window.Web3MarketSupabase=window.Web3MarketSupabase||{client:sb,supabase:sb,getClient:()=>sb};}if(sb)return true;}catch(e){console.warn('Checkout Supabase init',e)}await new Promise(r=>setTimeout(r,100))}return false};
+ if(!root||!dealId){if(root)root.innerHTML='<div class="status">Deal information is unavailable.</div>';return;}
+ if(!(await waitForClient())){root.innerHTML='<div class="status">Database connection unavailable. Please refresh the page.</div>';return;}
  const {data:{user},error:authError}=await sb.auth.getUser();
  if(authError||!user){root.innerHTML='<div class="status">Please sign in.</div>';return;}
  // Canonical deal source: public.deals. The Deal Room and payment verifier use this table too.
- const {data:deal,error}=await sb.from('deals').select('id,project_id,buyer_id,seller_id,amount,currency,status,platform_fee_percent,platform_fee_amount,platform_fee,seller_net_amount,payment_tx_hash,payment_status,chain_id,safe_address,token_contract,token_symbol,expected_amount,safe_deployment_status').eq('id',dealId).maybeSingle();
+ let {data:deal,error}=await sb.from('deals').select('id,project_id,buyer_id,seller_id,amount,currency,status,platform_fee_percent,platform_fee_amount,platform_fee,seller_net_amount,payment_tx_hash,payment_status,chain_id,safe_address,token_contract,token_symbol,expected_amount,safe_deployment_status').eq('id',dealId).maybeSingle();
  if(error||!deal){root.innerHTML='<div class="status">Deal not found.</div>';return;}
  if(String(deal.buyer_id)!==String(user.id)&&String(deal.seller_id)!==String(user.id)){root.innerHTML='<div class="status">You are not a participant in this deal.</div>';return;}
  const esc=v=>String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[m]));
