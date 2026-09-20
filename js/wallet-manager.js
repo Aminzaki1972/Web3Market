@@ -7,7 +7,7 @@
   var AUTH_TOKEN = SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token";
   var STORAGE_KEY = "web3market-auth";
   var CHAIN_HEX = "0x38";
-  var VERSION = "ROLE-LINKED-PROVIDER-20260920-1";
+  var VERSION = "ROLE-LINKED-PROVIDER-20260920-2";
   var LINKED_PROVIDER_KEY = "web3market-linked-wallet-provider";
 
   function esc(v) {
@@ -74,11 +74,14 @@
     }
     return out;
   }
+  function isTrustWalletBrowser() { try { return /trustwallet|trust wallet/i.test(String(navigator.userAgent || "")) || /trustwallet|trust wallet/i.test(String(navigator.vendor || "")); } catch (_) { return false; } }
   function detect() {
     var p = providers();
+    var generic = p.length ? p[0] : null;
+    var trust = p.find(function (x) { return x.isTrust || x.isTrustWallet; }) || (isTrustWalletBrowser() ? generic : null);
     return {
       metamask: p.find(function (x) { return x.isMetaMask && !x.isBraveWallet; }),
-      trust: p.find(function (x) { return x.isTrust; }),
+      trust: trust,
       coinbase: p.find(function (x) { return x.isCoinbaseWallet; }),
       okx: p.find(function (x) { return x.isOkxWallet || x.isOKExWallet; }),
       safepal: (window.safepalProvider || p.find(function (x) { return x.isSafePal; })),
@@ -86,7 +89,9 @@
     };
   }
   function findByName(name) {
-    var n = String(name || "").toLowerCase().split(" ")[0];
+    var requested = String(name || "").toLowerCase().trim();
+    if (requested === "trust wallet" && isTrustWalletBrowser()) { var trustDetected = detect().trust; if (trustDetected) return trustDetected; }
+    var n = requested.split(" ")[0];
     var p = providers();
     for (var i = 0; i < p.length; i++) {
       var label = String((p[i].info && p[i].info.name) || p[i].name || "").toLowerCase();
