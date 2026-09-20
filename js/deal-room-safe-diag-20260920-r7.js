@@ -349,116 +349,65 @@
   panel+='</div>';
   const old=document.querySelector('#safeReleasePanel'); if(old)old.outerHTML=panel; else box.insertAdjacentHTML('beforeend',panel);
   const selectSigningProvider=async()=>{
-    const wm=window.Web3MarketWalletManager;
-    if(!wm)throw new Error('Wallet selection engine is unavailable. Please refresh the page.');
+    // Wallet Browser path: use the provider exposed by the wallet browser
+    // directly. The verified profile address is the only identity check.
+    // No wallet chooser, no app-name guessing, and no SafePal/MetaMask fallback.
     const target=String(canonicalWalletAddress||'').toLowerCase();
-    if(!canonicalWalletVerified||!/^0x[a-f0-9]{40}$/.test(target))throw new Error('No verified wallet is linked to this Web3Market account.');
-    const role=String(participant||'').toLowerCase();
-    if(!role)throw new Error('This account is not a buyer or seller participant in this deal.');
-    const roleLabel=role==='buyer'?'Buyer':'Seller';
-    const modal=document.createElement('div');
-    modal.id='safeReleaseWalletModal';
-    modal.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.78);display:flex;align-items:center;justify-content:center;padding:20px;z-index:10000';
-    modal.innerHTML='<div style="background:#fff;color:#111827;border-radius:16px;max-width:430px;width:100%;padding:20px"><div style="display:flex;justify-content:space-between;align-items:center"><strong>Sign as '+roleLabel+'</strong><button id="safeReleaseWalletClose" type="button" class="btn">×</button></div><div class="info" style="margin-top:10px">Only the wallet linked to this '+roleLabel+' account can sign this release.</div><div style="margin-top:10px"><small>Linked wallet</small><br><code style="word-break:break-all">'+esc(canonicalWalletAddress)+'</code></div><div id="safeReleaseWalletList" style="display:grid;gap:8px;margin-top:14px"></div><div id="safeReleaseWalletNotice" class="info" style="margin-top:10px">Select your linked wallet app. The account address will be checked before signing.</div></div>';
-    document.body.appendChild(modal);
-    const list=modal.querySelector('#safeReleaseWalletList'),notice=modal.querySelector('#safeReleaseWalletNotice');
-    const close=()=>modal.remove();
-    modal.querySelector('#safeReleaseWalletClose').onclick=close;
-    modal.addEventListener('click',e=>{if(e.target===modal)close()});
-    if(typeof wm.refreshWalletProviders==="function"){
-      try{ await wm.refreshWalletProviders(); }catch(_){}
+    if(!canonicalWalletVerified||!/^0x[a-f0-9]{40}$/.test(target)){
+      throw new Error('No verified wallet is linked to this Web3Market account.');
     }
-    const detected=wm.listWallets();
-    const candidates=detected.filter(row=>row.provider);
-    // The verified wallet ADDRESS is the only authoritative identity.
-    // Wallet-app names are routing metadata only and must never override it.
-    const linkedRoute=typeof wm.getLinkedWalletForAddress==='function'
-      ? String(wm.getLinkedWalletForAddress(canonicalWalletAddress)||'').trim()
-      : '';
-    let profileRoute='';
+    const role=String(participant||'').toLowerCase();
+    if(role!=='buyer'&&role!=='seller'){
+      throw new Error('This account is not a buyer or seller participant in this deal.');
+    }
+
+    const providers=[];
+    const addProvider=(p)=>{if(p&&typeof p.request==='function'&&!providers.includes(p))providers.push(p)};
+    addProvider(window.ethereum);
+
+    // EIP-6963 discovery is used only to find an already injected provider.
+    // It never displays a wallet-selection UI.
     try{
-      const client=window.Web3MarketSupabase && (
-        (typeof window.Web3MarketSupabase.getClient==='function' && window.Web3MarketSupabase.getClient()) ||
-        window.Web3MarketSupabase.client || window.Web3MarketSupabase.supabase
-      );
-      if(client && client.from){
-        const pr=await client.from('profiles').select('wallet_provider,wallet_route').eq('wallet_address',canonicalWalletAddress).eq('wallet_verified',true).maybeSingle();
-        profileRoute=String((pr&&pr.data&&(pr.data.wallet_route||pr.data.wallet_provider))||'').trim();
+      if(!providers.length||providers.length>0){
+        const found=[];
+        const handler=(event)=>{if(event?.detail?.provider)found.push(event.detail.provider)};
+        window.addEventListener('eip6963:announceProvider',handler);
+        window.dispatchEvent(new Event('eip6963:requestProvider'));
+        await new Promise(r=>setTimeout(r,250));
+        window.removeEventListener('eip6963:announceProvider',handler);
+        found.forEach(addProvider);
       }
     }catch(_){}
-    const addressRoute=linkedRoute||profileRoute;
-    const matching=[];
-    for(const row of candidates){
+
+    let lastError='';
+    for(const provider of providers){
       try{
-        const accounts=await row.provider.request({method:'eth_accounts'});
-        if(String(accounts?.[0]||'').toLowerCase()===target) matching.push(row);
-      }catch(_){}
-    }
-    // Only providers that already expose the verified address are eligible.
-    // This prevents SafePal/Trust/MetaMask from being chosen just because
-    // their provider happens to exist on the device.
-    if(matching.length){
-      return await new Promise((resolve,reject)=>{
-        let settled=false;
-        const finish=(fn,v)=>{if(settled)return;settled=true;close();fn(v)};
-        matching.forEach(row=>{
-          const b=document.createElement('button');b.type='button';b.className='btn';b.style.cssText='width:100%;background:#f8fafc;color:#111827;border:1px solid #dbe4ef;text-align:left';
-          b.innerHTML='<strong>'+wm.esc(row.name)+'</strong><br><small>Verified account wallet · '+esc(canonicalWalletAddress)+'</small>';
-          b.onclick=async()=>{
-            try{
-              notice.textContent='Connecting to the wallet that controls the verified account…';
-              const accounts=await row.provider.request({method:'eth_requestAccounts'});
-              const connected=String(accounts?.[0]||'').toLowerCase();
-              if(connected!==target)throw new Error('Wrong wallet account. The connected address does not match the verified account wallet.');
-              try{await row.provider.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});}
-              catch(e){if(e?.code===4902)await row.provider.request({method:'wallet_addEthereumChain',params:[{chainId:'0x38',chainName:'BNB Smart Chain',nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},rpcUrls:['https://bsc-dataseed.binance.org'],blockExplorerUrls:['https://bscscan.com']}]});else throw new Error('Please switch this wallet to BNB Smart Chain (56).');}
-              if(typeof wm.saveWalletRoute==='function')wm.saveWalletRoute(canonicalWalletAddress,row.name);
-              finish(resolve,row.provider);
-            }catch(e){notice.textContent=e?.message||'Wallet connection failed.';}
-          };
-          list.appendChild(b);
-        });
-      });
-    }
-    // No provider currently exposes the verified address. Do not show a
-    // wallet chooser and do not fall back to SafePal. If a previously
-    // verified app route exists for THIS address, offer only that route.
-    // The exact wallet app may not expose its injected provider until the
-    // DApp is opened inside that wallet. Use the account-specific route saved
-    // at wallet verification time; never guess from a generic wallet name.
-    // If this exact address has a saved route, use it. For older verified
-    // accounts, migrate the previously recorded provider route to this
-    // address; this is only a launch route, never the wallet identity.
-    const legacyRoute=typeof wm.getLinkedWalletName==='function'
-      ? String(wm.getLinkedWalletName()||'').trim() : '';
-    const launchRoute=addressRoute||legacyRoute;
-    const routeLabel=launchRoute||'the wallet linked to this account';
-    const b=document.createElement('button');
-    b.type='button';
-    b.className='btn primary';
-    b.style.cssText='width:100%;cursor:pointer';
-    b.textContent='Open '+routeLabel;
-    b.onclick=()=>{
-      b.disabled=true;
-      b.textContent='Opening '+routeLabel+'…';
-      if(launchRoute){
-        if(!linkedRoute && typeof wm.saveWalletRoute==='function'){
-          wm.saveWalletRoute(canonicalWalletAddress,launchRoute);
+        let accounts=await provider.request({method:'eth_accounts'});
+        let current=String(accounts?.[0]||'').toLowerCase();
+        // In a wallet browser, requesting accounts is safe here: it asks the
+        // wallet already hosting this page for its active account. It does not
+        // choose another wallet application.
+        if(current!==target){
+          try{accounts=await provider.request({method:'eth_requestAccounts'});}catch(e){lastError=String(e?.message||e);continue}
+          current=String(accounts?.[0]||'').toLowerCase();
         }
-        const ok=wm.launch(launchRoute,notice);
-        if(!ok){
-          b.disabled=false;
-          b.textContent='Open '+routeLabel;
-          notice.textContent='Please open the wallet app linked to this account and return to the Deal Room.';
+        if(current!==target){
+          lastError='The active wallet account does not match the verified '+role+' wallet.';
+          continue;
         }
-      }else{
-        b.disabled=false;
-        b.textContent='Open linked wallet';
-        notice.textContent='No wallet app route is registered for this account. Connect and verify this account from its wallet app once, then return here.';
-      }
-    };
-    list.appendChild(b);
-    return await new Promise((resolve,reject)=>{ modal._reject=reject; });
+        try{
+          await provider.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});
+        }catch(e){
+          if(e?.code===4902){
+            await provider.request({method:'wallet_addEthereumChain',params:[{chainId:'0x38',chainName:'BNB Smart Chain',nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},rpcUrls:['https://bsc-dataseed.binance.org'],blockExplorerUrls:['https://bscscan.com']}]});
+          }else{
+            throw new Error('Please switch the wallet browser to BNB Smart Chain (56).');
+          }
+        }
+        return provider;
+      }catch(e){lastError=String(e?.message||e)}
+    }
+    throw new Error(lastError||'Wallet Browser provider was not found. Open the Deal Room inside the wallet that controls the verified account and try again.');
   };
   const sign=document.querySelector('#signSafeReleaseBtn');
   if(sign) sign.onclick=async()=>{
