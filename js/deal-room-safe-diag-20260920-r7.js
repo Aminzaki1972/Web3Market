@@ -411,11 +411,32 @@
     // No provider currently exposes the verified address. Do not show a
     // wallet chooser and do not fall back to SafePal. If a previously
     // verified app route exists for THIS address, offer only that route.
+    // The exact wallet app may not expose its injected provider until the
+    // DApp is opened inside that wallet. Use the account-specific route saved
+    // at wallet verification time; never guess from a generic wallet name.
     const routeLabel=linkedRoute||'the wallet linked to this account';
-    const b=document.createElement('button'); b.type='button'; b.className='btn'; b.textContent='Open '+routeLabel;
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='btn primary';
+    b.style.cssText='width:100%;cursor:pointer';
+    b.textContent='Open '+routeLabel;
     b.onclick=()=>{
-      if(linkedRoute) wm.launch(linkedRoute,notice);
-      else notice.textContent='The linked wallet is not open in this browser. Open the wallet app that controls '+canonicalWalletAddress+' and return to this Deal Room. No other wallet can be selected.';
+      b.disabled=true;
+      b.textContent='Opening '+routeLabel+'…';
+      if(linkedRoute){
+        const ok=wm.launch(linkedRoute,notice);
+        if(!ok){
+          b.disabled=false;
+          b.textContent='Open '+routeLabel;
+          notice.textContent='Please open the wallet app linked to this account and try again.';
+        }
+      }else{
+        // No stored app label exists for this address. Do not silently choose
+        // another wallet. Require the user to open the wallet that owns it.
+        b.disabled=false;
+        b.textContent='Open linked wallet';
+        notice.textContent='No wallet app route is stored for this verified address. Reconnect this account from its wallet app once to register the route.';
+      }
     };
     list.appendChild(b);
     return await new Promise((resolve,reject)=>{ modal._reject=reject; });
