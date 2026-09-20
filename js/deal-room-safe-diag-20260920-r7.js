@@ -367,10 +367,25 @@
     modal.addEventListener('click',e=>{if(e.target===modal)close()});
     const detected=wm.listWallets();
     const candidates=detected.filter(row=>row.provider);
-    const preferred=candidates.filter(row=>String(row.name).toLowerCase().includes('safepal'));
-    const ordered=[...preferred,...candidates.filter(row=>!preferred.includes(row))];
+    const linkedName=typeof wm.getLinkedWalletName==='function' ? String(wm.getLinkedWalletName()||'').trim() : '';
+    // Never hard-code SafePal. First prefer a provider exposing the verified
+    // linked address, then the wallet app recorded when this account was linked.
+    const matching=[];
+    for(const row of candidates){
+      try{
+        const accounts=await row.provider.request({method:'eth_accounts'});
+        if(String(accounts?.[0]||'').toLowerCase()===target) matching.push(row);
+      }catch(_){}
+    }
+    const linkedRows=linkedName ? candidates.filter(row=>String(row.name).toLowerCase()===linkedName.toLowerCase()) : [];
+    const ordered=[...matching,...linkedRows.filter(row=>!matching.includes(row)),...candidates.filter(row=>!matching.includes(row)&&!linkedRows.includes(row))];
     if(!ordered.length){
-      const b=document.createElement('button'); b.type='button'; b.className='btn'; b.textContent='Open SafePal'; b.onclick=()=>{wm.launch('SafePal',notice);}; list.appendChild(b);
+      const b=document.createElement('button'); b.type='button'; b.className='btn'; b.textContent=linkedName ? 'Open '+linkedName : 'Open linked wallet';
+      b.onclick=()=>{
+        if(linkedName) wm.launch(linkedName,notice);
+        else notice.textContent='No wallet provider is detected here. Open the wallet you used to connect this Web3Market account and return to this page.';
+      };
+      list.appendChild(b);
       return await new Promise((resolve,reject)=>{ modal._reject=reject; });
     }
     return await new Promise((resolve,reject)=>{
