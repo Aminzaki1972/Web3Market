@@ -375,6 +375,18 @@
     const linkedRoute=typeof wm.getLinkedWalletForAddress==='function'
       ? String(wm.getLinkedWalletForAddress(canonicalWalletAddress)||'').trim()
       : '';
+    let profileRoute='';
+    try{
+      const client=window.Web3MarketSupabase && (
+        (typeof window.Web3MarketSupabase.getClient==='function' && window.Web3MarketSupabase.getClient()) ||
+        window.Web3MarketSupabase.client || window.Web3MarketSupabase.supabase
+      );
+      if(client && client.from){
+        const pr=await client.from('profiles').select('wallet_provider,wallet_route').eq('wallet_address',canonicalWalletAddress).eq('wallet_verified',true).maybeSingle();
+        profileRoute=String((pr&&pr.data&&(pr.data.wallet_route||pr.data.wallet_provider))||'').trim();
+      }
+    }catch(_){}
+    const addressRoute=linkedRoute||profileRoute;
     const matching=[];
     for(const row of candidates){
       try{
@@ -419,7 +431,7 @@
     // address; this is only a launch route, never the wallet identity.
     const legacyRoute=typeof wm.getLinkedWalletName==='function'
       ? String(wm.getLinkedWalletName()||'').trim() : '';
-    const launchRoute=linkedRoute||legacyRoute;
+    const launchRoute=addressRoute||legacyRoute;
     const routeLabel=launchRoute||'the wallet linked to this account';
     const b=document.createElement('button');
     b.type='button';
