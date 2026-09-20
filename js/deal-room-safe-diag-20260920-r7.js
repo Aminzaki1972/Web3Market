@@ -419,25 +419,6 @@
     };
     list.appendChild(b);
     return await new Promise((resolve,reject)=>{ modal._reject=reject; });
-      let settled=false;
-      const finish=(fn,v)=>{if(settled)return;settled=true;close();fn(v)};
-      ordered.forEach(row=>{
-        const b=document.createElement('button');b.type='button';b.className='btn';b.style.cssText='width:100%;background:#f8fafc;color:#111827;border:1px solid #dbe4ef;text-align:left';
-        b.innerHTML='<strong>'+wm.esc(row.name)+'</strong><br><small>Use this wallet for the '+roleLabel+' account</small>';
-        b.onclick=async()=>{
-          try{
-            notice.textContent='Connecting to '+row.name+'…';
-            const accounts=await row.provider.request({method:'eth_requestAccounts'});
-            const connected=String(accounts?.[0]||'').toLowerCase();
-            if(connected!==target)throw new Error('Wrong wallet account. This is not the verified '+roleLabel+' wallet linked to this deal.');
-            try{await row.provider.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});}
-            catch(e){if(e?.code===4902)await row.provider.request({method:'wallet_addEthereumChain',params:[{chainId:'0x38',chainName:'BNB Smart Chain',nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},rpcUrls:['https://bsc-dataseed.binance.org'],blockExplorerUrls:['https://bscscan.com']}]});else throw new Error('Please switch this wallet to BNB Smart Chain (56).');}
-            finish(resolve,row.provider);
-          }catch(e){notice.textContent=e?.message||'Wallet connection failed.';}
-        };
-        list.appendChild(b);
-      });
-    });
   };
   const sign=document.querySelector('#signSafeReleaseBtn');
   if(sign) sign.onclick=async()=>{
