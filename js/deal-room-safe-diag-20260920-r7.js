@@ -370,9 +370,12 @@
     }
     const detected=wm.listWallets();
     const candidates=detected.filter(row=>row.provider);
-    const linkedName=typeof wm.getLinkedWalletName==='function' ? String(wm.getLinkedWalletName()||'').trim() : '';
-    // Never hard-code SafePal. First prefer a provider exposing the verified
-    // linked address, then the wallet app recorded when this account was linked.
+    const storedLinkedName=typeof wm.getLinkedWalletName==='function' ? String(wm.getLinkedWalletName()||'').trim() : '';
+    // The verified wallet address is authoritative. If the page is running
+    // inside Trust Wallet, Trust is the wallet app for this signing session;
+    // never let stale SafePal metadata override the active Trust provider.
+    const trustBrowser=/trustwallet|trust wallet/i.test(String(navigator.userAgent||'')) || /trustwallet|trust wallet/i.test(String(navigator.vendor||''));
+    const linkedName=trustBrowser ? 'Trust Wallet' : storedLinkedName;
     const matching=[];
     for(const row of candidates){
       try{
@@ -388,6 +391,11 @@
         if(linkedName) wm.launch(linkedName,notice);
         else notice.textContent='No wallet provider is detected here. Open the wallet you used to connect this Web3Market account and return to this page.';
       };
+      list.appendChild(b);
+      // In a mobile Trust Wallet browser, a generic provider can be exposed
+      // only after returning to the DApp. Keep the role/address gate intact
+      // and explicitly reopen Trust Wallet rather than falling back to SafePal.
+
       list.appendChild(b);
       return await new Promise((resolve,reject)=>{ modal._reject=reject; });
     }
