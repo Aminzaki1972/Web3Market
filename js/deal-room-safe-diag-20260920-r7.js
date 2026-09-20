@@ -353,7 +353,7 @@
     if(!wm)throw new Error('Wallet selection engine is unavailable. Please refresh the page.');
     const target=String(canonicalWalletAddress||'').toLowerCase();
     if(!canonicalWalletVerified||!/^0x[a-f0-9]{40}$/.test(target))throw new Error('No verified wallet is linked to this Web3Market account.');
-    const role=String(deal?.buyer_id===currentUser?.id?'buyer':deal?.seller_id===currentUser?.id?'seller':'').toLowerCase();
+    const role=String(participant||'').toLowerCase();
     if(!role)throw new Error('This account is not a buyer or seller participant in this deal.');
     const roleLabel=role==='buyer'?'Buyer':'Seller';
     const modal=document.createElement('div');
