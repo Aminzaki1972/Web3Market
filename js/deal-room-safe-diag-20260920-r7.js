@@ -490,7 +490,8 @@
       await renderReleaseSigning().catch(()=>{});
     }
   };
-  async function renderDelivery(){
+ }
+ async function renderDelivery(){
   if(!deal)return;
   const box=document.querySelector('#deliveryStatus'); if(!box)return;
   const ds=String(deal.delivery_status||'pending').toLowerCase();
