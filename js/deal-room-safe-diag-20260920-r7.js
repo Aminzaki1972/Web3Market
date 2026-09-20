@@ -466,7 +466,7 @@
       if(!prepared?.ok)throw new Error(String(prepared?.error||'Safe transaction preparation failed.'));
       await loadDeal();
       await renderReleaseSigning();
-      const {data:currentTx,error:txError}=await sb.from('deal_safe_transactions').select('*').eq('deal_id',deal.id).maybeSingle();
+      const {data:currentTx,error:txError}=await sb.from('deal_multisig_transactions').select('*').eq('deal_id',deal.id).maybeSingle();
       if(txError)throw txError;
       if(!currentTx)throw new Error('Safe transaction record was not found after preparation.');
       if(Number(currentTx.confirmations_count||0)<2){
