@@ -414,7 +414,13 @@
     // The exact wallet app may not expose its injected provider until the
     // DApp is opened inside that wallet. Use the account-specific route saved
     // at wallet verification time; never guess from a generic wallet name.
-    const routeLabel=linkedRoute||'the wallet linked to this account';
+    // If this exact address has a saved route, use it. For older verified
+    // accounts, migrate the previously recorded provider route to this
+    // address; this is only a launch route, never the wallet identity.
+    const legacyRoute=typeof wm.getLinkedWalletName==='function'
+      ? String(wm.getLinkedWalletName()||'').trim() : '';
+    const launchRoute=linkedRoute||legacyRoute;
+    const routeLabel=launchRoute||'the wallet linked to this account';
     const b=document.createElement('button');
     b.type='button';
     b.className='btn primary';
@@ -423,19 +429,20 @@
     b.onclick=()=>{
       b.disabled=true;
       b.textContent='Opening '+routeLabel+'…';
-      if(linkedRoute){
-        const ok=wm.launch(linkedRoute,notice);
+      if(launchRoute){
+        if(!linkedRoute && typeof wm.saveWalletRoute==='function'){
+          wm.saveWalletRoute(canonicalWalletAddress,launchRoute);
+        }
+        const ok=wm.launch(launchRoute,notice);
         if(!ok){
           b.disabled=false;
           b.textContent='Open '+routeLabel;
-          notice.textContent='Please open the wallet app linked to this account and try again.';
+          notice.textContent='Please open the wallet app linked to this account and return to the Deal Room.';
         }
       }else{
-        // No stored app label exists for this address. Do not silently choose
-        // another wallet. Require the user to open the wallet that owns it.
         b.disabled=false;
         b.textContent='Open linked wallet';
-        notice.textContent='No wallet app route is stored for this verified address. Reconnect this account from its wallet app once to register the route.';
+        notice.textContent='No wallet app route is registered for this account. Connect and verify this account from its wallet app once, then return here.';
       }
     };
     list.appendChild(b);
