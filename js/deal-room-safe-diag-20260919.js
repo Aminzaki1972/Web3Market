@@ -321,8 +321,11 @@
    return;
   }
   const paid=Boolean(deal.payment_tx_hash)||String(deal.payment_status||'').toLowerCase()==='confirmed';
-  const pay=participant==='buyer'&&!paid?'<a id="dealPayBtn" class="btn primary" href="deal-checkout.html?deal='+encodeURIComponent(deal.id)+'" style="margin-top:8px">Pay '+esc(deal.expected_amount??deal.amount??0)+' '+esc(deal.token_symbol||'USDT')+'</a>':'';
+  const pay=participant==='buyer'&&!paid?'<a id="dealPayBtn" class="btn primary" href="deal-checkout.html?deal='+encodeURIComponent(deal.id)+'" style="margin-top:8px">Pay '+esc(deal.expected_amount??deal.amount??0)+' '+esc(deal.token_symbol||'USDT')+'</a><div id="paymentVerifyBox" class="wallet-box" style="margin-top:10px"><strong>Already paid?</strong><div class="info" style="margin-top:6px">Copy the BSC transaction hash from your wallet or BscScan, paste it below, then Web3Market will verify the sender, Safe, USDT contract, amount and confirmations automatically.</div><input id="paymentTxHash" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="0x transaction hash" style="width:100%;box-sizing:border-box;margin-top:9px;padding:10px;border:1px solid #dbe1ea;border-radius:10px"><button id="verifyPaymentBtn" class="btn primary" type="button" style="margin-top:8px;width:100%">Verify Payment</button></div>':'';
   box.innerHTML='<div class="safe-panel ok"><strong>Escrow Protection · Safe Verified ✓</strong><br>2-of-3 Multisig · BNB Smart Chain (56)<br>Safe: <code>'+esc(safe)+'</code><br><small>No USDT has been moved during Safe creation.</small><a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:'+encodeURIComponent(safe)+'" target="_blank" rel="noopener noreferrer">Open Safe Queue</a>'+pay+'</div>';
+  const verifyBtn=document.querySelector('#verifyPaymentBtn');
+  const txInput=document.querySelector('#paymentTxHash');
+  if(verifyBtn&&txInput){verifyBtn.onclick=()=>verifySubmittedTx(txInput.value);txInput.addEventListener('keydown',e=>{if(e.key==='Enter')verifySubmittedTx(txInput.value)})}
  }
  async function renderTerms(){
   if(!deal)return;
@@ -338,62 +341,35 @@
  await loadMessages();await renderTerms();
  // Safe deployment is manual-only from the Deal Room button to prevent automatic rerenders from hiding diagnostics or starting repeated deployment attempts.
  if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && deal.safe_address) await renderSafe();
- async function autoDetectPayment(){
-  if(paymentCheckBusy)return false;
-  if(!deal || !['buyer','seller'].includes(participant))return false;
-  const paymentStatus=String(deal.payment_status||'').toLowerCase();
-  const dealStatus=String(deal.status||'').toLowerCase();
-  if(deal.payment_tx_hash||paymentStatus==='confirmed'||dealStatus==='funded')return false;
+ async function verifySubmittedTx(txHash){
+  if(paymentCheckBusy)return;
   paymentCheckBusy=true;
+  const btn=document.querySelector('#verifyPaymentBtn'),input=document.querySelector('#paymentTxHash');
+  if(btn){btn.disabled=true;btn.textContent='Verifying…'}
   try{
+   const hash=String(txHash||'').trim();
+   if(!/^0x[0-9a-fA-F]{64}$/.test(hash))throw new Error('Enter a valid BSC transaction hash (0x + 64 hex characters).');
    const sessionResult=await sb.auth.getSession();
    const session=sessionResult?.data?.session;
-   if(!session?.access_token){setStatus('Waiting for authenticated session…','warn');return false}
-   setStatus('Checking blockchain payment automatically…');
+   if(!session?.access_token)throw new Error('Your session expired. Please sign in again.');
+   setStatus('Verifying payment on BSC…');
    const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/verify-deal-payment',{
-    method:'POST',
-    headers:{
-     'Content-Type':'application/json',
-     'apikey':'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI',
-     'Authorization':'Bearer '+session.access_token
-    },
-    body:JSON.stringify({deal_id:deal.id})
+    method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI','Authorization':'Bearer '+session.access_token},
+    body:JSON.stringify({deal_id:deal.id,tx_hash:hash})
    });
    const result=await response.json().catch(()=>({}));
    if(response.ok&&result.ok){
-    await loadDeal();
-    await renderTerms();
-    if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed'&&deal.safe_address)await renderSafe();
-    setStatus('Payment verified on-chain ✓','ok');
+    await loadDeal(); await renderTerms(); if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed'&&deal.safe_address)await renderSafe();
+    setStatus('Payment verified and confirmed ✓');
     return true;
    }
-   const msg=String(result?.error||('Automatic verification HTTP '+response.status));
-   const detail=[];
-   if(result?.detail)detail.push(String(result.detail));
-   if(result?.scanned_from_block&&result?.scanned_to_block)detail.push('blocks '+result.scanned_from_block+' → '+result.scanned_to_block);
-   if(result?.scan_step)detail.push('scan step '+result.scan_step);
-   if(result?.log_rpc)detail.push('log provider available');
-   setStatus(msg+(detail.length?' — '+detail.join(' · '):''),'warn');
-   console.warn('Automatic payment verification:',result);
-  }catch(e){
-   console.warn('Automatic payment verification exception',e);
-   setStatus('Automatic payment check failed. Retrying…','warn');
-  }finally{
-   paymentCheckBusy=false;
-  }
-  return false;
+   const msg=String(result?.error||('Verification HTTP '+response.status));
+   setStatus(msg,'warn');
+   console.warn('Submitted payment verification:',result);
+   return false;
+  }catch(e){setStatus(String(e?.message||e),'warn');return false}
+  finally{paymentCheckBusy=false;if(btn){btn.disabled=false;btn.textContent='Verify Payment'}}
  }
- let paymentPollTimer=null;
- let paymentCheckBusy=false;
- const startAutomaticPaymentMonitor=()=>{
-  if(!['buyer','seller'].includes(participant)||paymentPollTimer)return;
-  autoDetectPayment();
-  paymentPollTimer=setInterval(async()=>{
-   if(disposed){clearInterval(paymentPollTimer);paymentPollTimer=null;return}
-   await autoDetectPayment();
-  },15000);
- };
- startAutomaticPaymentMonitor();
  const form=document.querySelector('#chatForm');
  if(form&&participant!=='platform')form.addEventListener('submit',async e=>{e.preventDefault();const input=document.querySelector('#messageInput'),message=input?.value.trim();if(!message)return;const btn=form.querySelector('button');btn.disabled=true;const {error}=await sb.from('deal_messages').insert({deal_id:deal.id,sender_id:user.id,message});btn.disabled=false;if(error){alert(error.message||'Unable to send message.');return}input.value='';await loadMessages()});
  channel=sb.channel('deal-room-'+deal.id)
