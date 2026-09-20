@@ -7,8 +7,9 @@
   var AUTH_TOKEN = SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token";
   var STORAGE_KEY = "web3market-auth";
   var CHAIN_HEX = "0x38";
-  var VERSION = "ROLE-LINKED-PROVIDER-20260920-2";
+  var VERSION = "ROLE-ACCOUNT-WALLET-20260920-3";
   var LINKED_PROVIDER_KEY = "web3market-linked-wallet-provider";
+  var LINKED_ROUTE_PREFIX = "web3market-wallet-route:";
 
   function esc(v) {
     return String(v == null ? "" : v).replace(/[&<>\"']/g, function (m) {
@@ -131,6 +132,9 @@
     return announced;
   }
   function getLinkedWalletName() { try { return localStorage.getItem(LINKED_PROVIDER_KEY) || ""; } catch (_) { return ""; } }
+  function routeKey(address) { return LINKED_ROUTE_PREFIX + String(address || "").toLowerCase(); }
+  function getLinkedWalletForAddress(address) { try { return localStorage.getItem(routeKey(address)) || ""; } catch (_) { return ""; } }
+  function saveWalletRoute(address, walletName) { try { if (/^0x[a-fA-F0-9]{40}$/.test(String(address || "")) && walletName) localStorage.setItem(routeKey(address), String(walletName)); } catch (_) {} }
   function switchBSC(provider) {
     return provider.request({method:"wallet_switchEthereumChain",params:[{chainId:CHAIN_HEX}]}).catch(function (e) {
       if (!e || e.code !== 4902) throw e;
@@ -215,6 +219,7 @@
               if (!r.ok || !data || !data.ok || !data.verified) throw new Error((data && (data.error || data.message)) || ("Wallet verification failed (" + r.status + ")."));
               notice("Wallet ownership verified and saved ✓");
               try { localStorage.setItem(LINKED_PROVIDER_KEY, String(walletName || "")); } catch (_) {}
+              saveWalletRoute(address, walletName);
               return {address:address,user:auth.user,walletName:walletName,verified:true,data:data};
             });
           });
@@ -286,6 +291,8 @@
     listWallets: listWallets,
     getDetected: getDetected,
     getLinkedWalletName: getLinkedWalletName,
+    getLinkedWalletForAddress: getLinkedWalletForAddress,
+    saveWalletRoute: saveWalletRoute,
     refreshWalletProviders: refreshWalletProviders,
     launch: launch,
     short: short,
