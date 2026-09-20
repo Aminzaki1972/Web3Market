@@ -329,6 +329,28 @@
   const txInput=document.querySelector('#paymentTxHash');
   if(verifyBtn&&txInput){verifyBtn.onclick=()=>verifySubmittedTx(txInput.value);txInput.addEventListener('keydown',e=>{if(e.key==='Enter')verifySubmittedTx(txInput.value)})}
  }
+ async function renderDelivery(){
+  if(!deal)return;
+  const box=document.querySelector('#deliveryStatus'); if(!box)return;
+  const ds=String(deal.delivery_status||'pending').toLowerCase();
+  const submitted=ds==='submitted'||ds==='accepted';
+  const accepted=ds==='accepted'||Boolean(deal.buyer_approved_at);
+  const data=deal.delivery_data&&typeof deal.delivery_data==='object'?deal.delivery_data:{};
+  const title=esc(data.title||data.description||'Delivery package');
+  const url=String(data.url||data.delivery_url||'').trim();
+  let html='<div class="wallet-box"><strong>Delivery</strong><div class="info" style="margin-top:6px">Status: <strong>'+esc(ds.replace(/[_-]+/g,' '))+'</strong></div>';
+  if(submitted) html+='<div class="info" style="margin-top:6px"><strong>'+title+'</strong>'+(url?' — <a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Open delivery</a>':'')+'</div>';
+  if(participant==='seller'&&!accepted) html+='<button id="submitDeliveryBtn" class="btn primary" type="button">Submit Delivery</button>';
+  if(participant==='buyer'&&submitted&&!accepted) html+='<button id="confirmDeliveryBtn" class="btn primary" type="button">Confirm Delivery</button><div class="info" style="margin-top:6px">This confirms delivery only. No USDT is released by this action.</div>';
+  if(accepted) html+='<div class="notice" style="margin-top:8px;background:#f0fdf4;color:#166534">✓ Delivery accepted by buyer. Settlement can now be prepared.</div><button id="prepareReleaseBtn" class="btn primary" type="button">Prepare Safe Release</button><div id="releasePrepStatus" class="info" style="margin-top:6px">Preparing the settlement policy does not move funds.</div>';
+  html+='</div>'; box.innerHTML=html;
+  const submit=document.querySelector('#submitDeliveryBtn');
+  if(submit) submit.onclick=async()=>{ submit.disabled=true; submit.textContent='Submitting…'; const description=prompt('Describe what you delivered'); if(!description){submit.disabled=false;submit.textContent='Submit Delivery';return} const deliveryUrl=prompt('Optional delivery URL (leave blank if not needed)')||''; const {data,error}=await sb.rpc('submit_deal_delivery',{p_deal_id:deal.id,p_delivery_data:{title:'Delivery package',description,url:deliveryUrl}}); if(error){alert(error.message||'Could not submit delivery');submit.disabled=false;submit.textContent='Submit Delivery';return} deal=data||deal; await loadDeal(); await renderDelivery(); await renderTerms(); };
+  const confirm=document.querySelector('#confirmDeliveryBtn');
+  if(confirm) confirm.onclick=async()=>{ if(!window.confirm('Confirm that you received and accepted the seller delivery?'))return; confirm.disabled=true; confirm.textContent='Confirming…'; const {data,error}=await sb.rpc('confirm_deal_delivery',{p_deal_id:deal.id}); if(error){alert(error.message||'Could not confirm delivery');confirm.disabled=false;confirm.textContent='Confirm Delivery';return} deal=data||deal; await loadDeal(); await renderDelivery(); await renderTerms(); };
+  const prep=document.querySelector('#prepareReleaseBtn');
+  if(prep) prep.onclick=async()=>{ prep.disabled=true; prep.textContent='Preparing…'; const {data,error}=await sb.functions.invoke('prepare-deal-release',{body:{deal_id:deal.id}}); const out=document.querySelector('#releasePrepStatus'); if(error||!data?.ok){if(out)out.textContent='Release preparation failed: '+String(error?.message||data?.error||'Unknown error');prep.disabled=false;prep.textContent='Prepare Safe Release';return} if(out)out.textContent='✓ Release policy locked and ready. No funds moved; 2-of-3 Safe signatures are still required.'; prep.textContent='Release Prepared ✓'; };
+ }
  async function renderTerms(){
   if(!deal)return;
   const rows=await loadAgreement(),mine=rows.find(x=>x.party_role===participant&&String(x.party_id)===String(user.id)),buyer=rows.find(x=>x.party_role==='buyer')?.agreed_at,seller=rows.find(x=>x.party_role==='seller')?.agreed_at,actions=document.querySelector('#actions');
@@ -340,7 +362,7 @@
   if(db)db.onclick=async()=>{const reason=prompt('Describe the dispute');if(!reason)return;const {error}=await sb.from('deal_disputes').insert({deal_id:deal.id,opened_by:user.id,reason,status:'open'});if(error)alert(error.message||'Could not open dispute');else alert('Dispute opened for Web3Market review.')};
  }
  renderDealWalletState();
- await loadMessages();await renderTerms();
+ await loadMessages();await renderTerms();await renderDelivery();
  // Safe deployment is manual-only from the Deal Room button to prevent automatic rerenders from hiding diagnostics or starting repeated deployment attempts.
  if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && deal.safe_address) await renderSafe();
  async function verifySubmittedTx(txHash){
@@ -361,7 +383,7 @@
    });
    const result=await response.json().catch(()=>({}));
    if(response.ok&&result.ok){
-    await loadDeal(); await renderTerms(); if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed'&&deal.safe_address)await renderSafe();
+    await loadDeal(); await renderTerms(); await renderDelivery(); if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed'&&deal.safe_address)await renderSafe();
     setStatus('Payment verified and confirmed ✓');
     return true;
    }
@@ -376,7 +398,7 @@
  if(form&&participant!=='platform')form.addEventListener('submit',async e=>{e.preventDefault();const input=document.querySelector('#messageInput'),message=input?.value.trim();if(!message)return;const btn=form.querySelector('button');btn.disabled=true;const {error}=await sb.from('deal_messages').insert({deal_id:deal.id,sender_id:user.id,message});btn.disabled=false;if(error){alert(error.message||'Unable to send message.');return}input.value='';await loadMessages()});
  channel=sb.channel('deal-room-'+deal.id)
   .on('postgres_changes',{event:'INSERT',schema:'public',table:'deal_messages',filter:'deal_id=eq.'+deal.id},loadMessages)
-  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'deals',filter:'id=eq.'+deal.id},async()=>{if(disposed)return;if(await loadDeal()){await renderTerms();if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && deal.safe_address)await renderSafe()}})
+  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'deals',filter:'id=eq.'+deal.id},async()=>{if(disposed)return;if(await loadDeal()){await renderTerms();await renderDelivery();if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && deal.safe_address)await renderSafe()}})
   .subscribe();
  window.addEventListener('beforeunload',()=>{disposed=true;if(channel)sb.removeChannel(channel)});
 })();
