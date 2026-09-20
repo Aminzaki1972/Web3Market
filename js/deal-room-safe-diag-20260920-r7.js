@@ -489,7 +489,9 @@
   if(submitted) html+='<div class="info" style="margin-top:6px"><strong>'+title+'</strong>'+(url?' — <a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Open delivery</a>':'')+'</div>';
   if(participant==='seller'&&!accepted) html+='<button id="submitDeliveryBtn" class="btn primary" type="button">Submit Delivery</button>';
   if(participant==='buyer'&&submitted&&!accepted) html+='<button id="confirmDeliveryBtn" class="btn primary" type="button">Confirm Delivery</button><div class="info" style="margin-top:6px">This confirms delivery only. No USDT is released by this action.</div>';
-  if(accepted) html+='<div class="notice" style="margin-top:8px;background:#f0fdf4;color:#166534">✓ Delivery accepted by buyer. Settlement can now be prepared.</div><button id="prepareReleaseBtn" class="btn primary" type="button">Prepare Safe Release</button><div id="releasePrepStatus" class="info" style="margin-top:6px">Preparing the settlement policy does not move funds.</div>';
+  const {data:releaseTx} = await sb.from('deal_multisig_transactions').select('status,confirmations_count,safe_tx_hash').eq('deal_id',deal.id).eq('action','release_to_seller').maybeSingle();
+  const releaseReady=String(releaseTx?.status||'').toLowerCase()==='signed' && Number(releaseTx?.confirmations_count||0)>=2 && /^0x[a-fA-F0-9]{64}$/.test(String(releaseTx?.safe_tx_hash||''));
+  if(accepted) html+='<div class="notice" style="margin-top:8px;background:#f0fdf4;color:#166534">✓ Delivery accepted by buyer. '+(releaseReady?'The Safe release is already signed 2/2 and is ready for execution.':'Settlement can now be prepared.')+'</div>'+(releaseReady?'':'<button id="prepareReleaseBtn" class="btn primary" type="button">Prepare Safe Release</button><div id="releasePrepStatus" class="info" style="margin-top:6px">Preparing the settlement policy does not move funds.</div>');
   html+='</div>'; box.innerHTML=html;
   const submit=document.querySelector('#submitDeliveryBtn');
   if(submit) submit.onclick=async()=>{ submit.disabled=true; submit.textContent='Submitting…'; const description=prompt('Describe what you delivered'); if(!description){submit.disabled=false;submit.textContent='Submit Delivery';return} const deliveryUrl=prompt('Optional delivery URL (leave blank if not needed)')||''; const {data,error}=await sb.rpc('submit_deal_delivery',{p_deal_id:deal.id,p_delivery_data:{title:'Delivery package',description,url:deliveryUrl}}); if(error){alert(error.message||'Could not submit delivery');submit.disabled=false;submit.textContent='Submit Delivery';return} deal=data||deal; await loadDeal(); await renderDelivery(); await renderTerms(); };
@@ -533,6 +535,9 @@
     prep.disabled=false; prep.textContent='Prepare Safe Release';
    }
   };
+  // Always render the release panel after delivery because renderDelivery replaces #deliveryStatus.
+  // This keeps an already-signed 2/2 Safe transaction visible after realtime deal updates.
+  await renderReleaseSigning();
  }
  async function renderTerms(){
   if(!deal)return;
