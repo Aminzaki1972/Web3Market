@@ -220,6 +220,24 @@
               notice("Wallet ownership verified and saved ✓");
               try { localStorage.setItem(LINKED_PROVIDER_KEY, String(walletName || "")); } catch (_) {}
               saveWalletRoute(address, walletName);
+              // Persist the provider/launch route against the authenticated
+              // profile as well as localStorage. The address remains the
+              // authoritative identity; provider is only a transport route.
+              try {
+                var client = window.Web3MarketSupabase && (
+                  (typeof window.Web3MarketSupabase.getClient === "function" && window.Web3MarketSupabase.getClient()) ||
+                  window.Web3MarketSupabase.client || window.Web3MarketSupabase.supabase
+                );
+                if (client && client.from) {
+                  await client.from("profiles").update({
+                    wallet_provider:String(walletName || ""),
+                    wallet_route:String(walletName || ""),
+                    updated_at:new Date().toISOString()
+                  }).eq("id",auth.user.id).eq("wallet_address",address);
+                }
+              } catch (persistError) {
+                console.warn("Wallet provider route persistence skipped", persistError);
+              }
               return {address:address,user:auth.user,walletName:walletName,verified:true,data:data};
             });
           });
