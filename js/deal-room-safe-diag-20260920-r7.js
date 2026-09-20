@@ -462,7 +462,12 @@
           signal:controller.signal
         });
         const raw=await response.text(); let data={}; try{data=raw?JSON.parse(raw):{};}catch(_){}
-        if(!response.ok)throw new Error(String(data?.error||data?.message||('HTTP '+response.status)));
+        if(!response.ok){
+          const detail=String(data?.detail||data?.reason||data?.message||'');
+          const revert=String(data?.revert_data||data?.revertData||'');
+          const extra=[detail?('Detail: '+detail):'',revert?('Revert: '+revert):'',data?.executor_bnb!=null?('Executor BNB: '+data.executor_bnb):'',data?.required_bnb!=null?('Required BNB: '+data.required_bnb):''].filter(Boolean).join(' | ');
+          throw new Error(String(data?.error||data?.message||('HTTP '+response.status))+(extra?' — '+extra:''));
+        }
         executed=data;
       }finally{clearTimeout(timer)}
       if(!executed?.ok)throw new Error(String(executed?.error||'Safe execution failed.'));
