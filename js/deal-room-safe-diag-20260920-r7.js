@@ -346,7 +346,7 @@
     if(!signedByMe) panel+='<button id="signSafeReleaseBtn" class="btn primary" type="button">Sign Safe Release</button><div class="info" style="margin-top:6px">This is an EIP-712 Safe transaction signature. It does not move funds.</div>';
     else panel+='<div class="notice" style="margin-top:8px">Your signature is recorded. Waiting for the second Safe owner.</div>';
   }else{
-    panel+='<button id="executeSafeReleaseBtn" class="btn primary" type="button">Execute Safe Release</button><div class="info" style="margin-top:6px">Execution is the only step that can move the USDT. Your wallet will show the transaction and gas cost.</div>';
+    panel+='<button id="executeSafeReleaseBtn" class="btn primary" type="button">Execute Safe Release</button><div class="info" style="margin-top:6px">Execution is the only step that can move the USDT. Your account authorizes the release request; the platform Executor submits the BSC transaction and pays the gas. No Executor account or wallet connection is required in your Deal Room.</div>';
   }
   panel+='</div>';
   const old=document.querySelector('#safeReleasePanel'); if(old)old.outerHTML=panel; else box.insertAdjacentHTML('beforeend',panel);
