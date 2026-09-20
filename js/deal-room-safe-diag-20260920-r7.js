@@ -365,6 +365,9 @@
     const close=()=>modal.remove();
     modal.querySelector('#safeReleaseWalletClose').onclick=close;
     modal.addEventListener('click',e=>{if(e.target===modal)close()});
+    if(typeof wm.refreshWalletProviders==="function"){
+      try{ await wm.refreshWalletProviders(); }catch(_){}
+    }
     const detected=wm.listWallets();
     const candidates=detected.filter(row=>row.provider);
     const linkedName=typeof wm.getLinkedWalletName==='function' ? String(wm.getLinkedWalletName()||'').trim() : '';
