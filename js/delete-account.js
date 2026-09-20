@@ -2,11 +2,32 @@
 (function(){
   const SUPABASE_URL="https://hzhqlexnhtukfljcvnyd.supabase.co";
   const FUNCTION_URL=SUPABASE_URL+"/functions/v1/delete-account";
-  const esc=v=>String(v??"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
   let inserted=false;
 
   function getClient(){
     return window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase||null;
+  }
+
+  async function logoutAccount(){
+    const btn=document.getElementById("logoutAccountBtn");
+    const msg=document.getElementById("logoutAccountMsg");
+    if(!btn)return;
+    const sb=getClient();
+    btn.disabled=true;
+    btn.style.opacity=".65";
+    if(msg)msg.textContent="Signing out…";
+    try{
+      if(sb?.auth)await sb.auth.signOut();
+      try{localStorage.removeItem("web3market-auth")}catch(e){}
+      try{sessionStorage.clear()}catch(e){}
+      if(msg)msg.textContent="Signed out. Redirecting…";
+      setTimeout(()=>location.href="index.html",250);
+    }catch(e){
+      console.error("Logout:",e);
+      btn.disabled=false;
+      btn.style.opacity="1";
+      if(msg)msg.textContent="Could not sign out. Please try again.";
+    }
   }
 
   function mount(){
@@ -14,11 +35,20 @@
     if(!root||inserted)return;
     if(!root.innerHTML||/Loading seller dashboard|Loading Buyer Center/i.test(root.textContent||""))return;
     inserted=true;
+
+    const logoutBox=document.createElement("section");
+    logoutBox.id="logoutAccountPanel";
+    logoutBox.style.cssText="margin:24px 0 12px;padding:16px 18px;border:1px solid #e5e7eb;border-radius:14px;background:#fff;color:#334155";
+    logoutBox.innerHTML='<div style="font-weight:900;font-size:14px;margin-bottom:5px">Sign out of Web3Market</div><div style="font-size:12px;line-height:1.6;color:#64748b">Sign out of your current account on this device. Your account and data will remain unchanged.</div><button id="logoutAccountBtn" type="button" style="margin-top:12px;padding:10px 14px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155;font-weight:800;cursor:pointer">Log Out</button><div id="logoutAccountMsg" style="margin-top:9px;font-size:12px;font-weight:700"></div>';
+
     const box=document.createElement("section");
     box.id="deleteAccountPanel";
-    box.style.cssText="margin:24px 0;padding:18px;border:1px solid #fecaca;border-radius:14px;background:#fff7f7;color:#7f1d1d";
+    box.style.cssText="margin:0 0 24px;padding:18px;border:1px solid #fecaca;border-radius:14px;background:#fff7f7;color:#7f1d1d";
     box.innerHTML='<div style="font-weight:900;font-size:14px;margin-bottom:5px">Delete your Web3Market account</div><div style="font-size:12px;line-height:1.6;color:#991b1b">This permanently removes your login and profile. Projects owned by you will be removed when they are not linked to a deal. Accounts with deal history are protected and must be closed through support.</div><button id="deleteAccountBtn" type="button" style="margin-top:12px;padding:10px 14px;border:0;border-radius:9px;background:#dc2626;color:#fff;font-weight:800;cursor:pointer">Delete My Account</button><div id="deleteAccountMsg" style="margin-top:9px;font-size:12px;font-weight:700"></div>';
+
+    root.appendChild(logoutBox);
     root.appendChild(box);
+    document.getElementById("logoutAccountBtn").addEventListener("click",logoutAccount);
     document.getElementById("deleteAccountBtn").addEventListener("click",deleteAccount);
   }
 
