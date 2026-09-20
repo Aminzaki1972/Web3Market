@@ -122,6 +122,14 @@
     return rows.map(function (x) { x.detected = !!x.provider; return x; });
   }
   function getDetected(name) { return findByName(name); }
+  async function refreshWalletProviders() {
+    var announced = [];
+    function onAnnounce(event) { var detail = event && event.detail; if (detail && detail.provider && announced.indexOf(detail.provider) === -1) announced.push(detail.provider); }
+    try { window.addEventListener("eip6963:announceProvider", onAnnounce); window.dispatchEvent(new Event("eip6963:requestProvider")); await new Promise(function(resolve){ setTimeout(resolve, 350); }); }
+    finally { window.removeEventListener("eip6963:announceProvider", onAnnounce); }
+    announced.forEach(function(provider){ var info = provider && provider._web3marketEip6963Info; if (info && ((info.rdns && /trust/i.test(info.rdns)) || (info.name && /trust wallet/i.test(info.name)))) provider.isTrust = true; });
+    return announced;
+  }
   function getLinkedWalletName() { try { return localStorage.getItem(LINKED_PROVIDER_KEY) || ""; } catch (_) { return ""; } }
   function switchBSC(provider) {
     return provider.request({method:"wallet_switchEthereumChain",params:[{chainId:CHAIN_HEX}]}).catch(function (e) {
@@ -278,6 +286,7 @@
     listWallets: listWallets,
     getDetected: getDetected,
     getLinkedWalletName: getLinkedWalletName,
+    refreshWalletProviders: refreshWalletProviders,
     launch: launch,
     short: short,
     esc: esc,
