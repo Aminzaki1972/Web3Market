@@ -470,7 +470,12 @@
         }
         executed=data;
       }finally{clearTimeout(timer)}
-      if(!executed?.ok)throw new Error(String(executed?.error||'Safe execution failed.'));
+      if(!executed?.ok){
+        const detail=String(executed?.detail||executed?.reason||executed?.message||'');
+        const revert=String(executed?.revert_data||executed?.revertData||'');
+        const extra=[detail?('Detail: '+detail):'',revert?('Revert: '+revert):'',executed?.executor_bnb!=null?('Executor BNB: '+executed.executor_bnb):'',executed?.required_bnb!=null?('Required BNB: '+executed.required_bnb):''].filter(Boolean).join(' | ');
+        throw new Error(String(executed?.error||executed?.message||'Safe execution failed.')+(extra?' — '+extra:''));
+      }
       const txHash=String(executed.tx_hash||executed.transaction_hash||'');
       if(!/^0x[a-fA-F0-9]{64}$/.test(txHash))throw new Error('Execution succeeded without a valid transaction hash.');
       exec.textContent='Verifying settlement…';
