@@ -552,7 +552,7 @@
   if(db)db.onclick=async()=>{const reason=prompt('Describe the dispute');if(!reason)return;const {error}=await sb.from('deal_disputes').insert({deal_id:deal.id,opened_by:user.id,reason,status:'open'});if(error)alert(error.message||'Could not open dispute');else alert('Dispute opened for Web3Market review.')};
  }
  renderDealWalletState();
- await loadMessages();
+ try{await Promise.race([loadMessages(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Messages query timed out; continuing Deal Room render')),5000))])}catch(e){console.warn('loadMessages skipped/timeout',e)}
  try{await renderTerms()}catch(e){console.error('renderTerms failed',e)}
  try{await renderDelivery()}catch(e){console.error('renderDelivery failed',e)}
  try{await renderReleaseSigning()}catch(e){console.error('renderReleaseSigning failed',e)}
