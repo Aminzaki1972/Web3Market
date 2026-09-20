@@ -7,7 +7,8 @@
   var AUTH_TOKEN = SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token";
   var STORAGE_KEY = "web3market-auth";
   var CHAIN_HEX = "0x38";
-  var VERSION = "REST-AUTH-20260918-9";
+  var VERSION = "ROLE-LINKED-PROVIDER-20260920-1";
+  var LINKED_PROVIDER_KEY = "web3market-linked-wallet-provider";
 
   function esc(v) {
     return String(v == null ? "" : v).replace(/[&<>\"']/g, function (m) {
@@ -105,6 +106,7 @@
     ].map(function (x) { x.detected = !!x.provider; return x; });
   }
   function getDetected(name) { return findByName(name); }
+  function getLinkedWalletName() { try { return localStorage.getItem(LINKED_PROVIDER_KEY) || ""; } catch (_) { return ""; } }
   function switchBSC(provider) {
     return provider.request({method:"wallet_switchEthereumChain",params:[{chainId:CHAIN_HEX}]}).catch(function (e) {
       if (!e || e.code !== 4902) throw e;
@@ -188,6 +190,7 @@
             return r.json().catch(function () { return null; }).then(function (data) {
               if (!r.ok || !data || !data.ok || !data.verified) throw new Error((data && (data.error || data.message)) || ("Wallet verification failed (" + r.status + ")."));
               notice("Wallet ownership verified and saved ✓");
+              try { localStorage.setItem(LINKED_PROVIDER_KEY, String(walletName || "")); } catch (_) {}
               return {address:address,user:auth.user,walletName:walletName,verified:true,data:data};
             });
           });
@@ -218,6 +221,7 @@
     connectAndVerify: connectAndVerify,
     listWallets: listWallets,
     getDetected: getDetected,
+    getLinkedWalletName: getLinkedWalletName,
     launch: launch,
     short: short,
     esc: esc,
