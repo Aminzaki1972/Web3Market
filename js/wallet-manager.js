@@ -199,9 +199,49 @@
     });
   }
   function launch(name, notice) {
-    var n = String(name || "").toLowerCase();
+    var requested = String(name || "").trim();
+    var n = requested.toLowerCase();
     var mobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
-    if (!mobile) { if (notice) notice("Open " + name + " in this browser, then connect again."); return false; }
+    if (!mobile) { if (notice) notice("Open " + requested + " in this browser, then connect again."); return false; }
+    var linked = getLinkedWalletName();
+    // The old Deal Room passed "SafePal" as a hard-coded fallback. Do not
+    // silently redirect users to SafePal: if the linked provider is known,
+    // open that provider; otherwise show a one-time wallet chooser and
+    // remember the user's selection for future role-based signing.
+    if (n === "safepal" && linked && linked.toLowerCase() !== "safepal") {
+      return launch(linked, notice);
+    }
+    if (n === "safepal" && !linked) {
+      var choices = [
+        ["Trust Wallet","https://link.trustwallet.com/open_url?coin_id=20000714&url="],
+        ["MetaMask","https://metamask.app.link/dapp/"],
+        ["OKX Wallet","okx://wallet/dapp/details?dappUrl="],
+        ["SafePal","safepalwallet://dapp?url="],
+        ["Coinbase Wallet","https://go.cb-w.com/dapp?cb_url="],
+        ["Binance Wallet","bnc://app.binance.com/cedefi/dapp?url="]
+      ];
+      var modal=document.createElement("div");
+      modal.style.cssText="position:fixed;inset:0;background:rgba(15,23,42,.78);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20000";
+      var card=document.createElement("div");
+      card.style.cssText="background:#fff;color:#111827;border-radius:16px;max-width:420px;width:100%;padding:18px";
+      card.innerHTML="<strong>Select the wallet linked to your Web3Market account</strong><div style='font-size:12px;color:#64748b;margin:8px 0 12px'>The wallet address will still be checked before signing.</div>";
+      choices.forEach(function(item){
+        var b=document.createElement("button");
+        b.type="button"; b.className="btn"; b.style.cssText="display:block;width:100%;margin-top:8px;background:#f8fafc;color:#111827;border:1px solid #dbe4ef;text-align:left";
+        b.textContent=item[0];
+        b.onclick=function(){
+          try{localStorage.setItem(LINKED_PROVIDER_KEY,item[0]);}catch(_){}
+          var prefix=item[1];
+          var u=prefix+(item[0]==="Trust Wallet" ? encodeURIComponent(location.href) : item[0]==="MetaMask" ? location.host+location.pathname : encodeURIComponent(location.href));
+          location.href=u;
+        };
+        card.appendChild(b);
+      });
+      var close=document.createElement("button"); close.type="button"; close.className="btn"; close.style.cssText="display:block;width:100%;margin-top:12px;background:#fff;color:#374151;border:1px solid #dbe4ef"; close.textContent="Cancel"; close.onclick=function(){modal.remove();};
+      card.appendChild(close); modal.appendChild(card); document.body.appendChild(modal);
+      if(notice) notice("Select the wallet linked to this account.");
+      return true;
+    }
     var urls = {
       "metamask":"https://metamask.app.link/dapp/" + location.host + location.pathname,
       "trust wallet":"https://link.trustwallet.com/open_url?coin_id=20000714&url=" + encodeURIComponent(location.href),
