@@ -331,10 +331,12 @@
  }
  async function renderReleaseSigning(){
   if(!deal)return;
-  const box=document.querySelector('#deliveryStatus'); if(!box)return;
-  const {data:tx}=await sb.from('deal_multisig_transactions').select('*').eq('deal_id',deal.id).eq('action','release_to_seller').maybeSingle();
-  if(!tx?.safe_tx_hash)return;
-  const {data:sigs}=await sb.from('deal_multisig_signers').select('wallet_address,signature_status,signed_at,signature').eq('deal_id',deal.id).eq('safe_tx_hash',tx.safe_tx_hash).eq('signature_status','signed');
+  const box=document.querySelector('#safeReleaseStatus'); if(!box)return;
+  const {data:tx,error:txError}=await sb.from('deal_multisig_transactions').select('*').eq('deal_id',deal.id).eq('action','release_to_seller').maybeSingle();
+  if(txError){box.innerHTML='<div class="wallet-box" style="background:#fff7ed;border-color:#fed7aa;color:#9a3412"><strong>Safe Release status error</strong><div class="info" style="margin-top:6px">'+esc(String(txError.message||txError))+'</div></div>';return;}
+  if(!tx?.safe_tx_hash){box.innerHTML='<div class="wallet-box"><strong>Safe Release</strong><div class="info" style="margin-top:6px">No prepared Safe transaction is currently available.</div></div>';return;}
+  const {data:sigs,error:sigError}=await sb.from('deal_multisig_signers').select('wallet_address,signature_status,signed_at,signature').eq('deal_id',deal.id).eq('safe_tx_hash',tx.safe_tx_hash).eq('signature_status','signed');
+  if(sigError){box.innerHTML='<div class="wallet-box" style="background:#fff7ed;border-color:#fed7aa;color:#9a3412"><strong>Safe signatures status error</strong><div class="info" style="margin-top:6px">'+esc(String(sigError.message||sigError))+'</div></div>';return;}
   const count=(sigs||[]).length;
   const esc2=v=>esc(v);
   let panel='<div class="wallet-box" id="safeReleasePanel"><strong>Safe Release</strong><div class="info" style="margin-top:6px">Atomic settlement: <strong>9.25 USDT → Seller</strong> + <strong>0.75 USDT → Web3Market</strong>.</div><div class="info" style="margin-top:6px">Safe transaction hash: <code style="word-break:break-all">'+esc2(tx.safe_tx_hash)+'</code></div><div class="info" style="margin-top:6px">Confirmations: <strong>'+count+' / 2</strong></div>';
@@ -550,7 +552,10 @@
   if(db)db.onclick=async()=>{const reason=prompt('Describe the dispute');if(!reason)return;const {error}=await sb.from('deal_disputes').insert({deal_id:deal.id,opened_by:user.id,reason,status:'open'});if(error)alert(error.message||'Could not open dispute');else alert('Dispute opened for Web3Market review.')};
  }
  renderDealWalletState();
- await loadMessages();await renderTerms();await renderDelivery();await renderReleaseSigning();
+ await loadMessages();
+ try{await renderTerms()}catch(e){console.error('renderTerms failed',e)}
+ try{await renderDelivery()}catch(e){console.error('renderDelivery failed',e)}
+ try{await renderReleaseSigning()}catch(e){console.error('renderReleaseSigning failed',e)}
  // Safe deployment is manual-only from the Deal Room button to prevent automatic rerenders from hiding diagnostics or starting repeated deployment attempts.
  if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && deal.safe_address) await renderSafe();
  async function verifySubmittedTx(txHash){
