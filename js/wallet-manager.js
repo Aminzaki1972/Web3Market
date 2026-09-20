@@ -96,14 +96,25 @@
   }
   function listWallets() {
     var d = detect();
-    return [
+    var linked = getLinkedWalletName();
+    var rows = [
       {name:"MetaMask",provider:d.metamask,icon:"https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg"},
       {name:"Trust Wallet",provider:d.trust,icon:"https://trustwallet.com/assets/images/media/assets/TWT.png"},
       {name:"OKX Wallet",provider:d.okx},
       {name:"SafePal",provider:d.safepal},
       {name:"Coinbase Wallet",provider:d.coinbase},
       {name:"Binance Wallet",provider:d.binance}
-    ].map(function (x) { x.detected = !!x.provider; return x; });
+    ];
+    // SafePal must never be preferred merely because its provider exists.
+    // Keep it in the list only when it is the wallet recorded for this account.
+    if(linked && linked.toLowerCase()!=="safepal"){
+      rows=rows.filter(function(x){ return String(x.name).toLowerCase()!=="safepal"; });
+    } else if(!linked && d.trust){
+      // If Trust Wallet is the detected provider and no provider metadata has
+      // been saved yet, do not allow the legacy SafePal fallback to win.
+      rows=rows.filter(function(x){ return String(x.name).toLowerCase()!=="safepal"; });
+    }
+    return rows.map(function (x) { x.detected = !!x.provider; return x; });
   }
   function getDetected(name) { return findByName(name); }
   function getLinkedWalletName() { try { return localStorage.getItem(LINKED_PROVIDER_KEY) || ""; } catch (_) { return ""; } }
