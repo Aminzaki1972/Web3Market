@@ -436,47 +436,33 @@
   };
   const exec=document.querySelector('#executeSafeReleaseBtn');
   if(exec)exec.onclick=async()=>{
-    if(!confirm('Refresh the Safe transaction and execute the verified 2-of-3 release? If the stored transaction is stale, it will be rebuilt and old signatures will be invalidated. No USDT moves during preparation.'))return;
-    exec.disabled=true;exec.textContent='Refreshing Safe transaction…';
+    if(!confirm('Execute the already-signed Safe release? 2/2 signatures are already recorded. No new signatures will be requested and no preparation/rebuild will occur.'))return;
+    exec.disabled=true;exec.textContent='Checking 2/2 signatures…';
     try{
       const sessionResult=await sb.auth.getSession();
       const session=sessionResult?.data?.session;
       if(!session?.access_token)throw new Error('Session expired. Please sign in again.');
-      const callDirect=async(fn,body)=>{
-        const controller=new AbortController();
-        const timer=setTimeout(()=>controller.abort(),15000);
-        try{
-          const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/'+fn,{
-            method:'POST',
-            headers:{
-              'Content-Type':'application/json',
-              'apikey':'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI',
-              'Authorization':'Bearer '+session.access_token
-            },
-            body:JSON.stringify(body),
-            signal:controller.signal
-          });
-          const raw=await response.text(); let data={};
-          try{data=raw?JSON.parse(raw):{};}catch(_){}
-          if(!response.ok)throw new Error(String(data?.error||data?.message||('HTTP '+response.status)));
-          return data;
-        }finally{clearTimeout(timer)}
-      };
-      const prepared=await callDirect('prepare-safe-release-tx',{deal_id:deal.id});
-      if(!prepared?.ok)throw new Error(String(prepared?.error||'Safe transaction preparation failed.'));
-      await loadDeal();
-      await renderReleaseSigning();
-      const {data:currentTx,error:txError}=await sb.from('deal_multisig_transactions').select('*').eq('deal_id',deal.id).maybeSingle();
-      if(txError)throw txError;
-      if(!currentTx)throw new Error('Safe transaction record was not found after preparation.');
-      if(Number(currentTx.confirmations_count||0)<2){
-        await renderReleaseSigning();
-        throw new Error(prepared.already_prepared
-          ? 'Two valid Safe signatures are required before execution.'
-          : 'The Safe transaction was rebuilt. The previous signatures were invalidated; two new signatures are required before execution.');
-      }
+      const currentResult=await sb.from('deal_multisig_transactions').select('*').eq('deal_id',deal.id).eq('action','release_to_seller').maybeSingle();
+      if(currentResult.error)throw currentResult.error;
+      const currentTx=currentResult.data;
+      if(!currentTx?.safe_tx_hash)throw new Error('Signed Safe transaction not found.');
+      const {data:sigs,error:sigError}=await sb.from('deal_multisig_signers').select('wallet_address,signature,signature_status').eq('deal_id',deal.id).eq('safe_tx_hash',currentTx.safe_tx_hash).eq('signature_status','signed');
+      if(sigError)throw sigError;
+      if((sigs||[]).length<2)throw new Error('Two valid Safe signatures are required.');
       exec.textContent='Executing Safe release…';
-      const executed=await callDirect('execute-safe-release',{deal_id:deal.id,mode:'execute'});
+      const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),30000);
+      let executed;
+      try{
+        const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/execute-safe-release',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','apikey':'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI','Authorization':'Bearer '+session.access_token},
+          body:JSON.stringify({deal_id:deal.id,mode:'execute'}),
+          signal:controller.signal
+        });
+        const raw=await response.text(); let data={}; try{data=raw?JSON.parse(raw):{};}catch(_){}
+        if(!response.ok)throw new Error(String(data?.error||data?.message||('HTTP '+response.status)));
+        executed=data;
+      }finally{clearTimeout(timer)}
       if(!executed?.ok)throw new Error(String(executed?.error||'Safe execution failed.'));
       const txHash=String(executed.tx_hash||executed.transaction_hash||'');
       if(!/^0x[a-fA-F0-9]{64}$/.test(txHash))throw new Error('Execution succeeded without a valid transaction hash.');
@@ -490,7 +476,6 @@
       await renderReleaseSigning().catch(()=>{});
     }
   };
- }
  async function renderDelivery(){
   if(!deal)return;
   const box=document.querySelector('#deliveryStatus'); if(!box)return;
