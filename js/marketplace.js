@@ -784,12 +784,10 @@
             );
 
 
-        const title =
-            escapeHTML(
-                project.title ||
-                project.name ||
-                "Untitled Web3 Project"
-            );
+        const rawTitle = String(project.title || project.name || "Untitled Web3 Project");
+        const title = escapeHTML(rawTitle);
+        const sold = String(project.id || "").toLowerCase() === "f4547d2a-073d-483a-9842-4f575c7be4fb" || rawTitle.trim().toLowerCase() === "web3jobs";
+        const soldBadge = sold ? '<span class="wm-sold-badge" aria-label="Sold">مباع</span>' : "";
 
 
         const description =
@@ -884,8 +882,8 @@
                 }
 
 
-                <h3>
-                    ${title}
+                <h3 class="wm-project-title">
+                    ${title} ${soldBadge}
                 </h3>
 
 
@@ -951,6 +949,14 @@
         `;
     }
 
+
+    /* Sold-project presentation */
+    if (!document.getElementById("wm-sold-project-style")) {
+        const soldStyle = document.createElement("style");
+        soldStyle.id = "wm-sold-project-style";
+        soldStyle.textContent = ".wm-project-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.wm-sold-badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:7px;background:#16a34a;color:#fff;font-size:11px;font-weight:900;line-height:1;white-space:nowrap;box-shadow:0 2px 7px rgba(22,163,74,.18)}";
+        document.head.appendChild(soldStyle);
+    }
 
     /* =====================================================
        PRICE
