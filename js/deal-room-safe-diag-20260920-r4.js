@@ -348,16 +348,63 @@
   }
   panel+='</div>';
   const old=document.querySelector('#safeReleasePanel'); if(old)old.outerHTML=panel; else box.insertAdjacentHTML('beforeend',panel);
+  const selectSigningProvider=async()=>{
+    const wm=window.Web3MarketWalletManager;
+    if(!wm)throw new Error('Wallet selection engine is unavailable. Please refresh the page.');
+    const target=String(canonicalWalletAddress||'').toLowerCase();
+    if(!canonicalWalletVerified||!/^0x[a-f0-9]{40}$/.test(target))throw new Error('No verified wallet is linked to this Web3Market account.');
+    const detected=wm.listWallets();
+    const modal=document.createElement('div');
+    modal.id='safeReleaseWalletModal';
+    modal.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;padding:20px;z-index:10000';
+    modal.innerHTML='<div style="background:#fff;border-radius:16px;max-width:430px;width:100%;padding:18px"><div style="display:flex;justify-content:space-between;align-items:center"><strong>Select the wallet linked to this deal</strong><button id="safeReleaseWalletClose" type="button" class="btn">×</button></div><div class="info" style="margin-top:8px">Linked wallet: <code style="word-break:break-all">'+esc(canonicalWalletAddress)+'</code></div><div id="safeReleaseWalletList" style="display:grid;gap:8px;margin-top:14px"></div><div id="safeReleaseWalletNotice" class="info" style="margin-top:10px">Choose the wallet that contains the linked address. A free EIP-712 signature will be requested next.</div></div>';
+    document.body.appendChild(modal);
+    const list=modal.querySelector('#safeReleaseWalletList'),notice=modal.querySelector('#safeReleaseWalletNotice');
+    const close=()=>modal.remove();
+    modal.querySelector('#safeReleaseWalletClose').onclick=close;
+    modal.addEventListener('click',e=>{if(e.target===modal)close()});
+    return await new Promise((resolve,reject)=>{
+      let settled=false;
+      const finish=(fn,v)=>{if(settled)return;settled=true;close();fn(v)};
+      detected.forEach(row=>{
+        const b=document.createElement('button');b.type='button';b.className='btn';b.style.cssText='width:100%;background:#f8fafc;color:#111827;border:1px solid #dbe4ef;text-align:left';
+        b.innerHTML='<strong>'+wm.esc(row.name)+'</strong><br><small>'+ (row.detected?'Detected on this device':'Open wallet app / browser')+'</small>';
+        b.onclick=async()=>{
+          try{
+            if(!row.provider){
+              notice.textContent='Opening '+row.name+'…';
+              wm.launch(row.name,notice);
+              return;
+            }
+            notice.textContent='Connecting to '+row.name+'…';
+            const accounts=await row.provider.request({method:'eth_requestAccounts'});
+            const connected=String(accounts?.[0]||'').toLowerCase();
+            if(connected!==target){
+              throw new Error('This wallet is connected to a different address. Please select the wallet/account linked to this deal.');
+            }
+            try{await row.provider.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});}
+            catch(e){
+              if(e?.code===4902)await row.provider.request({method:'wallet_addEthereumChain',params:[{chainId:'0x38',chainName:'BNB Smart Chain',nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},rpcUrls:['https://bsc-dataseed.binance.org'],blockExplorerUrls:['https://bscscan.com']}]});
+              else throw new Error('Please switch the selected wallet to BNB Smart Chain (56).');
+            }
+            finish(resolve,row.provider);
+          }catch(e){notice.textContent=e?.message||'Could not connect this wallet.';}
+        };
+        list.appendChild(b);
+      });
+    });
+  };
   const sign=document.querySelector('#signSafeReleaseBtn');
   if(sign) sign.onclick=async()=>{
-    sign.disabled=true;sign.textContent='Waiting for wallet signature…';
+    sign.disabled=true;sign.textContent='Selecting linked wallet…';
     try{
-      if(!window.ethereum)throw new Error('Web3 wallet provider not found.');
-      const provider=new ethers.BrowserProvider(window.ethereum);
+      const selectedProvider=await selectSigningProvider();
+      sign.textContent='Waiting for wallet signature…';
+      const provider=new ethers.BrowserProvider(selectedProvider);
       const network=await provider.getNetwork();
-      if(Number(network.chainId)!==56)try{await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});}catch(e){throw new Error('Please switch your wallet to BNB Smart Chain (56).')}
+      if(Number(network.chainId)!==56)throw new Error('Please switch the selected wallet to BNB Smart Chain (56).');
       const signer=await provider.getSigner(),address=await signer.getAddress();
-      if(!canonicalWalletVerified||String(address).toLowerCase()!==String(canonicalWalletAddress).toLowerCase())throw new Error('Connect the verified Web3Market wallet for this account.');
+      if(!canonicalWalletVerified||String(address).toLowerCase()!==String(canonicalWalletAddress).toLowerCase())throw new Error('The selected wallet is not the wallet linked to this deal.');
       const types={SafeTx:[
        {name:'to',type:'address'},{name:'value',type:'uint256'},{name:'data',type:'bytes'},{name:'operation',type:'uint8'},
        {name:'safeTxGas',type:'uint256'},{name:'baseGas',type:'uint256'},{name:'gasPrice',type:'uint256'},
