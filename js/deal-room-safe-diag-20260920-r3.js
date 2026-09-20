@@ -429,7 +429,35 @@
   const confirm=document.querySelector('#confirmDeliveryBtn');
   if(confirm) confirm.onclick=async()=>{ if(!window.confirm('Confirm that you received and accepted the seller delivery?'))return; confirm.disabled=true; confirm.textContent='Confirming…'; const {data,error}=await sb.rpc('confirm_deal_delivery',{p_deal_id:deal.id}); if(error){alert(error.message||'Could not confirm delivery');confirm.disabled=false;confirm.textContent='Confirm Delivery';return} deal=data||deal; await loadDeal(); await renderDelivery(); await renderTerms(); };
   const prep=document.querySelector('#prepareReleaseBtn');
-  if(prep) prep.onclick=async()=>{ prep.disabled=true; prep.textContent='Preparing…'; const first=await sb.functions.invoke('prepare-deal-release',{body:{deal_id:deal.id}}); const out=document.querySelector('#releasePrepStatus'); if(first.error||!first.data?.ok){if(out)out.textContent='Release preparation failed: '+String(first.error?.message||first.data?.error||'Unknown error');prep.disabled=false;prep.textContent='Prepare Safe Release';return} const second=await sb.functions.invoke('prepare-safe-release-tx',{body:{deal_id:deal.id}}); if(second.error||!second.data?.ok){if(out)out.textContent='Safe transaction preparation failed: '+String(second.error?.message||second.data?.error||'Unknown error');prep.disabled=false;prep.textContent='Prepare Safe Release';return} if(out)out.textContent='✓ Safe transaction prepared. No funds moved. 2 signatures are required.'; prep.textContent='Release Prepared ✓'; await renderReleaseSigning(); };
+  if(prep) prep.onclick=async()=>{ 
+   prep.disabled=true; prep.textContent='Preparing…'; 
+   const out=document.querySelector('#releasePrepStatus');
+   const callDirect=async(fn,body)=>{
+    const sessionResult=await sb.auth.getSession(); const session=sessionResult?.data?.session;
+    if(!session?.access_token) throw new Error('Session expired. Please sign in again.');
+    const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),15000);
+    try{
+     const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/'+fn,{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI','Authorization':'Bearer '+session.access_token},body:JSON.stringify(body),signal:controller.signal});
+     const raw=await response.text(); let data={}; try{data=raw?JSON.parse(raw):{};}catch(_){}
+     if(!response.ok) throw new Error(String(data?.error||data?.message||('HTTP '+response.status)));
+     return data;
+    }finally{clearTimeout(timer)}
+   };
+   try{
+    if(out)out.textContent='Preparing release policy…';
+    const first=await callDirect('prepare-deal-release',{deal_id:deal.id});
+    if(!first?.ok)throw new Error(String(first?.error||'Release policy preparation failed'));
+    if(out)out.textContent='Preparing shared Safe transaction…';
+    const second=await callDirect('prepare-safe-release-tx',{deal_id:deal.id});
+    if(!second?.ok)throw new Error(String(second?.error||'Safe transaction preparation failed'));
+    if(out)out.textContent=second.already_prepared?'✓ Safe transaction already prepared. No funds moved.':'✓ Safe transaction prepared. No funds moved. 2 signatures are required.';
+    prep.textContent='Release Prepared ✓'; await renderReleaseSigning();
+   }catch(e){
+    console.error('Prepare Safe Release failed',e);
+    if(out)out.textContent='Preparation failed: '+String(e?.message||e);
+    prep.disabled=false; prep.textContent='Prepare Safe Release';
+   }
+  };
  }
  async function renderTerms(){
   if(!deal)return;
