@@ -329,6 +329,86 @@
   const txInput=document.querySelector('#paymentTxHash');
   if(verifyBtn&&txInput){verifyBtn.onclick=()=>verifySubmittedTx(txInput.value);txInput.addEventListener('keydown',e=>{if(e.key==='Enter')verifySubmittedTx(txInput.value)})}
  }
+ async function renderReleaseSigning(){
+  if(!deal)return;
+  const box=document.querySelector('#deliveryStatus'); if(!box)return;
+  const {data:tx}=await sb.from('deal_multisig_transactions').select('*').eq('deal_id',deal.id).eq('action','release_to_seller').maybeSingle();
+  if(!tx?.safe_tx_hash)return;
+  const {data:sigs}=await sb.from('deal_multisig_signers').select('wallet_address,signature_status,signed_at,signature').eq('deal_id',deal.id).eq('safe_tx_hash',tx.safe_tx_hash).eq('signature_status','signed');
+  const count=(sigs||[]).length;
+  const esc2=v=>esc(v);
+  let panel='<div class="wallet-box" id="safeReleasePanel"><strong>Safe Release</strong><div class="info" style="margin-top:6px">Atomic settlement: <strong>9.25 USDT → Seller</strong> + <strong>0.75 USDT → Web3Market</strong>.</div><div class="info" style="margin-top:6px">Safe transaction hash: <code style="word-break:break-all">'+esc2(tx.safe_tx_hash)+'</code></div><div class="info" style="margin-top:6px">Confirmations: <strong>'+count+' / 2</strong></div>';
+  if(sigs?.length) panel+='<div class="info" style="margin-top:6px">'+sigs.map(s=>'✓ '+esc2(s.wallet_address)).join('<br>')+'</div>';
+  if(count<2){
+    const signedByMe=(sigs||[]).some(s=>String(s.wallet_address).toLowerCase()===String(canonicalWalletAddress).toLowerCase());
+    if(!signedByMe) panel+='<button id="signSafeReleaseBtn" class="btn primary" type="button">Sign Safe Release</button><div class="info" style="margin-top:6px">This is an EIP-712 Safe transaction signature. It does not move funds.</div>';
+    else panel+='<div class="notice" style="margin-top:8px">Your signature is recorded. Waiting for the second Safe owner.</div>';
+  }else{
+    panel+='<button id="executeSafeReleaseBtn" class="btn primary" type="button">Execute Safe Release</button><div class="info" style="margin-top:6px">Execution is the only step that can move the USDT. Your wallet will show the transaction and gas cost.</div>';
+  }
+  panel+='</div>';
+  const old=document.querySelector('#safeReleasePanel'); if(old)old.outerHTML=panel; else box.insertAdjacentHTML('beforeend',panel);
+  const sign=document.querySelector('#signSafeReleaseBtn');
+  if(sign) sign.onclick=async()=>{
+    sign.disabled=true;sign.textContent='Waiting for wallet signature…';
+    try{
+      if(!window.ethereum)throw new Error('Web3 wallet provider not found.');
+      const provider=new ethers.BrowserProvider(window.ethereum);
+      const network=await provider.getNetwork();
+      if(Number(network.chainId)!==56)try{await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});}catch(e){throw new Error('Please switch your wallet to BNB Smart Chain (56).')}
+      const signer=await provider.getSigner(),address=await signer.getAddress();
+      if(!canonicalWalletVerified||String(address).toLowerCase()!==String(canonicalWalletAddress).toLowerCase())throw new Error('Connect the verified Web3Market wallet for this account.');
+      const types={SafeTx:[
+       {name:'to',type:'address'},{name:'value',type:'uint256'},{name:'data',type:'bytes'},{name:'operation',type:'uint8'},
+       {name:'safeTxGas',type:'uint256'},{name:'baseGas',type:'uint256'},{name:'gasPrice',type:'uint256'},
+       {name:'gasToken',type:'address'},{name:'refundReceiver',type:'address'},{name:'nonce',type:'uint256'}]};
+      const domain={chainId:56,verifyingContract:ethers.getAddress(tx.safe_address)};
+      const message={to:ethers.getAddress(tx.to_address),value:String(tx.value_wei),data:tx.data,operation:Number(tx.operation),safeTxGas:String(tx.safe_tx_gas),baseGas:String(tx.base_gas),gasPrice:String(tx.gas_price),gasToken:ethers.getAddress(tx.gas_token||ethers.ZeroAddress),refundReceiver:ethers.getAddress(tx.refund_receiver||ethers.ZeroAddress),nonce:Number(tx.safe_nonce)};
+      const digest=ethers.TypedDataEncoder.hash(domain,types,message);
+      if(digest.toLowerCase()!==String(tx.safe_tx_hash).toLowerCase())throw new Error('Safe transaction hash changed. Refresh before signing.');
+      const signature=await signer.signTypedData(domain,types,message);
+      const {data:out,error}=await sb.functions.invoke('record-safe-release-signature',{body:{deal_id:deal.id,signature}});
+      if(error||!out?.ok)throw new Error(error?.message||out?.error||'Signature could not be recorded.');
+      await loadDeal(); await renderDelivery(); await renderReleaseSigning();
+    }catch(e){alert(String(e?.message||e));sign.disabled=false;sign.textContent='Sign Safe Release'}
+  };
+  const exec=document.querySelector('#executeSafeReleaseBtn');
+  if(exec)exec.onclick=async()=>{
+    if(!confirm('Execute the verified 2-of-3 Safe release now? This will transfer 9.25 USDT to the seller and 0.75 USDT to Web3Market.'))return;
+    exec.disabled=true;exec.textContent='Checking Safe…';
+    try{
+      if(!window.ethereum)throw new Error('Web3 wallet provider not found.');
+      const provider=new ethers.BrowserProvider(window.ethereum);
+      const network=await provider.getNetwork();if(Number(network.chainId)!==56)throw new Error('Switch wallet to BNB Smart Chain (56).');
+      const signer=await provider.getSigner(),executor=await signer.getAddress();
+      const safeAbi=['function getOwners() view returns(address[])','function getThreshold() view returns(uint256)','function nonce() view returns(uint256)','function getTransactionHash(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,uint256) view returns(bytes32)','function execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes) payable returns(bool)'];
+      const safe=new ethers.Contract(ethers.getAddress(tx.safe_address),safeAbi,signer);
+      const owners=await safe.getOwners(),threshold=Number(await safe.getThreshold()),nonce=Number(await safe.nonce());
+      if(threshold!==2||nonce!==Number(tx.safe_nonce))throw new Error('Safe threshold/nonce changed. Release is blocked until refreshed.');
+      const ownerSet=owners.map(a=>String(a).toLowerCase());
+      if(!ownerSet.includes(executor.toLowerCase()))throw new Error('The connected wallet is not a Safe owner.');
+      const typed={chainId:56,verifyingContract:ethers.getAddress(tx.safe_address)};
+      const t={SafeTx:[{name:'to',type:'address'},{name:'value',type:'uint256'},{name:'data',type:'bytes'},{name:'operation',type:'uint8'},{name:'safeTxGas',type:'uint256'},{name:'baseGas',type:'uint256'},{name:'gasPrice',type:'uint256'},{name:'gasToken',type:'address'},{name:'refundReceiver',type:'address'},{name:'nonce',type:'uint256'}]};
+      const m={to:ethers.getAddress(tx.to_address),value:String(tx.value_wei),data:tx.data,operation:Number(tx.operation),safeTxGas:String(tx.safe_tx_gas),baseGas:String(tx.base_gas),gasPrice:String(tx.gas_price),gasToken:ethers.getAddress(tx.gas_token||ethers.ZeroAddress),refundReceiver:ethers.getAddress(tx.refund_receiver||ethers.ZeroAddress),nonce:Number(tx.safe_nonce)};
+      const hash=await safe.getTransactionHash(m.to,m.value,m.data,m.operation,m.safeTxGas,m.baseGas,m.gasPrice,m.gasToken,m.refundReceiver,m.nonce);
+      if(String(hash).toLowerCase()!==String(tx.safe_tx_hash).toLowerCase())throw new Error('Safe transaction hash mismatch. Execution blocked.');
+      const {data:signed}=await sb.from('deal_multisig_signers').select('wallet_address,signature').eq('deal_id',deal.id).eq('safe_tx_hash',tx.safe_tx_hash).eq('signature_status','signed');
+      if(!signed||signed.length<2)throw new Error('Two signatures are required.');
+      const packed=signed.slice().sort((a,b)=>a.wallet_address.toLowerCase().localeCompare(b.wallet_address.toLowerCase())).map(s=>ethers.Signature.from(s.signature).serialized.slice(2)).join('');
+      const signatures='0x'+packed;
+      exec.textContent='Checking gas…';
+      await safe.execTransaction.estimateGas(m.to,m.value,m.data,m.operation,m.safeTxGas,m.baseGas,m.gasPrice,m.gasToken,m.refundReceiver,signatures);
+      exec.textContent='Confirm execution in wallet…';
+      const sent=await safe.execTransaction(m.to,m.value,m.data,m.operation,m.safeTxGas,m.baseGas,m.gasPrice,m.gasToken,m.refundReceiver,signatures);
+      const receipt=await sent.wait();
+      if(!receipt||receipt.status!==1)throw new Error('Safe execution failed on-chain.');
+      exec.textContent='Verifying settlement…';
+      const {data:finalized,error:fe}=await sb.functions.invoke('finalize-safe-release',{body:{deal_id:deal.id,tx_hash:receipt.hash}});
+      if(fe||!finalized?.ok)throw new Error(fe?.message||finalized?.error||'On-chain settlement verification failed.');
+      await loadDeal();await renderDelivery();await renderReleaseSigning();
+    }catch(e){alert(String(e?.message||e));exec.disabled=false;exec.textContent='Execute Safe Release'}
+  };
+ }
  async function renderDelivery(){
   if(!deal)return;
   const box=document.querySelector('#deliveryStatus'); if(!box)return;
@@ -349,7 +429,7 @@
   const confirm=document.querySelector('#confirmDeliveryBtn');
   if(confirm) confirm.onclick=async()=>{ if(!window.confirm('Confirm that you received and accepted the seller delivery?'))return; confirm.disabled=true; confirm.textContent='Confirming…'; const {data,error}=await sb.rpc('confirm_deal_delivery',{p_deal_id:deal.id}); if(error){alert(error.message||'Could not confirm delivery');confirm.disabled=false;confirm.textContent='Confirm Delivery';return} deal=data||deal; await loadDeal(); await renderDelivery(); await renderTerms(); };
   const prep=document.querySelector('#prepareReleaseBtn');
-  if(prep) prep.onclick=async()=>{ prep.disabled=true; prep.textContent='Preparing…'; const {data,error}=await sb.functions.invoke('prepare-deal-release',{body:{deal_id:deal.id}}); const out=document.querySelector('#releasePrepStatus'); if(error||!data?.ok){if(out)out.textContent='Release preparation failed: '+String(error?.message||data?.error||'Unknown error');prep.disabled=false;prep.textContent='Prepare Safe Release';return} if(out)out.textContent='✓ Release policy locked and ready. No funds moved; 2-of-3 Safe signatures are still required.'; prep.textContent='Release Prepared ✓'; };
+  if(prep) prep.onclick=async()=>{ prep.disabled=true; prep.textContent='Preparing…'; const first=await sb.functions.invoke('prepare-deal-release',{body:{deal_id:deal.id}}); const out=document.querySelector('#releasePrepStatus'); if(first.error||!first.data?.ok){if(out)out.textContent='Release preparation failed: '+String(first.error?.message||first.data?.error||'Unknown error');prep.disabled=false;prep.textContent='Prepare Safe Release';return} const second=await sb.functions.invoke('prepare-safe-release-tx',{body:{deal_id:deal.id}}); if(second.error||!second.data?.ok){if(out)out.textContent='Safe transaction preparation failed: '+String(second.error?.message||second.data?.error||'Unknown error');prep.disabled=false;prep.textContent='Prepare Safe Release';return} if(out)out.textContent='✓ Safe transaction prepared. No funds moved. 2 signatures are required.'; prep.textContent='Release Prepared ✓'; await renderReleaseSigning(); };
  }
  async function renderTerms(){
   if(!deal)return;
@@ -362,7 +442,7 @@
   if(db)db.onclick=async()=>{const reason=prompt('Describe the dispute');if(!reason)return;const {error}=await sb.from('deal_disputes').insert({deal_id:deal.id,opened_by:user.id,reason,status:'open'});if(error)alert(error.message||'Could not open dispute');else alert('Dispute opened for Web3Market review.')};
  }
  renderDealWalletState();
- await loadMessages();await renderTerms();await renderDelivery();
+ await loadMessages();await renderTerms();await renderDelivery();await renderReleaseSigning();
  // Safe deployment is manual-only from the Deal Room button to prevent automatic rerenders from hiding diagnostics or starting repeated deployment attempts.
  if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && deal.safe_address) await renderSafe();
  async function verifySubmittedTx(txHash){
