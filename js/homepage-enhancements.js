@@ -24,24 +24,6 @@
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',polish,{once:true});else polish();setTimeout(polish,900);setTimeout(polish,2200);
 })();
 
-/* Live marketplace bootstrap — independent of the removed homepage counters. */
-(function(){
-  'use strict';
-  function load(){
-    if(!document.querySelector('.listingGrid')||document.getElementById('wm-live-marketplace-bootstrap'))return;
-    var s=document.createElement('script');
-    s.id='wm-live-marketplace-bootstrap';
-    s.src='/js/real-marketplace.js?v=20260911-2';
-    s.async=true;
-    s.onload=function(){console.log('Web3Market live marketplace loaded')};
-    s.onerror=function(){console.warn('Web3Market live marketplace unavailable')};
-    (document.head||document.body||document.documentElement).appendChild(s);
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
-  window.addEventListener('load',load,{once:true});
-  setTimeout(load,1500);
-})();
-
 /* Logo background visibility fix — use the supplied Web3Market artwork as a real background layer.
    This intentionally overrides the old negative-z-index pseudo-element implementation. */
 (function(){
