@@ -436,42 +436,61 @@
   };
   const exec=document.querySelector('#executeSafeReleaseBtn');
   if(exec)exec.onclick=async()=>{
-    if(!confirm('Execute the verified 2-of-3 Safe release now? This will transfer 9.25 USDT to the seller and 0.75 USDT to Web3Market.'))return;
-    exec.disabled=true;exec.textContent='Checking Safe…';
+    if(!confirm('Refresh the Safe transaction and execute the verified 2-of-3 release? If the stored transaction is stale, it will be rebuilt and old signatures will be invalidated. No USDT moves during preparation.'))return;
+    exec.disabled=true;exec.textContent='Refreshing Safe transaction…';
     try{
-      if(!window.ethereum)throw new Error('Web3 wallet provider not found.');
-      const provider=new ethers.BrowserProvider(window.ethereum);
-      const network=await provider.getNetwork();if(Number(network.chainId)!==56)throw new Error('Switch wallet to BNB Smart Chain (56).');
-      const signer=await provider.getSigner(),executor=await signer.getAddress();
-      const safeAbi=['function getOwners() view returns(address[])','function getThreshold() view returns(uint256)','function nonce() view returns(uint256)','function getTransactionHash(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,uint256) view returns(bytes32)','function execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes) payable returns(bool)'];
-      const safe=new ethers.Contract(ethers.getAddress(tx.safe_address),safeAbi,signer);
-      const owners=await safe.getOwners(),threshold=Number(await safe.getThreshold()),nonce=Number(await safe.nonce());
-      if(threshold!==2||nonce!==Number(tx.safe_nonce))throw new Error('Safe threshold/nonce changed. Release is blocked until refreshed.');
-      const ownerSet=owners.map(a=>String(a).toLowerCase());
-      if(!ownerSet.includes(executor.toLowerCase()))throw new Error('The connected wallet is not a Safe owner.');
-      const typed={chainId:56,verifyingContract:ethers.getAddress(tx.safe_address)};
-      const t={SafeTx:[{name:'to',type:'address'},{name:'value',type:'uint256'},{name:'data',type:'bytes'},{name:'operation',type:'uint8'},{name:'safeTxGas',type:'uint256'},{name:'baseGas',type:'uint256'},{name:'gasPrice',type:'uint256'},{name:'gasToken',type:'address'},{name:'refundReceiver',type:'address'},{name:'nonce',type:'uint256'}]};
-      const m={to:ethers.getAddress(tx.to_address),value:String(tx.value_wei),data:tx.data,operation:Number(tx.operation),safeTxGas:String(tx.safe_tx_gas),baseGas:String(tx.base_gas),gasPrice:String(tx.gas_price),gasToken:ethers.getAddress(tx.gas_token||ethers.ZeroAddress),refundReceiver:ethers.getAddress(tx.refund_receiver||ethers.ZeroAddress),nonce:Number(tx.safe_nonce)};
-      const hash=await safe.getTransactionHash(m.to,m.value,m.data,m.operation,m.safeTxGas,m.baseGas,m.gasPrice,m.gasToken,m.refundReceiver,m.nonce);
-      if(String(hash).toLowerCase()!==String(tx.safe_tx_hash).toLowerCase())throw new Error('Safe transaction hash mismatch. Execution blocked.');
-      const {data:signed}=await sb.from('deal_multisig_signers').select('wallet_address,signature').eq('deal_id',deal.id).eq('safe_tx_hash',tx.safe_tx_hash).eq('signature_status','signed');
-      if(!signed||signed.length<2)throw new Error('Two signatures are required.');
-      const packed=signed.slice().sort((a,b)=>a.wallet_address.toLowerCase().localeCompare(b.wallet_address.toLowerCase())).map(s=>ethers.Signature.from(s.signature).serialized.slice(2)).join('');
-      const signatures='0x'+packed;
-      exec.textContent='Checking gas…';
-      await safe.execTransaction.estimateGas(m.to,m.value,m.data,m.operation,m.safeTxGas,m.baseGas,m.gasPrice,m.gasToken,m.refundReceiver,signatures);
-      exec.textContent='Confirm execution in wallet…';
-      const sent=await safe.execTransaction(m.to,m.value,m.data,m.operation,m.safeTxGas,m.baseGas,m.gasPrice,m.gasToken,m.refundReceiver,signatures);
-      const receipt=await sent.wait();
-      if(!receipt||receipt.status!==1)throw new Error('Safe execution failed on-chain.');
+      const sessionResult=await sb.auth.getSession();
+      const session=sessionResult?.data?.session;
+      if(!session?.access_token)throw new Error('Session expired. Please sign in again.');
+      const callDirect=async(fn,body)=>{
+        const controller=new AbortController();
+        const timer=setTimeout(()=>controller.abort(),15000);
+        try{
+          const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/'+fn,{
+            method:'POST',
+            headers:{
+              'Content-Type':'application/json',
+              'apikey':'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI',
+              'Authorization':'Bearer '+session.access_token
+            },
+            body:JSON.stringify(body),
+            signal:controller.signal
+          });
+          const raw=await response.text(); let data={};
+          try{data=raw?JSON.parse(raw):{};}catch(_){}
+          if(!response.ok)throw new Error(String(data?.error||data?.message||('HTTP '+response.status)));
+          return data;
+        }finally{clearTimeout(timer)}
+      };
+      const prepared=await callDirect('prepare-safe-release-tx',{deal_id:deal.id});
+      if(!prepared?.ok)throw new Error(String(prepared?.error||'Safe transaction preparation failed.'));
+      await loadDeal();
+      await renderReleaseSigning();
+      const {data:currentTx,error:txError}=await sb.from('deal_safe_transactions').select('*').eq('deal_id',deal.id).maybeSingle();
+      if(txError)throw txError;
+      if(!currentTx)throw new Error('Safe transaction record was not found after preparation.');
+      if(Number(currentTx.confirmations_count||0)<2){
+        await renderReleaseSigning();
+        throw new Error(prepared.already_prepared
+          ? 'Two valid Safe signatures are required before execution.'
+          : 'The Safe transaction was rebuilt. The previous signatures were invalidated; two new signatures are required before execution.');
+      }
+      exec.textContent='Executing Safe release…';
+      const executed=await callDirect('execute-safe-release',{deal_id:deal.id,mode:'execute'});
+      if(!executed?.ok)throw new Error(String(executed?.error||'Safe execution failed.'));
+      const txHash=String(executed.tx_hash||executed.transaction_hash||'');
+      if(!/^0x[a-fA-F0-9]{64}$/.test(txHash))throw new Error('Execution succeeded without a valid transaction hash.');
       exec.textContent='Verifying settlement…';
-      const {data:finalized,error:fe}=await sb.functions.invoke('finalize-safe-release',{body:{deal_id:deal.id,tx_hash:receipt.hash}});
+      const {data:finalized,error:fe}=await sb.functions.invoke('finalize-safe-release',{body:{deal_id:deal.id,tx_hash:txHash}});
       if(fe||!finalized?.ok)throw new Error(fe?.message||finalized?.error||'On-chain settlement verification failed.');
       await loadDeal();await renderDelivery();await renderReleaseSigning();
-    }catch(e){alert(String(e?.message||e));exec.disabled=false;exec.textContent='Execute Safe Release'}
+    }catch(e){
+      alert(String(e?.message||e));
+      exec.disabled=false;exec.textContent='Execute Safe Release';
+      await renderReleaseSigning().catch(()=>{});
+    }
   };
- }
- async function renderDelivery(){
+  async function renderDelivery(){
   if(!deal)return;
   const box=document.querySelector('#deliveryStatus'); if(!box)return;
   const ds=String(deal.delivery_status||'pending').toLowerCase();
