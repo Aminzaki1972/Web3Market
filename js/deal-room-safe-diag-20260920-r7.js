@@ -584,4 +584,6 @@
   .on('postgres_changes',{event:'UPDATE',schema:'public',table:'deals',filter:'id=eq.'+deal.id},async()=>{if(disposed)return;if(await loadDeal()){await renderTerms();await renderDelivery();if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && deal.safe_address)await renderSafe()}})
   .subscribe();
  window.addEventListener('beforeunload',()=>{disposed=true;if(channel)sb.removeChannel(channel)});
+ }
+
 })();
