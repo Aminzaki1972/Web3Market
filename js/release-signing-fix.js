@@ -37,7 +37,7 @@
     const q=await sb.from('deals').select('delivery_status,buyer_approved_at').eq('id',DEAL_ID).maybeSingle();
     if(q.error||!q.data)return;
     const accepted=String(q.data.delivery_status||'').toLowerCase()==='accepted'||Boolean(q.data.buyer_approved_at); if(!accepted)return;
-    const tx=await sb.from('deal_multisig_transactions').select('safe_tx_hash,operation,status,confirmations_count').eq('deal_id',DEAL_ID).eq('action','release_to_seller').maybeSingle();
+    const tx=await sb.from('deal_multisig_transactions').select('safe_tx_hash,safe_address,to_address,value_wei,data,operation,safe_tx_gas,base_gas,gas_price,gas_token,refund_receiver,safe_nonce,status,confirmations_count').eq('deal_id',DEAL_ID).eq('action','release_to_seller').maybeSingle();
     const t=tx.data; box.dataset.releaseFix='1';
     if(t?.safe_tx_hash&&Number(t.operation)===1){
       box.dataset.releaseFix='1';
