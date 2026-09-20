@@ -370,12 +370,11 @@
     }
     const detected=wm.listWallets();
     const candidates=detected.filter(row=>row.provider);
-    const storedLinkedName=typeof wm.getLinkedWalletName==='function' ? String(wm.getLinkedWalletName()||'').trim() : '';
-    // The verified wallet address is authoritative. If the page is running
-    // inside Trust Wallet, Trust is the wallet app for this signing session;
-    // never let stale SafePal metadata override the active Trust provider.
-    const trustBrowser=/trustwallet|trust wallet/i.test(String(navigator.userAgent||'')) || /trustwallet|trust wallet/i.test(String(navigator.vendor||''));
-    const linkedName=trustBrowser ? 'Trust Wallet' : storedLinkedName;
+    // The verified wallet ADDRESS is the only authoritative identity.
+    // Wallet-app names are routing metadata only and must never override it.
+    const linkedRoute=typeof wm.getLinkedWalletForAddress==='function'
+      ? String(wm.getLinkedWalletForAddress(canonicalWalletAddress)||'').trim()
+      : '';
     const matching=[];
     for(const row of candidates){
       try{
@@ -383,23 +382,43 @@
         if(String(accounts?.[0]||'').toLowerCase()===target) matching.push(row);
       }catch(_){}
     }
-    const linkedRows=linkedName ? candidates.filter(row=>String(row.name).toLowerCase()===linkedName.toLowerCase()) : [];
-    const ordered=[...matching,...linkedRows.filter(row=>!matching.includes(row)),...candidates.filter(row=>!matching.includes(row)&&!linkedRows.includes(row))];
-    if(!ordered.length){
-      const b=document.createElement('button'); b.type='button'; b.className='btn'; b.textContent=linkedName ? 'Open '+linkedName : 'Open linked wallet';
-      b.onclick=()=>{
-        if(linkedName) wm.launch(linkedName,notice);
-        else notice.textContent='No wallet provider is detected here. Open the wallet you used to connect this Web3Market account and return to this page.';
-      };
-      list.appendChild(b);
-      // In a mobile Trust Wallet browser, a generic provider can be exposed
-      // only after returning to the DApp. Keep the role/address gate intact
-      // and explicitly reopen Trust Wallet rather than falling back to SafePal.
-
-      list.appendChild(b);
-      return await new Promise((resolve,reject)=>{ modal._reject=reject; });
+    // Only providers that already expose the verified address are eligible.
+    // This prevents SafePal/Trust/MetaMask from being chosen just because
+    // their provider happens to exist on the device.
+    if(matching.length){
+      return await new Promise((resolve,reject)=>{
+        let settled=false;
+        const finish=(fn,v)=>{if(settled)return;settled=true;close();fn(v)};
+        matching.forEach(row=>{
+          const b=document.createElement('button');b.type='button';b.className='btn';b.style.cssText='width:100%;background:#f8fafc;color:#111827;border:1px solid #dbe4ef;text-align:left';
+          b.innerHTML='<strong>'+wm.esc(row.name)+'</strong><br><small>Verified account wallet · '+esc(canonicalWalletAddress)+'</small>';
+          b.onclick=async()=>{
+            try{
+              notice.textContent='Connecting to the wallet that controls the verified account…';
+              const accounts=await row.provider.request({method:'eth_requestAccounts'});
+              const connected=String(accounts?.[0]||'').toLowerCase();
+              if(connected!==target)throw new Error('Wrong wallet account. The connected address does not match the verified account wallet.');
+              try{await row.provider.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});}
+              catch(e){if(e?.code===4902)await row.provider.request({method:'wallet_addEthereumChain',params:[{chainId:'0x38',chainName:'BNB Smart Chain',nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},rpcUrls:['https://bsc-dataseed.binance.org'],blockExplorerUrls:['https://bscscan.com']}]});else throw new Error('Please switch this wallet to BNB Smart Chain (56).');}
+              if(typeof wm.saveWalletRoute==='function')wm.saveWalletRoute(canonicalWalletAddress,row.name);
+              finish(resolve,row.provider);
+            }catch(e){notice.textContent=e?.message||'Wallet connection failed.';}
+          };
+          list.appendChild(b);
+        });
+      });
     }
-    return await new Promise((resolve,reject)=>{
+    // No provider currently exposes the verified address. Do not show a
+    // wallet chooser and do not fall back to SafePal. If a previously
+    // verified app route exists for THIS address, offer only that route.
+    const routeLabel=linkedRoute||'the wallet linked to this account';
+    const b=document.createElement('button'); b.type='button'; b.className='btn'; b.textContent='Open '+routeLabel;
+    b.onclick=()=>{
+      if(linkedRoute) wm.launch(linkedRoute,notice);
+      else notice.textContent='The linked wallet is not open in this browser. Open the wallet app that controls '+canonicalWalletAddress+' and return to this Deal Room. No other wallet can be selected.';
+    };
+    list.appendChild(b);
+    return await new Promise((resolve,reject)=>{ modal._reject=reject; });
       let settled=false;
       const finish=(fn,v)=>{if(settled)return;settled=true;close();fn(v)};
       ordered.forEach(row=>{
