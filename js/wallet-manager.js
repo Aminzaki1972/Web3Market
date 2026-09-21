@@ -213,7 +213,7 @@
             body:JSON.stringify({address:address,message:msg,signature:signature,chain_id:56,purpose:purpose,role:role}),
             signal: controller ? controller.signal : undefined,
             cache:"no-store"
-          }).then(function (r) {
+          }).then(async function (r) {
             if (verifyTimer) clearTimeout(verifyTimer);
             return r.json().catch(function () { return null; }).then(function (data) {
               if (!r.ok || !data || !data.ok || !data.verified) throw new Error((data && (data.error || data.message)) || ("Wallet verification failed (" + r.status + ")."));
