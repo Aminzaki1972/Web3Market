@@ -90,7 +90,24 @@
       if(notice)notice.textContent=e?.message||"Wallet disconnect failed.";
     }
   }
-  function bind(){\n    document.querySelectorAll("#walletBtn,.wallet-card .btn.full").forEach(b=>{\n      if(b.dataset.walletModalBound)return;\n      b.dataset.walletModalBound="1";\n      b.removeAttribute("href");\n      b.setAttribute("type","button");\n      b.disabled=false;\n      b.style.pointerEvents="auto";\n      b.style.cursor="pointer";\n      b.addEventListener("click",e=>{\n        if(e.__wmBuyerHandled)return;\n        e.__wmBuyerHandled=true;\n        e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();\n        if(String(b.textContent||"").trim()==="Disconnect")disconnect();else open();\n      },{capture:true});\n    });\n    if(!document.documentElement.dataset.wmBuyerWalletDelegated){\n      document.documentElement.dataset.wmBuyerWalletDelegated="1";\n      document.addEventListener("click",e=>{\n        const b=e.target?.closest?.("#walletBtn,.wallet-card .btn.full");\n        if(!b||e.__wmBuyerHandled)return;\n        e.__wmBuyerHandled=true;\n        e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();\n        if(String(b.textContent||"").trim()==="Disconnect")disconnect();else open();\n      },true);\n    }\n    refresh()\n  }
+  function bind(){
+    document.querySelectorAll("#walletBtn,.wallet-card .btn.full").forEach(b=>{
+      if(b.dataset.walletModalBound)return;
+      b.dataset.walletModalBound="1";
+      b.removeAttribute("href");
+      b.setAttribute("type","button");
+      b.disabled=false;
+      b.style.pointerEvents="auto";
+      b.style.cursor="pointer";
+      b.onclick=function(e){
+        if(e){e.preventDefault();e.stopPropagation();}
+        if(String(b.textContent||"").trim()==="Disconnect")disconnect();
+        else open();
+        return false;
+      };
+    });
+    refresh();
+  }
   async function boot(){await loadManager();if(!manager())return;bind();new MutationObserver(bind).observe(document.documentElement,{childList:true,subtree:true})}
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 })();
