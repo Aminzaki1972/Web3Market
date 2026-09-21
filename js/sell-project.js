@@ -2,12 +2,13 @@
 (function(){
   const form=document.querySelector('#projectForm');
   if(!form)return;
-  const VERSION='20260918-listing-edit-safe1';
+  const VERSION='20260921-listing-resume-safe2';
   const out=document.querySelector('#formStatus');
   const submitBtn=document.querySelector('#submitReviewBtn');
   const ID_KEY='web3market_project_id';
   const LOCAL_KEY='web3market_sell_project_draft_v2';
   const LEGACY_KEY='web3market_sell_project_draft';
+  const STEP_KEY='web3market_sell_project_step_v1';
   let currentProjectId=new URLSearchParams(window.location.search).get('project')||localStorage.getItem(ID_KEY)||'';
   const URL='https://hzhqlexnhtukfljcvnyd.supabase.co';
   const KEY='sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI';
@@ -43,15 +44,18 @@
     const cleanPayload={};DB.forEach(k=>{const v=clean(p[k],k);if(v!==undefined)cleanPayload[k]=v;});
     return cleanPayload;
   }
-  function local(){try{const p=collect();if(p.title||p.short_description||p.full_description)localStorage.setItem(LOCAL_KEY,JSON.stringify({saved_at:new Date().toISOString(),data:p}));}catch(e){console.warn(e)}}
+  function local(){try{const p=collect();if(p.title||p.short_description||p.full_description)localStorage.setItem(LOCAL_KEY,JSON.stringify({saved_at:new Date().toISOString(),data:p,project_id:currentProjectId||null}));}catch(e){console.warn(e)}}
+  function getGroups(){return [...form.querySelectorAll('details.group')];}
+  function saveStep(){try{const groups=getGroups();const open=groups.findIndex(g=>g.open);if(open>=0)localStorage.setItem(STEP_KEY,JSON.stringify({project_id:currentProjectId||null,index:open,saved_at:new Date().toISOString()}));}catch(e){console.warn(e)}}
+  function restoreStep(){try{const raw=localStorage.getItem(STEP_KEY);if(!raw)return;const st=JSON.parse(raw);if(st.project_id&&currentProjectId&&st.project_id!==currentProjectId)return;const groups=getGroups();if(!groups.length)return;const i=Math.max(0,Math.min(groups.length-1,Number(st.index)||0));groups.forEach((g,n)=>g.open=n===i);groups[i].scrollIntoView({behavior:'auto',block:'start'});}catch(e){console.warn(e)}}
   function fill(p){const fields=['title','project_url','website_url','short_description','full_description','description','project_status','year_created','logo_url','demo_url','app_store_url','documentation_url','facebook_url','twitter_url','x_url','github_url','linkedin_url','instagram_url','telegram_url','discord_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','blockchain','tech_stack','technology_stack','development_stage','target_markets','business_model','competitive_advantage','competitors','market_opportunity','has_revenue','revenue_period','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','sale_type','transfer_terms','reason_for_sale','sale_reason','transfer_period','domain_ownership','domain_verification','github_ownership','business_verification','identity_verification','ownership_declaration','asking_price','price','currency','currency_code','primary_type','buyer_pitch','cover_image_url','video_url','screenshots','negotiable'];fields.forEach(k=>{const e=form.elements.namedItem(k);if(!e||p[k]===undefined||p[k]===null)return;if(e.type==='checkbox')e.checked=!!p[k];else e.value=String(p[k]);});if(Array.isArray(p.target_audience))form.querySelectorAll('input[name="audience"]').forEach(e=>e.checked=p.target_audience.includes(e.value));['project_types','services','audience','assets'].forEach(n=>{const a=Array.isArray(p[n])?p[n]:[];form.querySelectorAll('input[name="'+n+'"]').forEach(e=>e.checked=a.includes(e.value));});}
   async function load(){const x=await wait();if(!x){return local();}const u=await x.auth.getUser();if(u.error||!u.data?.user)return local();let p=null;if(currentProjectId){const r=await x.from('projects').select('*').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();p=r.data||null;}if(!p){const r=await x.from('projects').select('*').eq('owner_id',u.data.user.id).eq('status','draft').order('updated_at',{ascending:false}).limit(1);p=r.data?.[0]||null;}if(p){currentProjectId=p.id;localStorage.setItem(ID_KEY,p.id);fill(p);localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);}else{try{const raw=localStorage.getItem(LOCAL_KEY)||localStorage.getItem(LEGACY_KEY);if(raw)fill(JSON.parse(raw).data)}catch(e){}}}
   async function save(){
     const x=await wait();
-    if(!x){local();if(out)out.textContent='Database unavailable — saved on this device. Engine '+VERSION;return {ok:false,offline:true};}
+    if(!x){local();saveStep();if(out)out.textContent='Database unavailable — saved on this device. Engine '+VERSION;return {ok:false,offline:true};}
     const u=await x.auth.getUser();
-    if(u.error||!u.data?.user){local();if(out)out.textContent='Please sign in. Form saved on this device. Engine '+VERSION;return {ok:false,auth:false};}
-    if(!val('title')||val('short_description').length<20||(val('full_description')||val('description')).length<50){local();if(out)out.textContent='Please complete the required information. Form saved on this device. Engine '+VERSION;return {ok:false,validation:false};}
+    if(u.error||!u.data?.user){local();saveStep();if(out)out.textContent='Please sign in. Form saved on this device. Engine '+VERSION;return {ok:false,auth:false};}
+    if(!val('title')||val('short_description').length<20||(val('full_description')||val('description')).length<50){local();saveStep();if(out)out.textContent='Please complete the required information. Form saved on this device. Engine '+VERSION;return {ok:false,validation:false};}
     const payload=collect();payload.owner_id=u.data.user.id;payload.status='draft';
     if(out)out.textContent='Saving draft… Engine '+VERSION;
     let r;
@@ -91,8 +95,10 @@
     finally{if(submitBtn&&submitBtn.textContent!=='Submitted for AI Review')submitBtn.disabled=false;}
   }
   form.addEventListener('input',()=>{clearTimeout(window.__wmTimer);window.__wmTimer=setTimeout(local,350);});
-  form.addEventListener('change',local);
+  form.addEventListener('change',()=>{local();saveStep();});
+  form.addEventListener('toggle',e=>{if(e.target.matches('details.group')&&e.target.open)saveStep();},true);
   form.addEventListener('submit',e=>{e.preventDefault();save();});
+  window.addEventListener('beforeunload',()=>{local();saveStep();});
   if(submitBtn)submitBtn.addEventListener('click',submitForReview);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
 })();
