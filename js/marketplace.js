@@ -787,7 +787,7 @@
         const rawTitle = String(project.title || project.name || "Untitled Web3 Project");
         const title = escapeHTML(rawTitle);
         const sold = String(project.id || "").toLowerCase() === "f4547d2a-073d-483a-9842-4f575c7be4fb" || rawTitle.trim().toLowerCase() === "web3jobs";
-        const soldBadge = sold ? '<span class="wm-sold-badge" aria-label="Sold">SOLD</span>' : "";
+        const soldBadge = sold ? '<span class="wm-sold-badge" aria-label="Sold">Sold</span>' : "";
 
 
         const description =
