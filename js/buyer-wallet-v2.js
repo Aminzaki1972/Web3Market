@@ -37,6 +37,12 @@
     const wm=manager(),notice=m.querySelector("#buyerWalletNotice"),card=document.querySelector(".wallet-card"),button=card?.querySelector(".btn.full");
     if(!wm){notice.textContent="Wallet connection is unavailable. Please refresh the page.";return}
     try{
+      const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||"");
+      if(isMobile && !entry.provider){
+        m.hidden=true;
+        wm.launch(name,m.querySelector("#buyerWalletNotice"));
+        return;
+      }
       if(!(await waitForBuyerAuth())) throw new Error("Your Web3Market login session is unavailable. Please sign in again.");
       if(button){button.disabled=true;button.textContent="Connecting…"}
       const result=await wm.connectAndVerify(entry.provider,name,{role:"buyer",purpose:"buyer_wallet_ownership",setNotice:v=>{notice.textContent=v}});
