@@ -44,23 +44,45 @@
     const cleanPayload={};DB.forEach(k=>{const v=clean(p[k],k);if(v!==undefined)cleanPayload[k]=v;});
     return cleanPayload;
   }
-  function local(){try{const p=collect();if(p.title||p.short_description||p.full_description)localStorage.setItem(LOCAL_KEY,JSON.stringify({saved_at:new Date().toISOString(),data:p,project_id:currentProjectId||null}));}catch(e){console.warn(e)}}
+  function local(){try{const p=collect();if(Object.keys(p).length)localStorage.setItem(LOCAL_KEY,JSON.stringify({saved_at:new Date().toISOString(),data:p,project_id:currentProjectId||null}));}catch(e){console.warn(e)}}
   function getGroups(){return [...form.querySelectorAll('details.group')];}
   function saveStep(){try{const groups=getGroups();const open=groups.findIndex(g=>g.open);if(open>=0)localStorage.setItem(STEP_KEY,JSON.stringify({project_id:currentProjectId||null,index:open,saved_at:new Date().toISOString()}));}catch(e){console.warn(e)}}
   function restoreStep(){try{const raw=localStorage.getItem(STEP_KEY);if(!raw)return;const st=JSON.parse(raw);if(st.project_id&&currentProjectId&&st.project_id!==currentProjectId)return;const groups=getGroups();if(!groups.length)return;const i=Math.max(0,Math.min(groups.length-1,Number(st.index)||0));groups.forEach((g,n)=>g.open=n===i);groups[i].scrollIntoView({behavior:'auto',block:'start'});}catch(e){console.warn(e)}}
   function fill(p){const fields=['title','project_url','website_url','short_description','full_description','description','project_status','year_created','logo_url','demo_url','app_store_url','documentation_url','facebook_url','twitter_url','x_url','github_url','linkedin_url','instagram_url','telegram_url','discord_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','blockchain','tech_stack','technology_stack','development_stage','target_markets','business_model','competitive_advantage','competitors','market_opportunity','has_revenue','revenue_period','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','sale_type','transfer_terms','reason_for_sale','sale_reason','transfer_period','domain_ownership','domain_verification','github_ownership','business_verification','identity_verification','ownership_declaration','asking_price','price','currency','currency_code','primary_type','buyer_pitch','cover_image_url','video_url','screenshots','negotiable'];fields.forEach(k=>{const e=form.elements.namedItem(k);if(!e||p[k]===undefined||p[k]===null)return;if(e.type==='checkbox')e.checked=!!p[k];else e.value=String(p[k]);});if(Array.isArray(p.target_audience))form.querySelectorAll('input[name="audience"]').forEach(e=>e.checked=p.target_audience.includes(e.value));['project_types','services','audience','assets'].forEach(n=>{const a=Array.isArray(p[n])?p[n]:[];form.querySelectorAll('input[name="'+n+'"]').forEach(e=>e.checked=a.includes(e.value));});}
-  async function load(){const x=await wait();if(!x){return local();}const u=await x.auth.getUser();if(u.error||!u.data?.user)return local();let p=null;if(currentProjectId){const r=await x.from('projects').select('*').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();p=r.data||null;}if(!p){const r=await x.from('projects').select('*').eq('owner_id',u.data.user.id).eq('status','draft').order('updated_at',{ascending:false}).limit(1);p=r.data?.[0]||null;}if(p){currentProjectId=p.id;localStorage.setItem(ID_KEY,p.id);fill(p);localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);}else{try{const raw=localStorage.getItem(LOCAL_KEY)||localStorage.getItem(LEGACY_KEY);if(raw)fill(JSON.parse(raw).data)}catch(e){}}}
-  async function save(){
+  async function load(){
+    const rawLocal=localStorage.getItem(LOCAL_KEY)||localStorage.getItem(LEGACY_KEY);
+    let localSnapshot=null;
+    try{if(rawLocal)localSnapshot=JSON.parse(rawLocal);}catch(e){console.warn(e)}
+    if(localSnapshot?.project_id&&!currentProjectId)currentProjectId=localSnapshot.project_id;
+    if(localSnapshot?.data)fill(localSnapshot.data);
+    restoreStep();
     const x=await wait();
-    if(!x){local();saveStep();if(out)out.textContent='Database unavailable — saved on this device. Engine '+VERSION;return {ok:false,offline:true};}
+    if(!x){if(out)out.textContent='Offline mode — your draft is محفوظ on this device. Engine '+VERSION;return;}
     const u=await x.auth.getUser();
-    if(u.error||!u.data?.user){local();saveStep();if(out)out.textContent='Please sign in. Form saved on this device. Engine '+VERSION;return {ok:false,auth:false};}
-    if(!val('title')||val('short_description').length<20||(val('full_description')||val('description')).length<50){local();saveStep();if(out)out.textContent='Please complete the required information. Form saved on this device. Engine '+VERSION;return {ok:false,validation:false};}
+    if(u.error||!u.data?.user){return;}
+    let p=null;
+    if(currentProjectId){const r=await x.from('projects').select('*').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();p=r.data||null;}
+    if(!p){const r=await x.from('projects').select('*').eq('owner_id',u.data.user.id).eq('status','draft').order('updated_at',{ascending:false}).limit(1);p=r.data?.[0]||null;}
+    if(p){
+      currentProjectId=p.id;localStorage.setItem(ID_KEY,p.id);
+      const localTime=localSnapshot?.saved_at?Date.parse(localSnapshot.saved_at):0;
+      const dbTime=p.updated_at?Date.parse(p.updated_at):0;
+      if(!localSnapshot?.data||dbTime>=localTime){fill(p);localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);}
+      restoreStep();
+    }
+  }
+  async function save(){
+    local();saveStep();
+    const x=await wait();
+    if(!x){if(out)out.textContent='Offline — draft saved on this device. Engine '+VERSION;return {ok:false,offline:true};}
+    const u=await x.auth.getUser();
+    if(u.error||!u.data?.user){if(out)out.textContent='Please sign in. Draft saved on this device. Engine '+VERSION;return {ok:false,auth:false};}
     const payload=collect();payload.owner_id=u.data.user.id;payload.status='draft';
+    if(Object.keys(payload).length<=2){if(out)out.textContent='Start entering your listing; it is already being saved. Engine '+VERSION;return {ok:false,empty:true};}
     if(out)out.textContent='Saving draft… Engine '+VERSION;
     let r;
     if(currentProjectId){
-      r=await x.from('projects').update(payload).eq('id',currentProjectId).eq('owner_id',u.data.user.id).select('id');
+      r=await x.from('projects').update(payload).eq('id',currentProjectId).eq('owner_id',u.data.user.id).select('id,updated_at');
       if(r.error)return {ok:false,error:r.error};
       if(!r.data?.length){
         const e=new Error('The selected listing could not be updated. No new listing was created.');
@@ -68,13 +90,15 @@
         return {ok:false,error:e};
       }
     }else{
-      r=await x.from('projects').insert(payload).select('id');
+      r=await x.from('projects').insert(payload).select('id,updated_at');
     }
-    if(r.error){console.error('SAVE ERROR',r.error,payload);local();if(out)out.textContent=(r.error.message||'Unable to save listing.')+' | Engine '+VERSION+' | Form saved on this device.';return {ok:false,error:r.error};}
-    const id=r.data?.[0]?.id;if(id){currentProjectId=id;localStorage.setItem(ID_KEY,id);localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);if(out)out.textContent='Draft saved successfully. Engine '+VERSION;return {ok:true,id};}
+    if(r.error){console.error('SAVE ERROR',r.error,payload);if(out)out.textContent=(r.error.message||'Unable to save listing.')+' | Draft remains on this device.';return {ok:false,error:r.error};}
+    const id=r.data?.[0]?.id;
+    if(id){currentProjectId=id;localStorage.setItem(ID_KEY,id);localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);if(out)out.textContent='Draft saved successfully. Engine '+VERSION;return {ok:true,id};}
     return {ok:false,error:new Error('No project id returned')};
   }
   async function submitForReview(){
+    if(!val('title')||val('short_description').length<20||(val('full_description')||val('description')).length<50){local();saveStep();if(out)out.textContent='Please complete the required information before AI Review. Your draft is محفوظ locally.';return;}
     if(submitBtn)submitBtn.disabled=true;
     try{
       const saved=await save();
@@ -94,11 +118,12 @@
     }catch(e){console.error('SUBMIT REVIEW ERROR',e);if(out)out.textContent='Saved as draft, but submission failed: '+(e.message||'Please try again.');}
     finally{if(submitBtn&&submitBtn.textContent!=='Submitted for AI Review')submitBtn.disabled=false;}
   }
-  form.addEventListener('input',()=>{clearTimeout(window.__wmTimer);window.__wmTimer=setTimeout(local,350);});
+  form.addEventListener('input',()=>{clearTimeout(window.__wmTimer);window.__wmTimer=setTimeout(local,150);clearTimeout(window.__wmDbTimer);window.__wmDbTimer=setTimeout(()=>{save();},1800);});
   form.addEventListener('change',()=>{local();saveStep();});
   form.addEventListener('toggle',e=>{if(e.target.matches('details.group')&&e.target.open)saveStep();},true);
   form.addEventListener('submit',e=>{e.preventDefault();save();});
   window.addEventListener('beforeunload',()=>{local();saveStep();});
   if(submitBtn)submitBtn.addEventListener('click',submitForReview);
+  window.web3MarketClearListingDraft=function(){try{localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);localStorage.removeItem(ID_KEY);localStorage.removeItem(STEP_KEY);}catch(e){console.warn(e)}form.reset();const p=document.getElementById('preview');if(p)p.style.display='none';if(out)out.textContent='Draft cleared from this device. Existing saved listings are not deleted.';};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
 })();
