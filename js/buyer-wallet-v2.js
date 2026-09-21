@@ -5,7 +5,7 @@
     if(window.Web3MarketWalletManager)return Promise.resolve();
     return new Promise(resolve=>{
       const id="wm-wallet-manager-loader";let s=document.getElementById(id);
-      if(!s){s=document.createElement("script");s.id=id;s.src="js/wallet-manager.js?v=20260921-walletfix14";s.async=false;s.onload=resolve;s.onerror=resolve;document.head.appendChild(s)}else s.addEventListener("load",resolve,{once:true});
+      if(!s){s=document.createElement("script");s.id=id;s.src="js/wallet-manager.js?v=20260921-walletfix15";s.async=false;s.onload=resolve;s.onerror=resolve;document.head.appendChild(s)}else s.addEventListener("load",resolve,{once:true});
       setTimeout(resolve,2500);
     });
   }
@@ -14,7 +14,11 @@
     let m=document.getElementById("buyerWalletModal");if(m)return m;
     m=document.createElement("div");m.id="buyerWalletModal";m.hidden=true;m.style.cssText="position:fixed;inset:0;z-index:99999;background:rgba(3,5,15,.78);backdrop-filter:blur(7px);display:grid;place-items:center;padding:18px";
     m.innerHTML='<div style="width:min(430px,100%);max-height:85vh;overflow:auto;background:#15132a;border:1px solid #443270;border-radius:18px;padding:18px;color:#fff"><div style="display:flex;justify-content:space-between;align-items:center"><div><strong style="font-size:17px">Connect Web3 Wallet</strong><div style="font-size:10px;color:#aaa3c3;margin-top:4px">Choose your wallet to connect and verify ownership</div></div><button id="buyerWalletClose" type="button" aria-label="Close wallet list" title="Close" style="width:36px;height:36px;border:1px solid #4a3b68;border-radius:10px;background:#211b35;color:#fff;font-size:25px;line-height:1;cursor:pointer;display:grid;place-items:center;touch-action:manipulation">×</button></div><div id="buyerWalletList"></div><div id="buyerWalletNotice" style="font-size:10px;color:#a9a2bd;margin-top:10px;line-height:1.5"></div></div>';
-    document.body.appendChild(m);m.addEventListener("click",e=>{if(e.target===m)m.hidden=true});m.querySelector("#buyerWalletClose").onclick=(e)=>{e.preventDefault();e.stopPropagation();m.hidden=true;};return m;
+    document.body.appendChild(m);m.addEventListener("click",e=>{if(e.target===m)m.hidden=true});const closeBtn=m.querySelector("#buyerWalletClose");
+    const closeModal=()=>{m.hidden=true;};
+    closeBtn.addEventListener("click",closeModal,{capture:true});
+    closeBtn.addEventListener("pointerup",closeModal,{capture:true});
+    return m;
   }
   async function waitForBuyerAuth(){
     for(let i=0;i<20;i++){
@@ -57,7 +61,19 @@
     wm.listWallets().forEach(row=>{
       const b=document.createElement("button");b.type="button";b.style.cssText="width:100%;display:flex;align-items:center;gap:12px;margin:8px 0;padding:13px;border:1px solid #3a3158;border-radius:12px;background:#18152b;color:#fff;cursor:pointer;text-align:left;touch-action:manipulation";
       b.innerHTML='<span style="font-size:20px">◈</span><span style="flex:1"><strong style="display:block;font-size:12px">'+wm.esc(row.name)+'</strong><small style="display:block;color:#89829f;margin-top:3px">'+(row.detected?"Detected on this device":"Open wallet app / browser")+'</small></span><span style="color:#7c3aed">›</span>';
-      b.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();if(row.provider)connect({provider:row.provider},row.name,m);else wm.launch(row.name,m.querySelector("#buyerWalletNotice"))});list.appendChild(b);
+      b.addEventListener("click",e=>{
+        e.preventDefault();e.stopPropagation();
+        const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||"");
+        if(row.provider) connect({provider:row.provider},row.name,m);
+        else if(mobile) {
+          m.hidden=true;
+          wm.launch(row.name,null);
+        } else {
+          const notice=m.querySelector("#buyerWalletNotice");
+          if(notice) notice.textContent="Open "+row.name+" in its browser or install the wallet app, then return here.";
+          wm.launch(row.name,notice);
+        }
+      });list.appendChild(b);
     });m.hidden=false;
   }
   window.Web3MarketBuyerWalletOpen=open;
