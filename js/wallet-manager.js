@@ -215,7 +215,7 @@
             cache:"no-store"
           }).then(async function (r) {
             if (verifyTimer) clearTimeout(verifyTimer);
-            return r.json().catch(function () { return null; }).then(function (data) {
+            return r.json().catch(function () { return null; }).then(async function (data) {
               if (!r.ok || !data || !data.ok || !data.verified) throw new Error((data && (data.error || data.message)) || ("Wallet verification failed (" + r.status + ")."));
               notice("Wallet ownership verified and saved ✓");
               try { localStorage.setItem(LINKED_PROVIDER_KEY, String(walletName || "")); } catch (_) {}
