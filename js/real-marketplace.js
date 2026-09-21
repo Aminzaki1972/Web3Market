@@ -30,10 +30,10 @@
   function card(p,i,sold){
     var image=p.cover_image_url||p.logo_url||'';
     var art=image?'<div class="listingArt" style="background-image:url(\''+esc(image)+'\');background-size:cover;background-position:center"></div>':'<div class="listingArt '+(i%4===1?'a2':i%4===2?'a3':i%4===3?'a4':'')+'"></div>';
-    var desc=String(p.short_description||p.description||(sold?'Project sold — transaction completed.':'Active Web3 project available for acquisition.')).slice(0,140);
+    var desc=String(p.short_description||p.description||(sold?'Project sold — transaction completed.':'Active Web3 project available for acquisition.')).slice(0,140);var target='project.html?id='+encodeURIComponent(p.id)+(sold?'&view=sold':'');
     var ai='<span class="ai-badge">AI '+(Number.isFinite(Number(p.ai_score))?esc(p.ai_score)+'/100':'Approved')+'</span>';
     var badge=sold?'<span class="wm-sold-badge" aria-label="Sold">SOLD</span>':'';
-    return '<article class="listing" data-project-id="'+esc(p.id)+'"><a href="project.html?id='+encodeURIComponent(p.id)+(sold?'&view=sold':'')+'">'+art+'</a><div class="listingBody"><div class="seller"><span class="avatar"></span><span>Verified project</span>'+ai+'</div><h3 class="wm-project-title"><a href="project.html?id='+encodeURIComponent(p.id)+'">'+esc(p.title||'Untitled Web3 Project')+'</a>'+badge+'</h3><div class="desc">'+esc(desc)+'</div><div class="meta"><div class="price2"><strong>'+money(p.price,p.currency)+'</strong><span>'+esc(p.category||'Web3 Project')+'</span></div><a class="buy" href="project.html?id='+encodeURIComponent(p.id)+'">'+(sold?'View sold record →':'View project →')+'</a></div></div></article>';
+    return '<article class="listing" data-project-id="'+esc(p.id)+'"><a href="'+target+'">'+art+'</a><div class="listingBody"><div class="seller"><span class="avatar"></span><span>Verified project</span>'+ai+'</div><h3 class="wm-project-title"><a href="'+target+'">'+esc(p.title||'Untitled Web3 Project')+'</a>'+badge+'</h3><div class="desc">'+esc(desc)+'</div><div class="meta"><div class="price2"><strong>'+money(p.price,p.currency)+'</strong><span>'+esc(p.category||'Web3 Project')+'</span></div><a class="buy" href="'+target+'">'+(sold?'View completed transaction →':'View project →')+'</a></div></div></article>';
   }
   function ensureSoldSection(){
     var grid=document.querySelector('.listingGrid');
