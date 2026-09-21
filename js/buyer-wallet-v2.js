@@ -13,7 +13,7 @@
   function ensureModal(){
     let m=document.getElementById("buyerWalletModal");if(m)return m;
     m=document.createElement("div");m.id="buyerWalletModal";m.hidden=true;m.style.cssText="position:fixed;inset:0;z-index:99999;background:rgba(3,5,15,.78);backdrop-filter:blur(7px);display:grid;place-items:center;padding:18px";
-    m.innerHTML='<div style="width:min(430px,100%);max-height:85vh;overflow:auto;background:#15132a;border:1px solid #443270;border-radius:18px;padding:18px;color:#fff"><div style="display:flex;justify-content:space-between;align-items:center"><div><strong style="font-size:17px">Connect Web3 Wallet</strong><div style="font-size:10px;color:#aaa3c3;margin-top:4px">Choose your wallet to connect and verify ownership</div></div><a id="buyerWalletClose" href="buyer-dashboard.html" aria-label="Close wallet list" title="Close" style="position:fixed;top:12px;right:12px;z-index:2147483647;width:52px;height:52px;display:grid;place-items:center;border:1px solid #4a3b68;border-radius:12px;background:#211b35;color:#fff;font-size:30px;line-height:1;text-decoration:none;cursor:pointer;pointer-events:auto;touch-action:manipulation;-webkit-tap-highlight-color:transparent">×</a></div><div id="buyerWalletList"></div><div id="buyerWalletNotice" style="font-size:10px;color:#a9a2bd;margin-top:10px;line-height:1.5"></div></div>';
+    m.innerHTML='<div style="width:min(430px,100%);max-height:85vh;overflow:auto;background:#15132a;border:1px solid #443270;border-radius:18px;padding:18px;color:#fff"><div style="display:flex;justify-content:space-between;align-items:center"><div><strong style="font-size:17px">Connect Web3 Wallet</strong><div style="font-size:10px;color:#aaa3c3;margin-top:4px">Choose your wallet to connect and verify ownership</div></div><button id="buyerWalletClose" type="button" aria-label="Close wallet list" title="Close" style="width:44px;height:44px;display:grid;place-items:center;border:1px solid #4a3b68;border-radius:12px;background:#211b35;color:#fff;font-size:28px;line-height:1;cursor:pointer;pointer-events:auto;touch-action:manipulation;-webkit-tap-highlight-color:transparent;flex:0 0 auto">×</button></div><div id="buyerWalletList"></div><div id="buyerWalletNotice" style="font-size:10px;color:#a9a2bd;margin-top:10px;line-height:1.5"></div></div>';
     document.body.appendChild(m);
     m.addEventListener("click",e=>{if(e.target===m)closeModal(m)});m.addEventListener("touchstart",e=>{if(e.target===m)closeModal(m)},{passive:true});
     const closeBtn=m.querySelector("#buyerWalletClose");
@@ -29,7 +29,7 @@
     m.setAttribute("aria-hidden","true");
   }
   function showModal(m){
-    m.style.display="grid";
+    m.style.setProperty("display","grid","important");
     m.hidden=false;
     m.setAttribute("aria-hidden","false");
   }
