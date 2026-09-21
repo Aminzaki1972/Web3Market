@@ -60,7 +60,9 @@
       b.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();if(row.provider)connect({provider:row.provider},row.name,m);else wm.launch(row.name,m.querySelector("#buyerWalletNotice"))});list.appendChild(b);
     });m.hidden=false;
   }
-  window.Web3MarketBuyerWalletOpen=open;\n  window.Web3MarketBuyerWalletDisconnect=disconnect;\n  async function refresh(){
+  window.Web3MarketBuyerWalletOpen=open;
+  window.Web3MarketBuyerWalletDisconnect=disconnect;
+  async function refresh(){
     try{
       const c=window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase;if(!c?.auth)return;
       const user=(await c.auth.getUser())?.data?.user;if(!user)return;
