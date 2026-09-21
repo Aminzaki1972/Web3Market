@@ -90,7 +90,7 @@
       if(notice)notice.textContent=e?.message||"Wallet disconnect failed.";
     }
   }
-  function bind(){document.querySelectorAll(".wallet-card .btn.full").forEach(b=>{if(b.dataset.walletModalBound)return;b.dataset.walletModalBound="1";b.href="#";b.addEventListener("click",e=>{e.preventDefault();if(b.textContent.trim()==="Disconnect")disconnect();else open()})});refresh()}
+  function bind(){document.querySelectorAll(".wallet-card .btn.full").forEach(b=>{if(b.dataset.walletModalBound)return;b.dataset.walletModalBound="1";b.removeAttribute("href");b.setAttribute("type","button");b.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();if(b.textContent.trim()==="Disconnect")disconnect();else open()},{capture:true});b.addEventListener("pointerup",e=>{e.preventDefault();e.stopPropagation()},{capture:true})});refresh()}
   async function boot(){await loadManager();if(!manager())return;bind();new MutationObserver(bind).observe(document.documentElement,{childList:true,subtree:true})}
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 })();
