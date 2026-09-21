@@ -32,7 +32,7 @@
       b.addEventListener("click",async e=>{e.preventDefault();e.stopPropagation();const notice=document.getElementById("walletNotice");if(row.provider){closeModal();await connect(row.provider,row.name)}else wm.launch(row.name,notice)});
       list.appendChild(b);
     });
-    modal.hidden=false;
+    modal.hidden=false;modal.style.setProperty("display","grid","important");
   }
   async function connect(provider,walletName){
     const wm=manager(),button=document.getElementById("connectSellerWallet"),notice=document.getElementById("walletNotice");
@@ -126,9 +126,9 @@
     const b=document.getElementById("connectSellerWallet");
     if(b&&!b.dataset.bound){b.dataset.bound="1";b.addEventListener("click",e=>{e.preventDefault();renderModal()})}
     const c=document.getElementById("walletModalClose");
-    if(c&&!c.dataset.bound){c.dataset.bound="1";c.addEventListener("click",closeModal)}
+    if(c&&!c.dataset.bound){c.dataset.bound="1";["click","pointerup","touchend"].forEach(function(type){c.addEventListener(type,function(e){e.preventDefault();e.stopPropagation();closeModal()},{passive:false})})}
     const m=document.getElementById("walletModal");
-    if(m&&!m.dataset.bound){m.dataset.bound="1";m.addEventListener("click",e=>{if(e.target===m)closeModal()})}
+    if(m&&!m.dataset.bound){m.dataset.bound="1";m.addEventListener("click",e=>{if(e.target===m)closeModal()});m.addEventListener("touchstart",e=>{if(e.target===m)closeModal()},{passive:true})}
   }
   async function boot(){
     const wm=await ensureManager();
