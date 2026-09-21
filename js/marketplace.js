@@ -74,7 +74,19 @@
        INITIALIZATION
        ===================================================== */
 
+    // marketplace.html uses the live marketplace renderer in real-marketplace.js.
+    // Do not let this legacy controller render over the live Active/Sold views.
+    function isLiveMarketplacePage() {
+        const path = String(window.location.pathname || "").replace(/\\/+$/, "");
+        return path === "/marketplace.html" || path.endsWith("/marketplace.html") || !!document.querySelector("[data-wm-live-marketplace]");
+    }
+
     async function init() {
+
+        if (isLiveMarketplacePage()) {
+            console.log("Web3Market Marketplace: live renderer owns marketplace.html; legacy renderer skipped.");
+            return;
+        }
 
         if (
             Marketplace.initialized
