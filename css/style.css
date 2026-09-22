@@ -492,6 +492,10 @@ button {
 
     font-weight: 700;
 
+    /* White buttons use blue text for readable contrast. */
+    color: var(--blue);
+    background: #ffffff;
+
     transition:
         transform var(--transition),
         background var(--transition),
