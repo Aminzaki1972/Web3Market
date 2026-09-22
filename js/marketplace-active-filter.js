@@ -1,7 +1,15 @@
 "use strict";
 (function(){
+  function isLiveMarketplacePage(){
+    var path=String(window.location.pathname||"").replace(/\\/+$/,"");
+    return path==="/marketplace.html" || path.endsWith("/marketplace.html") || !!document.querySelector("[data-wm-live-marketplace]");
+  }
+
   async function enforceActiveListings(){
     try{
+      /* The live marketplace owns Active/Sold separation on marketplace.html. */
+      if(isLiveMarketplacePage())return;
+
       var sb=window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase;
       if(!sb||!window.Web3MarketMarketplace?.renderProjects)return;
       var q=await sb.from("projects").select("*").eq("status","active").order("created_at",{ascending:false});
@@ -11,6 +19,13 @@
       window.dispatchEvent(new CustomEvent("web3market:active-listings-enforced",{detail:{count:projects.length}}));
     }catch(e){console.warn("Web3Market active listing filter unavailable",e)}
   }
-  function boot(){setTimeout(enforceActiveListings,50);setTimeout(enforceActiveListings,1000);setTimeout(enforceActiveListings,2500)}
+
+  function boot(){
+    if(isLiveMarketplacePage())return;
+    setTimeout(enforceActiveListings,50);
+    setTimeout(enforceActiveListings,1000);
+    setTimeout(enforceActiveListings,2500);
+  }
+
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 })();
