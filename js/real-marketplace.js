@@ -40,15 +40,19 @@
     if(!grid)return null;
     var sec=document.getElementById('wm-sold-section');
     if(sec)return sec;
-    sec=document.createElement('section');sec.id='wm-sold-section';sec.hidden=true;sec.innerHTML='<div class="wm-section-head"><div><div class="eyebrow">COMPLETED TRANSACTIONS</div><h2>Sold / Completed Projects</h2><p>Permanent records of projects whose acquisition transactions have been completed.</p></div></div><div class="wm-sold-grid" aria-live="polite"><div class="empty">Loading sold projects…</div></div>';
+    sec=document.createElement('section');sec.id='wm-sold-section';sec.hidden=false;sec.style.display='none';sec.innerHTML='<div class="wm-section-head"><div><div class="eyebrow">COMPLETED TRANSACTIONS</div><h2>Sold / Completed Projects</h2><p>Permanent records of projects whose acquisition transactions have been completed.</p></div></div><div class="wm-sold-grid" aria-live="polite"><div class="empty">Loading sold projects…</div></div>';
     grid.parentNode.insertBefore(sec,grid.nextSibling);
-    var tabs=document.createElement('div');tabs.className='wm-market-tabs';tabs.setAttribute('role','tablist');tabs.innerHTML='<button type="button" class="wm-market-tab active" data-market-view="active" role="tab" aria-selected="true">Active Listings</button><button type="button" class="wm-market-tab" data-market-view="sold" role="tab" aria-selected="false">Sold / Completed</button>';
+    var tabs=document.createElement('div');tabs.className='wm-market-tabs';tabs.setAttribute('data-wm-market-tabs','1');tabs.setAttribute('role','tablist');tabs.innerHTML='<button type="button" class="wm-market-tab active" data-market-view="active" role="tab" aria-selected="true">Active Listings</button><button type="button" class="wm-market-tab" data-market-view="sold" role="tab" aria-selected="false">Sold / Completed</button>';
     grid.parentNode.insertBefore(tabs,grid);
     tabs.addEventListener('click',function(e){
       var b=e.target.closest('[data-market-view]');if(!b)return;
       var view=b.dataset.marketView;
       tabs.querySelectorAll('.wm-market-tab').forEach(function(x){var on=x===b;x.classList.toggle('active',on);x.setAttribute('aria-selected',on?'true':'false')});
-      grid.hidden=view!=='active';sec.hidden=view!=='sold';
+      grid.style.display=view==='active'?'grid':'none';
+      sec.hidden=false;
+      sec.style.display=view==='sold'?'block':'none';
+      grid.setAttribute('aria-hidden',view==='active'?'false':'true');
+      sec.setAttribute('aria-hidden',view==='sold'?'false':'true');
     });
     if(!document.getElementById('wm-sold-section-style')){
       var st=document.createElement('style');st.id='wm-sold-section-style';st.textContent='.wm-market-tabs{display:flex;gap:8px;margin:18px 0 12px}.wm-market-tab{border:1px solid #dfe3ea;background:#fff;color:#5f6672;border-radius:10px;padding:10px 15px;font-weight:900;cursor:pointer}.wm-market-tab.active{background:#5149db;color:#fff;border-color:#5149db}.wm-section-head{margin:22px 0 14px}.wm-section-head h2{margin:5px 0 4px;font-size:30px}.wm-section-head p{margin:0;color:#737b88;font-size:13px}.wm-sold-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:10px 0 28px}.wm-sold-grid .listing{background:#fff}@media(max-width:950px){.wm-sold-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:620px){.wm-market-tabs{overflow:auto}.wm-market-tab{white-space:nowrap}.wm-sold-grid{grid-template-columns:1fr}}';
