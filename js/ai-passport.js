@@ -5,7 +5,6 @@ const sb=()=>window.supabaseClient||window.Web3MarketSupabase?.getClient?.()||wi
 const val=(v,empty='Not available')=>v===null||v===undefined||v===''?empty:v;
 const status=(kind,label)=>'<span class="status '+kind+'">'+label+'</span>';
 function render(p){
- const site=val(p.website_url), github=val(p.github_url), chain=val(p.blockchain), tech=val(p.technology_stack);
  const fields=[
   ['Project','title','owner'],['Category','category','owner'],['Location','location','owner'],
   ['Domain','website_url','connected'],['Domain Active Since','domain_active_since','connected'],
@@ -25,7 +24,8 @@ function render(p){
  document.getElementById('passport').outerHTML=html;
 }
 async function load(id){
- const root=document.getElementById('passport'); if(!root)return; root.innerHTML='<p>Loading project passport…</p>';
+ const root=document.getElementById('passport'); if(!root)return;
+ root.innerHTML='<p>Loading project passport…</p>';
  let client=sb();
  if(!client && window.Web3MarketSupabaseRestoreSession){try{await window.Web3MarketSupabaseRestoreSession();}catch(e){}}
  if(!client && window.Web3MarketSupabase?.getClient){try{client=window.Web3MarketSupabase.getClient();}catch(e){}}
@@ -36,6 +36,13 @@ async function load(id){
  if(error||!data){root.innerHTML='<p class="muted">Project not found or unavailable.</p>';return;}
  render(data);
 }
-function init(){const id=new URLSearchParams(location.search).get('id');if(id){document.getElementById('projectId').value=id;load(id)}document.getElementById('loadBtn')?.addEventListener('click',()=>{const id=document.getElementById('projectId').value.trim();if(id)load(id)});}
+window.loadPassportFromInput=()=>{const input=document.getElementById('projectId');const id=input?.value.trim();if(id)load(id);else{input?.focus();input?.setAttribute('placeholder','Enter a project ID first');}};
+function init(){
+ const input=document.getElementById('projectId'), btn=document.getElementById('loadBtn');
+ const id=new URLSearchParams(location.search).get('id');
+ if(id){input.value=id;load(id);}
+ btn?.addEventListener('click',window.loadPassportFromInput);
+ input?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();window.loadPassportFromInput();}});
+}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
