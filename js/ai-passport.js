@@ -26,7 +26,12 @@ function render(p){
 }
 async function load(id){
  const root=document.getElementById('passport'); if(!root)return; root.innerHTML='<p>Loading project passport…</p>';
- const client=sb(); if(!client){root.innerHTML='<p class="muted">Database connection unavailable.</p>';return;}
+ let client=sb();
+ if(!client && window.Web3MarketSupabaseRestoreSession){try{await window.Web3MarketSupabaseRestoreSession();}catch(e){}}
+ if(!client && window.Web3MarketSupabase?.getClient){try{client=window.Web3MarketSupabase.getClient();}catch(e){}}
+ const started=Date.now();
+ while(!client && Date.now()-started<8000){await new Promise(r=>setTimeout(r,200));client=sb();}
+ if(!client){root.innerHTML='<p class="muted">Database connection unavailable. Please refresh and try again.</p>';return;}
  const {data,error}=await client.from('projects').select('*').eq('id',id).maybeSingle();
  if(error||!data){root.innerHTML='<p class="muted">Project not found or unavailable.</p>';return;}
  render(data);
