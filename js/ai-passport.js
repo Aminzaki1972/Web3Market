@@ -7,6 +7,21 @@ const val=(v,e='Not available')=>v===null||v===undefined||v===''?e:v;
 const status=(k,l)=>'<span class="status '+k+'">'+l+'</span>';
 async function session(){try{return await window.Web3MarketSupabase?.getSession?.()||null}catch{return null}}
 function jsonValue(v){if(v===null||v===undefined)return '—';if(typeof v==='string')return v;try{return JSON.stringify(v)}catch{return String(v)}}
+async function snapshotHistoryUI(p){
+ const c=window.Web3MarketSupabase?.client;
+ if(!c||!p.passport_id)return '<section class="passport-card"><h2>Snapshot History</h2><p class="muted">Snapshot history is unavailable.</p></section>';
+ try{
+  const {data,error}=await c.from('external_passport_snapshots').select('id,captured_at,fingerprint,source_count,collection_status,error_message,passport_payload').eq('passport_id',p.passport_id).order('captured_at',{ascending:false}).limit(20);
+  if(error)throw error;
+  if(!data?.length)return '<section class="passport-card"><h2>Snapshot History</h2><p class="muted">No previous snapshots are stored yet. A snapshot will appear after the first successful Passport search.</p></section>';
+  let h='<section class="passport-card"><h2>Snapshot History</h2><p class="muted">Chronological read-only record of the Passport snapshots collected from public sources.</p>';
+  data.forEach((x,i)=>{
+   const current=i===0;
+   h+='<details class="snapshot-row"'+(current?' open':'')+'><summary><strong>'+(current?'Current Snapshot':'Snapshot '+(data.length-i))+'</strong> • '+esc(x.captured_at||'')+' • '+esc(x.collection_status||'unknown')+' • Sources: '+esc(x.source_count??0)+(current?' • CURRENT':'')+'</summary><div class="snapshot-meta"><small>Snapshot ID: '+esc(x.id||'')+'</small><small>Fingerprint: '+esc(x.fingerprint||'')+'</small>'+(x.error_message?'<small class="muted">Error: '+esc(x.error_message)+'</small>':'')+'</div><pre class="snapshot-json">'+esc(JSON.stringify(x.passport_payload??{},null,2))+'</pre></details>';
+  });
+  return h+'</section>';
+ }catch(e){console.warn('Passport snapshots:',e);return '<section class="passport-card"><h2>Snapshot History</h2><p class="muted">Snapshot history could not be loaded.</p></section>'}
+}
 async function historyUI(p){
  const c=window.Web3MarketSupabase?.client;if(!c||!p.passport_id)return '<section class="passport-card"><h2>Change History</h2><p class="muted">History is unavailable.</p></section>';
  try{
@@ -61,7 +76,7 @@ async function renderExternal(p){
  const sources=(Array.isArray(p.sources)?p.sources:[]).map(s=>{const u=String(s.url||'');return /^https?:\/\//i.test(u)?'<div class="source"><a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(s.title||u)+'</a> <small>'+esc(s.type||'public')+'</small></div>':''}).join('');
  h+=sources||'<p class="muted">No public source links returned.</p>'+'</section><section class="passport-card"><p class="muted"><strong>Important:</strong> This Passport is external public research. It is not a Web3Market listing, is not owner-verified, and does not create or modify marketplace project data.</p></section>';
  document.getElementById('passport').innerHTML=h;wireMonitor(p);
- const history=await historyUI(p);document.getElementById('passport').insertAdjacentHTML('beforeend',history);
+ const snapshots=await snapshotHistoryUI(p);document.getElementById('passport').insertAdjacentHTML('beforeend',snapshots);const history=await historyUI(p);document.getElementById('passport').insertAdjacentHTML('beforeend',history);
 }
 async function loadInternal(id){
  const root=document.getElementById('passport');root.innerHTML='<p>Loading Web3Market project…</p>';
