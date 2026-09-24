@@ -66,7 +66,7 @@ function renderInternal(p){
  h+='</div></section><section class="passport-card"><h2>Project History</h2><p class="muted">Passport data is displayed from the Web3Market project record.</p></section>';document.getElementById('passport').innerHTML=h;
 }
 async function renderExternal(p){
- let h='<div class="passport-badge external">Web3 Project Passport • External Research</div><section class="passport-card"><h2>Public Project Passport</h2><p class="muted">Universal Passport research uses public sources only and is independent from Web3Market listings.</p><div class="identity">';
+ let h='<div class="passport-badge external">Web3 Project Passport • External Research</div><section class="passport-card"><h2>W3M Permanent Project Identity</h2><p class="muted">Permanent identity follows the project across its official website, GitHub, app, docs and other verified source branches.</p><div class="identity"><div class="item"><small>W3M Identity</small><strong>'+esc(val(p.w3m_identity_code,'Assigned during identity matching'))+'</strong>'+status('connected',val(p.w3m_identity_status,'Identity Layer'))+'</div><div class="item"><small>First Seen</small><strong>'+esc(val(p.w3m_first_seen_at,'Recorded when identity is assigned'))+'</strong>'+status('connected','Permanent Record')+'</div><div class="item"><small>Identity Rule</small><strong>Same project keeps the same W3M ID across branches and sources</strong>'+status('connected','Fingerprint Matching')+'</div><div class="item"><small>Project Family</small><strong>Website • GitHub • Docs • App • Contracts • Analytics • Listings</strong>'+status('connected','Unified Identity')+'</div></div></section><section class="passport-card"><h2>Public Project Passport</h2><p class="muted">Universal Passport research uses public sources only and is independent from Web3Market listings.</p><div class="identity">';
  [['Project','project_name'],['Website','website'],['Category','category'],['Launched','founded_or_launched'],['Technology','technology'],['GitHub','github'],['Users','active_users'],['Monthly Traffic','monthly_visits'],['Revenue','revenue'],['Risk Level','ai_risk_level'],['Risk Score','ai_risk_score'],['Confidence','confidence_score']].forEach(([l,k])=>h+='<div class="item"><small>'+l+'</small><strong>'+esc(val(p[k]))+'</strong>'+status('external','Public Evidence')+'</div>');
  h+='</div></section><section class="passport-card"><h2>Passport Status</h2><div class="identity"><div class="item"><small>Passport ID</small><strong>'+esc(val(p.passport_id))+'</strong>'+status('connected','Stored')+'</div><div class="item"><small>Snapshot</small><strong>'+esc(val(p.snapshot_id))+'</strong>'+status('connected','Current')+'</div></div></section>';
  h+=await monitorUI(p);
@@ -81,7 +81,27 @@ async function renderExternal(p){
 }
 async function loadInternal(id){
  const root=document.getElementById('passport');root.innerHTML='<p>Loading Web3Market project…</p>';
- try{const r=await fetch(SUPABASE_URL+'/rest/v1/projects?id=eq.'+encodeURIComponent(id)+'&select=*',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,Accept:'application/json'},cache:'no-store'});if(!r.ok){root.innerHTML='<p class="muted">Project database request returned '+r.status+'.</p>';return}const rows=await r.json();if(!rows?.length){root.innerHTML='<p class="muted">Project not found in Web3Market.</p>';return}renderInternal(rows[0])}catch(e){console.error(e);root.innerHTML='<p class="muted">Unable to connect to the Web3Market database.</p>'}
+ try{
+  const headers={apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,Accept:'application/json'};
+  const r=await fetch(SUPABASE_URL+'/rest/v1/projects?id=eq.'+encodeURIComponent(id)+'&select=*',{headers,cache:'no-store'});
+  if(!r.ok){root.innerHTML='<p class="muted">Project database request returned '+r.status+'.</p>';return}
+  const rows=await r.json();if(!rows?.length){root.innerHTML='<p class="muted">Project not found in Web3Market.</p>';return}
+  const p=rows[0];
+  if(p.w3m_identity_id){
+   try{
+    const ir=await fetch(SUPABASE_URL+'/rest/v1/project_identities?id=eq.'+encodeURIComponent(p.w3m_identity_id)+'&select=identity_code,first_seen_at,identity_status',{headers,cache:'no-store'});
+    if(ir.ok){
+     const identities=await ir.json();
+     if(identities?.[0]){
+      p.w3m_identity_code=identities[0].identity_code;
+      p.w3m_first_seen_at=identities[0].first_seen_at;
+      p.w3m_identity_status=identities[0].identity_status;
+     }
+    }
+   }catch(e){console.warn('W3M identity lookup:',e)}
+  }
+  renderInternal(p)
+ }catch(e){console.error(e);root.innerHTML='<p class="muted">Unable to connect to the Web3Market database.</p>'}
 }
 async function loadExternal(query){
  const root=document.getElementById('passport');root.innerHTML='<p>Searching public sources and creating a universal Web3 Project Passport…</p>';
