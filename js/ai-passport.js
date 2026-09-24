@@ -26,15 +26,24 @@ async function historyUI(p){
  const c=window.Web3MarketSupabase?.client;if(!c||!p.passport_id)return '<section class="passport-card"><h2>Change History</h2><p class="muted">History is unavailable.</p></section>';
  try{
   const {data, error}=await c.from('external_passport_changes').select('id,change_type,field_path,old_value,new_value,source_url,severity,detected_at').eq('passport_id',p.passport_id).order('detected_at',{ascending:false}).limit(50);
-  if(error)throw error;
-  if(!data?.length)return '<section class="passport-card"><h2>Change History</h2><p class="muted">No detected changes yet. The first comparison will appear after a monitored scan finds a difference.</p></section>';
-  let h='<section class="passport-card"><h2>Change History</h2>';
-  data.forEach(x=>{
-   const sev=String(x.severity||'info'), source=String(x.source_url||'');
-   h+='<div class="finding"><div><strong>'+esc(x.field_path||x.change_type||'Change')+'</strong> '+status(sev,sev.toUpperCase())+'</div><p><strong>Old:</strong> '+esc(jsonValue(x.old_value))+'</p><p><strong>New:</strong> '+esc(jsonValue(x.new_value))+'</p><small>'+esc(x.detected_at||'')+(source&&/^https?:\/\//i.test(source)?' • <a href="'+esc(source)+'" target="_blank" rel="noopener noreferrer">Source</a>':'')+'</small></div>';
-  });
+  if(!error&&data?.length){
+   let h='<section class="passport-card"><h2>Change History</h2>';
+   data.forEach(x=>{
+    const sev=String(x.severity||'info'), source=String(x.source_url||'');
+    h+='<div class="finding"><div><strong>'+esc(x.field_path||x.change_type||'Change')+'</strong> '+status(sev,sev.toUpperCase())+'</div><p><strong>Old:</strong> '+esc(jsonValue(x.old_value))+'</p><p><strong>New:</strong> '+esc(jsonValue(x.new_value))+'</p><small>'+esc(x.detected_at||'')+(source&&/^https?:\\/\\//i.test(source)?' • <a href="'+esc(source)+'" target="_blank" rel="noopener noreferrer">Source</a>':'')+'</small></div>';
+   });
+   return h+'</section>';
+  }
+  const snaps=await c.from('external_passport_snapshots').select('id,captured_at,fingerprint,passport_payload').eq('passport_id',p.passport_id).order('captured_at',{ascending:false}).limit(2);
+  if(snaps.error)throw snaps.error;
+  if(!snaps.data||snaps.data.length<2)return '<section class="passport-card"><h2>Change Detection</h2><p class="muted">No comparison yet. A second snapshot is required to detect changes.</p></section>';
+  const newer=snaps.data[0], older=snaps.data[1], a=older.passport_payload||{}, b=newer.passport_payload||{}, keys=[...new Set([...Object.keys(a),...Object.keys(b)])], changes=[];
+  keys.forEach(k=>{const av=JSON.stringify(a[k]??null),bv=JSON.stringify(b[k]??null);if(av!==bv)changes.push({field:k,old:a[k]??null,new:b[k]??null});});
+  let h='<section class="passport-card"><h2>Change Detection</h2><p class="muted">Live comparison of the two latest Passport snapshots. Persistent change records will appear when the monitoring writer is active.</p>';
+  if(!changes.length)return h+'<p class="muted">No field-level changes detected between the latest two snapshots.</p></section>';
+  changes.forEach(x=>{h+='<div class="finding"><div><strong>'+esc(x.field)+'</strong> '+status('warning','CHANGED')+'</div><p><strong>Old:</strong> '+esc(jsonValue(x.old))+'</p><p><strong>New:</strong> '+esc(jsonValue(x.new))+'</p></div>';});
   return h+'</section>';
- }catch(e){console.warn('Passport history:',e);return '<section class="passport-card"><h2>Change History</h2><p class="muted">History could not be loaded.</p></section>'}
+ }catch(e){console.warn('Passport history:',e);return '<section class="passport-card"><h2>Change Detection</h2><p class="muted">Change comparison could not be loaded.</p></section>'}
 }
 async function monitorUI(p){
  const id=p.passport_id;if(!id)return '';
