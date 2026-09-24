@@ -6,39 +6,45 @@ const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const val=(v,e='Not available')=>v===null||v===undefined||v===''?e:v;
 const status=(k,l)=>'<span class="status '+k+'">'+l+'</span>';
 async function session(){try{return await window.Web3MarketSupabase?.getSession?.()||null}catch{return null}}
+function jsonValue(v){if(v===null||v===undefined)return '—';if(typeof v==='string')return v;try{return JSON.stringify(v)}catch{return String(v)}}
+async function historyUI(p){
+ const c=window.Web3MarketSupabase?.client;if(!c||!p.passport_id)return '<section class="passport-card"><h2>Change History</h2><p class="muted">History is unavailable.</p></section>';
+ try{
+  const {data, error}=await c.from('external_passport_changes').select('id,change_type,field_path,old_value,new_value,source_url,severity,detected_at').eq('passport_id',p.passport_id).order('detected_at',{ascending:false}).limit(50);
+  if(error)throw error;
+  if(!data?.length)return '<section class="passport-card"><h2>Change History</h2><p class="muted">No detected changes yet. The first comparison will appear after a monitored scan finds a difference.</p></section>';
+  let h='<section class="passport-card"><h2>Change History</h2>';
+  data.forEach(x=>{
+   const sev=String(x.severity||'info'), source=String(x.source_url||'');
+   h+='<div class="finding"><div><strong>'+esc(x.field_path||x.change_type||'Change')+'</strong> '+status(sev,sev.toUpperCase())+'</div><p><strong>Old:</strong> '+esc(jsonValue(x.old_value))+'</p><p><strong>New:</strong> '+esc(jsonValue(x.new_value))+'</p><small>'+esc(x.detected_at||'')+(source&&/^https?:\/\//i.test(source)?' • <a href="'+esc(source)+'" target="_blank" rel="noopener noreferrer">Source</a>':'')+'</small></div>';
+  });
+  return h+'</section>';
+ }catch(e){console.warn('Passport history:',e);return '<section class="passport-card"><h2>Change History</h2><p class="muted">History could not be loaded.</p></section>'}
+}
 async function monitorUI(p){
  const id=p.passport_id;if(!id)return '';
  const s=await session();
  if(!s?.access_token)return '<div class="passport-monitor"><div><strong>Passport Monitoring</strong><div class="monitor-note">Sign in to enable automatic Passport monitoring and change history.</div></div><a href="login.html" class="btn btn-ghost">Sign in</a></div>';
  try{
-  const c=window.Web3MarketSupabase?.client;
-  if(!c)return '<div class="passport-monitor"><div><strong>Passport Monitoring</strong><div class="monitor-note">Authentication client unavailable.</div></div></div>';
-  const {data:m,error}=await c.from('external_passport_monitors').select('id,enabled,interval_minutes,next_run_at,last_run_at,last_success_at,last_error').eq('passport_id',id).maybeSingle();
+  const c=window.Web3MarketSupabase?.client;if(!c)return '';
+  const {data:m}=await c.from('external_passport_monitors').select('id,enabled,interval_minutes,next_run_at,last_run_at,last_success_at,last_error').eq('passport_id',id).maybeSingle();
   const active=!!m?.enabled;
   return '<div class="passport-monitor"><div><strong>Passport Monitoring: '+(active?'Active':'Off')+'</strong><div class="monitor-note">'+(active?('Last scan: '+val(m.last_success_at,'Not run yet')+' • Next: '+val(m.next_run_at,'Pending')):'Automatic re-checks are disabled for this Passport.')+'</div></div><div><select id="passportInterval" style="padding:9px;border-radius:9px;margin-right:6px"><option value="60">1 hour</option><option value="360">6 hours</option><option value="1440" selected>24 hours</option><option value="10080">7 days</option></select><button id="monitorToggle" data-passport-id="'+esc(id)+'">'+(active?'Disable':'Enable Monitoring')+'</button></div></div>';
- }catch(e){return '<div class="passport-monitor"><div><strong>Passport Monitoring</strong><div class="monitor-note">Status unavailable.</div></div></div>'}
+ }catch{return '<div class="passport-monitor"><div><strong>Passport Monitoring</strong><div class="monitor-note">Status unavailable.</div></div></div>'}
 }
 async function wireMonitor(p){
  const b=document.getElementById('monitorToggle');if(!b)return;b.onclick=async()=>{
-  b.disabled=true;
-  const s=await session();if(!s?.access_token){location.href='login.html';return}
+  b.disabled=true;const s=await session();if(!s?.access_token){location.href='login.html';return}
   try{
-   const active=b.textContent.includes('Disable');
-   if(active){
-    const c=window.Web3MarketSupabase?.client;
-    const {error}=await c.from('external_passport_monitors').update({enabled:false,next_run_at:null,updated_at:new Date().toISOString()}).eq('passport_id',p.passport_id);
-    if(error)throw error;
-   }else{
-    const r=await fetch(SUPABASE_URL+'/functions/v1/external-passport-monitor-create',{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json'},body:JSON.stringify({passport_id:p.passport_id,interval_minutes:Number(document.getElementById('passportInterval')?.value||1440)})});
-    const d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw Error(d.error||'Monitor activation failed');
-   }
+   const active=b.textContent.includes('Disable'),c=window.Web3MarketSupabase?.client;
+   if(active){const {error}=await c.from('external_passport_monitors').update({enabled:false,next_run_at:null,updated_at:new Date().toISOString()}).eq('passport_id',p.passport_id);if(error)throw error}
+   else{const r=await fetch(SUPABASE_URL+'/functions/v1/external-passport-monitor-create',{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json'},body:JSON.stringify({passport_id:p.passport_id,interval_minutes:Number(document.getElementById('passportInterval')?.value||1440)})});const d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw Error(d.error||'Monitor activation failed')}
    await renderExternal(p);
   }catch(e){alert(e.message||'Monitoring update failed');b.disabled=false}
  }}
 function renderInternal(p){
- const fields=[['Project','title','owner'],['Category','category','owner'],['Domain','website_url','connected'],['Users','users_count','owner'],['Monthly Revenue','monthly_revenue','owner'],['Technology','technology_stack','owner'],['Blockchain','blockchain','connected'],['GitHub','github_url','connected'],['AI Score','ai_score','ai']];
  let h='<div class="passport-badge">Web3Market Project</div><section class="passport-card"><h2>Project Identity & Intelligence</h2><div class="identity">';
- fields.forEach(([l,k,t])=>h+='<div class="item"><small>'+esc(l)+'</small><strong>'+esc(val(p[k]))+'</strong>'+status(t,t==='ai'?'AI Verified':t==='connected'?'Connected Data':'Owner Provided')+'</div>');
+ [['Project','title','owner'],['Category','category','owner'],['Domain','website_url','connected'],['Users','users_count','owner'],['Monthly Revenue','monthly_revenue','owner'],['Technology','technology_stack','owner'],['Blockchain','blockchain','connected'],['GitHub','github_url','connected'],['AI Score','ai_score','ai']].forEach(([l,k,t])=>h+='<div class="item"><small>'+esc(l)+'</small><strong>'+esc(val(p[k]))+'</strong>'+status(t,t==='ai'?'AI Verified':t==='connected'?'Connected Data':'Owner Provided')+'</div>');
  h+='</div></section><section class="passport-card"><h2>AI Project Summary</h2><p>'+esc(val(p.ai_summary,'AI summary will appear when available.'))+'</p></section><section class="passport-card"><h2>Risk & Due Diligence</h2><div class="identity">';
  [['AI Risk Score','ai_risk_score'],['AI Risk Level','ai_risk_level'],['AI Due Diligence','ai_due_diligence'],['Valuation','ai_valuation']].forEach(([l,k])=>h+='<div class="item"><small>'+l+'</small><strong>'+esc(val(p[k]))+'</strong>'+status('ai','AI Verified')+'</div>');
  h+='</div></section><section class="passport-card"><h2>Project History</h2><p class="muted">Passport data is displayed from the Web3Market project record.</p></section>';document.getElementById('passport').innerHTML=h;
@@ -47,13 +53,15 @@ async function renderExternal(p){
  let h='<div class="passport-badge external">Web3 Project Passport • External Research</div><section class="passport-card"><h2>Public Project Passport</h2><p class="muted">Universal Passport research uses public sources only and is independent from Web3Market listings.</p><div class="identity">';
  [['Project','project_name'],['Website','website'],['Category','category'],['Launched','founded_or_launched'],['Technology','technology'],['GitHub','github'],['Users','active_users'],['Monthly Traffic','monthly_visits'],['Revenue','revenue'],['Risk Level','ai_risk_level'],['Risk Score','ai_risk_score'],['Confidence','confidence_score']].forEach(([l,k])=>h+='<div class="item"><small>'+l+'</small><strong>'+esc(val(p[k]))+'</strong>'+status('external','Public Evidence')+'</div>');
  h+='</div></section><section class="passport-card"><h2>Passport Status</h2><div class="identity"><div class="item"><small>Passport ID</small><strong>'+esc(val(p.passport_id))+'</strong>'+status('connected','Stored')+'</div><div class="item"><small>Snapshot</small><strong>'+esc(val(p.snapshot_id))+'</strong>'+status('connected','Current')+'</div></div></section>';
- document.getElementById('passport').innerHTML=h+(await monitorUI(p))+'<section class="passport-card"><h2>Research Summary</h2><p>'+esc(val(p.ai_summary))+'</p></section><section class="passport-card"><h2>Key Findings</h2>';
- (Array.isArray(p.key_findings)?p.key_findings:[]).forEach(x=>h+='');
- let findings=(Array.isArray(p.key_findings)?p.key_findings:[]).map(x=>'<div class="finding"><strong>'+esc(x.title)+'</strong><p>'+esc(x.detail)+'</p><small>'+esc(x.severity||'info')+'</small></div>').join('');if(!findings)findings='<p class="muted">No additional findings were verified.</p>';
- h+=findings+'</section><section class="passport-card"><h2>Public Sources</h2>';
- let sources=(Array.isArray(p.sources)?p.sources:[]).map(s=>{const u=String(s.url||'');return /^https?:\/\//i.test(u)?'<div class="source"><a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(s.title||u)+'</a> <small>'+esc(s.type||'public')+'</small></div>':''}).join('');
- h+=(sources||'<p class="muted">No public source links returned.</p>')+'</section><section class="passport-card"><p class="muted"><strong>Important:</strong> This Passport is external public research. It is not a Web3Market listing, is not owner-verified, and does not create or modify marketplace project data.</p></section>';
+ h+=await monitorUI(p);
+ h+='<section class="passport-card"><h2>Research Summary</h2><p>'+esc(val(p.ai_summary))+'</p></section><section class="passport-card"><h2>Key Findings</h2>';
+ const findings=(Array.isArray(p.key_findings)?p.key_findings:[]).map(x=>'<div class="finding"><strong>'+esc(x.title)+'</strong><p>'+esc(x.detail)+'</p><small>'+esc(x.severity||'info')+'</small></div>').join('');
+ h+=findings||'<p class="muted">No additional findings were verified.</p>';
+ h+='</section><section class="passport-card"><h2>Public Sources</h2>';
+ const sources=(Array.isArray(p.sources)?p.sources:[]).map(s=>{const u=String(s.url||'');return /^https?:\/\//i.test(u)?'<div class="source"><a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(s.title||u)+'</a> <small>'+esc(s.type||'public')+'</small></div>':''}).join('');
+ h+=sources||'<p class="muted">No public source links returned.</p>'+'</section><section class="passport-card"><p class="muted"><strong>Important:</strong> This Passport is external public research. It is not a Web3Market listing, is not owner-verified, and does not create or modify marketplace project data.</p></section>';
  document.getElementById('passport').innerHTML=h;wireMonitor(p);
+ const history=await historyUI(p);document.getElementById('passport').insertAdjacentHTML('beforeend',history);
 }
 async function loadInternal(id){
  const root=document.getElementById('passport');root.innerHTML='<p>Loading Web3Market project…</p>';
