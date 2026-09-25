@@ -104,11 +104,16 @@ async function loadInternal(id){
 async function loadExternal(query){
  const root=document.getElementById('passport');root.innerHTML='<p>Searching public sources and creating a universal Web3 Project Passport…</p>';
  try{
-  const r=await fetch(SUPABASE_URL+'/functions/v1/external-passport-persist',{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({query})});
+  const headers={apikey:SUPABASE_KEY,'Content-Type':'application/json',Accept:'application/json'};
+  const r=await fetch(SUPABASE_URL+'/functions/v1/external-passport-persist',{method:'POST',headers,body:JSON.stringify({query})});
   const raw=await r.text();let d={};try{d=raw?JSON.parse(raw):{}}catch{}
-  if(!r.ok||!d.success){console.error('External Passport',r.status,raw);root.innerHTML='<p class="muted">Passport search failed ('+esc(String(r.status||'network'))+'). '+esc(d.error||raw.slice(0,240)||'Please try again.')+'</p>';return}
-  if(!d.passport){root.innerHTML='<p class="muted">Passport search returned no project data.</p>';return}
-  renderExternal(d.passport)
+  if(r.ok&&d.success&&d.passport){renderExternal(d.passport);return}
+  console.warn('Passport persistence failed',r.status,raw);
+  const rr=await fetch(SUPABASE_URL+'/functions/v1/external-project-passport',{method:'POST',headers,body:JSON.stringify({query})});
+  const raw2=await rr.text();let d2={};try{d2=raw2?JSON.parse(raw2):{}}catch{}
+  if(rr.ok&&d2.success&&d2.passport){d2.passport.external_only=true;renderExternal(d2.passport);return}
+  console.error('Passport research failed',rr.status,raw2);
+  root.innerHTML='<p class="muted">Passport search failed. The public research service did not return project data.</p>';
  }catch(e){console.error('External Passport request',e);root.innerHTML='<p class="muted">Passport connection failed. Please try again.</p>'}
 }
 window.loadPassportFromInput=()=>{const i=document.getElementById('projectId'),q=i?.value.trim();if(q){if(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(q))loadInternal(q);else loadExternal(q)}else i?.focus()};
