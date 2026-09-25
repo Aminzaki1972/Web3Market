@@ -103,7 +103,13 @@ async function loadInternal(id){
 }
 async function loadExternal(query){
  const root=document.getElementById('passport');root.innerHTML='<p>Searching public sources and creating a universal Web3 Project Passport…</p>';
- try{const r=await fetch(SUPABASE_URL+'/functions/v1/external-passport-persist',{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({query})});const d=await r.json().catch(()=>({}));if(!r.ok||!d.success){root.innerHTML='<p class="muted">'+esc(d.error||('External Passport returned '+r.status+'.'))+'</p>';return}renderExternal(d.passport)}catch(e){console.error(e);root.innerHTML='<p class="muted">External Passport could not connect. Please try again.</p>'}
+ try{
+  const r=await fetch(SUPABASE_URL+'/functions/v1/external-passport-persist',{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({query})});
+  const raw=await r.text();let d={};try{d=raw?JSON.parse(raw):{}}catch{}
+  if(!r.ok||!d.success){console.error('External Passport',r.status,raw);root.innerHTML='<p class="muted">Passport search failed ('+esc(String(r.status||'network'))+'). '+esc(d.error||raw.slice(0,240)||'Please try again.')+'</p>';return}
+  if(!d.passport){root.innerHTML='<p class="muted">Passport search returned no project data.</p>';return}
+  renderExternal(d.passport)
+ }catch(e){console.error('External Passport request',e);root.innerHTML='<p class="muted">Passport connection failed. Please try again.</p>'}
 }
 window.loadPassportFromInput=()=>{const i=document.getElementById('projectId'),q=i?.value.trim();if(q){if(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(q))loadInternal(q);else loadExternal(q)}else i?.focus()};
 window.loadExternalPassport=()=>{const i=document.getElementById('projectId'),q=i?.value.trim();if(q)loadExternal(q);else i?.focus()};
