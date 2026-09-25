@@ -1,0 +1,28 @@
+{
+  "name": "Web3Market — Web3 Project Marketplace",
+  "short_name": "Web3Market",
+  "description": "Discover, buy and sell Web3 projects through Web3Market.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#04091e",
+  "theme_color": "#635bff",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["business", "finance", "shopping"],
+  "icons": [
+    {
+      "src": "/assets/icons/web3market-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icons/web3market-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
