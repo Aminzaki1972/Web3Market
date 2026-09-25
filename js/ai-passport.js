@@ -108,10 +108,10 @@ async function loadExternal(query){
  try{
   // The public research endpoint is the primary path. Database persistence must
   // never prevent a valid Passport from being displayed.
-  const rr=await fetch(SUPABASE_URL+'/functions/v1/external-project-passport',{
-   method:'POST',headers,body:JSON.stringify({query}),cache:'no-store'
+  const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),30000); const rr=await fetch(SUPABASE_URL+'/functions/v1/external-project-passport',{
+   method:'POST',headers,body:JSON.stringify({query}),cache:'no-store',signal:controller.signal
   });
-  const raw2=await rr.text();let d2={};try{d2=raw2?JSON.parse(raw2):{}}catch{}
+  clearTimeout(timer); const raw2=await rr.text();let d2={};try{d2=raw2?JSON.parse(raw2):{}}catch{}
   if(rr.ok&&d2.success&&d2.passport){
    d2.passport.external_only=true;
    renderExternal(d2.passport);
@@ -131,10 +131,10 @@ async function loadExternal(query){
   const raw=await r.text();let d={};try{d=raw?JSON.parse(raw):{}}catch{}
   if(r.ok&&d.success&&d.passport){renderExternal(d.passport);return}
   console.error('Passport persistence fallback failed',r.status,raw);
-  root.innerHTML='<p class="muted">Passport search failed. No public project data was returned.</p>';
+  root.innerHTML='<p class="muted">Passport search failed ('+esc(rr.status||r.status||'network')+'). '+esc(d2?.error||d?.error||'No public project data was returned.')+'</p>';
  }catch(e){
   console.error('External Passport request',e);
-  root.innerHTML='<p class="muted">Passport connection failed. Please try again.</p>';
+  root.innerHTML='<p class="muted">Passport connection failed: '+esc(e?.name==='AbortError'?'Research timed out after 30 seconds.':'Network request failed. Please try again.')+'</p>';
  }
 }
 window.loadPassportFromInput=()=>{const i=document.getElementById('projectId'),q=i?.value.trim();if(q){if(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(q))loadInternal(q);else loadExternal(q)}else i?.focus()};
