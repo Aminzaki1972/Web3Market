@@ -134,6 +134,16 @@ async function loadExternal(query){
   root.innerHTML='<p class="muted">Passport search failed ('+esc(rr.status||r.status||'network')+'). '+esc(d2?.error||d?.error||'No public project data was returned.')+'</p>';
  }catch(e){
   console.error('External Passport request',e);
+  const key=String(query||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const seed={
+   aave:{project_name:'Aave',website:'https://aave.com',category:'DeFi / Lending',github:'https://github.com/aave',blockchains:['Ethereum / EVM','Polygon','Arbitrum','Optimism'],ai_summary:'Public-source seed profile for Aave. Live enrichment was unavailable for this request; no user, traffic or revenue figures are estimated.',ai_risk_level:'not_assessed',ai_risk_score:null,evidence_score:70,confidence_score:70,risk_indicators:['Live enrichment unavailable; verify current public sources before relying on this record.'],key_findings:[{severity:'info',title:'Official identity',detail:'Aave official website and GitHub organization are available as public identity sources.'}],sources:[{title:'Aave official website',url:'https://aave.com',type:'official'},{title:'Aave official GitHub',url:'https://github.com/aave',type:'github'}],external_only:true,web3market_listing_status:'not_listed'},
+   uniswap:{project_name:'Uniswap',website:'https://uniswap.org',category:'DEX / Exchange',github:'https://github.com/Uniswap',blockchains:['Ethereum / EVM','Arbitrum','Optimism','Polygon'],ai_summary:'Public-source seed profile for Uniswap. Live enrichment was unavailable for this request; no user, traffic or revenue figures are estimated.',ai_risk_level:'not_assessed',ai_risk_score:null,evidence_score:70,confidence_score:70,risk_indicators:['Live enrichment unavailable; verify current public sources before relying on this record.'],key_findings:[{severity:'info',title:'Official identity',detail:'Uniswap official website and GitHub organization are available as public identity sources.'}],sources:[{title:'Uniswap official website',url:'https://uniswap.org',type:'official'},{title:'Uniswap official GitHub',url:'https://github.com/Uniswap',type:'github'}],external_only:true,web3market_listing_status:'not_listed'}
+  };
+  if(seed[key]){
+   const p={...seed[key],passport_id:'EXTERNAL-'+key.toUpperCase(),snapshot_id:'LIVE-FALLBACK'};
+   renderExternal(p);
+   return;
+  }
   root.innerHTML='<p class="muted">Passport connection failed: '+esc(e?.name==='AbortError'?'Research timed out after 30 seconds.':'Network request failed. Please try again.')+'</p>';
  }
 }
