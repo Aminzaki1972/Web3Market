@@ -114,15 +114,21 @@ async function loadExternal(query){
   clearTimeout(timer); const raw2=await rr.text();let d2={};try{d2=raw2?JSON.parse(raw2):{}}catch{}
   if(rr.ok&&d2.success&&d2.passport){
    d2.passport.external_only=true;
+   // Persist and wait for the identity assignment so the Passport gets its permanent W3M ID (and snapshot ID) in the same search result.
+   try{
+    const pr=await fetch(SUPABASE_URL+'/functions/v1/external-passport-persist',{
+     method:'POST',headers,body:JSON.stringify({query}),cache:'no-store'
+    });
+    const pd=await pr.json().catch(()=>({}));
+    if(pr.ok&&pd.success&&pd.passport){
+     renderExternal(pd.passport);
+     return;
+    }
+    console.warn('Passport persistence did not assign identity:',pr.status,pd?.error||'unknown');
+   }catch(e){console.warn('Passport persistence unavailable:',e)}
+   // Research remains usable even if persistence/identity assignment fails.
    renderExternal(d2.passport);
-   // Persist in the background; failure here is intentionally non-blocking.
-   fetch(SUPABASE_URL+'/functions/v1/external-passport-persist',{
-    method:'POST',headers,body:JSON.stringify({query}),cache:'no-store'
-   }).then(async r=>{
-    const t=await r.text();console.info('Passport persistence:',r.status,t.slice(0,500));
-   }).catch(e=>console.warn('Passport persistence unavailable:',e));
    return;
-  }
   console.error('Passport research failed',rr.status,raw2);
   // If the research endpoint fails, try the persistence endpoint as a fallback.
   const r=await fetch(SUPABASE_URL+'/functions/v1/external-passport-persist',{
