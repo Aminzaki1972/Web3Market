@@ -129,6 +129,7 @@ async function loadExternal(query){
    // Research remains usable even if persistence/identity assignment fails.
    renderExternal(d2.passport);
    return;
+  }
   console.error('Passport research failed',rr.status,raw2);
   // If the research endpoint fails, try the persistence endpoint as a fallback.
   const r=await fetch(SUPABASE_URL+'/functions/v1/external-passport-persist',{
