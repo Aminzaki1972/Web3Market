@@ -54,6 +54,21 @@ async function wireMonitor(p){
    await renderExternal(p);
   }catch(e){alert(e.message||'Monitoring update failed');b.disabled=false}
  }}
+async function autoPostPassportSearch(query,p){
+ try{
+  if(!query||!p)return;
+  const r=await fetch(SUPABASE_URL+'/functions/v1/passport-x-auto-post',{
+   method:'POST',
+   headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},
+   body:JSON.stringify({query,passport:p}),
+   cache:'no-store'
+  });
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok||!d.success)console.warn('Passport X auto-post:',d.error||r.status);
+  else console.log('Passport X auto-post:',d.status,d.x_post_url||'');
+ }catch(e){console.warn('Passport X auto-post unavailable:',e)}
+}
+
 function renderInternal(p){
  const isRoot=String(p.website_url||'').toLowerCase().includes('web3market.xyz')||String(p.title||'').toLowerCase()==='web3market'; const identityCode=String(p.w3m_identity_code||'').trim(); const identityFirstSeen=p.w3m_first_seen_at||'';
  let h='<div class="passport-badge">Web3Market Project</div><section class="passport-card"><h2>W3M Permanent Project Identity</h2><div class="identity"><div class="item"><small>W3M Identity</small><strong>'+esc(identityCode|| (isRoot?'W3M-2026-000001':'Assigned on Passport identity match'))+'</strong>'+status('connected',isRoot?'Genesis / Verified':'Identity Layer')+'</div><div class="item"><small>First Seen</small><strong>'+esc(identityFirstSeen|| (isRoot?'2026-09-25':'Recorded when identity is assigned'))+'</strong>'+status('connected','Permanent Record')+'</div><div class="item"><small>Identity Rule</small><strong>Same project keeps the same W3M ID across branches and sources</strong>'+status('connected','Fingerprint Matching')+'</div><div class="item"><small>Scope</small><strong>Website • GitHub • Docs • App • Contracts • Analytics • Listings</strong>'+status('connected','Project Family')+'</div></div></section><section class="passport-card"><h2>Project Identity & Intelligence</h2><div class="identity">';
@@ -98,7 +113,7 @@ async function loadInternal(id){
     }
    }catch(e){console.warn('W3M identity lookup:',e)}
   }
-  renderInternal(p)
+  renderInternal(p); autoPostPassportSearch(id,p)
  }catch(e){console.error(e);root.innerHTML='<p class="muted">Unable to connect to the Web3Market database.</p>'}
 }
 async function loadExternal(query){
@@ -121,13 +136,13 @@ async function loadExternal(query){
     });
     const pd=await pr.json().catch(()=>({}));
     if(pr.ok&&pd.success&&pd.passport){
-     renderExternal(pd.passport);
+     renderExternal(pd.passport); autoPostPassportSearch(query,pd.passport);
      return;
     }
     console.warn('Passport persistence did not assign identity:',pr.status,pd?.error||'unknown');
    }catch(e){console.warn('Passport persistence unavailable:',e)}
    // Research remains usable even if persistence/identity assignment fails.
-   renderExternal(d2.passport);
+   renderExternal(d2.passport); autoPostPassportSearch(query,d2.passport);
    return;
   }
   console.error('Passport research failed',rr.status,raw2);
@@ -148,7 +163,7 @@ async function loadExternal(query){
   };
   if(seed[key]){
    const p={...seed[key],passport_id:'EXTERNAL-'+key.toUpperCase(),snapshot_id:'LIVE-FALLBACK'};
-   renderExternal(p);
+   renderExternal(p); autoPostPassportSearch(query,p);
    return;
   }
   root.innerHTML='<p class="muted">Passport connection failed: '+esc(e?.name==='AbortError'?'Research timed out after 30 seconds.':'Network request failed. Please try again.')+'</p>';
