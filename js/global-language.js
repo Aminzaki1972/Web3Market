@@ -116,81 +116,45 @@ function translateExact(value,map){
   return map[v] || value;
 }
 
+const originalText=new WeakMap();
+const originalAttrs=new WeakMap();
+
 function translateNode(node,lang){
   if(node.nodeType===Node.TEXT_NODE){
-    if(!node.parentElement || node.parentElement.matches('script,style,noscript,svg')) return;
-    if(node.nodeValue && node.nodeValue.trim()){
-      if(!node.dataset){
-        // Text nodes do not support dataset; preserve originals on the parent instead.
-      }
-      const original=node.nodeValue;
-      const key='data-wm-original-text';
-      if(!node.parentElement.hasAttribute(key)) node.parentElement.setAttribute(key,original);
-      if(lang==='ar'){
-        const trimmed=original.trim();
-        if(trimmed && AR[trimmed]) node.nodeValue=original.replace(trimmed,AR[trimmed]);
-      } else if(node.parentElement.hasAttribute(key)){
-        const saved=node.parentElement.getAttribute(key);
-        if(saved!==null) node.nodeValue=saved;
-      }
+    if(!node.parentElement || node.parentElement.matches('script,style,noscript,svg,#wm-language')) return;
+    if(!originalText.has(node)) originalText.set(node,node.nodeValue);
+    const original=originalText.get(node);
+    if(lang==='ar'){
+      const trimmed=String(original||'').trim();
+      if(trimmed && AR[trimmed]) node.nodeValue=String(original).replace(trimmed,AR[trimmed]);
+    }else{
+      node.nodeValue=original;
     }
     return;
   }
   if(node.nodeType!==Node.ELEMENT_NODE) return;
   if(node.matches('script,style,noscript,svg,#wm-language')) return;
 
-  ['placeholder','aria-label','title'].forEach(a=>{
-    const v=node.getAttribute(a);
-    const key='data-wm-original-'+a;
-    if(v && !node.hasAttribute(key)) node.setAttribute(key,v);
-    if(lang==='ar' && v && ATTR_AR[v]) node.setAttribute(a,ATTR_AR[v]);
-    else if(lang!=='ar' && node.hasAttribute(key)) node.setAttribute(a,node.getAttribute(key));
+  if(!originalAttrs.has(node)) originalAttrs.set(node,{
+    placeholder:node.getAttribute('placeholder'),
+    'aria-label':node.getAttribute('aria-label'),
+    title:node.getAttribute('title')
   });
-
+  const saved=originalAttrs.get(node);
+  if(lang==='ar'){
+    if(saved.placeholder && ATTR_AR[saved.placeholder]) node.setAttribute('placeholder',ATTR_AR[saved.placeholder]);
+    if(saved['aria-label'] && ATTR_AR[saved['aria-label']]) node.setAttribute('aria-label',ATTR_AR[saved['aria-label']]);
+    if(saved.title && ATTR_AR[saved.title]) node.setAttribute('title',ATTR_AR[saved.title]);
+  }else{
+    ['placeholder','aria-label','title'].forEach(a=>{
+      if(saved[a]!==null && saved[a]!==undefined) node.setAttribute(a,saved[a]);
+      else node.removeAttribute(a);
+    });
+  }
   node.childNodes.forEach(child=>translateNode(child,lang));
 }
 
-function restoreOriginal(){
-  document.querySelectorAll('[data-wm-original-text]').forEach(el=>{
-    const saved=el.getAttribute('data-wm-original-text');
-    if(saved!==null){
-      el.childNodes.forEach(n=>{
-        if(n.nodeType===Node.TEXT_NODE && n.nodeValue.trim()) n.nodeValue=saved;
-      });
-    }
-  });
-  document.querySelectorAll('[data-wm-original-placeholder],[data-wm-original-aria-label],[data-wm-original-title]').forEach(el=>{
-    ['placeholder','aria-label','title'].forEach(a=>{
-      const key='data-wm-original-'+a;
-      if(el.hasAttribute(key)) el.setAttribute(a,el.getAttribute(key));
-    });
-  });
-}
-
-function apply(lang){
-  lang=LANGS[lang]?lang:'en';
-  localStorage.setItem('wm-language',lang);
-  document.documentElement.lang=lang;
-  document.documentElement.dir=lang==='ar'?'rtl':'ltr';
-  document.body && (document.body.dir=lang==='ar'?'rtl':'ltr');
-  if(lang!=='ar') restoreOriginal();
-
-  document.querySelectorAll('[data-i18n]').forEach(e=>{
-    const k=e.dataset.i18n;
-    e.textContent=UI[lang]?.[k]||UI.en[k]||e.textContent;
-  });
-
-  if(lang==='ar'){
-    translateNode(document.body,lang);
-    document.querySelectorAll('a').forEach(e=>{
-      const key=(e.textContent||'').trim();
-      if(UI.ar[({Marketplace:'market',Categories:'cat',Sell:'sell','How it works':'how',Support:'support','AI Project Passport':'passport'})[key]])
-        e.textContent=UI.ar[({Marketplace:'market',Categories:'cat',Sell:'sell','How it works':'how',Support:'support','AI Project Passport':'passport'})[key]];
-    });
-  }
-}
-
-function addPicker(){
+function applyfunction addPicker(){
   if(document.getElementById('wm-language')) return;
   const nav=document.querySelector('.navin')||document.querySelector('.topbar');
   if(!nav) return;
