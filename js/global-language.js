@@ -52,12 +52,12 @@ window.googleTranslateElementInit=function(){
 
 function addPicker(){
   if(document.getElementById('wm-language')) return;
-  const nav=document.querySelector('.navin')||document.querySelector('.topbar');
+  const nav=document.querySelector('.navin')||document.querySelector('.topbar')||document.querySelector('header')||document.body;
   if(!nav) return;
 
   const wrap=document.createElement('div');
   wrap.id='wm-language';
-  wrap.style.cssText='position:relative;margin-left:8px;z-index:10000';
+  wrap.style.cssText='position:relative;display:inline-flex;align-items:center;margin-left:8px;z-index:10000';
 
   const b=document.createElement('button');
   b.type='button';
