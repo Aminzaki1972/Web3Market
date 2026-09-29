@@ -13,6 +13,8 @@ const LANGS = {
   de:'Deutsch', pt:'Português', ru:'Русский', zh:'中文', ja:'日本語', ko:'한국어'
 };
 const STORAGE_KEY='wm-language';
+const BASE_TEXT=new WeakMap();
+let observerStarted=false;
 
 const T = {
   en:{
@@ -251,11 +253,12 @@ function translateNodeText(root,lang){
   const nodes=[];
   while(walker.nextNode())nodes.push(walker.currentNode);
   nodes.forEach(node=>{
-    const raw=node.nodeValue;
-    const trimmed=raw.trim();
+    if(!BASE_TEXT.has(node))BASE_TEXT.set(node,node.nodeValue);
+    const base=BASE_TEXT.get(node)||'';
+    const trimmed=base.trim();
     if(!trimmed)return;
     const translated=translate(trimmed,lang);
-    if(translated!==trimmed)node.nodeValue=raw.replace(trimmed,translated);
+    node.nodeValue=base.replace(trimmed,translated);
   });
 }
 function translateAttributes(root,lang){
@@ -272,6 +275,7 @@ function translateAttributes(root,lang){
 }
 function applyLanguage(lang){
   const safe=LANGS[lang]?lang:'en';
+  if(location.pathname.split('/').pop().toLowerCase()==='deal-room.html')return;
   applyDirection(safe);
   translateNodeText(document.body,safe);
   translateAttributes(document,safe);
@@ -305,11 +309,29 @@ function addPicker(){
   document.addEventListener('click',()=>{m.style.display='none';});
   wrap.append(b,m);nav.appendChild(wrap);
 }
+function startObserver(){
+  if(observerStarted||!window.MutationObserver)return;
+  observerStarted=true;
+  const root=document.body;
+  if(!root)return;
+  const observer=new MutationObserver(mutations=>{
+    const lang=getSavedLanguage();
+    mutations.forEach(m=>m.addedNodes.forEach(node=>{
+      if(node.nodeType===1){
+        translateNodeText(node,lang);
+        translateAttributes(node,lang);
+      }
+    }));
+  });
+  observer.observe(root,{childList:true,subtree:true});
+}
 function init(){
   const saved=getSavedLanguage();
+  if(location.pathname.split('/').pop().toLowerCase()==='deal-room.html')return;
   applyDirection(saved);
   addPicker();
   applyLanguage(saved);
+  startObserver();
 }
 window.Web3MarketI18n={langs:LANGS,setLanguage,translate,applyLanguage,getLanguage:getSavedLanguage};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
