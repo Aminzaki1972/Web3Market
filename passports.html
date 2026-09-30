@@ -74,10 +74,9 @@ function updateStats(){
  document.getElementById('total').textContent=rows.length;
  document.getElementById('verified').textContent=rows.filter(x=>String(x.identity_status||'').toLowerCase()==='verified').length;
 }
- document.getElementById('total').textContent=rows.length;
- document.getElementById('verified').textContent=rows.filter(x=>String(x.identity_status||'').toLowerCase()==='verified').length;
- render();
-}
+// Render immediately from the built-in verified registry, then refresh from Supabase.
+updateStats();
+render();
 document.getElementById('search').addEventListener('input',render);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
 })();
