@@ -439,7 +439,12 @@ function setLanguage(lang){
   applyLanguage(safe);
 }
 function addPicker(){
-  if(document.getElementById('wm-language'))return;
+  const existing=document.getElementById('wm-language');
+  if(existing){
+    const menu=existing.querySelector('.wm-language-menu');
+    if(menu && !menu.children.length) buildLanguageMenu(menu);
+    return;
+  }
   const nav=document.querySelector('.navin')||document.querySelector('.topbar')||document.querySelector('header')||document.body;
   if(!nav)return;
   const wrap=document.createElement('div');
@@ -450,16 +455,21 @@ function addPicker(){
   b.style.cssText='height:40px;min-width:40px;border:1px solid #dce1e8;border-radius:50%;background:#fff;cursor:pointer;font-size:19px';
   const m=document.createElement('div');
   m.style.cssText='display:none;position:absolute;right:0;top:46px;background:#fff;border:1px solid #e1e5eb;border-radius:12px;box-shadow:0 14px 35px rgba(20,24,32,.15);padding:6px;z-index:99999;min-width:160px;max-height:70vh;overflow:auto';
-  Object.entries(LANGS).forEach(([code,name])=>{
-    const x=document.createElement('button');
-    x.type='button';x.textContent=name;
-    x.style.cssText='display:block;width:100%;padding:9px 10px;border:0;background:#fff;text-align:left;border-radius:8px;cursor:pointer';
-    x.addEventListener('click',()=>{m.style.display='none';setLanguage(code);});
-    m.appendChild(x);
-  });
+  m.className='wm-language-menu';
+  buildLanguageMenu(m);
   b.addEventListener('click',e=>{e.stopPropagation();m.style.display=m.style.display==='block'?'none':'block';});
   document.addEventListener('click',()=>{m.style.display='none';});
   wrap.append(b,m);nav.appendChild(wrap);
+}
+function buildLanguageMenu(m){
+  if(!m || m.children.length)return;
+  Object.entries(LANGS).forEach(([code,name])=>{
+    const x=document.createElement('button');
+    x.type='button';x.dataset.language=code;x.textContent=name;
+    x.style.cssText='display:block;width:100%;padding:9px 10px;border:0;background:#fff;color:#111;text-align:left;border-radius:8px;cursor:pointer;font:inherit;white-space:nowrap';
+    x.addEventListener('click',e=>{e.stopPropagation();m.style.display='none';setLanguage(code);});
+    m.appendChild(x);
+  });
 }
 function startObserver(){
   if(observerStarted||!window.MutationObserver)return;
