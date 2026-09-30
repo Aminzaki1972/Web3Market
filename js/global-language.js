@@ -442,7 +442,7 @@ function addPicker(){
   const existing=document.getElementById('wm-language');
   if(existing){
     const menu=existing.querySelector('.wm-language-menu');
-    if(menu && !menu.children.length) buildLanguageMenu(menu);
+    if(menu && !menu.querySelector('[data-language]')) buildLanguageMenu(menu);
     return;
   }
   const nav=document.querySelector('.navin')||document.querySelector('.topbar')||document.querySelector('header')||document.body;
@@ -462,7 +462,9 @@ function addPicker(){
   wrap.append(b,m);nav.appendChild(wrap);
 }
 function buildLanguageMenu(m){
-  if(!m || m.children.length)return;
+  if(!m)return;
+  if(m.querySelector('[data-language]'))return;
+  m.replaceChildren();
   Object.entries(LANGS).forEach(([code,name])=>{
     const x=document.createElement('button');
     x.type='button';x.dataset.language=code;x.textContent=name;
