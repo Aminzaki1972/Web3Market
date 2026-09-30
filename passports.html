@@ -42,7 +42,7 @@ function render(){
  if(!filtered.length){grid.innerHTML='<div class="empty">No W3M Passport identities match your search.</div>';return}
  grid.innerHTML=filtered.map(x=>{
   const verified=String(x.identity_status||'').toLowerCase()==='verified';
-  return '<article class="card"><span class="badge '+(verified?'':'probable')+'">'+esc(verified?'✓ VERIFIED':'PROBABLE')+'</span><h2>'+esc(x.project_name||'Unnamed project')+'</h2><div class="code">'+esc(x.identity_code||'W3M Identity')+'</div><div class="date">Passport issued: '+esc(fmt(x.created_at))+'</div><a class="view" href="ai-passport.html?identity='+encodeURIComponent(x.identity_code||'')+'">View Passport →</a></article>';
+  return '<article class="card"><span class="badge '+(verified?'':'probable')+'">'+esc(verified?'✓ VERIFIED':'PROBABLE')+'</span><h2>'+esc(x.project_name||'Unnamed project')+'</h2><div class="code">'+esc(x.identity_code||'W3M Identity')+'</div><div class="date">Passport issued: '+esc(fmt(x.created_at))+'</div><a class="view" href="passport/'+encodeURIComponent(x.identity_code||'')+'/">View Passport →</a></article>';
  }).join('');
 }
 async function load(attempt=0){
