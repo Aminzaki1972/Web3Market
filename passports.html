@@ -32,9 +32,12 @@ function render(){
   return '<article class="card"><span class="badge '+(verified?'':'probable')+'">'+esc(verified?'✓ VERIFIED':'PROBABLE')+'</span><h2>'+esc(x.project_name||'Unnamed project')+'</h2><div class="code">'+esc(x.identity_code||'W3M Identity')+'</div><div class="date">Passport issued: '+esc(fmt(x.created_at))+'</div><a class="view" href="ai-passport.html?identity='+encodeURIComponent(x.identity_code||'')+'">View Passport →</a></article>';
  }).join('');
 }
-async function load(){
+async function load(attempt=0){
  const c=client();
- if(!c){document.getElementById('grid').innerHTML='<div class="empty">Passport registry connection is unavailable.</div>';return}
+ if(!c){
+  if(attempt<20){setTimeout(()=>load(attempt+1),250);return}
+  document.getElementById('grid').innerHTML='<div class="empty">Passport registry connection is unavailable. Please refresh the page.</div>';return
+ }
  const {data,error}=await c.from('project_identities').select('identity_code,sequence_no,project_name,identity_status,created_at').order('sequence_no',{ascending:true});
  if(error){console.error(error);document.getElementById('grid').innerHTML='<div class="empty">Passport registry could not be loaded.</div>';return}
  rows=data||[];
