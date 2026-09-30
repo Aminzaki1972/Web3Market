@@ -124,7 +124,7 @@ async function loadExternalByIdentity(identityRow){
   const base=SUPABASE_URL+'/rest/v1/external_passports?select=id,project_name,website_url,canonical_url,external_only,last_searched_at,status,created_at,w3m_identity_id&w3m_identity_id=eq.'+encodeURIComponent(identityRow.id)+'&order=created_at.desc&limit=1';
   const pr=await fetch(base,{headers,cache:'no-store'}); if(!pr.ok)throw new Error('Passport lookup '+pr.status);
   const passports=await pr.json(); const ep=passports?.[0];
-  if(!ep){ await loadExternal(identityRow.project_name||identityRow.identity_code); return; }
+  if(!ep){ root.innerHTML='<p class="muted">Saved Passport record not found.</p>'; return; }
   const su=SUPABASE_URL+'/rest/v1/external_passport_snapshots?select=id,captured_at,passport_payload,collection_status,error_message&passport_id=eq.'+encodeURIComponent(ep.id)+'&order=captured_at.desc&limit=1';
   const sr=await fetch(su,{headers,cache:'no-store'}); if(!sr.ok)throw new Error('Snapshot lookup '+sr.status);
   const snaps=await sr.json(); const snap=snaps?.[0];
