@@ -128,7 +128,7 @@ async function loadExternalByIdentity(identityRow){
   const su=SUPABASE_URL+'/rest/v1/external_passport_snapshots?select=id,captured_at,passport_payload,collection_status,error_message&passport_id=eq.'+encodeURIComponent(ep.id)+'&order=captured_at.desc&limit=1';
   const sr=await fetch(su,{headers,cache:'no-store'}); if(!sr.ok)throw new Error('Snapshot lookup '+sr.status);
   const snaps=await sr.json(); const snap=snaps?.[0];
-  if(!snap?.passport_payload){ await loadExternal(identityRow.project_name||ep.project_name||identityRow.identity_code); return; }
+  if(!snap?.passport_payload){ root.innerHTML='<p class="muted">Saved Passport snapshot unavailable.</p>'; return; }
   const payload=(snap.passport_payload&&typeof snap.passport_payload==='object')?snap.passport_payload:{};
   const p={...payload,
    passport_id:ep.id,
@@ -144,7 +144,7 @@ async function loadExternalByIdentity(identityRow){
   await renderExternal(p);
  }catch(err){
   console.warn('Saved W3M Passport lookup:',err);
-  await loadExternal(identityRow.project_name||identityRow.identity_code);
+  root.innerHTML='<p class="muted">Saved Passport could not be loaded.</p>';
  }
 }
 async function loadExternal(query){
