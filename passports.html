@@ -33,25 +33,30 @@ function render(){
  }).join('');
 }
 async function load(attempt=0){
- const c=client();
- if(c){
-  const {data,error}=await c.from('project_identities').select('identity_code,sequence_no,project_name,identity_status,created_at').order('sequence_no',{ascending:true});
-  if(!error){rows=data||[];updateStats();render();return}
-  console.warn('Supabase client query failed:',error);
- }
- // REST fallback: keeps the public directory independent of the CDN client initialization.
+ const restUrl='https://hzhqlexnhtukfljcvnyd.supabase.co/rest/v1/project_identities?select=identity_code,sequence_no,project_name,identity_status,created_at&order=sequence_no.asc';
+ const key='sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI';
  try{
-  const url='https://hzhqlexnhtukfljcvnyd.supabase.co/rest/v1/project_identities?select=identity_code,sequence_no,project_name,identity_status,created_at&order=sequence_no.asc';
-  const key='sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI';
-  const r=await fetch(url,{headers:{apikey:key,Authorization:'Bearer '+key,Accept:'application/json'},cache:'no-store'});
+  const r=await fetch(restUrl,{headers:{apikey:key,Authorization:'Bearer '+key,Accept:'application/json'},cache:'no-store'});
   if(!r.ok)throw new Error('REST '+r.status);
   rows=await r.json();updateStats();render();return;
- }catch(e){
-  if(attempt<8){setTimeout(()=>load(attempt+1),500);return}
-  console.error('Passport registry load:',e);
-  document.getElementById('grid').innerHTML='<div class="empty">Passport registry could not be loaded. Please refresh the page.</div>';
+ }catch(restError){
+  console.warn('Passport REST lookup failed:',restError);
+  try{
+   const c=client();
+   if(c){
+    const result=await Promise.race([
+     c.from('project_identities').select('identity_code,sequence_no,project_name,identity_status,created_at').order('sequence_no',{ascending:true}),
+     new Promise((_,reject)=>setTimeout(()=>reject(new Error('Supabase client timeout')),5000))
+    ]);
+    if(!result.error){rows=result.data||[];updateStats();render();return;}
+    throw result.error;
+   }
+  }catch(clientError){console.warn('Passport client lookup failed:',clientError)}
  }
+ if(attempt<8){setTimeout(()=>load(attempt+1),500);return}
+ document.getElementById('grid').innerHTML='<div class="empty">Passport registry could not be loaded. Please refresh the page.</div>';
 }
+
 function updateStats(){
  document.getElementById('total').textContent=rows.length;
  document.getElementById('verified').textContent=rows.filter(x=>String(x.identity_status||'').toLowerCase()==='verified').length;
