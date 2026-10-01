@@ -16,9 +16,24 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Diagnostic
+
+      - name: Generate Passport pages and sitemap
+        env:
+          SUPABASE_URL: https://hzhqlexnhtukfljcvnyd.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI
+        run: python3 scripts/sync_w3m_passports.py
+
+      - name: Commit generated changes
         run: |
-          echo "W3M Passport Sync workflow started"
-          python3 -c "print('runner OK')"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add passport sitemap.xml
+          if git diff --cached --quiet; then
+            echo "No generated changes."
+            exit 0
+          fi
+          git commit -m "chore: sync W3M Passport SEO pages"
+          git push
