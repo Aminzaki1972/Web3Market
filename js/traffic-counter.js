@@ -54,7 +54,7 @@
     var box = document.createElement("span");
     box.id = "wm-24h-views";
     box.setAttribute("aria-live", "polite");
-    box.innerHTML = "👁 <strong>آخر 24 ساعة:</strong> <b data-wm-count>جارٍ التحميل…</b>";
+    box.innerHTML = "👁 <strong data-wm-label>Last 24 hours:</strong> <b data-wm-count>Loading…</b>";
 
     var style = document.createElement("style");
     style.textContent =
@@ -62,6 +62,15 @@
       "#wm-24h-views strong{color:#fff}#wm-24h-views b{color:#9fdcff}";
     document.head.appendChild(style);
     host.appendChild(box);
+  }
+
+  function applyCounterLanguage() {
+    var box = document.getElementById("wm-24h-views");
+    if (!box) return;
+    var lang = (document.documentElement.getAttribute("data-wm-language") || "en").toLowerCase();
+    var label = box.querySelector("[data-wm-label]");
+    if (!label) return;
+    label.textContent = lang === "ar" ? "آخر 24 ساعة:" : "Last 24 hours:";
   }
 
   async function updateCount() {
@@ -97,6 +106,8 @@
 
   async function start() {
     renderShell();
+    applyCounterLanguage();
+    window.addEventListener("web3market:languagechange", applyCounterLanguage);
     await recordVisit();
     await updateCount();
     window.setInterval(updateCount, REFRESH_MS);
