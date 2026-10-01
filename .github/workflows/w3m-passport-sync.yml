@@ -26,15 +26,12 @@ jobs:
       - name: Sync W3M Passport pages and sitemap
         env:
           SUPABASE_URL: https://hzhqlexnhtukfljcvnyd.supabase.co
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: |
           python3 - <<'PY'
           import html, json, os, pathlib, urllib.parse, urllib.request
 
           base = "https://web3market.xyz"
-          key = os.environ.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
-          if not key:
-              raise RuntimeError("Missing GitHub secret SUPABASE_PUBLISHABLE_KEY")
+          key = "sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI"
 
           api = os.environ["SUPABASE_URL"] + "/rest/v1/project_identities?select=identity_code,sequence_no,project_name,identity_status,first_seen_at,created_at&order=sequence_no.asc"
           req = urllib.request.Request(api, headers={
