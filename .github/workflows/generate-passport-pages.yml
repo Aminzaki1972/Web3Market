@@ -2,49 +2,95 @@ name: Generate W3M Passport SEO Pages
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "project_identities/**"
+      - "passport/**"
+      - "sitemap.xml"
+      - ".github/workflows/generate-passport-pages.yml"
   schedule:
     - cron: "*/15 * * * *"
 
 permissions:
   contents: write
 
+concurrency:
+  group: w3m-passport-seo
+  cancel-in-progress: true
+
 jobs:
   generate:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
       - name: Generate Passport pages and sitemap
         env:
           SUPABASE_URL: https://hzhqlexnhtukfljcvnyd.supabase.co
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI
         run: |
           python3 - <<'PY'
-          import json, os, pathlib, html, urllib.parse, urllib.request
+          import html
+          import json
+          import os
+          import pathlib
+          import urllib.parse
+          import urllib.request
 
           base = "https://web3market.xyz"
-          api = os.environ["SUPABASE_URL"] + "/rest/v1/project_identities?select=identity_code,sequence_no,project_name,identity_status,first_seen_at,created_at&order=sequence_no.asc"
-          req = urllib.request.Request(api, headers={
-              "apikey": os.environ["SUPABASE_PUBLISHABLE_KEY"],
-              "Authorization": "Bearer " + os.environ["SUPABASE_PUBLISHABLE_KEY"],
-              "Accept": "application/json"
-          })
-          with urllib.request.urlopen(req) as response:
-              rows = [x for x in json.load(response) if x.get("identity_code")]
+          api = (
+              os.environ["SUPABASE_URL"]
+              + "/rest/v1/project_identities"
+              + "?select=identity_code,sequence_no,project_name,identity_status,first_seen_at,created_at"
+              + "&order=sequence_no.asc"
+          )
 
-          def esc(v):
-              return html.escape(str(v or ""), quote=True)
+          key = os.environ["SUPABASE_PUBLISHABLE_KEY"]
+          req = urllib.request.Request(
+              api,
+              headers={
+                  "apikey": key,
+                  "Authorization": "Bearer " + key,
+                  "Accept": "application/json",
+              },
+          )
 
-          def ld(v):
-              return '<' + 'script type="application/ld+json">' + json.dumps(v, ensure_ascii=False) + '</' + 'script>'
+          with urllib.request.urlopen(req, timeout=30) as response:
+              if response.status != 200:
+                  raise RuntimeError(f"Supabase returned HTTP {response.status}")
+              rows = json.load(response)
 
-          pathlib.Path("passport").mkdir(exist_ok=True)
+          rows = [row for row in rows if row.get("identity_code")]
+          print(f"Loaded {len(rows)} W3M identities from Supabase.")
 
-          for x in rows:
-              ident = x["identity_code"]
-              name = x.get("project_name") or "Web3 Project"
-              page_url = base + "/passport/" + urllib.parse.quote(ident) + "/"
-              full_url = base + "/ai-passport.html?identity=" + urllib.parse.quote(ident)
-              status = str(x.get("identity_status") or "unverified").lower()
+          def esc(value):
+              return html.escape(str(value or ""), quote=True)
+
+          def ld(value):
+              return (
+                  '<script type="application/ld+json">'
+                  + json.dumps(value, ensure_ascii=False)
+                  + "</script>"
+              )
+
+          passport_root = pathlib.Path("passport")
+          passport_root.mkdir(exist_ok=True)
+
+          for row in rows:
+              ident = str(row["identity_code"])
+              name = row.get("project_name") or "Web3 Project"
+              page_url = base + "/passport/" + urllib.parse.quote(ident, safe="") + "/"
+              full_url = (
+                  base
+                  + "/ai-passport.html?identity="
+                  + urllib.parse.quote(ident, safe="")
+              )
+              status = str(row.get("identity_status") or "unverified").lower()
+              first_seen = row.get("first_seen_at") or row.get("created_at") or "Not available"
 
               org = {
                   "@context": "https://schema.org",
@@ -54,16 +100,16 @@ jobs:
                   "identifier": {
                       "@type": "PropertyValue",
                       "propertyID": "W3M Passport",
-                      "value": ident
-                  }
+                      "value": ident,
+                  },
               }
               web = {
                   "@context": "https://schema.org",
                   "@type": "WebPage",
-                  "name": name + " — " + ident + " | W3M Passport",
+                  "name": f"{name} — {ident} | W3M Passport",
                   "url": page_url,
                   "identifier": ident,
-                  "about": {"@type": "Organization", "name": name}
+                  "about": {"@type": "Organization", "name": name},
               }
               crumb = {
                   "@context": "https://schema.org",
@@ -71,36 +117,42 @@ jobs:
                   "itemListElement": [
                       {"@type": "ListItem", "position": 1, "name": "Web3Market", "item": base + "/"},
                       {"@type": "ListItem", "position": 2, "name": "W3M Passport Directory", "item": base + "/passports.html"},
-                      {"@type": "ListItem", "position": 3, "name": ident, "item": page_url}
-                  ]
+                      {"@type": "ListItem", "position": 3, "name": ident, "item": page_url},
+                  ],
               }
 
-              body = """<!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{name} — {ident} | W3M Passport</title>
-<meta name="description" content="Public W3M Passport record for {name}. W3M Serial: {ident}.">
-<meta name="robots" content="index,follow">
-<link rel="canonical" href="{url}">
-{org_ld}{web_ld}{crumb_ld}
-</head><body>
+              body = f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{esc(name)} — {esc(ident)} | W3M Passport</title>
+<meta name="description" content="Public W3M Passport record for {esc(name)}. W3M Serial: {esc(ident)}.">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<link rel="canonical" href="{esc(page_url)}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="{esc(name)} — {esc(ident)} | W3M Passport">
+<meta property="og:description" content="Public W3M Passport record for {esc(name)}.">
+<meta property="og:url" content="{esc(page_url)}">
+{ld(org)}
+{ld(web)}
+{ld(crumb)}
+</head>
+<body>
 <main>
 <p>Web3Market W3M Project Passport</p>
-<h1>{name}</h1>
-<p><strong>{ident}</strong></p>
-<p>Passport status: {status}</p>
-<p>First seen: {date}</p>
-<p><a href="{full}">View Full AI Passport</a></p>
+<h1>{esc(name)}</h1>
+<p><strong>{esc(ident)}</strong></p>
+<p>Passport status: {esc(status)}</p>
+<p>First seen: {esc(first_seen)}</p>
+<p><a href="{esc(full_url)}">View Full AI Passport</a></p>
 <p><a href="{base}/passports.html">Passport Directory</a></p>
 </main>
-</body></html>""".format(
-                  name=esc(name), ident=esc(ident), status=esc(status),
-                  date=esc(x.get("first_seen_at") or x.get("created_at") or "Not available"),
-                  url=esc(page_url), full=esc(full_url), base=base,
-                  org_ld=ld(org), web_ld=ld(web), crumb_ld=ld(crumb)
-              )
+</body>
+</html>
+"""
 
-              folder = pathlib.Path("passport") / ident
+              folder = passport_root / ident
               folder.mkdir(parents=True, exist_ok=True)
               (folder / "index.html").write_text(body, encoding="utf-8")
 
@@ -108,23 +160,36 @@ jobs:
               f"  <url><loc>{base}/</loc></url>",
               f"  <url><loc>{base}/marketplace.html</loc></url>",
               f"  <url><loc>{base}/passports.html</loc></url>",
-              f"  <url><loc>{base}/ai-passport.html</loc></url>"
+              f"  <url><loc>{base}/ai-passport.html</loc></url>",
           ]
-          passport_urls = []
-          for x in rows:
-              ident = urllib.parse.quote(x["identity_code"])
-              lastmod = str(x.get("created_at") or x.get("first_seen_at") or "")[:10]
-              passport_urls.append(f"  <url><loc>{base}/passport/{ident}/</loc><lastmod>{lastmod}</lastmod></url>")
 
-          sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + "\n".join(core + passport_urls) + '\n</urlset>\n'
+          passport_urls = []
+          for row in rows:
+              ident = urllib.parse.quote(str(row["identity_code"]), safe="")
+              lastmod = str(row.get("created_at") or row.get("first_seen_at") or "")[:10]
+              lastmod_xml = f"<lastmod>{esc(lastmod)}</lastmod>" if lastmod else ""
+              passport_urls.append(
+                  f"  <url><loc>{base}/passport/{ident}/</loc>{lastmod_xml}</url>"
+              )
+
+          sitemap = (
+              '<?xml version="1.0" encoding="UTF-8"?>\n'
+              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+              + "\n".join(core + passport_urls)
+              + "\n</urlset>\n"
+          )
           pathlib.Path("sitemap.xml").write_text(sitemap, encoding="utf-8")
-          print("Generated", len(rows), "Passport pages.")
+          print(f"Generated {len(rows)} Passport pages and sitemap entries.")
           PY
+
       - name: Commit generated pages
         run: |
-          git config user.name "web3market-seo-bot"
+          git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add passport sitemap.xml
-          if git diff --cached --quiet; then exit 0; fi
+          if git diff --cached --quiet; then
+            echo "No generated changes."
+            exit 0
+          fi
           git commit -m "chore: sync W3M Passport SEO pages"
           git push
