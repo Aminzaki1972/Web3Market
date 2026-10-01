@@ -2,15 +2,11 @@ name: Generate W3M Passport SEO Pages
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "project_identities/**"
-      - "passport/**"
-      - "sitemap.xml"
-      - ".github/workflows/generate-passport-pages.yml"
   schedule:
     - cron: "*/15 * * * *"
+  push:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -21,12 +17,12 @@ concurrency:
 
 jobs:
   generate:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
 
       - name: Generate Passport pages and sitemap
         env:
@@ -42,14 +38,9 @@ jobs:
           import urllib.request
 
           base = "https://web3market.xyz"
-          api = (
-              os.environ["SUPABASE_URL"]
-              + "/rest/v1/project_identities"
-              + "?select=identity_code,sequence_no,project_name,identity_status,first_seen_at,created_at"
-              + "&order=sequence_no.asc"
-          )
-
+          api = os.environ["SUPABASE_URL"] + "/rest/v1/project_identities?select=identity_code,sequence_no,project_name,identity_status,first_seen_at,created_at&order=sequence_no.asc"
           key = os.environ["SUPABASE_PUBLISHABLE_KEY"]
+
           req = urllib.request.Request(
               api,
               headers={
@@ -65,30 +56,21 @@ jobs:
               rows = json.load(response)
 
           rows = [row for row in rows if row.get("identity_code")]
-          print(f"Loaded {len(rows)} W3M identities from Supabase.")
+          print(f"Loaded {len(rows)} W3M identities.")
 
           def esc(value):
               return html.escape(str(value or ""), quote=True)
 
           def ld(value):
-              return (
-                  '<script type="application/ld+json">'
-                  + json.dumps(value, ensure_ascii=False)
-                  + "</script>"
-              )
+              return '<script type="application/ld+json">' + json.dumps(value, ensure_ascii=False) + '</script>'
 
-          passport_root = pathlib.Path("passport")
-          passport_root.mkdir(exist_ok=True)
+          pathlib.Path("passport").mkdir(exist_ok=True)
 
           for row in rows:
               ident = str(row["identity_code"])
               name = row.get("project_name") or "Web3 Project"
               page_url = base + "/passport/" + urllib.parse.quote(ident, safe="") + "/"
-              full_url = (
-                  base
-                  + "/ai-passport.html?identity="
-                  + urllib.parse.quote(ident, safe="")
-              )
+              full_url = base + "/ai-passport.html?identity=" + urllib.parse.quote(ident, safe="")
               status = str(row.get("identity_status") or "unverified").lower()
               first_seen = row.get("first_seen_at") or row.get("created_at") or "Not available"
 
@@ -111,15 +93,6 @@ jobs:
                   "identifier": ident,
                   "about": {"@type": "Organization", "name": name},
               }
-              crumb = {
-                  "@context": "https://schema.org",
-                  "@type": "BreadcrumbList",
-                  "itemListElement": [
-                      {"@type": "ListItem", "position": 1, "name": "Web3Market", "item": base + "/"},
-                      {"@type": "ListItem", "position": 2, "name": "W3M Passport Directory", "item": base + "/passports.html"},
-                      {"@type": "ListItem", "position": 3, "name": ident, "item": page_url},
-                  ],
-              }
 
               body = f"""<!doctype html>
 <html lang="en">
@@ -136,7 +109,6 @@ jobs:
 <meta property="og:url" content="{esc(page_url)}">
 {ld(org)}
 {ld(web)}
-{ld(crumb)}
 </head>
 <body>
 <main>
@@ -151,34 +123,31 @@ jobs:
 </body>
 </html>
 """
-
-              folder = passport_root / ident
+              folder = pathlib.Path("passport") / ident
               folder.mkdir(parents=True, exist_ok=True)
               (folder / "index.html").write_text(body, encoding="utf-8")
 
-          core = [
+          urls = [
               f"  <url><loc>{base}/</loc></url>",
               f"  <url><loc>{base}/marketplace.html</loc></url>",
               f"  <url><loc>{base}/passports.html</loc></url>",
               f"  <url><loc>{base}/ai-passport.html</loc></url>",
           ]
 
-          passport_urls = []
           for row in rows:
               ident = urllib.parse.quote(str(row["identity_code"]), safe="")
               lastmod = str(row.get("created_at") or row.get("first_seen_at") or "")[:10]
-              lastmod_xml = f"<lastmod>{esc(lastmod)}</lastmod>" if lastmod else ""
-              passport_urls.append(
-                  f"  <url><loc>{base}/passport/{ident}/</loc>{lastmod_xml}</url>"
-              )
+              lm = f"<lastmod>{esc(lastmod)}</lastmod>" if lastmod else ""
+              urls.append(f"  <url><loc>{base}/passport/{ident}/</loc>{lm}</url>")
 
-          sitemap = (
+          pathlib.Path("sitemap.xml").write_text(
               '<?xml version="1.0" encoding="UTF-8"?>\n'
               '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-              + "\n".join(core + passport_urls)
-              + "\n</urlset>\n"
+              + "\n".join(urls)
+              + "\n</urlset>\n",
+              encoding="utf-8",
           )
-          pathlib.Path("sitemap.xml").write_text(sitemap, encoding="utf-8")
+
           print(f"Generated {len(rows)} Passport pages and sitemap entries.")
           PY
 
