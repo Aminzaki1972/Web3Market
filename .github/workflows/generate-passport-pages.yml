@@ -1,0 +1,28 @@
+name: Generate W3M Passport SEO Pages
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate Passport pages
+        env:
+          SUPABASE_URL: https://hzhqlexnhtukfljcvnyd.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/generate-passport-pages.mjs
+      - name: Commit generated pages
+        run: |
+          git config user.name "web3market-seo-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add passport sitemap.xml
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore: sync W3M Passport SEO pages"
+          git push
