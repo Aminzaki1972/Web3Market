@@ -16,7 +16,7 @@ jobs:
       - name: Generate Passport pages and sitemap
         env:
           SUPABASE_URL: https://hzhqlexnhtukfljcvnyd.supabase.co
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI
         run: |
           python3 - <<'PY'
           import json, os, pathlib, html, urllib.parse, urllib.request
