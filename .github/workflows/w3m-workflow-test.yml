@@ -1,0 +1,14 @@
+name: W3M Workflow Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/w3m-workflow-test.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "W3M workflow parser test"
