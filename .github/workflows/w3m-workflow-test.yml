@@ -11,4 +11,4 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "W3M workflow parser test"
+      - run: echo "W3M workflow parser test v2"
