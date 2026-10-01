@@ -10,7 +10,7 @@
   function normalizedPath() {
     var p = location.pathname || "/";
     if (p === "/index.html") return "/";
-    return p.replace(/\\/+$/, "") || "/";
+    return p.replace(/\/+$/, "") || "/";
   }
 
   function visitorId() {
