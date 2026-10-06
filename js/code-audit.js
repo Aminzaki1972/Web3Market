@@ -84,7 +84,7 @@
    const status=String(a.status||"");
    const total=Number(a.total_chunks||a.analysis_progress?.total_chunks||0);
    const current=Number(a.current_chunk||a.analysis_progress?.current_chunk||0);
-   if(status!=="analyzing"||!total||current>=total)return;
+   if(!["queued","scanning","analyzing","retrying"].includes(status)||!total||current>=total)return;
    try{
      await ensureClient().then(c=>c.functions.invoke("w3m-code-audit",{body:{audit_id:a.id}}));
    }catch(e){console.warn("W3M audit resume request failed",e);}
