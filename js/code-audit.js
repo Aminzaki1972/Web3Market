@@ -34,7 +34,12 @@
    if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
    b.textContent="Running Audit…";m.innerHTML="<p class='muted'>Scanning GitHub and preparing AI analysis…</p>";
    const body={repo_url:repo}; if(id) body.project_id=id; const r=await c.functions.invoke("w3m-code-audit",{body});
-   if(r.error)throw r.error;
+   if(r.error){
+    let detail=r.error?.message||"The audit service returned an error.";
+    try{if(r.error?.context){const payload=await r.error.context.clone().json();if(payload?.error)detail=payload.error; if(payload?.retry_after_seconds)detail+=" Try again in about "+Math.ceil(payload.retry_after_seconds/60)+" minute(s).";}}catch(_){ }
+    throw Error(detail);
+   }
+   if(r.data?.error)throw Error(r.data.error);
    const aid=r.data?.audit_id||r.data?.id;if(!aid)throw Error("Audit started but no audit ID was returned.");
    location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));
   }catch(e){
@@ -51,7 +56,9 @@
  }
  async function openExisting(){
   const aid=new URLSearchParams(location.search).get("audit_id");if(!aid)return false;
-  try{const c=await ensureClient();const a=await getAudit(c,aid);if(!a)throw Error("Audit not found.");if(["queued","scanning","analyzing"].includes(a.status)){root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit is running…</h2><p class="muted">Status: '+esc(a.status)+'</p><p class="muted">This page refreshes automatically.</p></div>';setTimeout(()=>location.reload(),4000);return true}await render(a);return true}catch(e){root.innerHTML='<h1>W3M AI Code Audit</h1><p class="muted">'+esc(e?.message||"Unable to load audit.")+'</p>';return true}
+  try{const c=await ensureClient();const a=await getAudit(c,aid);if(!a)throw Error("Audit not found.");if(["queued","scanning","analyzing"].includes(a.status)){root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit is running…</h2><p class="muted">Status: '+esc(a.status)+'</p><p class="muted">The scan is processing the public repository and AI analysis. This page updates automatically.</p></div>';setTimeout(()=>openExisting(),3500);return true}
+  if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit could not be completed</h2><p class="audit-error">'+esc(a.error_message||"The audit service failed without a detailed message.")+'</p><button class="btn btn-primary" type="button" onclick="location.href=\'code-audit.html\'">Try another audit</button></div>';return true}
+  await render(a);return true}catch(e){root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit</h2><p class="audit-error">'+esc(e?.message||"Unable to load audit.")+'</p></div>';return true}
  }
  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>openExisting().then(x=>{if(!x)start()}),{once:true});else openExisting().then(x=>{if(!x)start()});
 })();
