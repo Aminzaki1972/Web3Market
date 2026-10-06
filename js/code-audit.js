@@ -50,7 +50,7 @@
    try{
      const c=await ensureClient();
      const a=await getAudit(c,auditId); if(!a)throw Error("Audit not found.");
-     const r=await c.functions.invoke("w3m-code-audit",{body:{audit_id:a.id,repo_url:a.repo_url}});
+     const r=await c.functions.invoke("w3m-code-audit",{body:{audit_id:a.id}});
      if(r.error)throw Error(r.error.message||"Unable to resume audit.");
      location.reload();
    }catch(e){alert(e?.message||"Unable to resume audit.");}
@@ -79,6 +79,16 @@
    try{const c=await ensureClient();let prefill="";if(id){const p=await c.from("projects").select("github_url").eq("id",id).maybeSingle();if(!p.error&&p.data)prefill=p.data.github_url||"";}if(initialRepoInput)initialRepoInput.value=prefill;}
    catch(e){console.error(e);root.innerHTML='<h1>W3M AI Code Audit</h1><p class="muted">'+esc(e?.message||"Unable to load audit.")+"</p>"}
  }
+ async function resumeIfNeeded(a){
+   if(!a||!auditId)return;
+   const status=String(a.status||"");
+   const total=Number(a.total_chunks||a.analysis_progress?.total_chunks||0);
+   const current=Number(a.current_chunk||a.analysis_progress?.current_chunk||0);
+   if(status!=="analyzing"||!total||current>=total)return;
+   try{
+     await ensureClient().then(c=>c.functions.invoke("w3m-code-audit",{body:{audit_id:a.id}}));
+   }catch(e){console.warn("W3M audit resume request failed",e);}
+ }
  async function openExisting(){
    if(!auditId)return false;
    try{
@@ -88,7 +98,7 @@
        const pct=total?Math.min(100,Math.round(current/total*100)):0;
        const retry=a.status==="retrying" ? '<p class="muted">Gemini is temporarily busy. W3M is retrying automatically'+(p.retry_after_seconds?' — next retry in about '+esc(p.retry_after_seconds)+'s':'')+'.</p>' : '';
        root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit is running…</h2><p class="muted">Status: '+esc(a.status)+'</p><p class="muted">AI analysis progress: '+esc(current)+' / '+esc(total||'?')+' chunks ('+esc(pct)+'%).</p><div style="height:8px;background:#25213a;border-radius:99px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:currentColor"></div></div>'+retry+'<p class="muted">Progress is saved automatically. You can leave this page safely.</p></div>';
-       setTimeout(()=>openExisting(),3000);return true;
+       setTimeout(async()=>{await resumeIfNeeded(a);openExisting();},3000);return true;
      }
      if(a.status==="paused"){root.innerHTML='<div class="audit-status"><h2>AI Analysis Temporarily Paused</h2><p class="muted">Gemini was temporarily unavailable. Completed chunks have been saved and will not be lost.</p><p class="audit-error">'+esc(a.error_message||"Temporary AI service interruption.")+'</p><button class="btn btn-primary" type="button" onclick="window.W3MResumeAudit&&window.W3MResumeAudit()">Resume AI Audit</button> <button class="btn btn-ghost" type="button" onclick="location.href=\'code-audit.html\'">New Audit</button></div>';return true;}
      if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit could not be completed</h2><p class="audit-error">'+esc(a.error_message||"The audit service failed without a detailed message.")+'</p><button class="btn btn-primary" type="button" onclick="location.href=\'code-audit.html\'">Try another audit</button></div>';return true;}
