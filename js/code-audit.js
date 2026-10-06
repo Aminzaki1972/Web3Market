@@ -46,6 +46,15 @@
    '<div class="audit-certificate"><div class="audit-kicker">W3M AI CODE AUDIT RECORD</div><h2>Audit Analysis Record</h2><p>This report records the analysis result for the repository and commit shown above. It is not a formal penetration test, smart-contract audit, certification, guarantee, or investment advice.</p><p class="audit-id">'+esc(a.id)+'</p><p class="muted">Repository: '+esc(a.repo_owner||"")+"/"+esc(a.repo_name||"")+' · Commit: '+esc(a.commit_sha||"—")+'</p></div>'+
    '<div class="audit-section"><small class="muted">Limitations: public repository data only; no private infrastructure, runtime penetration testing, or private repositories. Line references may be approximate. A later commit requires a new audit.</small></div>';
  }
+ window.W3MResumeAudit=async()=>{
+   try{
+     const c=await ensureClient();
+     const a=await getAudit(c,auditId); if(!a)throw Error("Audit not found.");
+     const r=await c.functions.invoke("w3m-code-audit",{body:{audit_id:a.id,repo_url:a.repo_url}});
+     if(r.error)throw Error(r.error.message||"Unable to resume audit.");
+     location.reload();
+   }catch(e){alert(e?.message||"Unable to resume audit.");}
+ };
  window.W3MRunAudit=async()=>{
    const b=document.getElementById("runAudit"),m=document.getElementById("auditMsg"),input=document.getElementById("auditRepo");
    if(!b||!m||!input)return;
@@ -74,7 +83,14 @@
    if(!auditId)return false;
    try{
      const c=await ensureClient(),a=await getAudit(c,auditId);if(!a)throw Error("Audit not found.");
-     if(["queued","scanning","analyzing"].includes(a.status)){root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit is running…</h2><p class="muted">Status: '+esc(a.status)+'</p><p class="muted">The scan is processing the public repository and AI analysis. This page updates automatically.</p></div>';setTimeout(()=>openExisting(),3500);return true;}
+     if(["queued","scanning","analyzing","retrying"].includes(a.status)){
+       const p=a.analysis_progress||{}; const current=Number(a.current_chunk||p.current_chunk||0); const total=Number(a.total_chunks||p.total_chunks||0);
+       const pct=total?Math.min(100,Math.round(current/total*100)):0;
+       const retry=a.status==="retrying" ? '<p class="muted">Gemini is temporarily busy. W3M is retrying automatically'+(p.retry_after_seconds?' — next retry in about '+esc(p.retry_after_seconds)+'s':'')+'.</p>' : '';
+       root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit is running…</h2><p class="muted">Status: '+esc(a.status)+'</p><p class="muted">AI analysis progress: '+esc(current)+' / '+esc(total||'?')+' chunks ('+esc(pct)+'%).</p><div style="height:8px;background:#25213a;border-radius:99px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:currentColor"></div></div>'+retry+'<p class="muted">Progress is saved automatically. You can leave this page safely.</p></div>';
+       setTimeout(()=>openExisting(),3000);return true;
+     }
+     if(a.status==="paused"){root.innerHTML='<div class="audit-status"><h2>AI Analysis Temporarily Paused</h2><p class="muted">Gemini was temporarily unavailable. Completed chunks have been saved and will not be lost.</p><p class="audit-error">'+esc(a.error_message||"Temporary AI service interruption.")+'</p><button class="btn btn-primary" type="button" onclick="window.W3MResumeAudit&&window.W3MResumeAudit()">Resume AI Audit</button> <button class="btn btn-ghost" type="button" onclick="location.href=\'code-audit.html\'">New Audit</button></div>';return true;}
      if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit could not be completed</h2><p class="audit-error">'+esc(a.error_message||"The audit service failed without a detailed message.")+'</p><button class="btn btn-primary" type="button" onclick="location.href=\'code-audit.html\'">Try another audit</button></div>';return true;}
      await render(a);return true;
    }catch(e){root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit</h2><p class="audit-error">'+esc(e?.message||"Unable to load audit.")+"</p></div>";return true;}
