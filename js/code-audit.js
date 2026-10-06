@@ -23,34 +23,37 @@
    '<div class="audit-section"><h2>Repository Snapshot</h2><div class="audit-grid">'+(files.data||[]).slice(0,20).map(x=>'<div class="audit-metric"><strong>'+esc(x.path)+'</strong><span class="muted">'+esc(x.language||"source")+' · '+esc(x.line_count||0)+' lines</span></div>').join("")+'</div></div>'+
    '<div class="audit-section"><small class="muted">W3M AI Code Audit is AI-assisted technical due diligence, not a formal penetration test, smart-contract audit, certification, guarantee, or investment advice.</small></div>';
  }
+ window.W3MRunAudit=async()=>{
+  const b=document.getElementById("runAudit"),m=document.getElementById("auditMsg"),input=document.getElementById("auditRepo");
+  if(!b||!m||!input)return;
+  b.disabled=true;b.textContent="Starting…";m.innerHTML="<p class='muted'>Creating secure audit session…</p>";
+  try{
+   const c=client();if(!c)throw Error("Database connection unavailable. Please reload.");
+   let u=(await c.auth.getUser()).data.user;
+   if(!u){
+    const anon=await c.auth.signInAnonymously({options:{data:{source:"w3m-code-audit"}}});
+    if(anon.error)throw anon.error;
+    u=anon.data?.user||null;
+   }
+   if(!u)throw Error("Unable to create the temporary audit session.");
+   const repo=input.value.trim();
+   if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
+   b.textContent="Running Audit…";m.innerHTML="<p class='muted'>Scanning GitHub and preparing AI analysis…</p>";
+   const r=await c.functions.invoke("w3m-code-audit",{body:{repo_url:repo}});
+   if(r.error)throw r.error;
+   const aid=r.data?.audit_id||r.data?.id;if(!aid)throw Error("Audit started but no audit ID was returned.");
+   location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));
+  }catch(e){
+   console.error(e);m.innerHTML="<p class='muted'>"+esc(e?.message||"Unable to start audit.")+"</p>";b.disabled=false;b.textContent="Run W3M AI Code Audit";
+  }
+ };
  async function start(){
   try{
    const c=client();if(!c){root.innerHTML="<p>Database connection unavailable. Please reload.</p>";return}
    let projectTitle="Any Public GitHub Repository",prefill="";
    if(id){const p=await c.from("projects").select("title,github_url").eq("id",id).maybeSingle();if(!p.error&&p.data){projectTitle=p.data.title||projectTitle;prefill=p.data.github_url||"";}}
    if(initialRepoInput) initialRepoInput.value=prefill;
-   window.W3MRunAudit=async()=>{
-    const b=document.getElementById("runAudit"),m=document.getElementById("auditMsg");b.disabled=true;b.textContent="Starting…";m.innerHTML="<p class='muted'>Creating secure audit session…</p>";
-    try{
-     let u=(await c.auth.getUser()).data.user;
-     if(!u){
-      const anon=await c.auth.signInAnonymously({options:{data:{source:"w3m-code-audit"}}});
-      if(anon.error)throw anon.error;
-      u=anon.data?.user||null;
-     }
-     if(!u)throw Error("Unable to create the temporary audit session.");
-     const repo=document.getElementById("auditRepo").value.trim();
-     if(!/^https:\\/\\/github\\.com\\/[^/]+\\/[^/]+(?:\\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
-     b.textContent="Running Audit…";m.innerHTML="<p class='muted'>Scanning GitHub and preparing AI analysis…</p>";
-     const r=await c.functions.invoke("w3m-code-audit",{body:{repo_url:repo}});
-     if(r.error)throw r.error;
-     const aid=r.data?.audit_id||r.data?.id;if(!aid)throw Error("Audit started but no audit ID was returned.");
-     location.replace("code-audit.html?audit_id="+encodeURIComponent(aid)+"&id="+encodeURIComponent(id||""));
-    }catch(e){
-     console.error(e);m.innerHTML="<p class='muted'>"+esc(e?.message||"Unable to start audit.")+"</p>";b.disabled=false;b.textContent="Run W3M AI Code Audit";
-    }
-   };
-  }catch(e){console.error(e);root.innerHTML='<h1>W3M AI Code Audit</h1><p class="muted">'+esc(e?.message||"Unable to load audit.")+'</p>'}
+ }catch(e){console.error(e);root.innerHTML='<h1>W3M AI Code Audit</h1><p class="muted">'+esc(e?.message||"Unable to load audit.")+'</p>'}
  }
  async function openExisting(){
   const aid=new URLSearchParams(location.search).get("audit_id");if(!aid)return false;
