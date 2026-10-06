@@ -28,7 +28,7 @@
    if(!u){
     const anon=await c.auth.signInAnonymously({options:{data:{source:"w3m-code-audit"}}});
     if(anon.error){
-     root.innerHTML='<h1>W3M AI Code Audit</h1><p class="muted">You can use the audit without creating an account. Anonymous access is currently unavailable.</p><a class="btn btn-primary" href="login.html?returnTo=code-audit.html">Sign in instead</a>';
+     root.innerHTML='<h1>W3M AI Code Audit</h1><p class="muted">This audit does not require a Buyer/Seller account. Web3Market could not create the temporary anonymous audit session. Please reload and try again.</p><button class="btn btn-primary" onclick="location.reload()">Try Again</button>';
      return;
     }
     u=anon.data?.user||null;
