@@ -1,6 +1,8 @@
 "use strict";
 (function(){
  const root=document.getElementById("auditApp");
+ const initialRepoInput=document.getElementById("auditRepo");
+ const initialRunButton=document.getElementById("runAudit");
  const client=()=>window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase;
  const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
  const id=new URLSearchParams(location.search).get("id");
