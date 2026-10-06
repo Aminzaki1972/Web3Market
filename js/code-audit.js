@@ -29,7 +29,7 @@
    let projectTitle="Any Public GitHub Repository",prefill="";
    if(id){const p=await c.from("projects").select("title,github_url").eq("id",id).maybeSingle();if(!p.error&&p.data){projectTitle=p.data.title||projectTitle;prefill=p.data.github_url||"";}}
    if(initialRepoInput) initialRepoInput.value=prefill;
-   if(initialRunButton) initialRunButton.onclick=async()=>{
+   window.W3MRunAudit=async()=>{
     const b=document.getElementById("runAudit"),m=document.getElementById("auditMsg");b.disabled=true;b.textContent="Starting…";m.innerHTML="<p class='muted'>Creating secure audit session…</p>";
     try{
      let u=(await c.auth.getUser()).data.user;
