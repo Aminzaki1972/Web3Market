@@ -24,7 +24,16 @@
   try{
    
    const c=client();if(!c){root.innerHTML="<p>Database connection unavailable. Please reload.</p>";return}
-   const u=(await c.auth.getUser()).data.user;if(!u){root.innerHTML='<h1>Sign in required</h1><p class="muted">Sign in to run or view a W3M AI Code Audit.</p><a class="btn btn-primary" href="register.html">Sign in</a>';return}
+   let u=(await c.auth.getUser()).data.user;
+   if(!u){
+    const anon=await c.auth.signInAnonymously({options:{data:{source:"w3m-code-audit"}}});
+    if(anon.error){
+     root.innerHTML='<h1>W3M AI Code Audit</h1><p class="muted">You can use the audit without creating an account. Anonymous access is currently unavailable.</p><a class="btn btn-primary" href="login.html?returnTo=code-audit.html">Sign in instead</a>';
+     return;
+    }
+    u=anon.data?.user||null;
+   }
+   if(!u){root.innerHTML='<h1>W3M AI Code Audit</h1><p class="muted">Unable to start an anonymous audit session. Please reload.</p>';return}
    let projectTitle="Any Public GitHub Repository",prefill="";
    if(id){const p=await c.from("projects").select("title,github_url").eq("id",id).maybeSingle();if(!p.error&&p.data){projectTitle=p.data.title||projectTitle;prefill=p.data.github_url||"";}}
    root.innerHTML='<div class="audit-head"><div><div class="audit-kicker">W3M AI CODE AUDIT</div><h1>'+esc(projectTitle)+'</h1><p class="muted">Independent technical due diligence for any public GitHub repository. The repository does not need to be listed on Web3Market.</p></div></div><div class="audit-actions"><a class="btn btn-ghost" href="'+(id?'project.html?id='+encodeURIComponent(id):'marketplace.html')+'">Back</a></div><div class="audit-section"><label for="auditRepo"><strong>Public GitHub Repository</strong></label><input id="auditRepo" type="url" value="'+esc(prefill)+'" placeholder="https://github.com/owner/repository" style="width:100%;margin-top:8px;padding:11px;border:1px solid #3a3158;border-radius:9px;background:#0d0c19;color:#f5f2ff"><p class="muted">Only this repository is scanned. W3M does not inspect the seller's GitHub account, other repositories, or private repositories.</p><button id="runAudit" class="btn btn-primary" style="margin-top:10px">Run W3M AI Code Audit</button><div id="auditMsg" style="margin-top:10px"></div></div>';
