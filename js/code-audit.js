@@ -36,7 +36,7 @@
    const body={repo_url:repo}; if(id) body.project_id=id; const r=await c.functions.invoke("w3m-code-audit",{body});
    if(r.error){
     let detail=r.error?.message||"The audit service returned an error.";
-    try{if(r.error?.context){const payload=await r.error.context.clone().json();if(payload?.error)detail=payload.error; if(payload?.retry_after_seconds)detail+=" Try again in about "+Math.ceil(payload.retry_after_seconds/60)+" minute(s).";}}catch(_){ }
+    try{if(r.error?.context){const ctx=r.error.context;let payload=null;if(typeof ctx.json==="function"){try{payload=await ctx.clone().json();}catch(_){try{payload=await ctx.json();}catch(__){}}}else if(typeof ctx==="object"){payload=ctx;}if(payload?.error)detail=payload.error;if(payload?.retry_after_seconds)detail+=" Try again in about "+Math.ceil(payload.retry_after_seconds/60)+" minute(s).";if(payload?.code==="RATE_LIMIT")detail="Rate limit reached: maximum 3 public audits per hour. "+(payload?.retry_after_seconds?"Try again in about "+Math.ceil(payload.retry_after_seconds/60)+" minute(s).":"Please try again later.");}}catch(_){ }
     throw Error(detail);
    }
    if(r.data?.error)throw Error(r.data.error);
