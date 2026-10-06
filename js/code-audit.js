@@ -17,7 +17,7 @@
   const files=await c.from("code_audit_files").select("path,language,line_count,selected_tier").eq("audit_id",a.id).order("path");
   root.innerHTML='<div class="audit-head"><div><div class="audit-kicker">W3M AI CODE AUDIT</div><h1>Repository Technical Due Diligence</h1><p class="muted">'+esc(a.repo_owner||"")+" / "+esc(a.repo_name||"")+' · '+esc(a.commit_sha||"snapshot")+'</p></div><div><div class="audit-score">'+(a.overall_score==null?"—":esc(a.overall_score)+"/100")+'</div><div class="audit-risk">'+esc(String(a.risk_level||"Pending").toUpperCase())+"</div></div></div>"+
    '<div class="audit-actions"><a class="btn btn-ghost" href="'+(a.project_id?'project.html?id='+encodeURIComponent(a.project_id):'code-audit.html')+'">Back to Project</a><a class="btn btn-primary" href="'+esc(a.repo_url||"#")+'" target="_blank" rel="noopener noreferrer">Open GitHub ↗</a></div>'+
-   '<div class="audit-grid">'+metric("Security",a.security_score)+metric("Architecture",a.architecture_score)+metric("Code Quality",a.code_quality_score)+metric("Dependencies",a.dependencies_score)+metric("Testing",a.testing_score)+metric("Documentation",a.documentation_score)+metric("Web3",a.web3_score)+'</div>'+
+   '<div class="audit-grid">'+metric("Security",a.security_score)+metric("Architecture",a.architecture_score)+metric("Code Quality",a.code_quality_score)+metric("Dependencies",a.dependency_score)+metric("Testing",a.testing_score)+metric("Documentation",a.documentation_score)+metric("Web3",a.web3_score)+'</div>'+
    '<div class="audit-section"><h2>Audit Summary</h2><p>'+esc(a.summary||"No summary available yet.")+'</p><p class="muted">Files scanned: '+esc(a.files_scanned||0)+' · Lines scanned: '+esc(a.lines_scanned||0)+' · Scan coverage: '+esc(a.coverage_score||0)+' · Engine: '+esc(a.engine_version||"W3M")+'</p></div>'+
    '<div class="audit-section"><h2>Findings</h2>'+findings(f.data||[])+"</div>"+
    '<div class="audit-section"><h2>Repository Snapshot</h2><div class="audit-grid">'+(files.data||[]).slice(0,20).map(x=>'<div class="audit-metric"><strong>'+esc(x.path)+'</strong><span class="muted">'+esc(x.language||"source")+' · '+esc(x.line_count||0)+' lines</span></div>').join("")+'</div></div>'+
@@ -29,13 +29,7 @@
   b.disabled=true;b.textContent="Starting…";m.innerHTML="<p class='muted'>Creating secure audit session…</p>";
   try{
    let c=client();if(!c&&window.Web3MarketSupabase?.waitForClient)c=await window.Web3MarketSupabase.waitForClient(8000);if(!c)throw Error("Database connection unavailable. Please reload.");
-   let u=(await c.auth.getUser()).data.user;
-   if(!u){
-    const anon=await c.auth.signInAnonymously({options:{data:{source:"w3m-code-audit"}}});
-    if(anon.error)throw anon.error;
-    u=anon.data?.user||null;
-   }
-   if(!u)throw Error("Unable to create the temporary audit session.");
+   
    const repo=input.value.trim();
    if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
    b.textContent="Running Audit…";m.innerHTML="<p class='muted'>Scanning GitHub and preparing AI analysis…</p>";
