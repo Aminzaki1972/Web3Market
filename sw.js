@@ -1,4 +1,4 @@
-const CACHE_NAME = "web3market-pwa-v1";
+const CACHE_NAME = "web3market-pwa-v2";
 const APP_SHELL = ["/", "/index.html", "/manifest.json", "/assets/icons/web3market-192.svg", "/assets/icons/web3market-512.svg"];
 
 self.addEventListener("install", (event) => {
