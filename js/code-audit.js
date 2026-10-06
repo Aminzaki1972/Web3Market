@@ -33,7 +33,7 @@
    const repo=input.value.trim();
    if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
    b.textContent="Running Audit…";m.innerHTML="<p class='muted'>Scanning GitHub and preparing AI analysis…</p>";
-   const r=await c.functions.invoke("w3m-code-audit",{body:{repo_url:repo}});
+   const body={repo_url:repo}; if(id) body.project_id=id; const r=await c.functions.invoke("w3m-code-audit",{body});
    if(r.error)throw r.error;
    const aid=r.data?.audit_id||r.data?.id;if(!aid)throw Error("Audit started but no audit ID was returned.");
    location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));
