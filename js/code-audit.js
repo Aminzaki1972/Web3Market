@@ -100,8 +100,21 @@
        root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit is running…</h2><p class="muted">Status: '+esc(a.status)+'</p><p class="muted">AI analysis progress: '+esc(current)+' / '+esc(total||'?')+' chunks ('+esc(pct)+'%).</p><div style="height:8px;background:#25213a;border-radius:99px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:currentColor"></div></div>'+retry+'<p class="muted">Progress is saved automatically. You can leave this page safely.</p></div>';
        setTimeout(async()=>{await resumeIfNeeded(a);openExisting();},3000);return true;
      }
-     if(a.status==="paused"){root.innerHTML='<div class="audit-status"><h2>AI Analysis Temporarily Paused</h2><p class="muted">Gemini was temporarily unavailable. Completed chunks have been saved and will not be lost.</p><p class="audit-error">'+esc(a.error_message||"Temporary AI service interruption.")+'</p><button class="btn btn-primary" type="button" onclick="window.W3MResumeAudit&&window.W3MResumeAudit()">Resume AI Audit</button> <button class="btn btn-ghost" type="button" onclick="location.href=\'code-audit.html\'">New Audit</button></div>';return true;}
-     if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit could not be completed</h2><p class="audit-error">'+esc(a.error_message||"The audit service failed without a detailed message.")+'</p><button class="btn btn-primary" type="button" onclick="location.href=\'code-audit.html\'">Try another audit</button></div>';return true;}
+     if(a.status==="paused"){
+ const wait=Number(a.analysis_progress?.retry_after_seconds||0);
+ if(wait>0){
+  root.innerHTML='<div class="audit-status"><h2>AI Analysis Temporarily Paused</h2><p class="muted">Gemini quota/service limit was reached. Completed chunks are saved and will not be lost.</p><p class="muted">W3M will automatically resume this audit in about <strong id="w3mRetryCountdown"></strong>.</p><p class="audit-error">'+esc(a.error_message||"Temporary AI service interruption.")+'</p><button class="btn btn-ghost" type="button" onclick="location.reload()">Refresh</button></div>';
+  let left=wait;
+  const tick=()=>{
+   const el=document.getElementById("w3mRetryCountdown"); if(!el)return;
+   if(left<=0){window.W3MResumeAudit&&window.W3MResumeAudit();return;}
+   const h=Math.floor(left/3600),m=Math.floor((left%3600)/60),sec=left%60;
+   el.textContent=(h?h+"h ":"")+(m?m+"m ":"")+sec+"s"; left--; setTimeout(tick,1000);
+  }; tick();
+ }else{
+  root.innerHTML='<div class="audit-status"><h2>AI Analysis Temporarily Paused</h2><p class="muted">Gemini was temporarily unavailable. Completed chunks have been saved and will not be lost.</p><p class="audit-error">'+esc(a.error_message||"Temporary AI service interruption.")+'</p><button class="btn btn-primary" type="button" onclick="window.W3MResumeAudit&&window.W3MResumeAudit()">Resume AI Audit</button> <button class="btn btn-ghost" type="button" onclick="location.href=\'code-audit.html\'">New Audit</button></div>';
+ }return true;}
+if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit could not be completed</h2><p class="audit-error">'+esc(a.error_message||"The audit service failed without a detailed message.")+'</p><button class="btn btn-primary" type="button" onclick="location.href=\'code-audit.html\'">Try another audit</button></div>';return true;}
      await render(a);return true;
    }catch(e){root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit</h2><p class="audit-error">'+esc(e?.message||"Unable to load audit.")+"</p></div>";return true;}
  }
