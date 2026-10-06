@@ -28,7 +28,7 @@
   if(!b||!m||!input)return;
   b.disabled=true;b.textContent="Starting…";m.innerHTML="<p class='muted'>Creating secure audit session…</p>";
   try{
-   const c=client();if(!c)throw Error("Database connection unavailable. Please reload.");
+   let c=client();if(!c&&window.Web3MarketSupabase?.waitForClient)c=await window.Web3MarketSupabase.waitForClient(8000);if(!c)throw Error("Database connection unavailable. Please reload.");
    let u=(await c.auth.getUser()).data.user;
    if(!u){
     const anon=await c.auth.signInAnonymously({options:{data:{source:"w3m-code-audit"}}});
