@@ -16,4 +16,6 @@ if(!data?.id||!data?.totp?.secret)throw new Error('Supabase did not return the T
 secretEl.textContent=data.totp.secret;loading.hidden=true;setup.hidden=false;show('TOTP secret created. Add it to your authenticator app.',true);
 verify.onclick=async()=>{const v=code.value.trim();if(!/^\d{6}$/.test(v))return show('Enter the current 6-digit authenticator code.');verify.disabled=true;try{const ch=await c.auth.mfa.challenge({factorId:data.id});if(ch.error)throw ch.error;const vr=await c.auth.mfa.verify({factorId:data.id,challengeId:ch.data.id,code:v});if(vr.error)throw vr.error;show('2FA enabled successfully. Opening Admin Review Center…',true);setTimeout(()=>location.replace('admin-review.html'),700)}catch(e){show(e?.message||'Verification failed.');verify.disabled=false}}}
 catch(e){loading.hidden=true;show(e?.message||'Unable to start 2FA setup.')}
-})();</script></body></html>
+})();</script>
+<script src="/js/brand.js?v=20261007" defer></script>
+</body></html>
