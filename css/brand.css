@@ -1,9 +1,7 @@
-/* Web3Market official page watermark — large, subtle, behind page content */
+/* Web3Market official W3M watermark */
+body.w3m-watermark-ready{position:relative;isolation:isolate}
 .wm-global-brand{display:none!important}
-.w3m-page-watermark{position:fixed;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center;overflow:hidden;opacity:.055;background-repeat:no-repeat;background-position:center;background-size:min(72vw,760px);background-image:url('/assets/icons/w3m-watermark-blue.svg')}
+.w3m-page-watermark{position:fixed;inset:0;z-index:-1;pointer-events:none;display:block;overflow:hidden;opacity:.055;background-repeat:no-repeat;background-position:center;background-size:min(72vw,760px);background-image:url('/assets/icons/w3m-watermark-blue.svg')}
 .w3m-page-watermark.w3m-dark-page{background-image:url('/assets/icons/w3m-watermark-white.svg');opacity:.065}
-.w3m-page-watermark::after{content:"";position:absolute;inset:0;background:transparent}
-body.w3m-watermark-ready{position:relative}
-body.w3m-watermark-ready > *:not(.w3m-page-watermark){position:relative;z-index:1}
 @media(max-width:700px){.w3m-page-watermark{background-size:min(92vw,520px);opacity:.045}.w3m-page-watermark.w3m-dark-page{opacity:.055}}
 @media print{.w3m-page-watermark{display:none!important}}
