@@ -26,10 +26,30 @@ req = urllib.request.Request(
     },
 )
 
-with urllib.request.urlopen(req, timeout=30) as response:
-    if response.status != 200:
-        raise RuntimeError(f"Supabase returned HTTP {response.status}")
-    rows = json.load(response)
+# Supabase DNS/network can occasionally fail on a fresh GitHub-hosted runner.
+# Retry the REST request before failing the workflow.
+last_error = None
+rows = None
+for attempt in range(1, 6):
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            if response.status != 200:
+                raise RuntimeError(f"Supabase returned HTTP {response.status}")
+            rows = json.load(response)
+        print(f"Supabase request succeeded on attempt {attempt}.")
+        break
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        last_error = exc
+        print(f"Supabase request failed on attempt {attempt}/5: {exc}")
+        if attempt < 5:
+            import time
+            time.sleep(attempt * 3)
+
+if rows is None:
+    raise RuntimeError(
+        "Unable to reach Supabase REST API after 5 attempts. "
+        f"URL={api!r}; last error={last_error!r}"
+    )
 
 rows = [row for row in rows if row.get("identity_code")]
 print(f"Loaded {len(rows)} W3M identities.")
