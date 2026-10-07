@@ -13,7 +13,7 @@ SUPABASE_KEY = os.environ["SUPABASE_PUBLISHABLE_KEY"]
 api = (
     SUPABASE_URL
     + "/rest/v1/project_identities?select="
-      "identity_code,sequence_no,project_name,identity_status,first_seen_at,created_at"
+      "identity_code,sequence_no,project_name,identity_status,first_seen_at,created_at,external_passports(website_url,canonical_url,status,updated_at)"
       "&order=sequence_no.asc"
 )
 
@@ -138,6 +138,19 @@ for row in rows:
     full_url = f"{BASE}/ai-passport.html?identity={encoded}"
     status = str(row.get("identity_status") or "unverified").lower()
     first_seen = row.get("first_seen_at") or row.get("created_at") or "Not available"
+    external = row.get("external_passports") or []
+    if isinstance(external, dict):
+        external = [external]
+    external_urls = []
+    for item in external:
+        if not isinstance(item, dict) or str(item.get("status") or "").lower() not in {"active", ""}:
+            continue
+        for candidate in (item.get("canonical_url"), item.get("website_url")):
+            value = str(candidate or "").strip()
+            if value.startswith("https://") and value not in external_urls:
+                external_urls.append(value)
+    external_urls.sort(key=lambda u: (len(urllib.parse.urlsplit(u).query), len(urllib.parse.urlsplit(u).path), len(u)))
+    official_url = external_urls[0] if external_urls else None
 
     description = (
         f"Public W3M Passport record for {name}. "
