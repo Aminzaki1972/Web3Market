@@ -1,4 +1,4 @@
-const CACHE_NAME = "web3market-pwa-v3";
+const CACHE_NAME = "web3market-pwa-v4";
 const APP_SHELL = ["/", "/index.html", "/manifest.json", "/assets/icons/web3market-192.svg", "/assets/icons/web3market-512.svg", "/css/brand.css", "/js/brand.js"];
 
 self.addEventListener("install", (event) => {
@@ -19,7 +19,7 @@ async function brandHtml(response) {
   if (html.includes('id="wm-global-brand"') || html.includes("/js/brand.js")) {
     return new Response(html, {status: response.status, headers: response.headers});
   }
-  const injection = '\n<script src="/js/brand.js?v=20261007" defer></script>\n';
+  const injection = '\n<script src="/js/brand.js?v=20261008" defer></script>\n';
   const branded = html.includes("</body>") ? html.replace("</body>", injection + "</body>") : html + injection;
   const headers = new Headers(response.headers);
   headers.delete("content-length");
