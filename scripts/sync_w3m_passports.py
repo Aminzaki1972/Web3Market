@@ -54,6 +54,11 @@ for row in rows:
     status = str(row.get("identity_status") or "unverified").lower()
     first_seen = row.get("first_seen_at") or row.get("created_at") or "Not available"
 
+    description = (
+        f"Public W3M Passport record for {name}. "
+        f"W3M Serial: {ident}. Review the project's public identity, status and AI Passport."
+    )
+
     org = {
         "@context": "https://schema.org",
         "@type": "Organization",
@@ -70,9 +75,75 @@ for row in rows:
         "@context": "https://schema.org",
         "@type": "WebPage",
         "name": f"{name} — {ident} | W3M Passport",
+        "description": description,
         "url": page_url,
         "identifier": ident,
-        "about": {"@type": "Organization", "name": name},
+        "isPartOf": {
+            "@type": "WebSite",
+            "name": "Web3Market",
+            "url": BASE + "/",
+        },
+        "about": [
+            {"@type": "Thing", "name": "Web3 project"},
+            {"@type": "Thing", "name": "Web3 due diligence"},
+            {"@type": "Thing", "name": "AI project research"},
+        ],
+    }
+
+    breadcrumb = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Web3Market",
+                "item": BASE + "/",
+            },
+            {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "W3M Passport Directory",
+                "item": BASE + "/passports.html",
+            },
+            {
+                "@type": "ListItem",
+                "position": 3,
+                "name": f"{name} — {ident}",
+                "item": page_url,
+            },
+        ],
+    }
+
+    faq = {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": f"What is the W3M Passport for {name}?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": f"The W3M Passport is a public identity record for {name}, identified by {ident}.",
+                },
+            },
+            {
+                "@type": "Question",
+                "name": f"What is {ident}?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": f"{ident} is the W3M Passport serial assigned to the public identity record for {name}.",
+                },
+            },
+            {
+                "@type": "Question",
+                "name": "Where can I review the full W3M Passport?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": f"The full W3M AI Passport can be opened from {page_url} through the Web3Market Passport interface.",
+                },
+            },
+        ],
     }
 
     body = f"""<!doctype html>
@@ -81,15 +152,21 @@ for row in rows:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{esc(name)} — {esc(ident)} | W3M Passport</title>
-<meta name="description" content="Public W3M Passport record for {esc(name)}. W3M Serial: {esc(ident)}.">
-<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="description" content="{esc(description)}">
+<meta name="keywords" content="{esc(name)}, {esc(ident)}, W3M Passport, Web3 project, Web3 due diligence, AI project research, blockchain project research">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
 <link rel="canonical" href="{esc(page_url)}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="{esc(name)} — {esc(ident)} | W3M Passport">
-<meta property="og:description" content="Public W3M Passport record for {esc(name)}.">
+<meta property="og:description" content="{esc(description)}">
 <meta property="og:url" content="{esc(page_url)}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{esc(name)} — {esc(ident)} | W3M Passport">
+<meta name="twitter:description" content="{esc(description)}">
 {ld(org)}
 {ld(web)}
+{ld(breadcrumb)}
+{ld(faq)}
 </head>
 <body>
 <main>
@@ -98,8 +175,10 @@ for row in rows:
 <p><strong>{esc(ident)}</strong></p>
 <p>Passport status: {esc(status)}</p>
 <p>First seen: {esc(first_seen)}</p>
+<p>Public W3M identity record for Web3 project research and due diligence.</p>
 <p><a href="{esc(full_url)}">View Full AI Passport</a></p>
-<p><a href="{BASE}/passports.html">Passport Directory</a></p>
+<p><a href="{BASE}/passports.html">W3M Passport Directory</a></p>
+<p><a href="{BASE}/marketplace.html">Explore Web3Market Marketplace</a></p>
 </main>
 </body>
 </html>
