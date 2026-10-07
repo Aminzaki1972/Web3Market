@@ -187,30 +187,5 @@ async function loadExternal(query){
   }
   console.error('Passport research failed',rr.status,raw2);
   // If the research endpoint fails, try the persistence endpoint as a fallback.
-  const r=await fetch(SUPABASE_URL+'/functions/v1/external-passport-persist',{
-   method:'POST',headers,body:JSON.stringify({query}),cache:'no-store'
-  });
-  const raw=await r.text();let d={};try{d=raw?JSON.parse(raw):{}}catch{}
-  if(r.ok&&d.success&&d.passport){renderExternal(d.passport);return}
-  console.error('Passport persistence fallback failed',r.status,raw);
-  root.innerHTML='<p class="muted">Passport search failed ('+esc(rr.status||r.status||'network')+'). '+esc(d2?.error||d?.error||'No public project data was returned.')+'</p>';
- }catch(e){
-  console.error('External Passport request',e);
-  const key=String(query||'').toLowerCase().replace(/[^a-z0-9]/g,'');
-  const seed={
-   aave:{project_name:'Aave',website:'https://aave.com',category:'DeFi / Lending',github:'https://github.com/aave',blockchains:['Ethereum / EVM','Polygon','Arbitrum','Optimism'],ai_summary:'Public-source seed profile for Aave. Live enrichment was unavailable for this request; no user, traffic or revenue figures are estimated.',ai_risk_level:'not_assessed',ai_risk_score:null,evidence_score:70,confidence_score:70,risk_indicators:['Live enrichment unavailable; verify current public sources before relying on this record.'],key_findings:[{severity:'info',title:'Official identity',detail:'Aave official website and GitHub organization are available as public identity sources.'}],sources:[{title:'Aave official website',url:'https://aave.com',type:'official'},{title:'Aave official GitHub',url:'https://github.com/aave',type:'github'}],external_only:true,web3market_listing_status:'not_listed'},
-   uniswap:{project_name:'Uniswap',website:'https://uniswap.org',category:'DEX / Exchange',github:'https://github.com/Uniswap',blockchains:['Ethereum / EVM','Arbitrum','Optimism','Polygon'],ai_summary:'Public-source seed profile for Uniswap. Live enrichment was unavailable for this request; no user, traffic or revenue figures are estimated.',ai_risk_level:'not_assessed',ai_risk_score:null,evidence_score:70,confidence_score:70,risk_indicators:['Live enrichment unavailable; verify current public sources before relying on this record.'],key_findings:[{severity:'info',title:'Official identity',detail:'Uniswap official website and GitHub organization are available as public identity sources.'}],sources:[{title:'Uniswap official website',url:'https://uniswap.org',type:'official'},{title:'Uniswap official GitHub',url:'https://github.com/Uniswap',type:'github'}],external_only:true,web3market_listing_status:'not_listed'}
-  };
-  if(seed[key]){
-   const p={...seed[key],passport_id:'EXTERNAL-'+key.toUpperCase(),snapshot_id:'LIVE-FALLBACK'};
-   renderExternal(p); autoPostPassportSearch(query,p);
-   return;
-  }
-  root.innerHTML='<p class="muted">Passport connection failed: '+esc(e?.name==='AbortError'?'Research timed out after 30 seconds.':'Network request failed. Please try again.')+'</p>';
- }
-}
-window.loadPassportFromInput=()=>{const i=document.getElementById('projectId'),q=i?.value.trim();if(q){if(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(q))loadInternal(q);else loadExternal(q)}else i?.focus()};
-window.loadExternalPassport=()=>{const i=document.getElementById('projectId'),q=i?.value.trim();if(q)loadExternal(q);else i?.focus()};
-async function init(){const i=document.getElementById('projectId'),b=document.getElementById('loadBtn'),e=document.getElementById('externalBtn'),params=new URLSearchParams(location.search),id=params.get('id'),identity=params.get('identity');if(e){e.disabled=false;e.removeAttribute('disabled');e.setAttribute('aria-disabled','false');e.onclick=ev=>{ev.preventDefault();window.loadExternalPassport()}}if(b){b.disabled=false;b.removeAttribute('disabled');b.onclick=ev=>{ev.preventDefault();window.loadPassportFromInput()}}if(id&&i){i.value=id;loadInternal(id)}else if(identity&&i){i.value=identity;try{const headers={apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,Accept:'application/json'};const ir=await fetch(SUPABASE_URL+'/rest/v1/project_identities?identity_code=eq.'+encodeURIComponent(identity)+'&select=id,identity_code,project_name,identity_status,first_seen_at',{headers,cache:'no-store'});const identities=await ir.json();const row=identities?.[0];if(row){const pr=await fetch(SUPABASE_URL+'/rest/v1/projects?w3m_identity_id=eq.'+encodeURIComponent(row.id)+'&select=id&limit=1',{headers,cache:'no-store'});const projects=await pr.json();if(projects?.[0]?.id){loadInternal(projects[0].id)}else{loadExternalByIdentity(row)}}else{document.getElementById('passport').innerHTML='<p class="muted">W3M Passport identity not found.</p>'}}catch(err){console.warn('W3M identity routing:',err);document.getElementById('passport').innerHTML='<p class="muted">W3M Passport could not be loaded.</p>'}}if(i)i.addEventListener('keydown',x=>{if(x.key==='Enter'){x.preventDefault();window.loadPassportFromInput()}})}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
-})();
+  root.innerHTML='<p class="muted">Public research failed. No W3M Passport was issued because eligibility could not be verified.</p>'; return;
+;
