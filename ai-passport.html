@@ -23,6 +23,10 @@ window.w3mDirectPassportSearch=async function(){
  const root=document.getElementById('passport');
  const query=(input?.value||'').trim();
  if(!query){input?.focus();return;}
+ const genericQueries=new Set(['finance','financial','finances','crypto','cryptocurrency','cryptocurrencies','blockchain','web3','defi','decentralized finance','nft','nfts','dao','wallet','wallets','exchange','exchanges','dex','dexes','market','marketplace','trading','ai','artificial intelligence','metaverse','token','tokens','protocol','protocols','payments','payment']);
+ const normalized=query.toLowerCase().replace(/\\s+/g,' ').trim();
+ if(normalized.length<3){root.innerHTML='<p class="muted">Enter a specific Web3 project name or its official website.</p>';return;}
+ if(genericQueries.has(normalized)){root.innerHTML='<p class="muted"><strong>Search is too broad.</strong> Enter a specific Web3 project name or its official HTTPS website. Generic terms such as Finance, Crypto, Exchange, Wallet, Blockchain and AI cannot receive a W3M Passport by themselves.</p>';return;}
  if(/^(W3M-\d{4}-\d{6}|W3M\s*Passport)/i.test(query)){
    root.innerHTML='<p class="muted">W3M Passport serials must be resolved through the Passport Directory.</p>';return;
  }
