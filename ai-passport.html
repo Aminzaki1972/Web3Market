@@ -10,11 +10,52 @@ body{background:#f6f7f9;color:#141820}.passport-wrap{width:min(1120px,92%);margi
 <header class="topbar"><a class="brand" href="index.html"><span class="brand-mark">W3</span><span>Web3Market</span></a><nav><a href="marketplace.html">Marketplace</a><a href="ai-passport.html">AI Project Passport</a></nav><a class="btn btn-ghost" href="login.html">Sign in</a></header>
 <main class="passport-wrap"><a class="back" href="marketplace.html">← Back to Marketplace</a>
 <section class="passport-head"><h1>AI Project Passport</h1><p>Analyze Web3Market projects or research any public website or Web3 project without adding it to the marketplace.</p>
-<div class="passport-tools"><input id="projectId" autocomplete="off" placeholder="Project ID, project name, or any public website URL"><button id="loadBtn" class="load" type="button">Load Passport</button><button id="externalBtn" class="external-btn" type="button" onclick="window.loadExternalPassport && window.loadExternalPassport()">Search Any Website / Web3 Project</button></div></section>
+<div class="passport-tools"><input id="projectId" autocomplete="off" placeholder="Project ID, project name, or any public website URL"><button id="loadBtn" class="load" type="button">Load Passport</button><button id="externalBtn" class="external-btn" type="button" onclick="event.preventDefault();event.stopImmediatePropagation();window.w3mDirectPassportSearch()">Search Any Website / Web3 Project</button></div></section>
 <div id="passport" class="passport-card"><p class="muted">Choose a Web3Market project or search any public Web3 project.</p></div></main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js?v=20260925-passport"></script>
 <script src="js/ai-passport.js?v=20261007-passport-search-fix"></script>
 <script src="js/global-language.js?v=20260923-4"></script>
 <script src="/js/brand.js?v=20261007" defer></script>
+<script>
+window.w3mDirectPassportSearch=async function(){
+ const input=document.getElementById('projectId');
+ const root=document.getElementById('passport');
+ const query=(input?.value||'').trim();
+ if(!query){input?.focus();return;}
+ if(/^(W3M-\d{4}-\d{6}|W3M\s*Passport)/i.test(query)){
+   root.innerHTML='<p class="muted">W3M Passport serials must be resolved through the Passport Directory.</p>';return;
+ }
+ const key='sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI';
+ const base='https://hzhqlexnhtukfljcvnyd.supabase.co';
+ const btn=document.getElementById('externalBtn');
+ if(btn){btn.disabled=true;btn.textContent='Searching…';}
+ root.innerHTML='<p>Searching public sources and verifying W3M Passport eligibility…</p>';
+ try{
+   const res=await fetch(base+'/functions/v1/external-project-passport',{
+     method:'POST',headers:{apikey:key,'Content-Type':'application/json',Accept:'application/json'},
+     body:JSON.stringify({query}),cache:'no-store'
+   });
+   const raw=await res.text(); let d={}; try{d=raw?JSON.parse(raw):{}}catch{}
+   if(!res.ok||!d.passport) throw new Error(d.error||('Research request failed ('+res.status+').'));
+   const p=d.passport||{};
+   let html='<div class="passport-card"><h2>'+String(p.project_name||query).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))+'</h2>';
+   html+='<p><strong>Website:</strong> '+String(p.website||'Not available')+'</p>';
+   html+='<p><strong>Evidence Score:</strong> '+String(p.evidence_score??'—')+'/100</p>';
+   html+='<p><strong>Identity:</strong> '+String(p.identity_confidence??'—')+'</p>';
+   if(p.passport_serial) html+='<p><strong>W3M Passport:</strong> '+String(p.passport_serial)+'</p>';
+   else html+='<p class="muted">Research completed. A W3M serial is issued only after all eligibility requirements pass.</p>';
+   html+='</div>';
+   root.innerHTML=html;
+   fetch(base+'/functions/v1/external-passport-persist',{
+     method:'POST',headers:{apikey:key,'Content-Type':'application/json',Accept:'application/json'},
+     body:JSON.stringify({query}),cache:'no-store'
+   }).then(()=>{}).catch(()=>{});
+ }catch(e){
+   root.innerHTML='<p class="muted">Passport search failed: '+String(e?.message||e).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))+'</p>';
+ }finally{
+   if(btn){btn.disabled=false;btn.textContent='Search Any Website / Web3 Project';}
+ }
+};
+</script>
 </body></html>
