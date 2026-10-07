@@ -350,8 +350,27 @@ for row in rows:
         "created_at": row.get("created_at"),
         "first_seen_at": row.get("first_seen_at"),
     })
-pathlib.Path("passport/registry.json").write_text(
-    json.dumps({"generated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(), "rows": registry_rows}, ensure_ascii=False, indent=2) + "\\n",
+registry_path = pathlib.Path("passport/registry.json")
+registry_payload = {"rows": registry_rows}
+
+# Keep the registry deterministic when the underlying verified identities have
+# not changed. The previous implementation regenerated generated_at on every
+# run, causing a new commit on every push and making concurrent sync runs race
+# on passport/registry.json. Preserve the existing timestamp when rows match.
+if registry_path.exists():
+    try:
+        existing_registry = json.loads(registry_path.read_text(encoding="utf-8"))
+        if existing_registry.get("rows") == registry_rows and existing_registry.get("generated_at"):
+            registry_payload["generated_at"] = existing_registry["generated_at"]
+    except (OSError, json.JSONDecodeError, TypeError):
+        pass
+
+if "generated_at" not in registry_payload:
+    import datetime
+    registry_payload["generated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+registry_path.write_text(
+    json.dumps(registry_payload, ensure_ascii=False, indent=2) + "\\n",
     encoding="utf-8",
 )
 
