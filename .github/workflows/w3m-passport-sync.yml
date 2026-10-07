@@ -30,7 +30,7 @@ jobs:
 
       - name: Check Supabase connectivity
         env:
-          SUPABASE_URL: https://hzhqlexnhtukfljcvnyd5.supabase.co
+          SUPABASE_URL: https://hzhqlexnhtukfljcvnyd.supabase.co
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI
         shell: bash
         run: |
@@ -52,7 +52,7 @@ jobs:
           exit 0
       - name: Generate Passport pages and sitemap
         env:
-          SUPABASE_URL: https://hzhqlexnhtukfljcvnyd5.supabase.co
+          SUPABASE_URL: https://hzhqlexnhtukfljcvnyd.supabase.co
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI
         run: python3 scripts/sync_w3m_passports.py
 
