@@ -75,7 +75,7 @@ if(website && !repo && github){
     }
   }
 }
-if(website && !repo && !github && name && !/^https?:\\/\\//i.test(name)){
+if(website && !repo && !github && name && !/^https?:\/\//i.test(name)){
   const gh=await get("https://api.github.com/search/repositories?q="+encodeURIComponent(name+" web3")+"&per_page=10",{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
   if(gh.ok)try{const j=JSON.parse(gh.text),items=(j.items||[]).sort((a:any,b:any)=>repoScore(b,name)-repoScore(a,name)),best=items[0];if(best&&repoScore(best,name)>=70){repo=best;github=best.html_url;description=description||best.description||null;technology=technology||best.language||null;sources.push(src("GitHub identity candidate",github,"github"))}}catch{}
 }
