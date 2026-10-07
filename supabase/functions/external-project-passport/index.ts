@@ -65,8 +65,8 @@ Deno.serve(async req=>{
   // Verify an already-discovered GitHub organization against the official website domain.
   if(website && github && !sources.some((x:any)=>x.type==="github" && /Verified GitHub organization linked to official domain/i.test(String(x.title||"")))){
     try{
-      const host=new URL(website).hostname.replace(/^www\\./i,"").toLowerCase();
-      const gm=github.match(/github\\.com\\/([^/]+)(?:\\/([^/#?]+))?/i);
+      const host=new URL(website).hostname.replace(/^www\./i,"").toLowerCase();
+      const gm=github.match(/github\.com\/([^/]+)(?:\/([^/#?]+))?/i);
       if(gm){
         const owner=gm[1];
         const profile=await get("https://api.github.com/users/"+encodeURIComponent(owner),{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
@@ -172,7 +172,7 @@ if(website && !repo && !github){
     const candidates:string[]=[];
     for(const sq of orgQueries){
       const w=await get("https://html.duckduckgo.com/html/?q="+encodeURIComponent(sq));
-      if(w.ok)candidates.push(...ddgLinks(w.text).filter(u=>/^https?:\\/\\/github\\.com\\/[^/]+(?:\\/[^/#?]+)?/i.test(u)));
+      if(w.ok)candidates.push(...ddgLinks(w.text).filter(u=>/^https?:\/\/github\.com\/[^/]+(?:\/[^/#?]+)?/i.test(u)));
     }
     for(const u of [...new Set(candidates)].slice(0,20)){
       const m=u.match(/github\\.com\\/([^/]+)(?:\\/([^/#?]+))?/i);
