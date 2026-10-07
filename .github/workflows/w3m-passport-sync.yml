@@ -10,6 +10,12 @@ on:
       - "passport/**"
       - "sitemap.xml"
 
+# Prevent two Passport Sync runs from modifying main at the same time.
+# GitHub Actions allows workflows to run concurrently by default.
+concurrency:
+  group: w3m-passport-sync-main
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -24,7 +30,7 @@ jobs:
 
       - name: Generate Passport pages and sitemap
         env:
-          SUPABASE_URL: https://hzhqlexnhtukfljcvnyd.supabase.co
+          SUPABASE_URL: https://hzhqlexnhtukfljcvnyd5.supabase.co
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI
         run: python3 scripts/sync_w3m_passports.py
 
@@ -42,7 +48,21 @@ jobs:
 
           git commit -m "chore: sync W3M Passport SEO pages"
 
-          git fetch origin main
-          git rebase origin/main
+          # Rebase onto the newest remote main immediately before pushing.
+          # Retry because another workflow/manual push can land between
+          # fetch/rebase and push.
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git rebase origin/main
 
-          git push origin HEAD:main
+            if git push origin HEAD:main; then
+              echo "Push succeeded on attempt $attempt."
+              exit 0
+            fi
+
+            echo "Push rejected on attempt $attempt; refreshing origin/main and retrying..."
+            sleep $((attempt * 2))
+          done
+
+          echo "Failed to push after 5 attempts."
+          exit 1
