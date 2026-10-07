@@ -12,6 +12,7 @@ on:
 permissions:
   contents: read
 
+# Deployment trigger kept explicit so every passport-function change reaches Supabase.
 concurrency:
   group: deploy-external-project-passport
   cancel-in-progress: false
