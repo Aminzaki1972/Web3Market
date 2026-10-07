@@ -39,7 +39,7 @@ function fmt(v){try{return new Date(v).toLocaleDateString('en-US',{year:'numeric
 function displayName(raw,ident){const v=String(raw||'').trim();return !v||v===ident||/^W3M-\\d{4}-\\d{1,6}$/i.test(v)?'Web3 Project':v}
 function render(){
  const q=(document.getElementById('search').value||'').trim().toLowerCase();
- const filtered=rows.map(x=>({...x,display_name:displayName(x.project_name,x.identity_code)})).filter(x=>!q||String(x.display_name||'').toLowerCase().includes(q)||String(x.identity_code||'').toLowerCase().includes(q));
+ const filtered=rows.filter(x=>String(x.identity_status||'').toLowerCase()==='verified').map(x=>({...x,display_name:displayName(x.project_name,x.identity_code)})).filter(x=>!q||String(x.display_name||'').toLowerCase().includes(q)||String(x.identity_code||'').toLowerCase().includes(q));
  const grid=document.getElementById('grid');
  if(!filtered.length){grid.innerHTML='<div class="empty">No W3M Passport identities match your search.</div>';return}
  grid.innerHTML=filtered.map(x=>{
