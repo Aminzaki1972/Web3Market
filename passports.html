@@ -21,20 +21,7 @@
 'use strict';
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const client=()=>window.Web3MarketSupabase?.getClient?.();
-let rows=[
- {identity_code:'W3M-2026-000001',sequence_no:1,project_name:'Web3Market',identity_status:'verified',created_at:'2026-09-24T22:24:00Z'},
- {identity_code:'W3M-2026-000002',sequence_no:2,project_name:'Uniswap',identity_status:'verified',created_at:'2026-09-24T22:24:00Z'},
- {identity_code:'W3M-2026-000003',sequence_no:3,project_name:'Web',identity_status:'probable',created_at:'2026-09-24T22:24:00Z'},
- {identity_code:'W3M-2026-000004',sequence_no:4,project_name:'Aave',identity_status:'verified',created_at:'2026-09-25T21:14:00Z'},
- {identity_code:'W3M-2026-000005',sequence_no:5,project_name:'Binance JavaScript & TypeScript SDK for Node.js | Siebly',identity_status:'verified',created_at:'2026-09-26T16:32:00Z'},
- {identity_code:'W3M-2026-000006',sequence_no:6,project_name:'Supabase',identity_status:'verified',created_at:'2026-09-26T17:28:00Z'},
- {identity_code:'W3M-2026-000007',sequence_no:7,project_name:'supabase-comments-extension',identity_status:'verified',created_at:'2026-09-26T21:22:00Z'},
- {identity_code:'W3M-2026-000008',sequence_no:8,project_name:'immutable',identity_status:'verified',created_at:'2026-09-27T20:20:00Z'},
- {identity_code:'W3M-2026-000009',sequence_no:9,project_name:'Arbitrum',identity_status:'verified',created_at:'2026-09-27T20:21:00Z'},
- {identity_code:'W3M-2026-000010',sequence_no:10,project_name:'Web3 Marketing Agency for Blockchain and Crypto Businesses - Web3 Marketo',identity_status:'verified',created_at:'2026-09-28T15:58:00Z'},
- {identity_code:'W3M-2026-000011',sequence_no:11,project_name:'ICANN Domain Registrar | Register & Manage Domains - NiceNIC',identity_status:'verified',created_at:'2026-09-30T19:08:00Z'},
- {identity_code:'W3M-2026-000012',sequence_no:12,project_name:'Sell Domains | Buy Domains | Park Domains - Afternic',identity_status:'verified',created_at:'2026-09-30T21:20:00Z'}
-];
+let rows=[];
 function fmt(v){try{return new Date(v).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}catch{return '—'}}
 function displayName(raw,ident){const v=String(raw||'').trim();return !v||v===ident||/^W3M-\\d{4}-\\d{1,6}$/i.test(v)?'Web3 Project':v}
 function render(){
@@ -48,30 +35,28 @@ function render(){
  }).join('');
 }
 async function load(attempt=0){
- const restUrl='https://hzhqlexnhtukfljcvnyd.supabase.co/rest/v1/project_identities?select=identity_code,sequence_no,project_name,identity_status,created_at&order=sequence_no.asc';
- const key='sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI';
  try{
-  const r=await fetch(restUrl,{headers:{apikey:key,Authorization:'Bearer '+key,Accept:'application/json'},cache:'no-store'});
+  const rr=await fetch('passport/registry.json?v='+Date.now(),{cache:'no-store'});
+  if(rr.ok){
+   const registry=await rr.json();
+   if(Array.isArray(registry.rows)){rows=registry.rows;updateStats();render();}
+  }
+ }catch(e){console.warn('Static W3M registry unavailable:',e)}
+ try{
+  const r=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/rest/v1/project_identities?select=identity_code,sequence_no,project_name,identity_status,created_at&order=sequence_no.asc',{headers:{apikey:'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI',Authorization:'Bearer sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI',Accept:'application/json'},cache:'no-store'});
   if(!r.ok)throw new Error('REST '+r.status);
-  rows=(await r.json()).filter(x=>String(x.identity_status||"").toLowerCase()==="verified");updateStats();render();return;
- }catch(restError){
-  console.warn('Passport REST lookup failed:',restError);
-  try{
-   const c=client();
-   if(c){
-    const result=await Promise.race([
-     c.from('project_identities').select('identity_code,sequence_no,project_name,identity_status,created_at').order('sequence_no',{ascending:true}),
-     new Promise((_,reject)=>setTimeout(()=>reject(new Error('Supabase client timeout')),5000))
-    ]);
-    if(!result.error){rows=(result.data||[]).filter(x=>String(x.identity_status||"").toLowerCase()==="verified");updateStats();render();return;}
-    throw result.error;
-   }
-  }catch(clientError){console.warn('Passport client lookup failed:',clientError)}
- }
- if(attempt<8){setTimeout(()=>load(attempt+1),500);return}
- document.getElementById('grid').innerHTML='<div class="empty">Passport registry could not be loaded. Please refresh the page.</div>';
+  rows=await r.json();updateStats();render();return;
+ }catch(e){console.warn('Supabase directory refresh failed:',e)}
+ try{
+  const c=client();
+  if(c){
+   const result=await Promise.race([c.from('project_identities').select('identity_code,sequence_no,project_name,identity_status,created_at').order('sequence_no',{ascending:true}),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Supabase client timeout')),5000))]);
+   if(!result.error){rows=result.data||[];updateStats();render();return}
+  }
+ }catch(e){console.warn('Supabase client refresh failed:',e)}
+ if(!rows.length && attempt<8){setTimeout(()=>load(attempt+1),Math.min(500*(attempt+1),4000));return}
+ if(!rows.length)document.getElementById('grid').innerHTML='<div class="empty">Passport registry could not be loaded. Please refresh the page.</div>';
 }
-
 function updateStats(){
  document.getElementById('total').textContent=rows.length;
  document.getElementById('verified').textContent=rows.filter(x=>String(x.identity_status||'').toLowerCase()==='verified').length;
