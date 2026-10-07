@@ -26,8 +26,8 @@ req = urllib.request.Request(
     },
 )
 
-# Supabase DNS/network can occasionally fail on a fresh GitHub-hosted runner.
-# Retry the REST request before failing the workflow.
+# Supabase DNS/network can occasionally fail on GitHub-hosted runners.
+# Retry normal HTTPS first, then resolve through public DNS-over-HTTPS and use curl --resolve.
 last_error = None
 rows = None
 for attempt in range(1, 6):
@@ -43,13 +43,53 @@ for attempt in range(1, 6):
         print(f"Supabase request failed on attempt {attempt}/5: {exc}")
         if attempt < 5:
             import time
-            time.sleep(attempt * 3)
+            time.sleep(attempt * 2)
 
 if rows is None:
-    raise RuntimeError(
-        "Unable to reach Supabase REST API after 5 attempts. "
-        f"URL={api!r}; last error={last_error!r}"
-    )
+    import subprocess
+    import tempfile
+    host = urllib.parse.urlparse(SUPABASE_URL).hostname
+    if not host:
+        raise RuntimeError(f"Invalid SUPABASE_URL: {SUPABASE_URL!r}")
+    resolved_ips = []
+    for resolver in ("https://cloudflare-dns.com/dns-query", "https://dns.google/resolve"):
+        try:
+            dns_url = resolver + "?" + urllib.parse.urlencode({"name": host, "type": "A"})
+            dns_req = urllib.request.Request(dns_url, headers={"Accept": "application/dns-json", "User-Agent": "W3M-Passport-Sync/1.0"})
+            with urllib.request.urlopen(dns_req, timeout=15) as response:
+                dns = json.load(response)
+            for answer in dns.get("Answer", []):
+                if answer.get("type") == 1 and answer.get("data"):
+                    ip = str(answer["data"]).strip()
+                    if ip and ip not in resolved_ips:
+                        resolved_ips.append(ip)
+        except Exception as exc:
+            print(f"DNS-over-HTTPS resolver failed: {resolver}: {exc}")
+    if not resolved_ips:
+        raise RuntimeError(f"Unable to resolve {host} through public DNS-over-HTTPS; last error={last_error!r}")
+    headers = ["-H", f"apikey: {SUPABASE_KEY}", "-H", f"Authorization: Bearer {SUPABASE_KEY}", "-H", "Accept: application/json"]
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
+        fallback_file = tmp.name
+    try:
+        for ip in resolved_ips:
+            print(f"Trying Supabase HTTPS through {ip}.")
+            cmd = ["curl", "--fail", "--silent", "--show-error", "--retry", "4", "--retry-all-errors", "--connect-timeout", "10", "--max-time", "30", "--resolve", f"{host}:443:{ip}", api, *headers, "-o", fallback_file]
+            try:
+                subprocess.run(cmd, check=True)
+                with open(fallback_file, "r", encoding="utf-8") as fh:
+                    rows = json.load(fh)
+                print(f"Supabase request succeeded through {ip}.")
+                break
+            except (subprocess.CalledProcessError, OSError, json.JSONDecodeError) as exc:
+                last_error = exc
+                print(f"HTTPS through {ip} failed: {exc}")
+    finally:
+        try:
+            os.unlink(fallback_file)
+        except OSError:
+            pass
+if rows is None:
+    raise RuntimeError(f"Unable to reach Supabase REST API; URL={api!r}; last error={last_error!r}")
 
 rows = [row for row in rows if row.get("identity_code")]
 print(f"Loaded {len(rows)} W3M identities.")
