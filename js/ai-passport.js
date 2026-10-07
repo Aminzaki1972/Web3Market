@@ -120,37 +120,6 @@ async function loadInternal(id){
   renderInternal(p); autoPostPassportSearch(id,p)
  }catch(e){console.error(e);root.innerHTML='<p class="muted">Unable to connect to the Web3Market database.</p>'}
 }
-async function loadExternalByIdentity(identityRow){
- const root=document.getElementById('passport');
- root.innerHTML='<p>Loading saved W3M Passport…</p>';
- const headers={apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,Accept:'application/json'};
- try{
-  const base=SUPABASE_URL+'/rest/v1/external_passports?select=id,project_name,website_url,canonical_url,external_only,last_searched_at,status,created_at,w3m_identity_id&w3m_identity_id=eq.'+encodeURIComponent(identityRow.id)+'&order=created_at.desc&limit=1';
-  const pr=await fetch(base,{headers,cache:'no-store'}); if(!pr.ok)throw new Error('Passport lookup '+pr.status);
-  const passports=await pr.json(); const ep=passports?.[0];
-  if(!ep){ root.innerHTML='<p class="muted">Saved Passport record not found.</p>'; return; }
-  const su=SUPABASE_URL+'/rest/v1/external_passport_snapshots?select=id,captured_at,passport_payload,collection_status,error_message&passport_id=eq.'+encodeURIComponent(ep.id)+'&order=captured_at.desc&limit=1';
-  const sr=await fetch(su,{headers,cache:'no-store'}); if(!sr.ok)throw new Error('Snapshot lookup '+sr.status);
-  const snaps=await sr.json(); const snap=snaps?.[0];
-  if(!snap?.passport_payload){ root.innerHTML='<p class="muted">Saved Passport snapshot unavailable.</p>'; return; }
-  const payload=(snap.passport_payload&&typeof snap.passport_payload==='object')?snap.passport_payload:{};
-  const p={...payload,
-   passport_id:ep.id,
-   snapshot_id:snap.id,
-   w3m_identity_id:identityRow.id,
-   w3m_identity_code:identityRow.identity_code,
-   w3m_identity_status:identityRow.identity_status,
-   w3m_first_seen_at:identityRow.first_seen_at||'',
-   project_name:payload.project_name||ep.project_name||identityRow.project_name,
-   website:payload.website||ep.website_url||ep.canonical_url||'',
-   external_only:true
-  };
-  await renderExternal(p);
- }catch(err){
-  console.warn('Saved W3M Passport lookup:',err);
-  root.innerHTML='<p class="muted">Saved Passport could not be loaded.</p>';
- }
-}
 async function loadExternal(query){
  const root=document.getElementById('passport');
  root.innerHTML='<p>Searching public sources and creating a universal Web3 Project Passport…</p>';
@@ -164,28 +133,31 @@ async function loadExternal(query){
   clearTimeout(timer); const raw2=await rr.text();let d2={};try{d2=raw2?JSON.parse(raw2):{}}catch{}
   if(rr.ok&&d2.success&&d2.passport){
    d2.passport.external_only=true;
-   // Eligibility is a hard gate: research can be shown without issuing a permanent W3M Passport.
-   if(d2.passport.passport_eligibility&&!d2.passport.passport_eligibility.eligible){
-    renderExternal(d2.passport);
-    return;
-   }
-   // Persist and wait for the identity assignment so the Passport gets its permanent W3M ID (and snapshot ID) in the same search result.
-   try{
-    const pr=await fetch(SUPABASE_URL+'/functions/v1/external-passport-persist',{
-     method:'POST',headers,body:JSON.stringify({query}),cache:'no-store'
-    });
-    const pd=await pr.json().catch(()=>({}));
-    if(pr.ok&&pd.success&&pd.passport){
-     renderExternal(pd.passport); autoPostPassportSearch(query,pd.passport);
-     return;
-    }
-    console.warn('Passport persistence did not assign identity:',pr.status,pd?.error||'unknown');
-   }catch(e){console.warn('Passport persistence unavailable:',e)}
-   // Research remains usable even if persistence/identity assignment fails.
-   renderExternal(d2.passport); autoPostPassportSearch(query,d2.passport);
+   renderExternal(d2.passport);
+   // Persist in the background; failure here is intentionally non-blocking.
+   fetch(SUPABASE_URL+'/functions/v1/external-passport-persist',{
+    method:'POST',headers,body:JSON.stringify({query}),cache:'no-store'
+   }).then(async r=>{
+    const t=await r.text();console.info('Passport persistence:',r.status,t.slice(0,500));
+   }).catch(e=>console.warn('Passport persistence unavailable:',e));
    return;
   }
   console.error('Passport research failed',rr.status,raw2);
   // If the research endpoint fails, try the persistence endpoint as a fallback.
-  root.innerHTML='<p class="muted">Public research failed. No W3M Passport was issued because eligibility could not be verified.</p>'; return;
-;
+  const r=await fetch(SUPABASE_URL+'/functions/v1/external-passport-persist',{
+   method:'POST',headers,body:JSON.stringify({query}),cache:'no-store'
+  });
+  const raw=await r.text();let d={};try{d=raw?JSON.parse(raw):{}}catch{}
+  if(r.ok&&d.success&&d.passport){renderExternal(d.passport);return}
+  console.error('Passport persistence fallback failed',r.status,raw);
+  root.innerHTML='<p class="muted">Passport search failed ('+esc(rr.status||r.status||'network')+'). '+esc(d2?.error||d?.error||'No public project data was returned.')+'</p>';
+ }catch(e){
+  console.error('External Passport request',e);
+  root.innerHTML='<p class="muted">Passport connection failed: '+esc(e?.name==='AbortError'?'Research timed out after 30 seconds.':'Network request failed. Please try again.')+'</p>';
+ }
+}
+window.loadPassportFromInput=()=>{const i=document.getElementById('projectId'),q=i?.value.trim();if(q){if(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(q))loadInternal(q);else loadExternal(q)}else i?.focus()};
+window.loadExternalPassport=()=>{const i=document.getElementById('projectId'),q=i?.value.trim();if(q)loadExternal(q);else i?.focus()};
+function init(){const i=document.getElementById('projectId'),b=document.getElementById('loadBtn'),e=document.getElementById('externalBtn'),id=new URLSearchParams(location.search).get('id');if(id){i.value=id;loadInternal(id)}b?.addEventListener('click',window.loadPassportFromInput);e?.addEventListener('click',window.loadExternalPassport);i?.addEventListener('keydown',x=>{if(x.key==='Enter'){x.preventDefault();window.loadPassportFromInput()}})}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
