@@ -36,14 +36,15 @@ let rows=[
  {identity_code:'W3M-2026-000012',sequence_no:12,project_name:'Sell Domains | Buy Domains | Park Domains - Afternic',identity_status:'verified',created_at:'2026-09-30T21:20:00Z'}
 ];
 function fmt(v){try{return new Date(v).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}catch{return '—'}}
+function displayName(raw,ident){const v=String(raw||'').trim();return !v||v===ident||/^W3M-\\d{4}-\\d{1,6}$/i.test(v)?'Web3 Project':v}
 function render(){
  const q=(document.getElementById('search').value||'').trim().toLowerCase();
- const filtered=rows.filter(x=>!q||String(x.project_name||'').toLowerCase().includes(q)||String(x.identity_code||'').toLowerCase().includes(q));
+ const filtered=rows.map(x=>({...x,display_name:displayName(x.project_name,x.identity_code)})).filter(x=>!q||String(x.display_name||'').toLowerCase().includes(q)||String(x.identity_code||'').toLowerCase().includes(q));
  const grid=document.getElementById('grid');
  if(!filtered.length){grid.innerHTML='<div class="empty">No W3M Passport identities match your search.</div>';return}
  grid.innerHTML=filtered.map(x=>{
   const verified=String(x.identity_status||'').toLowerCase()==='verified';
-  return '<article class="card"><span class="badge '+(verified?'':'probable')+'">'+esc(verified?'✓ VERIFIED':'PROBABLE')+'</span><h2>'+esc(x.project_name||'Unnamed project')+'</h2><div class="code">'+esc(x.identity_code||'W3M Identity')+'</div><div class="date">Passport issued: '+esc(fmt(x.created_at))+'</div><a class="view" href="passport/'+encodeURIComponent(x.identity_code||'')+'/">View W3M Passport →</a></article>';
+  return '<article class="card"><span class="badge '+(verified?'':'probable')+'">'+esc(verified?'✓ VERIFIED':'PROBABLE')+'</span><h2>'+esc(x.display_name||'Web3 Project')+'</h2><div class="code">'+esc(x.identity_code||'W3M Identity')+'</div><div class="date">Passport issued: '+esc(fmt(x.created_at))+'</div><a class="view" href="passport/'+encodeURIComponent(x.identity_code||'')+'/">View W3M Passport →</a></article>';
  }).join('');
 }
 async function load(attempt=0){
