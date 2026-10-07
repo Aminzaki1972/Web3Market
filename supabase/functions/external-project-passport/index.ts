@@ -56,7 +56,7 @@ Deno.serve(async req=>{
              const bh=new URL(blog).hostname.replace(/^www\\./i,"").toLowerCase();
              const qn=String(q).toLowerCase().replace(/[^a-z0-9]/g,"");
              const on=owner.toLowerCase().replace(/[^a-z0-9]/g,"");
-             const likely=bh.includes(qn)||on.includes(qn)||qn.includes(on)||/raydium/.test(bh);
+             const likely=bh.includes(qn)||on.includes(qn)||qn.includes(on);
              if(likely) website=blog.replace(/\\/$/,"");
            }
          }catch{}
@@ -68,6 +68,29 @@ Deno.serve(async req=>{
   }
   if(repo){
    const d=await get("https://api.github.com/repos/"+repo.full_name,{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});if(d.ok)try{const x=JSON.parse(d.text);repo={...repo,...x};website=website||x.homepage||null;description=description||x.description}catch{}
+   // Generic owner-profile fallback: GitHub organizations often publish the official website on their profile,
+   // while individual repositories may have no homepage field. Resolve only when the profile link matches
+   // the searched identity, avoiding arbitrary third-party links.
+   if(!website){
+     try{
+       const owner=String(repo?.owner?.login||"");
+       if(owner){
+         const page=await get("https://github.com/"+encodeURIComponent(owner),{"User-Agent":"Web3Market External Passport"});
+         if(page.ok){
+           const links=urls(page.text).filter(u=>/^https:\/\//i.test(u)&&!/github\.com\//i.test(u));
+           const qn=String(q).toLowerCase().replace(/[^a-z0-9]/g,"");
+           const on=owner.toLowerCase().replace(/[^a-z0-9]/g,"");
+           const candidate=links.find(u=>{
+             try{
+               const h=new URL(u).hostname.replace(/^www\./i,"").toLowerCase().replace(/[^a-z0-9]/g,"");
+               return h.includes(qn)||on.includes(qn)||qn.includes(on);
+             }catch{return false}
+           });
+           if(candidate)website=candidate.replace(/\/$/,"");
+         }
+       }
+     }catch{}
+   }
    const l=await get("https://api.github.com/repos/"+repo.full_name+"/languages",{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});if(l.ok)try{const x=JSON.parse(l.text);technology=Object.keys(x).slice(0,8).join(", ")||technology}catch{}
    const rd=await get("https://raw.githubusercontent.com/"+repo.full_name+"/"+(repo.default_branch||"main")+"/README.md",{"User-Agent":"Web3Market"});if(rd.ok){const aa=addresses(rd.text);for(const u of urls(rd.text).slice(0,12))sources.push(src("README public link",u,"readme"));if(aa.length)sources.push(src("Contract addresses in README",github,"contract"))}
   }
