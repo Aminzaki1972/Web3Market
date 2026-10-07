@@ -1,9 +1,9 @@
-/* Web3Market official W3M watermark — universal fixed background layer */
+/* Web3Market W3M — universal visible watermark */
 .wm-global-brand,#w3m-page-watermark{display:none!important}
-#w3m-universal-watermark{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;display:flex!important;align-items:center!important;justify-content:center!important;pointer-events:none!important;z-index:9990!important}
-#w3m-universal-watermark img{display:block!important;width:min(72vw,760px)!important;height:min(72vw,760px)!important;max-width:92vw!important;max-height:82vh!important;object-fit:contain!important;opacity:1!important}
-body.w3m-watermark-ready #w3m-universal-watermark{visibility:visible!important}
+#w3m-universal-watermark{position:fixed!important;left:0!important;top:0!important;right:0!important;bottom:0!important;width:100vw!important;height:100vh!important;display:grid!important;place-items:center!important;pointer-events:none!important;z-index:2147483647!important;visibility:visible!important}
+#w3m-universal-watermark img{display:block!important;width:min(68vw,720px)!important;height:min(68vw,720px)!important;max-width:90vw!important;max-height:80vh!important;object-fit:contain!important;opacity:1!important;pointer-events:none!important}
+body.w3m-watermark-ready #w3m-universal-watermark{display:grid!important;visibility:visible!important}
 body.w3m-watermark-ready.w3m-dark-page #w3m-universal-watermark img{content:url('/assets/icons/w3m-watermark-white.svg')!important}
 body.w3m-watermark-ready:not(.w3m-dark-page) #w3m-universal-watermark img{content:url('/assets/icons/w3m-watermark-blue.svg')!important}
-@media(max-width:700px){#w3m-universal-watermark img{width:min(92vw,520px)!important;height:min(92vw,520px)!important}}
+@media(max-width:700px){#w3m-universal-watermark img{width:min(88vw,500px)!important;height:min(88vw,500px)!important}}
 @media print{#w3m-universal-watermark{display:none!important}}
