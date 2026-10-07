@@ -122,6 +122,10 @@ async function loadInternal(id){
 }
 async function loadExternal(query){
  const root=document.getElementById('passport');
+ const normalized=String(query||'').trim().toLowerCase().replace(/\\s+/g,' ');
+ const genericQueries=new Set(['finance','financial','finances','crypto','cryptocurrency','cryptocurrencies','blockchain','web3','defi','decentralized finance','nft','nfts','dao','wallet','wallets','exchange','exchanges','dex','dexes','market','marketplace','trading','ai','artificial intelligence','metaverse','token','tokens','protocol','protocols','payments','payment']);
+ if(normalized.length<3){root.innerHTML='<p class="muted">Enter a specific Web3 project name or its official website.</p>';return;}
+ if(genericQueries.has(normalized)){root.innerHTML='<p class="muted"><strong>Search is too broad.</strong> Enter a specific Web3 project name or its official HTTPS website. Generic terms such as Finance, Crypto, Exchange, Wallet, Blockchain and AI cannot receive a W3M Passport by themselves.</p>';return;}
  root.innerHTML='<p>Searching public sources and creating a universal Web3 Project Passport…</p>';
  const headers={apikey:SUPABASE_KEY,'Content-Type':'application/json',Accept:'application/json'};
  try{
