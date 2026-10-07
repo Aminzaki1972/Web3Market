@@ -31,7 +31,7 @@ jobs:
 
       - name: Check Supabase connectivity
         env:
-          SUPABASE_URL: https://hzhqlexnhtukfljcvnyd.supabase.co
+          SUPABASE_URL: https://hzhqlexnhtukfljcvnyd5.supabase.co
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI
         shell: bash
         run: |
@@ -53,12 +53,14 @@ jobs:
           exit 0
       - name: Generate Passport pages and sitemap
         env:
-          SUPABASE_URL: https://hzhqlexnhtukfljcvnyd.supabase.co
+          SUPABASE_URL: https://hzhqlexnhtukfljcvnyd5.supabase.co
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI
         run: python3 scripts/sync_w3m_passports.py
 
       - name: Commit and push generated changes
+        shell: bash
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -71,16 +73,32 @@ jobs:
 
           git commit -m "chore: sync W3M Passport SEO pages"
 
+          # Do not rebase generated Passport files. If main moved while this run
+          # was generating pages, rebuild from the latest main and publish a
+          # fresh deterministic commit instead.
           for attempt in 1 2 3 4 5; do
+            echo "Publish attempt $attempt/5"
+
             git fetch origin main
-            git rebase origin/main
+            git reset --hard origin/main
+            git clean -fd
+
+            python3 scripts/sync_w3m_passports.py
+            git add passport sitemap.xml passports.html
+
+            if git diff --cached --quiet; then
+              echo "Generated output is already up to date with origin/main."
+              exit 0
+            fi
+
+            git commit -m "chore: sync W3M Passport SEO pages"
 
             if git push origin HEAD:main; then
               echo "Push succeeded on attempt $attempt."
               exit 0
             fi
 
-            echo "Push rejected on attempt $attempt; refreshing origin/main and retrying..."
+            echo "Push rejected on attempt $attempt; refreshing origin/main and rebuilding..."
             sleep $((attempt * 2))
           done
 
