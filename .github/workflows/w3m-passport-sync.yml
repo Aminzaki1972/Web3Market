@@ -28,6 +28,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Diagnose Supabase DNS and HTTPS
+        env:
+          SUPABASE_URL: https://hzhqlexnhtukfljcvnyd5.supabase.co
+        run: |
+          set -e
+          host="$(python3 -c 'import os, urllib.parse; print(urllib.parse.urlparse(os.environ["SUPABASE_URL"]).hostname)')"
+          echo "Testing DNS for: $host"
+          getent hosts "$host"
+          echo "Testing HTTPS endpoint..."
+          curl --fail --silent --show-error --head --max-time 20 "$SUPABASE_URL/rest/v1/project_identities"
+          echo "Supabase DNS and HTTPS are reachable."
+
       - name: Generate Passport pages and sitemap
         env:
           SUPABASE_URL: https://hzhqlexnhtukfljcvnyd5.supabase.co
