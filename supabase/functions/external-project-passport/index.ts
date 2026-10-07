@@ -52,12 +52,12 @@ Deno.serve(async req=>{
          const pr=await get("https://api.github.com/users/"+encodeURIComponent(owner),{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
          if(pr.ok)try{
            const px=JSON.parse(pr.text),blog=String(px?.blog||"").trim();
-           if(/^https?:\\/\\//i.test(blog)){
-             const bh=new URL(blog).hostname.replace(/^www\\./i,"").toLowerCase();
+           if(/^https?:\/\//i.test(blog)){
+             const bh=new URL(blog).hostname.replace(/^www\./i,"").toLowerCase();
              const qn=String(q).toLowerCase().replace(/[^a-z0-9]/g,"");
              const on=owner.toLowerCase().replace(/[^a-z0-9]/g,"");
              const likely=bh.includes(qn)||on.includes(qn)||qn.includes(on);
-             if(likely) website=blog.replace(/\\/$/,"");
+             if(likely) website=blog.replace(/\/$/,"");
            }
          }catch{}
        }
