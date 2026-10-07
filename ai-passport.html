@@ -46,15 +46,23 @@ window.w3mDirectPassportSearch=async function(){
    let html='<div class="passport-card"><h2>'+String(p.project_name||query).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))+'</h2>';
    html+='<p><strong>Website:</strong> '+String(p.website||'Not available')+'</p>';
    html+='<p><strong>Evidence Score:</strong> '+String(p.evidence_score??'—')+'/100</p>';
-   html+='<p><strong>Identity:</strong> '+String(p.identity_confidence??'—')+'</p>';
+   html+='<p><strong>Identity:</strong> '+String(p.confidence_score??'—')+'</p>';
    if(p.passport_serial) html+='<p><strong>W3M Passport:</strong> '+String(p.passport_serial)+'</p>';
    else html+='<p class="muted">Research completed. A W3M serial is issued only after all eligibility requirements pass.</p>';
    html+='</div>';
    root.innerHTML=html;
-   fetch(base+'/functions/v1/external-passport-persist',{
+   const persistRes=await fetch(base+'/functions/v1/external-passport-persist',{
      method:'POST',headers:{apikey:key,'Content-Type':'application/json',Accept:'application/json'},
      body:JSON.stringify({query}),cache:'no-store'
-   }).then(()=>{}).catch(()=>{});
+   });
+   const persistRaw=await persistRes.text(); let persistData={}; try{persistData=persistRaw?JSON.parse(persistRaw):{}}catch{}
+   if(persistRes.ok && persistData.serial){
+     html=html.replace('<p class="muted">Research completed. A W3M serial is issued only after all eligibility requirements pass.</p>','<p><strong>W3M Passport:</strong> '+String(persistData.serial)+'</p>');
+     root.innerHTML=html;
+   }else if(p.passport_eligibility?.reasons?.length){
+     html+='<div class="finding"><p><strong>Eligibility:</strong> '+p.passport_eligibility.reasons.map(x=>String(x)).join(' ')+'</p></div>';
+     root.innerHTML=html;
+   }
  }catch(e){
    root.innerHTML='<p class="muted">Passport search failed: '+String(e?.message||e).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))+'</p>';
  }finally{
