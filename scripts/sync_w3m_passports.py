@@ -92,7 +92,25 @@ if rows is None:
     raise RuntimeError(f"Unable to reach Supabase REST API; URL={api!r}; last error={last_error!r}")
 
 rows = [row for row in rows if row.get("identity_code")]
-print(f"Loaded {len(rows)} W3M identities.")
+eligible_rows = [row for row in rows if str(row.get("identity_status") or "").lower() == "verified"]
+print(f"Loaded {len(rows)} W3M identities; {len(eligible_rows)} are eligible for public Passport SEO.")
+# Only verified identities receive public static Passport pages and sitemap entries.
+# Remove previously generated pages for identities that are no longer verified.
+passport_root = pathlib.Path("passport")
+if passport_root.exists():
+    for row in rows:
+        if str(row.get("identity_status") or "").lower() == "verified":
+            continue
+        ident_dir = passport_root / str(row["identity_code"])
+        if ident_dir.exists():
+            for child in ident_dir.iterdir():
+                if child.is_file():
+                    child.unlink()
+            try:
+                ident_dir.rmdir()
+            except OSError:
+                pass
+rows = eligible_rows
 
 def esc(value):
     return html.escape(str(value or ""), quote=True)
