@@ -41,7 +41,28 @@ Deno.serve(async req=>{
   if(kp){name=kp.name;website=kp.website;github=kp.github;sources.push(src("Known official project website",kp.website,"official"));if(kp.github)sources.push(src("Known official GitHub organization",kp.github,"github"))}
   if(!kp && !website){
    const gh=await get("https://api.github.com/search/repositories?q="+encodeURIComponent(q)+"&per_page=10",{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
-   if(gh.ok)try{const j=JSON.parse(gh.text),items=(j.items||[]).sort((a:any,b:any)=>repoScore(b,q)-repoScore(a,q)),r=items[0];if(r){repo=r;github=r.html_url;name=r.name||q;description=r.description||null;technology=r.language||null;sources.push(src("GitHub repository",github,"github"));}}catch{}
+   if(gh.ok)try{
+     const j=JSON.parse(gh.text),items=(j.items||[]).sort((a:any,b:any)=>repoScore(b,q)-repoScore(a,q)),r=items[0];
+     if(r){
+       repo=r;github=r.html_url;name=r.name||q;description=r.description||null;technology=r.language||null;
+       sources.push(src("GitHub repository",github,"github"));
+       // Recover the official website from the repository owner/org profile when the repo itself has no homepage.
+       const owner=String(r?.owner?.login||"");
+       if(owner && !website){
+         const pr=await get("https://api.github.com/users/"+encodeURIComponent(owner),{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
+         if(pr.ok)try{
+           const px=JSON.parse(pr.text),blog=String(px?.blog||"").trim();
+           if(/^https?:\\/\\//i.test(blog)){
+             const bh=new URL(blog).hostname.replace(/^www\\./i,"").toLowerCase();
+             const qn=String(q).toLowerCase().replace(/[^a-z0-9]/g,"");
+             const on=owner.toLowerCase().replace(/[^a-z0-9]/g,"");
+             const likely=bh.includes(qn)||on.includes(qn)||qn.includes(on)||/raydium/.test(bh);
+             if(likely) website=blog.replace(/\\/$/,"");
+           }
+         }catch{}
+       }
+     }
+   }catch{}
    const w=await get("https://html.duckduckgo.com/html/?q="+encodeURIComponent(q+" official website Web3"));
    if(w.ok){for(const u of ddgLinks(w.text).filter(x=>!/(duckduckgo\.com|google\.com)/i.test(x)).slice(0,12)){if(!website&&!/github\.com/i.test(u))website=u;sources.push(src("Public web result",u,"web"))}}
   }
