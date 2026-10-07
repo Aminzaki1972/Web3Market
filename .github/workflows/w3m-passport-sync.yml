@@ -27,117 +27,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Resolve Supabase and test HTTPS
+      - name: Check Supabase connectivity
         env:
           SUPABASE_URL: https://hzhqlexnhtukfljcvnyd5.supabase.co
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI
         shell: bash
         run: |
-          set -u
-
-          host="$(python3 -c 'import os, urllib.parse; print(urllib.parse.urlparse(os.environ["SUPABASE_URL"]).hostname)')"
-          echo "Supabase host: $host"
-
-          # First try the runner's normal DNS resolver.
-          if getent ahosts "$host" >/tmp/supabase_dns.txt 2>/dev/null; then
-            echo "System DNS resolved $host:"
-            cat /tmp/supabase_dns.txt
-            echo "Testing Supabase HTTPS endpoint..."
-            if curl --fail --silent --show-error --retry 4 --retry-all-errors --connect-timeout 10 --max-time 30               "$SUPABASE_URL/rest/v1/project_identities?select=identity_code&limit=1"               -H "apikey: $SUPABASE_PUBLISHABLE_KEY"               -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY"               >/tmp/supabase_response.txt; then
-              echo "Supabase HTTPS connection successful."
-              cat /tmp/supabase_response.txt
-              exit 0
-            fi
-            echo "System DNS resolved, but the HTTPS request failed. Continuing with public DNS diagnostics."
-          else
-            echo "System DNS could not resolve $host."
-          fi
-
-          # Do not use 'test -n' under set -e for DNS fallbacks.
-          # Query both A and AAAA records through public DNS-over-HTTPS.
-          dns_json=""
-          for resolver in             "https://cloudflare-dns.com/dns-query"             "https://dns.google/resolve"; do
-
-            echo "Querying public DNS: $resolver"
-
-            if dns_json="$(curl --silent --show-error --retry 3 --retry-all-errors --connect-timeout 10 --max-time 30               -H 'accept: application/dns-json'               --get               --data-urlencode "name=$host"               --data-urlencode "type=A"               "$resolver" 2>/tmp/dns_error.txt)"; then
-              echo "A-record response received from $resolver."
-            else
-              echo "A-record query failed against $resolver:"
-              cat /tmp/dns_error.txt || true
-              dns_json=""
-            fi
-
-            ip="$(printf '%s' "$dns_json" | python3 -c '
-          import json,sys
-          try:
-              d=json.load(sys.stdin)
-          except Exception:
-              print("")
-              raise SystemExit
-          for x in d.get("Answer", []):
-              if x.get("type") == 1 and x.get("data"):
-                  print(x["data"])
-                  break
-          ' 2>/dev/null)"
-
-            if [ -n "$ip" ]; then
-              echo "Public DNS returned IPv4: $ip"
-              echo "Testing Supabase HTTPS using the resolved IPv4..."
-              if curl --fail --silent --show-error --retry 4 --retry-all-errors                 --connect-timeout 10 --max-time 30                 --resolve "$host:443:$ip"                 "$SUPABASE_URL/rest/v1/project_identities?select=identity_code&limit=1"                 -H "apikey: $SUPABASE_PUBLISHABLE_KEY"                 -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY"                 >/tmp/supabase_response.txt; then
-                echo "Supabase HTTPS connection successful through $ip."
-                cat /tmp/supabase_response.txt
-                exit 0
-              fi
-              echo "IPv4 was resolved but HTTPS failed."
-            fi
-          done
-
-          # If no A record exists, try AAAA records. Supabase documents that
-          # project hostnames can have IPv6 connectivity.
-          for resolver in             "https://cloudflare-dns.com/dns-query"             "https://dns.google/resolve"; do
-
-            echo "Querying public DNS for AAAA: $resolver"
-
-            if dns_json="$(curl --silent --show-error --retry 3 --retry-all-errors --connect-timeout 10 --max-time 30               -H 'accept: application/dns-json'               --get               --data-urlencode "name=$host"               --data-urlencode "type=AAAA"               "$resolver" 2>/tmp/dns_error.txt)"; then
-              :
-            else
-              echo "AAAA query failed against $resolver:"
-              cat /tmp/dns_error.txt || true
-              dns_json=""
-            fi
-
-            ip6="$(printf '%s' "$dns_json" | python3 -c '
-          import json,sys
-          try:
-              d=json.load(sys.stdin)
-          except Exception:
-              print("")
-              raise SystemExit
-          for x in d.get("Answer", []):
-              if x.get("type") == 28 and x.get("data"):
-                  print(x["data"])
-                  break
-          ' 2>/dev/null)"
-
-            if [ -n "$ip6" ]; then
-              echo "Public DNS returned IPv6: $ip6"
-              echo "Testing Supabase HTTPS using the resolved IPv6..."
-              if curl --fail --silent --show-error --retry 4 --retry-all-errors                 --connect-timeout 10 --max-time 30                 --resolve "$host:443:[$ip6]"                 "$SUPABASE_URL/rest/v1/project_identities?select=identity_code&limit=1"                 -H "apikey: $SUPABASE_PUBLISHABLE_KEY"                 -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY"                 >/tmp/supabase_response.txt; then
-                echo "Supabase HTTPS connection successful through IPv6."
-                cat /tmp/supabase_response.txt
-                exit 0
-              fi
-              echo "IPv6 was resolved but HTTPS failed."
-            fi
-          done
-
-          echo "::error::Supabase hostname $host could not be resolved to a usable A or AAAA address, or HTTPS could not reach it."
-          echo "This is a Supabase DNS/network problem, not a Passport generation error."
-          echo "Final A-record response:"
-          printf '%s\n' "$dns_json"
-          exit 1
-
+          set -euo pipefail
+          echo "Checking Supabase REST endpoint..."
+          curl --fail --silent --show-error --retry 3 --retry-all-errors \
+            --connect-timeout 10 --max-time 30 \
+            "$SUPABASE_URL/rest/v1/project_identities?select=identity_code&limit=1" \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY" \
+            >/tmp/supabase_connectivity_check.json
+          cat /tmp/supabase_connectivity_check.json
       - name: Generate Passport pages and sitemap
         env:
           SUPABASE_URL: https://hzhqlexnhtukfljcvnyd5.supabase.co
