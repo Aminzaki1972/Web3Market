@@ -10,6 +10,7 @@ on:
     paths-ignore:
       - "passport/**"
       - "sitemap.xml"
+      - "passports.html"
 
 # Prevent two Passport Sync runs from modifying main at the same time.
 concurrency:
