@@ -142,7 +142,21 @@ async function loadExternal(query){
    fetch(SUPABASE_URL+'/functions/v1/external-passport-persist',{
     method:'POST',headers,body:JSON.stringify({query}),cache:'no-store'
    }).then(async r=>{
-    const t=await r.text();console.info('Passport persistence:',r.status,t.slice(0,500));
+    const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch{}
+    console.info('Passport persistence:',r.status,t.slice(0,500));
+    // Persistence is authoritative for W3M issuance, but it must never hide
+    // a public research result. If the server returns eligibility details,
+    // surface them immediately so the user knows exactly why a serial was
+    // or was not issued.
+    if(d?.passport?.passport_eligibility){
+      const card=document.querySelector('#passport .passport-card');
+      const e=d.passport.passport_eligibility;
+      const box=document.createElement('section');box.className='passport-card';
+      box.innerHTML='<h2>W3M Passport Eligibility</h2><div class="finding"><strong>'+esc(e.eligible?'ELIGIBLE — W3M serial can be issued':'NOT ELIGIBLE — no W3M serial issued')+'</strong><p>'+esc((e.reasons||[]).join(' • ')||'All eligibility checks passed.')+'</p><small>Score: '+esc(e.score??0)+'/100 • Independent sources: '+esc(e.independent_source_domains??0)+' • Primary evidence: '+(e.primary_evidence?'Yes':'No')+' • Web3 identity: '+(e.web3_signal?'Yes':'No')+(d?.passport?.w3m_identity_code?' • Serial: '+esc(d.passport.w3m_identity_code):'')+'</small></div>';
+      card?.parentNode?.insertBefore(box,card);
+    }else if(d?.eligibility){
+      console.info('W3M eligibility:',d.eligibility);
+    }
    }).catch(e=>console.warn('Passport persistence unavailable:',e));
    return;
   }
