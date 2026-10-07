@@ -28,17 +28,37 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Diagnose Supabase DNS and HTTPS
+      - name: Resolve Supabase through public DNS and test HTTPS
         env:
           SUPABASE_URL: https://hzhqlexnhtukfljcvnyd5.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI
         run: |
-          set -e
+          set -euo pipefail
           host="$(python3 -c 'import os, urllib.parse; print(urllib.parse.urlparse(os.environ["SUPABASE_URL"]).hostname)')"
-          echo "Testing DNS for: $host"
-          getent hosts "$host"
+          echo "System DNS test for: $host"
+          if ! getent hosts "$host"; then
+            echo "System DNS cannot resolve $host. Trying Cloudflare DNS-over-HTTPS..."
+          fi
+          ip="$(curl --fail --silent --show-error --max-time 20 \
+            -H 'accept: application/dns-json' \
+            "https://cloudflare-dns.com/dns-query?name=${host}&type=A" \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next((x["data"] for x in d.get("Answer",[]) if x.get("type")==1), ""))')"
+          if [ -z "$ip" ]; then
+            echo "Cloudflare DoH returned no A record; trying Google DNS-over-HTTPS..."
+            ip="$(curl --fail --silent --show-error --max-time 20 \
+              -H 'accept: application/dns-json' \
+              "https://dns.google/resolve?name=${host}&type=A" \
+              | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next((x["data"] for x in d.get("Answer",[]) if x.get("type")==1), ""))')"
+          fi
+          test -n "$ip"
+          echo "Resolved $host to $ip via public DNS."
+          echo "$ip $host" | sudo tee -a /etc/hosts
           echo "Testing HTTPS endpoint..."
-          curl --fail --silent --show-error --head --max-time 20 "$SUPABASE_URL/rest/v1/project_identities"
-          echo "Supabase DNS and HTTPS are reachable."
+          curl --fail --silent --show-error --max-time 20 "$SUPABASE_URL/rest/v1/project_identities?select=identity_code&limit=1" \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY"
+          echo
+          echo "Supabase is reachable through the resolved IP."
 
       - name: Generate Passport pages and sitemap
         env:
