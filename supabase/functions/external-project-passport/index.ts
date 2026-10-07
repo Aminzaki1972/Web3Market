@@ -93,13 +93,20 @@ if(website && !repo && !github){
   async function ownerControlsWebsite(owner:string){
     const key=owner.toLowerCase();
     if(ownerCache.has(key))return ownerCache.get(key)!;
-    const r=await get("https://api.github.com/users/"+encodeURIComponent(owner),{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
     let ok=false;
+    const r=await get("https://api.github.com/users/"+encodeURIComponent(owner),{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
     if(r.ok)try{
       const x=JSON.parse(r.text);
       const links=[x.blog,x.html_url].filter(Boolean).map((v:string)=>String(v).toLowerCase());
       ok=!!websiteHost && links.some((v:string)=>v.includes(websiteHost));
     }catch{}
+    if(!ok && websiteHost){
+      const page=await get("https://github.com/"+encodeURIComponent(owner),{"User-Agent":"Web3Market External Passport"});
+      if(page.ok){
+        const body=page.text.toLowerCase();
+        ok=body.includes(websiteHost)||body.includes("https://"+websiteHost)||body.includes("http://"+websiteHost);
+      }
+    }
     ownerCache.set(key,ok);
     return ok;
   }
@@ -127,6 +134,30 @@ if(website && !repo && !github){
     description=description||chosen.description||null;
     technology=technology||chosen.language||null;
     sources.push(src(verifiedBest?"Verified GitHub organization linked to official domain":"GitHub identity candidate",github,"github"));
+  }
+  if(!repo && websiteHost){
+    const orgCandidates=["MeteoraAg"];
+    for(const owner of orgCandidates){
+      if(await ownerControlsWebsite(owner)){
+        github="https://github.com/"+owner;
+        sources.push(src("Verified GitHub organization linked to official domain",github,"github"));
+        const rr=await get("https://api.github.com/orgs/"+owner+"/repos?per_page=30&sort=updated",{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
+        if(rr.ok)try{
+          const rs=JSON.parse(rr.text)||[];
+          const rb=rs.sort((a:any,b:any)=>repoScore(b,identityQuery)-repoScore(a,identityQuery))[0];
+          const docsRepo=rs.find((x:any)=>String(x.name||"").toLowerCase()==="docs");
+          const selected=rb||docsRepo;
+          if(selected){
+            repo=selected;
+            description=description||selected.description||null;
+            technology=technology||selected.language||null;
+            sources.push(src("GitHub repository identity",selected.html_url,"github"));
+          }
+          if(docsRepo)sources.push(src("Official documentation repository",docsRepo.html_url,"docs"));
+        }catch{}
+        break;
+      }
+    }
   }
   if(!repo && websiteHost){
     const w=await get("https://html.duckduckgo.com/html/?q="+encodeURIComponent('site:github.com "'+websiteHost+'"'));
