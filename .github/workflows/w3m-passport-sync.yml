@@ -1,4 +1,5 @@
 name: W3M Passport Sync
+# Triggers a fresh sync after Passport generator updates.
 
 on:
   workflow_dispatch:
