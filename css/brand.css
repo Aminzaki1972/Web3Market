@@ -1,7 +1,7 @@
 /* Web3Market official W3M watermark */
 body.w3m-watermark-ready{position:relative;isolation:isolate}
 .wm-global-brand{display:none!important}
-.w3m-page-watermark{position:fixed;inset:0;z-index:-1;pointer-events:none;display:block;overflow:hidden;opacity:.11;background-repeat:no-repeat;background-position:center;background-size:min(72vw,760px);background-image:url('/assets/icons/w3m-watermark-blue.svg')}
-.w3m-page-watermark.w3m-dark-page{background-image:url('/assets/icons/w3m-watermark-white.svg');opacity:.13}
-@media(max-width:700px){.w3m-page-watermark{background-size:min(92vw,520px);opacity:.085}.w3m-page-watermark.w3m-dark-page{opacity:.10}}
+.w3m-page-watermark{position:fixed;inset:0;z-index:-1;pointer-events:none;display:block;overflow:hidden;opacity:.20;background-repeat:no-repeat;background-position:center;background-size:min(72vw,760px);background-image:url('/assets/icons/w3m-watermark-blue.svg')}
+.w3m-page-watermark.w3m-dark-page{background-image:url('/assets/icons/w3m-watermark-white.svg');opacity:.25}
+@media(max-width:700px){.w3m-page-watermark{background-size:min(92vw,520px);opacity:.16}.w3m-page-watermark.w3m-dark-page{opacity:.20}}
 @media print{.w3m-page-watermark{display:none!important}}
