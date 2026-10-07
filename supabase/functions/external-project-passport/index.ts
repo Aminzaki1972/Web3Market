@@ -62,6 +62,32 @@ Deno.serve(async req=>{
     }
    }
   }
+  // Verify an already-discovered GitHub organization against the official website domain.
+  if(website && github && !sources.some((x:any)=>x.type==="github" && /Verified GitHub organization linked to official domain/i.test(String(x.title||"")))){
+    try{
+      const host=new URL(website).hostname.replace(/^www\\./i,"").toLowerCase();
+      const gm=github.match(/github\\.com\\/([^/]+)(?:\\/([^/#?]+))?/i);
+      if(gm){
+        const owner=gm[1];
+        const profile=await get("https://api.github.com/users/"+encodeURIComponent(owner),{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
+        let verified=false;
+        if(profile.ok)try{
+          const x=JSON.parse(profile.text);
+          const links=[x.blog,x.html_url].filter(Boolean).map((v:string)=>String(v).toLowerCase());
+          verified=links.some((v:string)=>v.includes(host));
+        }catch{}
+        if(!verified){
+          const page=await get("https://github.com/"+encodeURIComponent(owner),{"User-Agent":"Web3Market External Passport"});
+          if(page.ok){
+            const body=page.text.toLowerCase();
+            verified=body.includes(host)||body.includes("https://"+host)||body.includes("http://"+host);
+          }
+        }
+        if(verified)sources.push(src("Verified GitHub organization linked to official domain","https://github.com/"+owner,"github"));
+      }
+    }catch{}
+  }
+
   if(website){try{const wu=new URL(website);const wh=wu.hostname.replace(/^www\./i,"");if(wh==="jup.ag"||wh.endsWith(".jup.ag")){sources.push(src("Official Jupiter Developer Documentation","https://developers.jup.ag/","docs"));sources.push(src("Official Jupiter Support Documentation","https://support.jup.ag/","docs"));}}catch{}const r=await get(website,{"User-Agent":"Web3Market External Passport"});if(r.ok){site=r.text;sources.unshift(src("Official website",website,"official"));const t=/<title[^>]*>([\s\S]*?)<\/title>/i.exec(r.text);const d=/<meta[^>]+(?:name|property)=["'](?:description|og:description)["'][^>]+content=["']([^"']*)["']/i.exec(r.text);if(t&&!kp)name=clean(t[1])||name;if(d)description=description||clean(d[1]);for(const u of urls(r.text)){if(/github\.com\//i.test(u))github=github||u;if(/\/docs?\b|documentation|^https?:\/\/docs\.|\.docs\./i.test(u))sources.push(src("Documentation",u,"docs"));if(/x\.com\//i.test(u)||/twitter\.com\//i.test(u))sources.push(src("X / Twitter",u,"social"));if(/t\.me\//i.test(u))sources.push(src("Telegram",u,"social"));if(/discord\.(gg|com)\//i.test(u))sources.push(src("Discord",u,"social"))}}}
   
 // URL-first identity recovery: resolve GitHub and enrich evidence after reading the official website.
@@ -137,11 +163,32 @@ if(website && !repo && !github){
     sources.push(src(verifiedBest?"Verified GitHub organization linked to official domain":"GitHub identity candidate",github,"github"));
   }
   if(!repo && websiteHost){
-    const orgCandidates=["MeteoraAg"];
-    for(const owner of orgCandidates){
-      if(await ownerControlsWebsite(owner)){
-        github="https://github.com/"+owner;
-        sources.push(src("Verified GitHub organization linked to official domain",github,"github"));
+    // Generic GitHub organization discovery. Never hardcode project owners.
+    const orgQueries=[
+      "site:github.com \"" + websiteHost + "\"",
+      "site:github.com " + identityQuery,
+      identityQuery + " github"
+    ];
+    const candidates:string[]=[];
+    for(const sq of orgQueries){
+      const w=await get("https://html.duckduckgo.com/html/?q="+encodeURIComponent(sq));
+      if(w.ok)candidates.push(...ddgLinks(w.text).filter(u=>/^https?:\\/\\/github\\.com\\/[^/]+(?:\\/[^/#?]+)?/i.test(u)));
+    }
+    for(const u of [...new Set(candidates)].slice(0,20)){
+      const m=u.match(/github\\.com\\/([^/]+)(?:\\/([^/#?]+))?/i);
+      if(!m)continue;
+      const owner=m[1], verified=await ownerControlsWebsite(owner);
+      if(!verified)continue;
+      github="https://github.com/"+owner;
+      sources.push(src("Verified GitHub organization linked to official domain",github,"github"));
+      if(m[2]){
+        const rr=await get("https://api.github.com/repos/"+owner+"/"+m[2],{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
+        if(rr.ok)try{
+          repo=JSON.parse(rr.text);
+          description=description||repo.description||null;
+          technology=technology||repo.language||null;
+        }catch{}
+      }else{
         const rr=await get("https://api.github.com/orgs/"+owner+"/repos?per_page=30&sort=updated",{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
         if(rr.ok)try{
           const rs=JSON.parse(rr.text)||[];
@@ -156,8 +203,8 @@ if(website && !repo && !github){
           }
           if(docsRepo)sources.push(src("Official documentation repository",docsRepo.html_url,"docs"));
         }catch{}
-        break;
       }
+      break;
     }
   }
   if(!repo && websiteHost){
