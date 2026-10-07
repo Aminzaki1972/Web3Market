@@ -127,8 +127,8 @@ for row in rows:
     )
 
     org = {
-        "@context": "https://schema.org",
         "@type": "Organization",
+        "@id": page_url + "#entity",
         "name": name,
         "url": page_url,
         "identifier": {
@@ -136,11 +136,17 @@ for row in rows:
             "propertyID": "W3M Passport",
             "value": ident,
         },
+        "description": f"Public W3M identity record for {name}, serial {ident}.",
+        "memberOf": {
+            "@type": "Organization",
+            "name": "Web3Market",
+            "url": BASE + "/",
+        },
     }
 
     web = {
-        "@context": "https://schema.org",
         "@type": "WebPage",
+        "@id": page_url + "#webpage",
         "name": f"{name} — {ident} | W3M Passport",
         "description": description,
         "url": page_url,
@@ -150,16 +156,13 @@ for row in rows:
             "name": "Web3Market",
             "url": BASE + "/",
         },
-        "about": [
-            {"@type": "Thing", "name": "Web3 project"},
-            {"@type": "Thing", "name": "Web3 due diligence"},
-            {"@type": "Thing", "name": "AI project research"},
-        ],
+        "about": {"@id": page_url + "#entity"},
+        "mainEntity": {"@id": page_url + "#entity"},
     }
 
     breadcrumb = {
-        "@context": "https://schema.org",
         "@type": "BreadcrumbList",
+        "@id": page_url + "#breadcrumb",
         "itemListElement": [
             {"@type": "ListItem", "position": 1, "name": "Web3Market", "item": BASE + "/"},
             {"@type": "ListItem", "position": 2, "name": "W3M Passport Directory", "item": BASE + "/passports.html"},
@@ -167,9 +170,14 @@ for row in rows:
         ],
     }
 
-    faq = {
+    graph = {
         "@context": "https://schema.org",
+        "@graph": [org, web, breadcrumb],
+    }
+
+    faq = {
         "@type": "FAQPage",
+        "@id": page_url + "#faq",
         "mainEntity": [
             {
                 "@type": "Question",
@@ -216,11 +224,9 @@ for row in rows:
 <meta name="twitter:title" content="{esc(name)} — {esc(ident)} | W3M Passport">
 <meta name="twitter:description" content="{esc(description)}">
 <style>
-:root{{color-scheme:light}}*{{box-sizing:border-box}}body{{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f7fb;color:#111827}}a{{color:inherit}}.top{{background:#0b1230;color:#fff;padding:18px 5%;display:flex;justify-content:space-between;align-items:center;gap:16px}}.brand{{font-weight:900;letter-spacing:-.5px}}.brand span{{color:#60a5fa}}.wrap{{width:min(980px,92%);margin:auto}}.hero{{padding:58px 0 34px;background:linear-gradient(135deg,#0b1230,#172554);color:#fff}}.eyebrow{{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#93c5fd}}h1{{font-size:clamp(34px,6vw,58px);line-height:1.05;margin:12px 0}}.serial{{display:inline-block;padding:9px 13px;border:1px solid rgba(255,255,255,.22);border-radius:999px;font:800 13px ui-monospace,SFMono-Regular,Menlo,monospace;background:rgba(255,255,255,.08)}}.content{{padding:28px 0 70px;display:grid;grid-template-columns:1.4fr .8fr;gap:18px}}.card{{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:24px;box-shadow:0 8px 28px rgba(15,23,42,.05)}}.card h2{{margin:0 0 12px;font-size:20px}}.status{{display:inline-block;padding:6px 10px;border-radius:999px;background:#e8f7ef;color:#157347;font-size:11px;font-weight:900;text-transform:uppercase}}.muted{{color:#667085;line-height:1.7}}.links{{display:grid;gap:10px;margin-top:18px}}.btn{{display:block;text-decoration:none;padding:12px 14px;border-radius:11px;background:#eef4ff;color:#1d4ed8;font-weight:850}}footer{{padding:28px 0;color:#667085;font-size:12px}}@media(max-width:720px){{.content{{grid-template-columns:1fr}}}}
+:root{{color-scheme:light}}*{{box-sizing:border-box}}body{{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f7fb;color:#111827}}a{{color:inherit}}.top{{background:#0b1230;color:#fff;padding:18px 5%;display:flex;justify-content:space-between;align-items:center;gap:16px}}.brand{{font-weight:900;letter-spacing:-.5px}}.brand span{{color:#60a5fa}}.wrap{{width:min(980px,92%);margin:auto}}.hero{{padding:58px 0 34px;background:linear-gradient(135deg,#0b1230,#172554);color:#fff}}.eyebrow{{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#93c5fd}}h1{{font-size:clamp(34px,6vw,58px);line-height:1.05;margin:12px 0}}.serial{{display:inline-block;padding:9px 13px;border:1px solid rgba(255,255,255,.22);border-radius:999px;font:800 13px ui-monospace,SFMono-Regular,Menlo,monospace;background:rgba(255,255,255,.08)}}.content{{padding:28px 0 70px;display:grid;grid-template-columns:1.4fr .8fr;gap:18px}}.card{{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:24px;box-shadow:0 8px 28px rgba(15,23,42,.05)}}.card h2{{margin:0 0 12px;font-size:20px}}.status{{display:inline-block;padding:6px 10px;border-radius:999px;background:#e8f7ef;color:#157347;font-size:11px;font-weight:900;text-transform:uppercase}}.facts{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0}}.facts div{{border:1px solid #e5e7eb;border-radius:12px;padding:13px;background:#fafbff}}.facts strong,.facts span{{display:block}}.facts strong{{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#667085}}.facts span{{margin-top:5px;font-weight:750;overflow-wrap:anywhere}}.research{{margin:12px 0 18px;padding-left:20px;line-height:1.9;color:#344054}}.faq{{border-top:1px solid #e5e7eb;padding:12px 0}}.faq h3{{font-size:15px;margin:0 0 5px}}.muted{{color:#667085;line-height:1.7}}.links{{display:grid;gap:10px;margin-top:18px}}.btn{{display:block;text-decoration:none;padding:12px 14px;border-radius:11px;background:#eef4ff;color:#1d4ed8;font-weight:850}}footer{{padding:28px 0;color:#667085;font-size:12px}}@media(max-width:720px){{.content{{grid-template-columns:1fr}}}}
 </style>
-{ld(org)}
-{ld(web)}
-{ld(breadcrumb)}
+{ld(graph)}
 {ld(faq)}
 </head>
 <body>
@@ -229,9 +235,13 @@ for row in rows:
 <main class="wrap content">
 <section class="card">
 <h2>W3M Passport Record</h2>
-<p class="muted">This public page identifies a Web3 project through its W3M Passport serial and provides a verified entry point to the full Web3Market AI Passport.</p>
-<p><span class="status">{esc(status)}</span></p>
-<p class="muted"><strong>First seen:</strong> {esc(first_seen)}</p>
+<p class="muted">This public page is the canonical Web3Market entry for the W3M identity serial shown above. It provides a stable, indexable reference to the project's public identity record and full AI Passport.</p>
+<div class="facts">
+<div><strong>W3M Serial</strong><span>{esc(ident)}</span></div>
+<div><strong>Identity Status</strong><span>{esc(status)}</span></div>
+<div><strong>First Seen</strong><span>{esc(first_seen)}</span></div>
+<div><strong>Record Type</strong><span>Public Web3 identity</span></div>
+</div>
 <div class="links">
 <a class="btn" href="{esc(full_url)}">Open Full AI Passport →</a>
 <a class="btn" href="{BASE}/passports.html">Browse W3M Passport Directory →</a>
@@ -239,11 +249,22 @@ for row in rows:
 </div>
 </section>
 <aside class="card">
-<h2>About W3M Passport</h2>
-<p class="muted">A public Web3 identity and research record designed to make project information easier to discover, review and reference.</p>
-<p class="muted"><strong>Serial:</strong> {esc(ident)}</p>
-<p class="muted"><strong>Platform:</strong> Web3Market</p>
+<h2>W3M Research Scope</h2>
+<ul class="research">
+<li>Identity and serial reference</li>
+<li>Public project status</li>
+<li>First-seen provenance</li>
+<li>AI Passport research entry point</li>
+<li>Web3Market marketplace context</li>
+</ul>
+<p class="muted">Only information available in the public W3M identity record is represented here. Additional project claims are not inferred when evidence is unavailable.</p>
 </aside>
+<section class="card">
+<h2>Frequently Asked Questions</h2>
+<div class="faq"><h3>What is the W3M Passport for {esc(name)}?</h3><p class="muted">It is a public W3M identity record identified by <strong>{esc(ident)}</strong>.</p></div>
+<div class="faq"><h3>What is {esc(ident)}?</h3><p class="muted">It is the W3M Passport serial assigned to this public identity record.</p></div>
+<div class="faq"><h3>Where can I review the full passport?</h3><p class="muted">Use the <a href="{esc(full_url)}">full AI Passport</a> for the available research details.</p></div>
+</section>
 </main>
 <footer class="wrap">Web3Market · W3M Passport · Public project research</footer>
 <script src="/js/brand.js?v=20261012" defer></script>
