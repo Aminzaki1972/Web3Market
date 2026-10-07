@@ -7,6 +7,18 @@ import urllib.parse
 import urllib.request
 
 BASE = "https://web3market.xyz"
+
+# Curated identity references used only when the verified external-passport
+# table has no URL. These are not inferred from names; they are fixed, reviewed
+# public references for identities already present in the W3M registry.
+CURATED_IDENTITY_REFERENCES = {
+    "W3M-2026-000001": ["https://web3market.xyz/"],
+    "W3M-2026-000008": ["https://www.immutable.com/"],
+    "W3M-2026-000013": ["https://www.avem.finance/"],
+    "W3M-2026-000019": ["https://github.com/vasanthk/how-web-works"],
+    "W3M-2026-000020": ["https://www.toobit.com/"],
+}
+
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_PUBLISHABLE_KEY"]
 
@@ -149,6 +161,9 @@ for row in rows:
             value = str(candidate or "").strip()
             if value.startswith("https://") and value not in external_urls:
                 external_urls.append(value)
+    for curated in CURATED_IDENTITY_REFERENCES.get(ident, []):
+        if curated.startswith("https://") and curated not in external_urls:
+            external_urls.append(curated)
     external_urls.sort(key=lambda u: (len(urllib.parse.urlsplit(u).query), len(urllib.parse.urlsplit(u).path), len(u)))
     official_url = external_urls[0] if external_urls else None
 
