@@ -17,7 +17,7 @@ function passportEligibility(p:any){
  for(const s of sources){try{domains.add(new URL(String(s.url)).hostname.toLowerCase().replace(/^www\\./,""))}catch{}}
  const primary=sources.some((s:any)=>["official","github","docs","contract"].includes(String(s.type||"").toLowerCase()));
  const text=[name,p?.category,p?.description,p?.technology,Array.isArray(p?.blockchains)?p.blockchains.join(" "):"",Array.isArray(p?.token_or_contracts)?p.token_or_contracts.join(" "):""].join(" ").toLowerCase();
- const web3Signal=!!p?.category||!!(p?.blockchains?.length)||!!(p?.token_or_contracts?.length)||/web3|blockchain|crypto|defi|nft|dao|wallet|token|smart contract|layer 2|dex|exchange|solana|ethereum|bnb|polygon|arbitrum|optimism/.test(text);
+ const web3Signal=!!(p?.blockchains?.length)||!!(p?.token_or_contracts?.length)||/web3|blockchain|crypto|defi|nft|dao|wallet|token|smart contract|layer 2|dex|exchange|solana|ethereum|bnb|polygon|arbitrum|optimism/.test(text);
  const reasons:string[]=[];
  if(!name||isW3mCode(name))reasons.push("Canonical project name is missing or invalid.");
  if(!website||!/^https:\/\//i.test(website))reasons.push("A reachable HTTPS official website is required.");
