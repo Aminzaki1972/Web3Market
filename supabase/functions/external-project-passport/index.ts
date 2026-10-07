@@ -78,19 +78,82 @@ if(website && !repo && github){
 }
 if(website && !repo && !github){
   let identityQuery="";
+  let websiteHost="";
   try{
-    const host=new URL(website).hostname.replace(/^www\./i,"");
-    identityQuery=host.replace(/\.[a-z]{2,}$/i,"").replace(/[-_]+/g," ");
+    const u=new URL(website);
+    websiteHost=u.hostname.replace(/^www\./i,"").toLowerCase();
+    identityQuery=websiteHost.replace(/\.[a-z]{2,}$/i,"").replace(/[-_]+/g," ");
   }catch{
     identityQuery=String(q).replace(/^https?:\/\//i,"").replace(/^www\./i,"").split(/[/?#]/)[0].replace(/\.[a-z]{2,}$/i,"").replace(/[-_]+/g," ");
   }
   const queries=[identityQuery,identityQuery+" web3",String(name),String(name)+" web3"].filter((v,i,a)=>v&&a.indexOf(v)===i).slice(0,4);
-  let best:any=null,bestScore=0;
-  for(const searchQuery of queries){
-    const gh=await get("https://api.github.com/search/repositories?q="+encodeURIComponent(searchQuery)+"&per_page=10",{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
-    if(gh.ok)try{const j=JSON.parse(gh.text);for(const item of (j.items||[])){const s=Math.max(repoScore(item,identityQuery),repoScore(item,String(q)));if(s>bestScore){best=item;bestScore=s}}}catch{}
+  let best:any=null,bestScore=-1;
+  let verifiedBest:any=null,verifiedBestScore=-1;
+  const ownerCache=new Map<string,boolean>();
+  async function ownerControlsWebsite(owner:string){
+    const key=owner.toLowerCase();
+    if(ownerCache.has(key))return ownerCache.get(key)!;
+    const r=await get("https://api.github.com/users/"+encodeURIComponent(owner),{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
+    let ok=false;
+    if(r.ok)try{
+      const x=JSON.parse(r.text);
+      const links=[x.blog,x.html_url].filter(Boolean).map((v:string)=>String(v).toLowerCase());
+      ok=!!websiteHost && links.some((v:string)=>v.includes(websiteHost));
+    }catch{}
+    ownerCache.set(key,ok);
+    return ok;
   }
-  if(best&&bestScore>=45){repo=best;github=best.html_url;description=description||best.description||null;technology=technology||best.language||null;sources.push(src("GitHub identity candidate",github,"github"))}
+  for(const searchQuery of queries){
+    const gh=await get("https://api.github.com/search/repositories?q="+encodeURIComponent(searchQuery)+"&per_page=10",{
+      Accept:"application/vnd.github+json","User-Agent":"Web3Market"
+    });
+    if(gh.ok)try{
+      const j=JSON.parse(gh.text);
+      for(const item of (j.items||[])){
+        const s=Math.max(repoScore(item,identityQuery),repoScore(item,String(q)));
+        if(s>bestScore){best=item;bestScore=s}
+        const owner=String(item?.owner?.login||"");
+        if(owner && await ownerControlsWebsite(owner) && s>verifiedBestScore){
+          verifiedBest=item;
+          verifiedBestScore=s;
+        }
+      }
+    }catch{}
+  }
+  const chosen=verifiedBest||((best&&bestScore>=45)?best:null);
+  if(chosen){
+    repo=chosen;
+    github=chosen.html_url;
+    description=description||chosen.description||null;
+    technology=technology||chosen.language||null;
+    sources.push(src(verifiedBest?"Verified GitHub organization linked to official domain":"GitHub identity candidate",github,"github"));
+  }
+  if(!repo && websiteHost){
+    const w=await get("https://html.duckduckgo.com/html/?q="+encodeURIComponent('site:github.com "'+websiteHost+'"'));
+    if(w.ok){
+      const candidates=ddgLinks(w.text).filter(u=>/^https?:\/\/github\.com\/[^/]+(?:\/[^/#?]+)?/i.test(u)).slice(0,12);
+      for(const u of candidates){
+        const m=u.match(/github\.com\/([^/]+)(?:\/([^/#?]+))?/i);
+        if(!m)continue;
+        if(await ownerControlsWebsite(m[1])){
+          github=u;
+          sources.push(src("Verified GitHub organization linked to official domain",github,"github"));
+          if(m[2]){
+            const rr=await get("https://api.github.com/repos/"+m[1]+"/"+m[2],{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
+            if(rr.ok)try{repo=JSON.parse(rr.text);description=description||repo.description||null;technology=technology||repo.language||null}catch{}
+          }else{
+            const rr=await get("https://api.github.com/orgs/"+m[1]+"/repos?per_page=10&sort=updated",{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
+            if(rr.ok)try{
+              const rs=JSON.parse(rr.text)||[];
+              const rb=rs.sort((a:any,b:any)=>repoScore(b,identityQuery)-repoScore(a,identityQuery))[0];
+              if(rb){repo=rb;description=description||rb.description||null;technology=technology||rb.language||null}
+            }catch{}
+          }
+          break;
+        }
+      }
+    }
+  }
 }
 if(repo){
   const l=await get("https://api.github.com/repos/"+repo.full_name+"/languages",{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
