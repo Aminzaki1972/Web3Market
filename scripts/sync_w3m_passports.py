@@ -324,6 +324,42 @@ pathlib.Path("passport/registry.json").write_text(
     encoding="utf-8",
 )
 
+# Keep the directory itself crawlable without relying on client-side JavaScript.
+# The sync job injects direct <a href="passport/W3M-.../"> links into the static HTML.
+directory_page = pathlib.Path("passports.html")
+if directory_page.exists():
+    directory_html = directory_page.read_text(encoding="utf-8")
+    static_links = []
+    for row in registry_rows:
+        ident = str(row.get("identity_code") or "").strip()
+        if not ident:
+            continue
+        name = display_name(row.get("project_name"), ident)
+        static_links.append(
+            f'<a class="static-link" href="passport/{urllib.parse.quote(ident, safe="")}/">'
+            f'<strong>{esc(name)}</strong><span>{esc(ident)}</span></a>'
+        )
+    static_block = (
+        '<section class="static-index" aria-labelledby="passport-index-title">'
+        '<h2 id="passport-index-title">W3M Passport Index</h2>'
+        '<p>Direct links to every currently verified W3M Passport, generated from the public registry.</p>'
+        '<div class="static-links">'
+        + "".join(static_links)
+        + "</div></section>"
+    )
+    pattern = re.compile(
+        r'<section class="static-index" aria-labelledby="passport-index-title">.*?</section>\s*',
+        re.S,
+    )
+    if pattern.search(directory_html):
+        directory_html = pattern.sub(static_block + "\n", directory_html, count=1)
+    else:
+        marker = '<div class="tools">'
+        if marker in directory_html:
+            directory_html = directory_html.replace(marker, static_block + "\n" + marker, 1)
+    directory_page.write_text(directory_html, encoding="utf-8")
+
+
 pathlib.Path("sitemap.xml").write_text(
     '<?xml version="1.0" encoding="UTF-8"?>\n'
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
