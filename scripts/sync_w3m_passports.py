@@ -161,7 +161,7 @@ for row in rows:
         "@type": "Organization",
         "@id": page_url + "#entity",
         "name": name,
-        "url": page_url,
+        "url": official_url or page_url,
         "identifier": {
             "@type": "PropertyValue",
             "propertyID": "W3M Passport",
@@ -174,6 +174,8 @@ for row in rows:
             "url": BASE + "/",
         },
     }
+    if external_urls:
+        org["sameAs"] = external_urls[:10]
 
     web = {
         "@type": "WebPage",
@@ -273,6 +275,7 @@ for row in rows:
 <div><strong>First Seen</strong><span>{esc(first_seen)}</span></div>
 <div><strong>Record Type</strong><span>Public Web3 identity</span></div>
 </div>
+{f'<p class="muted"><strong>Official Website:</strong> <a href="{esc(official_url)}" rel="noopener">{esc(official_url)}</a></p>' if official_url else ''}
 <div class="links">
 <a class="btn" href="{esc(full_url)}">Open Full AI Passport →</a>
 <a class="btn" href="{BASE}/passports.html">Browse W3M Passport Directory →</a>
