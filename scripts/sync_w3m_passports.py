@@ -307,6 +307,23 @@ for row in rows:
     lm = f"<lastmod>{esc(lastmod)}</lastmod>" if lastmod else ""
     urls.append(f"  <url><loc>{BASE}/passport/{ident}/</loc>{lm}</url>")
 
+# Keep a static directory registry in Git so the public Passport Directory
+# remains usable even when Supabase is temporarily unreachable.
+registry_rows = []
+for row in rows:
+    registry_rows.append({
+        "identity_code": row.get("identity_code"),
+        "sequence_no": row.get("sequence_no"),
+        "project_name": display_name(row.get("project_name"), str(row.get("identity_code") or "")),
+        "identity_status": row.get("identity_status"),
+        "created_at": row.get("created_at"),
+        "first_seen_at": row.get("first_seen_at"),
+    })
+pathlib.Path("passport/registry.json").write_text(
+    json.dumps({"generated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(), "rows": registry_rows}, ensure_ascii=False, indent=2) + "\\n",
+    encoding="utf-8",
+)
+
 pathlib.Path("sitemap.xml").write_text(
     '<?xml version="1.0" encoding="UTF-8"?>\n'
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
