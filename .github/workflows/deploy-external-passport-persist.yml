@@ -42,4 +42,4 @@ jobs:
           version: latest
 
       - name: Deploy external-passport-persist
-        run: supabase functions deploy external-passport-persist --project-ref "$SUPABASE_PROJECT_ID" --no-verify-jwt
+        run: supabase functions deploy external-passport-persist --project-ref "$SUPABASE_PROJECT_ID" --use-api --no-verify-jwt
