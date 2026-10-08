@@ -40,7 +40,12 @@ for(const a of aliases){
  }
 }
 const uniqueConflictIds=[...new Set(conflicts.map(x=>String(x.identity_id)))];
-if(uniqueConflictIds.length>1 || (uniqueConflictIds.length===1 && parentIdentityCode && uniqueConflictIds[0]!==parentIdentityCode)){
+let allowedParentConflict=false;
+if(uniqueConflictIds.length===1 && parentIdentityCode){
+ const {data:parent}=await db.from("project_identities").select("id,identity_code").eq("identity_code",parentIdentityCode).maybeSingle();
+ allowedParentConflict=!!parent?.id && String(parent.id)===uniqueConflictIds[0];
+}
+if(uniqueConflictIds.length>1 || (uniqueConflictIds.length===1 && !allowedParentConflict)){
  await db.from("project_identities").update({conflict_status:"possible"}).in("id",uniqueConflictIds);
  return J({success:false,eligible:false,error:"Identity conflict detected. A verified domain or GitHub identity is already linked to another W3M identity.",conflict_status:"possible",conflicts},409);
 }
