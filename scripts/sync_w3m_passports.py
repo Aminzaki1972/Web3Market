@@ -24,7 +24,7 @@ SUPABASE_KEY = os.environ["SUPABASE_PUBLISHABLE_KEY"]
 api = (
     SUPABASE_URL
     + "/rest/v1/project_identities?select="
-      "identity_code,sequence_no,project_name,identity_status,first_seen_at,created_at,external_passports(website_url,canonical_url,status,updated_at)"
+      "identity_code,sequence_no,project_name,identity_status,identity_score,identity_verdict,entity_type,parent_identity_id,relationship_type,conflict_status,first_seen_at,created_at,external_passports(website_url,canonical_url,status,updated_at)"
       "&order=sequence_no.asc"
 )
 
@@ -346,6 +346,12 @@ for row in rows:
         "sequence_no": row.get("sequence_no"),
         "project_name": display_name(row.get("project_name"), str(row.get("identity_code") or "")),
         "identity_status": row.get("identity_status"),
+        "identity_score": row.get("identity_score"),
+        "identity_verdict": row.get("identity_verdict"),
+        "entity_type": row.get("entity_type"),
+        "parent_identity_id": row.get("parent_identity_id"),
+        "relationship_type": row.get("relationship_type"),
+        "conflict_status": row.get("conflict_status"),
         "created_at": row.get("created_at"),
         "first_seen_at": row.get("first_seen_at"),
     })
