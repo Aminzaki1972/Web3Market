@@ -57,6 +57,14 @@
       "first_seen_at": "2026-09-10T20:56:50.168624+00:00"
     },
     {
+      "identity_code": "W3M-2026-000019",
+      "sequence_no": 19,
+      "project_name": "how-web-works",
+      "identity_status": "verified",
+      "created_at": "2026-10-01T21:34:47.591559+00:00",
+      "first_seen_at": "2026-10-01T21:34:47.548+00:00"
+    },
+    {
       "identity_code": "W3M-2026-000020",
       "sequence_no": 20,
       "project_name": "toobit",
@@ -71,6 +79,22 @@
       "identity_status": "verified",
       "created_at": "2026-10-07T23:03:11.933581+00:00",
       "first_seen_at": "2026-10-07T23:03:11.834+00:00"
+    },
+    {
+      "identity_code": "W3M-2026-000026",
+      "sequence_no": 26,
+      "project_name": "OKX.com",
+      "identity_status": "verified",
+      "created_at": "2026-10-08T18:21:05.869047+00:00",
+      "first_seen_at": "2026-10-08T18:21:05.746+00:00"
+    },
+    {
+      "identity_code": "W3M-2026-000027",
+      "sequence_no": 27,
+      "project_name": "CoinMarketCap",
+      "identity_status": "verified",
+      "created_at": "2026-10-08T18:33:22.694534+00:00",
+      "first_seen_at": "2026-10-08T18:33:22.625+00:00"
     }
   ]
 }\n
