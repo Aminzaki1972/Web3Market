@@ -24,7 +24,7 @@ function passportEligibility(p:any){
  try{officialDomain=new URL(website).hostname.toLowerCase().replace(/^www\./,"")}catch{}
  for(const s of sources){try{domains.add(new URL(String(s.url)).hostname.toLowerCase().replace(/^www\./,""))}catch{}}
  const primary=sources.some((s:any)=>["official","github","docs","contract"].includes(String(s.type||"").toLowerCase()));
- const verifiedGithub=sources.some((s:any)=>String(s.type||"").toLowerCase()==="github"&&/verified github organization linked to official domain/i.test(String(s.title||"")));
+ const verifiedGithub=sources.some((s:any)=>String(s.type||"").toLowerCase()==="github"&&/verified github (?:organization|repository) linked to official domain/i.test(String(s.title||"")));
  const knownOfficial=sources.some((s:any)=>/known official project website/i.test(String(s.title||"")));
  const normalizedName=name.toLowerCase().replace(/[^a-z0-9]+/g,""); const independentIdentityDomains=new Set<string>();
  for(const s of sources){try{const d=new URL(String(s.url)).hostname.toLowerCase().replace(/^www\./,"");const title=String(s.title||"").toLowerCase().replace(/[^a-z0-9]+/g,"");if(d&&d!==officialDomain&&normalizedName&&title.includes(normalizedName))independentIdentityDomains.add(d)}catch{}}
