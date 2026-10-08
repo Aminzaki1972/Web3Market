@@ -15,7 +15,6 @@ CURATED_IDENTITY_REFERENCES = {
     "W3M-2026-000001": ["https://web3market.xyz/"],
     "W3M-2026-000008": ["https://www.immutable.com/"],
     "W3M-2026-000013": ["https://www.avem.finance/"],
-    "W3M-2026-000019": ["https://github.com/vasanthk/how-web-works"],
     "W3M-2026-000020": ["https://www.toobit.com/"],
 }
 
