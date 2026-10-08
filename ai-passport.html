@@ -47,8 +47,8 @@ window.w3mDirectPassportSearch=async function(){
    html+='<p><strong>Website:</strong> '+String(p.website||'Not available')+'</p>';
    html+='<p><strong>Evidence Score:</strong> '+String(p.evidence_score??'—')+'/100</p>';
    html+='<p><strong>Identity:</strong> '+String(p.confidence_score??'—')+'</p>';
-   if(p.passport_serial) html+='<p><strong>W3M Passport:</strong> '+String(p.passport_serial)+'</p>';
-   else html+='<p class="muted">Research completed. A W3M serial is issued only after all eligibility requirements pass.</p>';
+   // Research output is provisional: never display a serial from this endpoint.
+   html+='<p class="muted">Research completed. W3M serials appear only after authoritative persistence succeeds.</p>';
    html+='</div>';
    root.innerHTML=html;
    const persistRes=await fetch(base+'/functions/v1/external-passport-persist',{
@@ -56,12 +56,18 @@ window.w3mDirectPassportSearch=async function(){
      body:JSON.stringify({query}),cache:'no-store'
    });
    const persistRaw=await persistRes.text(); let persistData={}; try{persistData=persistRaw?JSON.parse(persistRaw):{}}catch{}
-   if(persistRes.ok && persistData.serial){
-     html=html.replace('<p class="muted">Research completed. A W3M serial is issued only after all eligibility requirements pass.</p>','<p><strong>W3M Passport:</strong> '+String(persistData.serial)+'</p>');
+   const persistedCode=String(persistData?.passport?.w3m_identity_code||'').trim();
+   const returnedSerial=String(persistData?.serial||'').trim();
+   if(persistRes.ok && persistData.success===true && persistData.eligible===true && persistedCode && returnedSerial===persistedCode){
+     html=html.replace('<p class="muted">Research completed. W3M serials appear only after authoritative persistence succeeds.</p>','<p><strong>W3M Passport:</strong> '+persistedCode+'</p>');
      root.innerHTML=html;
-   }else if(p.passport_eligibility?.reasons?.length){
-     html+='<div class="finding"><p><strong>Eligibility:</strong> '+p.passport_eligibility.reasons.map(x=>String(x)).join(' ')+'</p></div>';
-     root.innerHTML=html;
+   }else{
+     const eligibility=persistData?.eligibility||p.passport_eligibility;
+     const reasons=Array.isArray(eligibility?.reasons)?eligibility.reasons:[];
+     html+='<div class="finding"><p><strong>No W3M serial issued.</strong> Research results are not a permanent Passport until the server confirms the saved identity.</p>';
+     if(reasons.length) html+='<p><strong>Eligibility:</strong> '+reasons.map(x=>String(x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))).join(' ')+'</p>';
+     else html+='<p>Authoritative persistence did not confirm a saved W3M identity. Please retry after the server issue is resolved.</p>';
+     html+='</div>'; root.innerHTML=html;
    }
  }catch(e){
    root.innerHTML='<p class="muted">Passport search failed: '+String(e?.message||e).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))+'</p>';
