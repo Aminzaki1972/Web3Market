@@ -155,13 +155,15 @@ if(website && !repo && !github){
     const key=owner.toLowerCase();
     if(ownerCache.has(key))return ownerCache.get(key)!;
     let ok=false;
-    const r=await get("https://api.github.com/users/"+encodeURIComponent(owner),{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
-    if(r.ok)try{
-      const x=JSON.parse(r.text);
+    // Identity corroboration is organization-only. A personal GitHub account must never
+    // become a verified project identity merely because its profile mentions the domain.
+    const org=await get("https://api.github.com/orgs/"+encodeURIComponent(owner),{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
+    if(org.ok && websiteHost)try{
+      const x=JSON.parse(org.text);
       const links=[x.blog,x.html_url].filter(Boolean).map((v:string)=>String(v).toLowerCase());
-      ok=!!websiteHost && links.some((v:string)=>v.includes(websiteHost));
+      ok=links.some((v:string)=>v.includes(websiteHost));
     }catch{}
-    if(!ok && websiteHost){
+    if(!ok && org.ok && websiteHost){
       const page=await get("https://github.com/"+encodeURIComponent(owner),{"User-Agent":"Web3Market External Passport"});
       if(page.ok){
         const body=page.text.toLowerCase();
