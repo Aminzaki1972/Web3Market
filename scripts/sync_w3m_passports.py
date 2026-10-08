@@ -106,21 +106,40 @@ rows = [row for row in rows if row.get("identity_code")]
 eligible_rows = [row for row in rows if str(row.get("identity_status") or "").lower() == "verified"]
 print(f"Loaded {len(rows)} W3M identities; {len(eligible_rows)} are eligible for public Passport SEO.")
 # Only verified identities receive public static Passport pages and sitemap entries.
-# Remove previously generated pages for identities that are no longer verified.
+# Publication is derived strictly from the current verified registry.
+# Remove stale generated Passport pages for identities that are no longer verified.
 passport_root = pathlib.Path("passport")
+verified_ids = {
+    str(row["identity_code"]).strip()
+    for row in eligible_rows
+    if row.get("identity_code")
+}
+
 if passport_root.exists():
-    for row in rows:
-        if str(row.get("identity_status") or "").lower() == "verified":
+    for child in list(passport_root.iterdir()):
+        if not child.is_dir():
             continue
-        ident_dir = passport_root / str(row["identity_code"])
-        if ident_dir.exists():
-            for child in ident_dir.iterdir():
-                if child.is_file():
-                    child.unlink()
+        ident = child.name.strip()
+        # Only clean W3M serial directories; unrelated assets are left untouched.
+        if re.fullmatch(r"W3M-\\d{4}-\\d{6}", ident) and ident not in verified_ids:
+            for nested in child.rglob("*"):
+                if nested.is_file():
+                    nested.unlink()
+            for nested_dir in sorted(
+                [p for p in child.rglob("*") if p.is_dir()],
+                key=lambda p: len(p.parts),
+                reverse=True,
+            ):
+                try:
+                    nested_dir.rmdir()
+                except OSError:
+                    pass
             try:
-                ident_dir.rmdir()
-            except OSError:
-                pass
+                child.rmdir()
+                print(f"Removed stale public Passport page: {ident}")
+            except OSError as exc:
+                raise RuntimeError(f"Unable to remove stale Passport directory {ident}: {exc}")
+
 rows = eligible_rows
 
 def esc(value):
