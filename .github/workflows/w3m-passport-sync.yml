@@ -122,6 +122,60 @@ jobs:
 
             if git push origin HEAD:main; then
               echo "Push succeeded on attempt $attempt."
+
+              # GitHub Pages/Cloudflare publish asynchronously. Do not call a
+              # Passport "published" merely because the Git file exists.
+              # Verify the actual public HTTP URL after the push.
+              echo "Waiting for the public Passport pages to become reachable..."
+              python3 - <<'PY'
+          import json, time, urllib.request, urllib.error
+          from pathlib import Path
+
+          registry = json.loads(Path("passport/registry.json").read_text(encoding="utf-8"))
+          rows = registry.get("rows", [])
+          urls = []
+          for row in rows:
+              ident = str(row.get("identity_code") or "").strip()
+              if ident:
+                  urls.append((ident, f"https://web3market.xyz/passport/{ident}/"))
+
+          if not urls:
+              print("No verified Passport pages require live HTTP verification.")
+              raise SystemExit(0)
+
+          deadline = time.time() + 180
+          pending = dict(urls)
+          last_errors = {}
+
+          while pending and time.time() < deadline:
+              for ident, url in list(pending.items()):
+                  try:
+                      req = urllib.request.Request(
+                          url,
+                          headers={"User-Agent": "W3M-Passport-Publication-Check/1.0"},
+                      )
+                      with urllib.request.urlopen(req, timeout=12) as resp:
+                          body = resp.read(200000).decode("utf-8", "ignore")
+                          if resp.status == 200 and "W3M Passport" in body and ident in body:
+                              print(f"LIVE OK: {ident} -> HTTP {resp.status}")
+                              del pending[ident]
+                          else:
+                              last_errors[ident] = f"HTTP {resp.status} or invalid page content"
+                  except Exception as exc:
+                      last_errors[ident] = str(exc)
+
+              if pending:
+                  print(f"Still waiting for {len(pending)} Passport page(s)...")
+                  time.sleep(15)
+
+          if pending:
+              print("LIVE PUBLICATION CHECK FAILED:")
+              for ident in pending:
+                  print(f"- {ident}: {last_errors.get(ident, 'not reachable')}")
+              raise SystemExit(1)
+
+          print(f"Live Passport publication check passed for {len(urls)} page(s).")
+          PY
               exit 0
             fi
 
