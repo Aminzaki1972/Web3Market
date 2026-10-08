@@ -191,7 +191,7 @@ if(website && !repo && !github){
   }catch{
     identityQuery=String(q).replace(/^https?:\/\//i,"").replace(/^www\./i,"").split(/[/?#]/)[0].replace(/\.[a-z]{2,}$/i,"").replace(/[-_]+/g," ");
   }
-  const queries=[identityQuery,identityQuery+" web3",String(name),String(name)+" web3"].filter((v,i,a)=>v&&a.indexOf(v)===i).slice(0,4);
+  const queries=[identityQuery,identityQuery+" web3",String(name),String(name)+" web3","\""+websiteHost+"\"","\""+websiteHost+"\" web3"].filter((v,i,a)=>v&&a.indexOf(v)===i).slice(0,6);
   let best:any=null,bestScore=-1;
   let verifiedBest:any=null,verifiedBestScore=-1;
   const ownerCache=new Map<string,boolean>();
@@ -230,6 +230,24 @@ if(website && !repo && !github){
         if(owner && await ownerControlsWebsite(owner) && s>verifiedBestScore){
           verifiedBest=item;
           verifiedBestScore=s;
+        }
+      }
+    }catch{}
+  }
+  // Generic organization search by the exact official domain. This catches official GitHub
+  // organizations even when their repository names do not match the website name.
+  if(!verifiedBest && websiteHost){
+    try{
+      const ug=await get("https://api.github.com/search/users?q="+encodeURIComponent('"'+websiteHost+'"')+"+type:org&per_page=10",{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
+      if(ug.ok){
+        const uj=await ug.json();
+        for(const u of (uj.items||[])){
+          const owner=String(u?.login||""); if(!owner)continue;
+          if(await ownerControlsWebsite(owner)){
+            const rr=await get("https://api.github.com/orgs/"+encodeURIComponent(owner)+"/repos?per_page=100&sort=updated",{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
+            if(rr.ok){const rs=await rr.json();const candidate=(Array.isArray(rs)?rs:[]).sort((a:any,b:any)=>repoScore(b,identityQuery)-repoScore(a,identityQuery))[0];if(candidate){verifiedBest=candidate;verifiedBestScore=Math.max(verifiedBestScore,repoScore(candidate,identityQuery));}}
+            break;
+          }
         }
       }
     }catch{}
