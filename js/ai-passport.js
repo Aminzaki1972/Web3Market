@@ -122,52 +122,42 @@ async function loadInternal(id){
 }
 async function loadExternal(query){
  const root=document.getElementById('passport');
- const normalized=String(query||'').trim().toLowerCase().replace(/\\s+/g,' ');
+ const normalized=String(query||'').trim().toLowerCase().replace(/\s+/g,' ');
  const genericQueries=new Set(['finance','financial','finances','crypto','cryptocurrency','cryptocurrencies','blockchain','web3','defi','decentralized finance','nft','nfts','dao','wallet','wallets','exchange','exchanges','dex','dexes','market','marketplace','trading','ai','artificial intelligence','metaverse','token','tokens','protocol','protocols','payments','payment']);
  if(normalized.length<3){root.innerHTML='<p class="muted">Enter a specific Web3 project name or its official website.</p>';return;}
  if(genericQueries.has(normalized)){root.innerHTML='<p class="muted"><strong>Search is too broad.</strong> Enter a specific Web3 project name or its official HTTPS website. Generic terms such as Finance, Crypto, Exchange, Wallet, Blockchain and AI cannot receive a W3M Passport by themselves.</p>';return;}
- root.innerHTML='<p>Searching public sources and creating a universal Web3 Project Passport…</p>';
+ root.innerHTML='<p>Searching public sources and verifying W3M Passport eligibility…</p>';
  const headers={apikey:SUPABASE_KEY,'Content-Type':'application/json',Accept:'application/json'};
+ const persist=async()=>{const r=await fetch(SUPABASE_URL+'/functions/v1/external-passport-persist',{method:'POST',headers,body:JSON.stringify({query}),cache:'no-store'});const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch{};return {r,d,t};};
  try{
-  // The public research endpoint is the primary path. Database persistence must
-  // never prevent a valid Passport from being displayed.
-  const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),30000); const rr=await fetch(SUPABASE_URL+'/functions/v1/external-project-passport',{
-   method:'POST',headers,body:JSON.stringify({query}),cache:'no-store',signal:controller.signal
-  });
+  const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),30000);
+  const rr=await fetch(SUPABASE_URL+'/functions/v1/external-project-passport',{method:'POST',headers,body:JSON.stringify({query}),cache:'no-store',signal:controller.signal});
   clearTimeout(timer); const raw2=await rr.text();let d2={};try{d2=raw2?JSON.parse(raw2):{}}catch{}
   if(rr.ok&&d2.success&&d2.passport){
-   d2.passport.external_only=true;
-   renderExternal(d2.passport);
-   // Persist in the background; failure here is intentionally non-blocking.
-   fetch(SUPABASE_URL+'/functions/v1/external-passport-persist',{
-    method:'POST',headers,body:JSON.stringify({query}),cache:'no-store'
-   }).then(async r=>{
-    const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch{}
+   // Research is provisional. Never expose a W3M serial from this response.
+   const research={...d2.passport}; delete research.w3m_identity_code; delete research.w3m_first_seen_at;
+   renderExternal(research);
+   try{
+    const {r,d,t}=await persist();
     console.info('Passport persistence:',r.status,t.slice(0,500));
-    // Persistence is authoritative for W3M issuance, but it must never hide
-    // a public research result. If the server returns eligibility details,
-    // surface them immediately so the user knows exactly why a serial was
-    // or was not issued.
-    if(d?.passport?.passport_eligibility){
-      const card=document.querySelector('#passport .passport-card');
-      const e=d.passport.passport_eligibility;
-      const box=document.createElement('section');box.className='passport-card';
-      box.innerHTML='<h2>W3M Passport Eligibility</h2><div class="finding"><strong>'+esc(e.eligible?'ELIGIBLE — W3M serial can be issued':'NOT ELIGIBLE — no W3M serial issued')+'</strong><p>'+esc((e.reasons||[]).join(' • ')||'All eligibility checks passed.')+'</p><small>Score: '+esc(e.score??0)+'/100 • Independent sources: '+esc(e.independent_source_domains??0)+' • Primary evidence: '+(e.primary_evidence?'Yes':'No')+' • Web3 identity: '+(e.web3_signal?'Yes':'No')+(d?.passport?.w3m_identity_code?' • Serial: '+esc(d.passport.w3m_identity_code):'')+'</small></div>';
-      card?.parentNode?.insertBefore(box,card);
-    }else if(d?.eligibility){
-      console.info('W3M eligibility:',d.eligibility);
+    if(r.ok&&d?.success&&d?.passport){
+      // Persistence is authoritative. Re-render only now, after the identity
+      // decision has been committed by the server.
+      renderExternal(d.passport);
+      return;
     }
-   }).catch(e=>console.warn('Passport persistence unavailable:',e));
+    const e=d?.passport?.passport_eligibility||d?.eligibility;
+    if(e){
+      const box=document.createElement('section');box.className='passport-card';
+      box.innerHTML='<h2>W3M Passport Eligibility</h2><div class="finding"><strong>'+esc(e.eligible?'ELIGIBLE — awaiting final persistence':'NOT ELIGIBLE — no W3M serial issued')+'</strong><p>'+esc((e.reasons||[]).join(' • ')||'The server did not complete final persistence.')+'</p></div>';
+      root.insertBefore(box,root.firstChild);
+    }
+   }catch(e){console.warn('Passport persistence unavailable:',e);}
    return;
   }
   console.error('Passport research failed',rr.status,raw2);
-  // If the research endpoint fails, try the persistence endpoint as a fallback.
-  const r=await fetch(SUPABASE_URL+'/functions/v1/external-passport-persist',{
-   method:'POST',headers,body:JSON.stringify({query}),cache:'no-store'
-  });
-  const raw=await r.text();let d={};try{d=raw?JSON.parse(raw):{}}catch{}
-  if(r.ok&&d.success&&d.passport){renderExternal(d.passport);return}
-  console.error('Passport persistence fallback failed',r.status,raw);
+  const {r,d}=await persist();
+  if(r.ok&&d?.success&&d?.passport){renderExternal(d.passport);return;}
   root.innerHTML='<p class="muted">Passport search failed ('+esc(rr.status||r.status||'network')+'). '+esc(d2?.error||d?.error||'No public project data was returned.')+'</p>';
  }catch(e){
   console.error('External Passport request',e);
