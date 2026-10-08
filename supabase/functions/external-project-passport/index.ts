@@ -45,6 +45,31 @@ Deno.serve(async req=>{
  try{
   const b=await req.json().catch(()=>null),q=String(b?.query||"").trim();if(!q)return J({error:"query is required"},400,req);if(q.length>240)return J({error:"query is too long"},400,req);if(isW3mCode(q))return J({error:"W3M Passport serials are identifiers, not external research queries. Use the Passport Directory."},400,req);
   let name=q,website:string|null=/^https?:\/\//i.test(q)?q.replace(/\/$/,""):null,github:string|null=null,description:string|null=null,technology:string|null=null,repo:any=null,site="",sources:any[]=[];
+  // Resolve GitHub URLs before normal website parsing.
+  // github.com/{org} is an organization identity, not the project name "GitHub".
+  if(/^https?:\/\/github\.com\//i.test(q)){
+    const u=new URL(q); const parts=u.pathname.split("/").filter(Boolean);
+    if(parts.length>=1){
+      const owner=parts[0], repoName=parts[1];
+      try{
+        if(repoName){
+          const rr=await fetch("https://api.github.com/repos/"+owner+"/"+repoName,{headers:{accept:"application/vnd.github+json","user-agent":"W3M-Passport"}});
+          if(rr.ok){ const rj=await rr.json(); repo=rj.html_url||("https://github.com/"+owner+"/"+repoName); github="https://github.com/"+owner; name=String(rj.name||repoName); description=String(rj.description||""); technology=String(rj.language||""); if(rj.homepage) website=String(rj.homepage); addSource({title:"GitHub repository identity",url:repo,type:"github"}); }
+        }else{
+          const gr=await fetch("https://api.github.com/orgs/"+owner,{headers:{accept:"application/vnd.github+json","user-agent":"W3M-Passport"}});
+          if(gr.ok){ const gj=await gr.json();
+            if(String(gj.type||"").toLowerCase()==="organization"){
+              github="https://github.com/"+(gj.login||owner); name=String(gj.name||gj.login||owner); description=String(gj.description||""); if(gj.blog) website=String(gj.blog);
+              addSource({title:gj.is_verified?"Verified GitHub organization":"GitHub organization identity",url:github,type:"github"});
+              const rr=await fetch("https://api.github.com/orgs/"+(gj.login||owner)+"/repos?per_page=10&sort=updated",{headers:{accept:"application/vnd.github+json","user-agent":"W3M-Passport"}});
+              if(rr.ok){ const repos=await rr.json(); if(Array.isArray(repos)) for(const rj of repos.slice(0,5)) if(rj.html_url) addSource({title:"GitHub organization repository",url:String(rj.html_url),type:"github"}); }
+            }
+          }
+        }
+      }catch{}
+    }
+  }
+
   const kp=knownProject(q);
   if(kp){name=kp.name;website=kp.website;github=kp.github;sources.push(src("Known official project website",kp.website,"official"));if(kp.github)sources.push(src("Known official GitHub organization",kp.github,"github"))}
   if(!kp && !website){
