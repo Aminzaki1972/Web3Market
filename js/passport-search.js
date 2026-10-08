@@ -41,7 +41,18 @@ window.w3mDirectPassportSearch=async function(){
      const eligibility=data?.eligibility||{};
      const reasons=Array.isArray(eligibility.reasons)?eligibility.reasons:[];
      let html='<div class="passport-card"><h2>'+esc(data?.error||'No W3M Passport issued')+'</h2>';
-     html+='<p class="muted">The authoritative server did not confirm an eligible, saved Passport. No serial is displayed.</p>';
+     const hasEligibility=Object.keys(eligibility).length>0;
+     if(hasEligibility){
+       html+='<div class="finding"><strong>Server eligibility diagnostics</strong>';
+       html+='<p>Evidence score: <strong>'+esc(eligibility.score??'not returned')+'/100</strong> (minimum 60)</p>';
+       html+='<p>Identity score: <strong>'+esc(eligibility.identity_score??'not returned')+'/100</strong> (minimum 60)</p>';
+       html+='<p>Independent source domains: <strong>'+esc(eligibility.independent_source_domains??'not returned')+'</strong></p>';
+       html+='<p>Primary evidence: <strong>'+esc(eligibility.primary_evidence===true?'confirmed':eligibility.primary_evidence===false?'missing':'not returned')+'</strong></p>';
+       html+='<p>Project-specific Web3 evidence: <strong>'+esc(eligibility.web3_signal===true?'confirmed':eligibility.web3_signal===false?'missing':'not returned')+'</strong></p>';
+       html+='<p>Identity corroboration: <strong>'+esc(eligibility.identity_corroboration===true?'confirmed':eligibility.identity_corroboration===false?'missing':'not returned')+'</strong></p></div>';
+     }else{
+       html+='<p class="muted">The authoritative server did not return eligibility diagnostics. No serial is displayed.</p>';
+     }
      if(reasons.length){html+='<ul>';for(const reason of reasons)html+='<li>'+esc(reason)+'</li>';html+='</ul>';}
      if(data?.conflict_status)html+='<p><strong>Identity conflict:</strong> '+esc(data.conflict_status)+'</p>';
      if(!reasons.length&&!data?.error)html+='<p>Please retry after the underlying server response has been investigated.</p>';
