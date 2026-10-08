@@ -122,7 +122,7 @@ if passport_root.exists():
             continue
         ident = child.name.strip()
         # Only clean W3M serial directories; unrelated assets are left untouched.
-        if re.fullmatch(r"W3M-\\d{4}-\\d{6}", ident) and ident not in verified_ids:
+        if re.fullmatch(r"W3M-\d{4}-\d{6}", ident) and ident not in verified_ids:
             for nested in child.rglob("*"):
                 if nested.is_file():
                     nested.unlink()
