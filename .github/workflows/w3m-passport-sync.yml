@@ -54,6 +54,37 @@ jobs:
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI
         run: python3 scripts/sync_w3m_passports.py
 
+      - name: Verify Passport publication integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib, re
+          registry = json.loads(pathlib.Path("passport/registry.json").read_text(encoding="utf-8"))
+          rows = registry.get("rows", [])
+          sitemap = pathlib.Path("sitemap.xml").read_text(encoding="utf-8")
+          errors = []
+          for row in rows:
+              ident = str(row.get("identity_code") or "").strip()
+              if not ident:
+                  errors.append("registry row without identity_code")
+                  continue
+              page = pathlib.Path("passport") / ident / "index.html"
+              if not page.is_file():
+                  errors.append(f"missing Passport page: {page}")
+                  continue
+              html = page.read_text(encoding="utf-8")
+              if f"W3M Passport" not in html or ident not in html:
+                  errors.append(f"invalid Passport page content: {page}")
+              if f"<loc>https://web3market.xyz/passport/{ident}/</loc>" not in sitemap:
+                  errors.append(f"missing sitemap entry: {ident}")
+          if errors:
+              print("Passport publication integrity check FAILED:")
+              print("\\n".join(f"- {e}" for e in errors))
+              raise SystemExit(1)
+          print(f"Passport publication integrity check passed for {len(rows)} verified identities.")
+          PY
+
       - name: Commit and push generated changes
         env:
           SUPABASE_URL: https://hzhqlexnhtukfljcvnyd.supabase.co
