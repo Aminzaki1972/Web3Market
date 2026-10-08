@@ -44,6 +44,7 @@ Deno.serve(async req=>{
  if(req.method!=="POST")return J({error:"POST required"},405,req);
  try{
   const b=await req.json().catch(()=>null),q=String(b?.query||"").trim();if(!q)return J({error:"query is required"},400,req);if(q.length>240)return J({error:"query is too long"},400,req);if(isW3mCode(q))return J({error:"W3M Passport serials are identifiers, not external research queries. Use the Passport Directory."},400,req);
+  let collectedContractAddresses:string[]=[];
   let name=q,website:string|null=/^https?:\/\//i.test(q)?q.replace(/\/$/,""):null,github:string|null=null,description:string|null=null,technology:string|null=null,repo:any=null,site="",sources:any[]=[],verifiedGithubName:string|null=null;
   // Resolve GitHub URLs before normal website parsing.
   // github.com/{org} is an organization identity, not the project name "GitHub".
@@ -125,7 +126,7 @@ Deno.serve(async req=>{
      }catch{}
    }
    const l=await get("https://api.github.com/repos/"+repo.full_name+"/languages",{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});if(l.ok)try{const x=JSON.parse(l.text);technology=Object.keys(x).slice(0,8).join(", ")||technology}catch{}
-   const rd=await get("https://raw.githubusercontent.com/"+repo.full_name+"/"+(repo.default_branch||"main")+"/README.md",{"User-Agent":"Web3Market"});if(rd.ok){const aa=addresses(rd.text);for(const u of filteredEvidenceUrls(rd.text)){sources.push(src("README public link",u,"readme"));if(!website){try{const ru=new URL(u);const rh=ru.hostname.replace(/^www\\./i,"").toLowerCase();const target=String(q).toLowerCase().replace(/^https?:\/\//i,"").replace(/^www\./,"").split(/[/?#]/)[0].toLowerCase();const projectHost=target||String(repo?.name||"").toLowerCase().replace(/[^a-z0-9.-]/g,"");if(rh===projectHost||rh==="web3market.xyz"||rh.endsWith(".web3market.xyz"))website=u.replace(/\/$/,"")}catch{}}}if(aa.length)sources.push(src("Contract addresses in README",github,"contract"))}
+   const rd=await get("https://raw.githubusercontent.com/"+repo.full_name+"/"+(repo.default_branch||"main")+"/README.md",{"User-Agent":"Web3Market"});if(rd.ok){const aa=addresses(rd.text);for(const u of filteredEvidenceUrls(rd.text)){sources.push(src("README public link",u,"readme"));if(!website){try{const ru=new URL(u);const rh=ru.hostname.replace(/^www\\./i,"").toLowerCase();const target=String(q).toLowerCase().replace(/^https?:\/\//i,"").replace(/^www\./,"").split(/[/?#]/)[0].toLowerCase();const projectHost=target||String(repo?.name||"").toLowerCase().replace(/[^a-z0-9.-]/g,"");if(rh===projectHost||rh==="web3market.xyz"||rh.endsWith(".web3market.xyz"))website=u.replace(/\/$/,"")}catch{}}}if(aa.length){collectedContractAddresses.push(...aa);sources.push(src("Contract addresses in README",github,"contract"))}}
   }
   if(github&&!repo){
    const m=github.match(/github\.com\/([^/]+)(?:\/([^/#?]+))?/i);
