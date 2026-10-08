@@ -25,30 +25,6 @@
       "first_seen_at": "2026-09-25T21:14:56.072+00:00"
     },
     {
-      "identity_code": "W3M-2026-000005",
-      "sequence_no": 5,
-      "project_name": "Binance JavaScript & TypeScript SDK for Node.js | Siebly",
-      "identity_status": "verified",
-      "created_at": "2026-09-26T16:32:20.438152+00:00",
-      "first_seen_at": "2026-09-26T16:32:20.387+00:00"
-    },
-    {
-      "identity_code": "W3M-2026-000006",
-      "sequence_no": 6,
-      "project_name": "Supabase",
-      "identity_status": "verified",
-      "created_at": "2026-09-26T17:28:29.900529+00:00",
-      "first_seen_at": "2026-09-26T17:28:29.787+00:00"
-    },
-    {
-      "identity_code": "W3M-2026-000007",
-      "sequence_no": 7,
-      "project_name": "supabase-comments-extension",
-      "identity_status": "verified",
-      "created_at": "2026-09-26T21:22:28.452918+00:00",
-      "first_seen_at": "2026-09-26T21:22:28.322+00:00"
-    },
-    {
       "identity_code": "W3M-2026-000008",
       "sequence_no": 8,
       "project_name": "immutable",
@@ -65,30 +41,6 @@
       "first_seen_at": "2026-09-27T20:21:33.43+00:00"
     },
     {
-      "identity_code": "W3M-2026-000010",
-      "sequence_no": 10,
-      "project_name": "Web3 Marketing Agency for Blockchain and Crypto Businesses - Web3 Marketo",
-      "identity_status": "verified",
-      "created_at": "2026-09-28T15:58:41.106674+00:00",
-      "first_seen_at": "2026-09-28T15:58:41.048+00:00"
-    },
-    {
-      "identity_code": "W3M-2026-000011",
-      "sequence_no": 11,
-      "project_name": "ICANN Domain Registrar | Register & Manage Domains - NiceNIC",
-      "identity_status": "verified",
-      "created_at": "2026-09-30T19:08:26.440219+00:00",
-      "first_seen_at": "2026-09-30T19:08:26.386+00:00"
-    },
-    {
-      "identity_code": "W3M-2026-000012",
-      "sequence_no": 12,
-      "project_name": "Sell Domains | Buy Domains | Park Domains - Afternic",
-      "identity_status": "verified",
-      "created_at": "2026-09-30T21:20:28.428577+00:00",
-      "first_seen_at": "2026-09-30T21:20:28.313+00:00"
-    },
-    {
       "identity_code": "W3M-2026-000013",
       "sequence_no": 13,
       "project_name": "Avem",
@@ -103,22 +55,6 @@
       "identity_status": "verified",
       "created_at": "2026-10-01T19:18:37.559452+00:00",
       "first_seen_at": "2026-09-10T20:56:50.168624+00:00"
-    },
-    {
-      "identity_code": "W3M-2026-000018",
-      "sequence_no": 18,
-      "project_name": "@mfavant — goods catalogue",
-      "identity_status": "verified",
-      "created_at": "2026-10-01T21:33:47.884988+00:00",
-      "first_seen_at": "2026-10-01T21:33:47.837+00:00"
-    },
-    {
-      "identity_code": "W3M-2026-000019",
-      "sequence_no": 19,
-      "project_name": "how-web-works",
-      "identity_status": "verified",
-      "created_at": "2026-10-01T21:34:47.591559+00:00",
-      "first_seen_at": "2026-10-01T21:34:47.548+00:00"
     },
     {
       "identity_code": "W3M-2026-000020",
@@ -143,6 +79,14 @@
       "identity_status": "verified",
       "created_at": "2026-10-07T19:53:45.677965+00:00",
       "first_seen_at": "2026-10-07T19:53:45.602+00:00"
+    },
+    {
+      "identity_code": "W3M-2026-000024",
+      "sequence_no": 24,
+      "project_name": "Binance",
+      "identity_status": "verified",
+      "created_at": null,
+      "first_seen_at": null
     }
   ]
-}\n
+}
