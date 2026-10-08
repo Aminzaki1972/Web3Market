@@ -195,6 +195,33 @@ if(website && !repo && !github){
   let best:any=null,bestScore=-1;
   let verifiedBest:any=null,verifiedBestScore=-1;
   const ownerCache=new Map<string,boolean>();
+  const repoCache=new Map<string,boolean>();
+  async function repositoryControlsWebsite(item:any){
+    const full=String(item?.full_name||"").toLowerCase();
+    if(!full)return false;
+    if(repoCache.has(full))return repoCache.get(full)!;
+    let ok=false;
+    try{
+      const home=String(item?.homepage||"").trim();
+      if(home){
+        const hh=new URL(home).hostname.replace(/^www\\./i,"").toLowerCase();
+        ok=!!websiteHost && (hh===websiteHost||hh.endsWith("."+websiteHost));
+      }
+    }catch{}
+    if(!ok){
+      try{
+        const fullName=String(item?.full_name||"");
+        const branch=String(item?.default_branch||"main");
+        const rd=await get("https://raw.githubusercontent.com/"+fullName+"/"+branch+"/README.md",{"User-Agent":"Web3Market External Passport"});
+        if(rd.ok){
+          const body=rd.text.toLowerCase();
+          ok=!!websiteHost && (body.includes(websiteHost)||body.includes("https://"+websiteHost)||body.includes("http://"+websiteHost));
+        }
+      }catch{}
+    }
+    repoCache.set(full,ok);
+    return ok;
+  }
   async function ownerControlsWebsite(owner:string){
     const key=owner.toLowerCase();
     if(ownerCache.has(key))return ownerCache.get(key)!;
@@ -236,7 +263,9 @@ if(website && !repo && !github){
         const s=Math.max(repoScore(item,identityQuery),repoScore(item,String(q)));
         if(s>bestScore){best=item;bestScore=s}
         const owner=String(item?.owner?.login||"");
-        if(owner && await ownerControlsWebsite(owner) && s>verifiedBestScore){
+        const repoLinked=await repositoryControlsWebsite(item);
+        const ownerLinked=!!owner && await ownerControlsWebsite(owner);
+        if((ownerLinked||repoLinked) && s>verifiedBestScore){
           verifiedBest=item;
           verifiedBestScore=s;
         }
@@ -293,7 +322,7 @@ if(website && !repo && !github){
     github=chosen.html_url;
     description=description||chosen.description||null;
     technology=technology||chosen.language||null;
-    sources.push(src(verifiedBest?"Verified GitHub organization linked to official domain":"GitHub identity candidate",github,"github"));
+    sources.push(src(verifiedBest?"Verified GitHub repository linked to official domain":"GitHub identity candidate",github,"github"));
   }
   if(!repo && websiteHost){
     // Generic GitHub organization discovery. Never hardcode project owners.
@@ -446,7 +475,7 @@ const identityContext=[name,description,technology,repo?.description,Array.isArr
   let dex:any=null;if(contracts.length){const verifiedContracts=new Set(contracts.map((x:string)=>x.toLowerCase()));const dx=await get("https://api.dexscreener.com/latest/dex/search/?q="+encodeURIComponent(name));if(dx.ok)try{const x=JSON.parse(dx.text);const matched=(x.pairs||[]).filter((p:any)=>verifiedContracts.has(String(p.baseToken?.address||"").toLowerCase())||verifiedContracts.has(String(p.quoteToken?.address||"").toLowerCase()));if(matched.length){dex=matched.slice(0,8).map((p:any)=>({chain:p.chainId,dex:p.dexId,pair:p.pairAddress,base:p.baseToken?.symbol,baseAddress:p.baseToken?.address,quote:p.quoteToken?.symbol,quoteAddress:p.quoteToken?.address,priceUsd:p.priceUsd,liquidityUsd:p.liquidity?.usd,volume24h:p.volume?.h24,url:p.url}));sources.push(src("DEX Screener market data (contract-matched)","https://dexscreener.com/search?q="+encodeURIComponent(name),"market_data"))}}catch{}} 
   let llama:any=null;const dl=await get("https://api.llama.fi/protocols");if(dl.ok)try{const a=JSON.parse(dl.text),n=name.toLowerCase().replace(/[^a-z0-9]/g,"");const h=a.filter((p:any)=>{const z=String(p.name||"").toLowerCase().replace(/[^a-z0-9]/g,"");const slug=String(p.slug||"").toLowerCase().replace(/[^a-z0-9]/g,"");return z===n||slug===n}).sort((a:any,b:any)=>Number(b.tvl||0)-Number(a.tvl||0)).slice(0,5);if(h.length){llama=h.map((p:any)=>({name:p.name,slug:p.slug,tvl:p.tvl,chains:p.chains,category:p.category,website:p.url,listedAt:p.listedAt,defillama_id:p.id,revenue:p.revenue,fees24h:p.fees24h}));sources.push(src("DeFiLlama protocol data","https://defillama.com/","defi_data"))}}catch{}
   let npm:any=null;const nr=await get("https://registry.npmjs.org/-/v1/search?text="+encodeURIComponent(name)+"&size=5");if(nr.ok)try{const x=JSON.parse(nr.text);const cleanPkg=(o:any)=>({name:o.package?.name,version:o.package?.version,description:o.package?.description,homepage:o.package?.links?.homepage,repository:o.package?.links?.repository,weeklyDownloads:o.downloads?.weekly});const sameHost=(u:string|null,d:string|null)=>{try{return !!u&&!!d&&new URL(u).hostname.replace(/^www\./,"")===new URL(d).hostname.replace(/^www\./,"")}catch{return false}};const sameRepo=(u:string|null,g:string|null)=>{if(!u||!g)return false;return u.replace(/\.git$/,"").replace(/\/$/,"").toLowerCase()===g.replace(/\/$/,"").toLowerCase()};npm=(x.objects||[]).map(cleanPkg).filter((o:any)=>{const exact=String(o.name||"").toLowerCase().replace(/[^a-z0-9]/g,"")===name.toLowerCase().replace(/[^a-z0-9]/g,"");const linked=sameRepo(o.repository,github)||sameHost(o.homepage,website)||sameHost(o.repository,website);return linked||((kp||repo)&&exact&&!!(o.repository||o.homepage));}).slice(0,5);if(npm.length)sources.push(src("npm package identity-linked evidence","https://www.npmjs.com/search?q="+encodeURIComponent(name),"npm"))}catch{}
-  const verifiedGithub = sources.some((x:any)=>x.type==="github" && /Verified GitHub organization linked to official domain/i.test(String(x.title||"")));
+  const verifiedGithub = sources.some((x:any)=>x.type==="github" && /Verified GitHub (?:organization|repository) linked to official domain/i.test(String(x.title||"")));
   const directProjectText=[name,description,technology,repo?.description,Array.isArray(repo?.topics)?repo.topics.join(" "):""].filter(Boolean).join(" ").toLowerCase();
   const explicitWeb3Identity = sources.some((x:any)=>x.type==="web3_identity" && /verified|official|contract|protocol|web3/i.test(String(x.title||"")));
   // Strong Web3 identity must be backed by an actual project-specific primary source,
