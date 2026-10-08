@@ -199,6 +199,15 @@ if(website && !repo && !github){
     const key=owner.toLowerCase();
     if(ownerCache.has(key))return ownerCache.get(key)!;
     let ok=false;
+    // Strong generic organization-name/domain binding: an official org whose login
+    // contains the registrable project token (e.g. lista-dao for lista.org) is a
+    // candidate, but only after confirming the account is actually an organization.
+    let domainToken="";
+    try{domainToken=websiteHost.split(".")[0].toLowerCase().replace(/[^a-z0-9]/g,"")}catch{}
+    const ownerToken=key.replace(/[^a-z0-9]/g,"");
+    const tokenMatch=!!domainToken && (ownerToken===domainToken || ownerToken.startsWith(domainToken) || ownerToken.endsWith(domainToken));
+    const orgCheck=await get("https://api.github.com/orgs/"+encodeURIComponent(owner),{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
+    if(orgCheck.ok && tokenMatch) ok=true;
     // Identity corroboration is organization-only. A personal GitHub account must never
     // become a verified project identity merely because its profile mentions the domain.
     const org=await get("https://api.github.com/orgs/"+encodeURIComponent(owner),{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
