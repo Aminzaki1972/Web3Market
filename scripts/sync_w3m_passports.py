@@ -104,6 +104,7 @@ if rows is None:
 
 rows = [row for row in rows if row.get("identity_code")]
 eligible_rows = [row for row in rows if str(row.get("identity_status") or "").lower() == "verified"]
+print(f"Passport sync diagnostics: identities_loaded={len(rows)}, verified_identities={len(eligible_rows)}, newest_identity_code={max((str(row.get('identity_code') or '') for row in rows), default='none')}")
 print(f"Loaded {len(rows)} W3M identities; {len(eligible_rows)} are eligible for public Passport SEO.")
 # Only verified identities receive public static Passport pages and sitemap entries.
 # Publication is derived strictly from the current verified registry.
