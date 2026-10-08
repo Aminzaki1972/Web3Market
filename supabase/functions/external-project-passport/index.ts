@@ -144,7 +144,7 @@ Deno.serve(async req=>{
   if(website && github && !sources.some((x:any)=>x.type==="github" && /Verified GitHub organization linked to official domain/i.test(String(x.title||"")))){
     try{
       const host=new URL(website).hostname.replace(/^www\./i,"").toLowerCase();
-      const gm=github.match(/github\.com\/([^/]+)(?:\/([^/#?]+))?/i);
+      const gm=github.match(/github\.com\/([^/]+)/i);
       if(gm){
         const owner=gm[1];
         const profile=await get("https://api.github.com/users/"+encodeURIComponent(owner),{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
@@ -319,7 +319,7 @@ if(verifiedGithubName && website && github){try{const wh=new URL(website).hostna
   // This is generic: no project-specific owner is hardcoded.
   if(website && github && !sources.some((x:any)=>x.type==="docs")){
     try{
-      const gm=github.match(/github\\.com\\/([^/]+)/i);
+      const gm=github.match(/github\.com\/([^/]+)/i);
       const wh=new URL(website).hostname.replace(/^www\\./i,"").toLowerCase();
       if(gm && wh){
         const owner=gm[1];
