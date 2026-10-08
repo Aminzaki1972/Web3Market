@@ -79,10 +79,15 @@ function renderInternal(p){
 }
 async function renderExternal(p){
  const eligibility=p.passport_eligibility;
+ const identityCode=String(p.w3m_identity_code||'').trim();
+ const hasAuthoritativeIdentity=identityCode.length>0;
  const eligibilityHtml=eligibility&&!eligibility.eligible
   ? '<section class="passport-card"><h2>W3M Passport Eligibility</h2><div class="finding"><strong>NOT ELIGIBLE — no W3M serial issued</strong><p>This search remains a public research result only.</p><p>'+esc((eligibility.reasons||[]).join(' • '))+'</p><small>Score: '+esc(eligibility.score||0)+'/100 • Independent sources: '+esc(eligibility.independent_source_domains||0)+'</small></div></section>'
   : '';
- let h='<div class="passport-badge external">Web3 Project Research • Eligibility Checked</div>'+eligibilityHtml+'<section class="passport-card"><h2>W3M Permanent Project Identity</h2><p class="muted">Permanent identity follows the project across its official website, GitHub, app, docs and other verified source branches.</p><div class="identity"><div class="item"><small>W3M Identity</small><strong>'+esc(val(p.w3m_identity_code,'Assigned during identity matching'))+'</strong>'+status('connected',val(p.w3m_identity_status,'Identity Layer'))+'</div><div class="item"><small>First Seen</small><strong>'+esc(val(p.w3m_first_seen_at,'Recorded when identity is assigned'))+'</strong>'+status('connected','Permanent Record')+'</div><div class="item"><small>Identity Rule</small><strong>Same project keeps the same W3M ID across branches and sources</strong>'+status('connected','Fingerprint Matching')+'</div><div class="item"><small>Project Family</small><strong>Website • GitHub • Docs • App • Contracts • Analytics • Listings</strong>'+status('connected','Unified Identity')+'</div></div></section><section class="passport-card"><h2>Public Project Passport</h2><p class="muted">Universal Passport research uses public sources only and is independent from Web3Market listings.</p><div class="identity">';
+ const identityHtml=hasAuthoritativeIdentity
+  ? '<section class="passport-card"><h2>W3M Permanent Project Identity</h2><p class="muted">Permanent identity follows the project across its official website, GitHub, app, docs and other verified source branches.</p><div class="identity"><div class="item"><small>W3M Identity</small><strong>'+esc(identityCode)+'</strong>'+status('connected',val(p.w3m_identity_status,'Verified'))+'</div><div class="item"><small>First Seen</small><strong>'+esc(val(p.w3m_first_seen_at,'Recorded when identity is assigned'))+'</strong>'+status('connected','Permanent Record')+'</div><div class="item"><small>Identity Rule</small><strong>Same project keeps the same W3M ID across branches and sources</strong>'+status('connected','Fingerprint Matching')+'</div><div class="item"><small>Project Family</small><strong>Website • GitHub • Docs • App • Contracts • Analytics • Listings</strong>'+status('connected','Unified Identity')+'</div></div></section>'
+  : '<section class="passport-card"><h2>W3M Permanent Project Identity</h2><div class="finding"><strong>No W3M serial has been issued for this research result.</strong><p>The public research layer is shown separately. A W3M identity appears here only after authoritative server-side persistence returns a real W3M identity code.</p></div></section>';
+ let h='<div class="passport-badge external">Web3 Project Research • Eligibility Checked</div>'+eligibilityHtml+identityHtml+'<section class="passport-card"><h2>Public Project Passport</h2><p class="muted">Universal Passport research uses public sources only and is independent from Web3Market listings.</p><div class="identity">';
  [['Project','project_name'],['Website','website'],['Category','category'],['Launched','founded_or_launched'],['Technology','technology'],['GitHub','github'],['Blockchain','blockchains'],['Token / Contracts','token_or_contracts'],['Users','active_users'],['Monthly Traffic','monthly_visits'],['Revenue','revenue'],['Risk Level','ai_risk_level'],['Risk Score','ai_risk_score'],['Identity Confidence','confidence_score']].forEach(([l,k])=>{const raw=p[k];const missing=raw===null||raw===undefined||raw==='';const display=missing?(k==='active_users'?'Not publicly verified':k==='monthly_visits'?'Not publicly verified':k==='revenue'?'Not publicly verified':'Not available'):jsonValue(raw);h+='<div class="item"><small>'+l+'</small><strong>'+esc(display)+'</strong>'+status('external',missing?'Public check needed':'Public Evidence')+'</div>'});
  h+='</div></section><section class="passport-card"><h2>Free Public Enrichment</h2><div class="identity"><div class="item"><small>Market Data</small><strong>'+esc(jsonValue(p.market_data||'Not publicly verified'))+'</strong>'+status('external',p.market_data?'Connected':'Not found')+'</div><div class="item"><small>DeFi Data</small><strong>'+esc(jsonValue(p.defi_data||'Not publicly verified'))+'</strong>'+status('external',p.defi_data?'Connected':'Not found')+'</div><div class="item"><small>GitHub Activity</small><strong>'+esc(jsonValue(p.public_activity||'Not publicly verified'))+'</strong>'+status('external',p.public_activity?'Connected':'Not found')+'</div><div class="item"><small>Evidence Score</small><strong>'+esc(val(p.evidence_score))+'</strong>'+status('ai','Evidence')+'</div></div><p class="muted">Users, monthly traffic and revenue are never invented. They show as publicly unverified when no reliable free source is available.</p></section><section class="passport-card"><h2>Passport Status</h2><div class="identity"><div class="item"><small>Passport ID</small><strong>'+esc(val(p.passport_id))+'</strong>'+status('connected','Stored')+'</div><div class="item"><small>Snapshot</small><strong>'+esc(val(p.snapshot_id))+'</strong>'+status('connected','Current')+'</div></div></section>';
  h+=await monitorUI(p);
@@ -141,17 +146,17 @@ async function loadExternal(query){
     const {r,d,t}=await persist();
     console.info('Passport persistence:',r.status,t.slice(0,500));
     if(r.ok&&d?.success&&d?.passport){
-      // Persistence is authoritative. Re-render only now, after the identity
-      // decision has been committed by the server.
-      renderExternal(d.passport);
-      return;
+      // A persisted Passport is authoritative only when the server actually
+      // returns a real W3M identity code. Never display a placeholder as a serial.
+      if(String(d.passport.w3m_identity_code||'').trim()){
+        renderExternal(d.passport);
+        return;
+      }
     }
     const e=d?.passport?.passport_eligibility||d?.eligibility;
-    if(e){
-      const box=document.createElement('section');box.className='passport-card';
-      box.innerHTML='<h2>W3M Passport Eligibility</h2><div class="finding"><strong>'+esc(e.eligible?'ELIGIBLE — awaiting final persistence':'NOT ELIGIBLE — no W3M serial issued')+'</strong><p>'+esc((e.reasons||[]).join(' • ')||'The server did not complete final persistence.')+'</p></div>';
-      root.insertBefore(box,root.firstChild);
-    }
+    const box=document.createElement('section');box.className='passport-card';
+    box.innerHTML='<h2>W3M Passport Eligibility</h2><div class="finding"><strong>'+esc(e?.eligible?'FINAL PERSISTENCE INCOMPLETE — no W3M serial issued':'NOT ELIGIBLE — no W3M serial issued')+'</strong><p>'+esc((e?.reasons||[]).join(' • ')||'The server did not complete authoritative Passport persistence. No W3M serial is displayed.')+'</p></div>';
+    root.insertBefore(box,root.firstChild);
    }catch(e){console.warn('Passport persistence unavailable:',e);}
    return;
   }
