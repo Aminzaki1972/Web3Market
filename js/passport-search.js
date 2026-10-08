@@ -4,10 +4,10 @@ window.w3mDirectPassportSearch=async function(){
  const query=(input?.value||'').trim();
  if(!query){input?.focus();return;}
  const genericQueries=new Set(['finance','financial','finances','crypto','cryptocurrency','cryptocurrencies','blockchain','web3','defi','decentralized finance','nft','nfts','dao','wallet','wallets','exchange','exchanges','dex','dexes','market','marketplace','trading','ai','artificial intelligence','metaverse','token','tokens','protocol','protocols','payments','payment']);
- const normalized=query.toLowerCase().replace(/\\s+/g,' ').trim();
+ const normalized=query.toLowerCase().replace(/\s+/g,' ').trim();
  if(normalized.length<3){root.innerHTML='<p class="muted">Enter a specific Web3 project name or its official website.</p>';return;}
  if(genericQueries.has(normalized)){root.innerHTML='<p class="muted"><strong>Search is too broad.</strong> Enter a specific Web3 project name or its official HTTPS website. Generic names cannot receive a W3M Passport by themselves.</p>';return;}
- if(/^(W3M-\\d{4}-\\d{6}|W3M\\s*Passport)/i.test(query)){root.innerHTML='<p class="muted">W3M Passport serials must be resolved through the Passport Directory.</p>';return;}
+ if(/^(W3M-\d{4}-\d{6}|W3M\s*Passport)/i.test(query)){root.innerHTML='<p class="muted">W3M Passport serials must be resolved through the Passport Directory.</p>';return;}
  const key='sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI';
  const base='https://hzhqlexnhtukfljcvnyd.supabase.co';
  const btn=document.getElementById('externalBtn');
@@ -35,7 +35,7 @@ window.w3mDirectPassportSearch=async function(){
      html+='<p><strong>Saved snapshot:</strong> '+esc(p.snapshot_id)+'</p>';
      html+='<p class="muted">The server confirmed the saved identity and snapshot.</p></div>';
      const sources=Array.isArray(p.sources)?p.sources:[];
-     if(sources.length){html+='<div class="passport-card"><h2>Evidence sources ('+sources.length+')</h2>';for(const s of sources){const url=String(s?.url||'');if(!/^https?:\\/\\//i.test(url))continue;html+='<div class="source"><a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(s.title||url)+'</a><p class="muted">'+esc(s.type||'public source')+'</p></div>';}html+='</div>';}
+     if(sources.length){html+='<div class="passport-card"><h2>Evidence sources ('+sources.length+')</h2>';for(const s of sources){const url=String(s?.url||'');if(!/^https?:\/\//i.test(url))continue;html+='<div class="source"><a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(s.title||url)+'</a><p class="muted">'+esc(s.type||'public source')+'</p></div>';}html+='</div>';}
      root.innerHTML=html;
    }else{
      const eligibility=data?.eligibility||{};
