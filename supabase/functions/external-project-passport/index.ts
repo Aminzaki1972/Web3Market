@@ -315,6 +315,39 @@ if(website && !repo && !github){
   }
 }
 if(verifiedGithubName && website && github){try{const wh=new URL(website).hostname.replace(/^www\./i,"").toLowerCase();if(wh)name=verifiedGithubName;}catch{}}
+  // Discover official documentation repositories for a domain-linked GitHub organization.
+  // This is generic: no project-specific owner is hardcoded.
+  if(website && github && !sources.some((x:any)=>x.type==="docs")){
+    try{
+      const gm=github.match(/github\\.com\\/([^/]+)/i);
+      const wh=new URL(website).hostname.replace(/^www\\./i,"").toLowerCase();
+      if(gm && wh){
+        const owner=gm[1];
+        const rr=await get("https://api.github.com/orgs/"+encodeURIComponent(owner)+"/repos?per_page=100&sort=updated",{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
+        if(rr.ok){
+          const rs=await rr.json();
+          for(const rj of Array.isArray(rs)?rs.slice(0,100):[]){
+            const rn=String(rj?.name||"").toLowerCase();
+            const rd=String(rj?.description||"").toLowerCase();
+            const isDocs=/(^|[-_])(docs?|documentation|gitbook)([-_]|$)/i.test(rn)||/documentation|gitbook|docs/i.test(rd);
+            if(!isDocs)continue;
+            const readme=await get("https://raw.githubusercontent.com/"+rj.full_name+"/"+(rj.default_branch||"main")+"/README.md",{"User-Agent":"Web3Market"});
+            if(readme.ok){
+              const body=readme.text;
+              for(const u of filteredEvidenceUrls(body)){
+                try{
+                  const uh=new URL(u).hostname.replace(/^www\\./i,"").toLowerCase();
+                  if(uh===wh||uh.endsWith("."+wh))sources.push(src("Official documentation repository",u,"docs"));
+                }catch{}
+              }
+            }
+            sources.push(src("Official documentation repository",String(rj.html_url),"docs"));
+            if(sources.some((x:any)=>x.type==="docs"))break;
+          }
+        }
+      }
+    }catch{}
+  }
 if(repo){
   const l=await get("https://api.github.com/repos/"+repo.full_name+"/languages",{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
   if(l.ok)try{const x=JSON.parse(l.text);technology=Object.keys(x).slice(0,8).join(", ")||technology}catch{}
