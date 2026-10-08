@@ -1,5 +1,6 @@
 name: W3M Passport Sync
 # Triggers a fresh sync after Passport generator updates.
+# Publication is strict: only verified identities are published.
 # Newly verified identities are published as static SEO Passport pages.
 # Deterministic generation is based only on currently verified identities.
 
