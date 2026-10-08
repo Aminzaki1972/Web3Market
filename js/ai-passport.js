@@ -171,6 +171,6 @@ async function loadExternal(query){
 }
 window.loadPassportFromInput=()=>{const i=document.getElementById('projectId'),q=i?.value.trim();if(q){if(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(q))loadInternal(q);else loadExternal(q)}else i?.focus()};
 window.loadExternalPassport=()=>{const i=document.getElementById('projectId'),q=i?.value.trim();if(q)loadExternal(q);else i?.focus()};
-function init(){const i=document.getElementById('projectId'),b=document.getElementById('loadBtn'),e=document.getElementById('externalBtn'),id=new URLSearchParams(location.search).get('id');if(id){i.value=id;loadInternal(id)}b?.addEventListener('click',window.loadPassportFromInput);e?.addEventListener('click',window.loadExternalPassport);i?.addEventListener('keydown',x=>{if(x.key==='Enter'){x.preventDefault();window.loadPassportFromInput()}})}
+function init(){const i=document.getElementById('projectId'),b=document.getElementById('loadBtn'),e=document.getElementById('externalBtn'),id=new URLSearchParams(location.search).get('id');if(id){i.value=id;loadInternal(id)}b?.addEventListener('click',window.loadPassportFromInput);i?.addEventListener('keydown',x=>{if(x.key==='Enter'){x.preventDefault();window.loadPassportFromInput()}})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
