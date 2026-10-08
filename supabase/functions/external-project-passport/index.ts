@@ -358,7 +358,7 @@ if(repo){
   if(website && github){
     try{
       const wh=new URL(website).hostname.replace(/^www\\./i,"").toLowerCase();
-      const gm=github.match(/github\\.com\\/([^/]+)/i);
+      const gm=github.match(/github\.com\/([^/]+)/i);
       if(gm){
         const owner=gm[1];
         const rr=await get("https://api.github.com/orgs/"+encodeURIComponent(owner)+"/repos?per_page=100&sort=updated",{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
