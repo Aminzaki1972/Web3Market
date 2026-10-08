@@ -361,7 +361,7 @@ registry_path = pathlib.Path("passport/registry.json")
 # creates a new commit on every sync even when no W3M identity changed.
 registry_payload = {"rows": registry_rows}
 registry_path.write_text(
-    json.dumps(registry_payload, ensure_ascii=False, indent=2) + "\\n",
+    json.dumps(registry_payload, ensure_ascii=False, indent=2) + "\n",
     encoding="utf-8",
 )
 
