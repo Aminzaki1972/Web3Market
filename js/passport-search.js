@@ -41,6 +41,7 @@ window.w3mDirectPassportSearch=async function(){
      const eligibility=data?.eligibility||{};
      const reasons=Array.isArray(eligibility.reasons)?eligibility.reasons:[];
      let html='<div class="passport-card"><h2>'+esc(data?.error||'No W3M Passport issued')+'</h2>';
+     html+='<p class="muted">'+(data?.eligible===false?'Eligibility failed. The server rejected this request before issuing a serial or saving a Passport identity.':'The authoritative server did not confirm a saved Passport. No serial is displayed.')+'</p>';
      const hasEligibility=Object.keys(eligibility).length>0;
      if(hasEligibility){
        html+='<div class="finding"><strong>Server eligibility diagnostics</strong>';
