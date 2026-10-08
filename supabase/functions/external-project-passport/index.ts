@@ -219,7 +219,7 @@ if(website && !repo && !github){
       if(w.ok)candidates.push(...ddgLinks(w.text).filter(u=>/^https?:\/\/github\.com\/[^/]+(?:\/[^/#?]+)?/i.test(u)));
     }
     for(const u of [...new Set(candidates)].slice(0,20)){
-      const m=u.match(/github\\.com\\/([^/]+)(?:\\/([^/#?]+))?/i);
+      const m=u.match(/github\.com\/([^/]+)(?:\/([^/#?]+))?/i);
       if(!m)continue;
       const owner=m[1], verified=await ownerControlsWebsite(owner);
       if(!verified)continue;
