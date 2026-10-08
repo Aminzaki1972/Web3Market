@@ -68,7 +68,15 @@ if(uniqueConflictIds.length===1 && effectiveParentIdentityCode){
  const {data:parent}=await db.from("project_identities").select("id,identity_code").eq("identity_code",effectiveParentIdentityCode).maybeSingle();
  allowedParentConflict=!!parent?.id && String(parent.id)===uniqueConflictIds[0];
 }
-if(uniqueConflictIds.length>1 || (uniqueConflictIds.length===1 && !allowedParentConflict)){
+// Idempotency: repeated searches for the exact same canonical identity must reuse
+// its existing W3M record, not flag its own verified aliases as a conflict.
+let allowedSameIdentityConflict=false;
+if(uniqueConflictIds.length===1 && !effectiveParentIdentityCode){
+ const {data:existingIdentity,error:existingIdentityError}=await db.from("project_identities").select("id,identity_fingerprint").eq("id",uniqueConflictIds[0]).maybeSingle();
+ if(existingIdentityError)throw existingIdentityError;
+ allowedSameIdentityConflict=!!existingIdentity?.id && String(existingIdentity.identity_fingerprint||"")===incomingIdentityFingerprint;
+}
+if(uniqueConflictIds.length>1 || (uniqueConflictIds.length===1 && !allowedParentConflict && !allowedSameIdentityConflict)){
  await db.from("project_identities").update({conflict_status:"possible"}).in("id",uniqueConflictIds);
  return J({success:false,eligible:false,error:"Identity conflict detected. A verified domain or GitHub identity is already linked to another W3M identity.",conflict_status:"possible",conflicts},409);
 }
