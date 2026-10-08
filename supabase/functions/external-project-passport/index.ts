@@ -321,7 +321,9 @@ if(repo){
   if(rd.ok){const aa=addresses(rd.text);for(const u of filteredEvidenceUrls(rd.text))sources.push(src("README public link",u,"readme"));if(aa.length)sources.push(src("Contract addresses in README",github,"contract"))}
 }
 const identityContext=[name,description,technology,repo?.description,Array.isArray(repo?.topics)?repo.topics.join(" "):""].filter(Boolean).join(" ");
-  const chains=kp?.chains||chain(identityContext),contracts=addresses(identityContext),risk:string[]=[];
+  // Contracts must come from collected primary/public evidence, never from project-name metadata.
+  const contractEvidence=[...new Set(sources.filter((x:any)=>x.type==="contract").flatMap((x:any)=>addresses(String(x.url||""))))];
+  const chains=kp?.chains||chain(identityContext+" "+site),contracts=contractEvidence,risk:string[]=[];
   if(!website)risk.push("Official website not verified");if(!github)risk.push("GitHub repository not verified");if(!sources.some(x=>x.type==="docs"))risk.push("Public documentation link not verified");if(chains.length&&!contracts.length)risk.push("Public contract address not found in collected sources");if(repo?.pushed_at&&Date.now()-new Date(repo.pushed_at).getTime()>31536000000)risk.push("GitHub activity older than 12 months");if(sources.length<3)risk.push("Limited independent public evidence");
   let dex:any=null;if(contracts.length){const verifiedContracts=new Set(contracts.map((x:string)=>x.toLowerCase()));const dx=await get("https://api.dexscreener.com/latest/dex/search/?q="+encodeURIComponent(name));if(dx.ok)try{const x=JSON.parse(dx.text);const matched=(x.pairs||[]).filter((p:any)=>verifiedContracts.has(String(p.baseToken?.address||"").toLowerCase())||verifiedContracts.has(String(p.quoteToken?.address||"").toLowerCase()));if(matched.length){dex=matched.slice(0,8).map((p:any)=>({chain:p.chainId,dex:p.dexId,pair:p.pairAddress,base:p.baseToken?.symbol,baseAddress:p.baseToken?.address,quote:p.quoteToken?.symbol,quoteAddress:p.quoteToken?.address,priceUsd:p.priceUsd,liquidityUsd:p.liquidity?.usd,volume24h:p.volume?.h24,url:p.url}));sources.push(src("DEX Screener market data (contract-matched)","https://dexscreener.com/search?q="+encodeURIComponent(name),"market_data"))}}catch{}} 
   let llama:any=null;const dl=await get("https://api.llama.fi/protocols");if(dl.ok)try{const a=JSON.parse(dl.text),n=name.toLowerCase().replace(/[^a-z0-9]/g,"");const h=a.filter((p:any)=>{const z=String(p.name||"").toLowerCase().replace(/[^a-z0-9]/g,"");const slug=String(p.slug||"").toLowerCase().replace(/[^a-z0-9]/g,"");return z===n||slug===n}).sort((a:any,b:any)=>Number(b.tvl||0)-Number(a.tvl||0)).slice(0,5);if(h.length){llama=h.map((p:any)=>({name:p.name,slug:p.slug,tvl:p.tvl,chains:p.chains,category:p.category,website:p.url,listedAt:p.listedAt,defillama_id:p.id,revenue:p.revenue,fees24h:p.fees24h}));sources.push(src("DeFiLlama protocol data","https://defillama.com/","defi_data"))}}catch{}
@@ -329,8 +331,16 @@ const identityContext=[name,description,technology,repo?.description,Array.isArr
   const verifiedGithub = sources.some((x:any)=>x.type==="github" && /Verified GitHub organization linked to official domain/i.test(String(x.title||"")));
   const directProjectText=[name,description,technology,repo?.description,Array.isArray(repo?.topics)?repo.topics.join(" "):""].filter(Boolean).join(" ").toLowerCase();
   const explicitWeb3Identity = sources.some((x:any)=>x.type==="web3_identity" && /verified|official|contract|protocol|web3/i.test(String(x.title||"")));
-  const web3Evidence = !!(contracts.length||dex||llama||explicitWeb3Identity);
-  if(web3Evidence && !sources.some((x:any)=>x.type==="web3_identity")) sources.push(src("Web3 identity evidence",github||website||"https://web3market.xyz","web3_identity"));
+  // Strong Web3 identity must be backed by an actual project-specific primary source,
+  // not by generic words in a name/description. A verified GitHub org alone is identity
+  // corroboration, not proof that the project itself is Web3.
+  const primaryWeb3Text=[site,description,repo?.description,repo?.topics?.join(" ")||""].join(" ").toLowerCase();
+  const web3Term=/(defi|dex|dao|stablecoin|liquid staking|staking|lending|smart contract|blockchain|onchain|token|amm|liquidity pool|web3)/i.test(primaryWeb3Text);
+  const protocolTerm=/(protocol|smart contract|blockchain|defi|dex|dao|stablecoin|token|amm|liquidity|onchain)/i.test(primaryWeb3Text);
+  const directPrimaryWeb3=web3Term&&protocolTerm;
+  const web3Evidence = !!(contracts.length||dex||llama||explicitWeb3Identity||directPrimaryWeb3);
+  if(web3Evidence && !sources.some((x:any)=>x.type==="web3_identity"))
+    sources.push(src("Official Web3 protocol identity evidence",github||website||"https://web3market.xyz","web3_identity"));
   const hasDocs = sources.some((x:any)=>x.type==="docs");
   const domainCorroboration = !!website && verifiedGithub && hasDocs;
   const findings:any[]=[];
