@@ -1,0 +1,111 @@
+name: W3M Passport Live Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+  push:
+    branches: [main]
+    paths:
+      - "passport/registry.json"
+      - "passport/**/index.html"
+      - "sitemap.xml"
+
+concurrency:
+  group: w3m-passport-live-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Checkout published registry
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify every published Passport is live
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import time
+          import urllib.request
+          from pathlib import Path
+
+          registry = json.loads(Path("passport/registry.json").read_text(encoding="utf-8"))
+          rows = registry.get("rows", [])
+          sitemap = Path("sitemap.xml").read_text(encoding="utf-8")
+
+          published = []
+          errors = []
+
+          for row in rows:
+              ident = str(row.get("identity_code") or "").strip()
+              if not ident:
+                  errors.append("registry row without identity_code")
+                  continue
+
+              page = Path("passport") / ident / "index.html"
+              if not page.is_file():
+                  errors.append(f"{ident}: missing local Passport page")
+                  continue
+
+              html = page.read_text(encoding="utf-8", errors="ignore")
+              if "W3M Passport" not in html or ident not in html:
+                  errors.append(f"{ident}: invalid local Passport page content")
+
+              sitemap_entry = f"<loc>https://web3market.xyz/passport/{ident}/</loc>"
+              if sitemap_entry not in sitemap:
+                  errors.append(f"{ident}: missing sitemap entry")
+
+              published.append((ident, f"https://web3market.xyz/passport/{ident}/"))
+
+          if errors:
+              print("LOCAL PUBLICATION INTEGRITY FAILED:")
+              for error in errors:
+                  print(f"- {error}")
+              raise SystemExit(1)
+
+          if not published:
+              print("No verified Passport records are currently published.")
+              raise SystemExit(0)
+
+          pending = dict(published)
+          last_errors = {}
+          deadline = time.time() + 180
+
+          while pending and time.time() < deadline:
+              for ident, url in list(pending.items()):
+                  try:
+                      request = urllib.request.Request(
+                          url,
+                          headers={"User-Agent": "W3M-Passport-Live-Monitor/1.0"},
+                      )
+                      with urllib.request.urlopen(request, timeout=12) as response:
+                          body = response.read(200000).decode("utf-8", "ignore")
+                          if response.status == 200 and "W3M Passport" in body and ident in body:
+                              print(f"LIVE OK: {ident} -> HTTP {response.status}")
+                              del pending[ident]
+                          else:
+                              last_errors[ident] = f"HTTP {response.status} or invalid public content"
+                  except Exception as exc:
+                      last_errors[ident] = str(exc)
+
+              if pending:
+                  print(f"Waiting for {len(pending)} public Passport page(s)...")
+                  time.sleep(15)
+
+          if pending:
+              print("LIVE PUBLICATION CHECK FAILED:")
+              for ident in pending:
+                  print(f"- {ident}: {last_errors.get(ident, 'not reachable')}")
+              raise SystemExit(1)
+
+          print(f"Live Passport publication check passed for {len(published)} page(s).")
+          PY
