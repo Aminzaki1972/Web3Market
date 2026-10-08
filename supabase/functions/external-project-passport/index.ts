@@ -471,6 +471,15 @@ if(repo){
       }
     }catch{}
   }
+// Do not treat the "www" subdomain as a project name. When the official site
+// is linked to a verified GitHub identity, use the linked repository's name.
+if(website && repo && /^www$/i.test(String(name||"").trim())){
+ const verifiedRepoLink=sources.some((x:any)=>x.type==="github" && /Verified GitHub (?:organization|repository) linked to official domain/i.test(String(x.title||"")));
+ if(verifiedRepoLink && repo.name){
+  const repoName=String(repo.name).trim();
+  if(repoName)name=repoName.charAt(0).toUpperCase()+repoName.slice(1);
+ }
+}
 const identityContext=[name,description,technology,repo?.description,Array.isArray(repo?.topics)?repo.topics.join(" "):""].filter(Boolean).join(" ");
   // Contracts must come from collected primary/public evidence, never from project-name metadata.
   const contractEvidence=[...new Set(collectedContractAddresses)];
