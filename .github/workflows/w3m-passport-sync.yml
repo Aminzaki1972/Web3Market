@@ -1,5 +1,6 @@
 name: W3M Passport Sync
 # Triggers a fresh sync after Passport generator updates.
+# Newly verified identities are published as static SEO Passport pages.
 # Deterministic generation is based only on currently verified identities.
 
 on:
@@ -13,7 +14,6 @@ on:
       - "sitemap.xml"
       - "passports.html"
 
-# Prevent two Passport Sync runs from modifying main at the same time.
 concurrency:
   group: w3m-passport-sync-main
   cancel-in-progress: false
@@ -38,12 +38,7 @@ jobs:
         run: |
           set +e
           echo "Checking Supabase REST endpoint (diagnostic only; sync has its own fallback)..."
-          curl --fail --silent --show-error --retry 2 --retry-all-errors \
-            --connect-timeout 8 --max-time 20 \
-            "$SUPABASE_URL/rest/v1/project_identities?select=identity_code&limit=1" \
-            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
-            -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY" \
-            >/tmp/supabase_connectivity_check.json
+          curl --fail --silent --show-error --retry 2 --retry-all-errors             --connect-timeout 8 --max-time 20             "$SUPABASE_URL/rest/v1/project_identities?select=identity_code&limit=1"             -H "apikey: $SUPABASE_PUBLISHABLE_KEY"             -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY"             >/tmp/supabase_connectivity_check.json
           rc=$?
           if [ "$rc" -eq 0 ]; then
             echo "Supabase diagnostic check succeeded."
@@ -52,6 +47,7 @@ jobs:
             echo "::warning::Direct Supabase DNS/HTTPS check failed (exit $rc). Continuing; sync_w3m_passports.py will use DNS-over-HTTPS fallback."
           fi
           exit 0
+
       - name: Generate Passport pages and sitemap
         env:
           SUPABASE_URL: https://hzhqlexnhtukfljcvnyd.supabase.co
@@ -77,16 +73,11 @@ jobs:
 
           git commit -m "chore: sync W3M Passport SEO pages"
 
-          # Do not rebase generated Passport files. If main moved while this run
-          # was generating pages, rebuild from the latest main and publish a
-          # fresh deterministic commit instead.
           for attempt in 1 2 3 4 5; do
             echo "Publish attempt $attempt/5"
-
             git fetch origin main
             git reset --hard origin/main
             git clean -fd
-
             python3 scripts/sync_w3m_passports.py
             git add passport sitemap.xml passports.html
 
