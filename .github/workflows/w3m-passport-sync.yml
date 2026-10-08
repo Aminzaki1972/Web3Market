@@ -1,5 +1,6 @@
 name: W3M Passport Sync
 # Triggers a fresh sync after Passport generator updates.
+# Deterministic generation is based only on currently verified identities.
 
 on:
   workflow_dispatch:
