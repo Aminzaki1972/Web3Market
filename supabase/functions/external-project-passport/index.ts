@@ -243,6 +243,32 @@ if(website && !repo && !github){
       }
     }catch{}
   }
+  // Search GitHub organizations directly by the domain/project token before falling
+  // back to repository search. This is important for projects whose repositories use
+  // technical names rather than the public project name.
+  if(!verifiedBest){
+    try{
+      const orgQueries=[identityQuery,String(name),identityQuery+" web3"].filter((v,i,a)=>v&&a.indexOf(v)===i);
+      for(const oq of orgQueries){
+        const ug=await get("https://api.github.com/search/users?q="+encodeURIComponent(oq+" type:org")+"&per_page=20",{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
+        if(!ug.ok)continue;
+        const uj=await ug.json();
+        for(const u of (uj.items||[])){
+          const owner=String(u?.login||""); if(!owner)continue;
+          if(await ownerControlsWebsite(owner)){
+            const rr=await get("https://api.github.com/orgs/"+encodeURIComponent(owner)+"/repos?per_page=100&sort=updated",{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
+            if(rr.ok){
+              const rs=await rr.json();
+              const candidate=(Array.isArray(rs)?rs:[]).sort((a:any,b:any)=>repoScore(b,identityQuery)-repoScore(a,identityQuery))[0];
+              if(candidate){verifiedBest=candidate;verifiedBestScore=Math.max(verifiedBestScore,repoScore(candidate,identityQuery));}
+            }
+            if(verifiedBest)break;
+          }
+        }
+        if(verifiedBest)break;
+      }
+    }catch{}
+  }
   // Generic organization search by the exact official domain. This catches official GitHub
   // organizations even when their repository names do not match the website name.
   if(!verifiedBest && websiteHost){
