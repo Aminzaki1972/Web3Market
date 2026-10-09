@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { getDomain } from "npm:tldts@6.1.86";
 
 const C={"Access-Control-Allow-Origin":"https://web3market.xyz","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS","Content-Type":"application/json","Vary":"Origin"};
 const allowedOrigins=["https://web3market.xyz","https://www.web3market.xyz","https://aminzaki1972.github.io"];
@@ -18,21 +19,23 @@ function filteredEvidenceUrls(text:string){return urls(text).filter(evidenceUrlA
 function repoScore(r:any,q:string){const n=String(q).toLowerCase().replace(/[^a-z0-9]/g,"");const rn=String(r.name||"").toLowerCase().replace(/[^a-z0-9]/g,"");const full=String(r.full_name||"").toLowerCase().replace(/[^a-z0-9]/g,"");const d=(String(r.description||"")+" "+String(r.topics||"")).toLowerCase();let s=0;if(rn===n)s+=100;if(rn.includes(n)||n.includes(rn))s+=45;if(full.includes(n))s+=25;if(/web3|defi|blockchain|crypto|ethereum|solana|bnb|polygon|uniswap|aave|swap|dao|wallet|protocol|liquidity|amm|dlmm|onchain|token/.test(d))s+=20;s+=Math.min(20,Number(r.stargazers_count||0)/10);return s}
 function strongWeb3Evidence(repo:any,description:string|null,site:string){const x=(String(repo?.description||"")+" "+String(repo?.topics||"")+" "+String(description||"")+" "+site).toLowerCase();return /web3|defi|blockchain|crypto|solana|ethereum|liquidity pool|amm|dlmm|onchain|smart contract|token launch|dex/.test(x)}
 const known:any={};
+function hostnameOf(v:any){try{return new URL(String(v)).hostname.toLowerCase().replace(/^www\./,"")}catch{return ""}}
+function registrableDomain(v:any){const h=hostnameOf(v);return h?(getDomain(h)||h):""}
 function passportEligibility(p:any){
  const name=String(p?.project_name||"").trim(); const website=String(p?.website||"").trim(); const evidence=Number(p?.evidence_score||0); const identityScore=Number(p?.identity_score ?? p?.confidence_score ?? 0);
  const sources=Array.isArray(p?.sources)?p.sources.filter((x:any)=>x&&x.url):[]; const domains=new Set<string>(); let officialDomain="";
- try{officialDomain=new URL(website).hostname.toLowerCase().replace(/^www\./,"")}catch{}
- for(const s of sources){try{domains.add(new URL(String(s.url)).hostname.toLowerCase().replace(/^www\./,""))}catch{}}
+ officialDomain=registrableDomain(website);
+ for(const s of sources){const d=registrableDomain(s.url);if(d)domains.add(d);}
  const primary=sources.some((s:any)=>["official","github","docs","contract"].includes(String(s.type||"").toLowerCase()));
  const verifiedGithub=sources.some((s:any)=>String(s.type||"").toLowerCase()==="github"&&/verified github (?:organization|repository) linked to official domain/i.test(String(s.title||"")));
  const knownOfficial=sources.some((s:any)=>/known official project website/i.test(String(s.title||"")));
  const normalizedName=name.toLowerCase().replace(/[^a-z0-9]+/g,""); const independentIdentityDomains=new Set<string>();
- for(const s of sources){try{const d=new URL(String(s.url)).hostname.toLowerCase().replace(/^www\./,"");const title=String(s.title||"").toLowerCase().replace(/[^a-z0-9]+/g,"");if(d&&d!==officialDomain&&normalizedName&&title.includes(normalizedName))independentIdentityDomains.add(d)}catch{}}
+ for(const s of sources){const d=registrableDomain(s.url);const title=String(s.title||"").toLowerCase().replace(/[^a-z0-9]+/g,"");if(d&&d!==officialDomain&&normalizedName&&title.includes(normalizedName))independentIdentityDomains.add(d);}
  const identityCorroboration=verifiedGithub||knownOfficial||independentIdentityDomains.size>0;
  const web3EvidenceVerified=p?.web3_evidence_verified===true;
  const text=[name,p?.category,p?.description,p?.technology,Array.isArray(p?.blockchains)?p.blockchains.join(" "):"",Array.isArray(p?.token_or_contracts)?p.token_or_contracts.join(" "):""].join(" ").toLowerCase();
  const reasons:string[]=[]; if(!name||isW3mCode(name))reasons.push("Canonical project name is missing or invalid."); if(!website||!/^https:\/\//i.test(website))reasons.push("A reachable HTTPS official website is required.");
- const officialSource=sources.some((s:any)=>String(s.type||"").toLowerCase()==="official"&&(()=>{try{return new URL(String(s.url)).hostname.toLowerCase().replace(/^www\./,"")===officialDomain}catch{return false}})());
+ const officialSource=sources.some((s:any)=>String(s.type||"").toLowerCase()==="official"&&(()=>{return hostnameOf(s.url)===hostnameOf(website)})());
  if(!officialSource)reasons.push("The official HTTPS website must be reachable and present as primary evidence."); if(identityScore<60)reasons.push("Identity score must be at least 60/100 before a W3M serial can be issued."); if(domains.size<2)reasons.push("At least 2 independent public source domains are required."); if(!primary)reasons.push("At least 1 primary evidence source is required."); if(evidence<60)reasons.push("Evidence score must be at least 60/100."); if(!web3EvidenceVerified)reasons.push("Project-specific Web3 evidence was not independently verified; generic names, software repositories, or Web terminology do not qualify."); if(!identityCorroboration)reasons.push("Identity corroboration is required from an official identity reference, a verified GitHub organization, or an independent public source that explicitly identifies the same project.");
  return{eligible:reasons.length===0,score:evidence,identity_score:identityScore,independent_source_domains:domains.size,primary_evidence:primary,web3_signal:web3EvidenceVerified,identity_corroboration:identityCorroboration,identity_corroboration_domains:[...independentIdentityDomains],reasons};
 }
