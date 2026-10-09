@@ -404,6 +404,51 @@ if(website && !repo && !github){
   }
 }
 if(verifiedGithubName && website && github){try{const wh=new URL(website).hostname.replace(/^www\./i,"").toLowerCase();if(wh)name=verifiedGithubName;}catch{}}
+  // If the user supplied a URL and direct site/GitHub discovery is sparse, run a public-web fallback.
+  // URL input skips the name-only discovery branch above, so an unreachable/JS-rendered site could
+  // otherwise leave only the website URL as a weak signal (e.g. evidence 15, identity 20).
+  if(website && (!site || !github || sources.filter((x:any)=>x?.url).length<3)){
+    try{
+      const wh=new URL(website).hostname.replace(/^www\\./i,"").toLowerCase();
+      const domainToken=wh.split(".")[0].replace(/[-_]+/g," ").trim();
+      const searchTerms=[name,domainToken,wh].filter((v,i,a)=>v&&a.indexOf(v)===i);
+      for(const term of searchTerms.slice(0,3)){
+        const w=await get("https://html.duckduckgo.com/html/?q="+encodeURIComponent('"'+term+'" official website GitHub blockchain'),{"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36","Accept":"text/html"});
+        if(!w.ok||!w.text)continue;
+        for(const u of ddgLinks(w.text).filter((x:string)=>!/(duckduckgo\\.com|google\\.com)/i.test(x)).slice(0,12)){
+          try{
+            const uu=new URL(u),uh=uu.hostname.replace(/^www\\./i,"").toLowerCase();
+            if(uh===wh||uh.endsWith("."+wh))continue;
+            if(/^(github\\.com|docs\\.github\\.com)$/.test(uh)){
+              const m=uu.pathname.split("/").filter(Boolean);
+              if(m.length){
+                const owner=m[0];
+                const profile=await get("https://api.github.com/users/"+encodeURIComponent(owner),{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
+                if(profile.ok){
+                  const px=JSON.parse(profile.text);
+                  const orgUrl=String(px?.blog||"").trim();
+                  let linked=false;
+                  try{const oh=new URL(orgUrl).hostname.replace(/^www\\./i,"").toLowerCase();linked=oh===wh||oh.endsWith("."+wh)}catch{}
+                  if(linked){
+                    github="https://github.com/"+owner;
+                    sources.push(src("Verified GitHub organization linked to official domain",github,"github"));
+                    if(m.length>1){
+                      const rr=await get("https://api.github.com/repos/"+owner+"/"+m[1],{Accept:"application/vnd.github+json","User-Agent":"Web3Market"});
+                      if(rr.ok){repo=await rr.json();description=description||repo.description||null;technology=technology||repo.language||null;}
+                    }
+                  }else{
+                    sources.push(src("Public web result for "+term,u,"web"));
+                  }
+                }
+              }
+            }else{
+              sources.push(src("Independent public web result for "+term,u,"web"));
+            }
+          }catch{}
+        }
+      }
+    }catch{}
+  }
   // Discover official documentation repositories for a domain-linked GitHub organization.
   // This is generic: no project-specific owner is hardcoded.
   if(website && github && !sources.some((x:any)=>x.type==="docs")){
