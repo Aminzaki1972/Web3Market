@@ -127,3 +127,61 @@ create trigger projects_ownership_declaration_required
 before insert or update on public.projects
 for each row
 execute function public.enforce_project_ownership_declaration();
+
+
+-- INSERT guard: authenticated sellers may create only drafts and cannot seed
+-- server-issued trust/verification fields through the public Data API.
+create or replace function public.guard_project_trust_fields_on_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $guard$
+declare
+  uid uuid := auth.uid();
+  is_service_role boolean := coalesce(auth.role(),'') = 'service_role';
+  is_admin boolean := exists (select 1 from public.admin_users a where a.user_id = uid);
+begin
+  -- Trusted backend jobs may create records through their controlled server path.
+  if is_service_role then
+    return new;
+  end if;
+
+  if uid is null then
+    raise exception 'Authentication required';
+  end if;
+
+  if is_admin then
+    return new;
+  end if;
+
+  if new.owner_id is distinct from uid then
+    raise exception 'Project owner must match the authenticated user';
+  end if;
+
+  if new.status is distinct from 'draft' then
+    raise exception 'Sellers can create drafts only; publication is controlled by review workflow';
+  end if;
+
+  if coalesce(new.verification, '{}'::jsonb) <> '{}'::jsonb
+     or new.ai_score is not null
+     or new.ai_status is not null
+     or new.admin_notes is not null
+     or new.identity_verification is not null
+     or new.business_verification is not null
+     or new.domain_ownership is not null
+     or new.github_ownership is not null
+     or new.domain_verification is not null
+     or new.w3m_identity_id is not null then
+    raise exception 'Verification and trust fields can only be set by authorized review services';
+  end if;
+
+  return new;
+end;
+$guard$;
+
+drop trigger if exists projects_trust_fields_insert_guard on public.projects;
+create trigger projects_trust_fields_insert_guard
+before insert on public.projects
+for each row
+execute function public.guard_project_trust_fields_on_insert();
