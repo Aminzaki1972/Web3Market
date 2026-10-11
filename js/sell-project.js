@@ -2,7 +2,7 @@
 (function(){
   const form=document.querySelector('#projectForm');
   if(!form)return;
-  const VERSION='20261011-ownership-declaration-required1';
+  const VERSION='20261011-ownership-declaration-required2';
   const out=document.querySelector('#formStatus');
   const submitBtn=document.querySelector('#submitReviewBtn');
   const ID_KEY='web3market_project_id';
@@ -174,6 +174,16 @@
   form.addEventListener('input',()=>{clearTimeout(window.__wmTimer);window.__wmTimer=setTimeout(local,150);clearTimeout(window.__wmDbTimer);window.__wmDbTimer=setTimeout(()=>{save();},1800);});
   form.addEventListener('change',()=>{local();saveStep();clearTimeout(window.__wmDbTimer);window.__wmDbTimer=setTimeout(()=>{save();},300);});
   form.addEventListener('toggle',e=>{if(e.target.matches('details.group')&&e.target.open)saveStep();},true);
+  const saveDraftBtn=document.querySelector('#saveDraftBtn');
+  if(saveDraftBtn)saveDraftBtn.addEventListener('click',()=>{save();});
+  // If native validation is triggered by keyboard/form submission, reveal the
+  // collapsed legal section so the required declaration can be addressed.
+  form.addEventListener('invalid',e=>{
+    if(e.target.matches('[name="ownership_declaration"]')){
+      const section=e.target.closest('details.group');
+      if(section)section.open=true;
+    }
+  },true);
   form.addEventListener('submit',e=>{e.preventDefault();save();});
   window.addEventListener('beforeunload',()=>{local();saveStep();});
   if(submitBtn)submitBtn.addEventListener('click',submitForReview);
