@@ -96,13 +96,14 @@ begin
       using errcode = '23514';
   end if;
 
-  -- Preserve existing legacy rows, but require the declaration when moving
-  -- a project into a review or published/sold state.
+  -- Preserve existing legacy rows, but require the declaration before any
+  -- submission/review state or published/sold state can be entered.
   if (
-      (new.status is distinct from old.status and new.status in ('active', 'sold'))
+      (new.status is distinct from old.status
+       and new.status in ('pending', 'submitted', 'under_review', 'active', 'sold'))
       or
       (new.project_status is distinct from old.project_status
-       and new.project_status in ('admin_review', 'approved', 'active'))
+       and new.project_status in ('pending', 'submitted', 'pending_review', 'admin_review', 'approved', 'active'))
      )
      and new.ownership_declaration is distinct from required_declaration then
     raise exception 'Ownership and right-to-sell declaration is required before review or publication.'
