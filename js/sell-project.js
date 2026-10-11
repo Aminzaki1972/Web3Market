@@ -2,7 +2,7 @@
 (function(){
   const form=document.querySelector('#projectForm');
   if(!form)return;
-  const VERSION='20261011-safe-stale-listing-id-recovery2';
+  const VERSION='20261011-ownership-declaration-required2';
   const out=document.querySelector('#formStatus');
   const submitBtn=document.querySelector('#submitReviewBtn');
   const ID_KEY='web3market_project_id';
@@ -13,7 +13,7 @@
   const URL='https://hzhqlexnhtukfljcvnyd.supabase.co';
   const KEY='sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI';
   const NUM=['year_created','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_expenses','growth_rate','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','asking_price','price','monthly_net_profit','yearly_net_profit','ai_score'];
-  const DB=['title','description','category','price','currency','status','website_url','short_description','project_status','year_created','logo_url','demo_url','full_description','project_types','services','target_audience','target_markets','business_model','competitive_advantage','competitors','social_accounts','performance','financials','assets','sale_type','negotiable','transfer_terms','verification','ai_score','ai_status','admin_notes','blockchain','github_url','app_store_url','facebook_url','x_url','linkedin_url','telegram_url','discord_url','primary_type','technology_stack','development_stage','monthly_revenue','yearly_revenue','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','reason_for_sale','transfer_period','domain_ownership','github_ownership','business_verification','identity_verification','ownership_declaration','project_url','documentation_url','twitter_url','instagram_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','tech_stack','monthly_profit','yearly_profit','revenue_period','has_revenue','market_opportunity','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','currency_code','asking_price','project_types_text','audience','services_text','buyer_pitch','cover_image_url','domain_verification','sale_reason','screenshots','video_url','users_count'];
+  const DB=['title','description','category','price','currency','status','website_url','short_description','project_status','year_created','logo_url','demo_url','full_description','project_types','services','target_audience','target_markets','business_model','competitive_advantage','competitors','social_accounts','performance','financials','assets','sale_type','negotiable','transfer_terms','verification','ai_score','ai_status','admin_notes','blockchain','github_url','app_store_url','facebook_url','x_url','linkedin_url','telegram_url','discord_url','primary_type','technology_stack','development_stage','monthly_revenue','yearly_revenue','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','reason_for_sale','transfer_period','domain_ownership','github_ownership','business_verification','ownership_declaration','project_url','documentation_url','twitter_url','instagram_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','tech_stack','monthly_profit','yearly_profit','revenue_period','has_revenue','market_opportunity','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','currency_code','asking_price','project_types_text','audience','services_text','buyer_pitch','cover_image_url','domain_verification','sale_reason','screenshots','video_url','users_count'];
   function c(){return window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase||null;}
   function client(){const x=c();if(x)return x;if(window.supabase?.createClient){try{return window.supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'web3market-auth'}});}catch(e){console.error(e)}}return null;}
   async function wait(){for(let i=0;i<40;i++){const x=client();if(x)return x;await new Promise(r=>setTimeout(r,250));}return null;}
@@ -24,7 +24,7 @@
   function clean(v,k){if(NUM.includes(k))return num(v);if(k==='last_active_date')return date(v);if(k==='negotiable')return bool(v);if(v===undefined||v===null||v==='')return undefined;return v;}
   function collect(){
     const p={};
-    form.querySelectorAll('input[name],textarea[name],select[name]').forEach(e=>{if(['project_types','services','audience','assets'].includes(e.name))return;p[e.name]=e.type==='number'?num(e.value):e.value;});
+    form.querySelectorAll('input[name],textarea[name],select[name]').forEach(e=>{if(['project_types','services','audience','assets'].includes(e.name))return;p[e.name]=e.type==='number'?num(e.value):(e.type==='checkbox'?(e.checked?e.value:''):e.value);});
     p.description=val('full_description')||val('description')||val('short_description');
     p.full_description=val('full_description')||p.description;
     p.short_description=val('short_description');
@@ -41,14 +41,16 @@
     // domain_verification, while AI review evaluates domain_ownership.
     if(!p.domain_ownership && p.domain_verification)p.domain_ownership=p.domain_verification;
     if(!p.domain_verification && p.domain_ownership)p.domain_verification=p.domain_ownership;
-    const cleanPayload={};DB.forEach(k=>{const v=clean(p[k],k);if(v!==undefined)cleanPayload[k]=v;});
+    const cleanPayload={};
+    const serverTrustFields=new Set(['verification','ai_score','ai_status','admin_notes','identity_verification','business_verification','domain_ownership','github_ownership','domain_verification','w3m_identity_id']);
+    DB.forEach(k=>{if(serverTrustFields.has(k))return;const v=clean(p[k],k);if(v!==undefined)cleanPayload[k]=v;});
     return cleanPayload;
   }
   function local(){try{const p=collect();if(Object.keys(p).length)localStorage.setItem(LOCAL_KEY,JSON.stringify({saved_at:new Date().toISOString(),data:p,project_id:currentProjectId||null}));}catch(e){console.warn(e)}}
   function getGroups(){return [...form.querySelectorAll('details.group')];}
   function saveStep(){try{const groups=getGroups();const open=groups.findIndex(g=>g.open);if(open>=0)localStorage.setItem(STEP_KEY,JSON.stringify({project_id:currentProjectId||null,index:open,saved_at:new Date().toISOString()}));}catch(e){console.warn(e)}}
   function restoreStep(){try{const raw=localStorage.getItem(STEP_KEY);if(!raw)return;const st=JSON.parse(raw);if(st.project_id&&currentProjectId&&st.project_id!==currentProjectId)return;const groups=getGroups();if(!groups.length)return;const i=Math.max(0,Math.min(groups.length-1,Number(st.index)||0));groups.forEach((g,n)=>g.open=n===i);groups[i].scrollIntoView({behavior:'auto',block:'start'});}catch(e){console.warn(e)}}
-  function fill(p){const fields=['title','project_url','website_url','short_description','full_description','description','project_status','year_created','logo_url','demo_url','app_store_url','documentation_url','facebook_url','twitter_url','x_url','github_url','linkedin_url','instagram_url','telegram_url','discord_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','blockchain','tech_stack','technology_stack','development_stage','target_markets','business_model','competitive_advantage','competitors','market_opportunity','has_revenue','revenue_period','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','sale_type','transfer_terms','reason_for_sale','sale_reason','transfer_period','domain_ownership','domain_verification','github_ownership','business_verification','identity_verification','ownership_declaration','asking_price','price','currency','currency_code','primary_type','buyer_pitch','cover_image_url','video_url','screenshots','negotiable'];fields.forEach(k=>{const e=form.elements.namedItem(k);if(!e||p[k]===undefined||p[k]===null)return;if(e.type==='checkbox')e.checked=!!p[k];else e.value=String(p[k]);});if(Array.isArray(p.target_audience))form.querySelectorAll('input[name="audience"]').forEach(e=>e.checked=p.target_audience.includes(e.value));['project_types','services','audience','assets'].forEach(n=>{const a=Array.isArray(p[n])?p[n]:[];form.querySelectorAll('input[name="'+n+'"]').forEach(e=>e.checked=a.includes(e.value));});}
+  function fill(p){const fields=['title','project_url','website_url','short_description','full_description','description','project_status','year_created','logo_url','demo_url','app_store_url','documentation_url','facebook_url','twitter_url','x_url','github_url','linkedin_url','instagram_url','telegram_url','discord_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','blockchain','tech_stack','technology_stack','development_stage','target_markets','business_model','competitive_advantage','competitors','market_opportunity','has_revenue','revenue_period','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','sale_type','transfer_terms','reason_for_sale','sale_reason','transfer_period','domain_ownership','domain_verification','github_ownership','business_verification','ownership_declaration','asking_price','price','currency','currency_code','primary_type','buyer_pitch','cover_image_url','video_url','screenshots','negotiable'];fields.forEach(k=>{const e=form.elements.namedItem(k);if(!e||p[k]===undefined||p[k]===null)return;if(e.type==='checkbox'){e.checked=e.name==='ownership_declaration'?p[k]===e.value:!!p[k];}else e.value=String(p[k]);});if(Array.isArray(p.target_audience))form.querySelectorAll('input[name="audience"]').forEach(e=>e.checked=p.target_audience.includes(e.value));['project_types','services','audience','assets'].forEach(n=>{const a=Array.isArray(p[n])?p[n]:[];form.querySelectorAll('input[name="'+n+'"]').forEach(e=>e.checked=a.includes(e.value));});}
   async function load(){
     const rawLocal=localStorage.getItem(LOCAL_KEY)||localStorage.getItem(LEGACY_KEY);
     let localSnapshot=null;
@@ -87,6 +89,8 @@
   }
   async function saveDraft(){
     local();saveStep();
+    const ownershipDeclaration=form.elements.namedItem('ownership_declaration');
+    if(!ownershipDeclaration?.checked){const section=ownershipDeclaration?.closest('details.group');if(section)section.open=true;if(out)out.textContent='Please confirm the required ownership and legal right-to-sell declaration. Your draft remains on this device.';ownershipDeclaration?.focus();return {ok:false,ownershipRequired:true};}
     const x=await wait();
     if(!x){if(out)out.textContent='Offline — draft saved on this device. Engine '+VERSION;return {ok:false,offline:true};}
     const u=await x.auth.getUser();
@@ -147,6 +151,8 @@
     return {ok:false,error:new Error('No project id returned')};
   }
   async function submitForReview(){
+    const ownershipDeclaration=form.elements.namedItem('ownership_declaration');
+    if(!ownershipDeclaration?.checked){local();saveStep();const section=ownershipDeclaration?.closest('details.group');if(section)section.open=true;if(out)out.textContent='Before creating or submitting this listing, confirm that you own the project or are legally authorized to sell it.';ownershipDeclaration?.focus();return;}
     if(!val('title')||val('short_description').length<20||(val('full_description')||val('description')).length<50){local();saveStep();if(out)out.textContent='Please complete the required information before AI Review. Your draft is محفوظ locally.';return;}
     if(submitBtn)submitBtn.disabled=true;
     try{
@@ -168,8 +174,18 @@
     finally{if(submitBtn&&submitBtn.textContent!=='Submitted for AI Review')submitBtn.disabled=false;}
   }
   form.addEventListener('input',()=>{clearTimeout(window.__wmTimer);window.__wmTimer=setTimeout(local,150);clearTimeout(window.__wmDbTimer);window.__wmDbTimer=setTimeout(()=>{save();},1800);});
-  form.addEventListener('change',()=>{local();saveStep();});
+  form.addEventListener('change',()=>{local();saveStep();clearTimeout(window.__wmDbTimer);window.__wmDbTimer=setTimeout(()=>{save();},300);});
   form.addEventListener('toggle',e=>{if(e.target.matches('details.group')&&e.target.open)saveStep();},true);
+  const saveDraftBtn=document.querySelector('#saveDraftBtn');
+  if(saveDraftBtn)saveDraftBtn.addEventListener('click',()=>{save();});
+  // If native validation is triggered by keyboard/form submission, reveal the
+  // collapsed legal section so the required declaration can be addressed.
+  form.addEventListener('invalid',e=>{
+    if(e.target.matches('[name="ownership_declaration"]')){
+      const section=e.target.closest('details.group');
+      if(section)section.open=true;
+    }
+  },true);
   form.addEventListener('submit',e=>{e.preventDefault();save();});
   window.addEventListener('beforeunload',()=>{local();saveStep();});
   if(submitBtn)submitBtn.addEventListener('click',submitForReview);
