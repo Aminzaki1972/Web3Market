@@ -21,15 +21,14 @@
   if(!changed.length){saveStatus.textContent='No new evidence was added. Change or add at least one item.';return;}
   saveStatus.textContent='Saving evidence and requesting re-verification…';form.querySelector('button[type=submit]').disabled=true;
   try{
-   const updates={}; if(form.elements.project_url.value.trim()&&form.elements.project_url.value.trim()!==original.project_url){updates.project_url=form.elements.project_url.value.trim();updates.website_url=updates.project_url;} if(form.elements.github_url.value.trim()&&form.elements.github_url.value.trim()!==original.github_url)updates.github_url=form.elements.github_url.value.trim(); if(form.elements.documentation_url.value.trim()&&form.elements.documentation_url.value.trim()!==original.documentation_url)updates.documentation_url=form.elements.documentation_url.value.trim(); if(form.elements.demo_url.value.trim()&&form.elements.demo_url.value.trim()!==original.demo_url)updates.demo_url=form.elements.demo_url.value.trim(); if(form.elements.domain_ownership.value.trim()&&form.elements.domain_ownership.value.trim()!==original.domain_ownership)updates.domain_ownership=form.elements.domain_ownership.value.trim(); if(form.elements.github_ownership.value.trim()&&form.elements.github_ownership.value.trim()!==original.github_ownership)updates.github_ownership=form.elements.github_ownership.value.trim();
-   updates.status='draft';updates.project_status='pending_reverification';updates.ai_status='pending_reverification';updates.updated_at=new Date().toISOString();
-   const ur=await sb.from('projects').update(updates).eq('id',pid).eq('owner_id',user.id).select('id'); if(ur.error||!ur.data?.length)throw new Error(ur.error?.message||'Unable to update project.');
-   const rows=changed.map(x=>({project_id:pid,submitted_by:user.id,evidence_type:x.t,evidence_value:x.v,source:'seller'})); const ir=await sb.from('project_evidence_history').insert(rows); if(ir.error)throw new Error(ir.error.message);
-   saveStatus.textContent='Evidence added. Starting AI Due Diligence re-verification…';
-   const sessionResult=await sb.auth.getSession();const token=sessionResult.data?.session?.access_token;if(!token)throw new Error('Please sign in again before re-verification.');
-   const ar=await fetch(URL+'/functions/v1/ai-due-diligence',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':KEY},body:JSON.stringify({project_id:pid})});
-   const aj=await ar.json().catch(()=>({error:'Invalid AI response'}));if(!ar.ok||!aj.success)throw new Error(aj.error||'AI Due Diligence re-verification failed.');
-   saveStatus.textContent='Re-verification completed successfully. New evidence was analyzed.';status.textContent='Re-verification completed — latest AI Due Diligence result is now based on the updated evidence.';await loadHistory();
+   // Seller-submitted evidence is append-only. Do not let the browser update
+   // protected ownership, verification, AI, or workflow fields directly.
+   const rows=changed.map(x=>({project_id:pid,submitted_by:user.id,evidence_type:x.t,evidence_value:x.v,source:'seller'}));
+   const ir=await sb.from('project_evidence_history').insert(rows);
+   if(ir.error)throw new Error(ir.error.message);
+   saveStatus.textContent='Evidence submitted for authorized review. Verification and AI status were not changed.';
+   status.textContent='Evidence submitted — awaiting authorized review. Automated re-verification is not triggered by this seller form.';
+   await loadHistory();
   }catch(err){console.error(err);saveStatus.textContent='Evidence was saved, but re-verification failed: '+(err.message||'Unknown error')+'. You can run it again safely.';}finally{form.querySelector('button[type=submit]').disabled=false;}
  });
 })();
