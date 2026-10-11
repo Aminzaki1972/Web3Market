@@ -2,7 +2,7 @@
 (function(){
   const form=document.querySelector('#projectForm');
   if(!form)return;
-  const VERSION='20260921-listing-resume-safe2';
+  const VERSION='20261011-safe-stale-listing-id-recovery2';
   const out=document.querySelector('#formStatus');
   const submitBtn=document.querySelector('#submitReviewBtn');
   const ID_KEY='web3market_project_id';
@@ -71,7 +71,21 @@
       restoreStep();
     }
   }
-  async function save(){
+  let saveInFlight=null,saveAgain=false;
+  function save(){
+    // Serialize autosave/manual-save requests. If more input arrives during a save,
+    // run one additional pass using the latest form values instead of racing inserts.
+    if(saveInFlight){saveAgain=true;return saveInFlight;}
+    saveInFlight=(async()=>{
+      try{
+        let result;
+        do{saveAgain=false;result=await saveDraft();}while(saveAgain);
+        return result;
+      }finally{saveInFlight=null;}
+    })();
+    return saveInFlight;
+  }
+  async function saveDraft(){
     local();saveStep();
     const x=await wait();
     if(!x){if(out)out.textContent='Offline — draft saved on this device. Engine '+VERSION;return {ok:false,offline:true};}
@@ -81,15 +95,50 @@
     if(Object.keys(payload).length<=2){if(out)out.textContent='Start entering your listing; it is already being saved. Engine '+VERSION;return {ok:false,empty:true};}
     if(out)out.textContent='Saving draft… Engine '+VERSION;
     let r;
+    let insertAsNewDraft=!currentProjectId;
     if(currentProjectId){
       r=await x.from('projects').update(payload).eq('id',currentProjectId).eq('owner_id',u.data.user.id).select('id,updated_at');
       if(r.error)return {ok:false,error:r.error};
       if(!r.data?.length){
-        const e=new Error('The selected listing could not be updated. No new listing was created.');
-        if(out)out.textContent=e.message+' Please reopen the listing from Seller Dashboard.';
-        return {ok:false,error:e};
+        // A stale browser project ID must not block recovery forever or create duplicates.
+        // First look for an exact-title draft owned by this signed-in user.
+        const matches=await x.from('projects').select('id,status').eq('owner_id',u.data.user.id).eq('title',payload.title||'').limit(2);
+        if(matches.error){
+          if(out)out.textContent='Could not verify the existing listing safely. Your draft remains on this device; no new listing was created.';
+          return {ok:false,error:matches.error};
+        }
+        const found=matches.data||[];
+        if(found.length>1){
+          const e=new Error('More than one listing has this title. No new listing was created to avoid a duplicate.');
+          if(out)out.textContent=e.message+' Your draft remains on this device.';
+          return {ok:false,error:e};
+        }
+        if(found.length===1){
+          if(found[0].status!=='draft'){
+            const e=new Error('A listing with this title already exists and is not a draft. No changes were made.');
+            if(out)out.textContent=e.message+' Your draft remains on this device.';
+            return {ok:false,error:e};
+          }
+          currentProjectId=found[0].id;
+          localStorage.setItem(ID_KEY,currentProjectId);
+          r=await x.from('projects').update(payload).eq('id',currentProjectId).eq('owner_id',u.data.user.id).select('id,updated_at');
+          if(r.error)return {ok:false,error:r.error};
+          if(!r.data?.length){
+            const e=new Error('The matching draft could not be updated. No new listing was created.');
+            if(out)out.textContent=e.message+' Your draft remains on this device.';
+            return {ok:false,error:e};
+          }
+        }else{
+          // No row with this title exists for this owner, so clear only the stale
+          // browser pointer and create one draft from the currently filled form.
+          currentProjectId='';
+          localStorage.removeItem(ID_KEY);
+          local();
+          insertAsNewDraft=true;
+        }
       }
-    }else{
+    }
+    if(insertAsNewDraft){
       r=await x.from('projects').insert(payload).select('id,updated_at');
     }
     if(r.error){console.error('SAVE ERROR',r.error,payload);if(out)out.textContent=(r.error.message||'Unable to save listing.')+' | Draft remains on this device.';return {ok:false,error:r.error};}
