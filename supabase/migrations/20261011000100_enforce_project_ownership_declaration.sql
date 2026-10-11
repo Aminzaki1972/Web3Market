@@ -100,10 +100,10 @@ begin
   -- submission/review state or published/sold state can be entered.
   if (
       (new.status is distinct from old.status
-       and new.status in ('active', 'sold'))
+       and new.status in ('pending', 'submitted', 'under_review', 'active', 'sold'))
       or
       (new.project_status is distinct from old.project_status
-       and new.project_status in ('pending', 'submitted', 'pending_review', 'admin_review', 'approved', 'active'))
+       and new.project_status in ('pending', 'submitted', 'pending_review', 'admin_review', 'approved', 'active', 'sold'))
      )
      and new.ownership_declaration is distinct from required_declaration then
     raise exception 'Ownership and right-to-sell declaration is required before review or publication.'
