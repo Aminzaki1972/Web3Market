@@ -2,7 +2,7 @@
 (function(){
   const form=document.querySelector('#projectForm');
   if(!form)return;
-  const VERSION='20261011-safe-stale-listing-id-recovery1';
+  const VERSION='20261011-safe-stale-listing-id-recovery2';
   const out=document.querySelector('#formStatus');
   const submitBtn=document.querySelector('#submitReviewBtn');
   const ID_KEY='web3market_project_id';
@@ -71,7 +71,21 @@
       restoreStep();
     }
   }
-  async function save(){
+  let saveInFlight=null,saveAgain=false;
+  function save(){
+    // Serialize autosave/manual-save requests. If more input arrives during a save,
+    // run one additional pass using the latest form values instead of racing inserts.
+    if(saveInFlight){saveAgain=true;return saveInFlight;}
+    saveInFlight=(async()=>{
+      try{
+        let result;
+        do{saveAgain=false;result=await saveDraft();}while(saveAgain);
+        return result;
+      }finally{saveInFlight=null;}
+    })();
+    return saveInFlight;
+  }
+  async function saveDraft(){
     local();saveStep();
     const x=await wait();
     if(!x){if(out)out.textContent='Offline — draft saved on this device. Engine '+VERSION;return {ok:false,offline:true};}
