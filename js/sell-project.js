@@ -41,7 +41,9 @@
     // domain_verification, while AI review evaluates domain_ownership.
     if(!p.domain_ownership && p.domain_verification)p.domain_ownership=p.domain_verification;
     if(!p.domain_verification && p.domain_ownership)p.domain_verification=p.domain_ownership;
-    const cleanPayload={};DB.forEach(k=>{const v=clean(p[k],k);if(v!==undefined)cleanPayload[k]=v;});
+    const cleanPayload={};
+    const serverTrustFields=new Set(['verification','ai_score','ai_status','admin_notes','identity_verification','business_verification','domain_ownership','github_ownership','domain_verification','w3m_identity_id']);
+    DB.forEach(k=>{if(serverTrustFields.has(k))return;const v=clean(p[k],k);if(v!==undefined)cleanPayload[k]=v;});
     return cleanPayload;
   }
   function local(){try{const p=collect();if(Object.keys(p).length)localStorage.setItem(LOCAL_KEY,JSON.stringify({saved_at:new Date().toISOString(),data:p,project_id:currentProjectId||null}));}catch(e){console.warn(e)}}
