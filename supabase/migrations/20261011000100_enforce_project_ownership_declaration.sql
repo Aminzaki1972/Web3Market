@@ -18,9 +18,16 @@ declare
   required_declaration constant text :=
     'I confirm that I own this project or am legally authorized to sell it, and that I have disclosed the assets and rights included in the sale.';
 begin
-  -- Internal service-role workflows must be able to apply verified/admin changes
-  -- even when there is no end-user auth.uid().
+  -- Service-role writers may update workflow-managed review/verification fields,
+  -- but must never transfer project ownership or rewrite the seller declaration.
+  -- The declaration guard below independently enforces declaration before status changes.
   if is_service_role then
+    if new.owner_id is distinct from old.owner_id then
+      raise exception 'Project owner cannot be changed';
+    end if;
+    if new.ownership_declaration is distinct from old.ownership_declaration then
+      raise exception 'Ownership declaration cannot be changed by a service workflow';
+    end if;
     return new;
   end if;
 
