@@ -88,7 +88,7 @@
   async function saveDraft(){
     local();saveStep();
     const ownershipDeclaration=form.elements.namedItem('ownership_declaration');
-    if(!ownershipDeclaration?.checked){if(out)out.textContent='Please confirm the required ownership and legal right-to-sell declaration. Your draft remains on this device.';return {ok:false,ownershipRequired:true};}
+    if(!ownershipDeclaration?.checked){const section=ownershipDeclaration?.closest('details.group');if(section)section.open=true;if(out)out.textContent='Please confirm the required ownership and legal right-to-sell declaration. Your draft remains on this device.';ownershipDeclaration?.focus();return {ok:false,ownershipRequired:true};}
     const x=await wait();
     if(!x){if(out)out.textContent='Offline — draft saved on this device. Engine '+VERSION;return {ok:false,offline:true};}
     const u=await x.auth.getUser();
