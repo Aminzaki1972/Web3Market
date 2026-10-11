@@ -57,8 +57,12 @@ begin
   if new.ai_status is distinct from old.ai_status then raise exception 'AI status can only be changed by the review service'; end if;
   if new.ai_score is distinct from old.ai_score then raise exception 'AI score can only be changed by the review service'; end if;
   if new.identity_verification is distinct from old.identity_verification
-     or new.business_verification is distinct from old.business_verification then
-    raise exception 'Verification results can only be changed by the verification service';
+     or new.business_verification is distinct from old.business_verification
+     or new.domain_verification is distinct from old.domain_verification
+     or new.verification is distinct from old.verification
+     or new.admin_notes is distinct from old.admin_notes
+     or new.w3m_identity_id is distinct from old.w3m_identity_id then
+    raise exception 'Verification results and trusted review fields can only be changed by authorized services';
   end if;
 
   if (
