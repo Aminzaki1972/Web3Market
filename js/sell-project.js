@@ -4,7 +4,7 @@
   if(!form)return;
   // Draft saving must allow incomplete forms; AI Review has its own explicit validation.
   form.noValidate = true;
-  const VERSION='20261012-listing-validation-v3';
+  const VERSION='20261012-repository-validation-v1';
   const out=document.querySelector('#formStatus');
   const submitBtn=document.querySelector('#submitReviewBtn');
   const ID_KEY='web3market_project_id';
@@ -50,7 +50,7 @@
   function getGroups(){return [...form.querySelectorAll('details.group')];}
   function saveStep(){try{const groups=getGroups();const open=groups.findIndex(g=>g.open);if(open>=0)localStorage.setItem(STEP_KEY,JSON.stringify({project_id:currentProjectId||null,index:open,saved_at:new Date().toISOString()}));}catch(e){console.warn(e)}}
   function restoreStep(){try{const raw=localStorage.getItem(STEP_KEY);if(!raw)return;const st=JSON.parse(raw);if(st.project_id&&currentProjectId&&st.project_id!==currentProjectId)return;const groups=getGroups();if(!groups.length)return;const i=Math.max(0,Math.min(groups.length-1,Number(st.index)||0));groups.forEach((g,n)=>g.open=n===i);groups[i].scrollIntoView({behavior:'auto',block:'start'});}catch(e){console.warn(e)}}
-  function fill(p){const fields=['title','project_url','website_url','short_description','full_description','description','project_status','year_created','logo_url','demo_url','app_store_url','documentation_url','facebook_url','twitter_url','x_url','github_url','linkedin_url','instagram_url','telegram_url','discord_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','blockchain','tech_stack','technology_stack','development_stage','target_markets','business_model','competitive_advantage','competitors','market_opportunity','has_revenue','revenue_period','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','sale_type','transfer_terms','reason_for_sale','sale_reason','transfer_period','domain_ownership','domain_verification','github_ownership','business_verification','identity_verification','ownership_declaration','asking_price','price','currency','currency_code','primary_type','buyer_pitch','cover_image_url','video_url','screenshots','negotiable'];fields.forEach(k=>{const e=form.elements.namedItem(k);if(!e||p[k]===undefined||p[k]===null)return;if(e.type==='checkbox')e.checked=!!p[k];else e.value=String(p[k]);});if(Array.isArray(p.target_audience))form.querySelectorAll('input[name="audience"]').forEach(e=>e.checked=p.target_audience.includes(e.value));['project_types','services','audience','assets'].forEach(n=>{const a=Array.isArray(p[n])?p[n]:[];form.querySelectorAll('input[name="'+n+'"]').forEach(e=>e.checked=a.includes(e.value));});}
+  function fill(p){if(p.project_url&&!p.github_url&&/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(String(p.project_url).trim())){p={...p,github_url:String(p.project_url).trim(),project_url:''};}const fields=['title','project_url','website_url','short_description','full_description','description','project_status','year_created','logo_url','demo_url','app_store_url','documentation_url','facebook_url','twitter_url','x_url','github_url','linkedin_url','instagram_url','telegram_url','discord_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','blockchain','tech_stack','technology_stack','development_stage','target_markets','business_model','competitive_advantage','competitors','market_opportunity','has_revenue','revenue_period','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','sale_type','transfer_terms','reason_for_sale','sale_reason','transfer_period','domain_ownership','domain_verification','github_ownership','business_verification','identity_verification','ownership_declaration','asking_price','price','currency','currency_code','primary_type','buyer_pitch','cover_image_url','video_url','screenshots','negotiable'];fields.forEach(k=>{const e=form.elements.namedItem(k);if(!e||p[k]===undefined||p[k]===null)return;if(e.type==='checkbox')e.checked=!!p[k];else e.value=String(p[k]);});if(Array.isArray(p.target_audience))form.querySelectorAll('input[name="audience"]').forEach(e=>e.checked=p.target_audience.includes(e.value));['project_types','services','audience','assets'].forEach(n=>{const a=Array.isArray(p[n])?p[n]:[];form.querySelectorAll('input[name="'+n+'"]').forEach(e=>e.checked=a.includes(e.value));});}
   async function load(){
     const rawLocal=localStorage.getItem(LOCAL_KEY)||localStorage.getItem(LEGACY_KEY);
     let localSnapshot=null;
@@ -166,8 +166,12 @@
     if(val('short_description').length<20)issues.push('short description (at least 20 characters)');
     if((val('full_description')||val('description')).length<50)issues.push('full description (at least 50 characters)');
     const site=val('project_url')||val('website_url');
-    if(!site)issues.push('official project website');
-    else {try{const u=new URL(site);if(u.protocol!=='https:')issues.push('HTTPS project website');}catch(e){issues.push('valid project website URL');}}
+    const repo=val('github_url');
+    const validHttpsSite=(()=>{if(!site)return false;try{const u=new URL(site);return u.protocol==='https:'&&!/(^|\.)github\.com$/i.test(u.hostname);}catch(e){return false;}})();
+    const validGithubRepo=(()=>{if(!repo)return false;try{const u=new URL(repo);return u.protocol==='https:'&&u.hostname.toLowerCase()==='github.com'&&/^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(u.pathname);}catch(e){return false;}})();
+    if(site&&!validHttpsSite)issues.push('valid HTTPS official website (put GitHub links in the repository field)');
+    if(repo&&!validGithubRepo)issues.push('valid GitHub repository URL');
+    if(!validHttpsSite&&!validGithubRepo)issues.push('official HTTPS website or valid GitHub repository');
     if(!val('business_model'))issues.push('business model');
     const price=num(val('asking_price')||val('price'));
     if(price===null||price<=0)issues.push('asking price greater than zero');
