@@ -227,13 +227,15 @@
     finally{if(submitBtn&&submitBtn.textContent!=='Submitted for AI Review')submitBtn.disabled=false;}
   }
   // Upload selected listing media to the existing project-media bucket using the signed-in user's session.
-  const MEDIA_MAX=50*1024*1024;
+  const IMAGE_MAX=8*1024*1024;
+  const VIDEO_MAX=50*1024*1024;
   function safeFileName(name){return String(name||'file').normalize('NFKD').replace(/[^A-Za-z0-9._-]+/g,'-').replace(/^-+|-+$/g,'').slice(-100)||'file';}
   async function uploadListingFile(file,kind){
     if(!file)return null;
-    if(file.size>MEDIA_MAX)throw new Error('File exceeds the 50 MB limit.');
     const imageOk=['image/jpeg','image/png','image/webp'].includes(file.type);
     const videoOk=['video/mp4','video/webm','video/quicktime'].includes(file.type);
+    const limit=kind==='video'?VIDEO_MAX:IMAGE_MAX;
+    if(file.size>limit)throw new Error((kind==='video'?'Video':'Image')+' exceeds the '+(limit/(1024*1024))+' MB limit.');
     if(kind==='video'?!videoOk:!imageOk)throw new Error(kind==='video'?'Choose an MP4, WebM, or MOV video.':'Choose a PNG, JPG, or WebP image.');
     const x=await wait();if(!x)throw new Error('Storage connection is unavailable. Please try again.');
     const sr=await x.auth.getSession(),user=sr.data?.session?.user;
