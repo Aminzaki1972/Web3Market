@@ -12,12 +12,12 @@
   const LEGACY_KEY='web3market_sell_project_draft';
   const STEP_KEY='web3market_sell_project_step_v1';
   let currentProjectId=new URLSearchParams(window.location.search).get('project')||localStorage.getItem(ID_KEY)||'';
-  const URL='https://hzhqlexnhtukfljcvnyd.supabase.co';
+  const SUPABASE_URL='https://hzhqlexnhtukfljcvnyd.supabase.co';
   const KEY='sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI';
   const NUM=['year_created','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_expenses','growth_rate','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','asking_price','price','monthly_net_profit','yearly_net_profit','ai_score'];
   const DB=['title','description','category','price','currency','status','website_url','short_description','project_status','year_created','logo_url','demo_url','full_description','project_types','services','target_audience','target_markets','business_model','competitive_advantage','competitors','social_accounts','performance','financials','assets','sale_type','negotiable','transfer_terms','verification','ai_score','ai_status','admin_notes','blockchain','github_url','app_store_url','facebook_url','x_url','linkedin_url','telegram_url','discord_url','primary_type','technology_stack','development_stage','monthly_revenue','yearly_revenue','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','reason_for_sale','transfer_period','domain_ownership','github_ownership','business_verification','identity_verification','ownership_declaration','project_url','documentation_url','twitter_url','instagram_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','tech_stack','monthly_profit','yearly_profit','revenue_period','has_revenue','market_opportunity','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','currency_code','asking_price','project_types_text','audience','services_text','buyer_pitch','cover_image_url','domain_verification','sale_reason','screenshots','video_url','users_count'];
   function c(){return window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase||null;}
-  function client(){const x=c();if(x)return x;if(window.supabase?.createClient){try{return window.supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'web3market-auth'}});}catch(e){console.error(e)}}return null;}
+  function client(){const x=c();if(x)return x;if(window.supabase?.createClient){try{return window.supabase.createClient(SUPABASE_URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'web3market-auth'}});}catch(e){console.error(e)}}return null;}
   async function wait(){for(let i=0;i<40;i++){const x=client();if(x)return x;await new Promise(r=>setTimeout(r,250));}return null;}
   function val(n){const e=form.elements.namedItem(n);return e?String(e.value??'').trim():'';}
   function num(v){if(v===null||v===undefined)return null;const s=String(v).trim().replace(/%/g,'').replace(/,/g,'');if(!s)return null;const n=Number(s);return Number.isFinite(n)?n:null;}
@@ -221,7 +221,7 @@
       const token=sessionResult.data?.session?.access_token;
       if(!token)throw new Error('Please sign in again before submitting.');
       if(out)out.textContent='Running AI Review…';
-      const r=await fetch(URL+'/functions/v1/ai-review-project',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':KEY},body:JSON.stringify({project_id:saved.id})});
+      const r=await fetch(SUPABASE_URL+'/functions/v1/ai-review-project',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':KEY},body:JSON.stringify({project_id:saved.id})});
       const j=await r.json().catch(()=>({error:'Invalid server response'}));
       if(!r.ok||!j.success)throw new Error(j.error||'AI Review failed.');
       const score=j.review?.overall_score??j.result?.ai_score??'—';
