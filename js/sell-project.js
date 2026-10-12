@@ -101,6 +101,7 @@
     })();
     return saveInFlight;
   }
+  function isEditableDraft(row){return !!row&&String(row.status||'').toLowerCase()==='draft'&&String(row.project_status||'').toLowerCase()!=='admin_review'&&String(row.ai_status||'').toLowerCase()!=='recommended_for_admin_review';}
   async function saveDraft(){
     local();saveStep();
     const x=await wait();
@@ -115,12 +116,12 @@
     if(currentProjectId){
       // Never demote or silently modify a submitted/published listing through draft autosave.
       // Only rows that are still drafts may be edited by this form until a reviewed edit flow exists.
-      const existing=await x.from('projects').select('id,status').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();
+      const existing=await x.from('projects').select('id,status,project_status,ai_status').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();
       if(existing.error){
         if(out)out.textContent='Could not verify the listing status safely. Your changes remain on this device; no database changes were made.';
         return {ok:false,error:existing.error};
       }
-      if(existing.data && existing.data.status!=='draft'){
+      if(existing.data && !isEditableDraft(existing.data)){
         const e=new Error('This listing has already been submitted or published. Editing is paused to prevent unreviewed changes or accidental unpublishing. Your changes remain on this device.');
         if(out)out.textContent=e.message;
         return {ok:false,error:e,protectedListing:true};
@@ -130,7 +131,7 @@
       if(!r.data?.length){
         // A stale browser project ID must not block recovery forever or create duplicates.
         // First look for an exact-title draft owned by this signed-in user.
-        const matches=await x.from('projects').select('id,status').eq('owner_id',u.data.user.id).eq('title',payload.title||'').limit(2);
+        const matches=await x.from('projects').select('id,status,project_status,ai_status').eq('owner_id',u.data.user.id).eq('title',payload.title||'').limit(2);
         if(matches.error){
           if(out)out.textContent='Could not verify the existing listing safely. Your draft remains on this device; no new listing was created.';
           return {ok:false,error:matches.error};
@@ -142,7 +143,7 @@
           return {ok:false,error:e};
         }
         if(found.length===1){
-          if(found[0].status!=='draft'){
+          if(!isEditableDraft(found[0])){
             const e=new Error('A listing with this title already exists and is not a draft. No changes were made.');
             if(out)out.textContent=e.message+' Your draft remains on this device.';
             return {ok:false,error:e};
