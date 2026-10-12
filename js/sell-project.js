@@ -30,7 +30,21 @@
     p.description=val('full_description')||val('description')||val('short_description');
     p.full_description=val('full_description')||p.description;
     p.short_description=val('short_description');
-    p.website_url=val('project_url')||val('website_url');
+    // Keep the official website and source repository in separate database fields.
+    const enteredSite=String(val('project_url')||'').trim();
+    const legacySite=String(val('website_url')||'').trim();
+    let repoUrl=String(val('github_url')||'').trim();
+    const isGithubRepo=(value)=>{try{const u=new URL(value);return u.protocol==='https:'&&u.hostname.toLowerCase()==='github.com'&&/^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(u.pathname);}catch(e){return false;}};
+    const isOfficialSite=(value)=>{try{const u=new URL(value);return u.protocol==='https:'&&!/(^|\.)github\.com$/i.test(u.hostname);}catch(e){return false;}};
+    let officialSite=enteredSite||legacySite;
+    if(isGithubRepo(officialSite)){
+      if(!isGithubRepo(repoUrl))repoUrl=officialSite;
+      officialSite=isOfficialSite(legacySite)?legacySite:'';
+    }
+    if(!isOfficialSite(officialSite)&&isOfficialSite(legacySite))officialSite=legacySite;
+    p.project_url=officialSite;
+    p.website_url=officialSite;
+    p.github_url=repoUrl;
     p.project_types=[...form.querySelectorAll('input[name="project_types"]:checked')].map(x=>x.value);
     p.services=[...form.querySelectorAll('input[name="services"]:checked')].map(x=>x.value);
     p.target_audience=[...form.querySelectorAll('input[name="audience"]:checked')].map(x=>x.value);
@@ -50,7 +64,7 @@
   function getGroups(){return [...form.querySelectorAll('details.group')];}
   function saveStep(){try{const groups=getGroups();const open=groups.findIndex(g=>g.open);if(open>=0)localStorage.setItem(STEP_KEY,JSON.stringify({project_id:currentProjectId||null,index:open,saved_at:new Date().toISOString()}));}catch(e){console.warn(e)}}
   function restoreStep(){try{const raw=localStorage.getItem(STEP_KEY);if(!raw)return;const st=JSON.parse(raw);if(st.project_id&&currentProjectId&&st.project_id!==currentProjectId)return;const groups=getGroups();if(!groups.length)return;const i=Math.max(0,Math.min(groups.length-1,Number(st.index)||0));groups.forEach((g,n)=>g.open=n===i);groups[i].scrollIntoView({behavior:'auto',block:'start'});}catch(e){console.warn(e)}}
-  function fill(p){if(p.project_url&&!p.github_url&&/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(String(p.project_url).trim())){p={...p,github_url:String(p.project_url).trim(),project_url:''};}const fields=['title','project_url','website_url','short_description','full_description','description','project_status','year_created','logo_url','demo_url','app_store_url','documentation_url','facebook_url','twitter_url','x_url','github_url','linkedin_url','instagram_url','telegram_url','discord_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','blockchain','tech_stack','technology_stack','development_stage','target_markets','business_model','competitive_advantage','competitors','market_opportunity','has_revenue','revenue_period','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','sale_type','transfer_terms','reason_for_sale','sale_reason','transfer_period','domain_ownership','domain_verification','github_ownership','business_verification','identity_verification','ownership_declaration','asking_price','price','currency','currency_code','primary_type','buyer_pitch','cover_image_url','video_url','screenshots','negotiable'];fields.forEach(k=>{const e=form.elements.namedItem(k);if(!e||p[k]===undefined||p[k]===null)return;if(e.type==='checkbox')e.checked=!!p[k];else e.value=String(p[k]);});if(Array.isArray(p.target_audience))form.querySelectorAll('input[name="audience"]').forEach(e=>e.checked=p.target_audience.includes(e.value));['project_types','services','audience','assets'].forEach(n=>{const a=Array.isArray(p[n])?p[n]:[];form.querySelectorAll('input[name="'+n+'"]').forEach(e=>e.checked=a.includes(e.value));});}
+  function fill(p){if(p.project_url&&/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(String(p.project_url).trim())){const oldRepo=String(p.project_url).trim();p={...p,github_url:p.github_url||oldRepo,project_url:''};}if(!p.project_url&&p.website_url&&/^https:\/\//i.test(String(p.website_url).trim())&&!/(^|\.)github\.com$/i.test((()=>{try{return new URL(p.website_url).hostname}catch(e){return ''}})()))p={...p,project_url:p.website_url};const fields=['title','project_url','website_url','short_description','full_description','description','project_status','year_created','logo_url','demo_url','app_store_url','documentation_url','facebook_url','twitter_url','x_url','github_url','linkedin_url','instagram_url','telegram_url','discord_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','blockchain','tech_stack','technology_stack','development_stage','target_markets','business_model','competitive_advantage','competitors','market_opportunity','has_revenue','revenue_period','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','sale_type','transfer_terms','reason_for_sale','sale_reason','transfer_period','domain_ownership','domain_verification','github_ownership','business_verification','identity_verification','ownership_declaration','asking_price','price','currency','currency_code','primary_type','buyer_pitch','cover_image_url','video_url','screenshots','negotiable'];fields.forEach(k=>{const e=form.elements.namedItem(k);if(!e||p[k]===undefined||p[k]===null)return;if(e.type==='checkbox')e.checked=!!p[k];else e.value=String(p[k]);});if(Array.isArray(p.target_audience))form.querySelectorAll('input[name="audience"]').forEach(e=>e.checked=p.target_audience.includes(e.value));['project_types','services','audience','assets'].forEach(n=>{const a=Array.isArray(p[n])?p[n]:[];form.querySelectorAll('input[name="'+n+'"]').forEach(e=>e.checked=a.includes(e.value));});renderSavedMediaPreviews();}
   async function load(){
     const rawLocal=localStorage.getItem(LOCAL_KEY)||localStorage.getItem(LEGACY_KEY);
     let localSnapshot=null;
@@ -87,6 +101,7 @@
     })();
     return saveInFlight;
   }
+  function isEditableDraft(row){return !!row&&String(row.status||'').toLowerCase()==='draft'&&String(row.project_status||'').toLowerCase()!=='admin_review'&&String(row.ai_status||'').toLowerCase()!=='recommended_for_admin_review';}
   async function saveDraft(){
     local();saveStep();
     const x=await wait();
@@ -101,12 +116,12 @@
     if(currentProjectId){
       // Never demote or silently modify a submitted/published listing through draft autosave.
       // Only rows that are still drafts may be edited by this form until a reviewed edit flow exists.
-      const existing=await x.from('projects').select('id,status').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();
+      const existing=await x.from('projects').select('id,status,project_status,ai_status').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();
       if(existing.error){
         if(out)out.textContent='Could not verify the listing status safely. Your changes remain on this device; no database changes were made.';
         return {ok:false,error:existing.error};
       }
-      if(existing.data && existing.data.status!=='draft'){
+      if(existing.data && !isEditableDraft(existing.data)){
         const e=new Error('This listing has already been submitted or published. Editing is paused to prevent unreviewed changes or accidental unpublishing. Your changes remain on this device.');
         if(out)out.textContent=e.message;
         return {ok:false,error:e,protectedListing:true};
@@ -116,7 +131,7 @@
       if(!r.data?.length){
         // A stale browser project ID must not block recovery forever or create duplicates.
         // First look for an exact-title draft owned by this signed-in user.
-        const matches=await x.from('projects').select('id,status').eq('owner_id',u.data.user.id).eq('title',payload.title||'').limit(2);
+        const matches=await x.from('projects').select('id,status,project_status,ai_status').eq('owner_id',u.data.user.id).eq('title',payload.title||'').limit(2);
         if(matches.error){
           if(out)out.textContent='Could not verify the existing listing safely. Your draft remains on this device; no new listing was created.';
           return {ok:false,error:matches.error};
@@ -128,7 +143,7 @@
           return {ok:false,error:e};
         }
         if(found.length===1){
-          if(found[0].status!=='draft'){
+          if(!isEditableDraft(found[0])){
             const e=new Error('A listing with this title already exists and is not a draft. No changes were made.');
             if(out)out.textContent=e.message+' Your draft remains on this device.';
             return {ok:false,error:e};
@@ -165,13 +180,23 @@
     if(!val('title'))issues.push('project name');
     if(val('short_description').length<20)issues.push('short description (at least 20 characters)');
     if((val('full_description')||val('description')).length<50)issues.push('full description (at least 50 characters)');
-    const site=val('project_url')||val('website_url');
-    const repo=val('github_url');
-    const validHttpsSite=(()=>{if(!site)return false;try{const u=new URL(site);return u.protocol==='https:'&&!/(^|\.)github\.com$/i.test(u.hostname);}catch(e){return false;}})();
-    const validGithubRepo=(()=>{if(!repo)return false;try{const u=new URL(repo);return u.protocol==='https:'&&u.hostname.toLowerCase()==='github.com'&&/^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(u.pathname);}catch(e){return false;}})();
-    if(site&&!validHttpsSite)issues.push('valid HTTPS official website (put GitHub links in the repository field)');
-    if(repo&&!validGithubRepo)issues.push('valid GitHub repository URL');
-    if(!validHttpsSite&&!validGithubRepo)issues.push('official HTTPS website or valid GitHub repository');
+    const rawSite=val('project_url')||val('website_url');
+    let site=rawSite;
+    let repo=val('github_url');
+    const isGithubHost=value=>{try{return /(^|\.)github\.com$/i.test(new URL(value).hostname);}catch(e){return false;}};
+    const isGithubRepo=value=>{try{const u=new URL(value);return u.protocol==='https:'&&u.hostname.toLowerCase()==='github.com'&&/^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(u.pathname);}catch(e){return false;}};
+    const validHttpsSite=value=>{if(!value)return false;try{const u=new URL(value);return u.protocol==='https:'&&!isGithubHost(value);}catch(e){return false;}};
+    // A repository pasted into the optional website field must not invalidate a valid repository-only listing.
+    if(isGithubRepo(site)){
+      if(!isGithubRepo(repo))repo=site;
+      const legacy=val('website_url');
+      site=legacy&&validHttpsSite(legacy)?legacy:'';
+    }
+    const validSite=validHttpsSite(site);
+    const validRepo=isGithubRepo(repo);
+    if(site&&!validSite)issues.push('valid HTTPS official website (put GitHub links in the repository field)');
+    if(repo&&!validRepo)issues.push('valid GitHub repository URL');
+    if(!validSite&&!validRepo)issues.push('official HTTPS website or valid GitHub repository');
     if(!val('business_model'))issues.push('business model');
     const price=num(val('asking_price')||val('price'));
     if(price===null||price<=0)issues.push('asking price greater than zero');
@@ -201,12 +226,57 @@
     }catch(e){console.error('SUBMIT REVIEW ERROR',e);if(out)out.textContent='Saved as draft, but submission failed: '+(e.message||'Please try again.');}
     finally{if(submitBtn&&submitBtn.textContent!=='Submitted for AI Review')submitBtn.disabled=false;}
   }
+  // Upload selected listing media to the existing project-media bucket using the signed-in user's session.
+  const IMAGE_MAX=8*1024*1024;
+  const VIDEO_MAX=50*1024*1024;
+  function safeFileName(name){return String(name||'file').normalize('NFKD').replace(/[^A-Za-z0-9._-]+/g,'-').replace(/^-+|-+$/g,'').slice(-100)||'file';}
+  async function uploadListingFile(file,kind){
+    if(!file)return null;
+    const imageOk=['image/jpeg','image/png','image/webp'].includes(file.type);
+    const videoOk=['video/mp4','video/webm','video/quicktime'].includes(file.type);
+    const limit=kind==='video'?VIDEO_MAX:IMAGE_MAX;
+    if(file.size>limit)throw new Error((kind==='video'?'Video':'Image')+' exceeds the '+(limit/(1024*1024))+' MB limit.');
+    if(kind==='video'?!videoOk:!imageOk)throw new Error(kind==='video'?'Choose an MP4, WebM, or MOV video.':'Choose a PNG, JPG, or WebP image.');
+    const x=await wait();if(!x)throw new Error('Storage connection is unavailable. Please try again.');
+    const sr=await x.auth.getSession(),user=sr.data?.session?.user;
+    if(!user)throw new Error('Please sign in before uploading files.');
+    const path=user.id+'/listing-media/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'-'+safeFileName(file.name);
+    const result=await x.storage.from('project-media').upload(path,file,{cacheControl:'3600',upsert:false,contentType:file.type});
+    if(result.error)throw result.error;
+    const pub=x.storage.from('project-media').getPublicUrl(result.data.path);
+    if(!pub?.data?.publicUrl)throw new Error('Upload finished but the public file URL could not be created.');
+    return pub.data.publicUrl;
+  }
+  function wireSingleUpload(inputId,fieldName,statusId,previewId,kind){
+    const input=document.getElementById(inputId),status=document.getElementById(statusId),preview=document.getElementById(previewId);
+    if(!input||!status)return;
+    input.addEventListener('change',async()=>{const file=input.files?.[0];if(!file)return;status.textContent='Uploading '+file.name+'…';input.disabled=true;
+      try{const url=await uploadListingFile(file,kind);const field=form.elements.namedItem(fieldName);if(field)field.value=url;if(preview){preview.src=url;preview.hidden=false;}status.textContent='Uploaded successfully. File URL added to listing.';local();save();}
+      catch(e){status.textContent='Upload failed: '+(e.message||'Please try again.');}finally{input.disabled=false;}
+    });
+  }
+  // Rebuild media previews from saved URL fields whenever a draft is restored.
+  function renderSavedMediaPreviews(){
+    const setImage=(inputId,fieldName)=>{const el=document.getElementById(inputId),url=val(fieldName);if(!el)return;const safe=safeMediaPreviewUrl(url);if(safe){el.src=safe;el.hidden=false;}else{el.removeAttribute('src');el.hidden=true;}};
+    const setVideo=()=>{const el=document.getElementById('videoUploadPreview'),safe=safeMediaPreviewUrl(val('video_url'));if(!el)return;if(safe){el.src=safe;el.hidden=false;}else{el.removeAttribute('src');el.hidden=true;}};
+    setImage('logoUploadPreview','logo_url');setImage('coverUploadPreview','cover_image_url');setVideo();
+    const grid=document.getElementById('screenshotsUploadPreview');if(grid){grid.replaceChildren();val('screenshots').split(',').map(x=>safeMediaPreviewUrl(x.trim())).filter(Boolean).slice(0,12).forEach((url,i)=>{const img=document.createElement('img');img.src=url;img.alt='Screenshot preview '+(i+1);img.loading='lazy';grid.appendChild(img);});}
+  }
+  function safeMediaPreviewUrl(value){try{const u=new URL(String(value||'').trim());return ['http:','https:'].includes(u.protocol)?u.href:'';}catch(e){return '';}}
+  wireSingleUpload('logoFile','logo_url','logoUploadStatus','logoUploadPreview','image');
+  wireSingleUpload('coverImageFile','cover_image_url','coverUploadStatus','coverUploadPreview','image');
+  wireSingleUpload('videoFile','video_url','videoUploadStatus','videoUploadPreview','video');
+  const screenshotsInput=document.getElementById('screenshotsFiles');
+  if(screenshotsInput)screenshotsInput.addEventListener('change',async()=>{const files=[...(screenshotsInput.files||[])];if(!files.length)return;const status=document.getElementById('screenshotsUploadStatus'),grid=document.getElementById('screenshotsUploadPreview');screenshotsInput.disabled=true;status.textContent='Uploading '+files.length+' screenshot(s)…';
+    try{const urls=[];for(const file of files)urls.push(await uploadListingFile(file,'image'));const field=form.elements.namedItem('screenshots');if(field){const old=String(field.value||'').split(',').map(x=>x.trim()).filter(Boolean);field.value=[...old,...urls].join(', ');}if(grid)urls.forEach(url=>{const img=document.createElement('img');img.src=url;img.alt='Uploaded screenshot';grid.appendChild(img);});status.textContent='Uploaded '+urls.length+' screenshot(s). URLs added to listing.';local();save();}
+    catch(e){status.textContent='Upload failed: '+(e.message||'Please try again.');}finally{screenshotsInput.disabled=false;}
+  });
   form.addEventListener('input',()=>{clearTimeout(window.__wmTimer);window.__wmTimer=setTimeout(local,150);clearTimeout(window.__wmDbTimer);window.__wmDbTimer=setTimeout(()=>{save();},1800);});
-  form.addEventListener('change',()=>{local();saveStep();});
+  form.addEventListener('change',()=>{local();saveStep();renderSavedMediaPreviews();});
   form.addEventListener('toggle',e=>{if(e.target.matches('details.group')&&e.target.open)saveStep();},true);
   form.addEventListener('submit',e=>{e.preventDefault();save();});
   window.addEventListener('beforeunload',()=>{local();saveStep();});
   if(submitBtn)submitBtn.addEventListener('click',submitForReview);
-  window.web3MarketClearListingDraft=function(){try{localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);localStorage.removeItem(ID_KEY);localStorage.removeItem(STEP_KEY);}catch(e){console.warn(e)}form.reset();const p=document.getElementById('preview');if(p)p.style.display='none';if(out)out.textContent='Draft cleared from this device. Existing saved listings are not deleted.';};
+  window.web3MarketClearListingDraft=function(){try{localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);localStorage.removeItem(ID_KEY);localStorage.removeItem(STEP_KEY);}catch(e){console.warn(e)}currentProjectId='';try{const u=new URL(window.location.href);u.searchParams.delete('project');window.history.replaceState(null,'',u.pathname+u.search+u.hash);}catch(e){console.warn(e)}form.reset();const p=document.getElementById('preview');if(p)p.style.display='none';if(out)out.textContent='Draft cleared from this device. Existing saved listings are not deleted. Save to create a new draft.';};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
 })();
