@@ -100,7 +100,7 @@
     let insertAsNewDraft=!currentProjectId;
     if(currentProjectId){
       r=await x.from('projects').update(payload).eq('id',currentProjectId).eq('owner_id',u.data.user.id).select('id,updated_at');
-      if(r.error)return {ok:false,error:r.error};
+      if(r.error){if(out)out.textContent=(r.error.message||'Unable to update the existing listing.')+' Your draft remains on this device.';return {ok:false,error:r.error};}
       if(!r.data?.length){
         // A stale browser project ID must not block recovery forever or create duplicates.
         // First look for an exact-title draft owned by this signed-in user.
@@ -124,7 +124,7 @@
           currentProjectId=found[0].id;
           localStorage.setItem(ID_KEY,currentProjectId);
           r=await x.from('projects').update(payload).eq('id',currentProjectId).eq('owner_id',u.data.user.id).select('id,updated_at');
-          if(r.error)return {ok:false,error:r.error};
+          if(r.error){if(out)out.textContent=(r.error.message||'Unable to update the matching draft.')+' Your draft remains on this device.';return {ok:false,error:r.error};}
           if(!r.data?.length){
             const e=new Error('The matching draft could not be updated. No new listing was created.');
             if(out)out.textContent=e.message+' Your draft remains on this device.';
