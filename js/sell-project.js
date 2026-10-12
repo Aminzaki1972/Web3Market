@@ -4,7 +4,7 @@
   if(!form)return;
   // Draft saving must allow incomplete forms; AI Review has its own explicit validation.
   form.noValidate = true;
-  const VERSION='20261012-listing-validation-v2';
+  const VERSION='20261012-listing-validation-v3';
   const out=document.querySelector('#formStatus');
   const submitBtn=document.querySelector('#submitReviewBtn');
   const ID_KEY='web3market_project_id';
@@ -99,6 +99,18 @@
     let r;
     let insertAsNewDraft=!currentProjectId;
     if(currentProjectId){
+      // Never demote or silently modify a submitted/published listing through draft autosave.
+      // Only rows that are still drafts may be edited by this form until a reviewed edit flow exists.
+      const existing=await x.from('projects').select('id,status').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();
+      if(existing.error){
+        if(out)out.textContent='Could not verify the listing status safely. Your changes remain on this device; no database changes were made.';
+        return {ok:false,error:existing.error};
+      }
+      if(existing.data && existing.data.status!=='draft'){
+        const e=new Error('This listing has already been submitted or published. Editing is paused to prevent unreviewed changes or accidental unpublishing. Your changes remain on this device.');
+        if(out)out.textContent=e.message;
+        return {ok:false,error:e,protectedListing:true};
+      }
       r=await x.from('projects').update(payload).eq('id',currentProjectId).eq('owner_id',u.data.user.id).select('id,updated_at');
       if(r.error){if(out)out.textContent=(r.error.message||'Unable to update the existing listing.')+' Your draft remains on this device.';return {ok:false,error:r.error};}
       if(!r.data?.length){
