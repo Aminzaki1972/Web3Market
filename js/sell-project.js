@@ -2,6 +2,8 @@
 (function(){
   const form=document.querySelector('#projectForm');
   if(!form)return;
+  // Draft saving must allow incomplete forms; AI Review has its own explicit validation.
+  form.noValidate = true;
   const VERSION='20261012-listing-validation-v1';
   const out=document.querySelector('#formStatus');
   const submitBtn=document.querySelector('#submitReviewBtn');
