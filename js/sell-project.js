@@ -179,9 +179,9 @@
     // Remove invisible Unicode characters and common clipboard wrappers without
     // relaxing HTTPS or GitHub repository validation.
     return String(value??'')
-      .replace(/[\\u200B-\\u200D\\uFEFF]/g,'')
+      .replace(/[\u200B-\u200D\uFEFF]/g,'')
       .trim()
-      .replace(/^["'`<\\s]+|["'`>\\s]+$/g,'')
+      .replace(/^["'`<\s]+|["'`>\s]+$/g,'')
       .trim();
   }
   function parseUrl(value){
@@ -196,9 +196,9 @@
     const repo=normalizeUrl(val('github_url'));
     const siteUrl=parseUrl(site);
     const repoUrl=parseUrl(repo);
-    const isGithubHost=u=>!!u&&/(^|\\.)github\\.com$/i.test(u.hostname);
+    const isGithubHost=u=>!!u&&/(^|\.)github\.com$/i.test(u.hostname);
     const validSite=!!siteUrl&&siteUrl.protocol==='https:'&&!isGithubHost(siteUrl);
-    const validRepo=!!repoUrl&&repoUrl.protocol==='https:'&&repoUrl.hostname.toLowerCase()==='github.com'&&/^\\/[A-Za-z0-9_.-]+\\/[A-Za-z0-9_.-]+\\/?$/.test(repoUrl.pathname);
+    const validRepo=!!repoUrl&&repoUrl.protocol==='https:'&&repoUrl.hostname.toLowerCase()==='github.com'&&/^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(repoUrl.pathname);
     if(site&&!validSite)issues.push('official website field: enter a valid HTTPS website (not a GitHub link)');
     if(repo&&!validRepo)issues.push('GitHub repository field: enter https://github.com/owner/repository');
     if(!validSite&&!validRepo)issues.push('enter at least one valid official HTTPS website or GitHub repository');
