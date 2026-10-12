@@ -226,6 +226,41 @@
     }catch(e){console.error('SUBMIT REVIEW ERROR',e);if(out)out.textContent='Saved as draft, but submission failed: '+(e.message||'Please try again.');}
     finally{if(submitBtn&&submitBtn.textContent!=='Submitted for AI Review')submitBtn.disabled=false;}
   }
+  // Upload selected listing media to the existing project-media bucket using the signed-in user's session.
+  const MEDIA_MAX=50*1024*1024;
+  function safeFileName(name){return String(name||'file').normalize('NFKD').replace(/[^A-Za-z0-9._-]+/g,'-').replace(/^-+|-+$/g,'').slice(-100)||'file';}
+  async function uploadListingFile(file,kind){
+    if(!file)return null;
+    if(file.size>MEDIA_MAX)throw new Error('File exceeds the 50 MB limit.');
+    const imageOk=['image/jpeg','image/png','image/webp'].includes(file.type);
+    const videoOk=['video/mp4','video/webm','video/quicktime'].includes(file.type);
+    if(kind==='video'?!videoOk:!imageOk)throw new Error(kind==='video'?'Choose an MP4, WebM, or MOV video.':'Choose a PNG, JPG, or WebP image.');
+    const x=await wait();if(!x)throw new Error('Storage connection is unavailable. Please try again.');
+    const sr=await x.auth.getSession(),user=sr.data?.session?.user;
+    if(!user)throw new Error('Please sign in before uploading files.');
+    const path=user.id+'/listing-media/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'-'+safeFileName(file.name);
+    const result=await x.storage.from('project-media').upload(path,file,{cacheControl:'3600',upsert:false,contentType:file.type});
+    if(result.error)throw result.error;
+    const pub=x.storage.from('project-media').getPublicUrl(result.data.path);
+    if(!pub?.data?.publicUrl)throw new Error('Upload finished but the public file URL could not be created.');
+    return pub.data.publicUrl;
+  }
+  function wireSingleUpload(inputId,fieldName,statusId,previewId,kind){
+    const input=document.getElementById(inputId),status=document.getElementById(statusId),preview=document.getElementById(previewId);
+    if(!input||!status)return;
+    input.addEventListener('change',async()=>{const file=input.files?.[0];if(!file)return;status.textContent='Uploading '+file.name+'…';input.disabled=true;
+      try{const url=await uploadListingFile(file,kind);const field=form.elements.namedItem(fieldName);if(field)field.value=url;if(preview){preview.src=url;preview.hidden=false;}status.textContent='Uploaded successfully. File URL added to listing.';local();save();}
+      catch(e){status.textContent='Upload failed: '+(e.message||'Please try again.');}finally{input.disabled=false;}
+    });
+  }
+  wireSingleUpload('logoFile','logo_url','logoUploadStatus','logoUploadPreview','image');
+  wireSingleUpload('coverImageFile','cover_image_url','coverUploadStatus','coverUploadPreview','image');
+  wireSingleUpload('videoFile','video_url','videoUploadStatus','videoUploadPreview','video');
+  const screenshotsInput=document.getElementById('screenshotsFiles');
+  if(screenshotsInput)screenshotsInput.addEventListener('change',async()=>{const files=[...(screenshotsInput.files||[])];if(!files.length)return;const status=document.getElementById('screenshotsUploadStatus'),grid=document.getElementById('screenshotsUploadPreview');screenshotsInput.disabled=true;status.textContent='Uploading '+files.length+' screenshot(s)…';
+    try{const urls=[];for(const file of files)urls.push(await uploadListingFile(file,'image'));const field=form.elements.namedItem('screenshots');if(field){const old=String(field.value||'').split(',').map(x=>x.trim()).filter(Boolean);field.value=[...old,...urls].join(', ');}if(grid)urls.forEach(url=>{const img=document.createElement('img');img.src=url;img.alt='Uploaded screenshot';grid.appendChild(img);});status.textContent='Uploaded '+urls.length+' screenshot(s). URLs added to listing.';local();save();}
+    catch(e){status.textContent='Upload failed: '+(e.message||'Please try again.');}finally{screenshotsInput.disabled=false;}
+  });
   form.addEventListener('input',()=>{clearTimeout(window.__wmTimer);window.__wmTimer=setTimeout(local,150);clearTimeout(window.__wmDbTimer);window.__wmDbTimer=setTimeout(()=>{save();},1800);});
   form.addEventListener('change',()=>{local();saveStep();});
   form.addEventListener('toggle',e=>{if(e.target.matches('details.group')&&e.target.open)saveStep();},true);
