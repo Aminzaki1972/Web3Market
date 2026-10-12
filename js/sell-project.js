@@ -175,28 +175,33 @@
     if(id){currentProjectId=id;localStorage.setItem(ID_KEY,id);localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);if(out)out.textContent='Draft saved successfully. Engine '+VERSION;return {ok:true,id};}
     return {ok:false,error:new Error('No project id returned')};
   }
+  function normalizeUrl(value){
+    // Remove invisible Unicode characters and common clipboard wrappers without
+    // relaxing HTTPS or GitHub repository validation.
+    return String(value??'')
+      .replace(/[\u200B-\u200D\uFEFF]/g,'')
+      .trim()
+      .replace(/^["'`<\s]+|["'`>\s]+$/g,'')
+      .trim();
+  }
+  function parseUrl(value){
+    try{return new URL(normalizeUrl(value));}catch(e){return null;}
+  }
   function submissionIssues(){
     const issues=[];
     if(!val('title'))issues.push('project name');
     if(val('short_description').length<20)issues.push('short description (at least 20 characters)');
     if((val('full_description')||val('description')).length<50)issues.push('full description (at least 50 characters)');
-    const rawSite=val('project_url')||val('website_url');
-    let site=rawSite;
-    let repo=val('github_url');
-    const isGithubHost=value=>{try{return /(^|\.)github\.com$/i.test(new URL(value).hostname);}catch(e){return false;}};
-    const isGithubRepo=value=>{try{const u=new URL(value);return u.protocol==='https:'&&u.hostname.toLowerCase()==='github.com'&&/^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(u.pathname);}catch(e){return false;}};
-    const validHttpsSite=value=>{if(!value)return false;try{const u=new URL(value);return u.protocol==='https:'&&!isGithubHost(value);}catch(e){return false;}};
-    // A repository pasted into the optional website field must not invalidate a valid repository-only listing.
-    if(isGithubRepo(site)){
-      if(!isGithubRepo(repo))repo=site;
-      const legacy=val('website_url');
-      site=legacy&&validHttpsSite(legacy)?legacy:'';
-    }
-    const validSite=validHttpsSite(site);
-    const validRepo=isGithubRepo(repo);
-    if(site&&!validSite)issues.push('valid HTTPS official website (put GitHub links in the repository field)');
-    if(repo&&!validRepo)issues.push('valid GitHub repository URL');
-    if(!validSite&&!validRepo)issues.push('official HTTPS website or valid GitHub repository');
+    const site=normalizeUrl(val('project_url')||val('website_url'));
+    const repo=normalizeUrl(val('github_url'));
+    const siteUrl=parseUrl(site);
+    const repoUrl=parseUrl(repo);
+    const isGithubHost=u=>!!u&&/(^|\.)github\.com$/i.test(u.hostname);
+    const validSite=!!siteUrl&&siteUrl.protocol==='https:'&&!isGithubHost(siteUrl);
+    const validRepo=!!repoUrl&&repoUrl.protocol==='https:'&&repoUrl.hostname.toLowerCase()==='github.com'&&/^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(repoUrl.pathname);
+    if(site&&!validSite)issues.push('official website field: enter a valid HTTPS website (not a GitHub link)');
+    if(repo&&!validRepo)issues.push('GitHub repository field: enter https://github.com/owner/repository');
+    if(!validSite&&!validRepo)issues.push('enter at least one valid official HTTPS website or GitHub repository');
     if(!val('business_model'))issues.push('business model');
     const price=num(val('asking_price')||val('price'));
     if(price===null||price<=0)issues.push('asking price greater than zero');
