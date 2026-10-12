@@ -2,7 +2,7 @@
 (function(){
   const form=document.querySelector('#projectForm');
   if(!form)return;
-  const VERSION='20261011-safe-stale-listing-id-recovery2';
+  const VERSION='20261012-listing-validation-v1';
   const out=document.querySelector('#formStatus');
   const submitBtn=document.querySelector('#submitReviewBtn');
   const ID_KEY='web3market_project_id';
@@ -146,8 +146,24 @@
     if(id){currentProjectId=id;localStorage.setItem(ID_KEY,id);localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);if(out)out.textContent='Draft saved successfully. Engine '+VERSION;return {ok:true,id};}
     return {ok:false,error:new Error('No project id returned')};
   }
+  function submissionIssues(){
+    const issues=[];
+    if(!val('title'))issues.push('project name');
+    if(val('short_description').length<20)issues.push('short description (at least 20 characters)');
+    if((val('full_description')||val('description')).length<50)issues.push('full description (at least 50 characters)');
+    const site=val('project_url')||val('website_url');
+    if(!site)issues.push('official project website');
+    else {try{const u=new URL(site);if(u.protocol!=='https:')issues.push('HTTPS project website');}catch(e){issues.push('valid project website URL');}}
+    if(!val('business_model'))issues.push('business model');
+    const price=num(val('asking_price')||val('price'));
+    if(price===null||price<=0)issues.push('asking price greater than zero');
+    if(!val('transfer_terms'))issues.push('asset transfer terms');
+    if(!val('ownership_declaration'))issues.push('ownership declaration');
+    return issues;
+  }
   async function submitForReview(){
-    if(!val('title')||val('short_description').length<20||(val('full_description')||val('description')).length<50){local();saveStep();if(out)out.textContent='Please complete the required information before AI Review. Your draft is محفوظ locally.';return;}
+    const issues=submissionIssues();
+    if(issues.length){local();saveStep();if(out)out.textContent='Complete these fields before AI Review: '+issues.join('; ')+'. Your draft remains saved locally.';return;}
     if(submitBtn)submitBtn.disabled=true;
     try{
       const saved=await save();
