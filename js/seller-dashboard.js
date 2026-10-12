@@ -18,7 +18,7 @@
     if(pr.error||!pr.data){error("تعذر تحميل بيانات حساب البائع.");return;}
     const profile=pr.data;
     if(String(profile.role||"").toLowerCase()!=="seller"){error("هذا الحساب ليس حساب بائع.");return;}
-    const pq=await sb.from("projects").select("id,title,status,asking_price,currency,created_at").eq("owner_id",user.id).order("created_at",{ascending:false});
+    const pq=await sb.from("projects").select("id,title,status,project_status,ai_status,asking_price,currency,created_at").eq("owner_id",user.id).order("created_at",{ascending:false});
     if(pq.error){error("تعذر تحميل مشاريعك.");return;}
     const projects=pq.data||[];
     const dq=await sb.from("deals").select("id,project_id,buyer_id,seller_id,amount,currency,status,created_at,platform_fee_percent,platform_fee_amount,seller_net_amount,payment_tx_hash").eq("seller_id",user.id).order("created_at",{ascending:false});
