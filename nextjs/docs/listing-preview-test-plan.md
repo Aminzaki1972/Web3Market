@@ -54,3 +54,13 @@ This plan covers the isolated Next.js preview on `nextjs-migration` only. The fo
 - No test in this plan should create a production listing or upload a file.
 - These browser checks are still manual until an automated browser test suite is added.
 - Before any backend integration, separately verify the actual database columns, owner/status rules, Row Level Security, and `project-media` storage policies in an isolated test environment. Never infer schema or permissions from this preview form.
+
+
+## Structured legacy-field checks
+
+1. Select several project types and services; confirm each can be independently selected and deselected.
+2. Select several included assets; confirm the selected choices remain distinct from the free-text asset notes.
+3. Set revenue status to Yes and No in turn, then change the reporting period; confirm the selections are preserved.
+4. Reload the page and confirm project types, services, revenue status/period, and included assets restore from the local draft.
+5. Clear the draft and confirm all structured choices reset.
+6. Confirm the UI does not describe any revenue, ownership, asset, or identity declaration as independently verified.
