@@ -99,8 +99,9 @@ export default function SellProjectPage() {
       draft.fullDescription.trim().length >= 50,
       Boolean(draft.category),
       draft.askingPrice.trim() !== "" && Number(draft.askingPrice) >= 0,
-      validHttpsUrl(draft.projectUrl),
-      validGithubRepo(draft.githubUrl),
+      ((Boolean(draft.projectUrl.trim()) && validHttpsUrl(draft.projectUrl) && !/(^|\.)github\.com$/i.test(new URL(draft.projectUrl).hostname)) || (Boolean(draft.githubUrl.trim()) && validGithubRepo(draft.githubUrl))),
+      (!draft.projectUrl.trim() || (validHttpsUrl(draft.projectUrl) && !/(^|\.)github\.com$/i.test(new URL(draft.projectUrl).hostname))),
+      (!draft.githubUrl.trim() || validGithubRepo(draft.githubUrl)),
       Boolean(draft.transferTerms.trim()),
       draft.ownershipDeclaration,
     ];
@@ -125,8 +126,19 @@ export default function SellProjectPage() {
     if (draft.fullDescription.trim().length < 50) errors.push("full description (50+ characters)");
     if (!draft.category) errors.push("project category");
     if (!draft.askingPrice.trim() || !Number.isFinite(Number(draft.askingPrice)) || Number(draft.askingPrice) < 0) errors.push("valid asking price");
-    if (!validHttpsUrl(draft.projectUrl) || /(^|\.)github\.com$/i.test(new URL(draft.projectUrl).hostname)) errors.push("official HTTPS website");
-    if (!validGithubRepo(draft.githubUrl)) errors.push("GitHub owner/repository URL");
+    const hasWebsite = Boolean(draft.projectUrl.trim());
+    const hasRepository = Boolean(draft.githubUrl.trim());
+    if (!hasWebsite && !hasRepository) errors.push("at least one project reference (official website or GitHub repository)");
+    if (hasWebsite && (!validHttpsUrl(draft.projectUrl) || /(^|\.)github\.com$/i.test(new URL(draft.projectUrl).hostname))) errors.push("valid official HTTPS website (keep GitHub in its own field)");
+    if (hasRepository && !validGithubRepo(draft.githubUrl)) errors.push("valid GitHub owner/repository URL");
+    const optionalLinks: Array<[string, string]> = [
+      ["demo URL", draft.demoUrl], ["documentation URL", draft.documentationUrl],
+      ["X / Twitter URL", draft.twitterUrl], ["Telegram URL", draft.telegramUrl],
+      ["Discord URL", draft.discordUrl], ["LinkedIn URL", draft.linkedinUrl],
+    ];
+    optionalLinks.forEach(([label, value]) => {
+      if (value.trim() && !validHttpsUrl(value)) errors.push(label + " must use HTTPS");
+    });
     if (!draft.transferTerms.trim()) errors.push("transfer terms");
     if (!draft.ownershipDeclaration) errors.push("ownership confirmation");
     if (errors.length) {
