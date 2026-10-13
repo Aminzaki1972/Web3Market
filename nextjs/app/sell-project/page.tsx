@@ -182,7 +182,7 @@ export default function SellProjectPage() {
       ["yearly revenue", draft.yearlyRevenue], ["yearly profit", draft.yearlyProfit], ["monthly expenses", draft.monthlyExpenses],
       ["monthly volume", draft.monthlyVolume], ["total sales", draft.totalSales],
       ["users / customers", draft.users], ["active users", draft.activeUsers],
-      ["paying customers", draft.customers], ["monthly visits", draft.monthlyVisits], ["total sales", draft.totalSales],
+      ["paying customers", draft.customers], ["monthly visits", draft.monthlyVisits],
     ];
     numericFields.forEach(([label, value]) => {
       const error = optionalNonNegativeNumberError(value, label);
