@@ -42,3 +42,12 @@ This document is on the isolated `nextjs-migration` branch. It does not change t
 ## Scope note
 
 This is a source-code inspection and migration checklist, not a production security audit. Storage policies, database constraints/RLS, and Edge Function internals still need to be inspected in the test environment before claiming the migrated flow is safe.
+
+
+## Read-only Supabase inspection (2026-10-13)
+
+The production Supabase project was inspected without making any changes. `public.projects` has RLS enabled; seller/admin owner checks apply on insert, and owner updates are restricted to `status = 'draft'` (with a separate admin path). Public reads cover active/sold records except those flagged `verification.ai.test_mode = true`. The `status` column defaults to `active`, so a future draft creation path must explicitly set `draft` and must never rely on that default.
+
+The `project-media` bucket is public with a 50 MiB bucket-level cap and accepted image/video MIME types. Upload insertion requires the first folder segment to equal the authenticated user's ID. Because the bucket is public, it must not be used for private identity or ownership evidence. Upload code should use unique user-scoped object paths and avoid upsert unless the necessary SELECT/UPDATE permissions are explicitly verified.
+
+No separate development branch was present during this inspection. Therefore no database write, upload, or end-to-end submission test was attempted. The Next.js form remains a browser-local preview.
