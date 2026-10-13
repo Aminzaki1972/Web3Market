@@ -389,8 +389,18 @@
                 .toLowerCase();
 
 
-        let result =
-            list.slice();
+        /* Defense in depth: only fully approved live listings may enter
+         * the public marketplace renderer. Keep test/demo projects private,
+         * even if this legacy loader runs before the live marketplace script.
+         */
+        let result = list.filter(function (project) {
+            if (!project) return false;
+            const status = String(project.status || '').trim().toLowerCase();
+            const projectStatus = String(project.project_status || '').trim().toLowerCase();
+            const aiStatus = String(project.ai_status || '').trim().toLowerCase();
+            const testMode = project.verification && project.verification.ai && project.verification.ai.test_mode === true;
+            return status === 'active' && projectStatus === 'approved' && aiStatus === 'approved' && !testMode;
+        });
 
 
         /*
