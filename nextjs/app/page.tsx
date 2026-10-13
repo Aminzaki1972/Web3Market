@@ -35,7 +35,8 @@ export default function HomePage() {
           and prepare for structured acquisition workflows.
         </p>
         <div className="hero-actions">
-          <a className="primary-action" href="#capabilities">Explore the preview <span aria-hidden="true">↗</span></a>
+          <a className="primary-action" href="/sell-project">Test seller listing <span aria-hidden="true">↗</span></a>
+          <a className="secondary-action" href="#capabilities">Explore the preview</a>
           <a className="secondary-action" href="https://web3market.xyz/">Visit current website</a>
         </div>
         <p className="notice">Migration preview only. The existing production website and its data remain unchanged.</p>
