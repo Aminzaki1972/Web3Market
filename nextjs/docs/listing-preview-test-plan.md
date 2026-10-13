@@ -22,7 +22,7 @@ This plan covers the isolated Next.js preview on `nextjs-migration` only. The fo
 4. Enter a valid HTTPS official website and leave GitHub blank; confirm the references requirement is satisfied.
 5. Enter a valid GitHub owner/repository URL and leave website blank; confirm the references requirement is satisfied.
 6. Put a GitHub URL in the official website field; confirm validation rejects the misplaced URL.
-7. Enter an HTTP URL or malformed URL in an optional link; confirm validation rejects it.
+7. Enter an HTTP URL or malformed URL in an optional link, including App Store and social links; confirm validation rejects it.
 
 ## Numeric validation
 
@@ -30,8 +30,11 @@ This plan covers the isolated Next.js preview on `nextjs-migration` only. The fo
 2. Test empty, negative, and non-numeric asking price values; confirm they fail.
 3. For optional revenue/expense fields, leave blank or use `0`; both should be accepted.
 4. Test negative or non-numeric optional financial metrics; confirm validation fails.
-5. For counts (users, customers, visits), test a decimal such as `2.5`; confirm validation fails.
-6. Test year created with a valid year and with an implausible/future year; confirm only the valid year passes.
+5. For counts (users, customers, visits, total sales), test a decimal such as `2.5`; confirm validation fails.
+6. Test growth rate with `-12%` and an invalid string; confirm the numeric negative rate is accepted and invalid text rejected.
+7. Test conversion rate with `3.4%`, `101%`, and a negative value; only values from 0 through 100 should pass.
+8. Set last active date to today, then a future date; confirm the future date is rejected.
+9. Test year created with a valid year and with an implausible/future year; confirm only the valid year passes.
 
 ## Media selection checks
 
