@@ -130,7 +130,9 @@ function optionalRateError(value: string, label: string, min: number, max?: numb
   const normalized = value.trim().endsWith("%") ? value.trim().slice(0, -1).trim() : value.trim();
   const parsed = Number(normalized);
   if (!Number.isFinite(parsed) || parsed < min || (max !== undefined && parsed > max)) {
-    return label + " must be a valid percentage/value between " + min + (max === undefined ? " and above" : " and " + max);
+    return max === undefined
+      ? label + " must be a valid number greater than or equal to " + min
+      : label + " must be a valid number between " + min + " and " + max;
   }
   return null;
 }
@@ -212,6 +214,7 @@ export default function SellProjectPage() {
     const integerFields: Array<[string, string]> = [
       ["users / customers", draft.users], ["active users", draft.activeUsers],
       ["paying customers", draft.customers], ["monthly visits", draft.monthlyVisits],
+      ["total sales", draft.totalSales],
     ];
     integerFields.forEach(([label, value]) => {
       if (value.trim() && validNonNegativeNumber(value) && !Number.isInteger(Number(value))) {
@@ -222,6 +225,12 @@ export default function SellProjectPage() {
       const year = Number(draft.yearCreated);
       if (!Number.isInteger(year) || year < 1990 || year > new Date().getFullYear() + 1) {
         errors.push("valid year created");
+      }
+    }
+    if (draft.lastActiveDate.trim()) {
+      const activeDate = new Date(draft.lastActiveDate + "T00:00:00");
+      if (Number.isNaN(activeDate.getTime()) || activeDate > new Date()) {
+        errors.push("last active date must be a valid date no later than today");
       }
     }
     if (draft.fullDescription.length > 20000) errors.push("full description (maximum 20,000 characters)");
