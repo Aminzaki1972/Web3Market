@@ -195,9 +195,9 @@ The following database types and columns were checked directly against the produ
 | `projectTypes` | `project_types` (JSONB) | Convert the comma-separated UI selection to a JSON string array; never send the comma-separated string itself. |
 | `services` | `services` (JSONB) | Convert to a JSON string array. |
 | `selectedAssets` | `assets` (JSONB) | Convert to a JSON string array. This describes selected asset categories, not uploaded files. |
-| `targetAudience` | `target_audience` (JSONB) | Current UI is free text, unlike the legacy array of checkboxes. Do not write raw prose to JSONB or silently split on commas. Decide explicitly whether to change the UI to multi-select or store the full value as a single-element JSON array. |
-| `hasRevenue` | `has_revenue` (text) | Store the explicit `yes`/`no` value as text; empty means unknown/not supplied, not `no`. |
-| `revenuePeriod` | `revenue_period` (text) | Store only supported values (`monthly`, `quarterly`, `yearly`, `lifetime`) or null. |
+| `targetAudience` | `target_audience` (JSONB) | UI now uses the same multi-select audience categories as the legacy form. Convert the comma-separated local draft value to a JSON string array. |
+| `hasRevenue` | `has_revenue` (text) | Store the explicit legacy-compatible `Yes`/`No` value as text; empty means unknown/not supplied, not `No`. |
+| `revenuePeriod` | `revenue_period` (text) | Store legacy-compatible values (`Monthly`, `Yearly`, `Both`) or null. |
 | `monthlyRevenue` | `monthly_revenue` (numeric) | Finite non-negative number or null. |
 | `yearlyRevenue` | `yearly_revenue` (numeric) | Finite non-negative number or null. |
 | `monthlyProfit` | `monthly_profit` and possibly `monthly_net_profit` | Numeric. Do not assume gross/net equivalence; align field wording and downstream readers first. |
