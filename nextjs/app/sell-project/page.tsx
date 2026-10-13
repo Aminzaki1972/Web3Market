@@ -190,7 +190,7 @@ export default function SellProjectPage() {
   function update<K extends keyof ListingDraft>(key: K, value: ListingDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
   }
-  function toggleListValue(key: "projectTypes" | "services" | "selectedAssets", value: string, checked: boolean) {
+  function toggleListValue(key: "projectTypes" | "services" | "targetAudience" | "selectedAssets", value: string, checked: boolean) {
     const current = draft[key].split(",").map(item => item.trim()).filter(Boolean);
     const next = checked ? Array.from(new Set([...current, value])) : current.filter(item => item !== value);
     update(key, next.join(", "));
@@ -313,14 +313,14 @@ export default function SellProjectPage() {
             <label className="field">Technology stack<input value={draft.techStack} onChange={e => update("techStack", e.target.value)} placeholder="e.g. Next.js, Solidity, PostgreSQL" /></label>
             <label className="field">Year created<input type="number" min="1990" max="2100" value={draft.yearCreated} onChange={e => update("yearCreated", e.target.value)} placeholder="e.g. 2025" /></label>
             <fieldset className="field full-field"><legend>Project types</legend><div className="listing-choice-grid">{["Website", "SaaS", "AI application", "Smart contract", "DeFi protocol", "Mobile app", "Game", "Marketplace", "Developer tool", "Other"].map(value => <label className="choice" key={value}><input type="checkbox" checked={draft.projectTypes.split(",").map(item => item.trim()).includes(value)} onChange={e => toggleListValue("projectTypes", value, e.target.checked)} /> {value}</label>)}</div></fieldset>
-            <fieldset className="field full-field"><legend>Services included</legend><div className="listing-choice-grid">{["Web development", "Smart contract development", "API", "Analytics", "AI / ML", "Consulting", "Hosting / infrastructure", "Community", "Other"].map(value => <label className="choice" key={value}><input type="checkbox" checked={draft.services.split(",").map(item => item.trim()).includes(value)} onChange={e => toggleListValue("services", value, e.target.checked)} /> {value}</label>)}</div></fieldset>
+            <fieldset className="field full-field"><legend>Industry / service categories</legend><div className="listing-choice-grid">{["Health", "Education", "Marketing", "Sales", "Finance", "Web3", "AI", "Social", "Business", "Real Estate", "Travel", "Gaming", "Media", "Freelance", "Other"].map(value => <label className="choice" key={value}><input type="checkbox" checked={draft.services.split(",").map(item => item.trim()).includes(value)} onChange={e => toggleListValue("services", value, e.target.checked)} /> {value}</label>)}</div></fieldset>
           </div>
         </section>
 
         <section className="listing-section">
           <div className="listing-section-heading"><span>03</span><div><h2>Market, audience and competitive position</h2><p>Describe the intended users and why buyers may choose this project.</p></div></div>
           <div className="listing-fields">
-            <label className="field full-field">Target audience<input value={draft.targetAudience} onChange={e => update("targetAudience", e.target.value)} placeholder="Who uses or would use this project?" /></label>
+            <fieldset className="field full-field"><legend>Target audience</legend><div className="listing-choice-grid">{["Developers", "Business Owners", "Companies", "Freelancers", "Startups", "Investors", "Students", "Professionals", "Consumers", "Enterprises", "General Users"].map(value => <label className="choice" key={value}><input type="checkbox" checked={draft.targetAudience.split(",").map(item => item.trim()).includes(value)} onChange={e => toggleListValue("targetAudience", value, e.target.checked)} /> {value}</label>)}</div></fieldset>
             <label className="field full-field">Target markets<input value={draft.targetMarkets} onChange={e => update("targetMarkets", e.target.value)} placeholder="e.g. Global, Egypt, GCC, Europe" /></label>
             <label className="field full-field">Buyer pitch<textarea rows={3} value={draft.buyerPitch} onChange={e => update("buyerPitch", e.target.value)} placeholder="Why should a buyer choose this project?" /></label>
             <label className="field full-field">Market opportunity<textarea rows={3} value={draft.marketOpportunity} onChange={e => update("marketOpportunity", e.target.value)} placeholder="Market, problem solved, and demand signals" /></label>
@@ -365,6 +365,8 @@ export default function SellProjectPage() {
           <div className="listing-fields">
             <label className="field">Asking price <b>*</b><input type="number" min="0" step="0.01" value={draft.askingPrice} onChange={e => update("askingPrice", e.target.value)} placeholder="0.00" /></label>
             <label className="field">Currency<select value={draft.currency} onChange={e => update("currency", e.target.value)}><option>USD</option><option>EUR</option><option>GBP</option><option>USDT</option><option>BNB</option></select></label>
+            <label className="field">Generates revenue?<select value={draft.hasRevenue} onChange={e => update("hasRevenue", e.target.value)}><option value="">Not specified</option><option value="Yes">Yes</option><option value="No">No</option></select></label>
+            <label className="field">Revenue period<select value={draft.revenuePeriod} onChange={e => update("revenuePeriod", e.target.value)}><option value="">Not specified</option><option value="Monthly">Monthly</option><option value="Yearly">Yearly</option><option value="Both">Both</option></select></label>
             <label className="field">Monthly revenue<input type="number" min="0" step="0.01" value={draft.monthlyRevenue} onChange={e => update("monthlyRevenue", e.target.value)} placeholder="0 if none" /></label>
             <label className="field">Monthly profit<input type="number" step="0.01" value={draft.monthlyProfit} onChange={e => update("monthlyProfit", e.target.value)} placeholder="0 if none" /></label>
             <label className="field">Yearly revenue<input type="number" min="0" step="0.01" value={draft.yearlyRevenue} onChange={e => update("yearlyRevenue", e.target.value)} placeholder="0 if none" /></label>
