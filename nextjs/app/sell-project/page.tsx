@@ -82,6 +82,20 @@ function validGithubRepo(value: string) {
   } catch { return false; }
 }
 
+function mediaFileError(file: File, kind: "image" | "video"): string | null {
+  const allowed = kind === "image"
+    ? ["image/png", "image/jpeg", "image/webp"]
+    : ["video/mp4", "video/webm", "video/quicktime"];
+  const maxBytes = kind === "video" ? 50 * 1024 * 1024 : 8 * 1024 * 1024;
+  if (!allowed.includes(file.type)) {
+    return kind === "video" ? "Choose an MP4, WebM, or MOV video." : "Choose a PNG, JPG, or WebP image.";
+  }
+  if (file.size > maxBytes) {
+    return (kind === "video" ? "Video" : "Image") + " exceeds the " + (maxBytes / (1024 * 1024)) + " MB limit.";
+  }
+  return null;
+}
+
 export default function SellProjectPage() {
   const [draft, setDraft] = useState<ListingDraft>(emptyDraft);
   const [loaded, setLoaded] = useState(false);
@@ -188,7 +202,7 @@ export default function SellProjectPage() {
           <div className="listing-fields">
             <label className="field full-field">Project name <b>*</b><input value={draft.projectName} onChange={e => update("projectName", e.target.value)} placeholder="e.g. Web3 analytics platform" autoComplete="off" /></label>
             <label className="field full-field">Short description <b>*</b><span className="field-hint">A concise summary for search results and listing cards. Aim for one or two sentences.</span><textarea value={draft.shortDescription} onChange={e => update("shortDescription", e.target.value)} minLength={20} maxLength={220} rows={3} placeholder="What does the project do, and who is it for?" /><small>{draft.shortDescription.length}/220 characters · 20 minimum for preview validation</small></label>
-            <label className="field full-field">Full project description <b>*</b><span className="field-hint">Explain the problem, solution, features, current status, users, technology and what a buyer receives.</span><textarea value={draft.fullDescription} onChange={e => update("fullDescription", e.target.value)} minLength={50} rows={6} placeholder="Describe the product, differentiators, traction, roadmap, and included assets..." /><small>{draft.fullDescription.length} characters · 50 minimum for preview validation</small></label>
+            <label className="field full-field">Full project description <b>*</b><span className="field-hint">Explain the problem, solution, features, current status, users, technology and what a buyer receives.</span><textarea value={draft.fullDescription} onChange={e => update("fullDescription", e.target.value)} minLength={50} maxLength={20000} rows={6} placeholder="Describe the product, differentiators, traction, roadmap, and included assets..." /><small>{draft.fullDescription.length} characters · 50 minimum for preview validation</small></label>
           </div>
         </section>
 
@@ -231,10 +245,10 @@ export default function SellProjectPage() {
         <section className="listing-section">
           <div className="listing-section-heading"><span>05</span><div><h2>Files and media</h2><p>Select media to check the interface. These files are not uploaded or persisted.</p></div></div>
           <div className="listing-fields">
-            <label className="field">Project logo<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => setLogoName(e.target.files?.[0]?.name || "")} /><small>{logoName ? "Selected: " + logoName : "PNG, JPG or WebP · Upload will be wired after storage-policy review."}</small></label>
-            <label className="field">Cover image<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => setCoverName(e.target.files?.[0]?.name || "")} /><small>{coverName ? "Selected: " + coverName : "PNG, JPG or WebP"}</small></label>
-            <label className="field">Demo video<input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={e => setVideoName(e.target.files?.[0]?.name || "")} /><small>{videoName ? "Selected: " + videoName : "MP4, WebM or MOV"}</small></label>
-            <label className="field">Screenshots<input type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={e => setScreenshots(Array.from(e.target.files || []).map(f => f.name))} /><small>{screenshots.length ? screenshots.length + " file(s): " + screenshots.join(", ") : "Select multiple screenshots"}</small></label>
+            <label className="field">Project logo<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => { const file = e.target.files?.[0]; if (!file) { setLogoName(""); return; } const error = mediaFileError(file, "image"); if (error) { e.target.value = ""; setLogoName("Rejected: " + error); return; } setLogoName(file.name + " · " + (file.size / (1024 * 1024)).toFixed(2) + " MB"); }} /><small>{logoName ? (logoName.startsWith("Rejected:") ? logoName : "Selected: " + logoName) : "PNG, JPG or WebP · Max 8 MB. Files are not uploaded in this preview."}</small></label>
+            <label className="field">Cover image<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => { const file = e.target.files?.[0]; if (!file) { setCoverName(""); return; } const error = mediaFileError(file, "image"); if (error) { e.target.value = ""; setCoverName("Rejected: " + error); return; } setCoverName(file.name + " · " + (file.size / (1024 * 1024)).toFixed(2) + " MB"); }} /><small>{coverName ? (coverName.startsWith("Rejected:") ? coverName : "Selected: " + coverName) : "PNG, JPG or WebP · Max 8 MB"}</small></label>
+            <label className="field">Demo video<input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={e => { const file = e.target.files?.[0]; if (!file) { setVideoName(""); return; } const error = mediaFileError(file, "video"); if (error) { e.target.value = ""; setVideoName("Rejected: " + error); return; } setVideoName(file.name + " · " + (file.size / (1024 * 1024)).toFixed(2) + " MB"); }} /><small>{videoName ? (videoName.startsWith("Rejected:") ? videoName : "Selected: " + videoName) : "MP4, WebM or MOV · Max 50 MB"}</small></label>
+            <label className="field">Screenshots<input type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={e => { const files = Array.from(e.target.files || []); const invalid = files.find(file => mediaFileError(file, "image")); if (invalid) { e.target.value = ""; setScreenshots(["Rejected: " + invalid.name + " — " + mediaFileError(invalid, "image")]); return; } setScreenshots(files.map(file => file.name + " · " + (file.size / (1024 * 1024)).toFixed(2) + " MB")); }} /><small>{screenshots.length ? (screenshots[0].startsWith("Rejected:") ? screenshots[0] : screenshots.length + " file(s): " + screenshots.join(", ")) : "Select multiple screenshots · Each image max 8 MB"}</small></label>
           </div>
           <p className="media-warning">For this stage, file selection is only a UI test. Reloading the page will not retain the selected files.</p>
         </section>
