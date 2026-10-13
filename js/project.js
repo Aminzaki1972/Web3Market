@@ -13,7 +13,50 @@
  const score=(l,v)=>`<div style="padding:12px;border:1px solid #e6eaf0;border-radius:12px"><strong>${esc(l)}</strong><div style="font-size:24px;font-weight:700;margin-top:4px">${v==null?'—':esc(Math.round(Number(v)))+'/100'}</div></div>`;
  const badge=(ok,l)=>`<span style="display:inline-block;margin:4px 6px 4px 0;padding:5px 9px;border-radius:999px;background:${ok?'#e8f7ee':'#f1f3f5'};color:${ok?'#16733b':'#667085'};font-size:13px">${ok?'✓':'○'} ${l}</span>`;
  const buyerRegisterUrl=projectId=>`register.html?role=buyer&returnTo=${encodeURIComponent('project.html?id='+projectId)}`;
- async function offer(e,p,client){e.preventDefault();const form=e.currentTarget;const out=document.getElementById('offerStatus');try{const {data:{user}}=await client.auth.getUser();if(!user){location.href=buyerRegisterUrl(p.id);return}const {data:profile}=await client.from('profiles').select('role').eq('id',user.id).maybeSingle();const role=String(profile?.role||user.user_metadata?.role||'').trim().toLowerCase();if(role!=='buyer'){out.textContent='A Buyer account is required to make an offer.';return}if(p.owner_id===user.id){out.textContent='You cannot make an offer on your own project.';return}const fd=new FormData(form),amount=Number(fd.get('amount'));if(!Number.isFinite(amount)||amount<=0){out.textContent='Enter a valid amount.';return}const {data:deal,error}=await client.from('deals').insert({project_id:p.id,buyer_id:user.id,seller_id:p.owner_id,amount,currency:p.currency||'USD',status:'pending'}).select('id').single();if(error)throw error;const message=String(fd.get('message')||'').trim();if(message)await client.from('deal_messages').insert({deal_id:deal.id,sender_id:user.id,message});out.textContent='Offer submitted successfully.';form.reset()}catch(err){console.error(err);out.textContent=err?.message||'Unable to submit offer.'}}
+ async function offer(e,p,client){
+  e.preventDefault();
+  const form=e.currentTarget;
+  if(form.dataset.submitting==='true')return;
+  form.dataset.submitting='true';
+  const out=document.getElementById('offerStatus');
+  const submitBtn=form.querySelector('button[type="submit"]');
+  const originalBtnText=submitBtn?.textContent||'Send Offer';
+  if(submitBtn){submitBtn.disabled=true;submitBtn.textContent='Submitting offer…';}
+  let created=false;
+  try{
+   const {data:{user}}=await client.auth.getUser();
+   if(!user){location.href=buyerRegisterUrl(p.id);return}
+   const {data:profile}=await client.from('profiles').select('role').eq('id',user.id).maybeSingle();
+   const role=String(profile?.role||user.user_metadata?.role||'').trim().toLowerCase();
+   if(role!=='buyer'){if(out)out.textContent='A Buyer account is required to make an offer.';return}
+   if(p.owner_id===user.id){if(out)out.textContent='You cannot make an offer on your own project.';return}
+   const fd=new FormData(form),amount=Number(fd.get('amount'));
+   if(!Number.isFinite(amount)||amount<=0){if(out)out.textContent='Enter a valid amount.';return}
+   // Prevent repeat submissions and re-use an existing active deal for this buyer/project.
+   const existing=await client.from('deals').select('id,status').eq('project_id',p.id).eq('buyer_id',user.id).in('status',['pending','accepted','funded','in_progress','disputed']).order('created_at',{ascending:false}).limit(1).maybeSingle();
+   if(existing.error)throw existing.error;
+   if(existing.data){
+    if(out)out.innerHTML='You already have an active offer for this project. <a href="deal-room.html?deal='+encodeURIComponent(existing.data.id)+'">Open your existing Deal Room →</a>';
+    return;
+   }
+   const {data:deal,error}=await client.from('deals').insert({project_id:p.id,buyer_id:user.id,seller_id:p.owner_id,amount,currency:p.currency||'USD',status:'pending'}).select('id').single();
+   if(error)throw error;
+   created=true;
+   const message=String(fd.get('message')||'').trim();
+   if(message)await client.from('deal_messages').insert({deal_id:deal.id,sender_id:user.id,message});
+   if(out)out.innerHTML='Offer submitted successfully. <a href="deal-room.html?deal='+encodeURIComponent(deal.id)+'">Open Deal Room →</a>';
+   form.reset();
+  }catch(err){
+   console.error(err);
+   if(out)out.textContent=err?.message||'Unable to submit offer.';
+  }finally{
+   form.dataset.submitting='false';
+   if(submitBtn){
+    submitBtn.disabled=false;
+    submitBtn.textContent=created?'Offer submitted':originalBtnText;
+   }
+  }
+ }
  async function load(){
   try{
    const params=new URLSearchParams(location.search);const id=params.get('id');const soldView=params.get('view')==='sold';
