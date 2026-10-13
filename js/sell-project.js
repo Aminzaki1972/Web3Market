@@ -4,7 +4,7 @@
   if(!form)return;
   // Draft saving must allow incomplete forms; AI Review has its own explicit validation.
   form.noValidate = true;
-  const VERSION='20261013-protected-evidence-v4';
+  const VERSION='20261013-database-draft-review-v5';
   const out=document.querySelector('#formStatus');
   const submitBtn=document.querySelector('#submitReviewBtn');
   const ID_KEY='web3market_project_id';
@@ -211,12 +211,13 @@
   }
   async function submitForReview(){
     const issues=submissionIssues();
-    if(issues.length){local();saveStep();if(out)out.textContent='Complete these fields before AI Review: '+issues.join('; ')+'. Your draft remains saved locally.';return;}
+    if(issues.length){const saved=await save();saveStep();const prefix=saved.ok?'Draft saved to your Web3Market account. AI review has not started. Complete these fields: ':saved.offline?'Database unavailable. A recovery copy is only on this device. AI review has not started. Complete these fields: ':saved.auth===false?'Please sign in to save this draft to your account. A recovery copy is only on this device. AI review has not started. Complete these fields: ':'The database save could not be confirmed. A recovery copy remains on this device. AI review has not started. Complete these fields: ';if(out)out.textContent=prefix+issues.join('; ')+'.';return;}
     if(submitBtn)submitBtn.disabled=true;
     try{
       const saved=await save();
       if(!saved.ok){return;}
       const x=await wait();
+      if(!x)throw new Error('Database connection is unavailable. The draft remains saved if the previous account save succeeded; otherwise only the recovery copy on this device is available.');
       const sessionResult=await x.auth.getSession();
       const token=sessionResult.data?.session?.access_token;
       if(!token)throw new Error('Please sign in again before submitting.');
@@ -225,8 +226,9 @@
       const j=await r.json().catch(()=>({error:'Invalid server response'}));
       if(!r.ok||!j.success)throw new Error(j.error||'AI Review failed.');
       const score=j.review?.overall_score??j.result?.ai_score??'—';
-      const status=j.review?.recommendation||j.result?.ai_status||'submitted';
-      if(out)out.textContent='Submitted successfully. AI Score: '+score+'. '+String(status).replace(/_/g,' ')+'.';
+      const status=j.result?.ai_status||j.review?.recommendation||'submitted';
+      const queued=j.result?.project_status==='admin_review'||j.result?.ai_status==='recommended_for_admin_review';
+      if(out)out.textContent='AI review completed. Score: '+score+'. '+(queued?'The project has been sent to the Admin Review queue. It has not been published automatically.':'The project needs changes before it can enter the Admin Review queue.')+' Review status: '+String(status).replace(/_/g,' ')+'.';
       if(submitBtn)submitBtn.textContent='Submitted for AI Review';
     }catch(e){console.error('SUBMIT REVIEW ERROR',e);if(out)out.textContent='Saved as draft, but submission failed: '+(e.message||'Please try again.');}
     finally{if(submitBtn&&submitBtn.textContent!=='Submitted for AI Review')submitBtn.disabled=false;}
@@ -277,7 +279,7 @@
     catch(e){status.textContent='Upload failed: '+(e.message||'Please try again.');}finally{screenshotsInput.disabled=false;}
   });
   form.addEventListener('input',()=>{clearTimeout(window.__wmTimer);window.__wmTimer=setTimeout(local,150);clearTimeout(window.__wmDbTimer);window.__wmDbTimer=setTimeout(()=>{save();},1800);});
-  form.addEventListener('change',()=>{local();saveStep();renderSavedMediaPreviews();});
+  form.addEventListener('change',()=>{local();saveStep();renderSavedMediaPreviews();save();});
   form.addEventListener('toggle',e=>{if(e.target.matches('details.group')&&e.target.open)saveStep();},true);
   form.addEventListener('submit',e=>{e.preventDefault();save();});
   window.addEventListener('beforeunload',()=>{local();saveStep();});
