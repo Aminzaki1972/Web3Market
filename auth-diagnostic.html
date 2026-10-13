@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Web3Market Sign-in Diagnostic</title>
+<style>
+body{font:16px/1.55 system-ui,sans-serif;margin:0;background:#f4f6fa;color:#172033}.wrap{max-width:720px;margin:36px auto;padding:0 16px}.card{background:#fff;border:1px solid #dce2eb;border-radius:16px;padding:24px;box-shadow:0 8px 28px #14213d0d}h1{font-size:26px;margin:0 0 8px}.muted{color:#657087}.row{padding:12px 0;border-bottom:1px solid #edf0f5}.label{font-weight:750}.value{display:block;margin-top:4px;overflow-wrap:anywhere}.status{font-weight:800}.wait{color:#9a6500}.ok{color:#087443}.bad{color:#b42318}button,a{display:inline-block;margin:12px 8px 0 0;padding:11px 15px;border-radius:10px;border:0;background:#4338ca;color:#fff;text-decoration:none;font:inherit;font-weight:750}button{cursor:pointer}.secondary{background:#e9ecf5;color:#20283b}small{color:#657087}
+</style>
+</head>
+<body><main class="wrap"><section class="card">
+<h1>Web3Market sign-in check</h1><p class="muted">This page checks whether the current browser tab can see your saved sign-in session and read your account role. It never displays passwords or session tokens.</p>
+<div class="row"><span class="label">Diagnostic page version</span><span class="value" id="version">AUTH-CHECK-1</span></div>
+<div class="row"><span class="label">Current site</span><span class="value" id="origin">Checking…</span></div>
+<div class="row"><span class="label">Supabase client</span><span class="value status wait" id="client">Checking…</span></div>
+<div class="row"><span class="label">Saved sign-in session</span><span class="value status wait" id="session">Checking…</span></div>
+<div class="row"><span class="label">Account role</span><span class="value status wait" id="role">Checking…</span></div>
+<div class="row"><span class="label">Header script on marketplace</span><span class="value status" id="header">Expected version: 20261013-3 (this check does not alter your account)</span></div>
+<div id="summary" class="row status wait">Running checks…</div>
+<button type="button" id="retry">Run checks again</button><a class="secondary" href="marketplace.html?authcheck=1">Open Marketplace</a><a class="secondary" href="buyer-dashboard.html">Buyer Dashboard</a>
+<p><small>If the session is missing here but the dashboard is signed in, the two pages may be using different site origins or browser storage. Do not share passwords, tokens, or screenshots containing private account data.</small></p>
+</section></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js?v=20261013-authcheck1"></script>
+<script>
+(function(){
+"use strict";
+var el=function(id){return document.getElementById(id)};
+el("origin").textContent=location.origin+" · "+location.pathname;
+function set(id,text,cls){el(id).textContent=text;el(id).className="value status "+(cls||"")}
+async function run(){
+set("client","Checking…","wait");set("session","Checking…","wait");set("role","Checking…","wait");set("summary","Running checks…","wait");
+var api=window.Web3MarketSupabase,client=api&&typeof api.getClient==="function"?api.getClient():(api&&api.client)||window.supabaseClient||null;
+if(!client||!client.auth){set("client","NOT AVAILABLE — shared Supabase client did not initialize","bad");set("session","Not checked","bad");set("role","Not checked","bad");set("summary","Likely script loading or initialization problem.","bad");return}
+set("client","Available","ok");
+var session=null;
+try{var sr=await client.auth.getSession();session=sr&&sr.data&&sr.data.session;if(!session&&typeof window.Web3MarketSupabaseRestoreSession==="function")session=await window.Web3MarketSupabaseRestoreSession();if(!session){var again=await client.auth.getSession();session=again&&again.data&&again.data.session}}catch(e){console.warn("Session diagnostic error",e)}
+if(!session||!session.user){set("session","NO SESSION found on this site origin","bad");set("role","Not checked","bad");set("summary","The browser tab cannot see a signed-in session here. Compare the site address with the address used for the Buyer Dashboard.","bad");return}
+set("session","FOUND — signed-in user detected (private identifiers hidden)","ok");
+var role="";
+try{var pr=await client.from("profiles").select("role").eq("id",session.user.id).maybeSingle();if(!pr.error&&pr.data&&pr.data.role)role=String(pr.data.role).toLowerCase();else if(pr.error)console.warn("Role query diagnostic",pr.error.message||pr.error)}catch(e){console.warn("Role query diagnostic exception",e)}
+if(role){set("role","FOUND: "+role,"ok");set("summary",["buyer","seller","admin"].includes(role)?"Session and role both work on this origin. The remaining issue is likely the live header script, selector, or deployment/cache.":"Session exists, but role value is not one of the header's recognized roles.","ok");return}
+set("role","SESSION FOUND, BUT PROFILE ROLE COULD NOT BE READ","bad");
+set("summary","The header cannot choose the correct dashboard because the profile role query returned no role. Check the browser console or profile access policy next.","bad");
+}
+el("retry").addEventListener("click",run);run();
+})();
+</script>
+</body></html>
