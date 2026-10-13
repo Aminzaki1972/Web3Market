@@ -126,3 +126,26 @@ The preview also now includes separate optional HTTPS inputs for `facebookUrl`, 
 | `selectedAssets` | `assets` | Structured checkbox choices stored as a comma-separated string in local draft. Do not map until the database's expected type is confirmed. `assetNotes` remains a separate explanatory text field. |
 
 These additions improve preview coverage only. They do not change Supabase, upload files, or make seller claims verified. The test plan should cover selecting/deselecting multiple options and restoring them after a reload.
+
+
+## Read-only production schema confirmation (2026-10-13)
+
+The existing Supabase project was inspected read-only. No rows, schema, policies, or Storage settings were changed. This confirms the following actual `public.projects` columns and types:
+
+| Field group | Confirmed database columns | Actual type / mapping requirement |
+|---|---|---|
+| Required identity | `owner_id`, `title`, `status` | `owner_id` is non-null UUID; `title` is non-null text; `status` is non-null text with default `active`. A future draft insert must explicitly set `status = 'draft'`; do not rely on the default, because active/sold projects are publicly selectable. |
+| Descriptions and URLs | `short_description`, `full_description`, `website_url`, `project_url`, `github_url` | Text columns; keep short and full descriptions separate and map official site/repository separately. |
+| Structured choices | `project_types`, `services`, `assets`, `target_audience` | `jsonb`; `project_types`, `services`, and `assets` default to JSON arrays. Before a future database write, convert the current local comma-separated selections into JSON arrays, not plain strings. `target_audience` is also JSONB, so define and validate an array mapping rather than writing its current free-text value directly. |
+| Revenue and performance | `has_revenue`, `revenue_period`, `monthly_revenue`, `yearly_revenue`, `monthly_profit`, `yearly_profit`, `monthly_net_profit`, `yearly_net_profit`, `monthly_expenses`, `growth_rate`, `conversion_rate`, `total_sales`, `monthly_volume`, `active_users`, `customers_count`, `monthly_visits`, `last_active_date`, `traffic_sources` | Actual columns exist, but use the exact matching column and expected type. `conversion_rate` is text; counts include integer columns; financial amounts are numeric; `last_active_date` is date. Do not write the same field to multiple aliases without a tested compatibility reason. |
+| Sale / assets | `sale_type`, `negotiable`, `transfer_terms`, `transfer_period`, `asset_notes`, `buyer_pitch`, `reason_for_sale`, `asking_price`, `currency_code` | Columns exist with their own types; `negotiable` is boolean and price is numeric. The form's `currency` field should map to `currency_code`, not assume `currency` is the listing column. |
+| Social and technical | `x_url`, `twitter_url`, `telegram_url`, `discord_url`, `linkedin_url`, `facebook_url`, `instagram_url`, `youtube_url`, `tiktok_url`, `reddit_url`, `medium_url`, `other_social_url`, `app_store_url`, `technology_stack`, `tech_stack`, `development_stage`, `project_status`, `primary_type`, `blockchain` | Multiple legacy aliases exist. Choose a canonical write map and verify existing readers before writing duplicate aliases. |
+
+### Confirmed access and upload constraints
+
+- `public.projects` has RLS enabled. The observed insert policy requires the signed-in user to own the row and have seller/admin role. The update policy permits owners to update only rows whose status is `draft` (or an admin path). The preview must not bypass these policies or allow a client to choose another `owner_id`.
+- Anonymous reads are limited by the existing policy to active/sold listings, excluding records marked `verification.ai.test_mode = true`. This makes explicitly inserting a draft essential.
+- The `project-media` Storage bucket is public, accepts JPEG/PNG/WebP and MP4/WebM/MOV, and has a 50 MiB bucket limit. Its insert policy requires the first object path segment to equal the authenticated user's ID. Existing policies allow owners to update/delete owned objects; no object-upsert should be used unless SELECT/UPDATE permissions are separately verified. Use unique user-scoped paths and do not upload private identity or ownership evidence into this public bucket.
+- The project has no separate development branch at the time of inspection. Only the default branch is listed. Do not run listing writes or upload tests against production. A separate isolated test environment is required before backend integration.
+
+This section records schema/policy observations only; it does not authorize or implement writes.
