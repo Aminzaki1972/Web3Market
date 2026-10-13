@@ -9,7 +9,7 @@
     if(notice)notice.textContent="Loading wallet connection…";
     try{
       const s=document.createElement("script");
-      s.src="/js/wallet-manager.js?v=20260921-walletfix16";
+      s.src="/js/wallet-manager.js?v=20261014-dashboard-wallet-fix1";
       s.async=false;
       document.head.appendChild(s);
     }catch(e){console.warn("Web3Market wallet manager reload failed",e)}
