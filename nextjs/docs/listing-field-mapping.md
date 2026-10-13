@@ -149,3 +149,80 @@ The existing Supabase project was inspected read-only. No rows, schema, policies
 - The project has no separate development branch at the time of inspection. Only the default branch is listed. Do not run listing writes or upload tests against production. A separate isolated test environment is required before backend integration.
 
 This section records schema/policy observations only; it does not authorize or implement writes.
+
+## Verified schema-aware write contract (read-only inspection, 2026-10-13)
+
+The following database types and columns were checked directly against the production schema using a read-only query. This records the integration contract only; the preview still performs no database writes.
+
+### Canonical scalar mapping
+
+| Form field | Canonical `public.projects` column | Conversion / guard |
+| --- | --- | --- |
+| `projectName` | `title` | Trim; required on create. |
+| `shortDescription` | `short_description` | Preserve independently from the full description. |
+| `fullDescription` | `description` and `full_description` | Write the same full text to both compatibility columns; never copy the short description into either. |
+| `projectUrl` | `project_url` and `website_url` | Optional HTTPS official site; reject GitHub repository URLs here. |
+| `githubUrl` | `github_url` | Separate HTTPS GitHub owner/repository URL. |
+| `category` | `category` and, after consumer review, `primary_type` | Do not blindly duplicate until display/filter consumers are checked. |
+| `projectStage` | `development_stage` and/or `project_status` | These columns may have different workflow meanings; do not mirror without consumer review. |
+| `blockchain` | `blockchain` | Text. |
+| `businessModel` | `business_model` | Text. |
+| `techStack` | `tech_stack` and `technology_stack` | Both columns exist; select canonical write target only after reader compatibility review. |
+| `yearCreated` | `year_created` | Integer; reject invalid/out-of-range values. |
+| `targetMarkets` | `target_markets` | Text. |
+| `buyerPitch` | `buyer_pitch` | Text. |
+| `assetNotes` | `asset_notes` | Text notes only; selected assets belong in the JSON array below. |
+| `appStoreUrl` | `app_store_url` | Optional HTTPS URL. |
+| `marketOpportunity` | `market_opportunity` | Text. |
+| `competitiveAdvantage` | `competitive_advantage` | Text. |
+| `competitors` | `competitors` | Text; preserve as entered unless the UI is changed to structured entries. |
+| `reasonForSale` | `reason_for_sale` | Use this verified column as canonical; review legacy `sale_reason` consumers before mirroring. |
+| `saleType` | `sale_type` | Text; accepted values should be aligned with the existing UI before cloud writes. |
+| `askingPrice` | `asking_price` and legacy `price` | Finite non-negative numeric value; do not store a formatted currency string. |
+| `currency` | `currency_code` and legacy `currency` | Both exist; use a single canonical code and mirror only if required by verified readers. |
+| `negotiable` | `negotiable` | Boolean. |
+| `transferTerms` | `transfer_terms` | Text. |
+| `transferPeriod` | `transfer_period` | Text until the product defines a normalized duration format. |
+| `demoUrl` | `demo_url` | Optional HTTPS URL. |
+| `documentationUrl` | `documentation_url` | Optional HTTPS URL. |
+| `twitterUrl` | `x_url` and/or `twitter_url` | Both columns exist; choose canonical display field after consumer review. |
+| `telegramUrl`, `discordUrl`, `linkedinUrl`, `facebookUrl`, `instagramUrl`, `youtubeUrl`, `tiktokUrl`, `redditUrl`, `mediumUrl`, `otherSocialUrl` | Corresponding `*_url` columns | Optional HTTPS URLs; do not put social links into an unverified nested object as a substitute for scalar fields. |
+
+### Structured and financial mapping
+
+| Form field | Database column | Required transformation |
+| --- | --- | --- |
+| `projectTypes` | `project_types` (JSONB) | Convert the comma-separated UI selection to a JSON string array; never send the comma-separated string itself. |
+| `services` | `services` (JSONB) | Convert to a JSON string array. |
+| `selectedAssets` | `assets` (JSONB) | Convert to a JSON string array. This describes selected asset categories, not uploaded files. |
+| `targetAudience` | `target_audience` (JSONB) | Current UI is free text, unlike the legacy array of checkboxes. Do not write raw prose to JSONB or silently split on commas. Decide explicitly whether to change the UI to multi-select or store the full value as a single-element JSON array. |
+| `hasRevenue` | `has_revenue` (text) | Store the explicit `yes`/`no` value as text; empty means unknown/not supplied, not `no`. |
+| `revenuePeriod` | `revenue_period` (text) | Store only supported values (`monthly`, `quarterly`, `yearly`, `lifetime`) or null. |
+| `monthlyRevenue` | `monthly_revenue` (numeric) | Finite non-negative number or null. |
+| `yearlyRevenue` | `yearly_revenue` (numeric) | Finite non-negative number or null. |
+| `monthlyProfit` | `monthly_profit` and possibly `monthly_net_profit` | Numeric. Do not assume gross/net equivalence; align field wording and downstream readers first. |
+| `yearlyProfit` | `yearly_profit` and possibly `yearly_net_profit` | Numeric. Do not assume gross/net equivalence. |
+| `monthlyExpenses` | `monthly_expenses` (numeric) | Finite non-negative number or null. |
+| `growthRate` | `growth_rate` (numeric) | Parse optional percent notation to a number; preserve negative growth where allowed by validation. |
+| `conversionRate` | `conversion_rate` (text) | Database type is text. Normalize to a consistent text representation (for example `"3.5"`) only after confirming expected display semantics. |
+| `totalSales` | `total_sales` (numeric) | Database type is numeric, despite UI validation currently treating it as an integer count; confirm whether this means sales count or sales value before finalizing. |
+| `monthlyVolume` | `monthly_volume` (numeric) | Finite non-negative number or null. |
+| `users` | `users_count` (integer) | Non-negative integer or null. |
+| `activeUsers` | `active_users` (integer) | Non-negative integer or null. |
+| `customers` | `customers_count` (integer) | Non-negative integer or null. |
+| `monthlyVisits` | `monthly_visits` (integer) | Non-negative integer or null. |
+| `lastActiveDate` | `last_active_date` (date) | Valid calendar date; reject future dates. |
+| `trafficSources` | `traffic_sources` (text) | Text; no invented array encoding. |
+| `revenueSources` | `revenue_sources` (text) | Text. |
+| `financialNotes` | `financial_notes` (text) | Text. |
+
+### Mandatory create/update invariants
+
+- The authenticated session must be read with `auth.getUser()`; derive `owner_id` from that returned user, never from form or local storage.
+- Every new row must explicitly include `status: "draft"`. The verified database default is `"active"`; relying on the default risks exposing an incomplete listing.
+- Do not include client-editable verification flags such as `identity_verification`, `business_verification`, `ownership_declaration`, `domain_ownership`, `domain_verification`, or `github_ownership` in an autosave payload. A checkbox/attestation is not independent verification.
+- Before updating, fetch by both row ID and authenticated owner, verify the row is still an editable draft, and confirm that exactly the intended row was updated. A zero-row update must not silently become an insert without a duplicate check.
+- Do not send nested legacy `performance`, `financials`, or `social_accounts` objects unless the specific target columns and every consuming reader are confirmed. The verified schema has first-class scalar columns for most of these values.
+- Media metadata is not media persistence. The current Next.js preview retains only selected filenames in component state. Cloud upload needs authenticated user-scoped paths, MIME/size checks on the server, and explicit partial-failure handling; the public bucket must never receive private identity or ownership evidence.
+- No database writes, Storage uploads, or production application changes were made during this schema verification.
+
