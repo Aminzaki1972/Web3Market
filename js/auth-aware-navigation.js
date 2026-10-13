@@ -1,25 +1,23 @@
 /* Web3Market auth-aware header navigation.
- * Uses the shared Supabase client and changes only header sign-in links.
- * If session/profile cannot be verified, it safely leaves the sign-in link in place.
+ * Waits for the shared Supabase client before checking the current session.
  */
 (function () {
   "use strict";
-
-  var ACCOUNT_PATHS = {
-    buyer: "buyer-dashboard.html",
-    seller: "seller-dashboard.html",
-    admin: "admin-review.html"
-  };
+  var ACCOUNT_PATHS = { buyer: "buyer-dashboard.html", seller: "seller-dashboard.html", admin: "admin-review.html" };
   var DEFAULT_LABEL = "Sign in";
   var ACCOUNT_LABEL = "My Account";
   var refreshTimer = null;
 
   function getHeaderLinks() {
-    return Array.prototype.slice.call(
-      document.querySelectorAll('header a[href="login.html"], header a[href="./login.html"], header a[data-w3m-original-label]')
-    );
+    return Array.prototype.slice.call(document.querySelectorAll(
+      'header a[href="login.html"], header a[href="./login.html"], header a[href$="/login.html"], header a[data-w3m-original-label]'
+    ));
   }
-
+  function getClient() {
+    var api = window.Web3MarketSupabase;
+    return api && typeof api.getClient === "function" ? api.getClient() :
+      (api && api.client) || window.supabaseClient || window.web3marketSupabase || null;
+  }
   function showSignedOut() {
     getHeaderLinks().forEach(function (link) {
       link.textContent = link.getAttribute("data-w3m-original-label") || DEFAULT_LABEL;
@@ -28,76 +26,75 @@
       link.removeAttribute("data-w3m-account-role");
     });
   }
-
   function showSignedIn(role) {
-    var target = ACCOUNT_PATHS[String(role || "").toLowerCase()];
-    if (!target) {
-      showSignedOut();
-      return;
-    }
+    role = String(role || "").trim().toLowerCase();
+    var target = ACCOUNT_PATHS[role];
+    if (!target) { showSignedOut(); return; }
     getHeaderLinks().forEach(function (link) {
       link.textContent = ACCOUNT_LABEL;
       link.href = target;
-      link.setAttribute("aria-label", ACCOUNT_LABEL + " — " + String(role).toLowerCase());
-      link.setAttribute("data-w3m-account-role", String(role).toLowerCase());
+      link.setAttribute("aria-label", ACCOUNT_LABEL + " — " + role);
+      link.setAttribute("data-w3m-account-role", role);
     });
   }
-
   async function updateNavigation() {
-    var api = window.Web3MarketSupabase;
-    var client = api && typeof api.getClient === "function" ? api.getClient() :
-      (api && api.client) || window.supabaseClient || window.web3marketSupabase;
-
-    if (!client || !client.auth) return;
+    var client = getClient();
+    if (!client || !client.auth) return false;
     try {
       var result = await client.auth.getSession();
       var session = result && result.data && result.data.session;
       var user = session && session.user;
-      if (!user) {
-        showSignedOut();
-        return;
+      if (!user) { showSignedOut(); return true; }
+      var profileResult = await client.from("profiles").select("role").eq("id", user.id).maybeSingle();
+      if (profileResult.error) {
+        console.warn("Web3Market header profile lookup failed:", profileResult.error.message || profileResult.error);
+        return false;
       }
-
-      var profileResult = await client
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (profileResult.error || !profileResult.data) {
-        // Do not guess a role or expose a dashboard link when verification fails.
-        showSignedOut();
-        return;
-      }
+      if (!profileResult.data) { showSignedOut(); return true; }
       showSignedIn(profileResult.data.role);
+      return true;
     } catch (error) {
-      // A temporary network/auth error must not break the rest of the page.
       console.warn("Web3Market header auth check unavailable:", error);
+      return false;
     }
   }
-
+  async function waitForClientAndUpdate() {
+    for (var i = 0; i < 80; i++) {
+      if (getClient()) {
+        var done = await updateNavigation();
+        if (done) return;
+      }
+      await new Promise(function (resolve) { window.setTimeout(resolve, 150); });
+    }
+    console.warn("Web3Market header navigation: Supabase client/session not ready yet.");
+  }
+  function scheduleUpdate() {
+    if (refreshTimer) window.clearTimeout(refreshTimer);
+    refreshTimer = window.setTimeout(waitForClientAndUpdate, 50);
+  }
   function start() {
     getHeaderLinks().forEach(function (link) {
       if (!link.hasAttribute("data-w3m-original-label")) {
         link.setAttribute("data-w3m-original-label", (link.textContent || DEFAULT_LABEL).trim());
       }
     });
-    updateNavigation();
-
-    // The shared client is loaded before this script on the supported pages.
-    var api = window.Web3MarketSupabase;
-    var client = api && typeof api.getClient === "function" ? api.getClient() :
-      (api && api.client) || window.supabaseClient || window.web3marketSupabase;
-
-    if (client && client.auth && typeof client.auth.onAuthStateChange === "function") {
-      client.auth.onAuthStateChange(function () {
-        // Defer profile lookup to avoid doing Supabase queries inside the auth callback.
-        if (refreshTimer) window.clearTimeout(refreshTimer);
-        refreshTimer = window.setTimeout(updateNavigation, 0);
-      });
-    }
+    waitForClientAndUpdate();
+    var attempts = 0;
+    var listenerTimer = window.setInterval(function () {
+      attempts++;
+      var client = getClient();
+      if (client && client.auth && typeof client.auth.onAuthStateChange === "function") {
+        window.clearInterval(listenerTimer);
+        client.auth.onAuthStateChange(function () { scheduleUpdate(); });
+      } else if (attempts >= 80) {
+        window.clearInterval(listenerTimer);
+      }
+    }, 150);
+    window.addEventListener("focus", scheduleUpdate);
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) scheduleUpdate();
+    });
   }
-
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", start, { once: true });
   } else {
