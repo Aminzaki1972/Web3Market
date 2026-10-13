@@ -11,7 +11,7 @@ body{font:16px/1.55 system-ui,sans-serif;margin:0;background:#f4f6fa;color:#1720
 </head>
 <body><main class="wrap"><section class="card">
 <h1>Web3Market sign-in check</h1><p class="muted">This page checks whether the current browser tab can see your saved sign-in session and read your account role. It never displays passwords or session tokens.</p>
-<div class="row"><span class="label">Diagnostic page version</span><span class="value" id="version">AUTH-CHECK-1</span></div>
+<div class="row"><span class="label">Diagnostic page version</span><span class="value" id="version">AUTH-CHECK-2</span></div>
 <div class="row"><span class="label">Current site</span><span class="value" id="origin">Checking…</span></div>
 <div class="row"><span class="label">Supabase client</span><span class="value status wait" id="client">Checking…</span></div>
 <div class="row"><span class="label">Saved sign-in session</span><span class="value status wait" id="session">Checking…</span></div>
@@ -30,9 +30,21 @@ var el=function(id){return document.getElementById(id)};
 el("origin").textContent=location.origin+" · "+location.pathname;
 function set(id,text,cls){el(id).textContent=text;el(id).className="value status "+(cls||"")}
 async function run(){
-set("client","Checking…","wait");set("session","Checking…","wait");set("role","Checking…","wait");set("summary","Running checks…","wait");
-var api=window.Web3MarketSupabase,client=api&&typeof api.getClient==="function"?api.getClient():(api&&api.client)||window.supabaseClient||null;
-if(!client||!client.auth){set("client","NOT AVAILABLE — shared Supabase client did not initialize","bad");set("session","Not checked","bad");set("role","Not checked","bad");set("summary","Likely script loading or initialization problem.","bad");return}
+set("client","Waiting for shared client…","wait");set("session","Checking…","wait");set("role","Checking…","wait");set("summary","Waiting for page initialization…","wait");
+// js/supabase.js initializes on DOMContentLoaded, so do not check too early.
+var client=null,api=null;
+for(var i=0;i<80;i++){
+ api=window.Web3MarketSupabase;
+ client=api&&typeof api.getClient==="function"?api.getClient():(api&&api.client)||window.supabaseClient||null;
+ if(client&&client.auth)break;
+ await new Promise(function(resolve){window.setTimeout(resolve,100)});
+}
+if(!client||!client.auth){
+var library=window.supabase&&typeof window.supabase.createClient==="function";
+set("client",library?"Supabase library loaded, but shared client did not initialize":"Supabase library itself did not load","bad");
+set("session","Not checked","bad");set("role","Not checked","bad");
+set("summary",library?"Check js/supabase.js initialization errors.":"Check CDN/script loading or browser/network blocking.", "bad");return
+}
 set("client","Available","ok");
 var session=null;
 try{var sr=await client.auth.getSession();session=sr&&sr.data&&sr.data.session;if(!session&&typeof window.Web3MarketSupabaseRestoreSession==="function")session=await window.Web3MarketSupabaseRestoreSession();if(!session){var again=await client.auth.getSession();session=again&&again.data&&again.data.session}}catch(e){console.warn("Session diagnostic error",e)}
