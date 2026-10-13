@@ -16,6 +16,17 @@ type ListingDraft = {
   techStack: string;
   yearCreated: string;
   targetAudience: string;
+  targetMarkets: string;
+  buyerPitch: string;
+  assetNotes: string;
+  appStoreUrl: string;
+  yearlyProfit: string;
+  growthRate: string;
+  totalSales: string;
+  monthlyVolume: string;
+  conversionRate: string;
+  lastActiveDate: string;
+  trafficSources: string;
   marketOpportunity: string;
   competitiveAdvantage: string;
   competitors: string;
@@ -49,7 +60,7 @@ const STORAGE_KEY = "w3m-nextjs-listing-draft-v1";
 const emptyDraft: ListingDraft = {
   projectName: "", shortDescription: "", fullDescription: "", projectUrl: "", githubUrl: "",
   category: "", projectStage: "Prototype", blockchain: "", businessModel: "", techStack: "", yearCreated: "",
-  targetAudience: "", marketOpportunity: "", competitiveAdvantage: "", competitors: "", monthlyVisits: "", activeUsers: "", customers: "",
+  targetAudience: "", targetMarkets: "", buyerPitch: "", assetNotes: "", appStoreUrl: "", yearlyProfit: "", growthRate: "", totalSales: "", monthlyVolume: "", conversionRate: "", lastActiveDate: "", trafficSources: "", marketOpportunity: "", competitiveAdvantage: "", competitors: "", monthlyVisits: "", activeUsers: "", customers: "",
   yearlyRevenue: "", monthlyExpenses: "", revenueSources: "", financialNotes: "", reasonForSale: "", saleType: "Full acquisition",
   demoUrl: "", documentationUrl: "", twitterUrl: "", telegramUrl: "", discordUrl: "", linkedinUrl: "",
   askingPrice: "", currency: "USD", negotiable: true, monthlyRevenue: "", monthlyProfit: "",
@@ -168,9 +179,10 @@ export default function SellProjectPage() {
     if (!validNonNegativeNumber(draft.askingPrice)) errors.push("valid non-negative asking price");
     const numericFields: Array<[string, string]> = [
       ["monthly revenue", draft.monthlyRevenue], ["monthly profit", draft.monthlyProfit],
-      ["yearly revenue", draft.yearlyRevenue], ["monthly expenses", draft.monthlyExpenses],
+      ["yearly revenue", draft.yearlyRevenue], ["yearly profit", draft.yearlyProfit], ["monthly expenses", draft.monthlyExpenses],
+      ["monthly volume", draft.monthlyVolume], ["total sales", draft.totalSales],
       ["users / customers", draft.users], ["active users", draft.activeUsers],
-      ["paying customers", draft.customers], ["monthly visits", draft.monthlyVisits],
+      ["paying customers", draft.customers], ["monthly visits", draft.monthlyVisits], ["total sales", draft.totalSales],
     ];
     numericFields.forEach(([label, value]) => {
       const error = optionalNonNegativeNumberError(value, label);
@@ -200,7 +212,7 @@ export default function SellProjectPage() {
     const optionalLinks: Array<[string, string]> = [
       ["demo URL", draft.demoUrl], ["documentation URL", draft.documentationUrl],
       ["X / Twitter URL", draft.twitterUrl], ["Telegram URL", draft.telegramUrl],
-      ["Discord URL", draft.discordUrl], ["LinkedIn URL", draft.linkedinUrl],
+      ["Discord URL", draft.discordUrl], ["LinkedIn URL", draft.linkedinUrl], ["App Store URL", draft.appStoreUrl],
     ];
     optionalLinks.forEach(([label, value]) => {
       if (value.trim() && !validHttpsUrl(value)) errors.push(label + " must use HTTPS");
@@ -261,6 +273,8 @@ export default function SellProjectPage() {
           <div className="listing-section-heading"><span>03</span><div><h2>Market, audience and competitive position</h2><p>Describe the intended users and why buyers may choose this project.</p></div></div>
           <div className="listing-fields">
             <label className="field full-field">Target audience<input value={draft.targetAudience} onChange={e => update("targetAudience", e.target.value)} placeholder="Who uses or would use this project?" /></label>
+            <label className="field full-field">Target markets<input value={draft.targetMarkets} onChange={e => update("targetMarkets", e.target.value)} placeholder="e.g. Global, Egypt, GCC, Europe" /></label>
+            <label className="field full-field">Buyer pitch<textarea rows={3} value={draft.buyerPitch} onChange={e => update("buyerPitch", e.target.value)} placeholder="Why should a buyer choose this project?" /></label>
             <label className="field full-field">Market opportunity<textarea rows={3} value={draft.marketOpportunity} onChange={e => update("marketOpportunity", e.target.value)} placeholder="Market, problem solved, and demand signals" /></label>
             <label className="field full-field">Competitive advantage<textarea rows={3} value={draft.competitiveAdvantage} onChange={e => update("competitiveAdvantage", e.target.value)} placeholder="What differentiates this project?" /></label>
             <label className="field full-field">Known competitors<input value={draft.competitors} onChange={e => update("competitors", e.target.value)} placeholder="Optional; separate names with commas" /></label>
@@ -276,6 +290,7 @@ export default function SellProjectPage() {
             <label className="field">Telegram URL<input type="url" value={draft.telegramUrl} onChange={e => update("telegramUrl", e.target.value)} placeholder="https://t.me/..." /></label>
             <label className="field">Discord URL<input type="url" value={draft.discordUrl} onChange={e => update("discordUrl", e.target.value)} placeholder="https://discord.gg/..." /></label>
             <label className="field">LinkedIn URL<input type="url" value={draft.linkedinUrl} onChange={e => update("linkedinUrl", e.target.value)} placeholder="https://linkedin.com/..." /></label>
+            <label className="field">App Store URL<input type="url" value={draft.appStoreUrl} onChange={e => update("appStoreUrl", e.target.value)} placeholder="https://apps.apple.com/..." /></label>
           </div>
         </section>
 
@@ -298,11 +313,18 @@ export default function SellProjectPage() {
             <label className="field">Monthly revenue<input type="number" min="0" step="0.01" value={draft.monthlyRevenue} onChange={e => update("monthlyRevenue", e.target.value)} placeholder="0 if none" /></label>
             <label className="field">Monthly profit<input type="number" step="0.01" value={draft.monthlyProfit} onChange={e => update("monthlyProfit", e.target.value)} placeholder="0 if none" /></label>
             <label className="field">Yearly revenue<input type="number" min="0" step="0.01" value={draft.yearlyRevenue} onChange={e => update("yearlyRevenue", e.target.value)} placeholder="0 if none" /></label>
+            <label className="field">Yearly profit<input type="number" min="0" step="0.01" value={draft.yearlyProfit} onChange={e => update("yearlyProfit", e.target.value)} placeholder="Optional" /></label>
             <label className="field">Monthly expenses<input type="number" min="0" step="0.01" value={draft.monthlyExpenses} onChange={e => update("monthlyExpenses", e.target.value)} placeholder="Optional" /></label>
             <label className="field">Users / customers<input type="number" min="0" step="1" value={draft.users} onChange={e => update("users", e.target.value)} placeholder="Total users" /></label>
             <label className="field">Active users<input type="number" min="0" step="1" value={draft.activeUsers} onChange={e => update("activeUsers", e.target.value)} placeholder="Optional" /></label>
             <label className="field">Paying customers<input type="number" min="0" step="1" value={draft.customers} onChange={e => update("customers", e.target.value)} placeholder="Optional" /></label>
             <label className="field">Monthly visits<input type="number" min="0" step="1" value={draft.monthlyVisits} onChange={e => update("monthlyVisits", e.target.value)} placeholder="Optional" /></label>
+            <label className="field">Total sales<input type="number" min="0" step="1" value={draft.totalSales} onChange={e => update("totalSales", e.target.value)} placeholder="Number of completed sales" /></label>
+            <label className="field">Monthly transaction volume<input type="number" min="0" step="0.01" value={draft.monthlyVolume} onChange={e => update("monthlyVolume", e.target.value)} placeholder="Optional monetary volume" /></label>
+            <label className="field">Growth rate<input value={draft.growthRate} onChange={e => update("growthRate", e.target.value)} placeholder="e.g. 12% (state the period in notes)" /></label>
+            <label className="field">Conversion rate<input value={draft.conversionRate} onChange={e => update("conversionRate", e.target.value)} placeholder="e.g. 3.4%" /></label>
+            <label className="field">Last active date<input type="date" value={draft.lastActiveDate} onChange={e => update("lastActiveDate", e.target.value)} /></label>
+            <label className="field full-field">Traffic sources<textarea rows={2} value={draft.trafficSources} onChange={e => update("trafficSources", e.target.value)} placeholder="Organic, social, paid, referrals; include measurement period" /></label>
             <label className="field">Revenue sources<input value={draft.revenueSources} onChange={e => update("revenueSources", e.target.value)} placeholder="e.g. subscriptions, fees, ads" /></label>
             <label className="field full-field">Financial notes<textarea rows={2} value={draft.financialNotes} onChange={e => update("financialNotes", e.target.value)} placeholder="Period covered, evidence available, or important caveats" /></label>
             <label className="field field-checkbox"><input type="checkbox" checked={draft.negotiable} onChange={e => update("negotiable", e.target.checked)} /> Asking price is negotiable</label>
@@ -315,6 +337,7 @@ export default function SellProjectPage() {
             <label className="field">Sale type<select value={draft.saleType} onChange={e => update("saleType", e.target.value)}><option>Full acquisition</option><option>Partial acquisition</option><option>Asset sale</option><option>License</option></select></label>
             <label className="field">Reason for sale<input value={draft.reasonForSale} onChange={e => update("reasonForSale", e.target.value)} placeholder="Optional" /></label>
             <label className="field">Expected transfer period<input value={draft.transferPeriod} onChange={e => update("transferPeriod", e.target.value)} placeholder="e.g. 7–14 days" /></label>
+            <label className="field full-field">Assets included / excluded<textarea rows={3} value={draft.assetNotes} onChange={e => update("assetNotes", e.target.value)} placeholder="Source code, domain, hosting, database, contracts, community, accounts, exclusions..." /></label>
             <label className="field full-field">Transfer terms <b>*</b><span className="field-hint">List domains, repositories, contracts, documentation, accounts and any exclusions.</span><textarea rows={4} value={draft.transferTerms} onChange={e => update("transferTerms", e.target.value)} placeholder="What is included in the sale, and how will each asset be transferred?" /></label>
             <label className="field field-checkbox full-field"><input type="checkbox" checked={draft.ownershipDeclaration} onChange={e => update("ownershipDeclaration", e.target.checked)} /> I confirm that I own, or am authorized to sell, this project and the assets I have listed.</label>
           </div>
