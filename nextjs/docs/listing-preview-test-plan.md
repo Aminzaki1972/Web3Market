@@ -58,9 +58,12 @@ This plan covers the isolated Next.js preview on `nextjs-migration` only. The fo
 
 ## Structured legacy-field checks
 
-1. Select several project types and services; confirm each can be independently selected and deselected.
-2. Select several included assets; confirm the selected choices remain distinct from the free-text asset notes.
-3. Set revenue status to Yes and No in turn, then change the reporting period; confirm the selections are preserved.
-4. Reload the page and confirm project types, services, revenue status/period, and included assets restore from the local draft.
-5. Clear the draft and confirm all structured choices reset.
-6. Confirm the UI does not describe any revenue, ownership, asset, or identity declaration as independently verified.
+1. Select several project types and independently select/deselect them.
+2. Select several industry/service categories; confirm choices match the legacy vocabulary (Health, Education, Marketing, Sales, Finance, Web3, AI, Social, Business, Real Estate, Travel, Gaming, Media, Freelance, Other).
+3. Select several target-audience categories (for example Developers, Startups, Investors); confirm they are multi-select choices, not a free-text value.
+4. Select several included assets; confirm selected asset categories remain distinct from free-text asset notes and do not imply that files were uploaded.
+5. Set revenue status to Yes, No, and Not specified; confirm the blank/unspecified state is not silently changed to No.
+6. Test reporting periods Monthly, Yearly, Both, and Not specified; confirm values remain compatible with the legacy form.
+7. Reload the page and confirm project types, industry/service categories, target audience, revenue status/period, and included assets restore from the local draft.
+8. Clear the draft and confirm all structured choices reset.
+9. Confirm the UI does not describe any revenue, ownership, asset, or identity declaration as independently verified.
