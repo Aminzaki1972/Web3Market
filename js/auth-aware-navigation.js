@@ -16,7 +16,7 @@
 
   function getHeaderLinks() {
     return Array.prototype.slice.call(
-      document.querySelectorAll('header a[href="login.html"], header a[href="./login.html"]')
+      document.querySelectorAll('header a[href="login.html"], header a[href="./login.html"], header a[data-w3m-original-label]')
     );
   }
 
