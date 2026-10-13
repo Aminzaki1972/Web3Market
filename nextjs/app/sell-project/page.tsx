@@ -56,6 +56,21 @@ const emptyDraft: ListingDraft = {
   users: "", transferTerms: "", transferPeriod: "", ownershipDeclaration: false,
 };
 
+function restoreDraft(value: unknown): ListingDraft {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return { ...emptyDraft };
+
+  const candidate = value as Partial<ListingDraft>;
+  const restored: ListingDraft = { ...emptyDraft };
+  (Object.keys(emptyDraft) as Array<keyof ListingDraft>).forEach((key) => {
+    const incoming = candidate[key];
+    const expected = emptyDraft[key];
+    if (typeof incoming === typeof expected) {
+      Object.assign(restored, { [key]: incoming });
+    }
+  });
+  return restored;
+}
+
 function validHttpsUrl(value: string) {
   try { const url = new URL(value); return url.protocol === "https:"; } catch { return false; }
 }
@@ -79,7 +94,7 @@ export default function SellProjectPage() {
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved) setDraft({ ...emptyDraft, ...JSON.parse(saved) });
+      if (saved) setDraft(restoreDraft(JSON.parse(saved)));
     } catch { setStatus("Could not restore the local preview draft."); }
     setLoaded(true);
   }, []);
