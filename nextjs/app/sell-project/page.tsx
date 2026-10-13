@@ -17,6 +17,11 @@ type ListingDraft = {
   yearCreated: string;
   targetAudience: string;
   targetMarkets: string;
+  projectTypes: string;
+  services: string;
+  hasRevenue: string;
+  revenuePeriod: string;
+  selectedAssets: string;
   buyerPitch: string;
   assetNotes: string;
   appStoreUrl: string;
@@ -67,7 +72,7 @@ const STORAGE_KEY = "w3m-nextjs-listing-draft-v1";
 const emptyDraft: ListingDraft = {
   projectName: "", shortDescription: "", fullDescription: "", projectUrl: "", githubUrl: "",
   category: "", projectStage: "Prototype", blockchain: "", businessModel: "", techStack: "", yearCreated: "",
-  targetAudience: "", targetMarkets: "", buyerPitch: "", assetNotes: "", appStoreUrl: "", yearlyProfit: "", growthRate: "", totalSales: "", monthlyVolume: "", conversionRate: "", lastActiveDate: "", trafficSources: "", marketOpportunity: "", competitiveAdvantage: "", competitors: "", monthlyVisits: "", activeUsers: "", customers: "",
+  targetAudience: "", targetMarkets: "", projectTypes: "", services: "", hasRevenue: "", revenuePeriod: "", selectedAssets: "", buyerPitch: "", assetNotes: "", appStoreUrl: "", yearlyProfit: "", growthRate: "", totalSales: "", monthlyVolume: "", conversionRate: "", lastActiveDate: "", trafficSources: "", marketOpportunity: "", competitiveAdvantage: "", competitors: "", monthlyVisits: "", activeUsers: "", customers: "",
   yearlyRevenue: "", monthlyExpenses: "", revenueSources: "", financialNotes: "", reasonForSale: "", saleType: "Full acquisition",
   demoUrl: "", documentationUrl: "", twitterUrl: "", telegramUrl: "", discordUrl: "", linkedinUrl: "", facebookUrl: "", instagramUrl: "", youtubeUrl: "", tiktokUrl: "", redditUrl: "", mediumUrl: "", otherSocialUrl: "",
   askingPrice: "", currency: "USD", negotiable: true, monthlyRevenue: "", monthlyProfit: "",
@@ -184,6 +189,11 @@ export default function SellProjectPage() {
 
   function update<K extends keyof ListingDraft>(key: K, value: ListingDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
+  }
+  function toggleListValue(key: "projectTypes" | "services" | "selectedAssets", value: string, checked: boolean) {
+    const current = draft[key].split(",").map(item => item.trim()).filter(Boolean);
+    const next = checked ? Array.from(new Set([...current, value])) : current.filter(item => item !== value);
+    update(key, next.join(", "));
   }
   function clearDraft() {
     if (!window.confirm("Clear this local preview draft? This does not delete any production listing.")) return;
@@ -302,6 +312,8 @@ export default function SellProjectPage() {
             <label className="field">Business model<input value={draft.businessModel} onChange={e => update("businessModel", e.target.value)} placeholder="e.g. subscription, transaction fee, SaaS" /></label>
             <label className="field">Technology stack<input value={draft.techStack} onChange={e => update("techStack", e.target.value)} placeholder="e.g. Next.js, Solidity, PostgreSQL" /></label>
             <label className="field">Year created<input type="number" min="1990" max="2100" value={draft.yearCreated} onChange={e => update("yearCreated", e.target.value)} placeholder="e.g. 2025" /></label>
+            <fieldset className="field full-field"><legend>Project types</legend><div className="listing-choice-grid">{["Website", "SaaS", "AI application", "Smart contract", "DeFi protocol", "Mobile app", "Game", "Marketplace", "Developer tool", "Other"].map(value => <label className="choice" key={value}><input type="checkbox" checked={draft.projectTypes.split(",").map(item => item.trim()).includes(value)} onChange={e => toggleListValue("projectTypes", value, e.target.checked)} /> {value}</label>)}</div></fieldset>
+            <fieldset className="field full-field"><legend>Services included</legend><div className="listing-choice-grid">{["Web development", "Smart contract development", "API", "Analytics", "AI / ML", "Consulting", "Hosting / infrastructure", "Community", "Other"].map(value => <label className="choice" key={value}><input type="checkbox" checked={draft.services.split(",").map(item => item.trim()).includes(value)} onChange={e => toggleListValue("services", value, e.target.checked)} /> {value}</label>)}</div></fieldset>
           </div>
         </section>
 
@@ -369,6 +381,8 @@ export default function SellProjectPage() {
             <label className="field">Last active date<input type="date" value={draft.lastActiveDate} onChange={e => update("lastActiveDate", e.target.value)} /></label>
             <label className="field full-field">Traffic sources<textarea rows={2} value={draft.trafficSources} onChange={e => update("trafficSources", e.target.value)} placeholder="Organic, social, paid, referrals; include measurement period" /></label>
             <label className="field">Revenue sources<input value={draft.revenueSources} onChange={e => update("revenueSources", e.target.value)} placeholder="e.g. subscriptions, fees, ads" /></label>
+            <label className="field">Currently generating revenue?<select value={draft.hasRevenue} onChange={e => update("hasRevenue", e.target.value)}><option value="">Not specified</option><option value="yes">Yes</option><option value="no">No</option></select></label>
+            <label className="field">Revenue reporting period<select value={draft.revenuePeriod} onChange={e => update("revenuePeriod", e.target.value)}><option value="">Not specified</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="yearly">Yearly</option><option value="lifetime">Lifetime / cumulative</option></select></label>
             <label className="field full-field">Financial notes<textarea rows={2} value={draft.financialNotes} onChange={e => update("financialNotes", e.target.value)} placeholder="Period covered, evidence available, or important caveats" /></label>
             <label className="field field-checkbox"><input type="checkbox" checked={draft.negotiable} onChange={e => update("negotiable", e.target.checked)} /> Asking price is negotiable</label>
           </div>
@@ -380,7 +394,8 @@ export default function SellProjectPage() {
             <label className="field">Sale type<select value={draft.saleType} onChange={e => update("saleType", e.target.value)}><option>Full acquisition</option><option>Partial acquisition</option><option>Asset sale</option><option>License</option></select></label>
             <label className="field">Reason for sale<input value={draft.reasonForSale} onChange={e => update("reasonForSale", e.target.value)} placeholder="Optional" /></label>
             <label className="field">Expected transfer period<input value={draft.transferPeriod} onChange={e => update("transferPeriod", e.target.value)} placeholder="e.g. 7–14 days" /></label>
-            <label className="field full-field">Assets included / excluded<textarea rows={3} value={draft.assetNotes} onChange={e => update("assetNotes", e.target.value)} placeholder="Source code, domain, hosting, database, contracts, community, accounts, exclusions..." /></label>
+            <fieldset className="field full-field"><legend>Assets included in the sale</legend><div className="listing-choice-grid">{["Source code", "Domain name", "Brand / logo", "Website", "Smart contracts", "Mobile app", "Customer database (where lawful)", "Social accounts (where transferable)", "Documentation", "Design files", "AI models / prompts", "Other assets"].map(value => <label className="choice" key={value}><input type="checkbox" checked={draft.selectedAssets.split(",").map(item => item.trim()).includes(value)} onChange={e => toggleListValue("selectedAssets", value, e.target.checked)} /> {value}</label>)}</div></fieldset>
+            <label className="field full-field">Assets included / excluded — details<textarea rows={3} value={draft.assetNotes} onChange={e => update("assetNotes", e.target.value)} placeholder="Clarify exclusions, ownership restrictions, licences, and transfer limitations..." /></label>
             <label className="field full-field">Transfer terms <b>*</b><span className="field-hint">List domains, repositories, contracts, documentation, accounts and any exclusions.</span><textarea rows={4} value={draft.transferTerms} onChange={e => update("transferTerms", e.target.value)} placeholder="What is included in the sale, and how will each asset be transferred?" /></label>
             <label className="field field-checkbox full-field"><input type="checkbox" checked={draft.ownershipDeclaration} onChange={e => update("ownershipDeclaration", e.target.checked)} /> I confirm that I own, or am authorized to sell, this project and the assets I have listed.</label>
           </div>
