@@ -96,6 +96,17 @@ function mediaFileError(file: File, kind: "image" | "video"): string | null {
   return null;
 }
 
+function validNonNegativeNumber(value: string): boolean {
+  if (!value.trim()) return false;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0;
+}
+
+function optionalNonNegativeNumberError(value: string, label: string): string | null {
+  if (!value.trim()) return null;
+  return validNonNegativeNumber(value) ? null : label + " must be a valid non-negative number";
+}
+
 export default function SellProjectPage() {
   const [draft, setDraft] = useState<ListingDraft>(emptyDraft);
   const [loaded, setLoaded] = useState(false);
@@ -127,7 +138,7 @@ export default function SellProjectPage() {
       draft.shortDescription.trim().length >= 20,
       draft.fullDescription.trim().length >= 50,
       Boolean(draft.category),
-      draft.askingPrice.trim() !== "" && Number(draft.askingPrice) >= 0,
+      validNonNegativeNumber(draft.askingPrice),
       ((Boolean(draft.projectUrl.trim()) && validHttpsUrl(draft.projectUrl) && !/(^|\.)github\.com$/i.test(new URL(draft.projectUrl).hostname)) || (Boolean(draft.githubUrl.trim()) && validGithubRepo(draft.githubUrl))),
       (!draft.projectUrl.trim() || (validHttpsUrl(draft.projectUrl) && !/(^|\.)github\.com$/i.test(new URL(draft.projectUrl).hostname))),
       (!draft.githubUrl.trim() || validGithubRepo(draft.githubUrl)),
@@ -154,7 +165,33 @@ export default function SellProjectPage() {
     if (draft.shortDescription.trim().length < 20) errors.push("short description (20+ characters)");
     if (draft.fullDescription.trim().length < 50) errors.push("full description (50+ characters)");
     if (!draft.category) errors.push("project category");
-    if (!draft.askingPrice.trim() || !Number.isFinite(Number(draft.askingPrice)) || Number(draft.askingPrice) < 0) errors.push("valid asking price");
+    if (!validNonNegativeNumber(draft.askingPrice)) errors.push("valid non-negative asking price");
+    const numericFields: Array<[string, string]> = [
+      ["monthly revenue", draft.monthlyRevenue], ["monthly profit", draft.monthlyProfit],
+      ["yearly revenue", draft.yearlyRevenue], ["monthly expenses", draft.monthlyExpenses],
+      ["users / customers", draft.users], ["active users", draft.activeUsers],
+      ["paying customers", draft.customers], ["monthly visits", draft.monthlyVisits],
+    ];
+    numericFields.forEach(([label, value]) => {
+      const error = optionalNonNegativeNumberError(value, label);
+      if (error) errors.push(error);
+    });
+    const integerFields: Array<[string, string]> = [
+      ["users / customers", draft.users], ["active users", draft.activeUsers],
+      ["paying customers", draft.customers], ["monthly visits", draft.monthlyVisits],
+    ];
+    integerFields.forEach(([label, value]) => {
+      if (value.trim() && validNonNegativeNumber(value) && !Number.isInteger(Number(value))) {
+        errors.push(label + " must be a whole number");
+      }
+    });
+    if (draft.yearCreated.trim()) {
+      const year = Number(draft.yearCreated);
+      if (!Number.isInteger(year) || year < 1990 || year > new Date().getFullYear() + 1) {
+        errors.push("valid year created");
+      }
+    }
+    if (draft.fullDescription.length > 20000) errors.push("full description (maximum 20,000 characters)");
     const hasWebsite = Boolean(draft.projectUrl.trim());
     const hasRepository = Boolean(draft.githubUrl.trim());
     if (!hasWebsite && !hasRepository) errors.push("at least one project reference (official website or GitHub repository)");
