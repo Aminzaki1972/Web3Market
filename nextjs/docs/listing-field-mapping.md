@@ -110,3 +110,6 @@ The isolated preview now also captures the following fields locally. These remai
 | `trafficSources` | `traffic_sources` | Free text; seller should specify measurement period and evidence. |
 
 These fields are saved only in the browser's local draft. Adding a field to this form does not create a database column, authorize a write, or independently verify seller-provided claims.
+
+
+The preview also now includes separate optional HTTPS inputs for `facebookUrl`, `instagramUrl`, `youtubeUrl`, `tiktokUrl`, `redditUrl`, `mediumUrl`, and `otherSocialUrl`, plus `appStoreUrl`. Their intended legacy counterparts are `facebook_url`, `instagram_url`, `youtube_url`, `tiktok_url`, `reddit_url`, `medium_url`, `other_social_url`, and `app_store_url`. These remain local-only until the backend mapping and schema are verified.
