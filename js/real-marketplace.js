@@ -67,13 +67,13 @@
     try{
       var sb=await ensureSupabase();if(!sb){grid.innerHTML='<div class="empty">No active projects are currently listed for sale.</div>';if(soldGrid)soldGrid.innerHTML='<div class="empty">No sold projects are available.</div>';return;}
       /* Fetch Active and Sold separately so the two views can never cross-contaminate. */
-      var baseSelect='id,title,description,short_description,price,currency,category,status,project_status,created_at,ai_score,ai_status,logo_url,cover_image_url';
+      var baseSelect='id,title,description,short_description,price,currency,category,status,project_status,created_at,ai_score,ai_status,logo_url,cover_image_url,verification';
       var activeQ=await sb.from('projects').select(baseSelect).eq('status','active').eq('project_status','approved').eq('ai_status','approved').order('created_at',{ascending:false}).limit(50);
       var soldQ=await sb.from('projects').select(baseSelect).eq('status','sold').eq('project_status','approved').eq('ai_status','approved').order('created_at',{ascending:false}).limit(50);
       if(activeQ.error)throw activeQ.error;
       if(soldQ.error)throw soldQ.error;
-      var active=(Array.isArray(activeQ.data)?activeQ.data:[]).filter(function(p){return String(p?.status||'').trim().toLowerCase()==='active';});
-      var sold=(Array.isArray(soldQ.data)?soldQ.data:[]).filter(function(p){return String(p?.status||'').trim().toLowerCase()==='sold';});
+      var active=(Array.isArray(activeQ.data)?activeQ.data:[]).filter(function(p){return String(p?.status||'').trim().toLowerCase()==='active' && p?.verification?.ai?.test_mode!==true;});
+      var sold=(Array.isArray(soldQ.data)?soldQ.data:[]).filter(function(p){return String(p?.status||'').trim().toLowerCase()==='sold' && p?.verification?.ai?.test_mode!==true;});
       var note=document.querySelector('.marketplace-note');if(note)note.innerHTML='🔐 Active listings are shown separately from <strong>Sold / Completed Projects</strong>. Sold projects remain visible as permanent transaction records.';
       grid.innerHTML=active.length?active.map(function(p,i){return card(p,i,false)}).join(''):'<div class="empty">No active projects are currently listed for sale.</div>';
       if(soldGrid)soldGrid.innerHTML=sold.length?sold.map(function(p,i){return card(p,i,true)}).join(''):'<div class="empty">No completed sales are available yet.</div>';

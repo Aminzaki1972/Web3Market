@@ -21,6 +21,8 @@
    const client=sb(); if(!client){page.innerHTML='Database connection unavailable. <button onclick="location.reload()">Retry</button>';return}
    const {data:p,error}=await client.from('projects').select('*').eq('id',id).maybeSingle();
    if(error)throw error;if(!p){page.textContent='Project not found or unavailable.';return}
+   const {data:authData}=await client.auth.getUser();
+   if(p?.verification?.ai?.test_mode===true && p.owner_id!==authData?.user?.id){page.textContent='Project not found or unavailable.';return}
    document.title=`${p.title||'Project'} | Web3Market`;
    const results=await Promise.allSettled([
     client.from('web3market_reputation').select('reputation_score,completed_deals,disputed_deals,wallet_verified,ownership_verified,github_verified,domain_verified,identity_verified,business_verified').eq('user_id',p.owner_id).maybeSingle(),
