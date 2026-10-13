@@ -45,6 +45,13 @@ type ListingDraft = {
   telegramUrl: string;
   discordUrl: string;
   linkedinUrl: string;
+  facebookUrl: string;
+  instagramUrl: string;
+  youtubeUrl: string;
+  tiktokUrl: string;
+  redditUrl: string;
+  mediumUrl: string;
+  otherSocialUrl: string;
   askingPrice: string;
   currency: string;
   negotiable: boolean;
@@ -62,7 +69,7 @@ const emptyDraft: ListingDraft = {
   category: "", projectStage: "Prototype", blockchain: "", businessModel: "", techStack: "", yearCreated: "",
   targetAudience: "", targetMarkets: "", buyerPitch: "", assetNotes: "", appStoreUrl: "", yearlyProfit: "", growthRate: "", totalSales: "", monthlyVolume: "", conversionRate: "", lastActiveDate: "", trafficSources: "", marketOpportunity: "", competitiveAdvantage: "", competitors: "", monthlyVisits: "", activeUsers: "", customers: "",
   yearlyRevenue: "", monthlyExpenses: "", revenueSources: "", financialNotes: "", reasonForSale: "", saleType: "Full acquisition",
-  demoUrl: "", documentationUrl: "", twitterUrl: "", telegramUrl: "", discordUrl: "", linkedinUrl: "",
+  demoUrl: "", documentationUrl: "", twitterUrl: "", telegramUrl: "", discordUrl: "", linkedinUrl: "", facebookUrl: "", instagramUrl: "", youtubeUrl: "", tiktokUrl: "", redditUrl: "", mediumUrl: "", otherSocialUrl: "",
   askingPrice: "", currency: "USD", negotiable: true, monthlyRevenue: "", monthlyProfit: "",
   users: "", transferTerms: "", transferPeriod: "", ownershipDeclaration: false,
 };
@@ -213,6 +220,8 @@ export default function SellProjectPage() {
       ["demo URL", draft.demoUrl], ["documentation URL", draft.documentationUrl],
       ["X / Twitter URL", draft.twitterUrl], ["Telegram URL", draft.telegramUrl],
       ["Discord URL", draft.discordUrl], ["LinkedIn URL", draft.linkedinUrl], ["App Store URL", draft.appStoreUrl],
+      ["Facebook URL", draft.facebookUrl], ["Instagram URL", draft.instagramUrl], ["YouTube URL", draft.youtubeUrl],
+      ["TikTok URL", draft.tiktokUrl], ["Reddit URL", draft.redditUrl], ["Medium URL", draft.mediumUrl], ["Other social URL", draft.otherSocialUrl],
     ];
     optionalLinks.forEach(([label, value]) => {
       if (value.trim() && !validHttpsUrl(value)) errors.push(label + " must use HTTPS");
@@ -291,6 +300,13 @@ export default function SellProjectPage() {
             <label className="field">Discord URL<input type="url" value={draft.discordUrl} onChange={e => update("discordUrl", e.target.value)} placeholder="https://discord.gg/..." /></label>
             <label className="field">LinkedIn URL<input type="url" value={draft.linkedinUrl} onChange={e => update("linkedinUrl", e.target.value)} placeholder="https://linkedin.com/..." /></label>
             <label className="field">App Store URL<input type="url" value={draft.appStoreUrl} onChange={e => update("appStoreUrl", e.target.value)} placeholder="https://apps.apple.com/..." /></label>
+            <label className="field">Facebook URL<input type="url" value={draft.facebookUrl} onChange={e => update("facebookUrl", e.target.value)} placeholder="https://facebook.com/..." /></label>
+            <label className="field">Instagram URL<input type="url" value={draft.instagramUrl} onChange={e => update("instagramUrl", e.target.value)} placeholder="https://instagram.com/..." /></label>
+            <label className="field">YouTube URL<input type="url" value={draft.youtubeUrl} onChange={e => update("youtubeUrl", e.target.value)} placeholder="https://youtube.com/..." /></label>
+            <label className="field">TikTok URL<input type="url" value={draft.tiktokUrl} onChange={e => update("tiktokUrl", e.target.value)} placeholder="https://tiktok.com/@..." /></label>
+            <label className="field">Reddit URL<input type="url" value={draft.redditUrl} onChange={e => update("redditUrl", e.target.value)} placeholder="https://reddit.com/..." /></label>
+            <label className="field">Medium URL<input type="url" value={draft.mediumUrl} onChange={e => update("mediumUrl", e.target.value)} placeholder="https://medium.com/..." /></label>
+            <label className="field">Other public link<input type="url" value={draft.otherSocialUrl} onChange={e => update("otherSocialUrl", e.target.value)} placeholder="https://..." /></label>
           </div>
         </section>
 
