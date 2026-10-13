@@ -12,7 +12,6 @@
   };
   var DEFAULT_LABEL = "Sign in";
   var ACCOUNT_LABEL = "My Account";
-  var activeClient = null;
   var refreshTimer = null;
 
   function getHeaderLinks() {
@@ -23,7 +22,7 @@
 
   function showSignedOut() {
     getHeaderLinks().forEach(function (link) {
-      link.textContent = DEFAULT_LABEL;
+      link.textContent = link.getAttribute("data-w3m-original-label") || DEFAULT_LABEL;
       link.href = "login.html";
       link.removeAttribute("aria-label");
       link.removeAttribute("data-w3m-account-role");
@@ -50,8 +49,6 @@
       (api && api.client) || window.supabaseClient || window.web3marketSupabase;
 
     if (!client || !client.auth) return;
-    activeClient = client;
-
     try {
       var result = await client.auth.getSession();
       var session = result && result.data && result.data.session;
@@ -80,6 +77,11 @@
   }
 
   function start() {
+    getHeaderLinks().forEach(function (link) {
+      if (!link.hasAttribute("data-w3m-original-label")) {
+        link.setAttribute("data-w3m-original-label", (link.textContent || DEFAULT_LABEL).trim());
+      }
+    });
     updateNavigation();
 
     // The shared client is loaded before this script on the supported pages.
