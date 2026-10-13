@@ -69,3 +69,23 @@ Logo, cover, video, and screenshot controls currently retain selected **file nam
 5. Keep website and repository separate; do not treat a repository URL or checkbox as proof of domain ownership.
 6. Inspect database constraints, RLS, Storage policies, and the `ai-review-project` Edge Function before enabling any call.
 7. Test create, resume, update, reload, duplicate prevention, cross-user access denial, media failures, and AI-review failures before considering a production cutover.
+
+
+## Legacy fields confirmed in the existing HTML but not yet represented in the preview
+
+Inspection of `sell-project.html` on `main` confirms these additional form fields exist in the legacy interface. This list is based on HTML form names, not a direct database-schema query.
+
+| Legacy form field | Current preview coverage | Migration note |
+| --- | --- | --- |
+| `app_store_url` | Missing | Add a separate optional HTTPS field if relevant to mobile apps. |
+| `facebook_url`, `instagram_url`, `youtube_url`, `tiktok_url`, `reddit_url`, `medium_url`, `other_social_url` | Missing | Avoid silently dropping social links during migration; consider a structured repeatable social-link list. |
+| `target_markets` | Missing | Add a separate target-market field; do not overload target audience. |
+| `project_types`, `services` | Missing | Legacy UI uses multi-select checkbox arrays. Define a typed multi-select model before mapping to cloud fields. |
+| `has_revenue`, `revenue_period`, `yearly_profit`, `growth_rate` | Missing | Add only with clear definitions and validation; keep reported metrics distinct from verified metrics. |
+| `total_sales`, `monthly_volume`, `conversion_rate`, `last_active_date`, `traffic_sources` | Missing | These are separate traction metrics; do not infer them from users or visits. |
+| `assets`, `asset_notes` | Missing | Legacy form describes included/excluded assets; important for acquisition scope. Use explicit selections and free-text notes. |
+| `domain_verification`, `github_ownership`, `business_verification`, `identity_verification` | Missing | These are verification-related inputs. Do not treat user-entered values as verified evidence; design a reviewed verification workflow. |
+| `buyer_pitch` | Missing | Add a buyer-facing pitch field if it remains part of the listing contract. |
+| `logo_url`, `cover_image_url`, `video_url`, `screenshots` | UI file selector only | Preview currently records filenames, not URLs or uploaded files. Never serialize a selected filename as an asset URL. |
+
+The current preview also has fields that are not a one-to-one match for legacy inputs (for example, `category` versus `primary_type`, and `users` versus `users_count`). Implement a dedicated, tested mapping function only after the real database schema and accepted enum values have been inspected.
