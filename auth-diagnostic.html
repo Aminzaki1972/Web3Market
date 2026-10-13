@@ -28,35 +28,78 @@ body{font:16px/1.55 system-ui,sans-serif;margin:0;background:#f4f6fa;color:#1720
 "use strict";
 var el=function(id){return document.getElementById(id)};
 el("origin").textContent=location.origin+" · "+location.pathname;
+el("version").textContent="AUTH-CHECK-3";
 function set(id,text,cls){el(id).textContent=text;el(id).className="value status "+(cls||"")}
+function summary(text,cls){el("summary").textContent=text;el("summary").className="row status "+(cls||"")}
+function delay(ms){return new Promise(function(resolve){window.setTimeout(resolve,ms)})}
+function timeout(p,ms,label){return Promise.race([p,new Promise(function(_,reject){window.setTimeout(function(){reject(new Error(label||"Timed out"))},ms)})])}
+function hasSavedSession(){try{var raw=localStorage.getItem("web3market-auth");if(!raw)return false;var v=JSON.parse(raw);return !!(v&&v.access_token&&v.refresh_token)}catch(e){return false}}
 async function run(){
-set("client","Waiting for shared client…","wait");set("session","Checking…","wait");set("role","Checking…","wait");set("summary","Waiting for page initialization…","wait");
-// js/supabase.js initializes on DOMContentLoaded, so do not check too early.
-var client=null,api=null;
-for(var i=0;i<80;i++){
- api=window.Web3MarketSupabase;
- client=api&&typeof api.getClient==="function"?api.getClient():(api&&api.client)||window.supabaseClient||null;
- if(client&&client.auth)break;
- await new Promise(function(resolve){window.setTimeout(resolve,100)});
+var btn=el("retry");btn.disabled=true;
+set("client","Checking script and shared-client loading…","wait");
+set("session","Checking…","wait");set("role","Checking…","wait");summary("Running bounded diagnostics…","wait");
+var library=false,api=null,client=null;
+try{
+ for(var i=0;i<50;i++){
+  library=!!(window.supabase&&typeof window.supabase.createClient==="function");
+  api=window.Web3MarketSupabase||null;
+  if(library&&api&&typeof api.getClient==="function")break;
+  await delay(100);
+ }
+ if(!library){
+  set("client","Supabase CDN library did not load","bad");
+  set("session",hasSavedSession()?"A saved session exists in browser storage (token hidden)":"No readable saved session found","wait");
+  set("role","Not checked","bad");
+  summary("Root cause narrowed to the Supabase CDN script or browser/network blocking. The saved-session check does not expose credentials.","bad");
+  return;
+ }
+ if(!api||typeof api.getClient!=="function"){
+  set("client","CDN loaded, but shared js/supabase.js client was not published","bad");
+  set("session",hasSavedSession()?"A saved session exists in browser storage (token hidden)":"No readable saved session found","wait");
+  set("role","Not checked","bad");
+  summary("The shared client script is missing, stale, or failed during initialization. This is not yet a role/database result.","bad");
+  return;
+ }
+ try{client=api.getClient()}catch(e){console.warn("getClient diagnostic exception",e)}
+ if(!client||!client.auth){
+  set("client","Shared client initialization failed","bad");
+  set("session",hasSavedSession()?"A saved session exists in browser storage (token hidden)":"No readable saved session found","wait");
+  set("role","Not checked","bad");
+  summary("The shared client API exists but could not return an authenticated Supabase client. Check the browser console for initialization errors.","bad");
+  return;
+ }
+ set("client","Available","ok");
+ var sr=await timeout(client.auth.getSession(),6000,"Session check timed out");
+ var session=sr&&sr.data&&sr.data.session;
+ if(!session&&typeof window.Web3MarketSupabaseRestoreSession==="function"){
+  session=await timeout(window.Web3MarketSupabaseRestoreSession(),4000,"Session restore timed out");
+ }
+ if(!session||!session.user){
+  set("session",hasSavedSession()?"No active session, but saved auth data exists":"No active session found on this origin","bad");
+  set("role","Not checked","bad");
+  summary("The shared client loaded, but it did not return an active session. The saved-auth indicator helps distinguish storage from session hydration.","bad");
+  return;
+ }
+ set("session","FOUND — signed-in session detected (private identifiers hidden)","ok");
+ var pr=await timeout(client.from("profiles").select("role").eq("id",session.user.id).maybeSingle(),6000,"Profile-role check timed out");
+ var role=pr&&!pr.error&&pr.data&&pr.data.role?String(pr.data.role).toLowerCase():"";
+ if(role){
+  set("role","FOUND: "+role,"ok");
+  summary(["buyer","seller","admin"].indexOf(role)>=0?"Session and role both work here. Remaining issue is likely header script behavior or deployed cache.":"Session exists, but role is not recognized by header navigation.","ok");
+ }else{
+  set("role","Session found, but profile role could not be read","bad");
+  summary("The session exists, but the profile role query returned no usable role. Check profile access/RLS and the browser console.","bad");
+ }
+}catch(e){
+ console.warn("Web3Market diagnostic failed:",e);
+ set("client",client&&client.auth?"Client available; a check timed out or failed":"Diagnostic check timed out or failed","bad");
+ set("session",hasSavedSession()?"Saved auth data exists (private values hidden)":"No readable saved auth data","wait");
+ set("role","Not confirmed","bad");
+ summary("A check timed out or failed: "+String(e&&e.message||"unknown error")+". The page will no longer remain indefinitely on 'Checking'.","bad");
+}finally{btn.disabled=false}
 }
-if(!client||!client.auth){
-var library=window.supabase&&typeof window.supabase.createClient==="function";
-set("client",library?"Supabase library loaded, but shared client did not initialize":"Supabase library itself did not load","bad");
-set("session","Not checked","bad");set("role","Not checked","bad");
-set("summary",library?"Check js/supabase.js initialization errors.":"Check CDN/script loading or browser/network blocking.", "bad");return
-}
-set("client","Available","ok");
-var session=null;
-try{var sr=await client.auth.getSession();session=sr&&sr.data&&sr.data.session;if(!session&&typeof window.Web3MarketSupabaseRestoreSession==="function")session=await window.Web3MarketSupabaseRestoreSession();if(!session){var again=await client.auth.getSession();session=again&&again.data&&again.data.session}}catch(e){console.warn("Session diagnostic error",e)}
-if(!session||!session.user){set("session","NO SESSION found on this site origin","bad");set("role","Not checked","bad");set("summary","The browser tab cannot see a signed-in session here. Compare the site address with the address used for the Buyer Dashboard.","bad");return}
-set("session","FOUND — signed-in user detected (private identifiers hidden)","ok");
-var role="";
-try{var pr=await client.from("profiles").select("role").eq("id",session.user.id).maybeSingle();if(!pr.error&&pr.data&&pr.data.role)role=String(pr.data.role).toLowerCase();else if(pr.error)console.warn("Role query diagnostic",pr.error.message||pr.error)}catch(e){console.warn("Role query diagnostic exception",e)}
-if(role){set("role","FOUND: "+role,"ok");set("summary",["buyer","seller","admin"].includes(role)?"Session and role both work on this origin. The remaining issue is likely the live header script, selector, or deployment/cache.":"Session exists, but role value is not one of the header's recognized roles.","ok");return}
-set("role","SESSION FOUND, BUT PROFILE ROLE COULD NOT BE READ","bad");
-set("summary","The header cannot choose the correct dashboard because the profile role query returned no role. Check the browser console or profile access policy next.","bad");
-}
-el("retry").addEventListener("click",run);run();
+el("retry").addEventListener("click",run);
+run();
 })();
 </script>
 </body></html>
