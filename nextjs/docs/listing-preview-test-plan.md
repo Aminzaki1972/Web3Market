@@ -23,6 +23,9 @@ This plan covers the isolated Next.js preview on `nextjs-migration` only. The fo
 5. Enter a valid GitHub owner/repository URL and leave website blank; confirm the references requirement is satisfied.
 6. Put a GitHub URL in the official website field; confirm validation rejects the misplaced URL.
 7. Enter an HTTP URL or malformed URL in an optional link, including App Store and social links; confirm validation rejects it.
+8. Test `https://user:password@example.com` in the official website and an optional URL; confirm URL validation rejects embedded credentials.
+9. Test `https://user@github.com/owner/repository`; confirm the GitHub repository validator rejects embedded credentials.
+10. Confirm normal public HTTPS URLs without credentials continue to pass.
 
 ## Numeric validation
 
