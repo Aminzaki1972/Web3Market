@@ -125,6 +125,16 @@ function optionalNonNegativeNumberError(value: string, label: string): string | 
   return validNonNegativeNumber(value) ? null : label + " must be a valid non-negative number";
 }
 
+function optionalRateError(value: string, label: string, min: number, max?: number): string | null {
+  if (!value.trim()) return null;
+  const normalized = value.trim().endsWith("%") ? value.trim().slice(0, -1).trim() : value.trim();
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed < min || (max !== undefined && parsed > max)) {
+    return label + " must be a valid percentage/value between " + min + (max === undefined ? " and above" : " and " + max);
+  }
+  return null;
+}
+
 export default function SellProjectPage() {
   const [draft, setDraft] = useState<ListingDraft>(emptyDraft);
   const [loaded, setLoaded] = useState(false);
@@ -195,6 +205,10 @@ export default function SellProjectPage() {
       const error = optionalNonNegativeNumberError(value, label);
       if (error) errors.push(error);
     });
+    const growthError = optionalRateError(draft.growthRate, "growth rate", -100);
+    if (growthError) errors.push(growthError);
+    const conversionError = optionalRateError(draft.conversionRate, "conversion rate", 0, 100);
+    if (conversionError) errors.push(conversionError);
     const integerFields: Array<[string, string]> = [
       ["users / customers", draft.users], ["active users", draft.activeUsers],
       ["paying customers", draft.customers], ["monthly visits", draft.monthlyVisits],
