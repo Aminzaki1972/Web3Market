@@ -90,12 +90,16 @@ function restoreDraft(value: unknown): ListingDraft {
 }
 
 function validHttpsUrl(value: string) {
-  try { const url = new URL(value); return url.protocol === "https:"; } catch { return false; }
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && Boolean(url.hostname) && !url.username && !url.password;
+  } catch { return false; }
 }
 function validGithubRepo(value: string) {
   try {
     const url = new URL(value);
-    return url.protocol === "https:" && url.hostname.toLowerCase() === "github.com" &&
+    return url.protocol === "https:" && !url.username && !url.password &&
+      url.hostname.toLowerCase() === "github.com" &&
       /^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(url.pathname);
   } catch { return false; }
 }
