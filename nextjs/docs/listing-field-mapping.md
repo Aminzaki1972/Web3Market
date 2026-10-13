@@ -113,3 +113,16 @@ These fields are saved only in the browser's local draft. Adding a field to this
 
 
 The preview also now includes separate optional HTTPS inputs for `facebookUrl`, `instagramUrl`, `youtubeUrl`, `tiktokUrl`, `redditUrl`, `mediumUrl`, and `otherSocialUrl`, plus `appStoreUrl`. Their intended legacy counterparts are `facebook_url`, `instagram_url`, `youtube_url`, `tiktok_url`, `reddit_url`, `medium_url`, `other_social_url`, and `app_store_url`. These remain local-only until the backend mapping and schema are verified.
+
+
+## Legacy field coverage added in the latest preview update
+
+| Preview field | Intended legacy field | Notes |
+|---|---|---|
+| `projectTypes` | `project_types` | Checkbox choices stored as a comma-separated string in local draft only. Before backend writes, convert to the exact array/enum shape accepted by the verified schema. |
+| `services` | `services` | Checkbox choices stored as a comma-separated string in local draft only; schema shape remains unverified. |
+| `hasRevenue` | `has_revenue` | Explicit yes/no/not-specified selection; seller-reported only, not verified financial performance. |
+| `revenuePeriod` | `revenue_period` | Monthly, quarterly, yearly, lifetime/cumulative, or not specified; confirm legacy accepted values before writing. |
+| `selectedAssets` | `assets` | Structured checkbox choices stored as a comma-separated string in local draft. Do not map until the database's expected type is confirmed. `assetNotes` remains a separate explanatory text field. |
+
+These additions improve preview coverage only. They do not change Supabase, upload files, or make seller claims verified. The test plan should cover selecting/deselecting multiple options and restoring them after a reload.
