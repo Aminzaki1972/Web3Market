@@ -89,3 +89,24 @@ Inspection of `sell-project.html` on `main` confirms these additional form field
 | `logo_url`, `cover_image_url`, `video_url`, `screenshots` | UI file selector only | Preview currently records filenames, not URLs or uploaded files. Never serialize a selected filename as an asset URL. |
 
 The current preview also has fields that are not a one-to-one match for legacy inputs (for example, `category` versus `primary_type`, and `users` versus `users_count`). Implement a dedicated, tested mapping function only after the real database schema and accepted enum values have been inspected.
+
+
+## Preview fields added after the legacy coverage review
+
+The isolated preview now also captures the following fields locally. These remain UI-only until a verified database mapping is implemented.
+
+| Preview field | Legacy form field | Notes |
+| --- | --- | --- |
+| `targetMarkets` | `target_markets` | Free text for now; consider normalized multi-select values later. |
+| `buyerPitch` | `buyer_pitch` | Buyer-facing summary; distinct from the short card description. |
+| `assetNotes` | `assets`, `asset_notes` | Captures included/excluded assets in text. It does not yet replace the legacy structured asset checkbox list. |
+| `appStoreUrl` | `app_store_url` | Optional HTTPS URL. |
+| `yearlyProfit` | `yearly_profit` | Numeric, non-negative when supplied. Confirm gross/net meaning before mapping. |
+| `growthRate` | `growth_rate` | Free text to preserve period/context; validate format before backend writes. |
+| `totalSales` | `total_sales` | Count; must be a whole number. |
+| `monthlyVolume` | `monthly_volume` | Numeric non-negative volume; confirm currency/period semantics. |
+| `conversionRate` | `conversion_rate` | Free text to preserve percentage notation; validate format before backend writes. |
+| `lastActiveDate` | `last_active_date` | Date input; do not infer ongoing activity from a missing value. |
+| `trafficSources` | `traffic_sources` | Free text; seller should specify measurement period and evidence. |
+
+These fields are saved only in the browser's local draft. Adding a field to this form does not create a database column, authorize a write, or independently verify seller-provided claims.
