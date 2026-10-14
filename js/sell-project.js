@@ -11,7 +11,8 @@
   const LOCAL_KEY='web3market_sell_project_draft_v2';
   const LEGACY_KEY='web3market_sell_project_draft';
   const STEP_KEY='web3market_sell_project_step_v1';
-  let currentProjectId=new URLSearchParams(window.location.search).get('project')||localStorage.getItem(ID_KEY)||'';
+  const requestedProjectId=new URLSearchParams(window.location.search).get('project')||'';
+  let currentProjectId=requestedProjectId||localStorage.getItem(ID_KEY)||'';
   const SUPABASE_URL='https://hzhqlexnhtukfljcvnyd.supabase.co';
   const KEY='sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI';
   const NUM=['year_created','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_expenses','growth_rate','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','asking_price','price','monthly_net_profit','yearly_net_profit'];
@@ -69,40 +70,62 @@
   function restoreStep(){try{const raw=localStorage.getItem(STEP_KEY);if(!raw)return;const st=JSON.parse(raw);if(st.project_id&&currentProjectId&&st.project_id!==currentProjectId)return;const groups=getGroups();if(!groups.length)return;const i=Math.max(0,Math.min(groups.length-1,Number(st.index)||0));groups.forEach((g,n)=>g.open=n===i);groups[i].scrollIntoView({behavior:'auto',block:'start'});}catch(e){console.warn(e)}}
   function fill(p){if(p.project_url&&/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(String(p.project_url).trim())){const oldRepo=String(p.project_url).trim();p={...p,github_url:p.github_url||oldRepo,project_url:''};}if(!p.project_url&&p.website_url&&/^https:\/\//i.test(String(p.website_url).trim())&&!/(^|\.)github\.com$/i.test((()=>{try{return new URL(p.website_url).hostname}catch(e){return ''}})()))p={...p,project_url:p.website_url};const fields=['title','project_url','website_url','short_description','full_description','description','project_status','year_created','logo_url','demo_url','app_store_url','documentation_url','facebook_url','twitter_url','x_url','github_url','linkedin_url','instagram_url','telegram_url','discord_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','blockchain','tech_stack','technology_stack','development_stage','target_markets','business_model','competitive_advantage','competitors','market_opportunity','has_revenue','revenue_period','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','sale_type','transfer_terms','reason_for_sale','sale_reason','transfer_period','domain_ownership','domain_verification','github_ownership','ownership_declaration','asking_price','price','currency','currency_code','primary_type','buyer_pitch','cover_image_url','video_url','screenshots','negotiable'];fields.forEach(k=>{const e=form.elements.namedItem(k);if(!e||p[k]===undefined||p[k]===null)return;if(e.type==='checkbox')e.checked=!!p[k];else e.value=String(p[k]);});if(Array.isArray(p.target_audience))form.querySelectorAll('input[name="audience"]').forEach(e=>e.checked=p.target_audience.includes(e.value));['project_types','services','audience','assets'].forEach(n=>{const a=Array.isArray(p[n])?p[n]:[];form.querySelectorAll('input[name="'+n+'"]').forEach(e=>e.checked=a.includes(e.value));});renderSavedMediaPreviews();}
   async function load(){
+    if(out)out.textContent='Loading your saved draft…';
     const rawLocal=localStorage.getItem(LOCAL_KEY)||localStorage.getItem(LEGACY_KEY);
     let localSnapshot=null;
     try{if(rawLocal)localSnapshot=JSON.parse(rawLocal);}catch(e){console.warn(e)}
     if(localSnapshot?.project_id&&!currentProjectId)currentProjectId=localSnapshot.project_id;
     restoreStep();
     const x=await wait();
-    if(!x){if(localSnapshot?.data)fill(localSnapshot.data);if(out)out.textContent='Offline mode — your draft is محفوظ on this device. Engine '+VERSION;return;}
+    if(!x){
+      if(localSnapshot?.data&&!requestedProjectId)fill(localSnapshot.data);
+      if(out)out.textContent=requestedProjectId?'Could not connect to Web3Market database. Your existing listing was not changed. Please refresh and try again.':'Offline mode — your draft is محفوظ on this device. Engine '+VERSION;
+      return;
+    }
     const u=await x.auth.getUser();
-    if(u.error||!u.data?.user){if(localSnapshot?.data)fill(localSnapshot.data);return;}
+    if(u.error||!u.data?.user){
+      if(localSnapshot?.data&&!requestedProjectId)fill(localSnapshot.data);
+      if(out)out.textContent='Your seller session is not active. Sign in to the same seller account that owns this draft, then reopen it. No listing was changed.';
+      return;
+    }
     let p=null;
     let rejectedLocalSnapshot=false;
     if(currentProjectId){
       const r=await x.from('projects').select('*').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();
+      if(r.error){
+        console.error('DRAFT LOAD ERROR',r.error);
+        if(out)out.textContent='Unable to load this saved draft from the database: '+(r.error.message||'database query failed')+'. No new listing was created and no saved data was changed.';
+        return;
+      }
       p=r.data||null;
-      // A stale local/browser pointer may refer to a submitted or published listing.
-      // Never load that record into the editable form; recover an actually editable draft instead.
+      if(!p&&requestedProjectId){
+        if(out)out.textContent='This draft could not be found for the currently signed-in seller account. Sign in to the account that owns Web3Swap — Test Listing. No other draft was opened.';
+        return;
+      }
       if(p&&!isEditableDraft(p)){
-        // Do not restore a local snapshot tied to this submitted listing into another draft.
         rejectedLocalSnapshot=localSnapshot?.project_id===p.id;
+        if(requestedProjectId){
+          if(out)out.textContent='This listing is no longer an editable draft, so it was not loaded into the form. Its saved data remains unchanged.';
+          return;
+        }
         p=null;
         currentProjectId='';
         localStorage.removeItem(ID_KEY);
       }
     }
-    if(!p){
+    if(!p&&!requestedProjectId){
       const r=await x.from('projects').select('*').eq('owner_id',u.data.user.id).eq('status','draft').order('updated_at',{ascending:false}).limit(20);
+      if(r.error){
+        console.error('DRAFT LIST LOAD ERROR',r.error);
+        if(out)out.textContent='Unable to retrieve your saved drafts: '+(r.error.message||'database query failed')+'. No listing was changed.';
+        return;
+      }
       p=(r.data||[]).find(isEditableDraft)||null;
     }
     if(p){
       currentProjectId=p.id;localStorage.setItem(ID_KEY,p.id);
       const localTime=localSnapshot?.saved_at?Date.parse(localSnapshot.saved_at):0;
       const dbTime=p.updated_at?Date.parse(p.updated_at):0;
-      // A local recovery copy may override only the same draft it belongs to.
-      // Never copy data from a submitted listing into a different editable draft.
       if(!localSnapshot?.data||rejectedLocalSnapshot||localSnapshot.project_id!==p.id||dbTime>=localTime){
         fill(p);
         localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);
@@ -110,14 +133,17 @@
         fill(localSnapshot.data);
       }
       restoreStep();
-    }else if(localSnapshot?.data&&!rejectedLocalSnapshot&&!localSnapshot.project_id){
-      // Preserve an unsaved, unlinked local form only when it is not tied to a protected listing.
+      if(out)out.textContent='Saved draft loaded successfully. Project ID: '+p.id;
+    }else if(localSnapshot?.data&&!rejectedLocalSnapshot&&!localSnapshot.project_id&&!requestedProjectId){
       currentProjectId='';
       localStorage.removeItem(ID_KEY);
       fill(localSnapshot.data);
+      if(out)out.textContent='Restored an unsaved draft from this device. Save it to your seller account when ready.';
     }else if(rejectedLocalSnapshot){
       localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);
       if(out)out.textContent='This listing has already been submitted or published. Its saved data was not loaded into the editable form. You can continue with a separate editable draft.';
+    }else if(!requestedProjectId&&out){
+      out.textContent='No editable draft was found for this seller account. No new listing has been created.';
     }
   }
   let saveInFlight=null,saveAgain=false;
