@@ -70,19 +70,21 @@
     let localSnapshot=null;
     try{if(rawLocal)localSnapshot=JSON.parse(rawLocal);}catch(e){console.warn(e)}
     if(localSnapshot?.project_id&&!currentProjectId)currentProjectId=localSnapshot.project_id;
-    if(localSnapshot?.data)fill(localSnapshot.data);
     restoreStep();
     const x=await wait();
-    if(!x){if(out)out.textContent='Offline mode — your draft is محفوظ on this device. Engine '+VERSION;return;}
+    if(!x){if(localSnapshot?.data)fill(localSnapshot.data);if(out)out.textContent='Offline mode — your draft is محفوظ on this device. Engine '+VERSION;return;}
     const u=await x.auth.getUser();
-    if(u.error||!u.data?.user){return;}
+    if(u.error||!u.data?.user){if(localSnapshot?.data)fill(localSnapshot.data);return;}
     let p=null;
+    let rejectedLocalSnapshot=false;
     if(currentProjectId){
       const r=await x.from('projects').select('*').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();
       p=r.data||null;
       // A stale local/browser pointer may refer to a submitted or published listing.
       // Never load that record into the editable form; recover an actually editable draft instead.
       if(p&&!isEditableDraft(p)){
+        // Do not restore a local snapshot tied to this submitted listing into another draft.
+        rejectedLocalSnapshot=localSnapshot?.project_id===p.id;
         p=null;
         currentProjectId='';
         localStorage.removeItem(ID_KEY);
@@ -96,8 +98,23 @@
       currentProjectId=p.id;localStorage.setItem(ID_KEY,p.id);
       const localTime=localSnapshot?.saved_at?Date.parse(localSnapshot.saved_at):0;
       const dbTime=p.updated_at?Date.parse(p.updated_at):0;
-      if(!localSnapshot?.data||dbTime>=localTime){fill(p);localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);}
+      // A local recovery copy may override only the same draft it belongs to.
+      // Never copy data from a submitted listing into a different editable draft.
+      if(!localSnapshot?.data||rejectedLocalSnapshot||localSnapshot.project_id!==p.id||dbTime>=localTime){
+        fill(p);
+        localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);
+      }else{
+        fill(localSnapshot.data);
+      }
       restoreStep();
+    }else if(localSnapshot?.data&&!rejectedLocalSnapshot&&!localSnapshot.project_id){
+      // Preserve an unsaved, unlinked local form only when it is not tied to a protected listing.
+      currentProjectId='';
+      localStorage.removeItem(ID_KEY);
+      fill(localSnapshot.data);
+    }else if(rejectedLocalSnapshot){
+      localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);
+      if(out)out.textContent='This listing has already been submitted or published. Its saved data was not loaded into the editable form. You can continue with a separate editable draft.';
     }
   }
   let saveInFlight=null,saveAgain=false;
