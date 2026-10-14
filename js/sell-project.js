@@ -1,4 +1,5 @@
 "use strict";
+window.__web3MarketSellProjectLoaderStarted = true;
 (function(){
   const form=document.querySelector('#projectForm');
   if(!form)return;
