@@ -10,7 +10,7 @@
 
   function getHeaderLinks() {
     return Array.prototype.slice.call(document.querySelectorAll(
-      'header a[href="login.html"], header a[href="./login.html"], header a[href$="/login.html"], header a[data-w3m-original-label]'
+      'header a[href="login.html"], header a[href="./login.html"], header a[href$="/login.html"], #w3mHeaderDrawer a[href="login.html"], #w3mHeaderDrawer a[href="./login.html"], #w3mHeaderDrawer a[href$="/login.html"], header a[data-w3m-original-label], #w3mHeaderDrawer a[data-w3m-original-label]'
     ));
   }
   function getClient() {
