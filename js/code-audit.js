@@ -10,7 +10,7 @@
  const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
  const id=new URLSearchParams(location.search).get("id");
  const auditId=new URLSearchParams(location.search).get("audit_id");
- const metric=(name,v)=>'<div class="audit-metric"><strong>'+esc(name)+'</strong><b>'+(v==null?"—":esc(Math.round(Number(v)))+"/100")+"</b></div>";
+ const metric=(name,v,asScore=true)=>'<div class="audit-metric"><strong>'+esc(name)+'</strong><b>'+(v==null?"—":esc(Math.round(Number(v)))+(asScore?"/100":""))+"</b></div>";
  const sevOrder={critical:0,high:1,medium:2,low:3,info:4};
  function severityClass(s){return String(s||"info").toLowerCase().replace(/[^a-z]/g,"")||"info";}
  function findings(list){
@@ -40,7 +40,7 @@
    '<div class="audit-meta"><div><strong>Audit ID</strong><span class="audit-id">'+esc(a.id)+'</span></div><div><strong>Commit</strong><span class="audit-id">'+esc(a.commit_sha||"—")+'</span></div><div><strong>Audit Date</strong><span>'+esc(new Date(date).toLocaleString())+'</span></div><div><strong>Engine</strong><span>'+esc(a.engine_version||a.model||"W3M AI Code Audit")+'</span></div></div>'+
    '<div class="audit-grid">'+metric("Security",a.security_score)+metric("Architecture",a.architecture_score)+metric("Code Quality",a.code_quality_score)+metric("Dependencies",a.dependency_score)+metric("Testing",a.testing_score)+metric("Documentation",a.documentation_score)+metric("Web3",a.web3_score)+'</div>'+
    '<div class="audit-section"><h2>Audit Summary</h2><p class="audit-summary">'+esc(a.summary||"No summary available yet.")+'</p><p class="muted">Files scanned: '+esc(a.files_scanned||0)+' · Lines scanned: '+esc(a.lines_scanned||0)+' · Scan coverage: '+esc(a.coverage_score||0)+'% · Findings: '+esc(fl.length)+'</p></div>'+
-   '<div class="audit-section"><h2>Risk Overview</h2><div class="audit-grid">'+metric("Critical",cnt.critical)+metric("High",cnt.high)+metric("Medium",cnt.medium)+metric("Low",cnt.low)+metric("Info",cnt.info)+'</div></div>'+
+   '<div class="audit-section"><h2>Risk Overview</h2><div class="audit-grid">'+metric("Critical",cnt.critical,false)+metric("High",cnt.high,false)+metric("Medium",cnt.medium,false)+metric("Low",cnt.low,false)+metric("Info",cnt.info,false)+'</div></div>'+
    '<div class="audit-section"><h2>Technical Findings</h2><p class="muted">Every finding below is tied to repository evidence returned by the audit engine. Confidence and status indicate how strongly the evidence supports the finding.</p>'+findings(fl)+"</div>"+
    '<div class="audit-section"><h2>Repository Snapshot</h2><div class="audit-grid">'+files.slice(0,30).map(x=>'<div class="audit-metric"><strong>'+esc(x.path)+'</strong><span class="muted">'+esc(x.language||"source")+' · '+esc(x.line_count||0)+' lines</span></div>').join("")+'</div>'+(files.length>30?'<p class="muted">Showing the first 30 scanned files in this report.</p>':"")+'</div>'+
    '<div class="audit-certificate"><div class="audit-kicker">W3M AI CODE AUDIT RECORD</div><h2>Audit Analysis Record</h2><p>This report records the analysis result for the repository and commit shown above. It is not a formal penetration test, smart-contract audit, certification, guarantee, or investment advice.</p><p class="audit-id">'+esc(a.id)+'</p><p class="muted">Repository: '+esc(a.repo_owner||"")+"/"+esc(a.repo_name||"")+' · Commit: '+esc(a.commit_sha||"—")+'</p></div>'+
