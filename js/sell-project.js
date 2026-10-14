@@ -108,7 +108,7 @@
     if(!x){if(out)out.textContent='Offline — draft saved on this device. Engine '+VERSION;return {ok:false,offline:true};}
     const u=await x.auth.getUser();
     if(u.error||!u.data?.user){if(out)out.textContent='Please sign in. Draft saved on this device. Engine '+VERSION;return {ok:false,auth:false};}
-    const payload=collect();['business_verification','ownership_declaration','domain_ownership','domain_verification','github_ownership'].forEach(k=>delete payload[k]);payload.owner_id=u.data.user.id;payload.status='draft';
+    const payload=collect();['business_verification'].forEach(k=>delete payload[k]);payload.owner_id=u.data.user.id;payload.status='draft';
     if(Object.keys(payload).length<=2){if(out)out.textContent='Start entering your listing; it is already being saved. Engine '+VERSION;return {ok:false,empty:true};}
     if(out)out.textContent='Saving draft… Engine '+VERSION;
     let r;
