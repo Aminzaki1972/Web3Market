@@ -199,7 +199,11 @@
     const isGithubHost=u=>!!u&&/(^|\.)github\.com$/i.test(u.hostname);
     const validSite=!!siteUrl&&siteUrl.protocol==='https:'&&!isGithubHost(siteUrl);
     const validRepo=!!repoUrl&&repoUrl.protocol==='https:'&&repoUrl.hostname.toLowerCase()==='github.com'&&/^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(repoUrl.pathname);
-    if(!validSite&&!validRepo)issues.push('enter at least one valid official HTTPS website or GitHub repository; correct or clear any invalid URL fields');
+    // Validate every URL the seller entered, even when the other URL is valid.
+        // Otherwise an invalid optional URL could be silently saved alongside a valid one.
+        if(site&&!validSite)issues.push('official website must be a valid HTTPS URL and must not be a GitHub URL');
+        if(repo&&!validRepo)issues.push('repository must be a valid HTTPS GitHub owner/repository URL');
+        if(!site&&!repo)issues.push('enter at least one valid official HTTPS website or GitHub repository');
     if(!val('business_model'))issues.push('business model');
     const price=num(val('asking_price')||val('price'));
     if(price===null||price<=0)issues.push('asking price greater than zero');
