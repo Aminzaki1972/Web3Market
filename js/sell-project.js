@@ -332,29 +332,115 @@ window.__web3MarketSellProjectLoaderStarted = true;
     if(!pub?.data?.publicUrl)throw new Error('Upload finished but the public file URL could not be created.');
     return pub.data.publicUrl;
   }
+  function mediaButton(text,fieldName,url,status){
+    const b=document.createElement('button');
+    b.type='button';b.className='btn btn-ghost media-remove-btn';
+    b.textContent=text;b.setAttribute('aria-label',text);
+    b.style.cssText='display:inline-flex;margin-top:8px;padding:7px 11px;border:1px solid #ff6474;color:#ff6474;border-radius:8px;cursor:pointer;font-size:12px;';
+    b.addEventListener('click',()=>removeMediaUrl(fieldName,url,status));
+    return b;
+  }
+  async function deleteOwnedListingMedia(url){
+    try{
+      const parsed=new URL(String(url||''));
+      const base=new URL(SUPABASE_URL);
+      const prefix='/storage/v1/object/public/project-media/';
+      if(parsed.origin!==base.origin||!parsed.pathname.startsWith(prefix))return false;
+      const path=decodeURIComponent(parsed.pathname.slice(prefix.length));
+      const x=await wait();if(!x)return false;
+      const auth=await x.auth.getUser(),user=auth.data?.user;
+      if(!user||!path.startsWith(user.id+'/listing-media/'))return false;
+      const result=await x.storage.from('project-media').remove([path]);
+      return !result.error;
+    }catch(e){console.warn('Could not delete uploaded media object',e);return false;}
+  }
+  async function removeMediaUrl(fieldName,url,status){
+    const field=form.elements.namedItem(fieldName);
+    if(!field)return;
+    if(fieldName==='screenshots'){
+      field.value=String(field.value||'').split(',').map(v=>v.trim()).filter(v=>v&&v!==url).join(', ');
+    }else{
+      field.value='';
+      const inputId={logo_url:'logoFile',cover_image_url:'coverImageFile',video_url:'videoFile'}[fieldName];
+      const input=inputId&&document.getElementById(inputId);if(input)input.value='';
+    }
+    renderSavedMediaPreviews();local();
+    const result=await save();
+    const deleted=await deleteOwnedListingMedia(url);
+    if(status)status.textContent=deleted?'تم حذف الملف وإزالته من الإدراج.':'تمت إزالة الملف من الإدراج وحفظ التغيير. إذا كان الملف مرفوعًا سابقًا فقد تظل نسخته في التخزين.';
+    if(result?.error&&status)status.textContent='تمت إزالة الملف من النموذج، لكن تعذر تأكيد حفظ التغيير في قاعدة البيانات. '+(result.error.message||'');
+  }
   function wireSingleUpload(inputId,fieldName,statusId,previewId,kind){
     const input=document.getElementById(inputId),status=document.getElementById(statusId),preview=document.getElementById(previewId);
     if(!input||!status)return;
-    input.addEventListener('change',async()=>{const file=input.files?.[0];if(!file)return;status.textContent='Uploading '+file.name+'…';input.disabled=true;
-      try{const url=await uploadListingFile(file,kind);const field=form.elements.namedItem(fieldName);if(field)field.value=url;if(preview){preview.src=url;preview.hidden=false;}status.textContent='Uploaded successfully. File URL added to listing.';local();save();}
-      catch(e){status.textContent='Upload failed: '+(e.message||'Please try again.');}finally{input.disabled=false;}
+    let removeButton=null;
+    const ensureButton=()=>{
+      if(!removeButton){removeButton=mediaButton('حذف الملف من الإدراج',fieldName,val(fieldName),status);(preview||status).insertAdjacentElement('afterend',removeButton);}
+      removeButton.hidden=!val(fieldName);
+      removeButton.onclick=()=>removeMediaUrl(fieldName,val(fieldName),status);
+    };
+    ensureButton();
+    input.addEventListener('change',async()=>{
+      const file=input.files?.[0];if(!file)return;
+      status.textContent='Uploading '+file.name+'…';input.disabled=true;
+      const oldUrl=val(fieldName);
+      try{
+        const url=await uploadListingFile(file,kind);
+        const field=form.elements.namedItem(fieldName);if(field)field.value=url;
+        if(preview){preview.src=url;preview.hidden=false;}
+        status.textContent='تم رفع الملف بنجاح وإضافته إلى الإدراج.';
+        ensureButton();renderSavedMediaPreviews();local();await save();
+        if(oldUrl&&oldUrl!==url)await deleteOwnedListingMedia(oldUrl);
+      }catch(e){status.textContent='Upload failed: '+(e.message||'Please try again.');}
+      finally{input.disabled=false;ensureButton();}
     });
   }
-  // Rebuild media previews from saved URL fields whenever a draft is restored.
+  // Rebuild previews and per-file removal controls from the saved URL fields.
   function renderSavedMediaPreviews(){
-    const setImage=(inputId,fieldName)=>{const el=document.getElementById(inputId),url=val(fieldName);if(!el)return;const safe=safeMediaPreviewUrl(url);if(safe){el.src=safe;el.hidden=false;}else{el.removeAttribute('src');el.hidden=true;}};
-    const setVideo=()=>{const el=document.getElementById('videoUploadPreview'),safe=safeMediaPreviewUrl(val('video_url'));if(!el)return;if(safe){el.src=safe;el.hidden=false;}else{el.removeAttribute('src');el.hidden=true;}};
-    setImage('logoUploadPreview','logo_url');setImage('coverUploadPreview','cover_image_url');setVideo();
-    const grid=document.getElementById('screenshotsUploadPreview');if(grid){grid.replaceChildren();val('screenshots').split(',').map(x=>safeMediaPreviewUrl(x.trim())).filter(Boolean).slice(0,12).forEach((url,i)=>{const img=document.createElement('img');img.src=url;img.alt='Screenshot preview '+(i+1);img.loading='lazy';grid.appendChild(img);});}
+    const setImage=(inputId,fieldName,statusId)=>{
+      const el=document.getElementById(inputId),status=document.getElementById(statusId),url=val(fieldName);
+      if(!el)return;
+      const safe=safeMediaPreviewUrl(url);
+      if(safe){el.src=safe;el.hidden=false;}else{el.removeAttribute('src');el.hidden=true;}
+      let b=el.nextElementSibling;
+      if(!b||!b.classList.contains('media-remove-btn')){b=mediaButton('حذف الملف من الإدراج',fieldName,url,status);el.insertAdjacentElement('afterend',b);}
+      b.hidden=!safe;b.onclick=()=>removeMediaUrl(fieldName,val(fieldName),status);
+    };
+    const video=document.getElementById('videoUploadPreview'),videoStatus=document.getElementById('videoUploadStatus'),videoUrl=safeMediaPreviewUrl(val('video_url'));
+    if(video){if(videoUrl){video.src=videoUrl;video.hidden=false;}else{video.removeAttribute('src');video.hidden=true;}
+      let b=video.nextElementSibling;
+      if(!b||!b.classList.contains('media-remove-btn')){b=mediaButton('حذف الفيديو من الإدراج','video_url',videoUrl,videoStatus);video.insertAdjacentElement('afterend',b);}
+      b.hidden=!videoUrl;b.onclick=()=>removeMediaUrl('video_url',val('video_url'),videoStatus);
+    }
+    setImage('logoUploadPreview','logo_url','logoUploadStatus');
+    setImage('coverUploadPreview','cover_image_url','coverUploadStatus');
+    const grid=document.getElementById('screenshotsUploadPreview');
+    if(grid){
+      grid.replaceChildren();
+      const urls=String(val('screenshots')||'').split(',').map(x=>safeMediaPreviewUrl(x.trim())).filter(Boolean).slice(0,12);
+      urls.forEach((url,i)=>{
+        const card=document.createElement('div');card.className='media-preview-card';card.style.cssText='display:flex;flex-direction:column;gap:6px;min-width:0;';
+        const img=document.createElement('img');img.src=url;img.alt='Screenshot preview '+(i+1);img.loading='lazy';img.style.cssText='max-width:100%;border-radius:8px;';
+        const b=mediaButton('حذف الصورة', 'screenshots',url,document.getElementById('screenshotsUploadStatus'));
+        card.append(img,b);grid.appendChild(card);
+      });
+    }
   }
   function safeMediaPreviewUrl(value){try{const u=new URL(String(value||'').trim());return ['http:','https:'].includes(u.protocol)?u.href:'';}catch(e){return '';}}
   wireSingleUpload('logoFile','logo_url','logoUploadStatus','logoUploadPreview','image');
   wireSingleUpload('coverImageFile','cover_image_url','coverUploadStatus','coverUploadPreview','image');
   wireSingleUpload('videoFile','video_url','videoUploadStatus','videoUploadPreview','video');
   const screenshotsInput=document.getElementById('screenshotsFiles');
-  if(screenshotsInput)screenshotsInput.addEventListener('change',async()=>{const files=[...(screenshotsInput.files||[])];if(!files.length)return;const status=document.getElementById('screenshotsUploadStatus'),grid=document.getElementById('screenshotsUploadPreview');screenshotsInput.disabled=true;status.textContent='Uploading '+files.length+' screenshot(s)…';
-    try{const urls=[];for(const file of files)urls.push(await uploadListingFile(file,'image'));const field=form.elements.namedItem('screenshots');if(field){const old=String(field.value||'').split(',').map(x=>x.trim()).filter(Boolean);field.value=[...old,...urls].join(', ');}if(grid)urls.forEach(url=>{const img=document.createElement('img');img.src=url;img.alt='Uploaded screenshot';grid.appendChild(img);});status.textContent='Uploaded '+urls.length+' screenshot(s). URLs added to listing.';local();save();}
-    catch(e){status.textContent='Upload failed: '+(e.message||'Please try again.');}finally{screenshotsInput.disabled=false;}
+  if(screenshotsInput)screenshotsInput.addEventListener('change',async()=>{
+    const files=[...(screenshotsInput.files||[])];if(!files.length)return;
+    const status=document.getElementById('screenshotsUploadStatus');screenshotsInput.disabled=true;status.textContent='Uploading '+files.length+' screenshot(s)…';
+    try{
+      const urls=[];for(const file of files)urls.push(await uploadListingFile(file,'image'));
+      const field=form.elements.namedItem('screenshots');
+      if(field){const old=String(field.value||'').split(',').map(x=>x.trim()).filter(Boolean);field.value=[...old,...urls].join(', ');}
+      renderSavedMediaPreviews();status.textContent='تم رفع '+urls.length+' صورة وإضافتها إلى الإدراج.';local();await save();
+    }catch(e){status.textContent='Upload failed: '+(e.message||'Please try again.');}
+    finally{screenshotsInput.disabled=false;}
   });
   form.addEventListener('input',()=>{clearTimeout(window.__wmTimer);window.__wmTimer=setTimeout(local,150);clearTimeout(window.__wmDbTimer);window.__wmDbTimer=setTimeout(()=>{save();},1800);});
   form.addEventListener('change',()=>{local();saveStep();renderSavedMediaPreviews();save();});
