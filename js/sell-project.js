@@ -371,14 +371,14 @@ window.__web3MarketSellProjectLoaderStarted = true;
       return;
     }
     const deleted=await deleteOwnedListingMedia(url);
-    if(status)status.textContent=deleted?'تم حذف الملف من التخزين وإزالته من الإدراج.':'تمت إزالة الملف من الإدراج وحفظ التغيير. إذا كان الملف مرفوعًا سابقًا فقد تظل نسخته في التخزين.';
+    if(status)status.textContent=deleted?'File deleted from storage and removed from the listing.':'File removed from the listing and changes saved. If it was uploaded earlier, a copy may remain in storage.';
   }
   function wireSingleUpload(inputId,fieldName,statusId,previewId,kind){
     const input=document.getElementById(inputId),status=document.getElementById(statusId),preview=document.getElementById(previewId);
     if(!input||!status)return;
     let removeButton=null;
     const ensureButton=()=>{
-      if(!removeButton){removeButton=mediaButton('حذف الملف من الإدراج',fieldName,val(fieldName),status);(preview||status).insertAdjacentElement('afterend',removeButton);}
+      if(!removeButton){removeButton=mediaButton('Remove file from listing',fieldName,val(fieldName),status);(preview||status).insertAdjacentElement('afterend',removeButton);}
       removeButton.hidden=!val(fieldName);
       removeButton.onclick=()=>removeMediaUrl(fieldName,val(fieldName),status);
     };
@@ -391,7 +391,7 @@ window.__web3MarketSellProjectLoaderStarted = true;
         const url=await uploadListingFile(file,kind);
         const field=form.elements.namedItem(fieldName);if(field)field.value=url;
         if(preview){preview.src=url;preview.hidden=false;}
-        status.textContent='تم رفع الملف بنجاح وإضافته إلى الإدراج.';
+        status.textContent='File uploaded successfully and added to the listing.';
         ensureButton();renderSavedMediaPreviews();local();await save();
         if(oldUrl&&oldUrl!==url)await deleteOwnedListingMedia(oldUrl);
       }catch(e){status.textContent='Upload failed: '+(e.message||'Please try again.');}
@@ -406,13 +406,13 @@ window.__web3MarketSellProjectLoaderStarted = true;
       const safe=safeMediaPreviewUrl(url);
       if(safe){el.src=safe;el.hidden=false;}else{el.removeAttribute('src');el.hidden=true;}
       let b=el.nextElementSibling;
-      if(!b||!b.classList.contains('media-remove-btn')){b=mediaButton('حذف الملف من الإدراج',fieldName,url,status);el.insertAdjacentElement('afterend',b);}
+      if(!b||!b.classList.contains('media-remove-btn')){b=mediaButton('Remove file from listing',fieldName,url,status);el.insertAdjacentElement('afterend',b);}
       b.hidden=!safe;b.onclick=()=>removeMediaUrl(fieldName,val(fieldName),status);
     };
     const video=document.getElementById('videoUploadPreview'),videoStatus=document.getElementById('videoUploadStatus'),videoUrl=safeMediaPreviewUrl(val('video_url'));
     if(video){if(videoUrl){video.src=videoUrl;video.hidden=false;}else{video.removeAttribute('src');video.hidden=true;}
       let b=video.nextElementSibling;
-      if(!b||!b.classList.contains('media-remove-btn')){b=mediaButton('حذف الفيديو من الإدراج','video_url',videoUrl,videoStatus);video.insertAdjacentElement('afterend',b);}
+      if(!b||!b.classList.contains('media-remove-btn')){b=mediaButton('Remove video from listing','video_url',videoUrl,videoStatus);video.insertAdjacentElement('afterend',b);}
       b.hidden=!videoUrl;b.onclick=()=>removeMediaUrl('video_url',val('video_url'),videoStatus);
     }
     setImage('logoUploadPreview','logo_url','logoUploadStatus');
@@ -424,7 +424,7 @@ window.__web3MarketSellProjectLoaderStarted = true;
       urls.forEach((url,i)=>{
         const card=document.createElement('div');card.className='media-preview-card';card.style.cssText='display:flex;flex-direction:column;gap:6px;min-width:0;';
         const img=document.createElement('img');img.src=url;img.alt='Screenshot preview '+(i+1);img.loading='lazy';img.style.cssText='max-width:100%;border-radius:8px;';
-        const b=mediaButton('حذف الصورة', 'screenshots',url,document.getElementById('screenshotsUploadStatus'));
+        const b=mediaButton('Remove image', 'screenshots',url,document.getElementById('screenshotsUploadStatus'));
         card.append(img,b);grid.appendChild(card);
       });
     }
@@ -441,7 +441,7 @@ window.__web3MarketSellProjectLoaderStarted = true;
       const urls=[];for(const file of files)urls.push(await uploadListingFile(file,'image'));
       const field=form.elements.namedItem('screenshots');
       if(field){const old=String(field.value||'').split(',').map(x=>x.trim()).filter(Boolean);field.value=[...old,...urls].join(', ');}
-      renderSavedMediaPreviews();status.textContent='تم رفع '+urls.length+' صورة وإضافتها إلى الإدراج.';local();await save();
+      renderSavedMediaPreviews();status.textContent='Uploaded '+urls.length+' image(s) and added them to the listing.';local();await save();
     }catch(e){status.textContent='Upload failed: '+(e.message||'Please try again.');}
     finally{screenshotsInput.disabled=false;}
   });
