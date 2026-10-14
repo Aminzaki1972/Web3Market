@@ -445,7 +445,7 @@ function addPicker(){
     if(menu && !menu.querySelector('[data-language]')) buildLanguageMenu(menu);
     return;
   }
-  const nav=document.querySelector('.navin')||document.querySelector('.topbar')||document.querySelector('header')||document.body;
+  const nav=document.querySelector('.wm-sidebar-language')||document.querySelector('.navin')||document.querySelector('.topbar')||document.querySelector('header')||document.body;
   if(!nav)return;
   const wrap=document.createElement('div');
   wrap.id='wm-language';
