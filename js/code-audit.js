@@ -9,6 +9,9 @@
  const ensureClient=async()=>{let c=client();if(c)return c;if(window.supabase?.createClient){localClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});return localClient}throw Error("Supabase client library failed to load.");};
  const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
  const id=new URLSearchParams(location.search).get("id");
+ let autoFollow=true;
+ const stopFollow=()=>{autoFollow=false;const el=document.getElementById("w3mStopFollow");if(el){el.disabled=true;el.textContent="Automatic follow-up stopped";}const note=document.getElementById("w3mFollowNote");if(note)note.textContent="Automatic page refresh and resume requests are stopped. An already-running server request may finish its current chunk.";};
+ window.W3MStopAuditFollow=stopFollow;
  const auditId=new URLSearchParams(location.search).get("audit_id");
  const metric=(name,v,asScore=true)=>'<div class="audit-metric"><strong>'+esc(name)+'</strong><b>'+(v==null?"—":esc(Math.round(Number(v)))+(asScore?"/100":""))+"</b></div>";
  const sevOrder={critical:0,high:1,medium:2,low:3,info:4};
@@ -80,11 +83,21 @@
    catch(e){console.error(e);root.innerHTML='<h1>W3M AI Code Audit</h1><p class="muted">'+esc(e?.message||"Unable to load audit.")+"</p>"}
  }
  async function resumeIfNeeded(a){
-   if(!a||!auditId)return;
+   if(!a||!auditId||!autoFollow)return;
    const status=String(a.status||"");
-   const total=Number(a.total_chunks||a.analysis_progress?.total_chunks||0);
-   const current=Number(a.current_chunk||a.analysis_progress?.current_chunk||0);
+   const progress=a.analysis_progress||{};
+   const total=Number(a.total_chunks||progress.total_chunks||0);
+   const current=Number(a.current_chunk||progress.current_chunk||0);
    if(!["queued","scanning","analyzing","retrying"].includes(status)||!total||current>=total)return;
+   const heartbeat=progress.updated_at?Date.parse(progress.updated_at):0;
+   const stale=!heartbeat||!Number.isFinite(heartbeat)||(Date.now()-heartbeat)>90000;
+   // A fresh scanning heartbeat means a worker is already active. Never call resume on every poll.
+   if(["scanning","analyzing","retrying"].includes(status)&&!stale)return;
+   // Avoid burning the server-side resume allowance if a queued audit is polled repeatedly.
+   const key="w3m:lastResumeAttempt:"+a.id;
+   const last=Number(sessionStorage.getItem(key)||0);
+   if(Date.now()-last<60000)return;
+   sessionStorage.setItem(key,String(Date.now()));
    try{
      await ensureClient().then(c=>c.functions.invoke("w3m-code-audit",{body:{audit_id:a.id}}));
    }catch(e){console.warn("W3M audit resume request failed",e);}
@@ -97,8 +110,8 @@
        const p=a.analysis_progress||{}; const current=Number(a.current_chunk||p.current_chunk||0); const total=Number(a.total_chunks||p.total_chunks||0);
        const pct=total?Math.min(100,Math.round(current/total*100)):0;
        const retry=a.status==="retrying" ? '<p class="muted">Gemini is temporarily busy. W3M is retrying automatically'+(p.retry_after_seconds?' — next retry in about '+esc(p.retry_after_seconds)+'s':'')+'.</p>' : '';
-       root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit is running…</h2><p class="muted">Status: '+esc(a.status)+'</p><p class="muted">AI analysis progress: '+esc(current)+' / '+esc(total||'?')+' chunks ('+esc(pct)+'%).</p><div style="height:8px;background:#25213a;border-radius:99px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:currentColor"></div></div>'+retry+'<p class="muted">Progress is saved automatically. You can leave this page safely.</p></div>';
-       setTimeout(async()=>{await resumeIfNeeded(a);openExisting();},3000);return true;
+       root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit is running…</h2><p class="muted">Status: '+esc(a.status)+'</p><p class="muted">AI analysis progress: '+esc(current)+' / '+esc(total||'?')+' chunks ('+esc(pct)+'%).</p><div style="height:8px;background:#25213a;border-radius:99px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:currentColor"></div></div>'+retry+'<p class="muted">Progress is saved automatically. You can leave this page safely.</p><button id="w3mStopFollow" class="btn btn-ghost" type="button" onclick="window.W3MStopAuditFollow&&window.W3MStopAuditFollow()">Stop automatic follow-up</button><p id="w3mFollowNote" class="muted" aria-live="polite">This stops browser polling/resume attempts; an already-running server request may finish its current chunk.</p></div>';
+       setTimeout(async()=>{if(!autoFollow)return;await resumeIfNeeded(a);if(autoFollow)openExisting();},10000);return true;
      }
      if(a.status==="paused"){
  const wait=Number(a.analysis_progress?.retry_after_seconds||0);
