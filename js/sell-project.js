@@ -127,7 +127,9 @@ window.__web3MarketSellProjectLoaderStarted = true;
       currentProjectId=p.id;localStorage.setItem(ID_KEY,p.id);
       const localTime=localSnapshot?.saved_at?Date.parse(localSnapshot.saved_at):0;
       const dbTime=p.updated_at?Date.parse(p.updated_at):0;
-      if(!localSnapshot?.data||rejectedLocalSnapshot||localSnapshot.project_id!==p.id||dbTime>=localTime){
+      // When the seller explicitly opens a database listing by ID, the database record
+      // is authoritative. A stale/empty localStorage snapshot must never blank the form.
+      if(requestedProjectId||!localSnapshot?.data||rejectedLocalSnapshot||localSnapshot.project_id!==p.id||dbTime>=localTime){
         fill(p);
         localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);
       }else{
