@@ -196,9 +196,9 @@
     const repo=normalizeUrl(val('github_url'));
     const siteUrl=parseUrl(site);
     const repoUrl=parseUrl(repo);
-    const isGithubHost=u=>!!u&&/(^|\\.)github\\.com$/i.test(u.hostname);
+    const isGithubHost=u=>!!u&&/(^|\.)github\.com$/i.test(u.hostname);
     const validSite=!!siteUrl&&siteUrl.protocol==='https:'&&!isGithubHost(siteUrl);
-    const validRepo=!!repoUrl&&repoUrl.protocol==='https:'&&repoUrl.hostname.toLowerCase()==='github.com'&&/^\\/[A-Za-z0-9_.-]+\\/[A-Za-z0-9_.-]+\\/?$/.test(repoUrl.pathname);
+    const validRepo=!!repoUrl&&repoUrl.protocol==='https:'&&repoUrl.hostname.toLowerCase()==='github.com'&&/^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(repoUrl.pathname);
     // Validate every URL the seller entered, even when the other URL is valid.
     // Otherwise an invalid optional URL could be silently saved alongside a valid one.
     if(site&&!validSite)issues.push('official website must be a valid HTTPS URL and must not be a GitHub URL');
