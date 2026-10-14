@@ -77,8 +77,21 @@
     const u=await x.auth.getUser();
     if(u.error||!u.data?.user){return;}
     let p=null;
-    if(currentProjectId){const r=await x.from('projects').select('*').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();p=r.data||null;}
-    if(!p){const r=await x.from('projects').select('*').eq('owner_id',u.data.user.id).eq('status','draft').order('updated_at',{ascending:false}).limit(20);p=(r.data||[]).find(isEditableDraft)||null;}
+    if(currentProjectId){
+      const r=await x.from('projects').select('*').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();
+      p=r.data||null;
+      // A stale local/browser pointer may refer to a submitted or published listing.
+      // Never load that record into the editable form; recover an actually editable draft instead.
+      if(p&&!isEditableDraft(p)){
+        p=null;
+        currentProjectId='';
+        localStorage.removeItem(ID_KEY);
+      }
+    }
+    if(!p){
+      const r=await x.from('projects').select('*').eq('owner_id',u.data.user.id).eq('status','draft').order('updated_at',{ascending:false}).limit(20);
+      p=(r.data||[]).find(isEditableDraft)||null;
+    }
     if(p){
       currentProjectId=p.id;localStorage.setItem(ID_KEY,p.id);
       const localTime=localSnapshot?.saved_at?Date.parse(localSnapshot.saved_at):0;
