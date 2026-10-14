@@ -366,9 +366,12 @@ window.__web3MarketSellProjectLoaderStarted = true;
     }
     renderSavedMediaPreviews();local();
     const result=await save();
+    if(!result?.ok){
+      if(status)status.textContent='تمت إزالة الملف من النموذج فقط، لكن لم يتأكد حفظ التغيير. احتفظنا بالملف في التخزين لتجنب كسر المسودة المحفوظة.';
+      return;
+    }
     const deleted=await deleteOwnedListingMedia(url);
-    if(status)status.textContent=deleted?'تم حذف الملف وإزالته من الإدراج.':'تمت إزالة الملف من الإدراج وحفظ التغيير. إذا كان الملف مرفوعًا سابقًا فقد تظل نسخته في التخزين.';
-    if(result?.error&&status)status.textContent='تمت إزالة الملف من النموذج، لكن تعذر تأكيد حفظ التغيير في قاعدة البيانات. '+(result.error.message||'');
+    if(status)status.textContent=deleted?'تم حذف الملف من التخزين وإزالته من الإدراج.':'تمت إزالة الملف من الإدراج وحفظ التغيير. إذا كان الملف مرفوعًا سابقًا فقد تظل نسخته في التخزين.';
   }
   function wireSingleUpload(inputId,fieldName,statusId,previewId,kind){
     const input=document.getElementById(inputId),status=document.getElementById(statusId),preview=document.getElementById(previewId);
