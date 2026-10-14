@@ -15,7 +15,7 @@
   const SUPABASE_URL='https://hzhqlexnhtukfljcvnyd.supabase.co';
   const KEY='sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI';
   const NUM=['year_created','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_expenses','growth_rate','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','asking_price','price','monthly_net_profit','yearly_net_profit'];
-  const DB=['title','description','category','price','currency','status','website_url','short_description','year_created','logo_url','demo_url','full_description','project_types','services','target_audience','target_markets','business_model','competitive_advantage','competitors','social_accounts','performance','financials','assets','sale_type','negotiable','transfer_terms','verification','blockchain','github_url','app_store_url','facebook_url','x_url','linkedin_url','telegram_url','discord_url','primary_type','technology_stack','development_stage','monthly_revenue','yearly_revenue','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','reason_for_sale','transfer_period','domain_ownership','github_ownership','business_verification','identity_verification','ownership_declaration','project_url','documentation_url','twitter_url','instagram_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','tech_stack','monthly_profit','yearly_profit','revenue_period','has_revenue','market_opportunity','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','currency_code','asking_price','project_types_text','audience','services_text','buyer_pitch','cover_image_url','domain_verification','sale_reason','screenshots','video_url','users_count'];
+  const DB=['title','description','category','price','currency','status','website_url','short_description','year_created','logo_url','demo_url','full_description','project_types','services','target_audience','target_markets','business_model','competitive_advantage','competitors','social_accounts','performance','financials','assets','sale_type','negotiable','transfer_terms','verification','blockchain','github_url','app_store_url','facebook_url','x_url','linkedin_url','telegram_url','discord_url','primary_type','technology_stack','development_stage','monthly_revenue','yearly_revenue','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','reason_for_sale','transfer_period','domain_ownership','github_ownership','ownership_declaration','project_url','documentation_url','twitter_url','instagram_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','tech_stack','monthly_profit','yearly_profit','revenue_period','has_revenue','market_opportunity','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','currency_code','asking_price','project_types_text','audience','services_text','buyer_pitch','cover_image_url','domain_verification','sale_reason','screenshots','video_url','users_count'];
   function c(){return window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase||null;}
   function client(){const x=c();if(x)return x;if(window.supabase?.createClient){try{return window.supabase.createClient(SUPABASE_URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'web3market-auth'}});}catch(e){console.error(e)}}return null;}
   async function wait(){for(let i=0;i<40;i++){const x=client();if(x)return x;await new Promise(r=>setTimeout(r,250));}return null;}
@@ -64,27 +64,57 @@
   function getGroups(){return [...form.querySelectorAll('details.group')];}
   function saveStep(){try{const groups=getGroups();const open=groups.findIndex(g=>g.open);if(open>=0)localStorage.setItem(STEP_KEY,JSON.stringify({project_id:currentProjectId||null,index:open,saved_at:new Date().toISOString()}));}catch(e){console.warn(e)}}
   function restoreStep(){try{const raw=localStorage.getItem(STEP_KEY);if(!raw)return;const st=JSON.parse(raw);if(st.project_id&&currentProjectId&&st.project_id!==currentProjectId)return;const groups=getGroups();if(!groups.length)return;const i=Math.max(0,Math.min(groups.length-1,Number(st.index)||0));groups.forEach((g,n)=>g.open=n===i);groups[i].scrollIntoView({behavior:'auto',block:'start'});}catch(e){console.warn(e)}}
-  function fill(p){if(p.project_url&&/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(String(p.project_url).trim())){const oldRepo=String(p.project_url).trim();p={...p,github_url:p.github_url||oldRepo,project_url:''};}if(!p.project_url&&p.website_url&&/^https:\/\//i.test(String(p.website_url).trim())&&!/(^|\.)github\.com$/i.test((()=>{try{return new URL(p.website_url).hostname}catch(e){return ''}})()))p={...p,project_url:p.website_url};const fields=['title','project_url','website_url','short_description','full_description','description','project_status','year_created','logo_url','demo_url','app_store_url','documentation_url','facebook_url','twitter_url','x_url','github_url','linkedin_url','instagram_url','telegram_url','discord_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','blockchain','tech_stack','technology_stack','development_stage','target_markets','business_model','competitive_advantage','competitors','market_opportunity','has_revenue','revenue_period','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','sale_type','transfer_terms','reason_for_sale','sale_reason','transfer_period','domain_ownership','domain_verification','github_ownership','business_verification','identity_verification','ownership_declaration','asking_price','price','currency','currency_code','primary_type','buyer_pitch','cover_image_url','video_url','screenshots','negotiable'];fields.forEach(k=>{const e=form.elements.namedItem(k);if(!e||p[k]===undefined||p[k]===null)return;if(e.type==='checkbox')e.checked=!!p[k];else e.value=String(p[k]);});if(Array.isArray(p.target_audience))form.querySelectorAll('input[name="audience"]').forEach(e=>e.checked=p.target_audience.includes(e.value));['project_types','services','audience','assets'].forEach(n=>{const a=Array.isArray(p[n])?p[n]:[];form.querySelectorAll('input[name="'+n+'"]').forEach(e=>e.checked=a.includes(e.value));});renderSavedMediaPreviews();}
+  function fill(p){if(p.project_url&&/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(String(p.project_url).trim())){const oldRepo=String(p.project_url).trim();p={...p,github_url:p.github_url||oldRepo,project_url:''};}if(!p.project_url&&p.website_url&&/^https:\/\//i.test(String(p.website_url).trim())&&!/(^|\.)github\.com$/i.test((()=>{try{return new URL(p.website_url).hostname}catch(e){return ''}})()))p={...p,project_url:p.website_url};const fields=['title','project_url','website_url','short_description','full_description','description','project_status','year_created','logo_url','demo_url','app_store_url','documentation_url','facebook_url','twitter_url','x_url','github_url','linkedin_url','instagram_url','telegram_url','discord_url','youtube_url','tiktok_url','reddit_url','medium_url','other_social_url','blockchain','tech_stack','technology_stack','development_stage','target_markets','business_model','competitive_advantage','competitors','market_opportunity','has_revenue','revenue_period','monthly_revenue','yearly_revenue','monthly_profit','yearly_profit','monthly_net_profit','yearly_net_profit','monthly_expenses','growth_rate','revenue_sources','financial_notes','users_count','active_users','customers_count','monthly_visits','total_sales','monthly_volume','conversion_rate','last_active_date','traffic_sources','asset_notes','sale_type','transfer_terms','reason_for_sale','sale_reason','transfer_period','domain_ownership','domain_verification','github_ownership','ownership_declaration','asking_price','price','currency','currency_code','primary_type','buyer_pitch','cover_image_url','video_url','screenshots','negotiable'];fields.forEach(k=>{const e=form.elements.namedItem(k);if(!e||p[k]===undefined||p[k]===null)return;if(e.type==='checkbox')e.checked=!!p[k];else e.value=String(p[k]);});if(Array.isArray(p.target_audience))form.querySelectorAll('input[name="audience"]').forEach(e=>e.checked=p.target_audience.includes(e.value));['project_types','services','audience','assets'].forEach(n=>{const a=Array.isArray(p[n])?p[n]:[];form.querySelectorAll('input[name="'+n+'"]').forEach(e=>e.checked=a.includes(e.value));});renderSavedMediaPreviews();}
   async function load(){
     const rawLocal=localStorage.getItem(LOCAL_KEY)||localStorage.getItem(LEGACY_KEY);
     let localSnapshot=null;
     try{if(rawLocal)localSnapshot=JSON.parse(rawLocal);}catch(e){console.warn(e)}
     if(localSnapshot?.project_id&&!currentProjectId)currentProjectId=localSnapshot.project_id;
-    if(localSnapshot?.data)fill(localSnapshot.data);
     restoreStep();
     const x=await wait();
-    if(!x){if(out)out.textContent='Offline mode — your draft is محفوظ on this device. Engine '+VERSION;return;}
+    if(!x){if(localSnapshot?.data)fill(localSnapshot.data);if(out)out.textContent='Offline mode — your draft is محفوظ on this device. Engine '+VERSION;return;}
     const u=await x.auth.getUser();
-    if(u.error||!u.data?.user){return;}
+    if(u.error||!u.data?.user){if(localSnapshot?.data)fill(localSnapshot.data);return;}
     let p=null;
-    if(currentProjectId){const r=await x.from('projects').select('*').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();p=r.data||null;}
-    if(!p){const r=await x.from('projects').select('*').eq('owner_id',u.data.user.id).eq('status','draft').order('updated_at',{ascending:false}).limit(1);p=r.data?.[0]||null;}
+    let rejectedLocalSnapshot=false;
+    if(currentProjectId){
+      const r=await x.from('projects').select('*').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();
+      p=r.data||null;
+      // A stale local/browser pointer may refer to a submitted or published listing.
+      // Never load that record into the editable form; recover an actually editable draft instead.
+      if(p&&!isEditableDraft(p)){
+        // Do not restore a local snapshot tied to this submitted listing into another draft.
+        rejectedLocalSnapshot=localSnapshot?.project_id===p.id;
+        p=null;
+        currentProjectId='';
+        localStorage.removeItem(ID_KEY);
+      }
+    }
+    if(!p){
+      const r=await x.from('projects').select('*').eq('owner_id',u.data.user.id).eq('status','draft').order('updated_at',{ascending:false}).limit(20);
+      p=(r.data||[]).find(isEditableDraft)||null;
+    }
     if(p){
       currentProjectId=p.id;localStorage.setItem(ID_KEY,p.id);
       const localTime=localSnapshot?.saved_at?Date.parse(localSnapshot.saved_at):0;
       const dbTime=p.updated_at?Date.parse(p.updated_at):0;
-      if(!localSnapshot?.data||dbTime>=localTime){fill(p);localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);}
+      // A local recovery copy may override only the same draft it belongs to.
+      // Never copy data from a submitted listing into a different editable draft.
+      if(!localSnapshot?.data||rejectedLocalSnapshot||localSnapshot.project_id!==p.id||dbTime>=localTime){
+        fill(p);
+        localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);
+      }else{
+        fill(localSnapshot.data);
+      }
       restoreStep();
+    }else if(localSnapshot?.data&&!rejectedLocalSnapshot&&!localSnapshot.project_id){
+      // Preserve an unsaved, unlinked local form only when it is not tied to a protected listing.
+      currentProjectId='';
+      localStorage.removeItem(ID_KEY);
+      fill(localSnapshot.data);
+    }else if(rejectedLocalSnapshot){
+      localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);
+      if(out)out.textContent='This listing has already been submitted or published. Its saved data was not loaded into the editable form. You can continue with a separate editable draft.';
     }
   }
   let saveInFlight=null,saveAgain=false;
@@ -108,7 +138,7 @@
     if(!x){if(out)out.textContent='Offline — draft saved on this device. Engine '+VERSION;return {ok:false,offline:true};}
     const u=await x.auth.getUser();
     if(u.error||!u.data?.user){if(out)out.textContent='Please sign in. Draft saved on this device. Engine '+VERSION;return {ok:false,auth:false};}
-    const payload=collect();['identity_verification','business_verification','ownership_declaration','domain_ownership','domain_verification','github_ownership'].forEach(k=>delete payload[k]);payload.owner_id=u.data.user.id;payload.status='draft';
+    const payload=collect();['business_verification'].forEach(k=>delete payload[k]);payload.owner_id=u.data.user.id;payload.status='draft';
     if(Object.keys(payload).length<=2){if(out)out.textContent='Start entering your listing; it is already being saved. Engine '+VERSION;return {ok:false,empty:true};}
     if(out)out.textContent='Saving draft… Engine '+VERSION;
     let r;
@@ -199,7 +229,11 @@
     const isGithubHost=u=>!!u&&/(^|\.)github\.com$/i.test(u.hostname);
     const validSite=!!siteUrl&&siteUrl.protocol==='https:'&&!isGithubHost(siteUrl);
     const validRepo=!!repoUrl&&repoUrl.protocol==='https:'&&repoUrl.hostname.toLowerCase()==='github.com'&&/^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(repoUrl.pathname);
-    if(!validSite&&!validRepo)issues.push('enter at least one valid official HTTPS website or GitHub repository; correct or clear any invalid URL fields');
+    // Validate every URL the seller entered, even when the other URL is valid.
+        // Otherwise an invalid optional URL could be silently saved alongside a valid one.
+        if(site&&!validSite)issues.push('official website must be a valid HTTPS URL and must not be a GitHub URL');
+        if(repo&&!validRepo)issues.push('repository must be a valid HTTPS GitHub owner/repository URL');
+        if(!site&&!repo)issues.push('enter at least one valid official HTTPS website or GitHub repository');
     if(!val('business_model'))issues.push('business model');
     const price=num(val('asking_price')||val('price'));
     if(price===null||price<=0)issues.push('asking price greater than zero');
@@ -207,13 +241,22 @@
     if(!val('ownership_declaration'))issues.push('ownership declaration');
     return issues;
   }
+  let reviewSubmissionInFlight=false;
   async function submitForReview(){
-    const issues=submissionIssues();
-    if(issues.length){const saved=await save();saveStep();const prefix=saved.ok?'Draft saved to your Web3Market account. AI review has not started. Complete these fields: ':saved.offline?'Database unavailable. A recovery copy is only on this device. AI review has not started. Complete these fields: ':saved.auth===false?'Please sign in to save this draft to your account. A recovery copy is only on this device. AI review has not started. Complete these fields: ':'The database save could not be confirmed. A recovery copy remains on this device. AI review has not started. Complete these fields: ';if(out)out.textContent=prefix+issues.join('; ')+'.';return;}
+    // Prevent rapid double-clicks while validation, draft saving, or AI review is pending.
+    if(reviewSubmissionInFlight)return;
+    reviewSubmissionInFlight=true;
     if(submitBtn)submitBtn.disabled=true;
     try{
+      const issues=submissionIssues();
+      if(issues.length){
+        const saved=await save();saveStep();
+        const prefix=saved.ok?'Draft saved to your Web3Market account. AI review has not started. Complete these fields: ':saved.offline?'Database unavailable. A recovery copy is only on this device. AI review has not started. Complete these fields: ':saved.auth===false?'Please sign in to save this draft to your account. A recovery copy is only on this device. AI review has not started. Complete these fields: ':'The database save could not be confirmed. A recovery copy remains on this device. AI review has not started. Complete these fields: ';
+        if(out)out.textContent=prefix+issues.join('; ')+'.';
+        return;
+      }
       const saved=await save();
-      if(!saved.ok){return;}
+      if(!saved.ok)return;
       const x=await wait();
       if(!x)throw new Error('Database connection is unavailable. The draft remains saved if the previous account save succeeded; otherwise only the recovery copy on this device is available.');
       const sessionResult=await x.auth.getSession();
@@ -228,8 +271,13 @@
       const queued=j.result?.project_status==='admin_review'||j.result?.ai_status==='recommended_for_admin_review';
       if(out)out.textContent='AI review completed. Score: '+score+'. '+(queued?'The project has been sent to the Admin Review queue. It has not been published automatically.':'The project needs changes before it can enter the Admin Review queue.')+' Review status: '+String(status).replace(/_/g,' ')+'.';
       if(submitBtn)submitBtn.textContent='Submitted for AI Review';
-    }catch(e){console.error('SUBMIT REVIEW ERROR',e);if(out)out.textContent='Saved as draft, but submission failed: '+(e.message||'Please try again.');}
-    finally{if(submitBtn&&submitBtn.textContent!=='Submitted for AI Review')submitBtn.disabled=false;}
+    }catch(e){
+      console.error('SUBMIT REVIEW ERROR',e);
+      if(out)out.textContent='Saved as draft, but submission failed: '+(e.message||'Please try again.');
+    }finally{
+      reviewSubmissionInFlight=false;
+      if(submitBtn&&submitBtn.textContent!=='Submitted for AI Review')submitBtn.disabled=false;
+    }
   }
   // Upload selected listing media to the existing project-media bucket using the signed-in user's session.
   const IMAGE_MAX=8*1024*1024;
