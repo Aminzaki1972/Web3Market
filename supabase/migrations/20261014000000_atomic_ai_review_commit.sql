@@ -10,6 +10,7 @@ create or replace function public.commit_ai_review_result(
   p_project_status text,
   p_intelligence jsonb,
   p_valuation jsonb,
+  p_request_fingerprint text,
   p_write_valuation boolean default false
 )
 returns jsonb
@@ -21,16 +22,41 @@ declare
   v_status text;
   v_project_status text;
   v_ai_status text;
+  v_verification jsonb;
+  v_existing_fingerprint text;
   v_result jsonb;
 begin
-  select p.status, p.project_status, p.ai_status
-    into v_status, v_project_status, v_ai_status
+  select p.status, p.project_status, p.ai_status, p.verification
+    into v_status, v_project_status, v_ai_status, v_verification
   from public.projects p
   where p.id = p_project_id
   for update;
 
   if not found then
     raise exception 'Project not found' using errcode = 'P0002';
+  end if;
+
+  v_existing_fingerprint := v_verification->'ai'->>'request_fingerprint';
+
+  -- A retry of the same payload returns the committed result without writing
+  -- a second valuation-history row. A changed payload gets a new fingerprint.
+  if p_request_fingerprint is not null
+     and p_request_fingerprint <> ''
+     and v_existing_fingerprint = p_request_fingerprint
+  then
+    select jsonb_build_object(
+      'id', p.id,
+      'ai_score', p.ai_score,
+      'ai_status', p.ai_status,
+      'verification', p.verification,
+      'project_status', p.project_status,
+      'status', p.status
+    )
+    into v_result
+    from public.projects p
+    where p.id = p_project_id;
+
+    return jsonb_build_object('duplicate', true, 'result', v_result);
   end if;
 
   -- status alone is not enough: submitted listings can still have status='draft'
@@ -138,5 +164,5 @@ begin
 end;
 $function$;
 
-revoke all on function public.commit_ai_review_result(uuid, numeric, text, jsonb, text, jsonb, jsonb, boolean) from public, anon, authenticated;
+revoke all on function public.commit_ai_review_result(uuid, numeric, text, jsonb, text, jsonb, jsonb, text, boolean) from public, anon, authenticated;
 grant execute on function public.commit_ai_review_result(uuid, numeric, text, jsonb, text, jsonb, jsonb, boolean) to service_role;
