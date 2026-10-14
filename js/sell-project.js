@@ -78,7 +78,7 @@
     if(u.error||!u.data?.user){return;}
     let p=null;
     if(currentProjectId){const r=await x.from('projects').select('*').eq('id',currentProjectId).eq('owner_id',u.data.user.id).maybeSingle();p=r.data||null;}
-    if(!p){const r=await x.from('projects').select('*').eq('owner_id',u.data.user.id).eq('status','draft').order('updated_at',{ascending:false}).limit(1);p=r.data?.[0]||null;}
+    if(!p){const r=await x.from('projects').select('*').eq('owner_id',u.data.user.id).eq('status','draft').order('updated_at',{ascending:false}).limit(20);p=(r.data||[]).find(isEditableDraft)||null;}
     if(p){
       currentProjectId=p.id;localStorage.setItem(ID_KEY,p.id);
       const localTime=localSnapshot?.saved_at?Date.parse(localSnapshot.saved_at):0;
