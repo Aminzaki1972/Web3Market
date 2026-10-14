@@ -52,7 +52,10 @@
     p.social_accounts={facebook_url:p.facebook_url||null,x_url:p.x_url||p.twitter_url||null,github_url:p.github_url||null,linkedin_url:p.linkedin_url||null,instagram_url:p.instagram_url||null,telegram_url:p.telegram_url||null,discord_url:p.discord_url||null,youtube_url:p.youtube_url||null,tiktok_url:p.tiktok_url||null,reddit_url:p.reddit_url||null,medium_url:p.medium_url||null,other_social_url:p.other_social_url||null};
     p.performance={users_count:num(p.users_count),active_users:num(p.active_users),customers_count:num(p.customers_count),monthly_visits:num(p.monthly_visits),total_sales:num(p.total_sales),monthly_volume:num(p.monthly_volume),growth_rate:num(p.growth_rate),conversion_rate:p.conversion_rate||null,last_active_date:date(p.last_active_date),traffic_sources:p.traffic_sources||null};
     p.financials={has_revenue:p.has_revenue||null,revenue_period:p.revenue_period||null,monthly_revenue:num(p.monthly_revenue),yearly_revenue:num(p.yearly_revenue),monthly_net_profit:num(p.monthly_profit||p.monthly_net_profit),yearly_net_profit:num(p.yearly_profit||p.yearly_net_profit),monthly_expenses:num(p.monthly_expenses),growth_rate:num(p.growth_rate),revenue_sources:p.revenue_sources||null,financial_notes:p.financial_notes||null};
-    const ask=num(p.asking_price||val('asking_price'));p.asking_price=ask;p.price=ask;p.currency=val('currency')||'USD';p.negotiable=bool(val('negotiable'));p.status='draft';
+    const ask=num(p.asking_price||val('asking_price'));p.asking_price=ask;p.price=ask;p.currency=val('currency')||'USD';p.currency_code=p.currency;p.negotiable=bool(val('negotiable'));p.status='draft';
+    // Keep screenshot data URL-only. Legacy drafts may contain non-URL text in this field;
+    // filtering here prevents ownership declarations or other text from being saved as media.
+    p.screenshots=String(val('screenshots')||'').split(',').map(v=>v.trim()).filter(v=>{try{const u=new URL(v);return ['https:','http:'].includes(u.protocol)&&!!u.hostname;}catch(e){return false;}}).join(', ');
     // Backward-compatible verification mapping: the form historically names this input
     // domain_verification, while AI review evaluates domain_ownership.
     if(!p.domain_ownership && p.domain_verification)p.domain_ownership=p.domain_verification;
