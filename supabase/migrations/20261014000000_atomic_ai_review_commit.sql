@@ -7,6 +7,7 @@ create or replace function public.commit_ai_review_result(
   p_ai_score numeric,
   p_ai_status text,
   p_verification jsonb,
+  p_evidence_patch jsonb,
   p_project_status text,
   p_intelligence jsonb,
   p_valuation jsonb,
@@ -73,7 +74,11 @@ begin
   set ai_score = p_ai_score,
       ai_status = p_ai_status,
       verification = p_verification,
-      project_status = p_project_status
+      project_status = p_project_status,
+      ownership_declaration = coalesce(p_evidence_patch->>'ownership_declaration', ownership_declaration),
+      domain_ownership = coalesce(p_evidence_patch->>'domain_ownership', domain_ownership),
+      domain_verification = coalesce(p_evidence_patch->>'domain_verification', domain_verification),
+      github_ownership = coalesce(p_evidence_patch->>'github_ownership', github_ownership)
   where id = p_project_id;
 
   insert into public.project_intelligence (
@@ -164,5 +169,5 @@ begin
 end;
 $function$;
 
-revoke all on function public.commit_ai_review_result(uuid, numeric, text, jsonb, text, jsonb, jsonb, text, boolean) from public, anon, authenticated;
-grant execute on function public.commit_ai_review_result(uuid, numeric, text, jsonb, text, jsonb, jsonb, text, boolean) to service_role;
+revoke all on function public.commit_ai_review_result(uuid, numeric, text, jsonb, jsonb, text, jsonb, jsonb, text, boolean) from public, anon, authenticated;
+grant execute on function public.commit_ai_review_result(uuid, numeric, text, jsonb, jsonb, text, jsonb, jsonb, text, boolean) to service_role;
