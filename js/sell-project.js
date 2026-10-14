@@ -337,7 +337,7 @@ window.__web3MarketSellProjectLoaderStarted = true;
     b.type='button';b.className='btn btn-ghost media-remove-btn';
     b.textContent=text;b.setAttribute('aria-label',text);
     b.style.cssText='display:inline-flex;margin-top:8px;padding:7px 11px;border:1px solid #ff6474;color:#ff6474;border-radius:8px;cursor:pointer;font-size:12px;';
-    b.addEventListener('click',()=>removeMediaUrl(fieldName,url,status));
+    b.onclick=()=>removeMediaUrl(fieldName,url,status);
     return b;
   }
   async function deleteOwnedListingMedia(url){
