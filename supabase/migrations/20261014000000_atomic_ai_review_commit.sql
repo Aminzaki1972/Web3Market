@@ -165,4 +165,4 @@ end;
 $function$;
 
 revoke all on function public.commit_ai_review_result(uuid, numeric, text, jsonb, text, jsonb, jsonb, text, boolean) from public, anon, authenticated;
-grant execute on function public.commit_ai_review_result(uuid, numeric, text, jsonb, text, jsonb, jsonb, boolean) to service_role;
+grant execute on function public.commit_ai_review_result(uuid, numeric, text, jsonb, text, jsonb, jsonb, text, boolean) to service_role;
