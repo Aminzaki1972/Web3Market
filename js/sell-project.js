@@ -241,13 +241,22 @@
     if(!val('ownership_declaration'))issues.push('ownership declaration');
     return issues;
   }
+  let reviewSubmissionInFlight=false;
   async function submitForReview(){
-    const issues=submissionIssues();
-    if(issues.length){const saved=await save();saveStep();const prefix=saved.ok?'Draft saved to your Web3Market account. AI review has not started. Complete these fields: ':saved.offline?'Database unavailable. A recovery copy is only on this device. AI review has not started. Complete these fields: ':saved.auth===false?'Please sign in to save this draft to your account. A recovery copy is only on this device. AI review has not started. Complete these fields: ':'The database save could not be confirmed. A recovery copy remains on this device. AI review has not started. Complete these fields: ';if(out)out.textContent=prefix+issues.join('; ')+'.';return;}
+    // Prevent rapid double-clicks while validation, draft saving, or AI review is pending.
+    if(reviewSubmissionInFlight)return;
+    reviewSubmissionInFlight=true;
     if(submitBtn)submitBtn.disabled=true;
     try{
+      const issues=submissionIssues();
+      if(issues.length){
+        const saved=await save();saveStep();
+        const prefix=saved.ok?'Draft saved to your Web3Market account. AI review has not started. Complete these fields: ':saved.offline?'Database unavailable. A recovery copy is only on this device. AI review has not started. Complete these fields: ':saved.auth===false?'Please sign in to save this draft to your account. A recovery copy is only on this device. AI review has not started. Complete these fields: ':'The database save could not be confirmed. A recovery copy remains on this device. AI review has not started. Complete these fields: ';
+        if(out)out.textContent=prefix+issues.join('; ')+'.';
+        return;
+      }
       const saved=await save();
-      if(!saved.ok){return;}
+      if(!saved.ok)return;
       const x=await wait();
       if(!x)throw new Error('Database connection is unavailable. The draft remains saved if the previous account save succeeded; otherwise only the recovery copy on this device is available.');
       const sessionResult=await x.auth.getSession();
@@ -262,8 +271,13 @@
       const queued=j.result?.project_status==='admin_review'||j.result?.ai_status==='recommended_for_admin_review';
       if(out)out.textContent='AI review completed. Score: '+score+'. '+(queued?'The project has been sent to the Admin Review queue. It has not been published automatically.':'The project needs changes before it can enter the Admin Review queue.')+' Review status: '+String(status).replace(/_/g,' ')+'.';
       if(submitBtn)submitBtn.textContent='Submitted for AI Review';
-    }catch(e){console.error('SUBMIT REVIEW ERROR',e);if(out)out.textContent='Saved as draft, but submission failed: '+(e.message||'Please try again.');}
-    finally{if(submitBtn&&submitBtn.textContent!=='Submitted for AI Review')submitBtn.disabled=false;}
+    }catch(e){
+      console.error('SUBMIT REVIEW ERROR',e);
+      if(out)out.textContent='Saved as draft, but submission failed: '+(e.message||'Please try again.');
+    }finally{
+      reviewSubmissionInFlight=false;
+      if(submitBtn&&submitBtn.textContent!=='Submitted for AI Review')submitBtn.disabled=false;
+    }
   }
   // Upload selected listing media to the existing project-media bucket using the signed-in user's session.
   const IMAGE_MAX=8*1024*1024;
