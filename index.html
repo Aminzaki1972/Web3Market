@@ -53,14 +53,10 @@ body.w3m-drawer-open{overflow:hidden}
       <button class="w3m-drawer-close" id="w3mDrawerClose" type="button" aria-label="Close menu">✕</button>
     </div>
     <label class="search w3m-drawer-search">⌕<input aria-label="Search marketplace" placeholder="Search products & services"></label>
-    <nav class="w3m-drawer-links" aria-label="Marketplace">
+    <nav class="w3m-drawer-links" aria-label="Main navigation">
       <a class="w3m-drawer-primary" href="index.html">🏠 <span>Web3Market Marketplace</span></a>
-      <a href="#marketplace">🔎 <span>Browse Projects</span></a>
-      <a href="#categories">🗂️ <span>Categories</span></a>
-      <a href="#sell">💼 <span>Sell a Project</span></a>
-      <a href="#how">ℹ️ <span>How it works</span></a>
-      <a href="support.html">💬 <span>Support</span></a>
-      <a href="future-lab.html">🔬 <span>Future Lab</span></a>
+      <a class="w3m-account-link" href="login.html">👤 <span>Login / My Account</span></a>
+      <a class="w3m-account-type" href="#sell">👥 <span>Choose account type</span></a>
     </nav>
     <div class="w3m-drawer-section-title">AI &amp; Project Verification</div>
     <nav class="w3m-drawer-links" aria-label="AI tools">
@@ -68,12 +64,10 @@ body.w3m-drawer-open{overflow:hidden}
       <a href="passports.html">📚 <span>W3M Passport Directory</span></a>
       <a href="code-audit.html">🛡️ <span>AI Code Audit</span></a>
     </nav>
-    <div class="w3m-drawer-section-title">Account &amp; More</div>
-    <nav class="w3m-drawer-links" aria-label="Account and services">
+    <div class="w3m-drawer-section-title">W3M Services</div>
+    <nav class="w3m-drawer-links" aria-label="W3M services">
       <a href="w3m-whitepaper.html">🪙 <span>W3M Token</span></a>
       <a class="installAppBtn" id="installAppBtn" href="https://github.com/Aminzaki1972/Web3Market-Android/releases/latest/download/app-release.apk" aria-label="Download Web3Market Android APK">📱 <span>Download APK</span></a>
-      <a class="w3m-account-link btn dark" href="login.html">👤 <span>Login</span></a>
-      <a class="w3m-account-type btn accent" href="#sell">👥 <span>Choose account type</span></a>
     </nav>
     <div class="w3m-drawer-language">
       <span class="w3m-drawer-language-label">🌐 Language</span>
@@ -99,6 +93,10 @@ body.w3m-drawer-open{overflow:hidden}
   var overlay=document.getElementById('w3mDrawerOverlay');
   var close=document.getElementById('w3mDrawerClose');
   if(!toggle||!drawer||!overlay||!close)return;
+  // Keep the fixed drawer and overlay at the document root so the header's
+  // backdrop-filter cannot constrain their viewport-sized positioning.
+  document.body.appendChild(overlay);
+  document.body.appendChild(drawer);
   function setOpen(open){
     drawer.classList.toggle('is-open',open);
     overlay.classList.toggle('is-open',open);
