@@ -136,7 +136,7 @@
       "entity_type": "independent_project",
       "parent_identity_id": null,
       "relationship_type": "root",
-      "conflict_status": "none",
+      "conflict_status": "possible",
       "created_at": "2026-10-07T23:03:11.933581+00:00",
       "first_seen_at": "2026-10-07T23:03:11.834+00:00"
     },
@@ -237,6 +237,48 @@
       "conflict_status": "none",
       "created_at": "2026-10-13T18:43:45.625154+00:00",
       "first_seen_at": "2026-10-13T18:19:33.58446+00:00"
+    },
+    {
+      "identity_code": "W3M-2026-000034",
+      "sequence_no": 34,
+      "project_name": "Bitget",
+      "identity_status": "verified",
+      "identity_score": 60,
+      "identity_verdict": "verified",
+      "entity_type": "independent_project",
+      "parent_identity_id": null,
+      "relationship_type": "root",
+      "conflict_status": "none",
+      "created_at": "2026-10-16T17:05:13.319807+00:00",
+      "first_seen_at": "2026-10-16T17:05:13.271+00:00"
+    },
+    {
+      "identity_code": "W3M-2026-000035",
+      "sequence_no": 35,
+      "project_name": "community-gateway",
+      "identity_status": "verified",
+      "identity_score": 65,
+      "identity_verdict": "verified",
+      "entity_type": "independent_project",
+      "parent_identity_id": null,
+      "relationship_type": "root",
+      "conflict_status": "none",
+      "created_at": "2026-10-16T17:14:28.376264+00:00",
+      "first_seen_at": "2026-10-16T17:14:28.327+00:00"
+    },
+    {
+      "identity_code": "W3M-2026-000036",
+      "sequence_no": 36,
+      "project_name": "Bybit",
+      "identity_status": "verified",
+      "identity_score": 60,
+      "identity_verdict": "verified",
+      "entity_type": "independent_project",
+      "parent_identity_id": null,
+      "relationship_type": "root",
+      "conflict_status": "none",
+      "created_at": "2026-10-16T17:23:49.626221+00:00",
+      "first_seen_at": "2026-10-16T17:23:49.557+00:00"
     }
   ]
 }
