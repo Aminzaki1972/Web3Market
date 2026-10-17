@@ -20,7 +20,7 @@ const maxAttempts=3;let modelName="gemini-3.8-flash";for(let attempt=1;attempt<=
  if(r?.ok)break;
  lastStatus=r?.status||504;
  if(r?.status){try{const ej=await r.json();lastDetail=ej?.error?.message||JSON.stringify(ej)}catch(_){try{lastDetail=await r.text()}catch(__){}}}
- if(lastStatus===404||(lastStatus===503&&modelName==="gemini-3.8-flash")){modelName=modelName==="gemini-3.8-flash"?"gemini-3.7-flash":"gemini-3.8-flash";}
+ if(lastStatus===404||((lastStatus===503||lastStatus===504)&&modelName==="gemini-3.8-flash")){modelName=modelName==="gemini-3.8-flash"?"gemini-3.7-flash":"gemini-3.8-flash";}
  if(lastStatus===429 && /generate_content_free_tier_requests|quota exceeded|resource_exhausted/i.test(lastDetail)){throw Error("Gemini quota exhausted: "+lastDetail.slice(0,1800));}
  const transient=[408,429,500,502,503,504].includes(lastStatus);
  if(!transient||attempt===maxAttempts)break;
