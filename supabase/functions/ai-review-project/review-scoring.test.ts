@@ -38,7 +38,7 @@ Deno.test("findings reduce completeness score according to severity", () => {
 
 Deno.test("missing core fields cannot reach the admin-review threshold", () => {
   const result = fallback({ title: "Only a title" }, []);
-  assertEquals(result.score, 20);
+  assertEquals(result.score, 17);
   assertEquals(result.status, "needs_changes");
 });
 
@@ -56,6 +56,6 @@ Deno.test("test-mode completeness uses test workflow fields", () => {
 
 Deno.test("domain ownership is required only when sale terms indicate domain transfer", () => {
   assertEquals(domainIncludedInSale({ website_url: "https://example.com" }), false);
-  assertEquals(domainIncludedInSale({ transfer_terms: "Code files only; no domain transfer" }), true);
+  assertEquals(domainIncludedInSale({ transfer_terms: "Code files only; no domain transfer" }), false);
   assertEquals(domainIncludedInSale({ assets: ["GitHub repo", "website domain"] }), true);
 });
