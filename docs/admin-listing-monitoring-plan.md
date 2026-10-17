@@ -1,7 +1,7 @@
 # Admin Listing Monitoring — Safe Implementation Plan
 
 ## Status
-Planning-only document. This branch must not be merged or deployed without owner review. No production database or Edge Function changes are authorized by this document.
+Controlled release in progress, explicitly authorized by the platform owner in chat on 2026-10-18. The `admin-review` Edge Function was deployed as version 34 with `verify_jwt=true`; no database schema or data changes were made. The monitoring page remains separate and is not linked from the live admin menu. The PR must still be merged to publish the page and retain the source in the repository. Authenticated integration tests with a real administrator and a non-admin account remain unverified.
 
 ## Findings from current implementation
 - The existing `admin-review.html` calls the deployed `admin-review` Edge Function and has existing approve, test-approve, request-changes, and reject actions.
