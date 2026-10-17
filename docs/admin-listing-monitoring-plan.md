@@ -57,3 +57,25 @@ Before merge: locate and commit the actual deployed `admin-review` source, compa
 - Important deployment blocker: the currently deployed `admin-review` Edge Function is version 33 and does not contain the `monitoring` action, while the branch source does. Therefore the branch preview cannot successfully use the currently deployed endpoint until a reviewed deployment occurs. No deployment was performed.
 - The `ai-review-project` Edge Function is active at version 45 with JWT verification enabled. No changes were made to it.
 - Still unverified: authenticated integration tests for non-admin denial, PostgREST JSON selector behavior, rendered UI with a real admin session, and preservation of existing review actions. Do not merge or deploy until those checks are completed and the owner approves.
+
+## AI review logic audit — 2026-10-18 (source review only)
+
+The active `ai-review-project` version 45 source matches the repository copy at `supabase/functions/ai-review-project/index.ts`. No function deployment or database write was performed.
+
+### Findings to resolve before calling the review a due-diligence score
+
+1. **Fallback confidence is not evidence confidence.** The deterministic fallback currently sets `confidence_score` to the clamped overall completeness-minus-penalty score. That makes a high-completeness listing appear highly certain even though the fallback does not independently verify the claims. A future change should use a clearly low/limited confidence value or a separate confidence label for rules-only results.
+2. **Data gaps and weaknesses are conflated in the saved intelligence record.** The current `data_gaps` field is populated from every finding's recommendation, including findings that may describe risk or weakness rather than absent information. Split these into explicit `evidence_gaps` and `risk_findings` (or equivalent) and preserve their distinction in the UI.
+3. **Fallback score is a completeness heuristic, not a substantive project-quality score.** It is computed from the presence of selected fields minus fixed finding penalties. It should be labelled as a rules-based listing-completeness check and not presented as equivalent to the OpenAI evidence review.
+4. **OpenAI response parsing is strict.** Invalid JSON or a provider failure falls back to rules mode, which is safe for continuity but can silently change the nature of the review unless the UI clearly displays the mode. The monitoring preview already distinguishes `openai_evidence_review`, `rules_fallback`, and missing mode; keep that distinction visible wherever a score is displayed.
+5. **Hard pre-review validation is distinct from the review result.** The endpoint returns HTTP 422 before scoring if core required listing fields are absent. These cases are validation failures, not low project scores, and are not necessarily persisted in the monitoring records.
+
+### Recommended acceptance criteria for a separate AI-review improvement PR
+
+- Keep the existing listing submission and admin approval flows unchanged.
+- Expose separate labels for missing evidence, substantive risks/weaknesses, and input-validation failures.
+- Never derive confidence directly from the overall score in rules fallback.
+- Clearly label fallback scores as heuristic/completeness-based.
+- Preserve `mode`, confidence, evidence gaps, and risk findings in the saved review result with backwards-compatible fields.
+- Test OpenAI success, OpenAI timeout/invalid JSON fallback, incomplete required fields, duplicate request fingerprint, and failed atomic commit.
+- Do not deploy or modify production data until tests and owner approval are complete.
