@@ -13,11 +13,11 @@ Planning-only document. This branch must not be merged or deployed without owner
 
 ## Proposed read-only monitoring response
 Add a separately reviewed `monitoring` action to the admin Edge Function. It should return bounded, paginated records for:
-1. Persisted projects with status, project_status, ai_status, timestamps, and safe verification summaries.
+1. Persisted projects with status, project_status, ai_status, timestamps, score, and only the nested AI review mode needed to distinguish OpenAI review from rules fallback.
 2. AI due-diligence reports with status, engine version, score, risk level, error message, and completion timestamps.
-3. Verification requests with status, notes, and review timestamps.
+3. Verification requests with status and review timestamps only; exclude free-text notes and reviewer IDs from this monitoring response.
 
-Do not return secrets, raw authentication material, full private evidence values, or unnecessary personal data. Require a valid user session and an `admin_users` membership check for every request. Use explicit selected columns, a maximum page size, stable ordering, and server-side filtering.
+Do not return secrets, raw authentication material, full private evidence values, free-text admin notes, free-text verification notes, reviewer IDs, or unnecessary personal data. The preview must not expose the full `verification` JSON object merely to display the AI review mode. Require a valid user session and an `admin_users` membership check for every request. Use explicit selected columns, a maximum page size, stable ordering, and server-side filtering.
 
 ## Failed save observability
 A browser-only draft save failure is not server-visible. Add a separate, minimal server-side event endpoint only after security review. It should accept a small enumerated event type, a generated correlation ID, safe stage/error codes, and timestamps; do not accept arbitrary full form payloads or secrets. Apply rate limiting and retention limits. Verify RLS/service-role boundaries before implementation.
@@ -29,6 +29,12 @@ A browser-only draft save failure is not server-visible. Add a separate, minimal
 - Distinguish "not recorded" from "no failure".
 - Keep existing review actions unchanged and behind existing admin authorization.
 - Display that local-only drafts cannot be seen by admins until a server event is recorded.
+
+## Branch-preview security refinements
+- The current branch implementation removes `admin_notes` from the monitoring project select and removes free-text `notes` plus `reviewed_by` from verification requests.
+- The project table exposes only `verification->ai->>mode` as `ai_mode`; it labels `openai_evidence_review` as OpenAI, `rules_fallback` as Rules fallback, and missing values as Not recorded.
+- These changes have been committed only to `feature/admin-listing-monitoring`. The live Edge Function and production database have not been changed.
+- The nested JSON selector still requires an authenticated non-production integration test before merge; the GitHub branch page is not a runnable preview and production CORS allows only `https://web3market.xyz`.
 
 ## Acceptance tests
 - Unauthorized users cannot call the monitoring action.
