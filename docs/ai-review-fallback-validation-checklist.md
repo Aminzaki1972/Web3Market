@@ -15,7 +15,12 @@ This checklist applies to PR #52 (`fix/clarify-ai-review-fallback`).
 - [x] Confirm fallback valuation fields remain null and methodology is `insufficient_evidence`.
 - [x] Confirm the admin UI labels `rules_fallback` as a completeness estimate and shows a warning.
 - [x] Confirm GitHub Actions static checks passed on the latest reviewed PR head.
+- [x] Add isolated unit tests for score clamping, completeness penalties, test-mode scoring, and explicit domain exclusions.
+- [x] Add the isolated scoring unit test command to GitHub Actions.
 - [ ] Confirm OpenAI-success presentation and existing listing workflow paths with runtime regression tests.
+
+## Isolated unit tests (no Supabase credentials or production data required)
+The new `review-scoring.test.ts` covers deterministic scoring behavior and domain-transfer detection. The workflow now runs `deno test` for these cases before the type check. Record the latest CI result before treating these tests as passed.
 
 ## Runtime tests — only in a disposable test environment
 1. **OpenAI success:** with a valid test key, confirm mode is `openai_evidence_review` and the model result is stored.
@@ -30,6 +35,6 @@ This checklist applies to PR #52 (`fix/clarify-ai-review-fallback`).
 ## Release gate
 Do not merge or deploy until runtime tests are recorded, all available checks are understood, and the owner explicitly approves the release.
 
-- Latest static check: [GitHub Actions run #39072362998](https://github.com/Aminzaki1972/Web3Market/actions/runs/39072362998) — passed.
+- Latest previously confirmed static check: [GitHub Actions run #39072362998](https://github.com/Aminzaki1972/Web3Market/actions/runs/39072362998) — passed before the isolated unit tests were added.
 - Also passed earlier: [GitHub Actions run #39072159757](https://github.com/Aminzaki1972/Web3Market/actions/runs/39072159757).
 - Runtime/integration tests have not been run. Passing static checks alone does not establish production behavior or authorize a release.
