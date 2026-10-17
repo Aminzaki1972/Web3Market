@@ -14,7 +14,7 @@ This checklist applies to PR #52 (`fix/clarify-ai-review-fallback`).
 - [x] Confirm fallback confidence is fixed at 25 and risk is `unknown`, rather than being inferred from completeness score.
 - [x] Confirm fallback valuation fields remain null and methodology is `insufficient_evidence`.
 - [x] Confirm the admin UI labels `rules_fallback` as a completeness estimate and shows a warning.
-- [x] Confirm the GitHub Actions static check completed successfully for the reviewed PR head.
+- [x] Confirm GitHub Actions static checks passed on the latest reviewed PR head.
 - [ ] Confirm OpenAI-success presentation and existing listing workflow paths with runtime regression tests.
 
 ## Runtime tests — only in a disposable test environment
@@ -28,4 +28,8 @@ This checklist applies to PR #52 (`fix/clarify-ai-review-fallback`).
 8. **Workflow regression:** confirm test listings remain in the existing test-review flow and no listing is automatically published.
 
 ## Release gate
-Do not merge or deploy until runtime tests are recorded, all available checks are understood, and the owner explicitly approves the release. The static checks passed in GitHub Actions run [#39072159757](https://github.com/Aminzaki1972/Web3Market/actions/runs/39072159757), but runtime/integration tests have not been run. Passing static checks alone is not a production release approval.
+Do not merge or deploy until runtime tests are recorded, all available checks are understood, and the owner explicitly approves the release.
+
+- Latest static check: [GitHub Actions run #39072362998](https://github.com/Aminzaki1972/Web3Market/actions/runs/39072362998) — passed.
+- Also passed earlier: [GitHub Actions run #39072159757](https://github.com/Aminzaki1972/Web3Market/actions/runs/39072159757).
+- Runtime/integration tests have not been run. Passing static checks alone does not establish production behavior or authorize a release.
