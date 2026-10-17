@@ -58,15 +58,33 @@ Deno.serve(async (req: Request) => {
     if (insertError) {
       if (insertError.code !== "23505") throw insertError;
       const { data: existing, error: existingError } = await db.from("admin_project_email_events")
-        .select("id,delivery_status,attempt_count").eq("event_key", eventKey).maybeSingle();
+        .select("id,delivery_status,attempt_count,last_attempt_at").eq("event_key", eventKey).maybeSingle();
       if (existingError || !existing) throw existingError || new Error("Could not read notification deduplication record");
-      if (existing.delivery_status === "sent" || existing.delivery_status === "sending") {
-        return json({ success: true, duplicate: true, delivery_status: existing.delivery_status });
+      if (existing.delivery_status === "sent") {
+        return json({ success: true, duplicate: true, delivery_status: "sent" });
       }
-      const { data: retry, error: retryError } = await db.from("admin_project_email_events")
-        .update({ delivery_status: "sending", error_message: null, attempt_count: Number(existing.attempt_count || 1) + 1 })
-        .eq("id", existing.id).eq("delivery_status", "failed").select("id,delivery_status").maybeSingle();
-      if (retryError) throw retryError;
+      const now = new Date();
+      const staleBefore = new Date(now.getTime() - 10 * 60 * 1000).toISOString();
+      let retry = null;
+      if (existing.delivery_status === "sending") {
+        // Recover a reservation left behind by a crashed/timed-out invocation.
+        // Compare the timestamp so only one concurrent retry can claim the stale event.
+        if (existing.last_attempt_at && existing.last_attempt_at > staleBefore) {
+          return json({ success: true, duplicate: true, delivery_status: "sending" });
+        }
+        const { data, error } = await db.from("admin_project_email_events")
+          .update({ last_attempt_at: now.toISOString(), attempt_count: Number(existing.attempt_count || 1) + 1 })
+          .eq("id", existing.id).eq("delivery_status", "sending")
+          .eq("last_attempt_at", existing.last_attempt_at).select("id,delivery_status").maybeSingle();
+        if (error) throw error;
+        retry = data;
+      } else {
+        const { data, error } = await db.from("admin_project_email_events")
+          .update({ delivery_status: "sending", error_message: null, last_attempt_at: now.toISOString(), attempt_count: Number(existing.attempt_count || 1) + 1 })
+          .eq("id", existing.id).eq("delivery_status", "failed").select("id,delivery_status").maybeSingle();
+        if (error) throw error;
+        retry = data;
+      }
       if (!retry) return json({ success: true, duplicate: true, delivery_status: "sending" });
       event = retry;
     }
