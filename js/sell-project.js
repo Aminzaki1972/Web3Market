@@ -170,7 +170,7 @@ window.__web3MarketSellProjectLoaderStarted = true;
     if(!x){if(out)out.textContent='Offline — draft saved on this device. Engine '+VERSION;return {ok:false,offline:true};}
     const u=await x.auth.getUser();
     if(u.error||!u.data?.user){if(out)out.textContent='Please sign in. Draft saved on this device. Engine '+VERSION;return {ok:false,auth:false};}
-    const payload=collect();['business_verification'].forEach(k=>delete payload[k]);payload.owner_id=u.data.user.id;payload.status='draft';
+    const payload=collect();['business_verification','ownership_declaration','domain_ownership','domain_verification','github_ownership'].forEach(k=>delete payload[k]);payload.owner_id=u.data.user.id;payload.status='draft';
     if(Object.keys(payload).length<=2){if(out)out.textContent='Start entering your listing; it is already being saved. Engine '+VERSION;return {ok:false,empty:true};}
     if(out)out.textContent='Saving draft… Engine '+VERSION;
     let r;
@@ -293,9 +293,25 @@ window.__web3MarketSellProjectLoaderStarted = true;
       if(!x)throw new Error('Database connection is unavailable. The draft remains saved if the previous account save succeeded; otherwise only the recovery copy on this device is available.');
       const sessionResult=await x.auth.getSession();
       const token=sessionResult.data?.session?.access_token;
-      if(!token)throw new Error('Please sign in again before submitting.');
-      if(out)out.textContent='Running AI Review…';
-      const r=await fetch(SUPABASE_URL+'/functions/v1/ai-review-project',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':KEY},body:JSON.stringify({project_id:saved.id,evidence_patch:{ownership_declaration:val('ownership_declaration'),domain_ownership:val('domain_verification'),github_ownership:val('github_ownership')}})});
+      const authUser=sessionResult.data?.session?.user;
+      if(!token||!authUser?.id)throw new Error('Please sign in again before submitting.');
+      // Ownership evidence is submitted through its dedicated verification workflow,
+      // never as ordinary project-row fields (which are protected by the database).
+      const evidencePayload={
+        ownership_declaration:val('ownership_declaration'),
+        domain_ownership:val('domain_verification')||val('domain_ownership'),
+        github_ownership:val('github_ownership')
+      };
+      const evidenceNotes=JSON.stringify(evidencePayload);
+      let pendingRequest=null;
+      const pendingResult=await x.from('project_verification_requests').select('id,notes').eq('project_id',saved.id).eq('requested_by',authUser.id).eq('status','pending').order('created_at',{ascending:false}).limit(1).maybeSingle();
+      if(!pendingResult.error)pendingRequest=pendingResult.data||null;
+      if(!pendingRequest||pendingRequest.notes!==evidenceNotes){
+        const requestResult=await x.from('project_verification_requests').insert({project_id:saved.id,requested_by:authUser.id,status:'pending',notes:evidenceNotes}).select('id').single();
+        if(requestResult.error)throw new Error('Your draft is saved, but ownership evidence could not be submitted through verification: '+(requestResult.error.message||'verification request failed')+'. Please retry without clearing this device’s saved draft.');
+      }
+      if(out)out.textContent='Verification evidence submitted. Running AI Review…';
+      const r=await fetch(SUPABASE_URL+'/functions/v1/ai-review-project',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':KEY},body:JSON.stringify({project_id:saved.id})});
       const j=await r.json().catch(()=>({error:'Invalid server response'}));
       if(!r.ok||!j.success)throw new Error(j.error||'AI Review failed.');
       const score=j.review?.overall_score??j.result?.ai_score??'—';
