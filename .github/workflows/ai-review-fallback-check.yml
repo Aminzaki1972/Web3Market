@@ -1,0 +1,80 @@
+name: AI review fallback static checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "supabase/functions/ai-review-project/**"
+      - "admin-review.html"
+      - ".github/workflows/ai-review-fallback-check.yml"
+  push:
+    branches: [fix/clarify-ai-review-fallback]
+    paths:
+      - "supabase/functions/ai-review-project/**"
+      - "admin-review.html"
+      - ".github/workflows/ai-review-fallback-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run isolated scoring unit tests
+        run: deno test supabase/functions/ai-review-project/review-scoring.test.ts
+
+      - name: Type-check the Supabase Edge Function
+        run: deno check supabase/functions/ai-review-project/index.ts
+
+      - name: Check inline JavaScript syntax in admin review page
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+
+          class InlineScripts(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.inline = []
+                  self.current = None
+
+              def handle_starttag(self, tag, attrs):
+                  if tag.lower() == "script":
+                      attrs = dict(attrs)
+                      self.current = [] if "src" not in attrs else None
+
+              def handle_data(self, data):
+                  if self.current is not None:
+                      self.current.append(data)
+
+              def handle_endtag(self, tag):
+                  if tag.lower() == "script" and self.current is not None:
+                      self.inline.append("".join(self.current))
+                      self.current = None
+
+          parser = InlineScripts()
+          parser.feed(Path("admin-review.html").read_text(encoding="utf-8"))
+          if not parser.inline:
+              raise SystemExit("No inline scripts found in admin-review.html")
+          for index, script in enumerate(parser.inline, 1):
+              Path(f"/tmp/admin-review-inline-{index}.js").write_text(script, encoding="utf-8")
+          print(f"Extracted {len(parser.inline)} inline script(s) for syntax validation.")
+          PY
+          for file in /tmp/admin-review-inline-*.js; do
+            node --check "$file"
+          done
