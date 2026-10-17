@@ -99,8 +99,21 @@
    if(Date.now()-last<60000)return;
    sessionStorage.setItem(key,String(Date.now()));
    try{
-     await ensureClient().then(c=>c.functions.invoke("w3m-code-audit",{body:{audit_id:a.id}}));
-   }catch(e){console.warn("W3M audit resume request failed",e);}
+     const c=await ensureClient();
+     const r=await c.functions.invoke("w3m-code-audit",{body:{audit_id:a.id}});
+     if(r.error) {
+       console.warn("W3M audit resume request failed",r.error);
+       return false;
+     }
+     if(r.data?.error) {
+       console.warn("W3M audit resume request failed",r.data.error);
+       return false;
+     }
+     return true;
+   }catch(e){
+     console.warn("W3M audit resume request failed",e);
+     return false;
+   }
  }
  async function openExisting(){
    if(!auditId)return false;
