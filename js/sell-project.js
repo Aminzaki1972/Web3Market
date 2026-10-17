@@ -5,7 +5,7 @@ window.__web3MarketSellProjectLoaderStarted = true;
   if(!form)return;
   // Draft saving must allow incomplete forms; AI Review has its own explicit validation.
   form.noValidate = true;
-  const VERSION='20261013-database-draft-review-v6';
+  const VERSION='20261017-verification-evidence-v7';
   const out=document.querySelector('#formStatus');
   const submitBtn=document.querySelector('#submitReviewBtn');
   const ID_KEY='web3market_project_id';
@@ -170,7 +170,7 @@ window.__web3MarketSellProjectLoaderStarted = true;
     if(!x){if(out)out.textContent='Offline — draft saved on this device. Engine '+VERSION;return {ok:false,offline:true};}
     const u=await x.auth.getUser();
     if(u.error||!u.data?.user){if(out)out.textContent='Please sign in. Draft saved on this device. Engine '+VERSION;return {ok:false,auth:false};}
-    const payload=collect();['business_verification'].forEach(k=>delete payload[k]);payload.owner_id=u.data.user.id;payload.status='draft';
+    const payload=collect();['business_verification','identity_verification','ownership_declaration','domain_ownership','domain_verification','github_ownership'].forEach(k=>delete payload[k]);payload.owner_id=u.data.user.id;payload.status='draft';
     if(Object.keys(payload).length<=2){if(out)out.textContent='Start entering your listing; it is already being saved. Engine '+VERSION;return {ok:false,empty:true};}
     if(out)out.textContent='Saving draft… Engine '+VERSION;
     let r;
@@ -294,8 +294,11 @@ window.__web3MarketSellProjectLoaderStarted = true;
       const sessionResult=await x.auth.getSession();
       const token=sessionResult.data?.session?.access_token;
       if(!token)throw new Error('Please sign in again before submitting.');
+      // Protected ownership evidence is excluded from ordinary draft saves and
+      // sent only to the authenticated review service, which commits it atomically
+      // through commit_ai_review_result.
       if(out)out.textContent='Running AI Review…';
-      const r=await fetch(SUPABASE_URL+'/functions/v1/ai-review-project',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':KEY},body:JSON.stringify({project_id:saved.id,evidence_patch:{ownership_declaration:val('ownership_declaration'),domain_ownership:val('domain_verification'),github_ownership:val('github_ownership')}})});
+      const r=await fetch(SUPABASE_URL+'/functions/v1/ai-review-project',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':KEY},body:JSON.stringify({project_id:saved.id,evidence_patch:{ownership_declaration:val('ownership_declaration'),domain_ownership:val('domain_verification')||val('domain_ownership'),github_ownership:val('github_ownership')}})});
       const j=await r.json().catch(()=>({error:'Invalid server response'}));
       if(!r.ok||!j.success)throw new Error(j.error||'AI Review failed.');
       const score=j.review?.overall_score??j.result?.ai_score??'—';
