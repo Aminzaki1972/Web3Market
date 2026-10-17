@@ -47,3 +47,13 @@ A browser-only draft save failure is not server-visible. Add a separate, minimal
 
 ## Deployment gate
 Before merge: locate and commit the actual deployed `admin-review` source, compare it with the live version, test in a non-production environment, review RLS and retention, then obtain explicit owner approval. This plan itself must not trigger a deployment.
+
+## Static verification checkpoint — 2026-10-18
+
+- The branch preview now includes separate counters for `rules_fallback` and missing/unrecorded AI review mode. Both are calculated only from the bounded project rows returned by the monitoring action; they are not platform-wide totals.
+- Static source review confirmed that the monitoring action checks the authenticated user against `admin_users` before selecting records, caps the requested page size at 100, and selects explicit fields. No write operations occur inside the monitoring action.
+- The selected database fields were cross-checked against the current project's `information_schema.columns`; the referenced project, due-diligence report, and verification-request columns exist.
+- A read-only production snapshot found 10 due-diligence report rows, all marked completed at the time of the check; 5 project rows recorded `rules_fallback`, and 1 project row had no recorded AI mode. These are point-in-time observations, not permanent acceptance criteria.
+- Important deployment blocker: the currently deployed `admin-review` Edge Function is version 33 and does not contain the `monitoring` action, while the branch source does. Therefore the branch preview cannot successfully use the currently deployed endpoint until a reviewed deployment occurs. No deployment was performed.
+- The `ai-review-project` Edge Function is active at version 45 with JWT verification enabled. No changes were made to it.
+- Still unverified: authenticated integration tests for non-admin denial, PostgREST JSON selector behavior, rendered UI with a real admin session, and preservation of existing review actions. Do not merge or deploy until those checks are completed and the owner approves.
