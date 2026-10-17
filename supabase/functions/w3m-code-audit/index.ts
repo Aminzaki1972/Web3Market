@@ -38,11 +38,11 @@ async function run(sb:any,a:any,r:any){
 
  try{
   console.log("W3M audit worker start", {audit_id:a.id, owner:r.owner, name:r.name});
-  const {data:resumeState}=await sb.from("code_audits").select("ai_chunk_results,current_chunk,total_chunks").eq("id",a.id).maybeSingle(); const isResume=Array.isArray(resumeState?.ai_chunk_results)&&Number(resumeState?.current_chunk||0)>0; await sb.from("code_audits").update({status:"scanning",started_at:new Date().toISOString(),analysis_progress:{status:"scanning",current_chunk:isResume?Number(resumeState.current_chunk):0,total_chunks:isResume?Number(resumeState.total_chunks||0):0,updated_at:new Date().toISOString()},current_chunk:isResume?Number(resumeState.current_chunk):0,retry_count:0}).eq("id",a.id);
+  const {data:resumeState}=await sb.from("code_audits").select("ai_chunk_results,current_chunk,total_chunks,commit_sha,branch").eq("id",a.id).maybeSingle(); const isResume=Array.isArray(resumeState?.ai_chunk_results)&&Number(resumeState?.current_chunk||0)>0; await sb.from("code_audits").update({status:"scanning",started_at:new Date().toISOString(),analysis_progress:{status:"scanning",current_chunk:isResume?Number(resumeState.current_chunk):0,total_chunks:isResume?Number(resumeState.total_chunks||0):0,updated_at:new Date().toISOString()},current_chunk:isResume?Number(resumeState.current_chunk):0,retry_count:0}).eq("id",a.id);
   const m=await gh("/repos/"+r.owner+"/"+r.name);if(m.private)throw Error("Private repositories are not supported in this MVP.");
-  const branch=m.default_branch||"main",c=await gh("/repos/"+r.owner+"/"+r.name+"/commits/"+encodeURIComponent(branch)),sha=c.sha;
+  const branch=m.default_branch||"main",c=await gh("/repos/"+r.owner+"/"+r.name+"/commits/"+encodeURIComponent(branch)),sha=resumeState?.commit_sha||c.sha,auditBranch=resumeState?.branch||branch;
   const tree=await gh("/repos/"+r.owner+"/"+r.name+"/git/trees/"+sha+"?recursive=1");if(tree.truncated)throw Error("Repository tree is too large for this MVP.");
-  const candidates=(tree.tree||[]).filter((x:any)=>x.type==="blob"&&!SKIP.test(x.path)&&!SKIP_EXT.test(x.path)&&tier(x.path)<=2).slice(0,100);
+  const eligible=(tree.tree||[]).filter((x:any)=>x.type==="blob"&&!SKIP.test(x.path)&&!SKIP_EXT.test(x.path)&&tier(x.path)<=2); const candidates=eligible.slice(0,100);
   const files:any[]=[];
   // Fetch source files concurrently in small batches to reduce edge-function runtime.
   for(let i=0;i<candidates.length;i+=8){
@@ -55,7 +55,7 @@ async function run(sb:any,a:any,r:any){
   }
   if(!files.length)throw Error("No readable source files were fetched from this repository. Check that it is public and contains supported source files.");
   const lines=files.reduce((n,f)=>n+f.content.split("\n").length,0);
-  await sb.from("code_audits").update({status:"analyzing",repo_owner:r.owner,repo_name:r.name,branch,commit_sha:sha,files_scanned:files.length,lines_scanned:lines,language:m.language||null}).eq("id",a.id);
+  await sb.from("code_audits").update({status:"analyzing",repo_owner:r.owner,repo_name:r.name,branch:auditBranch,commit_sha:sha,files_scanned:files.length,lines_scanned:lines,language:m.language||null}).eq("id",a.id);
   const {data:state}=await sb.from("code_audits").select("ai_chunk_results,current_chunk,total_chunks,retry_count").eq("id",a.id).maybeSingle();
   const savedResults=Array.isArray(state?.ai_chunk_results)?state.ai_chunk_results:[];
   const startChunk=Number(state?.current_chunk||0);
@@ -73,10 +73,10 @@ async function run(sb:any,a:any,r:any){
   const web3=files.some(f=>/\.(sol|rs)$/i.test(f.path))||/web3|blockchain|wallet|smart contract/i.test(m.description||"");
   let score=web3?sc.security*.30+sc.architecture*.20+sc.code_quality*.15+sc.dependencies*.10+sc.testing*.10+sc.documentation*.05+sc.web3*.10:sc.security*.35+sc.architecture*.25+sc.code_quality*.15+sc.dependencies*.10+sc.testing*.10+sc.documentation*.05;
   const findings=Array.isArray(out.findings)?out.findings.slice(0,100):[],cnt:any={critical:0,high:0,medium:0,low:0,info:0};for(const f of findings)if(cnt[f.severity]!==undefined)cnt[f.severity]++;
-  score=clamp(score);const coverage=clamp(Math.round(files.length/Math.max(1,candidates.length)*100));
+  score=clamp(score);const coverage=clamp(Math.round(files.length/Math.max(1,eligible.length)*100));
   if(files.length)await sb.from("code_audit_files").insert(files.map(f=>({audit_id:a.id,path:f.path,line_count:f.content.split("\n").length,size_bytes:new TextEncoder().encode(f.content).length,selected_tier:tier(f.path)})));
   if(findings.length)await sb.from("code_audit_findings").insert(findings.map((f:any)=>({audit_id:a.id,severity:f.severity,category:f.category,title:f.title,status:f.status,file_path:f.file_path,line_start:f.line_start,line_end:f.line_end,evidence:f.evidence,description:f.description,recommendation:f.recommendation,confidence:f.confidence})));
-  await sb.from("code_audits").update({status:"completed",overall_score:Number(score.toFixed(2)),coverage_score:coverage,security_score:sc.security,architecture_score:sc.architecture,code_quality_score:sc.code_quality,dependency_score:sc.dependencies,testing_score:sc.testing,documentation_score:sc.documentation,web3_score:sc.web3,risk_level:risk(score),critical_count:cnt.critical,high_count:cnt.high,medium_count:cnt.medium,low_count:cnt.low,info_count:cnt.info,summary:String(out.summary||"").slice(0,12000),model:String(out.model_used||"gemini-3.8-flash"),files_analyzed:files.length,bytes_analyzed:files.reduce((n,f)=>n+new TextEncoder().encode(f.content).length,0),chunks_analyzed:Number(out.chunks_analyzed)||1,ai_findings_count:findings.length,analysis_method:"multi-pass-gemini-v2-resumable",completed_at:new Date().toISOString(),current_chunk:Number(out.chunks_analyzed)||1,total_chunks:Number(out.chunks_analyzed)||1,analysis_progress:{status:"completed",current_chunk:Number(out.chunks_analyzed)||1,total_chunks:Number(out.chunks_analyzed)||1}}).eq("id",a.id);
+  await sb.from("code_audits").update({status:"completed",overall_score:Number(score.toFixed(2)),coverage_score:coverage,security_score:sc.security,architecture_score:sc.architecture,code_quality_score:sc.code_quality,dependency_score:sc.dependencies,testing_score:sc.testing,documentation_score:sc.documentation,web3_score:sc.web3,risk_level:risk(score),critical_count:cnt.critical,high_count:cnt.high,medium_count:cnt.medium,low_count:cnt.low,info_count:cnt.info,summary:(String(out.summary||"")+(eligible.length>100?" Scan limit: the first 100 of "+eligible.length+" eligible files were considered; coverage reflects the full eligible-file count.":"")).slice(0,12000),model:String(out.model_used||"gemini-3.8-flash"),files_analyzed:files.length,bytes_analyzed:files.reduce((n,f)=>n+new TextEncoder().encode(f.content).length,0),chunks_analyzed:Number(out.chunks_analyzed)||1,ai_findings_count:findings.length,analysis_method:"multi-pass-gemini-v2-resumable",completed_at:new Date().toISOString(),current_chunk:Number(out.chunks_analyzed)||1,total_chunks:Number(out.chunks_analyzed)||1,analysis_progress:{status:"completed",current_chunk:Number(out.chunks_analyzed)||1,total_chunks:Number(out.chunks_analyzed)||1}}).eq("id",a.id);
  }catch(e){
     const msg=String(e?.message||e).slice(0,2000);
     console.error("W3M audit worker error", {audit_id:a.id, error:msg});
