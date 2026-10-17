@@ -44,13 +44,27 @@ Deno.serve(async (req: Request) => {
       .eq("id", projectId).maybeSingle();
     if (projectError || !project) return json({ error: "Project not found" }, 404);
     if (project.owner_id !== authData.user.id) return json({ error: "Forbidden" }, 403);
-    if (eventType === "submitted" && !project.ai_status) {
-      return json({ error: "AI Review has not completed for this listing" }, 409);
+    if (eventType === "submitted") {
+      // Only notify when the AI review actually placed the project in the admin queue.
+      // A completed review that requests changes is not an admin-review submission.
+      const isQueuedForAdmin =
+        project.project_status === "admin_review" ||
+        project.ai_status === "recommended_for_admin_review";
+      if (!isQueuedForAdmin) {
+        return json({
+          success: true,
+          skipped: true,
+          reason: "Project is not queued for admin review",
+        });
+      }
     }
 
-    // Deduplicate retries for the same lifecycle state while allowing a genuine later AI-review resubmission.
-    const eventVersion = eventType === "created" ? project.created_at : (project.updated_at || project.created_at);
-    const eventKey = projectId + ":" + eventType + ":" + String(eventVersion);
+    // Use stable lifecycle-state keys instead of updated_at, which can change
+    // for unrelated edits and otherwise create duplicate notifications.
+    // A later transition to a different review/queue state gets a distinct key.
+    const eventKey = eventType === "created"
+      ? projectId + ":created:" + String(project.created_at)
+      : projectId + ":submitted:" + String(project.ai_status) + ":" + String(project.project_status);
     const { data: inserted, error: insertError } = await db.from("admin_project_email_events")
       .insert({ project_id: projectId, event_type: eventType, event_key: eventKey, recipient: RECIPIENT, delivery_status: "sending" })
       .select("id,delivery_status").maybeSingle();
