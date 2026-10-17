@@ -79,3 +79,9 @@ The active `ai-review-project` version 45 source matches the repository copy at 
 - Preserve `mode`, confidence, evidence gaps, and risk findings in the saved review result with backwards-compatible fields.
 - Test OpenAI success, OpenAI timeout/invalid JSON fallback, incomplete required fields, duplicate request fingerprint, and failed atomic commit.
 - Do not deploy or modify production data until tests and owner approval are complete.
+
+### Atomic save / database privilege check
+
+- Read-only inspection of `public.commit_ai_review_result` confirmed that the review result and project-intelligence upsert are handled inside one transaction; the function locks the project row and rejects a draft that is already in admin review.
+- The RPC is `SECURITY DEFINER` with an empty `search_path`, and the current executable-role query returned only `service_role`, `supabase_admin`, and `postgres`. This is consistent with the Edge Function calling it through its service-role client; do not broaden direct client grants as part of this work.
+- The RPC's existing `data_gaps` column receives the recommendations for every finding, confirming the finding-type conflation described above. A separate, backward-compatible change is needed to persist evidence gaps separately from substantive risks.
