@@ -5,7 +5,7 @@ window.__web3MarketSellProjectLoaderStarted = true;
   if(!form)return;
   // Draft saving must allow incomplete forms; AI Review has its own explicit validation.
   form.noValidate = true;
-  const VERSION='20261013-database-draft-review-v6';
+  const VERSION='20261017-verification-evidence-v7';
   const out=document.querySelector('#formStatus');
   const submitBtn=document.querySelector('#submitReviewBtn');
   const ID_KEY='web3market_project_id';
