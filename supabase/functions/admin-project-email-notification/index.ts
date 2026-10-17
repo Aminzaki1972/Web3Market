@@ -48,7 +48,9 @@ Deno.serve(async (req: Request) => {
       return json({ error: "AI Review has not completed for this listing" }, 409);
     }
 
-    // Deduplicate retries for the same lifecycle state while allowing a genuine later AI-review resubmission.\n    const eventVersion = eventType === "created" ? project.created_at : (project.updated_at || project.created_at);\n    const eventKey = projectId + ":" + eventType + ":" + String(eventVersion);
+    // Deduplicate retries for the same lifecycle state while allowing a genuine later AI-review resubmission.
+    const eventVersion = eventType === "created" ? project.created_at : (project.updated_at || project.created_at);
+    const eventKey = projectId + ":" + eventType + ":" + String(eventVersion);
     const { data: inserted, error: insertError } = await db.from("admin_project_email_events")
       .insert({ project_id: projectId, event_type: eventType, event_key: eventKey, recipient: RECIPIENT, delivery_status: "sending" })
       .select("id,delivery_status").maybeSingle();
