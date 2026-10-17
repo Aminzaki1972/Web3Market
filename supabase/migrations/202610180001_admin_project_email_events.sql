@@ -11,6 +11,7 @@ create table if not exists public.admin_project_email_events (
   error_message text,
   attempt_count integer not null default 1 check (attempt_count > 0),
   created_at timestamptz not null default now(),
+  last_attempt_at timestamptz not null default now(),
   sent_at timestamptz
 );
 create index if not exists admin_project_email_events_project_id_idx
