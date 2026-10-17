@@ -164,6 +164,22 @@ window.__web3MarketSellProjectLoaderStarted = true;
     return saveInFlight;
   }
   function isEditableDraft(row){return !!row&&String(row.status||'').toLowerCase()==='draft'&&String(row.project_status||'').toLowerCase()!=='admin_review'&&String(row.ai_status||'').toLowerCase()!=='recommended_for_admin_review';}
+
+  async function notifyAdminProjectEvent(projectId,eventType){
+    try{
+      if(!projectId||!['created','submitted'].includes(eventType))return;
+      const x=await wait();if(!x)return;
+      const session=await x.auth.getSession();
+      const token=session.data?.session?.access_token;
+      if(!token)return;
+      const response=await fetch(SUPABASE_URL+'/functions/v1/admin-project-email-notification',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':KEY},
+        body:JSON.stringify({project_id:projectId,event_type:eventType})
+      });
+      if(!response.ok)console.warn('Admin email notification was not sent',eventType,await response.text().catch(()=>'')); 
+    }catch(error){console.warn('Admin email notification failed without interrupting listing flow',error);}
+  }
   async function saveDraft(){
     local();saveStep();
     const x=await wait();
@@ -234,7 +250,7 @@ window.__web3MarketSellProjectLoaderStarted = true;
     }
     if(r.error){console.error('SAVE ERROR',r.error,payload);if(out)out.textContent=(r.error.message||'Unable to save listing.')+' | Draft remains on this device.';return {ok:false,error:r.error};}
     const id=r.data?.[0]?.id;
-    if(id){currentProjectId=id;localStorage.setItem(ID_KEY,id);localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);if(out)out.textContent='Draft saved successfully. Engine '+VERSION;return {ok:true,id};}
+    if(id){currentProjectId=id;localStorage.setItem(ID_KEY,id);localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LEGACY_KEY);if(insertAsNewDraft)void notifyAdminProjectEvent(id,'created');if(out)out.textContent='Draft saved successfully. Engine '+VERSION;return {ok:true,id};}
     return {ok:false,error:new Error('No project id returned')};
   }
   function normalizeUrl(value){
@@ -305,6 +321,7 @@ window.__web3MarketSellProjectLoaderStarted = true;
       const status=j.result?.ai_status||j.review?.recommendation||'submitted';
       const queued=j.result?.project_status==='admin_review'||j.result?.ai_status==='recommended_for_admin_review';
       if(out)out.textContent='AI review completed. Score: '+score+'. '+(queued?'The project has been sent to the Admin Review queue. It has not been published automatically.':'The project needs changes before it can enter the Admin Review queue.')+' Review status: '+String(status).replace(/_/g,' ')+'.';
+      void notifyAdminProjectEvent(saved.id,'submitted');
       if(submitBtn)submitBtn.textContent='Submitted for AI Review';
     }catch(e){
       console.error('SUBMIT REVIEW ERROR',e);
