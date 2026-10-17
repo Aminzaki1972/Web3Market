@@ -34,6 +34,9 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: Run isolated scoring unit tests
+        run: deno test supabase/functions/ai-review-project/review-scoring.test.ts
+
       - name: Type-check the Supabase Edge Function
         run: deno check supabase/functions/ai-review-project/index.ts
 
