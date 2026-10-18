@@ -19,7 +19,7 @@ This branch prepares notifications for the existing offer workflow without chang
 - `supabase/functions/seller-offer-action/index.ts` and `seller-offer-action-v2/index.ts`: draft copies with buyer notification/email after acceptance.
 
 ## Findings from follow-up read-only audit
-1. The live `js/offer-form-fix.js` and `js/project.js` both insert a pending row into `public.deals`. The branch currently adds the new notification-function invocation only to `js/offer-form-fix.js`, so the separate `project.js` offer path also needs equivalent integration or the form needs a confirmed single owner.
+1. `js/project.js` attaches a submit handler to `#offerForm`, while `js/offer-form-fix.js` installs a document-level capture handler and calls `stopImmediatePropagation()`. The capture handler is intended to take ownership of the same form submission, so the branch adds the notification request there. This should be verified in a browser test to confirm the offer is created only once and the notification request runs.
 2. The repository's `js/offer-actions.js` calls the Postgres RPC `act_on_marketplace_offer`, but a read-only query of the live database did not find that function. No inspected current dashboard or Deal Room file calls `seller-offer-action` or `seller-offer-action-v2` directly. The production acceptance path is therefore not yet proven. Do not deploy the acceptance notification code until this is resolved.
 3. The live `marketplace_notification_events` table does not exist yet; it is only defined in this branch's migration.
 4. The live database has `public.mark_notification_read(p_notification_id uuid)`; the bell can use this RPC to mark an item read.
