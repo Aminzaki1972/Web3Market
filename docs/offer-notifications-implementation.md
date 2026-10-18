@@ -18,18 +18,26 @@ This branch prepares notifications for the existing offer workflow without chang
 - `supabase/functions/marketplace-offer-notification/index.ts`: authenticates the buyer and verifies the pending deal before notifying the seller.
 - `supabase/functions/seller-offer-action/index.ts` and `seller-offer-action-v2/index.ts`: draft copies with buyer notification/email after acceptance.
 
+## Findings from follow-up read-only audit
+1. The live `js/offer-form-fix.js` and `js/project.js` both insert a pending row into `public.deals`. The branch currently adds the new notification-function invocation only to `js/offer-form-fix.js`, so the separate `project.js` offer path also needs equivalent integration or the form needs a confirmed single owner.
+2. The repository's `js/offer-actions.js` calls the Postgres RPC `act_on_marketplace_offer`, but a read-only query of the live database did not find that function. No inspected current dashboard or Deal Room file calls `seller-offer-action` or `seller-offer-action-v2` directly. The production acceptance path is therefore not yet proven. Do not deploy the acceptance notification code until this is resolved.
+3. The live `marketplace_notification_events` table does not exist yet; it is only defined in this branch's migration.
+4. The live database has `public.mark_notification_read(p_notification_id uuid)`; the bell can use this RPC to mark an item read.
+5. The deployed Edge Functions remain unchanged: `seller-offer-action` version 28 and `seller-offer-action-v2` version 31. No secrets were inspected or changed, and email delivery has not been tested.
+
 ## Deployment prerequisites
-1. Review and apply the migration in a controlled Supabase migration window.
-2. Confirm Supabase Edge Function secrets `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are set and the sender domain is verified in Resend.
-3. Confirm which seller acceptance function the current production UI invokes; this repository did not show a direct caller in the inspected files.
-4. Deploy the shared helper alongside each Edge Function that imports it.
-5. Test using two test accounts and a disposable listing before any production rollout.
+1. Reconcile the duplicate buyer offer-submission paths (`js/project.js` and `js/offer-form-fix.js`) so exactly one notification request is made after a successful insert.
+2. Locate and verify the actual production offer-acceptance action and its backend. Do not assume either Edge Function is the live caller.
+3. Review and apply the migration in a controlled Supabase migration window.
+4. Confirm Supabase Edge Function secrets `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are set and the sender domain is verified in Resend.
+5. Deploy the shared helper alongside each Edge Function that imports it.
+6. Test using two test accounts and a disposable listing before any production rollout.
 
 ## Test checklist
-- [ ] Buyer creates a pending offer: exactly one seller notification appears.
+- [ ] Buyer creates an offer through the actual production form: exactly one seller notification appears.
 - [ ] Seller receives one email for the new offer.
 - [ ] Seller dashboard bell shows unread count and opens the notification.
-- [ ] Seller accepts the offer: offer remains accepted even if email provider fails.
+- [ ] The verified production acceptance action accepts the offer and invokes buyer notification.
 - [ ] Buyer receives one notification and one acceptance email.
 - [ ] Repeated notification requests do not create duplicate notifications or emails.
 - [ ] Buyer and seller cannot read each other's notifications.
