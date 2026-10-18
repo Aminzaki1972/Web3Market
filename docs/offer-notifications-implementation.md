@@ -16,6 +16,7 @@ This branch prepares notifications for the existing offer workflow without chang
 - `supabase/migrations/20261018_offer_notification_events.sql`: extends the existing notification type constraint and adds a service-role-only idempotency ledger.
 - `supabase/functions/_shared/offer-notifications.ts`: notification/email helper.
 - `supabase/functions/marketplace-offer-notification/index.ts`: authenticates the buyer and verifies the pending deal before notifying the seller.
+- `supabase/functions/marketplace-notification-retry/index.ts`: proposed admin-only endpoint for retrying a failed notification event after rechecking administrator role and current deal status.
 - `supabase/functions/seller-offer-action/index.ts` and `seller-offer-action-v2/index.ts`: draft copies with buyer notification/email after acceptance.
 
 ## Findings from follow-up read-only audit
@@ -31,16 +32,17 @@ This branch prepares notifications for the existing offer workflow without chang
 10. A further concurrency review found that two retries could both observe a failed event and continue because the update did not verify that it actually claimed the row. Both retry paths now use an atomic `failed -> sending` conditional update and check whether a row was returned; a caller that did not claim the row exits without sending. This is a source-level improvement, not a runtime test.
 11. Read-only schema inspection confirms `public.marketplace_notifications` has `id,user_id,project_id,type,title,message,data,read_at,created_at` with RLS enabled. The proposed `marketplace_notification_events` ledger table is not present in the live project, and its migration is not listed as applied. Do not deploy the Edge Function before the reviewed migration is applied and tested.
 12. A second read-only schema check found that the live `marketplace_notifications_type_check` constraint permits only `new_match`, `price_change`, `score_change`, `valuation_change`, `verification_change`, and `system`. The new offer event types would be rejected by the database. The branch migration now replaces that constraint with a list that preserves all six legacy values and adds `offer_created` and `offer_accepted`. This migration has not been applied to production; confirm it against the live schema again immediately before any approved rollout.
-13. Retry-path review found a product gap: the helper can retry a ledger row marked `failed` if called again, but there is no user-facing or scheduled retry mechanism. The new-offer endpoint is normally called only once after offer creation, and the acceptance notification is invoked only during the one-time pending-to-accepted transition. Therefore, an email failure can remain failed until a separately authorized retry mechanism is added or an authorized operator invokes a safe retry path. Do not describe email retry as automatic yet.
+13. Retry-path review found a product gap: the helper can retry a ledger row marked `failed` if called again, but there was no user-facing or scheduled retry mechanism. Added a proposed `marketplace-notification-retry` Edge Function in this branch. It requires a valid signed-in user, checks the `profiles.role` value server-side for `admin`, accepts only an existing failed event key, and rechecks that the deal is still in the state matching the event before invoking the shared helper. It does not make retries automatic; an authorized admin must explicitly invoke it. This endpoint has not been deployed or runtime-tested.
 
 ## Deployment prerequisites
 1. Run browser tests with disposable buyer/seller accounts and a disposable listing: one offer row only, seller alert once, accept/reject behavior, buyer acceptance alert, duplicate clicks, stale pending offers, and failure handling.
 2. Confirm Safe deployment and settlement end-to-end on a disposable deal, including verified wallets, expected token configuration, 2-of-3 signatures, and correct fee/net amounts. Do not use the completed $10 reference deal for testing.
 3. Review and apply the migration in a controlled Supabase migration window only after explicit approval.
 4. Confirm the Supabase Edge Function secrets `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are set and the sender domain is verified in Resend; then test real email delivery.
-5. Before release, decide how failed email deliveries will be retried safely (for example, a secured retry action or scheduled worker) and test it. Current code supports retrying a failed ledger entry when the helper is invoked again, but it does not automatically schedule retries.
-6. Deploy the shared helper and `marketplace-offer-notification` before deploying any function that imports the helper; verify idempotency and logs.
-7. Only after tests pass, consider publishing the dashboard changes. Do not merge or deploy as part of this read-only audit.
+5. Test the proposed admin-only `marketplace-notification-retry` endpoint with an admin account and a non-admin account. Confirm non-admins receive 403, only `failed` events can be retried, current deal state is rechecked, and repeated calls cannot send duplicate notifications.
+6. Decide whether an explicit admin-triggered retry is sufficient or a scheduled worker is needed. Retry is not automatic in this branch.
+7. Deploy the shared helper and `marketplace-offer-notification` before deploying any function that imports the helper; deploy `marketplace-notification-retry` only after the same migration and security review. Verify idempotency and logs.
+8. Only after tests pass, consider publishing the dashboard changes. Do not merge or deploy as part of this read-only audit.
 
 ## Test checklist
 - [ ] Buyer creates an offer through the test form: exactly one deal row and one seller notification request.
