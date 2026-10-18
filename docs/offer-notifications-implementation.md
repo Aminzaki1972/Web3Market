@@ -13,7 +13,7 @@ This branch prepares notifications for the existing offer workflow without chang
 - `js/notification-bell.js`: shared dashboard bell and account-scoped notification list.
 - `buyer-dashboard.html`, `seller-dashboard.html`: load the bell script.
 - `js/offer-form-fix.js`: requests a seller notification after the offer insert succeeds.
-- `supabase/migrations/20261018_offer_notification_events.sql`: service-role-only idempotency ledger.
+- `supabase/migrations/20261018_offer_notification_events.sql`: extends the existing notification type constraint and adds a service-role-only idempotency ledger.
 - `supabase/functions/_shared/offer-notifications.ts`: notification/email helper.
 - `supabase/functions/marketplace-offer-notification/index.ts`: authenticates the buyer and verifies the pending deal before notifying the seller.
 - `supabase/functions/seller-offer-action/index.ts` and `seller-offer-action-v2/index.ts`: draft copies with buyer notification/email after acceptance.
@@ -29,7 +29,8 @@ This branch prepares notifications for the existing offer workflow without chang
 8. The offer form previously treated failure to save the optional deal message as if offer creation had failed, even though the deal row had already been inserted. The branch now logs that optional-message error and continues showing the created offer, avoiding a misleading failure message. Browser testing is still required.
 9. Updated the `project.html` cache-busting query for `js/offer-form-fix.js` so browsers can fetch the revised script rather than reusing a cached version. This change is branch-only until the PR is merged and deployed.
 10. A further concurrency review found that two retries could both observe a failed event and continue because the update did not verify that it actually claimed the row. Both retry paths now use an atomic `failed -> sending` conditional update and check whether a row was returned; a caller that did not claim the row exits without sending. This is a source-level improvement, not a runtime test.
-11. Read-only schema inspection confirms `public.marketplace_notifications` currently has `id,user_id,project_id,type,title,message,data,read_at,created_at` with RLS enabled. The proposed `marketplace_notification_events` ledger table is not present in the live project, and its migration is not listed as applied. Do not deploy the Edge Function before the reviewed migration is applied and tested.
+11. Read-only schema inspection confirms `public.marketplace_notifications` has `id,user_id,project_id,type,title,message,data,read_at,created_at` with RLS enabled. The proposed `marketplace_notification_events` ledger table is not present in the live project, and its migration is not listed as applied. Do not deploy the Edge Function before the reviewed migration is applied and tested.
+12. A second read-only schema check found that the live `marketplace_notifications_type_check` constraint permits only `new_match`, `price_change`, `score_change`, `valuation_change`, `verification_change`, and `system`. The new offer event types would be rejected by the database. The branch migration now replaces that constraint with a list that preserves all six legacy values and adds `offer_created` and `offer_accepted`. This migration has not been applied to production; confirm it against the live schema again immediately before any approved rollout.
 
 ## Deployment prerequisites
 1. Run browser tests with disposable buyer/seller accounts and a disposable listing: one offer row only, seller alert once, accept/reject behavior, buyer acceptance alert, duplicate clicks, stale pending offers, and failure handling.
