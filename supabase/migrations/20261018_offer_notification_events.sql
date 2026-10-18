@@ -1,4 +1,22 @@
 -- Offer notification idempotency ledger. Apply only after reviewing this branch.
+-- The live notification type constraint currently allows only legacy types.
+-- Preserve every existing allowed type while adding the two offer event types.
+alter table public.marketplace_notifications
+  drop constraint if exists marketplace_notifications_type_check;
+
+alter table public.marketplace_notifications
+  add constraint marketplace_notifications_type_check
+  check (type = any (array[
+    'new_match'::text,
+    'price_change'::text,
+    'score_change'::text,
+    'valuation_change'::text,
+    'verification_change'::text,
+    'system'::text,
+    'offer_created'::text,
+    'offer_accepted'::text
+  ]));
+
 create table if not exists public.marketplace_notification_events (
   event_key text primary key,
   deal_id uuid not null references public.deals(id) on delete cascade,
