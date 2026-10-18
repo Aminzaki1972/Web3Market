@@ -26,7 +26,7 @@ This branch prepares notifications for the existing offer workflow without chang
 5. The deployed Edge Functions remain unchanged: `seller-offer-action` version 28 and `seller-offer-action-v2` version 31. No secrets were inspected or changed, and email delivery has not been tested.
 
 ## Deployment prerequisites
-1. Reconcile the duplicate buyer offer-submission paths (`js/project.js` and `js/offer-form-fix.js`) so exactly one notification request is made after a successful insert.
+1. Browser-test the event ownership between `js/project.js` and `js/offer-form-fix.js`, confirming exactly one deal is inserted and one notification request is made after a successful insert.
 2. Locate and verify the actual production offer-acceptance action and its backend. Do not assume either Edge Function is the live caller.
 3. Review and apply the migration in a controlled Supabase migration window.
 4. Confirm Supabase Edge Function secrets `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are set and the sender domain is verified in Resend.
