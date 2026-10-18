@@ -47,7 +47,7 @@
       '</div>' +
       '<div class="wm-vote-meter" role="img" aria-label="'+ratio+' percent positive votes"><div class="wm-vote-meter-positive" style="width:'+ratio+'%"></div></div>' +
       '<p class="wm-vote-message" role="status">'+escapeHtml(message || (current ? 'Your vote is recorded. You can change it at any time.' : (signedIn ? 'One vote per account for each project. You can change your vote later.' : 'Sign in to vote. Visitors can view the totals, but only registered users can vote.')))+'</p>' +
-      (!signedIn ? '<a class="wm-vote-login" href="login.html?next='+encodeURIComponent(window.location.pathname + window.location.search)+'">Sign in to vote</a>' : '') +
+      (!signedIn ? '<a class="wm-vote-login" href="login.html?returnTo='+encodeURIComponent('project.html?id=' + encodeURIComponent(projectId))+'">Sign in to vote</a>' : '') +
       '<p class="wm-vote-message">Total votes: <strong>'+total+'</strong> · '+ratio+'% positive</p>' +
       '<p class="wm-vote-message wm-community-spotlight-note"><strong>Community Spotlight:</strong> The project with the highest number of positive community votes may be featured on the Web3Market homepage. Only approved, active, non-test projects are eligible. Community votes are separate from AI analysis and security reviews.</p>';
     section.querySelectorAll('[data-vote]').forEach(function (button) {
