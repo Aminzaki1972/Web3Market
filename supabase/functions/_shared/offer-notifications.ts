@@ -55,19 +55,35 @@ export async function notifyOfferEvent(db: SupabaseClient, deal: Deal, eventType
       if (raced.delivery_status === "sent" || raced.delivery_status === "sending") {
         return { ok: true, duplicate: true, email_status: raced.delivery_status };
       }
-      const { error: retryError } = await db.from("marketplace_notification_events")
+      const { data: claimed, error: retryError } = await db.from("marketplace_notification_events")
         .update({ delivery_status: "sending", error_message: null, updated_at: new Date().toISOString() })
-        .eq("event_key", eventKey).eq("delivery_status", "failed");
+        .eq("event_key", eventKey).eq("delivery_status", "failed")
+        .select("event_key").maybeSingle();
       if (retryError) throw retryError;
+      // Claim retries atomically: only the caller that changed failed -> sending may deliver.
+      if (!claimed) {
+        const { data: current, error: currentError } = await db.from("marketplace_notification_events")
+          .select("delivery_status").eq("event_key", eventKey).maybeSingle();
+        if (currentError) throw currentError;
+        return { ok: true, duplicate: true, email_status: current?.delivery_status || "sending" };
+      }
     }
   } else {
     if (prior.delivery_status === "sent" || prior.delivery_status === "sending") {
       return { ok: true, duplicate: true, email_status: prior.delivery_status };
     }
-    const { error: retryError } = await db.from("marketplace_notification_events")
+    const { data: claimed, error: retryError } = await db.from("marketplace_notification_events")
       .update({ delivery_status: "sending", error_message: null, updated_at: new Date().toISOString() })
-      .eq("event_key", eventKey).eq("delivery_status", "failed");
+      .eq("event_key", eventKey).eq("delivery_status", "failed")
+      .select("event_key").maybeSingle();
     if (retryError) throw retryError;
+    // Claim retries atomically: only the caller that changed failed -> sending may deliver.
+    if (!claimed) {
+      const { data: current, error: currentError } = await db.from("marketplace_notification_events")
+        .select("delivery_status").eq("event_key", eventKey).maybeSingle();
+      if (currentError) throw currentError;
+      return { ok: true, duplicate: true, email_status: current?.delivery_status || "sending" };
+    }
   }
 
   const { data: existingNotification, error: notificationLookupError } = await db.from("marketplace_notifications")
