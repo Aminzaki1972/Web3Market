@@ -40,7 +40,10 @@
    const {data:deal,error:de}=await client.from('deals').insert({project_id:p.id,buyer_id:user.id,seller_id:p.owner_id,amount,currency:p.currency||'USD',status:'pending'}).select('id').single();
    if(de)throw de;
    created=true;
-   if(message){const {error:me}=await client.from('deal_messages').insert({deal_id:deal.id,sender_id:user.id,message});if(me)throw me;}
+   if(message){
+    const {error:me}=await client.from('deal_messages').insert({deal_id:deal.id,sender_id:user.id,message});
+    if(me)console.warn('Offer was created, but the optional message could not be saved.',me);
+   }
    // Best-effort notification: never roll back or misreport a successfully created offer if email delivery is unavailable.
    try{
     const {data:notifyData,error:notifyError}=await client.functions.invoke('marketplace-offer-notification',{body:{deal_id:deal.id}});
