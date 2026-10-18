@@ -86,7 +86,7 @@
     page.insertAdjacentElement('afterend', section);
     try {
       var auth = await sb.auth.getUser();
-      var signedIn = !!(auth && !auth.error && auth.data && auth.data.user);
+      var signedIn = !!(auth && !auth.error && auth.data && auth.data.user && !auth.data.user.is_anonymous);
       var summary = await readSummary(sb);
       if (!summary) {
         section.remove();
