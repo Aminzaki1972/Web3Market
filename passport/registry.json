@@ -279,6 +279,20 @@
       "conflict_status": "none",
       "created_at": "2026-10-16T17:23:49.626221+00:00",
       "first_seen_at": "2026-10-16T17:23:49.557+00:00"
+    },
+    {
+      "identity_code": "W3M-2026-000037",
+      "sequence_no": 37,
+      "project_name": "Lumina",
+      "identity_status": "verified",
+      "identity_score": 0,
+      "identity_verdict": "unverified",
+      "entity_type": "independent_project",
+      "parent_identity_id": null,
+      "relationship_type": "root",
+      "conflict_status": "none",
+      "created_at": "2026-10-18T07:42:18.223975+00:00",
+      "first_seen_at": "2026-10-17T12:44:23.140225+00:00"
     }
   ]
 }
