@@ -33,7 +33,7 @@
     wrap.className = "w3m-notify-wrap";
     wrap.id = "w3mNotifyWrap";
     wrap.innerHTML = `
-      <button class="w3m-notify-button" id="w3mNotifyButton" type="button" aria-label="Notifications" aria-expanded="false" title="Notifications">♧<span class="w3m-notify-count" id="w3mNotifyCount" hidden>0</span></button>
+      <button class="w3m-notify-button" id="w3mNotifyButton" type="button" aria-label="Notifications" aria-expanded="false" title="Notifications">🔔<span class="w3m-notify-count" id="w3mNotifyCount" hidden>0</span></button>
       <section class="w3m-notify-panel" id="w3mNotifyPanel" hidden aria-label="Notifications">
         <div class="w3m-notify-head"><span>Notifications</span><button id="w3mNotifyRefresh" type="button" style="border:0;background:transparent;color:#2563eb;font-weight:700;cursor:pointer">Refresh</button></div>
         <div id="w3mNotifyItems"><div class="w3m-notify-empty">Loading notifications…</div></div>
@@ -87,16 +87,19 @@
     items.addEventListener("click", async (event) => {
       const link = event.target.closest("[data-notification-id]");
       if (!link) return;
+      event.preventDefault();
       const sb = client();
       if (sb && currentUser) {
         try { await sb.rpc("mark_notification_read", { p_notification_id: link.dataset.notificationId }); }
         catch (e) { console.warn("Could not mark notification as read", e); }
       }
+      window.location.href = link.href;
     });
     document.addEventListener("click", event => {
       if (!wrap.contains(event.target)) { panel.hidden = true; button.setAttribute("aria-expanded", "false"); }
     });
     await load();
+    window.setInterval(() => { if (!panel.hidden) load(); else load(); }, 60000);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => setTimeout(init, 0));
