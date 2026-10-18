@@ -119,8 +119,8 @@ as $function$
     p.category,
     p.logo_url,
     p.cover_image_url,
-    count(*) filter (where pv.vote = 1)::bigint as positive_count,
-    count(*) filter (where pv.vote = -1)::bigint as negative_count,
+    count(*) filter (where pv.vote = 1) as positive_count,
+    count(*) filter (where pv.vote = -1) as negative_count,
     count(*)::bigint as total_votes
   from public.projects p
   join public.project_votes pv on pv.project_id = p.id
