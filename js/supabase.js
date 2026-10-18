@@ -29,7 +29,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 /* Load the community-voted project spotlight on the public homepage only. */
 (function(){
   'use strict';
-  function isHome(){var p=(location.pathname||'').(function(){var p=location.pathname||'';while(p.length>1&&p.endsWith('/'))p=p.slice(0,-1);return p;})();return p===''||p==='/'||p==='/index.html'||p.endsWith('/index.html');}
+  function isHome(){var p=location.pathname||'';while(p.length>1&&p.endsWith('/'))p=p.slice(0,-1);return p===''||p==='/'||p==='/index.html'||p.endsWith('/index.html');}
   function load(){
     if(!isHome()||document.getElementById('wm-community-spotlight-script'))return;
     if(!window.Web3MarketSupabase?.getClient&&!window.supabaseClient&&!window.web3marketSupabase)return;
