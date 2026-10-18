@@ -26,6 +26,7 @@ This branch prepares notifications for the existing offer workflow without chang
 5. The live `marketplace_notification_events` table does not exist yet; it is only defined in this branch's migration. The notification Edge Function also does not exist in the live project yet. The bell's live mark-read RPC exists, but that alone does not make notification creation deployable.
 6. Deployed Edge Functions remain unchanged: `seller-offer-action` version 28 and `seller-offer-action-v2` version 31. Resend secret values were not read, changed, or exposed, and email delivery has not been tested.
 7. Follow-up source audit found that a database error while checking for an existing in-app notification could leave the event ledger stuck at `sending`, preventing automatic retry. The branch helper now marks that event `failed` before throwing, so a later attempt can retry. This is a source-level fix only; runtime behavior remains untested.
+8. The offer form previously treated failure to save the optional deal message as if offer creation had failed, even though the deal row had already been inserted. The branch now logs that optional-message error and continues showing the created offer, avoiding a misleading failure message. Browser testing is still required.
 
 ## Deployment prerequisites
 1. Run browser tests with disposable buyer/seller accounts and a disposable listing: one offer row only, seller alert once, accept/reject behavior, buyer acceptance alert, duplicate clicks, stale pending offers, and failure handling.
