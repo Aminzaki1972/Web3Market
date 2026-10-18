@@ -1,5 +1,11 @@
 "use strict";
 
+/* Prevent duplicate initialization if this script is injected more than once. */
+if (window.__w3mTrustScoreUiLoaded) {
+    // The existing instance already owns the observers and render lifecycle.
+} else {
+window.__w3mTrustScoreUiLoaded = true;
+
 /* Web3Market Trust / Verification UI layer.
    Read-only presentation layer: existing verification data only. */
 (function () {
@@ -124,6 +130,8 @@
         projectRunning = true;
         try {
             const row = (await loadVerification([id])).get(String(id));
+            // Re-check after the async lookup so concurrent DOM scans cannot insert duplicates.
+            if (document.querySelector(".wm-trust-details") || !card.isConnected) return;
             const details = document.createElement("div");
             details.className = "wm-trust-details";
             details.innerHTML = `<div class="wm-copy"><div class="wm-caption">WEB3MARKET TRUST / VERIFICATION SCORE</div><p>Based on the project's existing verification signals. Missing verification is not proof of a problem.</p></div><div class="wm-score ${level(row?.verification_score)}">${escapeHtml(scoreLabel(row?.verification_score))}</div>`;
@@ -140,4 +148,5 @@
         new MutationObserver(() => scan()).observe(document.body, { childList: true, subtree: true });
     }
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true }); else init();
+}
 })();
