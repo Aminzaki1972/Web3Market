@@ -70,7 +70,11 @@ export async function notifyOfferEvent(db: SupabaseClient, deal: Deal, eventType
     if (retryError) throw retryError;
   }
 
-  if (isNew) {
+  const { data: existingNotification, error: notificationLookupError } = await db.from("marketplace_notifications")
+    .select("id").eq("user_id", recipientId).eq("type", eventType)
+    .contains("data", { deal_id: deal.id, event_type: eventType }).limit(1).maybeSingle();
+  if (notificationLookupError) throw new Error("Could not verify existing in-app notification.");
+  if (!existingNotification) {
     const { error: notificationError } = await db.from("marketplace_notifications").insert({
       user_id: recipientId, project_id: deal.project_id, type: eventType,
       title, message, data: { deal_id: deal.id, project_id: deal.project_id, event_type: eventType }
