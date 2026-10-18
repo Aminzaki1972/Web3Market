@@ -49,6 +49,9 @@
 
     async function load() {
       const sb = client();
+      currentUser = null;
+      count.hidden = true;
+      count.textContent = "0";
       if (!sb?.auth) { items.innerHTML = '<div class="w3m-notify-empty">Sign in to view notifications.</div>'; return; }
       const { data: { user } = {} } = await sb.auth.getUser();
       if (!user) { items.innerHTML = '<div class="w3m-notify-empty">Sign in to view notifications.</div>'; return; }
@@ -99,7 +102,7 @@
       if (!wrap.contains(event.target)) { panel.hidden = true; button.setAttribute("aria-expanded", "false"); }
     });
     await load();
-    window.setInterval(() => { if (!panel.hidden) load(); else load(); }, 60000);
+    window.setInterval(() => { if (!panel.hidden) load(); }, 60000);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => setTimeout(init, 0));
