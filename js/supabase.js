@@ -26,3 +26,17 @@ async function boot(){if(initStarted)return;initStarted=true;await waitForClient
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();window.addEventListener("load",()=>{waitForClient(3000).then(()=>{installHomepageUI();installDeveloperContact();loadTrustScoreUI()})})
 })();
 (function(){"use strict";function isHomepage(){const p=(location.pathname||"").replace(/\/+$/,'');return p===""||p==="/index.html"||p.endsWith("/index.html")}function loadHomepageEnhancements(){if(!isHomepage())return;if(document.getElementById('wmx-homepage-enhancements'))return;var s=document.createElement('script');s.id='wmx-homepage-enhancements';s.src='/js/homepage-enhancements.js?v=20260911-3';s.async=true;s.onload=function(){console.log('Web3Market homepage enhancements loaded')};s.onerror=function(){console.warn('Web3Market homepage enhancements unavailable')};(document.head||document.body||document.documentElement).appendChild(s)}function bootHomepageEnhancements(){if(!isHomepage())return;if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadHomepageEnhancements,{once:true});else loadHomepageEnhancements();window.addEventListener('load',loadHomepageEnhancements,{once:true});setTimeout(loadHomepageEnhancements,1200)}bootHomepageEnhancements()})();
+/* Load the community-voted project spotlight on the public homepage only. */
+(function(){
+  'use strict';
+  function isHome(){var p=(location.pathname||'').replace(/\\/+$/,'');return p===''||p==='/'||p==='/index.html'||p.endsWith('/index.html');}
+  function load(){
+    if(!isHome()||document.getElementById('wm-community-spotlight-script'))return;
+    if(!window.Web3MarketSupabase?.getClient&&!window.supabaseClient&&!window.web3marketSupabase)return;
+    var s=document.createElement('script');s.id='wm-community-spotlight-script';s.src='/js/homepage-featured-vote.js?v=20261018-1';s.async=true;
+    s.onerror=function(){console.warn('Web3Market community spotlight script unavailable');};
+    (document.head||document.body||document.documentElement).appendChild(s);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
+  window.addEventListener('load',load,{once:true});setTimeout(load,500);setTimeout(load,1800);
+})();
