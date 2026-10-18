@@ -57,8 +57,9 @@ security definer
 set search_path = ''
 as $function$
 begin
-  if (select auth.uid()) is null then
-    raise exception 'Authentication required';
+  if (select auth.uid()) is null
+     or coalesce((select auth.jwt() ->> 'is_anonymous'), 'false') = 'true' then
+    raise exception 'A registered account is required to vote';
   end if;
 
   if p_project_id is null or p_vote is null or p_vote not in (-1, 1) then
