@@ -58,7 +58,8 @@ create index if not exists support_messages_conversation_created_idx
 alter table public.support_conversations enable row level security;
 alter table public.support_messages enable row level security;
 grant select, insert on public.support_conversations to authenticated;
--- Limit client-side updates to the status field only; ownership and identity stay server-controlled.
+-- Remove any table-level UPDATE grant, then allow only status changes by authorized admins.
+revoke update on public.support_conversations from public, anon, authenticated;
 grant update (status) on public.support_conversations to authenticated;
 grant select, insert on public.support_messages to authenticated;
 drop policy if exists support_conversations_select_participant_or_admin on public.support_conversations;
