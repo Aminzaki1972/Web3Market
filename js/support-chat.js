@@ -36,17 +36,17 @@
   }
   async function getOrCreateConversation(){
     // Reuse the latest conversation, including a closed one; never silently create a new thread.
-    const {data,error}=await db.from("support_conversations").select("id,subject,status,last_message_at").eq("user_id",currentUser.id).order("last_message_at",{ascending:false}).limit(1);
+    const {data,error}=await db.from("support_conversations").select("id,user_id,subject,status,last_message_at").eq("user_id",currentUser.id).order("last_message_at",{ascending:false}).limit(1);
     if(error)throw error;
     if(data?.length)return data[0];
-    const {data:created,error:ce}=await db.from("support_conversations").insert({user_id:currentUser.id,subject:"Web3Market Support"}).select("id,subject,status,last_message_at").single();
+    const {data:created,error:ce}=await db.from("support_conversations").insert({user_id:currentUser.id,subject:"Web3Market Support"}).select("id,user_id,subject,status,last_message_at").single();
     if(ce)throw ce;return created;
   }
   async function requestNewConversation(){
     if(!currentConversation || currentConversation.status!=="closed")return;
     const button=$("supportNewConversation");button.disabled=true;
     try{
-      const {data:created,error}=await db.from("support_conversations").insert({user_id:currentUser.id,subject:"Web3Market Support"}).select("id,subject,status,last_message_at").single();
+      const {data:created,error}=await db.from("support_conversations").insert({user_id:currentUser.id,subject:"Web3Market Support"}).select("id,user_id,subject,status,last_message_at").single();
       if(error)throw error;
       currentConversation=created;
       await loadUserMessages();
