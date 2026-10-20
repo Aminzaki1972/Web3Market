@@ -91,14 +91,18 @@
   }
   async function loadUserMessages(){
     if(!currentConversation)return;
+    const conversationId=currentConversation.id;
     // Refresh status so an open dashboard reflects admin close/reopen actions without a reload.
-    const {data:latest,error:statusError}=await db.from("support_conversations").select("id,subject,status,last_message_at").eq("id",currentConversation.id).maybeSingle();
+    const {data:latest,error:statusError}=await db.from("support_conversations").select("id,subject,status,last_message_at").eq("id",conversationId).maybeSingle();
     if(statusError)throw statusError;
+    if(currentConversation?.id!==conversationId)return;
     if(!latest)throw new Error("This support conversation is no longer available.");
     currentConversation={...currentConversation,...latest};
-    const {data,error}=await db.from("support_messages").select("id,conversation_id,sender_id,body,attachment_path,attachment_name,attachment_mime,created_at").eq("conversation_id",currentConversation.id).order("created_at",{ascending:true}).limit(500);
+    const {data,error}=await db.from("support_messages").select("id,conversation_id,sender_id,body,attachment_path,attachment_name,attachment_mime,created_at").eq("conversation_id",conversationId).order("created_at",{ascending:true}).limit(500);
     if(error)throw error;
+    if(currentConversation?.id!==conversationId)return;
     await renderMessages(data,"supportThread");
+    if(currentConversation?.id!==conversationId)return;
     say("supportStatus","Private conversation · "+(currentConversation.status==="closed"?"Closed":"Open")+" · only you and authorized administrators can access it.");
     const closed=currentConversation.status==="closed";
     $("supportBody").disabled=closed;$("supportFile").disabled=closed;$("supportSend").disabled=closed;
@@ -159,10 +163,15 @@
   }
   async function loadAdminMessages(){
     if(!currentConversation)return;
-    const {data,error}=await db.from("support_messages").select("id,conversation_id,sender_id,body,attachment_path,attachment_name,attachment_mime,created_at").eq("conversation_id",currentConversation.id).order("created_at",{ascending:true}).limit(500);
+    // Capture the target before awaiting; discard stale query results after a thread switch.
+    const conversationId=currentConversation.id;
+    const ownerId=currentConversation.user_id;
+    const {data,error}=await db.from("support_messages").select("id,conversation_id,sender_id,body,attachment_path,attachment_name,attachment_mime,created_at").eq("conversation_id",conversationId).order("created_at",{ascending:true}).limit(500);
     if(error)throw error;
+    if(currentConversation?.id!==conversationId)return;
     const thread=$("adminSupportThread");await renderMessages(data,"adminSupportThread");
-    thread.querySelectorAll(".msg").forEach((el,i)=>{if(data?.[i]&&data[i].sender_id===currentConversation.user_id)el.classList.add("user-message");});
+    if(currentConversation?.id!==conversationId)return;
+    thread.querySelectorAll(".msg").forEach((el,i)=>{if(data?.[i]&&data[i].sender_id===ownerId)el.classList.add("user-message");});
     say("adminSupportStatus","Administrator access verified · private support inbox.");
   }
   async function sendMessage(bodyId,fileId,sendId,errorId,admin){
