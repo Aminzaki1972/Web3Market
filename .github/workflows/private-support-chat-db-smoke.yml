@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "supabase/migrations/20261020_private_support_chat.sql"
+      - "supabase/tests/private_support_chat_rls_behavior.sql"
       - ".github/workflows/private-support-chat-db-smoke.yml"
   workflow_dispatch:
 
@@ -52,6 +53,9 @@ jobs:
             id uuid primary key,
             role text
           );
+          grant usage on schema auth to authenticated;
+          grant usage on schema public to authenticated;
+          grant select on public.profiles to authenticated;
           create function auth.uid() returns uuid
           language sql stable as $$ select null::uuid $$;
           create function auth.jwt() returns jsonb
@@ -120,3 +124,6 @@ jobs:
           end $$;
           select 'PASS: migration applied; RLS, required policies, private bucket and column-level UPDATE grants verified' as result;
           SQL
+
+      - name: Exercise participant isolation and admin AAL2 behavior
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/private_support_chat_rls_behavior.sql
