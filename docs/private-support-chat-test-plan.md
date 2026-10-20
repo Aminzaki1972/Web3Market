@@ -71,6 +71,7 @@ Use non-sensitive test messages and sample media only.
 - [ ] Test mobile image/video upload and playback, signed URL expiry, and the conversation-switch/refresh race cases.
 - [ ] Recheck listing submission/approval and Deal Room/settlement flows for regressions.
 - [x] Added follow-up migration `supabase/migrations/20261020_support_admin_helper_private_schema.sql`; feature branch commit: `8e6f295c7b49c55e037bbd9cdcf08767dc106472`.
-- [ ] Confirm the latest CI smoke test succeeds after the least-privilege grant migration.
-- [ ] Production migration has not been applied; the live website and production database remain untouched.
+- [x] Latest CI checks passed after the least-privilege grant migration: static checks run #29, isolated database smoke test run #19, and grants regression run #1 (all at commit `e0f00456248c428c05a997844494784d1aa192d5`).
+- [x] Follow-up staging SQL checks after tightening grants: buyer and seller each saw only their own test conversation; admin AAL1 saw zero conversations; admin AAL2 saw both test conversations. Status update returned no rows for buyer and admin AAL1, and succeeded for admin AAL2 inside a rolled-back transaction.
+- [x] Production migration has not been applied; the live website and production database remain untouched.
 - [ ] Do not merge/deploy until the owner reviews the results and explicitly approves.
