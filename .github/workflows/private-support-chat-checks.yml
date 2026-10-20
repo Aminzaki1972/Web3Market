@@ -1,0 +1,53 @@
+name: Private support chat static checks
+
+on:
+  pull_request:
+    paths:
+      - "js/support-chat.js"
+      - "support-chat.html"
+      - "admin-support.html"
+      - "supabase/migrations/20261020_private_support_chat.sql"
+      - "docs/private-support-chat-test-plan.md"
+      - ".github/workflows/private-support-chat-checks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-security-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out pull request
+        uses: actions/checkout@v4
+      - name: Check JavaScript syntax
+        run: node --check js/support-chat.js
+      - name: Check critical support-chat safeguards
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const assert = require('node:assert/strict');
+          const js = fs.readFileSync('js/support-chat.js', 'utf8');
+          const sql = fs.readFileSync('supabase/migrations/20261020_private_support_chat.sql', 'utf8');
+          const userPage = fs.readFileSync('support-chat.html', 'utf8');
+          const adminPage = fs.readFileSync('admin-support.html', 'utf8');
+          const checks = [
+            ['private attachment bucket', js.includes('"support-attachments"')],
+            ['20 MiB attachment limit', js.includes('20 * 1024 * 1024')],
+            ['signed attachment URLs', /createSignedUrl\s*\(/.test(js)],
+            ['admin requires AAL2', /currentLevel\s*===?\s*["']aal2["']|currentLevel\s*!==\s*["']aal2["']/.test(js)],
+            ['stale render guard', /renderSequence/.test(js)],
+            ['stale selected conversation guard', /currentConversation/.test(js) && /loadAdminMessages/.test(js)],
+            ['table-level update revoked', /revoke\s+update\s+on\s+table\s+public\.support_conversations\s+from\s+public\s*,\s*anon\s*,\s*authenticated/i.test(sql)],
+            ['status-only update grant', /grant\s+update\s*\(\s*status\s*\)\s+on\s+public\.support_conversations\s+to\s+authenticated/i.test(sql)],
+            ['private bucket configured', /'support-attachments'[\s\S]{0,500}?private\s*[,)]/i.test(sql) || /public\s*=\s*false/i.test(sql)],
+            ['closed conversations block uploads', /c\.status\s*=\s*'open'/i.test(sql)],
+            ['separate user/admin pages', userPage.includes('support-chat.js') && adminPage.includes('support-chat.js')],
+            ['manual test plan exists', fs.existsSync('docs/private-support-chat-test-plan.md')],
+          ];
+          for (const [name, ok] of checks) {
+            console.log(`${ok ? 'PASS' : 'FAIL'}: ${name}`);
+          }
+          assert.ok(checks.every(([, ok]) => ok), 'One or more private support-chat safeguards are missing.');
+          NODE
