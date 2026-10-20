@@ -16,7 +16,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 begin
   select coalesce(nullif(trim(p.display_name), ''), nullif(u.raw_user_meta_data ->> 'name', ''), 'Web3Market User'),
          coalesce(u.email, '')
@@ -29,7 +29,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 drop trigger if exists support_conversation_set_identity on public.support_conversations;
 create trigger support_conversation_set_identity
 before insert on public.support_conversations
