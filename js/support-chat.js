@@ -87,6 +87,11 @@
   }
   async function loadUserMessages(){
     if(!currentConversation)return;
+    // Refresh status so an open dashboard reflects admin close/reopen actions without a reload.
+    const {data:latest,error:statusError}=await db.from("support_conversations").select("id,subject,status,last_message_at").eq("id",currentConversation.id).maybeSingle();
+    if(statusError)throw statusError;
+    if(!latest)throw new Error("This support conversation is no longer available.");
+    currentConversation={...currentConversation,...latest};
     const {data,error}=await db.from("support_messages").select("id,conversation_id,sender_id,body,attachment_path,attachment_name,attachment_mime,created_at").eq("conversation_id",currentConversation.id).order("created_at",{ascending:true}).limit(500);
     if(error)throw error;
     await renderMessages(data,"supportThread");
