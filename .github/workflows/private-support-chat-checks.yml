@@ -41,7 +41,7 @@ jobs:
             ['stale selected conversation guard', /currentConversation/.test(js) && /loadAdminMessages/.test(js)],
             ['table-level update revoked', /revoke\s+update\s+on\s+public\.support_conversations\s+from\s+public\s*,\s*anon\s*,\s*authenticated/i.test(sql)],
             ['status-only update grant', /grant\s+update\s*\(\s*status\s*\)\s+on\s+public\.support_conversations\s+to\s+authenticated/i.test(sql)],
-            ['private bucket configured', /'support-attachments'[\s\S]{0,500}?private\s*[,)]/i.test(sql) || /public\s*=\s*false/i.test(sql)],
+            ['private bucket configured', /values\s*\(\s*'support-attachments'\s*,\s*'support-attachments'\s*,\s*false/i.test(sql)],
             ['closed conversations block uploads', /c\.status\s*=\s*'open'/i.test(sql)],
             ['separate user/admin pages', userPage.includes('support-chat.js') && adminPage.includes('support-chat.js')],
             ['manual test plan exists', fs.existsSync('docs/private-support-chat-test-plan.md')],
