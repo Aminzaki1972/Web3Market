@@ -23,6 +23,10 @@ Use non-sensitive test messages and sample media only.
 ## Administrator authorization
 - [ ] Admin C can list conversations and read messages with an AAL2 session.
 - [ ] Admin C can reply to Buyer A and Seller B separately.
+- [ ] Admin C can close an open conversation; the dashboard account can no longer send messages in that thread.
+- [ ] Admin C can reopen a closed conversation; the dashboard account can send messages again.
+- [ ] A non-admin or an admin without AAL2 cannot close or reopen a conversation through the client/API.
+- [ ] If the status changes in another session, the admin composer refreshes to the correct enabled/disabled state.
 - [ ] Admin C can read permitted attachments and upload a reply attachment to the correct conversation path.
 - [ ] Admin D without AAL2 cannot list conversations, read messages, or read/upload support attachments.
 - [ ] A non-admin account cannot access the administrator inbox even if it manually opens the URL.
@@ -40,6 +44,7 @@ Use non-sensitive test messages and sample media only.
 - [ ] Existing Deal Room messages and settlement flow remain unchanged.
 - [ ] Private support bucket remains non-public.
 - [ ] Verify all SQL migration statements run successfully in the isolated project.
+- [ ] Confirm the close/reopen controls match the database RLS policy and reject status changes for unauthorized sessions.
 - [ ] Record the tested migration commit SHA and test outcomes before review.
 - [ ] Confirm production database and live website were not modified.
 
