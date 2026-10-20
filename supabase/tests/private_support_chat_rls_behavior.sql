@@ -161,7 +161,7 @@ reset role;
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
 select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal1"}',false);
-do $
+do $$
 declare
   affected_rows integer;
 begin
@@ -174,7 +174,7 @@ begin
   if (select status from public.support_conversations where id='10000000-0000-0000-0000-000000000001') <> 'closed' then
     raise exception 'FAIL: buyer reopened a closed conversation';
   end if;
-end $;
+end $$;
 reset role;
 
 select 'PASS: closed-thread writes, buyer status changes and sender spoofing are blocked' as result;
