@@ -65,11 +65,12 @@ Use non-sensitive test messages and sample media only.
 - [x] Staging SQL tests verified buyer/seller row isolation, sender identity checks, closed-thread restrictions, status-only updates, administrator AAL2 access, attachment-folder isolation, private bucket configuration, and anonymous SQL privilege revocation.
 - [x] Support attachment bucket verified private with a 20 MiB limit and an image/video MIME allowlist.
 - [x] Hardened the admin role helper: `public.is_admin()` is now `SECURITY INVOKER`; the `SECURITY DEFINER` lookup lives in the non-exposed `private` schema. Staging advisor no longer reports `authenticated_security_definer_function_executable`.
+- [x] Follow-up least-privilege grant migration added and applied to staging after discovering inherited table-level DELETE/TRUNCATE/UPDATE grants. `authenticated` now has SELECT/INSERT on both support tables and UPDATE only on `support_conversations.status`; no anonymous table grants remain.
 - [ ] Enable Supabase Auth leaked-password protection in the staging project through the Auth settings UI; this is a project Auth setting and was not changed by SQL.
 - [ ] Test with real signed-in buyer and seller accounts and an AAL2 administrator in a browser.
 - [ ] Test mobile image/video upload and playback, signed URL expiry, and the conversation-switch/refresh race cases.
 - [ ] Recheck listing submission/approval and Deal Room/settlement flows for regressions.
 - [x] Added follow-up migration `supabase/migrations/20261020_support_admin_helper_private_schema.sql`; feature branch commit: `8e6f295c7b49c55e037bbd9cdcf08767dc106472`.
-- [ ] Re-run the full CI smoke test against the latest helper-hardening commit and record its final result.
+- [ ] Confirm the latest CI smoke test succeeds after the least-privilege grant migration.
 - [ ] Production migration has not been applied; the live website and production database remain untouched.
 - [ ] Do not merge/deploy until the owner reviews the results and explicitly approves.
