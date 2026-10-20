@@ -4,7 +4,7 @@
   const BUCKET = "support-attachments";
   const MAX_FILE_BYTES = 20 * 1024 * 1024;
   const ALLOWED = new Set(["image/jpeg","image/png","image/webp","image/gif","video/mp4","video/webm","video/quicktime"]);
-  let db, currentUser, currentConversation = null, selectedFile = null, refreshTimer = null;
+  let db, currentUser, currentConversation = null, selectedFile = null, refreshTimer = null, renderSequence = 0;
   const $ = id => document.getElementById(id);
   const say = (id, text, error=false) => { const el=$(id); if(el){el.textContent=text||"";el.style.color=error?"#b91c1c":"";} };
   const escName = name => String(name||"attachment").replace(/[^a-zA-Z0-9._-]+/g,"_").slice(0,90) || "attachment";
@@ -61,6 +61,8 @@
   }
   async function renderMessages(rows, threadId){
     const thread=$(threadId);if(!thread)return;
+    // Ignore an older render if another conversation refresh starts while a signed URL is loading.
+    const renderId=++renderSequence;
     thread.replaceChildren();
     if(!rows?.length){thread.append(node("div","empty","No messages yet. Send a message to contact Web3Market administration."));return;}
     for(const m of rows){
@@ -70,6 +72,7 @@
       if(m.attachment_path){
         try{
           const url=await signedAttachment(m.attachment_path);
+          if(renderId!==renderSequence)return;
           if(url){
             const mime=String(m.attachment_mime||"");
             const link=node("a","",m.attachment_name||"Open attachment");link.href=url;link.target="_blank";link.rel="noopener noreferrer";
@@ -77,8 +80,9 @@
             else if(mime.startsWith("video/")){const video=node("video","attachment attachment-video");video.src=url;video.controls=true;video.preload="metadata";bubble.append(video);}
             bubble.append(link);
           }else bubble.append(node("div","", "Attachment is unavailable."));
-        }catch(_){bubble.append(node("div","", "Attachment could not be opened."));}
+        }catch(_){if(renderId!==renderSequence)return;bubble.append(node("div","", "Attachment could not be opened."));}
       }
+      if(renderId!==renderSequence)return;
       const senderLabel = mine ? "You" : (ADMIN_PAGE ? (currentConversation?.user_display_name || currentConversation?.user_email || "Dashboard account") : "Web3Market Administration");
       bubble.append(node("small","",senderLabel+" · "+dateText(m.created_at)));
       thread.append(bubble);
