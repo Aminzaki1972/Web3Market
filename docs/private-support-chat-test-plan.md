@@ -56,11 +56,13 @@ Use non-sensitive test messages and sample media only.
 - [ ] Record the tested migration commit SHA and test outcomes before review.
 - [ ] Confirm production database and live website were not modified.
 
-## Current status (updated 2026-10-20)
+## Current status (updated 2026-10-21)
 
-- [x] GitHub Actions private support chat static checks passed (run #22): https://github.com/Aminzaki1972/Web3Market/actions/runs/39493854334
-- [x] GitHub Actions isolated PostgreSQL behavioral smoke test passed (run #12): https://github.com/Aminzaki1972/Web3Market/actions/runs/39493854520
-- [x] AI review fallback static checks passed (run #66): https://github.com/Aminzaki1972/Web3Market/actions/runs/39493854304
+- [x] Latest GitHub Actions private support chat static checks passed (run #30): https://github.com/Aminzaki1972/Web3Market/actions/runs/39496367314
+- [x] Latest GitHub Actions isolated PostgreSQL behavioral smoke test passed (run #20): https://github.com/Aminzaki1972/Web3Market/actions/runs/39496367343
+- [x] Latest GitHub Actions least-privilege grants regression passed (run #2): https://github.com/Aminzaki1972/Web3Market/actions/runs/39496367315
+- [x] Latest AI review fallback static checks passed (run #74): https://github.com/Aminzaki1972/Web3Market/actions/runs/39496367375
+- [x] All four latest CI runs above tested the same feature-branch head commit: `ea05606667022f30a89e2726c2b59523982f37ef`.
 - [x] Main support-chat migration applied and tested on a separate staging Supabase project; not production.
 - [x] Staging SQL tests verified buyer/seller row isolation, sender identity checks, closed-thread restrictions, status-only updates, administrator AAL2 access, attachment-folder isolation, private bucket configuration, and anonymous SQL privilege revocation.
 - [x] Support attachment bucket verified private with a 20 MiB limit and an image/video MIME allowlist.
@@ -71,7 +73,6 @@ Use non-sensitive test messages and sample media only.
 - [ ] Test mobile image/video upload and playback, signed URL expiry, and the conversation-switch/refresh race cases.
 - [ ] Recheck listing submission/approval and Deal Room/settlement flows for regressions.
 - [x] Added follow-up migration `supabase/migrations/20261020_support_admin_helper_private_schema.sql`; feature branch commit: `8e6f295c7b49c55e037bbd9cdcf08767dc106472`.
-- [x] Latest CI checks passed after the least-privilege grant migration: static checks run #29, isolated database smoke test run #19, and grants regression run #1 (all at commit `e0f00456248c428c05a997844494784d1aa192d5`).
 - [x] Follow-up staging SQL checks after tightening grants: buyer and seller each saw only their own test conversation; admin AAL1 saw zero conversations; admin AAL2 saw both test conversations. Status update returned no rows for buyer and admin AAL1, and succeeded for admin AAL2 inside a rolled-back transaction.
 - [x] Production migration has not been applied; the live website and production database remain untouched.
 - [ ] Do not merge/deploy until the owner reviews the results and explicitly approves.
