@@ -10,6 +10,7 @@ using (
  and exists (
   select 1 from public.support_conversations c
   where realtime.topic() = 'support-call:' || c.id::text
+   and coalesce(c.status, 'open') <> 'closed'
    and (
     c.user_id = (select auth.uid())
     or (
@@ -28,6 +29,7 @@ with check (
  and exists (
   select 1 from public.support_conversations c
   where realtime.topic() = 'support-call:' || c.id::text
+   and coalesce(c.status, 'open') <> 'closed'
    and (
     c.user_id = (select auth.uid())
     or (
