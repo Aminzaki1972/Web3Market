@@ -58,6 +58,8 @@ create index if not exists support_messages_conversation_created_idx
   on public.support_messages(conversation_id, created_at asc);
 alter table public.support_conversations enable row level security;
 alter table public.support_messages enable row level security;
+grant select, insert, update on public.support_conversations to authenticated;
+grant select, insert on public.support_messages to authenticated;
 drop policy if exists support_conversations_select_participant_or_admin on public.support_conversations;
 create policy support_conversations_select_participant_or_admin
 on public.support_conversations for select to authenticated
