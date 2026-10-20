@@ -63,7 +63,7 @@ drop policy if exists support_conversations_select_participant_or_admin on publi
 create policy support_conversations_select_participant_or_admin
 on public.support_conversations for select to authenticated
 using (
-  public.is_admin()
+  (public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2')
   or (
     user_id = (select auth.uid())
     and exists (
@@ -89,12 +89,12 @@ with check (
 drop policy if exists support_conversations_admin_update on public.support_conversations;
 create policy support_conversations_admin_update
 on public.support_conversations for update to authenticated
-using (public.is_admin()) with check (public.is_admin());
+using ((public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2')) with check ((public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2'));
 drop policy if exists support_messages_select_participant_or_admin on public.support_messages;
 create policy support_messages_select_participant_or_admin
 on public.support_messages for select to authenticated
 using (
-  public.is_admin() or exists (
+  (public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2') or exists (
     select 1 from public.support_conversations c
     join public.profiles p on p.id = c.user_id
     where c.id = support_messages.conversation_id
@@ -108,7 +108,7 @@ on public.support_messages for insert to authenticated
 with check (
   sender_id = (select auth.uid())
   and (
-    public.is_admin()
+    (public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2')
     or exists (
       select 1 from public.support_conversations c
       join public.profiles p on p.id = c.user_id
@@ -125,7 +125,7 @@ with check (
       where c.id = support_messages.conversation_id
         and split_part(attachment_path, '/', 1) = c.id::text
         and split_part(attachment_path, '/', 2) = c.user_id::text
-        and (c.user_id = (select auth.uid()) or public.is_admin())
+        and (c.user_id = (select auth.uid()) or (public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2'))
     )
   )
 );
@@ -173,7 +173,7 @@ using (
     select 1 from public.support_conversations c
     where c.id::text = (storage.foldername(name))[1]
       and (
-        public.is_admin()
+        (public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2')
         or (
           c.user_id = (select auth.uid())
           and exists (
@@ -194,13 +194,13 @@ with check (
     select 1 from public.support_conversations c
     where c.id::text = (storage.foldername(name))[1]
       and (
-        (c.user_id = (select auth.uid()) and (storage.foldername(name))[2] = (select auth.uid())::text and not public.is_admin()
+        (c.user_id = (select auth.uid()) and (storage.foldername(name))[2] = (select auth.uid())::text and not (public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2')
           and exists (
             select 1 from public.profiles p
             where p.id = c.user_id
               and lower(coalesce(p.role, '')) in ('buyer','seller')
           ))
-        or (public.is_admin() and (storage.foldername(name))[2] = c.user_id::text)
+        or ((public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2') and (storage.foldername(name))[2] = c.user_id::text)
       )
   )
 );
