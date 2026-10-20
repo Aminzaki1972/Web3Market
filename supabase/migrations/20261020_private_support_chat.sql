@@ -4,11 +4,37 @@ create table if not exists public.support_conversations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   subject text not null default 'Web3Market Support' check (char_length(subject) between 1 and 160),
+  user_email text not null default '',
+  user_display_name text not null default 'Web3Market User',
   status text not null default 'open' check (status in ('open','closed')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   last_message_at timestamptz not null default now()
 );
+create or replace function public.support_set_conversation_identity()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $
+begin
+  select coalesce(nullif(trim(p.display_name), ''), nullif(u.raw_user_meta_data ->> 'name', ''), 'Web3Market User'),
+         coalesce(u.email, '')
+    into new.user_display_name, new.user_email
+    from auth.users u
+    left join public.profiles p on p.id = u.id
+   where u.id = new.user_id;
+  if not found then
+    raise exception 'Support account not found';
+  end if;
+  return new;
+end;
+$;
+drop trigger if exists support_conversation_set_identity on public.support_conversations;
+create trigger support_conversation_set_identity
+before insert on public.support_conversations
+for each row execute function public.support_set_conversation_identity();
+
 create index if not exists support_conversations_user_last_idx
   on public.support_conversations(user_id, last_message_at desc);
 create table if not exists public.support_messages (
@@ -65,6 +91,16 @@ with check (
       where c.id = support_messages.conversation_id
         and c.user_id = (select auth.uid())
         and c.status = 'open'
+    )
+  )
+  and (
+    attachment_path is null
+    or exists (
+      select 1 from public.support_conversations c
+      where c.id = support_messages.conversation_id
+        and split_part(attachment_path, '/', 1) = c.id::text
+        and split_part(attachment_path, '/', 2) = c.user_id::text
+        and (c.user_id = (select auth.uid()) or public.is_admin())
     )
   )
 );
