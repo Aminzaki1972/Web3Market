@@ -41,7 +41,7 @@ jobs:
           const checks = [
             ['private attachment bucket', js.includes('"support-attachments"')],
             ['20 MiB attachment limit', js.includes('20 * 1024 * 1024')],
-            ['user conversation records include owner ID for attachment paths', /select\(\"id,user_id,subject,status,last_message_at\"\)/.test(js) && /conversation\.id\+\"\/\"\+conversation\.user_id\+\"\/\"/.test(js)],
+            ['user conversation records include owner ID for attachment paths', /select\(\"id,user_id,subject,status,last_message_at\"\)/.test(js) && /attachment_path=convId\+\"\/\"\+conversation\.user_id\+\"\/\"/.test(js)],
             ['signed attachment URLs', /createSignedUrl\s*\(/.test(js)],
             ['admin requires AAL2', /currentLevel\s*===?\s*["']aal2["']|currentLevel\s*!==\s*["']aal2["']/.test(js)],
             ['stale render guard', /renderSequence/.test(js)],
