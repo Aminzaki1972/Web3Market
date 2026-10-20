@@ -43,6 +43,11 @@ jobs:
             ['status-only update grant', /grant\s+update\s*\(\s*status\s*\)\s+on\s+public\.support_conversations\s+to\s+authenticated/i.test(sql)],
             ['private bucket configured', /values\s*\(\s*'support-attachments'\s*,\s*'support-attachments'\s*,\s*false/i.test(sql)],
             ['closed conversations block uploads', /c\.status\s*=\s*'open'/i.test(sql)],
+            ['conversation reads restricted to participant or AAL2 admin', /support_conversations_select_participant_or_admin[\s\S]{0,700}?public\.is_admin\(\)[\s\S]{0,100}?aal2[\s\S]{0,300}?user_id\s*=\s*\(select auth\.uid\(\)\)[\s\S]{0,300}?buyer[\s\S]{0,100}?seller/i.test(sql)],
+            ['new conversations must belong to current buyer/seller and be open', /support_conversations_insert_own[\s\S]{0,450}?user_id\s*=\s*\(select auth\.uid\(\)\)[\s\S]{0,180}?status\s*=\s*'open'[\s\S]{0,250}?buyer[\s\S]{0,100}?seller/i.test(sql)],
+            ['message sender must match authenticated user', /support_messages_insert_sender_authorized[\s\S]{0,250}?sender_id\s*=\s*\(select auth\.uid\(\)\)/i.test(sql)],
+            ['message attachment path bound to conversation owner', /split_part\(attachment_path,\s*'\/',\s*1\)\s*=\s*c\.id::text[\s\S]{0,120}?split_part\(attachment_path,\s*'\/',\s*2\)\s*=\s*c\.user_id::text/i.test(sql)],
+            ['no support attachment update/delete policies', !/create\s+policy\s+\w+\s+on\s+storage\.objects\s+for\s+(update|delete)[\s\S]{0,120}?support-attachments/i.test(sql)],
             ['separate user/admin pages', userPage.includes('support-chat.js') && adminPage.includes('support-chat.js')],
             ['manual test plan exists', fs.existsSync('docs/private-support-chat-test-plan.md')],
           ];
