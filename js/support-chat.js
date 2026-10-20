@@ -140,6 +140,13 @@
     }catch(e){say("adminSupportError",e?.message||"Could not update conversation status.",true);syncAdminConversationControls();}
   }
   async function openAdminConversation(c){
+    // A pending attachment must never follow the administrator into a different conversation.
+    if(currentConversation?.id!==c.id){
+      selectedFile=null;
+      const fileInput=$("adminSupportFile");
+      if(fileInput)fileInput.value="";
+      say("adminSupportFileName","No file selected");
+    }
     currentConversation=c;
     $("adminThreadTitle").textContent=(c.user_display_name||c.user_email||shortId(c.user_id))+" · "+(c.subject||"Support conversation");
     $("adminSupportError").textContent="";
