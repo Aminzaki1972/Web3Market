@@ -57,7 +57,9 @@ create index if not exists support_messages_conversation_created_idx
   on public.support_messages(conversation_id, created_at asc);
 alter table public.support_conversations enable row level security;
 alter table public.support_messages enable row level security;
-grant select, insert, update on public.support_conversations to authenticated;
+grant select, insert on public.support_conversations to authenticated;
+-- Limit client-side updates to the status field only; ownership and identity stay server-controlled.
+grant update (status) on public.support_conversations to authenticated;
 grant select, insert on public.support_messages to authenticated;
 drop policy if exists support_conversations_select_participant_or_admin on public.support_conversations;
 create policy support_conversations_select_participant_or_admin
@@ -200,6 +202,7 @@ with check (
   and exists (
     select 1 from public.support_conversations c
     where c.id::text = (storage.foldername(name))[1]
+      and c.status = 'open'
       and (
         (c.user_id = (select auth.uid()) and (storage.foldername(name))[2] = (select auth.uid())::text and not (public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2')
           and exists (
