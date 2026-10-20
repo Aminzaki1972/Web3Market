@@ -55,6 +55,7 @@ jobs:
           );
           grant usage on schema auth to authenticated;
           grant usage on schema public to authenticated;
+          grant usage on schema storage to authenticated;
           grant select on public.profiles to authenticated;
           create function auth.uid() returns uuid
           language sql stable as $$ select null::uuid $$;
@@ -78,11 +79,14 @@ jobs:
             bucket_id text,
             name text not null
           );
+          alter table storage.objects enable row level security;
+          grant select, insert on storage.objects to authenticated;
+          grant usage, select on sequence storage.objects_id_seq to authenticated;
           create function storage.foldername(name text) returns text[]
-          language sql immutable as $$
-            select case when name = '' then array[]::text[]
-                        else string_to_array(name, '/') end
-          $$;
+          language sql immutable as $
+            select case when name = '' or position('/' in name) = 0 then array[]::text[]
+                        else (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1)-1] end
+          $;
           SQL
       - name: Apply support-chat migration to disposable PostgreSQL
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020_private_support_chat.sql
