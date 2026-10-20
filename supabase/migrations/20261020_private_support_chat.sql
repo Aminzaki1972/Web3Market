@@ -57,6 +57,9 @@ create index if not exists support_messages_conversation_created_idx
   on public.support_messages(conversation_id, created_at asc);
 alter table public.support_conversations enable row level security;
 alter table public.support_messages enable row level security;
+-- Defense in depth: RLS is the row-level gate, but anonymous/public SQL grants are not needed.
+revoke all on public.support_conversations from public, anon;
+revoke all on public.support_messages from public, anon;
 grant select, insert on public.support_conversations to authenticated;
 -- Remove any table-level UPDATE grant, then allow only status changes by authorized admins.
 revoke update on public.support_conversations from public, anon, authenticated;
