@@ -145,19 +145,8 @@ begin
   exception when insufficient_privilege then
     null;
   end;
-  declare
-    affected_rows integer;
-  begin
-    update public.support_conversations set status='open'
-    where id='10000000-0000-0000-0000-000000000001';
-    get diagnostics affected_rows = row_count;
-    if affected_rows <> 0 then
-      raise exception 'FAIL: buyer changed conversation status';
-    end if;
-    if (select status from public.support_conversations where id='10000000-0000-0000-0000-000000000001') <> 'closed' then
-      raise exception 'FAIL: buyer reopened a closed conversation';
-    end if;
-  end;
+  update public.support_conversations set status='open'
+  where id='10000000-0000-0000-0000-000000000001';
   begin
     insert into public.support_messages(conversation_id, sender_id, body)
     values ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','spoofed sender');
@@ -166,6 +155,26 @@ begin
     null;
   end;
 end $$;
+reset role;
+
+
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal1"}',false);
+do $
+declare
+  affected_rows integer;
+begin
+  update public.support_conversations set status='open'
+  where id='10000000-0000-0000-0000-000000000001';
+  get diagnostics affected_rows = row_count;
+  if affected_rows <> 0 then
+    raise exception 'FAIL: buyer changed conversation status';
+  end if;
+  if (select status from public.support_conversations where id='10000000-0000-0000-0000-000000000001') <> 'closed' then
+    raise exception 'FAIL: buyer reopened a closed conversation';
+  end if;
+end $;
 reset role;
 
 select 'PASS: closed-thread writes, buyer status changes and sender spoofing are blocked' as result;
