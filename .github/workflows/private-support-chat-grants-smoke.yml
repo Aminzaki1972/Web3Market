@@ -1,0 +1,84 @@
+name: Private support chat grants regression
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20261020_private_support_chat.sql"
+      - "supabase/migrations/20261020_support_admin_helper_private_schema.sql"
+      - "supabase/migrations/20261020_support_chat_least_privilege_grants.sql"
+      - ".github/workflows/private-support-chat-grants-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  grants-regression:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: support_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d support_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: support_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare isolated Supabase-compatible schema
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          create role anon nologin;
+          create role authenticated nologin;
+          create schema auth;
+          create schema storage;
+          create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb not null default '{}'::jsonb);
+          create table public.profiles (id uuid primary key, role text);
+          grant usage on schema auth, public, storage to authenticated;
+          grant select on public.profiles to authenticated;
+          create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
+          create function auth.jwt() returns jsonb language sql stable as $$ select '{}'::jsonb $$;
+          create function public.is_admin() returns boolean language sql stable security definer set search_path = ''
+          as $$ select exists (select 1 from public.profiles p where p.id=(select auth.uid()) and lower(coalesce(p.role,''))='admin') $$;
+          create table storage.buckets (id text primary key, name text not null, public boolean not null default false, file_size_limit bigint, allowed_mime_types text[]);
+          create table storage.objects (id bigint generated always as identity primary key, bucket_id text, name text not null);
+          alter table storage.objects enable row level security;
+          grant select, insert on storage.objects to authenticated;
+          grant usage, select on sequence storage.objects_id_seq to authenticated;
+          create function storage.foldername(name text) returns text[] language sql immutable as $func$
+            select case when name = '' or position('/' in name) = 0 then array[]::text[]
+                        else (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1)-1] end
+          $func$;
+          SQL
+      - name: Apply support chat migrations in order
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020_private_support_chat.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020_support_admin_helper_private_schema.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020_support_chat_least_privilege_grants.sql
+      - name: Assert minimum grants and private helper
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+            if has_table_privilege('authenticated','public.support_conversations','UPDATE') then raise exception 'unexpected table-wide conversation UPDATE'; end if;
+            if not has_column_privilege('authenticated','public.support_conversations','status','UPDATE') then raise exception 'missing status-only UPDATE'; end if;
+            if has_table_privilege('authenticated','public.support_conversations','DELETE') or has_table_privilege('authenticated','public.support_conversations','TRUNCATE') then raise exception 'unexpected conversation DELETE/TRUNCATE'; end if;
+            if has_table_privilege('authenticated','public.support_messages','UPDATE') or has_table_privilege('authenticated','public.support_messages','DELETE') or has_table_privilege('authenticated','public.support_messages','TRUNCATE') then raise exception 'unexpected message UPDATE/DELETE/TRUNCATE'; end if;
+            if has_table_privilege('anon','public.support_conversations','SELECT') or has_table_privilege('anon','public.support_messages','SELECT') then raise exception 'anonymous SELECT grant found'; end if;
+            if (select prosecdef from pg_proc where oid='public.is_admin()'::regprocedure) then raise exception 'public.is_admin must not be SECURITY DEFINER'; end if;
+            if not (select prosecdef from pg_proc where oid='private.support_is_admin()'::regprocedure) then raise exception 'private role helper must be SECURITY DEFINER'; end if;
+          end $$;
+          select 'PASS: least-privilege support grants and private admin helper verified' as result;
+          SQL
