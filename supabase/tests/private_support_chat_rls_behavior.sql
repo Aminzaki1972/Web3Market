@@ -74,3 +74,52 @@ end $$;
 reset role;
 
 select 'PASS: buyer/seller isolation and admin AAL2 read policy behavior verified on disposable PostgreSQL' as result;
+
+-- Storage policy behavior. Object names follow <conversation UUID>/<owner UUID>/<filename>.
+insert into storage.objects (bucket_id, name) values
+ ('support-attachments','10000000-0000-0000-0000-000000000001/00000000-0000-0000-0000-000000000001/buyer.png'),
+ ('support-attachments','10000000-0000-0000-0000-000000000002/00000000-0000-0000-0000-000000000002/seller.png');
+
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal1"}',false);
+do $$
+begin
+  if (select count(*) from storage.objects where bucket_id='support-attachments') <> 1 then
+    raise exception 'FAIL: buyer can see another account attachment or cannot see own';
+  end if;
+  begin
+    insert into storage.objects (bucket_id, name)
+    values ('support-attachments','10000000-0000-0000-0000-000000000002/00000000-0000-0000-0000-000000000001/intrusion.png');
+    raise exception 'FAIL: buyer uploaded into another account attachment folder';
+  exception when insufficient_privilege then
+    null;
+  end;
+end $$;
+reset role;
+
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal1"}',false);
+do $$
+begin
+  if (select count(*) from storage.objects where bucket_id='support-attachments') <> 0 then
+    raise exception 'FAIL: admin without aal2 can read support attachments';
+  end if;
+end $$;
+reset role;
+
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',false);
+do $$
+begin
+  if (select count(*) from storage.objects where bucket_id='support-attachments') <> 2 then
+    raise exception 'FAIL: admin with aal2 cannot read all support attachments';
+  end if;
+  insert into storage.objects (bucket_id, name)
+  values ('support-attachments','10000000-0000-0000-0000-000000000001/00000000-0000-0000-0000-000000000001/admin-reply.png');
+end $$;
+reset role;
+
+select 'PASS: participant isolation, admin AAL2 and private attachment policy behavior verified on disposable PostgreSQL' as result;
