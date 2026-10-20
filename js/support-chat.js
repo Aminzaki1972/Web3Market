@@ -20,9 +20,10 @@
     if(!currentUser)throw new Error("Please sign in to your Web3Market account first.");
   }
   async function ensureAdmin(){
-    const {data,error}=await db.from("admin_users").select("user_id").eq("user_id",currentUser.id).maybeSingle();
+    // Match the database RLS authority source: public.is_admin() checks profiles.role.
+    const {data,error}=await db.from("profiles").select("id,role").eq("id",currentUser.id).maybeSingle();
     if(error)throw new Error("Administrator verification failed. "+error.message);
-    if(!data)throw new Error("This account is not authorized to view the administrator inbox.");
+    if(String(data?.role||"").toLowerCase()!=="admin")throw new Error("This account is not authorized to view the administrator inbox.");
     const {data:aal,error:ae}=await db.auth.mfa.getAuthenticatorAssuranceLevel();
     if(ae)throw ae;
     if(aal?.currentLevel!=="aal2")throw new Error("For security, complete administrator two-factor verification in Admin Review Center, then open this inbox again.");
