@@ -108,7 +108,14 @@ on public.support_messages for insert to authenticated
 with check (
   sender_id = (select auth.uid())
   and (
-    (public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2')
+    (
+      public.is_admin()
+      and (select auth.jwt() ->> 'aal') = 'aal2'
+      and exists (
+        select 1 from public.support_conversations c
+        where c.id = support_messages.conversation_id and c.status = 'open'
+      )
+    )
     or exists (
       select 1 from public.support_conversations c
       join public.profiles p on p.id = c.user_id
