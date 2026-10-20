@@ -68,7 +68,7 @@ Use non-sensitive test messages and sample media only.
 - [x] Support attachment bucket verified private with a 20 MiB limit and an image/video MIME allowlist.
 - [x] Hardened the admin role helper: `public.is_admin()` is now `SECURITY INVOKER`; the `SECURITY DEFINER` lookup lives in the non-exposed `private` schema. Staging advisor no longer reports `authenticated_security_definer_function_executable`.
 - [x] Follow-up least-privilege grant migration added and applied to staging after discovering inherited table-level DELETE/TRUNCATE/UPDATE grants. `authenticated` now has SELECT/INSERT on both support tables and UPDATE only on `support_conversations.status`; no anonymous table grants remain.
-- [ ] Enable Supabase Auth leaked-password protection in the staging project through the Auth settings UI; this is a project Auth setting and was not changed by SQL.
+- [x] Reviewed Supabase Auth leaked-password protection setting: dashboard explicitly says it is available on Pro and above; this project is Free. Documented as a plan limitation, not an unresolved action to enable without upgrading. No upgrade or billing change made.
 - [ ] Test with real signed-in buyer and seller accounts and an AAL2 administrator in a browser.
 - [ ] Test mobile image/video upload and playback, signed URL expiry, and the conversation-switch/refresh race cases.
 - [ ] Recheck listing submission/approval and Deal Room/settlement flows for regressions.
