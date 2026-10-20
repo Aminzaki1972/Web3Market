@@ -26,6 +26,14 @@ Use non-sensitive test messages and sample media only.
 - [ ] Admin C can close an open conversation; the dashboard account can no longer send messages in that thread.
 - [ ] Admin C can reopen a closed conversation; the dashboard account can send messages again.
 - [ ] A non-admin or an admin without AAL2 cannot close or reopen a conversation through the client/API.
+- [ ] A buyer/seller cannot change `status`, `user_id`, `user_email`, or `user_display_name` through direct REST/API requests; only an AAL2 admin may change status.
+- [ ] A buyer/seller cannot insert a conversation with `status = 'closed'` or create a conversation for another user.
+- [ ] Rapidly switch between two admin conversations while message queries are delayed; messages and sender labels must never appear under the wrong conversation.
+- [ ] Switch conversations while a signed attachment URL is loading; stale attachment results must not append into the newly selected thread.
+- [ ] Switch conversations while a close/reopen request is pending; its response must not switch the selected thread or alter its controls.
+- [ ] During periodic refresh, switch the selected conversation; the old refresh response must be ignored.
+- [ ] Confirm a closed conversation rejects both message inserts and attachment uploads through direct API requests, not only disabled UI controls.
+- [ ] Confirm the user can read only their own attachments after reopening; attachment authorization must still require participant ownership or admin AAL2.
 - [ ] If the status changes in another session, the admin composer refreshes to the correct enabled/disabled state.
 - [ ] Admin C can read permitted attachments and upload a reply attachment to the correct conversation path.
 - [ ] Admin D without AAL2 cannot list conversations, read messages, or read/upload support attachments.
