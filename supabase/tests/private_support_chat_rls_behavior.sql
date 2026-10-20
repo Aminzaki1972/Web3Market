@@ -145,12 +145,18 @@ begin
   exception when insufficient_privilege then
     null;
   end;
+  declare
+    affected_rows integer;
   begin
     update public.support_conversations set status='open'
     where id='10000000-0000-0000-0000-000000000001';
-    raise exception 'FAIL: buyer changed conversation status';
-  exception when insufficient_privilege then
-    null;
+    get diagnostics affected_rows = row_count;
+    if affected_rows <> 0 then
+      raise exception 'FAIL: buyer changed conversation status';
+    end if;
+    if (select status from public.support_conversations where id='10000000-0000-0000-0000-000000000001') <> 'closed' then
+      raise exception 'FAIL: buyer reopened a closed conversation';
+    end if;
   end;
   begin
     insert into public.support_messages(conversation_id, sender_id, body)
