@@ -202,10 +202,16 @@
       }
       const payload={conversation_id:conversation.id,sender_id:currentUser.id,body,attachment_path,attachment_name,attachment_mime};
       const {error}=await db.from("support_messages").insert(payload);if(error)throw error;
-      $(bodyId).value="";
-      if(selectedFile===file){selectedFile=null;$(fileId).value="";const fileLabel=$(fileId+"Name");if(fileLabel)fileLabel.textContent="No file selected";}
-      // Refresh only the thread that received the message; don't redraw a different thread.
-      if(currentConversation?.id===conversation.id){if(admin)await loadAdminMessages();else await loadUserMessages();}
+      // Clear the draft only if the sender is still viewing the conversation that received it.
+      // Switching threads during an upload must not erase a different thread's draft.
+      if(currentConversation?.id===conversation.id){
+        $(bodyId).value="";
+        if(selectedFile===file){selectedFile=null;$(fileId).value="";const fileLabel=$(fileId+"Name");if(fileLabel)fileLabel.textContent="No file selected";}
+        if(admin)await loadAdminMessages();else await loadUserMessages();
+      }else if(selectedFile===file){
+        selectedFile=null;$(fileId).value="";const fileLabel=$(fileId+"Name");if(fileLabel)fileLabel.textContent="No file selected";
+      }
+      // Refresh the inbox list independently; never redraw a different selected thread.
       if(admin)await loadAdminConversations();
       say(errorId,"");
     }catch(e){say(errorId,e?.message||"Could not send the message.",true);}
