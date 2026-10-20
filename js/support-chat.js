@@ -171,19 +171,24 @@
     const button=$(sendId);button.disabled=true;say(errorId,"");
     try{
       if(!currentConversation){currentConversation=await getOrCreateConversation();}
+      // Pin the destination before any upload/network await so a fast conversation switch
+      // cannot pair an attachment path from one thread with a message in another.
+      const conversation=currentConversation;
       let attachment_path=null,attachment_name=null,attachment_mime=null;
       if(file){
-        const convId=currentConversation.id;
+        const convId=conversation.id;
         const safe=escName(file.name);
-        attachment_path=convId+"/"+currentConversation.user_id+"/"+crypto.randomUUID()+"-"+safe;
+        attachment_path=convId+"/"+conversation.user_id+"/"+crypto.randomUUID()+"-"+safe;
         attachment_name=file.name;attachment_mime=file.type;
         const {error:upErr}=await db.storage.from(BUCKET).upload(attachment_path,file,{contentType:file.type,upsert:false});
         if(upErr)throw new Error("Attachment upload failed: "+upErr.message);
       }
-      const payload={conversation_id:currentConversation.id,sender_id:currentUser.id,body,attachment_path,attachment_name,attachment_mime};
+      const payload={conversation_id:conversation.id,sender_id:currentUser.id,body,attachment_path,attachment_name,attachment_mime};
       const {error}=await db.from("support_messages").insert(payload);if(error)throw error;
-      $(bodyId).value="";selectedFile=null;$(fileId).value="";$(fileId+"Name") && ($(fileId+"Name").textContent="No file selected");
-      if(admin)await loadAdminMessages();else await loadUserMessages();
+      $(bodyId).value="";
+      if(selectedFile===file){selectedFile=null;$(fileId).value="";const fileLabel=$(fileId+"Name");if(fileLabel)fileLabel.textContent="No file selected";}
+      // Refresh only the thread that received the message; don't redraw a different thread.
+      if(currentConversation?.id===conversation.id){if(admin)await loadAdminMessages();else await loadUserMessages();}
       if(admin)await loadAdminConversations();
       say(errorId,"");
     }catch(e){say(errorId,e?.message||"Could not send the message.",true);}
