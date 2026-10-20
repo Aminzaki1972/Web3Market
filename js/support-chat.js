@@ -133,19 +133,23 @@
   }
   async function setAdminConversationStatus(nextStatus){
     if(!currentConversation||!["open","closed"].includes(nextStatus))return;
+    const conversationId=currentConversation.id;
     const close=$("adminCloseConversation"), reopen=$("adminReopenConversation");
     if(close)close.disabled=true;if(reopen)reopen.disabled=true;
     say("adminSupportError","");
     try{
-      const {data,error}=await db.from("support_conversations").update({status:nextStatus}).eq("id",currentConversation.id).select("id,user_id,subject,user_email,user_display_name,status,last_message_at").single();
+      const {data,error}=await db.from("support_conversations").update({status:nextStatus}).eq("id",conversationId).select("id,user_id,subject,user_email,user_display_name,status,last_message_at").single();
       if(error)throw error;
       if(!data)throw new Error("The conversation status was not updated.");
+      // Do not switch the administrator back if they selected another thread during the update.
+      if(currentConversation?.id!==conversationId)return;
       currentConversation=data;
       $("adminThreadTitle").textContent=(data.user_display_name||data.user_email||shortId(data.user_id))+" · "+(data.subject||"Support conversation");
       syncAdminConversationControls();
       await loadAdminConversations();
+      if(currentConversation?.id!==conversationId)return;
       await loadAdminMessages();
-    }catch(e){say("adminSupportError",e?.message||"Could not update conversation status.",true);syncAdminConversationControls();}
+    }catch(e){if(currentConversation?.id===conversationId){say("adminSupportError",e?.message||"Could not update conversation status.",true);syncAdminConversationControls();}}
   }
   async function openAdminConversation(c){
     // A pending attachment must never follow the administrator into a different conversation.
@@ -228,7 +232,7 @@
     $("adminReopenConversation").addEventListener("click",()=>setAdminConversationStatus("open"));
     syncAdminConversationControls();
     await loadAdminConversations();
-    refreshTimer=setInterval(async()=>{try{await loadAdminConversations();if(currentConversation){const {data,error}=await db.from("support_conversations").select("id,user_id,subject,user_email,user_display_name,status,last_message_at").eq("id",currentConversation.id).maybeSingle();if(error)throw error;if(data){currentConversation=data;syncAdminConversationControls();await loadAdminMessages();}}}catch(e){say("adminSupportError",e.message,true);}},10000);
+    refreshTimer=setInterval(async()=>{try{await loadAdminConversations();const conversationId=currentConversation?.id;if(conversationId){const {data,error}=await db.from("support_conversations").select("id,user_id,subject,user_email,user_display_name,status,last_message_at").eq("id",conversationId).maybeSingle();if(error)throw error;if(data&&currentConversation?.id===conversationId){currentConversation=data;syncAdminConversationControls();await loadAdminMessages();}}}catch(e){say("adminSupportError",e.message,true);}},10000);
   }
   document.addEventListener("DOMContentLoaded",async()=>{
     try{if(ADMIN_PAGE)await startAdmin();else await startUser();}
