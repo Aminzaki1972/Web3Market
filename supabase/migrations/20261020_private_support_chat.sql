@@ -18,11 +18,10 @@ security definer
 set search_path = ''
 as $$
 begin
-  select coalesce(nullif(trim(p.display_name), ''), nullif(u.raw_user_meta_data ->> 'name', ''), 'Web3Market User'),
+  select coalesce(nullif(trim(u.raw_user_meta_data ->> 'name'), ''), nullif(trim(u.raw_user_meta_data ->> 'full_name'), ''), 'Web3Market User'),
          coalesce(u.email, '')
     into new.user_display_name, new.user_email
     from auth.users u
-    left join public.profiles p on p.id = u.id
    where u.id = new.user_id;
   if not found then
     raise exception 'Support account not found';
