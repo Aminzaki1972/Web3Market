@@ -65,7 +65,8 @@
           }else bubble.append(node("div","", "Attachment is unavailable."));
         }catch(_){bubble.append(node("div","", "Attachment could not be opened."));}
       }
-      bubble.append(node("small","",(mine?"You":"Web3Market Administration")+" · "+dateText(m.created_at)));
+      const senderLabel = mine ? "You" : (ADMIN_PAGE ? (currentConversation?.user_display_name || currentConversation?.user_email || "Dashboard account") : "Web3Market Administration");
+      bubble.append(node("small","",senderLabel+" · "+dateText(m.created_at)));
       thread.append(bubble);
     }
     thread.scrollTop=thread.scrollHeight;
