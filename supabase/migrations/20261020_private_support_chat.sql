@@ -147,6 +147,10 @@ create trigger support_messages_touch_conversation
 after insert on public.support_messages
 for each row execute function public.support_touch_conversation();
 
+-- Trigger functions are not public RPC endpoints; only the triggers should invoke them.
+revoke execute on function public.support_set_conversation_identity() from public, anon, authenticated;
+revoke execute on function public.support_touch_conversation() from public, anon, authenticated;
+
 -- Private attachments are isolated from the public project-media bucket.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
