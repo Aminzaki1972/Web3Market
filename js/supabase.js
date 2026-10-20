@@ -1,8 +1,8 @@
 /* Web3Market - Unified Supabase Client + Homepage UI */
 "use strict";
 (function(){
-const SUPABASE_URL="https://hzhqlexnhtukfljcvnyd.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
+const SUPABASE_URL="https://vdceprygdzgluejdvdoa.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY="sb_publishable_vOimXHalW2Ild8O-rS8YKg_ePHHI8yB";
 const STORAGE_KEY="web3market-auth";
 let client=null;
 let initStarted=false;
