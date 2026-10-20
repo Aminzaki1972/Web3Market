@@ -56,12 +56,19 @@ Use non-sensitive test messages and sample media only.
 - [ ] Record the tested migration commit SHA and test outcomes before review.
 - [ ] Confirm production database and live website were not modified.
 
-## Current status
-- [x] GitHub Actions static security checks passed (run #3): https://github.com/Aminzaki1972/Web3Market/actions/runs/39488713049
-- [x] JavaScript syntax check passed for `js/support-chat.js`.
-- [x] Static assertions passed for critical source safeguards (AAL2 admin check, private bucket, signed URLs, update-grant restriction, closed-thread upload restriction, and stale-render protection).
-- [ ] Isolated Supabase functional/RLS tests are still outstanding.
-- [ ] Real buyer, seller, and AAL2 admin account tests are still outstanding.
-- [ ] Mobile image/video upload and playback tests are still outstanding.
+## Current status (updated 2026-10-20)
+
+- [x] GitHub Actions private support chat static checks passed (run #22): https://github.com/Aminzaki1972/Web3Market/actions/runs/39493854334
+- [x] GitHub Actions isolated PostgreSQL behavioral smoke test passed (run #12): https://github.com/Aminzaki1972/Web3Market/actions/runs/39493854520
+- [x] AI review fallback static checks passed (run #66): https://github.com/Aminzaki1972/Web3Market/actions/runs/39493854304
+- [x] Main support-chat migration applied and tested on a separate staging Supabase project; not production.
+- [x] Staging SQL tests verified buyer/seller row isolation, sender identity checks, closed-thread restrictions, status-only updates, administrator AAL2 access, attachment-folder isolation, private bucket configuration, and anonymous SQL privilege revocation.
+- [x] Support attachment bucket verified private with a 20 MiB limit and an image/video MIME allowlist.
+- [ ] Review the staging advisor warning for `public.is_admin()`; do not revoke its execute privilege blindly because the RLS policies call this helper.
+- [ ] Review/enable Supabase Auth leaked-password protection in the staging project through the Auth settings UI; this setting was not changed by SQL.
+- [ ] Test with real signed-in buyer and seller accounts and an AAL2 administrator in a browser.
+- [ ] Test mobile image/video upload and playback, signed URL expiry, and the conversation-switch/refresh race cases.
+- [ ] Recheck listing submission/approval and Deal Room/settlement flows for regressions.
+- [ ] Record the tested migration commit SHA and final outcomes before review.
 - [ ] Production migration has not been applied; the live website and production database remain untouched.
 - [ ] Do not merge/deploy until the owner reviews the results and explicitly approves.
