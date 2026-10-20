@@ -81,20 +81,20 @@
     if(closed)say("supportStatus","This conversation is closed. Contact support to request a new conversation.");
   }
   async function loadAdminConversations(){
-    const {data,error}=await db.from("support_conversations").select("id,user_id,subject,status,last_message_at").order("last_message_at",{ascending:false}).limit(200);
+    const {data,error}=await db.from("support_conversations").select("id,user_id,subject,user_email,user_display_name,status,last_message_at").order("last_message_at",{ascending:false}).limit(200);
     if(error)throw error;
     const list=$("adminConversationList");list.replaceChildren();
     if(!data?.length){list.append(node("div","empty","No support conversations yet."));return;}
     data.forEach(c=>{
       const b=node("button","conversation"+(currentConversation?.id===c.id?" active":""));
-      b.type="button";b.append(node("strong","",c.subject||"Web3Market Support"));
-      b.append(node("small","",shortId(c.user_id)+" · "+c.status+" · "+dateText(c.last_message_at)));
+      b.type="button";b.append(node("strong","",c.user_display_name||c.user_email||shortId(c.user_id)));
+      b.append(node("small","",(c.user_email||shortId(c.user_id))+" · "+c.status+" · "+dateText(c.last_message_at)));
       b.addEventListener("click",()=>openAdminConversation(c));list.append(b);
     });
   }
   async function openAdminConversation(c){
     currentConversation=c;
-    $("adminThreadTitle").textContent=(c.subject||"Support conversation")+" · "+shortId(c.user_id);
+    $("adminThreadTitle").textContent=(c.user_display_name||c.user_email||shortId(c.user_id))+" · "+(c.subject||"Support conversation");
     $("adminSupportBody").disabled=false;$("adminSupportFile").disabled=false;$("adminSupportSend").disabled=false;
     $("adminSupportError").textContent="";
     await loadAdminMessages();await loadAdminConversations();
