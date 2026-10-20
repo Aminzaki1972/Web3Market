@@ -62,11 +62,30 @@ grant select, insert on public.support_messages to authenticated;
 drop policy if exists support_conversations_select_participant_or_admin on public.support_conversations;
 create policy support_conversations_select_participant_or_admin
 on public.support_conversations for select to authenticated
-using (user_id = (select auth.uid()) or public.is_admin());
+using (
+  public.is_admin()
+  or (
+    user_id = (select auth.uid())
+    and exists (
+      select 1 from public.profiles p
+      where p.id = (select auth.uid())
+        and lower(coalesce(p.role, '')) in ('buyer','seller')
+    )
+  )
+);
 drop policy if exists support_conversations_insert_own on public.support_conversations;
 create policy support_conversations_insert_own
 on public.support_conversations for insert to authenticated
-with check (user_id = (select auth.uid()) and not public.is_admin());
+with check (
+  user_id = (select auth.uid())
+  and not public.is_admin()
+  and status = 'open'
+  and exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid())
+      and lower(coalesce(p.role, '')) in ('buyer','seller')
+  )
+);
 drop policy if exists support_conversations_admin_update on public.support_conversations;
 create policy support_conversations_admin_update
 on public.support_conversations for update to authenticated
@@ -77,7 +96,10 @@ on public.support_messages for select to authenticated
 using (
   public.is_admin() or exists (
     select 1 from public.support_conversations c
-    where c.id = support_messages.conversation_id and c.user_id = (select auth.uid())
+    join public.profiles p on p.id = c.user_id
+    where c.id = support_messages.conversation_id
+      and c.user_id = (select auth.uid())
+      and lower(coalesce(p.role, '')) in ('buyer','seller')
   )
 );
 drop policy if exists support_messages_insert_sender_authorized on public.support_messages;
@@ -89,9 +111,11 @@ with check (
     public.is_admin()
     or exists (
       select 1 from public.support_conversations c
+      join public.profiles p on p.id = c.user_id
       where c.id = support_messages.conversation_id
         and c.user_id = (select auth.uid())
         and c.status = 'open'
+        and lower(coalesce(p.role, '')) in ('buyer','seller')
     )
   )
   and (
@@ -144,7 +168,17 @@ using (
   and exists (
     select 1 from public.support_conversations c
     where c.id::text = (storage.foldername(name))[1]
-      and (c.user_id = (select auth.uid()) or public.is_admin())
+      and (
+        public.is_admin()
+        or (
+          c.user_id = (select auth.uid())
+          and exists (
+            select 1 from public.profiles p
+            where p.id = c.user_id
+              and lower(coalesce(p.role, '')) in ('buyer','seller')
+          )
+        )
+      )
   )
 );
 drop policy if exists support_attachments_insert_participant_or_admin on storage.objects;
@@ -156,7 +190,12 @@ with check (
     select 1 from public.support_conversations c
     where c.id::text = (storage.foldername(name))[1]
       and (
-        (c.user_id = (select auth.uid()) and (storage.foldername(name))[2] = (select auth.uid())::text and not public.is_admin())
+        (c.user_id = (select auth.uid()) and (storage.foldername(name))[2] = (select auth.uid())::text and not public.is_admin()
+          and exists (
+            select 1 from public.profiles p
+            where p.id = c.user_id
+              and lower(coalesce(p.role, '')) in ('buyer','seller')
+          ))
         or (public.is_admin() and (storage.foldername(name))[2] = c.user_id::text)
       )
   )
