@@ -123,3 +123,43 @@ end $$;
 reset role;
 
 select 'PASS: participant isolation, admin AAL2 and private attachment policy behavior verified on disposable PostgreSQL' as result;
+
+
+-- Closed threads must reject new messages; only an AAL2 administrator can reopen.
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',false);
+update public.support_conversations set status='closed'
+where id='10000000-0000-0000-0000-000000000001';
+reset role;
+
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal1"}',false);
+do $$
+begin
+  begin
+    insert into public.support_messages(conversation_id, sender_id, body)
+    values ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','message after closure');
+    raise exception 'FAIL: buyer sent a message to a closed conversation';
+  exception when insufficient_privilege then
+    null;
+  end;
+  begin
+    update public.support_conversations set status='open'
+    where id='10000000-0000-0000-0000-000000000001';
+    raise exception 'FAIL: buyer changed conversation status';
+  exception when insufficient_privilege then
+    null;
+  end;
+  begin
+    insert into public.support_messages(conversation_id, sender_id, body)
+    values ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','spoofed sender');
+    raise exception 'FAIL: buyer spoofed another sender identity';
+  exception when insufficient_privilege then
+    null;
+  end;
+end $$;
+reset role;
+
+select 'PASS: closed-thread writes, buyer status changes and sender spoofing are blocked' as result;
