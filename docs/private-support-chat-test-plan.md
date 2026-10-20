@@ -57,4 +57,11 @@ Use non-sensitive test messages and sample media only.
 - [ ] Confirm production database and live website were not modified.
 
 ## Current status
-Static source review only. No isolated Supabase functional tests have been run, and the migration has not been applied to production.
+- [x] GitHub Actions static security checks passed (run #3): https://github.com/Aminzaki1972/Web3Market/actions/runs/39488713049
+- [x] JavaScript syntax check passed for `js/support-chat.js`.
+- [x] Static assertions passed for critical source safeguards (AAL2 admin check, private bucket, signed URLs, update-grant restriction, closed-thread upload restriction, and stale-render protection).
+- [ ] Isolated Supabase functional/RLS tests are still outstanding.
+- [ ] Real buyer, seller, and AAL2 admin account tests are still outstanding.
+- [ ] Mobile image/video upload and playback tests are still outstanding.
+- [ ] Production migration has not been applied; the live website and production database remain untouched.
+- [ ] Do not merge/deploy until the owner reviews the results and explicitly approves.
