@@ -111,7 +111,8 @@
   async function openAdminConversation(c){
     currentConversation=c;
     $("adminThreadTitle").textContent=(c.user_display_name||c.user_email||shortId(c.user_id))+" · "+(c.subject||"Support conversation");
-    $("adminSupportBody").disabled=false;$("adminSupportFile").disabled=false;$("adminSupportSend").disabled=false;
+    const isClosed=c.status==="closed";
+    $("adminSupportBody").disabled=isClosed;$("adminSupportFile").disabled=isClosed;$("adminSupportSend").disabled=isClosed;
     $("adminSupportError").textContent="";
     await loadAdminMessages();await loadAdminConversations();
   }
