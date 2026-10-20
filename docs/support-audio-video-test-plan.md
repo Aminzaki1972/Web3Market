@@ -24,4 +24,6 @@ The current prototype uses a public STUN endpoint and does not include a TURN re
 ## Security review before production
 - Review `supabase/migrations/20261021000000_support_call_realtime_policies.sql` against the actual production RLS rules for `support_conversations` and `profiles`.
 - Verify the project supports private Realtime channels and the current AAL claim is present after admin MFA.
-- Apply no migration to production until explicitly approved.
+- Supabase documentation notes that private-channel enforcement depends on the Realtime “Allow public access” setting. Do not change that project-wide setting without first checking every existing Realtime feature, because it may affect other channels.
+- Confirm the deployed `support_conversations` schema and existing RLS policies before relying on the draft policy. The draft references `profiles.role` and `support_conversations.user_id` and may need adapting to the actual production policies.
+- Apply no migration or project-wide Realtime setting change to production until explicitly approved.
