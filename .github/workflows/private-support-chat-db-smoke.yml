@@ -129,5 +129,13 @@ jobs:
           select 'PASS: migration applied; RLS, required policies, private bucket and column-level UPDATE grants verified' as result;
           SQL
 
+      - name: Grant baseline Supabase schema usage for the simulated authenticated role
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          grant usage on schema auth, public, storage to authenticated;
+          grant select on public.profiles to authenticated;
+          grant select, insert on storage.objects to authenticated;
+          grant usage, select on sequence storage.objects_id_seq to authenticated;
+          SQL
       - name: Exercise participant isolation and admin AAL2 behavior
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/private_support_chat_rls_behavior.sql
