@@ -108,12 +108,37 @@
       b.addEventListener("click",()=>openAdminConversation(c));list.append(b);
     });
   }
+  function syncAdminConversationControls(){
+    const chosen=!!currentConversation, closed=currentConversation?.status==="closed";
+    const state=$("adminConversationState"), close=$("adminCloseConversation"), reopen=$("adminReopenConversation");
+    if(state)state.textContent=!chosen?"Choose a conversation to manage its status.":(closed?"Status: Closed · replies disabled":"Status: Open · replies enabled");
+    if(close)close.disabled=!chosen||closed;
+    if(reopen)reopen.disabled=!chosen||!closed;
+    $("adminSupportBody").disabled=!chosen||closed;
+    $("adminSupportFile").disabled=!chosen||closed;
+    $("adminSupportSend").disabled=!chosen||closed;
+  }
+  async function setAdminConversationStatus(nextStatus){
+    if(!currentConversation||!["open","closed"].includes(nextStatus))return;
+    const close=$("adminCloseConversation"), reopen=$("adminReopenConversation");
+    if(close)close.disabled=true;if(reopen)reopen.disabled=true;
+    say("adminSupportError","");
+    try{
+      const {data,error}=await db.from("support_conversations").update({status:nextStatus}).eq("id",currentConversation.id).select("id,user_id,subject,user_email,user_display_name,status,last_message_at").single();
+      if(error)throw error;
+      if(!data)throw new Error("The conversation status was not updated.");
+      currentConversation=data;
+      $("adminThreadTitle").textContent=(data.user_display_name||data.user_email||shortId(data.user_id))+" · "+(data.subject||"Support conversation");
+      syncAdminConversationControls();
+      await loadAdminConversations();
+      await loadAdminMessages();
+    }catch(e){say("adminSupportError",e?.message||"Could not update conversation status.",true);syncAdminConversationControls();}
+  }
   async function openAdminConversation(c){
     currentConversation=c;
     $("adminThreadTitle").textContent=(c.user_display_name||c.user_email||shortId(c.user_id))+" · "+(c.subject||"Support conversation");
-    const isClosed=c.status==="closed";
-    $("adminSupportBody").disabled=isClosed;$("adminSupportFile").disabled=isClosed;$("adminSupportSend").disabled=isClosed;
     $("adminSupportError").textContent="";
+    syncAdminConversationControls();
     await loadAdminMessages();await loadAdminConversations();
   }
   async function loadAdminMessages(){
@@ -169,8 +194,11 @@
     await sessionOrThrow();await ensureAdmin();
     $("adminSupportForm").addEventListener("submit",e=>{e.preventDefault();sendMessage("adminSupportBody","adminSupportFile","adminSupportSend","adminSupportError",true);});
     setupFileInput("adminSupportFile","adminSupportFileName");
+    $("adminCloseConversation").addEventListener("click",()=>setAdminConversationStatus("closed"));
+    $("adminReopenConversation").addEventListener("click",()=>setAdminConversationStatus("open"));
+    syncAdminConversationControls();
     await loadAdminConversations();
-    refreshTimer=setInterval(async()=>{try{await loadAdminConversations();if(currentConversation)await loadAdminMessages();}catch(e){say("adminSupportError",e.message,true);}},10000);
+    refreshTimer=setInterval(async()=>{try{await loadAdminConversations();if(currentConversation){const {data,error}=await db.from("support_conversations").select("id,user_id,subject,user_email,user_display_name,status,last_message_at").eq("id",currentConversation.id).maybeSingle();if(error)throw error;if(data){currentConversation=data;syncAdminConversationControls();await loadAdminMessages();}}}catch(e){say("adminSupportError",e.message,true);}},10000);
   }
   document.addEventListener("DOMContentLoaded",async()=>{
     try{if(ADMIN_PAGE)await startAdmin();else await startUser();}
