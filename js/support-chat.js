@@ -54,6 +54,13 @@
     }catch(e){say("supportError",e?.message||"Could not open a new conversation.",true);}
     finally{if(button)button.disabled=false;}
   }
+  function publishSupportCallContext(){
+    window.dispatchEvent(new CustomEvent("web3market:support-context",{detail:{
+      conversationId:currentConversation?.id||null,
+      role:ADMIN_PAGE?"admin":"user",
+      status:currentConversation?.status||"closed"
+    }}));
+  }
   function clearThread(id){const el=$(id);if(el)el.replaceChildren();}
   async function signedAttachment(path){
     const {data,error}=await db.storage.from(BUCKET).createSignedUrl(path,300);
@@ -98,6 +105,7 @@
     if(currentConversation?.id!==conversationId)return;
     if(!latest)throw new Error("This support conversation is no longer available.");
     currentConversation={...currentConversation,...latest};
+    publishSupportCallContext();
     const {data,error}=await db.from("support_messages").select("id,conversation_id,sender_id,body,attachment_path,attachment_name,attachment_mime,created_at").eq("conversation_id",conversationId).order("created_at",{ascending:true}).limit(500);
     if(error)throw error;
     if(currentConversation?.id!==conversationId)return;
@@ -170,6 +178,7 @@
     // Capture the target before awaiting; discard stale query results after a thread switch.
     const conversationId=currentConversation.id;
     const ownerId=currentConversation.user_id;
+    publishSupportCallContext();
     const {data,error}=await db.from("support_messages").select("id,conversation_id,sender_id,body,attachment_path,attachment_name,attachment_mime,created_at").eq("conversation_id",conversationId).order("created_at",{ascending:true}).limit(500);
     if(error)throw error;
     if(currentConversation?.id!==conversationId)return;
