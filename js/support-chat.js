@@ -35,11 +35,24 @@
     if(!["buyer","seller"].includes(role))throw new Error("This page is only for signed-in buyer and seller dashboard accounts.");
   }
   async function getOrCreateConversation(){
-    const {data,error}=await db.from("support_conversations").select("id,subject,status,last_message_at").eq("user_id",currentUser.id).eq("status","open").order("last_message_at",{ascending:false}).limit(1);
+    // Reuse the latest conversation, including a closed one; never silently create a new thread.
+    const {data,error}=await db.from("support_conversations").select("id,subject,status,last_message_at").eq("user_id",currentUser.id).order("last_message_at",{ascending:false}).limit(1);
     if(error)throw error;
     if(data?.length)return data[0];
     const {data:created,error:ce}=await db.from("support_conversations").insert({user_id:currentUser.id,subject:"Web3Market Support"}).select("id,subject,status,last_message_at").single();
     if(ce)throw ce;return created;
+  }
+  async function requestNewConversation(){
+    if(!currentConversation || currentConversation.status!=="closed")return;
+    const button=$("supportNewConversation");button.disabled=true;
+    try{
+      const {data:created,error}=await db.from("support_conversations").insert({user_id:currentUser.id,subject:"Web3Market Support"}).select("id,subject,status,last_message_at").single();
+      if(error)throw error;
+      currentConversation=created;
+      await loadUserMessages();
+      if(button)button.hidden=true;
+    }catch(e){say("supportError",e?.message||"Could not open a new conversation.",true);}
+    finally{if(button)button.disabled=false;}
   }
   function clearThread(id){const el=$(id);if(el)el.replaceChildren();}
   async function signedAttachment(path){
@@ -80,7 +93,8 @@
     say("supportStatus","Private conversation · "+(currentConversation.status==="closed"?"Closed":"Open")+" · only you and authorized administrators can access it.");
     const closed=currentConversation.status==="closed";
     $("supportBody").disabled=closed;$("supportFile").disabled=closed;$("supportSend").disabled=closed;
-    if(closed)say("supportStatus","This conversation is closed. Contact support to request a new conversation.");
+    if(closed)say("supportStatus","This conversation is closed. Use “Request new conversation” if you need further help.");
+    const newButton=$("supportNewConversation");if(newButton)newButton.hidden=!closed;
   }
   async function loadAdminConversations(){
     const {data,error}=await db.from("support_conversations").select("id,user_id,subject,user_email,user_display_name,status,last_message_at").order("last_message_at",{ascending:false}).limit(200);
@@ -145,6 +159,7 @@
     await sessionOrThrow();await ensureUserRole();
     currentConversation=await getOrCreateConversation();
     $("supportForm").addEventListener("submit",e=>{e.preventDefault();sendMessage("supportBody","supportFile","supportSend","supportError",false);});
+    $("supportNewConversation").addEventListener("click",requestNewConversation);
     setupFileInput("supportFile","supportFileName");
     await loadUserMessages();
     refreshTimer=setInterval(async()=>{try{await loadUserMessages();}catch(e){say("supportError",e.message,true);}},10000);
