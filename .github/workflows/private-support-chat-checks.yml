@@ -6,6 +6,9 @@ on:
       - "js/support-chat.js"
       - "support-chat.html"
       - "admin-support.html"
+      - "buyer-dashboard.html"
+      - "seller-dashboard.html"
+      - "admin-review.html"
       - "supabase/migrations/20261020_private_support_chat.sql"
       - "docs/private-support-chat-test-plan.md"
       - ".github/workflows/private-support-chat-checks.yml"
@@ -32,6 +35,9 @@ jobs:
           const sql = fs.readFileSync('supabase/migrations/20261020_private_support_chat.sql', 'utf8');
           const userPage = fs.readFileSync('support-chat.html', 'utf8');
           const adminPage = fs.readFileSync('admin-support.html', 'utf8');
+          const buyerDashboard = fs.readFileSync('buyer-dashboard.html', 'utf8');
+          const sellerDashboard = fs.readFileSync('seller-dashboard.html', 'utf8');
+          const adminReview = fs.readFileSync('admin-review.html', 'utf8');
           const checks = [
             ['private attachment bucket', js.includes('"support-attachments"')],
             ['20 MiB attachment limit', js.includes('20 * 1024 * 1024')],
@@ -49,6 +55,9 @@ jobs:
             ['message attachment path bound to conversation owner', /split_part\(attachment_path,\s*'\/',\s*1\)\s*=\s*c\.id::text[\s\S]{0,120}?split_part\(attachment_path,\s*'\/',\s*2\)\s*=\s*c\.user_id::text/i.test(sql)],
             ['no support attachment update/delete policies', !/create\s+policy\s+\w+\s+on\s+storage\.objects\s+for\s+(update|delete)[\s\S]{0,120}?support-attachments/i.test(sql)],
             ['separate user/admin pages', userPage.includes('support-chat.js') && adminPage.includes('support-chat.js')],
+            ['buyer dashboard links to private support', /href=[\"']support-chat\.html[\"']/.test(buyerDashboard)],
+            ['seller dashboard links to private support', /href=[\"']support-chat\.html[\"']/.test(sellerDashboard)],
+            ['admin review links to private inbox', /href=[\"']admin-support\.html[\"']/.test(adminReview)],
             ['manual test plan exists', fs.existsSync('docs/private-support-chat-test-plan.md')],
           ];
           for (const [name, ok] of checks) {
