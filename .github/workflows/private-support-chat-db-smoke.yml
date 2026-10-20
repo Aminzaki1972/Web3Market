@@ -1,0 +1,141 @@
+name: Private support chat isolated database smoke test
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20261020_private_support_chat.sql"
+      - "supabase/tests/private_support_chat_rls_behavior.sql"
+      - ".github/workflows/private-support-chat-db-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migration-smoke-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: support_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d support_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: support_test
+    steps:
+      - name: Check out pull request
+        uses: actions/checkout@v4
+      - name: Prepare minimal Supabase-compatible test schema
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          create role anon nologin;
+          create role authenticated nologin;
+          create schema auth;
+          create schema storage;
+          create table auth.users (
+            id uuid primary key,
+            email text,
+            raw_user_meta_data jsonb not null default '{}'::jsonb
+          );
+          create table public.profiles (
+            id uuid primary key,
+            role text
+          );
+          grant usage on schema auth to authenticated;
+          grant usage on schema public to authenticated;
+          grant usage on schema storage to authenticated;
+          grant select on public.profiles to authenticated;
+          create function auth.uid() returns uuid
+          language sql stable as $$ select null::uuid $$;
+          create function auth.jwt() returns jsonb
+          language sql stable as $$ select '{}'::jsonb $$;
+          create function public.is_admin() returns boolean
+          language sql stable security definer set search_path = ''
+          as $$ select exists (
+            select 1 from public.profiles p
+            where p.id = (select auth.uid()) and lower(coalesce(p.role,'')) = 'admin'
+          ) $$;
+          create table storage.buckets (
+            id text primary key,
+            name text not null,
+            public boolean not null default false,
+            file_size_limit bigint,
+            allowed_mime_types text[]
+          );
+          create table storage.objects (
+            id bigint generated always as identity primary key,
+            bucket_id text,
+            name text not null
+          );
+          alter table storage.objects enable row level security;
+          grant select, insert on storage.objects to authenticated;
+          grant usage, select on sequence storage.objects_id_seq to authenticated;
+          create function storage.foldername(name text) returns text[]
+          language sql immutable as $func$
+            select case when name = '' or position('/' in name) = 0 then array[]::text[]
+                        else (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1)-1] end
+          $func$;
+          SQL
+      - name: Apply support-chat migration to disposable PostgreSQL
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020_private_support_chat.sql
+      - name: Assert schema, RLS, private bucket and policies
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+            if to_regclass('public.support_conversations') is null then
+              raise exception 'support_conversations table missing';
+            end if;
+            if to_regclass('public.support_messages') is null then
+              raise exception 'support_messages table missing';
+            end if;
+            if not (select relrowsecurity from pg_class where oid='public.support_conversations'::regclass) then
+              raise exception 'RLS is not enabled on support_conversations';
+            end if;
+            if not (select relrowsecurity from pg_class where oid='public.support_messages'::regclass) then
+              raise exception 'RLS is not enabled on support_messages';
+            end if;
+            if not exists (select 1 from storage.buckets where id='support-attachments' and public=false and file_size_limit=20971520) then
+              raise exception 'private support bucket settings are incorrect';
+            end if;
+            if not exists (select 1 from pg_policies where schemaname='public' and tablename='support_conversations' and policyname='support_conversations_select_participant_or_admin') then
+              raise exception 'conversation access policy missing';
+            end if;
+            if not exists (select 1 from pg_policies where schemaname='public' and tablename='support_messages' and policyname='support_messages_insert_sender_authorized') then
+              raise exception 'message insert policy missing';
+            end if;
+            if not exists (select 1 from pg_policies where schemaname='storage' and tablename='objects' and policyname='support_attachments_read_participant_or_admin') then
+              raise exception 'attachment read policy missing';
+            end if;
+            if has_table_privilege('authenticated','public.support_conversations','UPDATE') then
+              raise exception 'authenticated has unexpected table-wide UPDATE privilege';
+            end if;
+            if not has_column_privilege('authenticated','public.support_conversations','status','UPDATE') then
+              raise exception 'authenticated is missing intended status-only UPDATE privilege';
+            end if;
+          end $$;
+          select 'PASS: migration applied; RLS, required policies, private bucket and column-level UPDATE grants verified' as result;
+          SQL
+
+      - name: Grant baseline Supabase schema usage for the simulated authenticated role
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          grant usage on schema auth, public, storage to authenticated;
+          grant select on public.profiles to authenticated;
+          grant select, insert on storage.objects to authenticated;
+          grant usage, select on sequence storage.objects_id_seq to authenticated;
+          SQL
+      - name: Exercise participant isolation and admin AAL2 behavior
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/private_support_chat_rls_behavior.sql
