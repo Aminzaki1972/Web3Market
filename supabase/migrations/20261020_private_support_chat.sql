@@ -1,5 +1,33 @@
--- Private admin-to-user support chat. Review and apply only after staging tests.
--- Does not alter deal_messages or the existing project-media bucket.
+-- Keep the admin role check out of the exposed Data API schema.
+create schema if not exists private;
+revoke all on schema private from public, anon;
+grant usage on schema private to authenticated;
+create or replace function private.support_is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid())
+      and lower(coalesce(p.role, '')) = 'admin'
+  )
+$$;
+revoke all on function private.support_is_admin() from public, anon;
+grant execute on function private.support_is_admin() to authenticated;
+-- Compatibility wrapper preserves the existing boolean result without exposing a SECURITY DEFINER RPC.
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security invoker
+set search_path = ''
+as $$ select private.support_is_admin() $$;
+revoke all on function public.is_admin() from public, anon;
+grant execute on function public.is_admin() to authenticated;
+
 create table if not exists public.support_conversations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
