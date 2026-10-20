@@ -181,6 +181,7 @@ using (
   and exists (
     select 1 from public.support_conversations c
     where c.id::text = (storage.foldername(name))[1]
+      and (storage.foldername(name))[2] = c.user_id::text
       and (
         (public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2')
         or (
