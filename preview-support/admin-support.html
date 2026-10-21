@@ -5,7 +5,7 @@
 </style></head><body><main class="wrap">
 <header class="head"><div><p style="margin:0 0 6px;color:#a78bfa;font-weight:900;font-size:11px;letter-spacing:1.5px">WEB3MARKET · PRIVATE SUPPORT</p><h1>Private Support Inbox</h1><p class="muted">Only authorized administrators and assigned support agents can open this inbox. Support agents can reply but cannot manage conversation status.</p></div><a class="btn" href="admin-review.html" style="text-decoration:none">Admin Review Center</a></header>
 <div id="previewDiagnosticMarker" style="margin:10px 0;padding:10px;border:2px solid #f59e0b;border-radius:8px;background:#3b2f16;color:#fff7d6;font-weight:800">PREVIEW DIAGNOSTIC BUILD · 2026-10-22 · NOT PRODUCTION</div>
-<div id="adminSupportStatus" class="status" role="status" aria-live="polite">Verifying administrator session…</div>
+<div id="adminSupportStatus" class="status" role="status" aria-live="polite">DIAGNOSTIC 4 · HTML LOADED · JavaScript startup not yet confirmed</div>
 <div class="layout"><section class="panel"><div class="panel-title">Conversations</div><div id="adminConversationList" class="conversation-list"><div class="empty">Loading conversations…</div></div></section>
 <section class="panel"><div id="adminThreadTitle" class="panel-title">Select a conversation</div><div class="status row"><span id="adminConversationState">Choose a conversation to manage its status.</span><button id="adminCloseConversation" class="btn" type="button" disabled>Close conversation</button><button id="adminReopenConversation" class="btn" type="button" disabled>Reopen conversation</button></div><div id="adminSupportThread" class="thread"><div class="empty">Choose a conversation from the list.</div></div>
 <form id="adminSupportForm" class="composer"><textarea id="adminSupportBody" maxlength="10000" placeholder="Reply privately to this account…" aria-label="Administrator reply" disabled></textarea>
@@ -15,6 +15,7 @@
 (function(){
   var status=document.getElementById("adminSupportStatus");
   function report(s){if(status)status.textContent=s;}
+  report("DIAGNOSTIC 4 · INLINE JAVASCRIPT RUNNING · waiting for support script");
   window.addEventListener("error",function(e){if(e&&e.message)report("DIAGNOSTIC JavaScript error: "+e.message);});
   window.addEventListener("unhandledrejection",function(e){var r=e&&e.reason;report("DIAGNOSTIC async error: "+(r&&r.message||String(r||"unknown")));});
   setTimeout(function(){
@@ -28,4 +29,4 @@
   },6000);
 })();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: Supabase library failed to load.'"></script><script src="js/supabase.js?v=20261022-root-diagnostic3" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/supabase.js failed to load.'"></script><script src="js/support-chat.js?v=20261022-root-diagnostic3" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/support-chat.js failed to load.'"></script><script src="js/support-calls.js?v=20261022-root-diagnostic3" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/support-calls.js failed to load.'"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: Supabase library failed to load.'"></script><script src="js/supabase.js?v=20261022-root-diagnostic4" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/supabase.js failed to load.'"></script><script src="js/support-chat.js?v=20261022-root-diagnostic4" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/support-chat.js failed to load.'"></script><script src="js/support-calls.js?v=20261022-root-diagnostic4" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/support-calls.js failed to load.'"></script></body></html>
