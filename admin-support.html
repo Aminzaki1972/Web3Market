@@ -17,7 +17,15 @@
   function report(s){if(status)status.textContent=s;}
   window.addEventListener("error",function(e){if(e&&e.message)report("DIAGNOSTIC JavaScript error: "+e.message);});
   window.addEventListener("unhandledrejection",function(e){var r=e&&e.reason;report("DIAGNOSTIC async error: "+(r&&r.message||String(r||"unknown")));});
-  setTimeout(function(){if(status&&/Verifying administrator session/i.test(status.textContent))report("DIAGNOSTIC: page loaded but support initialization has not changed the status. Check script loading or browser errors.");},6000);
+  setTimeout(function(){
+    if(!status)return;
+    if(window.__web3marketSupportBootFinished===true)return;
+    if(window.__web3marketSupportBootStarted===true){
+      report("DIAGNOSTIC: support script started but initialization has not finished. Check authentication/MFA or Supabase requests.");
+    }else{
+      report("DIAGNOSTIC: support script did not start. Check script loading, deployment output directory, or browser errors.");
+    }
+  },6000);
 })();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: Supabase library failed to load.'"></script><script src="js/supabase.js?v=20261022-root-diagnostic2" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/supabase.js failed to load.'"></script><script src="js/support-chat.js?v=20261022-root-diagnostic2" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/support-chat.js failed to load.'"></script><script src="js/support-calls.js?v=20261022-root-diagnostic2" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/support-calls.js failed to load.'"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: Supabase library failed to load.'"></script><script src="js/supabase.js?v=20261022-root-diagnostic3" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/supabase.js failed to load.'"></script><script src="js/support-chat.js?v=20261022-root-diagnostic3" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/support-chat.js failed to load.'"></script><script src="js/support-calls.js?v=20261022-root-diagnostic3" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/support-calls.js failed to load.'"></script></body></html>
