@@ -66,18 +66,18 @@ reset role;
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000004',false);
 select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal1"}',false);
-do $
+do $$
 begin
   if (select count(*) from public.support_conversations) <> 0 then
     raise exception 'FAIL: support agent without AAL2 can read conversations';
   end if;
-end $;
+end $$;
 reset role;
 
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000004',false);
 select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',false);
-do $
+do $$
 declare affected_rows integer;
 begin
   if (select count(*) from public.support_conversations) <> 2 then
@@ -97,13 +97,13 @@ begin
   if (select status from public.support_conversations where id='10000000-0000-0000-0000-000000000001') <> 'open' then
     raise exception 'FAIL: support agent changed conversation status';
   end if;
-end $;
+end $$;
 reset role;
 
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
 select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',false);
-do $
+do $$
 begin
   if (select count(*) from public.support_conversations) <> 2 then
     raise exception 'FAIL: admin with aal2 cannot read all support conversations';
