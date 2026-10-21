@@ -108,7 +108,7 @@ begin
   if (select count(*) from public.support_conversations) <> 2 then
     raise exception 'FAIL: admin with aal2 cannot read all support conversations';
   end if;
-  if (select count(*) from public.support_messages) <> 2 then
+  if (select count(*) from public.support_messages) <> 3 then
     raise exception 'FAIL: admin with aal2 cannot read all support messages';
   end if;
 end $$;
