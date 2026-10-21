@@ -25,13 +25,13 @@
   });
   setTimeout(function(){
     var el=document.getElementById("adminSupportStatus");
-    if(el&&el.textContent==="Checking administrator session…"){
+    if(el&&/^(Checking|Verifying) administrator session…$/.test(el.textContent.trim())){
       report("Diagnostic: page loaded, but support initialization did not start. Check JavaScript execution.");
     }
   },2500);
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: Supabase library failed to load.'"></script>
-<script src="js/supabase.js?v=8a8d6fa" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/supabase.js failed to load.'"></script>
-<script src="js/support-chat.js?v=8a8d6fa" onload="console.info('Web3Market support chat script resource loaded')" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/support-chat.js failed to load.'"></script>
-<script src="js/support-calls.js?v=8a8d6fa" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/support-calls.js failed to load.'"></script></body></html>
+<script src="js/supabase.js?v=3127b37" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/supabase.js failed to load.'"></script>
+<script src="js/support-chat.js?v=3127b37" onload="console.info('Web3Market support chat script resource loaded')" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/support-chat.js failed to load.'"></script>
+<script src="js/support-calls.js?v=3127b37" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/support-calls.js failed to load.'"></script></body></html>
