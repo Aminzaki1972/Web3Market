@@ -12,15 +12,26 @@
   function node(tag, cls, text){const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;}
   function shortId(id){return id?String(id).slice(0,8)+"…"+String(id).slice(-4):"unknown account";}
   function dateText(value){try{return new Date(value).toLocaleString()}catch(_){return ""}}
+  async function supportStep(label, promise, timeoutMs=10000){
+    const status=$("adminSupportStatus");
+    if(status)status.textContent="Support diagnostic · "+label+"…";
+    let timer;
+    try{
+      return await Promise.race([
+        Promise.resolve().then(promise),
+        new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error("Timed out while "+label+". Check the support project's network/auth configuration and access policies.")),timeoutMs);})
+      ]);
+    }finally{if(timer)clearTimeout(timer);}
+  }
   async function sessionOrThrow(){
     for(let i=0;i<30&&!db;i++){db=getClient();if(!db)await new Promise(r=>setTimeout(r,100));}
     if(!db?.auth)throw new Error("Secure connection unavailable. Reload the page and try again.");
-    const {data,error}=await db.auth.getSession();if(error)throw error;
+    const {data,error}=await supportStep("checking sign-in session",()=>db.auth.getSession(),10000);if(error)throw error;
     currentUser=data?.session?.user||null;
     if(!currentUser)throw new Error("Please sign in to your Web3Market account first.");
   }
   async function ensureAdmin(){
-    const {data,error}=await db.from("profiles").select("id,role").eq("id",currentUser.id).maybeSingle();
+    const {data,error}=await supportStep("verifying administrator/support-agent role",()=>db.from("profiles").select("id,role").eq("id",currentUser.id).maybeSingle(),10000);
     if(error)throw new Error("Support access verification failed. "+error.message);
     const role=String(data?.role||"").toLowerCase();
     if(role==="admin"){
@@ -128,7 +139,7 @@
     const newButton=$("supportNewConversation");if(newButton)newButton.hidden=!closed;
   }
   async function loadAdminConversations(){
-    const {data,error}=await db.from("support_conversations").select("id,user_id,subject,user_email,user_display_name,status,last_message_at").order("last_message_at",{ascending:false}).limit(200);
+    const {data,error}=await supportStep("loading support conversations",()=>db.from("support_conversations").select("id,user_id,subject,user_email,user_display_name,status,last_message_at").order("last_message_at",{ascending:false}).limit(200),12000);
     if(error)throw error;
     const list=$("adminConversationList");list.replaceChildren();
     if(!data?.length){list.append(node("div","empty","No support conversations yet."));return;}
