@@ -280,6 +280,7 @@
     refreshTimer=setInterval(async()=>{try{await loadAdminConversations();const conversationId=currentConversation?.id;if(conversationId){const {data,error}=await db.from("support_conversations").select("id,user_id,subject,user_email,user_display_name,status,last_message_at").eq("id",conversationId).maybeSingle();if(error)throw error;if(data&&currentConversation?.id===conversationId){currentConversation=data;syncAdminConversationControls();await loadAdminMessages();}}}catch(e){say("adminSupportError",e.message,true);}},10000);
   }
   async function bootSupportChat(){
+    window.__web3marketSupportBootStarted=true;
     const status=ADMIN_PAGE?"adminSupportStatus":"supportStatus";
     const thread=ADMIN_PAGE?"adminSupportThread":"supportThread";
     try{
