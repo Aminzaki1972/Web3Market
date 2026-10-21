@@ -47,7 +47,7 @@ body{min-height:100vh;display:grid;place-items:center;padding:20px;background:#f
    if(!user)throw new Error("No test user was returned.");
    let target="support-chat.html";
    const profile=await client.from("profiles").select("role").eq("id",user.id).maybeSingle();
-   if(!profile.error&&String(profile.data&&profile.data.role||"").toLowerCase()==="admin")target="admin-support.html";
+   if(!profile.error&&String(profile.data&&profile.data.role||"").toLowerCase()==="admin")target="admin-support.html";else{const assignment=await client.from("support_agents").select("user_id").eq("user_id",user.id).maybeSingle();if(!assignment.error&&assignment.data)target="admin-support.html";}
    location.href=target;
   }catch(error){status.textContent=error&&error.message?error.message:"Sign-in failed. Check the test account and try again.";button.disabled=false;}
  });
