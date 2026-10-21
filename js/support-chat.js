@@ -142,7 +142,7 @@
   function syncAdminConversationControls(){
     const chosen=!!currentConversation, closed=currentConversation?.status==="closed";
     const state=$("adminConversationState"), close=$("adminCloseConversation"), reopen=$("adminReopenConversation");
-    if(state)state.textContent=!chosen?"Choose a conversation to manage its status.":(closed?"Status: Closed · replies disabled":"Status: Open · replies enabled");
+    if(state)state.textContent=supportAgent?"Support agent mode · replies only; administrators manage conversation status.":(!chosen?"Choose a conversation to manage its status.":(closed?"Status: Closed · replies disabled":"Status: Open · replies enabled"));
     if(close)close.disabled=supportAgent||!chosen||closed;
     if(reopen)reopen.disabled=supportAgent||!chosen||!closed;
     $("adminSupportBody").disabled=!chosen||closed;
@@ -195,7 +195,7 @@
     const thread=$("adminSupportThread");await renderMessages(data,"adminSupportThread");
     if(currentConversation?.id!==conversationId)return;
     thread.querySelectorAll(".msg").forEach((el,i)=>{if(data?.[i]&&data[i].sender_id===ownerId)el.classList.add("user-message");});
-    say("adminSupportStatus","Administrator access verified · private support inbox.");
+    say("adminSupportStatus",supportAgent?"Support agent access verified · replies only.":"Administrator access verified · private support inbox.");
   }
   async function sendMessage(bodyId,fileId,sendId,errorId,admin){
     const body=$(bodyId).value.trim(), file=selectedFile;
