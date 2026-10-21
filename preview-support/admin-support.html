@@ -24,11 +24,10 @@
     report("Async JavaScript error: "+(reason&&reason.message||String(reason||"unknown error")));
   });
   setTimeout(function(){
-    var el=document.getElementById("adminSupportStatus");
-    if(el&&/^(Checking|Verifying) administrator session…$/.test(el.textContent.trim())){
-      report("Diagnostic: page loaded, but support initialization did not start. Check JavaScript execution.");
+    if(!window.__web3marketSupportBootStarted){
+      report("Diagnostic: support chat JavaScript loaded, but its initialization did not start. Reload the preview and check for browser translation or JavaScript errors.");
     }
-  },2500);
+  },5000);
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: Supabase library failed to load.'"></script>
