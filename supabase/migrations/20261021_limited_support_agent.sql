@@ -162,5 +162,5 @@ with check (
 insert into public.support_agents (user_id, assigned_by)
 select u.id, null
 from auth.users u
-where lower(u.email) = lower('zakymahmoud867@gmail.com')
+where lower(u.email) = lower('amin.zaki19722@gmail.com')
 on conflict (user_id) do nothing;
