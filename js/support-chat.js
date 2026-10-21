@@ -210,7 +210,14 @@
         if(upErr)throw new Error("Attachment upload failed: "+upErr.message);
       }
       const payload={conversation_id:conversation.id,sender_id:currentUser.id,body,attachment_path,attachment_name,attachment_mime};
-      const {error}=await db.from("support_messages").insert(payload);if(error)throw error;
+      const {data:insertedMessage,error}=await db.from("support_messages").insert(payload).select("id").single();if(error)throw error;
+      // Notify the platform owner when a buyer/seller sends support a message. Email failure must not undo the saved message.
+      if(!admin&&insertedMessage?.id){
+        try{
+          const {error:notifyError}=await db.functions.invoke("admin-support-email-notification",{body:{message_id:insertedMessage.id,conversation_id:conversation.id}});
+          if(notifyError)console.warn("Web3Market support email notification failed:",notifyError.message||notifyError);
+        }catch(notifyError){console.warn("Web3Market support email notification failed:",notifyError);}
+      }
       // Clear the draft only if the sender is still viewing the conversation that received it.
       // Switching threads during an upload must not erase a different thread's draft.
       if(currentConversation?.id===conversation.id){
