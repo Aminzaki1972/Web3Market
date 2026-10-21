@@ -291,6 +291,10 @@
       console.error("Web3Market support initialization failed:",e);
       say(status,message,true);
       if($(thread))$(thread).replaceChildren(node("div","empty",message));
+      if(ADMIN_PAGE){
+        const list=$("adminConversationList");
+        if(list)list.replaceChildren(node("div","empty","Support inbox failed to load: "+message));
+      }
     }finally{
       window.__web3marketSupportBootFinished=true;
     }
