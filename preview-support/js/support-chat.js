@@ -279,9 +279,25 @@
     await loadAdminConversations();
     refreshTimer=setInterval(async()=>{try{await loadAdminConversations();const conversationId=currentConversation?.id;if(conversationId){const {data,error}=await db.from("support_conversations").select("id,user_id,subject,user_email,user_display_name,status,last_message_at").eq("id",conversationId).maybeSingle();if(error)throw error;if(data&&currentConversation?.id===conversationId){currentConversation=data;syncAdminConversationControls();await loadAdminMessages();}}}catch(e){say("adminSupportError",e.message,true);}},10000);
   }
-  document.addEventListener("DOMContentLoaded",async()=>{
-    try{if(ADMIN_PAGE)await startAdmin();else await startUser();}
-    catch(e){const status=ADMIN_PAGE?"adminSupportStatus":"supportStatus";say(status,e?.message||"Unable to initialize support chat.",true);const thread=ADMIN_PAGE?"adminSupportThread":"supportThread";if($(thread))$(thread).replaceChildren(node("div","empty",e?.message||"Unable to initialize support chat."));}
-  });
+  async function bootSupportChat(){
+    const status=ADMIN_PAGE?"adminSupportStatus":"supportStatus";
+    const thread=ADMIN_PAGE?"adminSupportThread":"supportThread";
+    try{
+      say(status,"Connecting to the isolated support test environment…");
+      if(ADMIN_PAGE) await startAdmin(); else await startUser();
+    }catch(e){
+      const message=e?.message||"Unable to initialize support chat.";
+      console.error("Web3Market support initialization failed:",e);
+      say(status,message,true);
+      if($(thread))$(thread).replaceChildren(node("div","empty",message));
+    }
+  }
+  // Scripts may execute after DOMContentLoaded on slow/cached navigations.
+  // Start immediately when the document is already ready; otherwise wait once.
+  if(document.readyState==="loading"){
+    document.addEventListener("DOMContentLoaded",bootSupportChat,{once:true});
+  }else{
+    bootSupportChat();
+  }
   window.addEventListener("beforeunload",()=>{if(refreshTimer)clearInterval(refreshTimer);});
 })();
