@@ -291,6 +291,8 @@
       console.error("Web3Market support initialization failed:",e);
       say(status,message,true);
       if($(thread))$(thread).replaceChildren(node("div","empty",message));
+    }finally{
+      window.__web3marketSupportBootFinished=true;
     }
   }
   // Scripts may execute after DOMContentLoaded on slow/cached navigations.
