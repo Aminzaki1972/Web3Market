@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - "supabase/migrations/20261020_private_support_chat.sql"
+      - "supabase/migrations/20261021_limited_support_agent.sql"
+      - "js/support-chat.js"
+      - "admin-support.html"
       - "supabase/tests/private_support_chat_rls_behavior.sql"
       - ".github/workflows/private-support-chat-db-smoke.yml"
   workflow_dispatch:
@@ -90,6 +93,8 @@ jobs:
           SQL
       - name: Apply support-chat migration to disposable PostgreSQL
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020_private_support_chat.sql
+      - name: Apply limited support-agent migration to disposable PostgreSQL
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261021_limited_support_agent.sql
       - name: Assert schema, RLS, private bucket and policies
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
