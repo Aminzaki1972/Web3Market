@@ -58,7 +58,7 @@
   deal=data;participant=nextParticipant;
   const money=v=>Number(v||0).toLocaleString(undefined,{maximumFractionDigits:2})+' '+(deal.currency||'USD');
   const meta=document.querySelector('#dealMeta');if(meta)meta.textContent=`Deal ${deal.id} · ${money(deal.amount)}`;
-  setStatus(String(deal.status||'pending').replace(/[_-]+/g,' '));
+  setStatus(['open','under_review'].includes(String(deal.dispute_status||'').toLowerCase())?'Dispute open — release blocked pending review':String(deal.status||'pending').replace(/[_-]+/g,' '),['open','under_review'].includes(String(deal.dispute_status||'').toLowerCase())?'warn':'');
   const paid=Boolean(deal.payment_tx_hash)||String(deal.payment_status||'').toLowerCase()==='confirmed'||String(deal.status||'').toLowerCase()==='payment_confirmed';
   const details=document.querySelector('#details');
   if(details)details.innerHTML=`<p>Amount: <strong>${esc(money(deal.amount))}</strong></p><p>Platform fee: <strong>${esc(money(deal.platform_fee_amount??deal.platform_fee??0))}</strong> (${Number(deal.platform_fee_percent??7.5).toFixed(2)}%)</p><p>Seller net: <strong>${esc(money(deal.seller_net_amount??Number(deal.amount||0)-Number(deal.platform_fee_amount??deal.platform_fee??0)))}</strong></p><p>Payment: <strong>${paid?'Verified on-chain':'Pending'}</strong></p><p>Role: <strong>${participant}</strong></p>${deal.payment_tx_hash?`<p>TX: <code>${esc(deal.payment_tx_hash)}</code></p>`:''}`;
