@@ -161,3 +161,53 @@ with check (
 -- Secure default: do not assign any support agent automatically in a production migration.
 -- Add an explicitly approved account to public.support_agents through a separate,
 -- access-controlled administrative procedure after verifying the intended identity.
+
+
+-- Restrict private WebRTC signaling to the conversation owner, an AAL2 admin,
+-- or an explicitly assigned AAL2 support agent. The browser uses topic
+-- support-call:<conversation UUID>; no public channel access is granted.
+drop policy if exists support_call_signal_read_participants on realtime.messages;
+create policy support_call_signal_read_participants
+on realtime.messages for select to authenticated
+using (
+  extension = 'broadcast'
+  and exists (
+    select 1 from public.support_conversations c
+    where realtime.topic() = ('support-call:' || c.id::text)
+      and coalesce(c.status, 'open') <> 'closed'
+      and (
+        c.user_id = (select auth.uid())
+        or (
+          public.is_admin()
+          and (select auth.jwt() ->> 'aal') = 'aal2'
+        )
+        or (
+          private.support_is_support_agent()
+          and (select auth.jwt() ->> 'aal') = 'aal2'
+        )
+      )
+  )
+);
+
+drop policy if exists support_call_signal_send_participants on realtime.messages;
+create policy support_call_signal_send_participants
+on realtime.messages for insert to authenticated
+with check (
+  extension = 'broadcast'
+  and exists (
+    select 1 from public.support_conversations c
+    where realtime.topic() = ('support-call:' || c.id::text)
+      and coalesce(c.status, 'open') <> 'closed'
+      and (
+        c.user_id = (select auth.uid())
+        or (
+          public.is_admin()
+          and (select auth.jwt() ->> 'aal') = 'aal2'
+        )
+        or (
+          private.support_is_support_agent()
+          and (select auth.jwt() ->> 'aal') = 'aal2'
+        )
+      )
+  )
+);
