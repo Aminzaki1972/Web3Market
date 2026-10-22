@@ -44,6 +44,9 @@ async function inspectSession(){
  if(!session&&typeof window.Web3MarketSupabaseRestoreSession==="function"){session=await window.Web3MarketSupabaseRestoreSession()}
  if(!session?.user){activeUser=null;choices.classList.add("hidden");form.classList.remove("hidden");return}
  activeUser=session.user;
+ const {data:verifiedUser,error:userError}=await client.auth.getUser();
+ if(userError)throw new Error("Could not verify the signed-in account. "+userError.message);
+ if(verifiedUser?.user)activeUser=verifiedUser.user;
  const {data:profile,error:profileError}=await client.from("profiles").select("id,role").eq("id",activeUser.id).maybeSingle();
  if(profileError)throw new Error("Could not verify the account role. "+profileError.message);
  activeRole=String(profile?.role||"").trim().toLowerCase();
@@ -52,7 +55,7 @@ async function inspectSession(){
  isAssignedAgent=!!assignment;
  form.classList.add("hidden");choices.classList.remove("hidden");
  agentBtn.disabled=!isAssignedAgent;
- say(isAssignedAgent?"Signed in. Choose Dashboard or Support Agent Account.":"Signed in. Dashboard is available; this account is not assigned as a support agent.");
+ say("Signed in as "+(activeUser.email||"unknown email")+". "+(isAssignedAgent?"Support-agent access is confirmed. Choose Dashboard or Support Agent Account.":"Dashboard is available, but this signed-in account has no visible support-agent assignment."));
 }
 function dashboardPath(){if(activeRole==="buyer")return "buyer-dashboard.html";if(activeRole==="seller")return "seller-dashboard.html";if(activeRole==="admin")return "admin-review.html";return ""}
 form.addEventListener("submit",async function(event){
