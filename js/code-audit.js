@@ -135,7 +135,8 @@ if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit coul
 
  async function loadAuditHistory(){
    const panel=document.getElementById("auditHistory");
-   if(!panel||auditId)return;
+   if(!panel)return;
+   if(auditId){panel.hidden=true;return;}
    const dateInput=document.getElementById("auditHistoryDate");
    const countEl=document.getElementById("auditHistoryCount");
    const message=document.getElementById("auditHistoryMessage");
