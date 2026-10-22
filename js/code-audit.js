@@ -147,7 +147,7 @@ if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit coul
    }else{
      if(accountLink){accountLink.textContent="Sign in";accountLink.href="login.html?next="+encodeURIComponent("code-audit.html");accountLink.hidden=false;}
      const card=panel.querySelector(".audit-history-card");
-     if(card)card.innerHTML='<div class="audit-kicker">MEMBERS AREA</div><h2 id="auditHistoryTitle">W3M AI Audit Activity &amp; History</h2><p class="muted">The community audit archive and statistics are available to signed-in members. Detailed audit findings remain restricted by account permissions.</p><div class="audit-history-controls"><a class="btn btn-primary" href="login.html?next='+encodeURIComponent("code-audit.html")+'">Sign in to view archive</a><a class="btn btn-ghost" href="signup.html?next='+encodeURIComponent("code-audit.html")+'">Create account</a></div><p class="audit-history-footnote">Repository security details are not published in the public archive.</p>';
+     if(card)card.innerHTML='<div class="audit-kicker">MEMBERS AREA</div><h2 id="auditHistoryTitle">W3M AI Audit Activity &amp; History</h2><p class="muted">The community audit archive and statistics are available to signed-in members. Detailed audit findings remain restricted by account permissions.</p><div class="audit-history-controls"><a class="btn btn-primary" href="login.html?next='+encodeURIComponent("code-audit.html")+'">Sign in to view archive</a><a class="btn btn-ghost" href="register.html?next='+encodeURIComponent("code-audit.html")+'">Create account</a></div><p class="audit-history-footnote">Repository security details are not published in the public archive.</p>';
      return;
    }
    const dateInput=document.getElementById("auditHistoryDate");
