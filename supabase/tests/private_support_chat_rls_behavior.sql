@@ -74,7 +74,7 @@ do $support_agent_no_mfa$
 declare affected_rows integer;
 begin
   if (select count(*) from public.support_conversations) <> 2 then
-    raise exception 'FAIL: assigned support agent without AAL2 cannot read all conversations';
+    raise exception 'FAIL: assigned support agent without AAL2 expected 2 conversations, got %', (select count(*) from public.support_conversations);
   end if;
   if (select count(*) from public.support_messages) <> 2 then
     raise exception 'FAIL: assigned support agent without AAL2 cannot read all messages';
