@@ -19,7 +19,8 @@ Deno.serve(async req=>{
  if(!/^[0-9a-f-]{36}$/i.test(dealId)||!/^0x[0-9a-fA-F]{64}$/.test(txHash))return json(400,{ok:false,error:"Invalid request"});
  const {data:deal}=await sb.from("deals").select("*").eq("id",dealId).maybeSingle();
  if(!deal)return json(404,{ok:false,error:"Deal not found"});
-  const {data:activeDispute}=await sb.from("deal_disputes").select("id,status").eq("deal_id",dealId).in("status",["open","under_review"]).maybeSingle();
+  const {data:activeDispute,error:disputeError}=await sb.from("deal_disputes").select("id,status").eq("deal_id",dealId).in("status",["open","under_review"]).maybeSingle();
+  if(disputeError)return json(503,{ok:false,error:"Could not verify dispute status; release finalization blocked"});
   if(activeDispute||["open","under_review"].includes(String(deal.dispute_status||"").toLowerCase()))return json(409,{ok:false,error:"Release finalization is blocked while a dispute is open"});
  if(deal.buyer_id!==u.user.id&&deal.seller_id!==u.user.id)return json(403,{ok:false,error:"Not a participant"});
  const {data:tx}=await sb.from("deal_multisig_transactions").select("*").eq("deal_id",dealId).eq("action","release_to_seller").maybeSingle();
