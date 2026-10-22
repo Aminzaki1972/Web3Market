@@ -257,6 +257,12 @@
   }
   async function startAdmin(){
     await sessionOrThrow();await ensureAdmin();
+    const logoutButton=$("supportLogoutButton");
+    if(logoutButton)logoutButton.addEventListener("click",async()=>{
+      logoutButton.disabled=true;logoutButton.textContent="Signing out…";
+      try{const {error}=await db.auth.signOut();if(error)throw error;location.replace("login.html");}
+      catch(e){logoutButton.disabled=false;logoutButton.textContent="Sign out";say("adminSupportError",e?.message||"Unable to sign out. Please try again.",true);}
+    });
     if(supportAgent){
       const eyebrow=document.querySelector(".head > div > p");
       if(eyebrow)eyebrow.textContent="WEB3MARKET · SUPPORT TEAM";
