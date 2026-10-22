@@ -158,9 +158,6 @@ with check (
   )
 );
 
--- Assign only the requested existing account; do not grant admin role or admin_users access.
-insert into public.support_agents (user_id, assigned_by)
-select u.id, null
-from auth.users u
-where lower(u.email) = lower('amin.zaki19722@gmail.com')
-on conflict (user_id) do nothing;
+-- Secure default: do not assign any support agent automatically in a production migration.
+-- Add an explicitly approved account to public.support_agents through a separate,
+-- access-controlled administrative procedure after verifying the intended identity.
