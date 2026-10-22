@@ -154,7 +154,7 @@ if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit coul
    const topbar=document.querySelector(".topbar nav");
    const accountLink=document.getElementById("auditAccountLink");
    if(session?.user){
-     if(accountLink){accountLink.textContent="My Account";accountLink.href="dashboard.html";accountLink.hidden=false;}
+     if(accountLink){accountLink.textContent="My Account";accountLink.href="login.html";accountLink.hidden=false;}
    }else{
      if(accountLink){accountLink.textContent="Sign in";accountLink.href="login.html?next="+encodeURIComponent("code-audit.html");accountLink.hidden=false;}
      const card=panel.querySelector(".audit-history-card");
