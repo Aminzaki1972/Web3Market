@@ -20,6 +20,10 @@ insert into public.support_messages (conversation_id, sender_id, body) values
  ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','Buyer private message'),
  ('10000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000002','Seller private message');
 
+insert into realtime.messages(topic, extension, payload, event, private) values
+ ('support-call:10000000-0000-0000-0000-000000000001','broadcast','{"type":"seed"}','signal',true),
+ ('support-call:10000000-0000-0000-0000-000000000002','broadcast','{"type":"seed"}','signal',true);
+
 -- Mock the request claims the same way Supabase PostgREST sets request context.
 create or replace function auth.uid() returns uuid
 language sql stable as $$
@@ -227,8 +231,11 @@ set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
 select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal1"}',false);
 select set_config('realtime.topic','support-call:10000000-0000-0000-0000-000000000001',false);
-do $$
+do $
 begin
+  if (select count(*) from realtime.messages) <> 1 then
+    raise exception 'FAIL: participant can read another account call signaling or cannot read own';
+  end if;
   insert into realtime.messages(topic, extension, payload, event, private)
   values ('support-call:10000000-0000-0000-0000-000000000001','broadcast','{"type":"signal"}','signal',true);
   if not exists (
