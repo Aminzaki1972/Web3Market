@@ -26,7 +26,7 @@ begin
          updated_at = now()
    where id = v_deal_id;
 
-  return coalesce(NEW, OLD);
+  return NEW;
 end;
 $$;
 
