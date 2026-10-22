@@ -234,7 +234,8 @@ set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
 select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal1"}',false);
 select set_config('realtime.topic','support-call:10000000-0000-0000-0000-000000000001',false);
-do $$begin
+do $$
+begin
   if (select count(*) from realtime.messages) <> 1 then
     raise exception 'FAIL: participant can read another account call signaling or cannot read own';
   end if;
