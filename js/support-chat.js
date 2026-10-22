@@ -257,6 +257,8 @@
   }
   async function startAdmin(){
     await sessionOrThrow();await ensureAdmin();
+    // Do not reveal the inbox UI until the signed-in account and its permissions pass verification.
+    document.body.classList.add("support-authorized");
     if(supportAgent){
       const eyebrow=document.querySelector(".head > div > p");
       if(eyebrow)eyebrow.textContent="WEB3MARKET · SUPPORT TEAM";
