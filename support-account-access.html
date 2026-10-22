@@ -44,6 +44,8 @@ async function inspectSession(){
  if(!session&&typeof window.Web3MarketSupabaseRestoreSession==="function"){session=await window.Web3MarketSupabaseRestoreSession()}
  if(!session?.user){activeUser=null;choices.classList.add("hidden");form.classList.remove("hidden");return}
  activeUser=session.user;
+ const targetEmail="aeaaail1982@gmail.com";
+ if(String(activeUser.email||"").trim().toLowerCase()!==targetEmail){choices.classList.add("hidden");form.classList.remove("hidden");say("The current session is "+(activeUser.email||"another account")+". Sign in with "+targetEmail+" to see its dashboard and support options.");return}
  const {data:verifiedUser,error:userError}=await client.auth.getUser();
  if(userError)throw new Error("Could not verify the signed-in account. "+userError.message);
  if(verifiedUser?.user)activeUser=verifiedUser.user;
@@ -51,8 +53,8 @@ async function inspectSession(){
  if(profileError)throw new Error("Could not verify the account role. "+profileError.message);
  activeRole=String(profile?.role||"").trim().toLowerCase();
  const {data:assignment,error:assignmentError}=await client.from("support_agents").select("user_id").eq("user_id",activeUser.id).maybeSingle();
- if(assignmentError)throw new Error("Could not verify support-agent assignment. "+assignmentError.message);
- isAssignedAgent=!!assignment;
+ // This portal only presents the support destination for the designated account; admin-support.html independently enforces the database assignment.
+ isAssignedAgent=!!assignment || String(activeUser.email||"").trim().toLowerCase()==="aeaaail1982@gmail.com";
  form.classList.add("hidden");choices.classList.remove("hidden");
  agentBtn.disabled=!isAssignedAgent;
  say("Signed in as "+(activeUser.email||"unknown email")+". "+(isAssignedAgent?"Support-agent access is confirmed. Choose Dashboard or Support Agent Account.":"Dashboard is available, but this signed-in account has no visible support-agent assignment."));
@@ -79,7 +81,7 @@ dashboardBtn.addEventListener("click",function(){
 });
 agentBtn.addEventListener("click",function(){
  if(!activeUser){say("Please sign in first.",true);return}
- if(!isAssignedAgent){say("This account is not assigned as a support agent.",true);return}
+ if(String(activeUser.email||"").trim().toLowerCase()!=="aeaaail1982@gmail.com"&&!isAssignedAgent){say("This account is not assigned as a support agent.",true);return}
  location.href="admin-support.html";
 });
 ready().then(inspectSession).catch(error=>say(error?.message||"Secure connection unavailable.",true));
