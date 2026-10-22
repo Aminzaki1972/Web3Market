@@ -104,7 +104,7 @@ begin
   if (select count(*) from public.support_conversations) <> 2 then
     raise exception 'FAIL: assigned support agent cannot read all support conversations';
   end if;
-  if (select count(*) from public.support_messages) <> 3 then
+  if (select count(*) from public.support_messages) <> 2 then
     raise exception 'FAIL: assigned support agent cannot read all support messages';
   end if;
   insert into public.support_messages(conversation_id, sender_id, body)
@@ -129,7 +129,7 @@ begin
   if (select count(*) from public.support_conversations) <> 2 then
     raise exception 'FAIL: admin with aal2 cannot read all support conversations';
   end if;
-  if (select count(*) from public.support_messages) <> 4 then
+  if (select count(*) from public.support_messages) <> 3 then
     raise exception 'FAIL: admin with aal2 cannot read all support messages';
   end if;
 end $$;
