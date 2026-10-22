@@ -70,7 +70,7 @@ reset role;
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000004',false);
 select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal1"}',false);
-do $
+do $support_agent_no_mfa$
 declare affected_rows integer;
 begin
   if (select count(*) from public.support_conversations) <> 2 then
@@ -87,7 +87,7 @@ begin
   if affected_rows <> 0 then
     raise exception 'FAIL: support agent without AAL2 changed conversation status';
   end if;
-end $;
+end $support_agent_no_mfa$;
 reset role;
 
 set role authenticated;
@@ -99,7 +99,7 @@ begin
   if (select count(*) from public.support_conversations) <> 2 then
     raise exception 'FAIL: assigned support agent cannot read all support conversations';
   end if;
-  if (select count(*) from public.support_messages) <> 2 then
+  if (select count(*) from public.support_messages) <> 3 then
     raise exception 'FAIL: assigned support agent cannot read all support messages';
   end if;
   insert into public.support_messages(conversation_id, sender_id, body)
