@@ -184,7 +184,7 @@ if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit coul
          const repoLabel=esc(repo);
          const when=a.created_at?new Date(a.created_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"}):"Time unavailable";
          const rawStatus=String(a.status||"unknown").toLowerCase();
-         const status=["completed","failed","paused","running","pending","processing"].includes(rawStatus)?rawStatus:"unknown";
+         const status=["completed","failed","paused","running","pending","processing","queued","scanning","analyzing","retrying"].includes(rawStatus)?rawStatus:"unknown";
          const score=a.overall_score==null?"":'<div class="audit-history-score">'+esc(Number(a.overall_score).toFixed(1))+'/100</div>';
          const result=a.overall_score==null?esc(a.risk_level||"Result pending"):esc(a.risk_level||"Risk not rated");
          return '<article class="audit-history-row"><div><div class="audit-history-repo">'+repoLabel+'</div><div class="audit-history-meta">'+esc(when)+' · '+esc(a.files_scanned||0)+' files scanned'+'</div></div><div class="audit-history-result">'+score+'<div>'+result+'</div><span class="audit-history-status '+esc(status)+'">'+esc(status)+'</span></div></article>';
