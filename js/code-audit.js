@@ -161,7 +161,8 @@ if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit coul
          const url=(()=>{try{const u=new URL(a.repo_url||"");return u.protocol==="https:"&&u.hostname==="github.com"&&u.pathname.split("/").filter(Boolean).length>=2?u.href:""}catch(_){return""}})();
          const repoLabel=url?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(repo)+' ↗</a>':esc(repo);
          const when=a.created_at?new Date(a.created_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"}):"Time unavailable";
-         const status=String(a.status||"unknown").toLowerCase();
+         const rawStatus=String(a.status||"unknown").toLowerCase();
+         const status=["completed","failed","paused","running","pending","processing"].includes(rawStatus)?rawStatus:"unknown";
          const score=a.overall_score==null?"":'<div class="audit-history-score">'+esc(Number(a.overall_score).toFixed(1))+'/100</div>';
          const result=a.overall_score==null?esc(a.risk_level||"Result pending"):esc(a.risk_level||"Risk not rated");
          return '<article class="audit-history-row"><div><div class="audit-history-repo">'+repoLabel+'</div><div class="audit-history-meta">'+esc(when)+' · '+esc(a.files_scanned||0)+' files scanned'+(a.commit_sha?' · Commit '+esc(String(a.commit_sha).slice(0,10)):"")+'</div></div><div class="audit-history-result">'+score+'<div>'+result+'</div><span class="audit-history-status '+esc(status)+'">'+esc(status)+'</span></div></article>';
