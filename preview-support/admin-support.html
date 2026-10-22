@@ -15,17 +15,23 @@
 (function(){
   var status=document.getElementById("adminSupportStatus");
   var diag=document.getElementById("previewDiagnosticMarker");
+  var firstError="";
   function report(s){if(diag)diag.textContent=s;}
-  report("DIAGNOSTIC 7 · Inline check running; support scripts loading");
-  window.addEventListener("error",function(e){if(e&&e.message)report("DIAGNOSTIC JavaScript error: "+e.message);});
-  window.addEventListener("unhandledrejection",function(e){var r=e&&e.reason;report("DIAGNOSTIC async error: "+(r&&r.message||String(r||"unknown")));});
+  window.addEventListener("error",function(e){
+    if(e&&e.message){firstError=firstError||("JavaScript error: "+e.message+" ("+(e.filename||"unknown file")+":"+(e.lineno||"?")+")");report("DIAGNOSTIC ERROR · "+firstError);}
+  });
+  window.addEventListener("unhandledrejection",function(e){
+    var r=e&&e.reason;firstError=firstError||("Async error: "+(r&&r.message||String(r||"unknown")));report("DIAGNOSTIC ERROR · "+firstError);
+  });
   setTimeout(function(){
     if(!status)return;
     var started=window.__web3marketSupportBootStarted===true;
     var finished=window.__web3marketSupportBootFinished===true;
     var client=!!(window.Web3MarketSupabase||window.supabaseClient||window.web3marketSupabase);
-    report("DIAGNOSTIC 7 · timer fired · support script "+(started?(finished?"started and finished":"started but is waiting"):"did not start")+" · Supabase client "+(client?"present":"missing")+" · page: "+location.pathname);
+    if(firstError){report("DIAGNOSTIC ERROR · "+firstError);status.textContent=firstError;return;}
+    report("DIAGNOSTIC · support script "+(started?(finished?"started and finished":"started but is waiting"):"did not start")+" · Supabase client "+(client?"present":"missing")+" · page: "+location.pathname);
+    if(!started)status.textContent="Support script did not start. Check the script-load error below and refresh once.";
   },6000);
 })();
 </script>
-<script>window.W3M_SUPPORT_TEST_MODE=true;window.W3M_SUPPORT_TEST_ADMIN_EMAIL="amin.zaki19722@gmail.com";</script><script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: Supabase library failed to load.'"></script><script defer src="js/supabase.js?v=20261022-preview-route-fix2" onload="document.getElementById('previewDiagnosticMarker').textContent='DIAGNOSTIC 8 · Supabase wrapper file loaded'" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/supabase.js failed to load.'"></script><script defer src="js/support-chat.js?v=20261022-preview-route-fix2" onload="document.getElementById('previewDiagnosticMarker').textContent='DIAGNOSTIC 8 · Support script file loaded'" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/support-chat.js failed to load.'"></script><script defer src="js/support-calls.js?v=20261022-preview-route-fix2" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/support-calls.js failed to load.'"></script></body></html>
+<script>window.W3M_SUPPORT_TEST_MODE=true;window.W3M_SUPPORT_TEST_ADMIN_EMAIL="amin.zaki19722@gmail.com";</script><script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: Supabase library failed to load.'"></script><script defer src="js/supabase.js?v=20261022-preview-capture-js-errors1" onload="document.getElementById('previewDiagnosticMarker').textContent='DIAGNOSTIC 8 · Supabase wrapper file loaded'" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/supabase.js failed to load.'"></script><script defer src="js/support-chat.js?v=20261022-preview-capture-js-errors1" onload="document.getElementById('previewDiagnosticMarker').textContent='DIAGNOSTIC 8 · Support script file loaded'" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/support-chat.js failed to load.'"></script><script defer src="js/support-calls.js?v=20261022-preview-capture-js-errors1" onerror="document.getElementById('adminSupportStatus').textContent='ERROR: js/support-calls.js failed to load.'"></script></body></html>
