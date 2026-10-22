@@ -307,6 +307,17 @@
       const message=e?.message||"Unable to initialize support chat.";
       console.error("Web3Market support initialization failed:",e);
       say(status,message,true);
+      if(ADMIN_PAGE && /sign in to your Web3Market account/i.test(message)){
+        const statusEl=$(status);
+        if(statusEl){
+          const link=node("a","","Open isolated test login");
+          link.href="login.html";
+          link.style.display="inline-block";
+          link.style.marginInlineStart="8px";
+          link.style.fontWeight="700";
+          statusEl.append(document.createTextNode(" "),link);
+        }
+      }
       if($(thread))$(thread).replaceChildren(node("div","empty",message));
       if(ADMIN_PAGE){
         const list=$("adminConversationList");
