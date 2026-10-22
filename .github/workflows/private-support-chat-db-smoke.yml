@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - "supabase/migrations/20261020_private_support_chat.sql"
+      - "supabase/migrations/20261021_limited_support_agent.sql"
+      - "js/support-chat.js"
+      - "admin-support.html"
       - "supabase/tests/private_support_chat_rls_behavior.sql"
       - ".github/workflows/private-support-chat-db-smoke.yml"
   workflow_dispatch:
@@ -44,6 +47,19 @@ jobs:
           create role authenticated nologin;
           create schema auth;
           create schema storage;
+          create schema realtime;
+          create table realtime.messages (
+            topic text not null,
+            extension text not null,
+            payload jsonb,
+            event text,
+            private boolean default false
+          );
+          alter table realtime.messages enable row level security;
+          grant usage on schema realtime to authenticated;
+          grant select, insert on realtime.messages to authenticated;
+          create function realtime.topic() returns text
+          language sql stable as $$ select current_setting('realtime.topic', true) $$;
           create table auth.users (
             id uuid primary key,
             email text,
@@ -90,6 +106,8 @@ jobs:
           SQL
       - name: Apply support-chat migration to disposable PostgreSQL
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020_private_support_chat.sql
+      - name: Apply limited support-agent migration to disposable PostgreSQL
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261021_limited_support_agent.sql
       - name: Assert schema, RLS, private bucket and policies
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
@@ -118,6 +136,12 @@ jobs:
             end if;
             if not exists (select 1 from pg_policies where schemaname='storage' and tablename='objects' and policyname='support_attachments_read_participant_or_admin') then
               raise exception 'attachment read policy missing';
+            end if;
+            if not exists (select 1 from pg_policies where schemaname='realtime' and tablename='messages' and policyname='support_call_signal_read_participants') then
+              raise exception 'private call signaling read policy missing';
+            end if;
+            if not exists (select 1 from pg_policies where schemaname='realtime' and tablename='messages' and policyname='support_call_signal_send_participants') then
+              raise exception 'private call signaling send policy missing';
             end if;
             if has_table_privilege('authenticated','public.support_conversations','UPDATE') then
               raise exception 'authenticated has unexpected table-wide UPDATE privilege';
