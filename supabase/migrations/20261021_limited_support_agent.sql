@@ -171,6 +171,7 @@ create policy support_call_signal_read_participants
 on realtime.messages for select to authenticated
 using (
   extension = 'broadcast'
+  and topic = realtime.topic()
   and exists (
     select 1 from public.support_conversations c
     where realtime.topic() = ('support-call:' || c.id::text)
@@ -194,6 +195,7 @@ create policy support_call_signal_send_participants
 on realtime.messages for insert to authenticated
 with check (
   extension = 'broadcast'
+  and topic = realtime.topic()
   and exists (
     select 1 from public.support_conversations c
     where realtime.topic() = ('support-call:' || c.id::text)
