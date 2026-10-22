@@ -10,4 +10,35 @@
 <form id="adminSupportForm" class="composer"><textarea id="adminSupportBody" maxlength="10000" placeholder="Reply privately to this account…" aria-label="Administrator reply" disabled></textarea>
 <div class="row"><label class="btn" for="adminSupportFile">Attach photo/video</label><input id="adminSupportFile" class="file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" disabled><span id="adminSupportFileName" class="file-name">No file selected</span><button id="adminSupportSend" class="btn primary" type="submit" disabled>Send reply</button></div><div id="adminSupportError" class="error" role="alert"></div></form>
 </section></div></main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/supabase.js?v=20261021-support2"></script><script src="js/support-chat.js?v=20261022-support-agent1"></script><script src="js/support-calls.js?v=20261022-support-agent1"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/supabase.js?v=20261021-support2"></script><script src="js/support-chat.js?v=20261022-support-agent1"></script><script src="js/support-calls.js?v=20261022-support-agent1"></script>
+<script>
+(function(){
+  "use strict";
+  const status=document.getElementById("adminSupportStatus");
+  function report(message){
+    if(status && !window.__web3marketSupportBootFinished){
+      status.textContent=message;
+      status.style.color="#b91c1c";
+    }
+  }
+  window.addEventListener("error",function(event){
+    const source=String(event.filename||"");
+    if(/support-chat\.js|supabase\.js|support-calls\.js/.test(source)){
+      report("Support script error. Reload the preview; if this repeats, report that the support script failed to execute.");
+    }
+  });
+  window.addEventListener("unhandledrejection",function(event){
+    if(!window.__web3marketSupportBootFinished){
+      const reason=event.reason;
+      report("Support initialization failed: "+String(reason&&reason.message||reason||"unknown error").slice(0,220));
+    }
+  });
+  setTimeout(function(){
+    if(!window.__web3marketSupportBootStarted){
+      report("Support script did not start. The preview may be serving a stale or incomplete deployment. Reload once and report this message if it remains.");
+    }else if(!window.__web3marketSupportBootFinished){
+      report("Support initialization is taking too long. Check the preview connection and reload; no production data was changed.");
+    }
+  },5000);
+})();
+</script></body></html>
