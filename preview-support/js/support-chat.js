@@ -48,7 +48,6 @@
     const {data:assignment,error:assignmentError}=await db.from("support_agents").select("user_id").eq("user_id",currentUser.id).maybeSingle();
     if(assignmentError)throw new Error("Limited support access could not be verified. "+assignmentError.message);
     if(!assignment && !(window.W3M_SUPPORT_TEST_MODE===true && String(currentUser?.email||"").toLowerCase()===String(window.W3M_SUPPORT_TEST_ADMIN_EMAIL||"").toLowerCase()))throw new Error("This account is not authorized to view the support inbox.");
-    const testAdmin=window.W3M_SUPPORT_TEST_MODE===true && String(currentUser?.email||"").toLowerCase()===String(window.W3M_SUPPORT_TEST_ADMIN_EMAIL||"").toLowerCase();
     if(!testAdmin){
       const {data:aal,error:ae}=await db.auth.mfa.getAuthenticatorAssuranceLevel();
       if(ae)throw ae;
