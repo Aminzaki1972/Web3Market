@@ -31,11 +31,14 @@
     report("DIAGNOSTIC: initialization promise failed: "+String(reason&&reason.message||reason||"unknown error").slice(0,180));
   });
   setTimeout(function(){
+    const priorStatus=status?String(status.textContent||"").slice(0,180):"status element missing";
+    const authorized=!!document.body.classList.contains("support-authorized");
     report("DIAGNOSTIC RESULT · bootStarted="+String(!!window.__web3marketSupportBootStarted)
       +" · bootFinished="+String(!!window.__web3marketSupportBootFinished)
       +" · supabaseLibrary="+String(!!window.supabase)
       +" · supabaseClient="+String(!!(window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase))
-      + (window.__web3marketSupportBootFinished ? " · boot finished; inspect status/auth flow." : window.__web3marketSupportBootStarted ? " · initialization is stuck." : " · support-chat.js did not start."));
+      +" · authorizedUI="+String(authorized)
+      +" · priorStatus="+priorStatus);
   },5000);
 })();
 </script></body></html>
