@@ -48,7 +48,8 @@ Deno.serve(async req=>{
 
     const {data:deal}=await sb.from("deals").select("*").eq("id",dealId).maybeSingle();
     if(!deal) return json(404,{ok:false,error:"Deal not found"});
-    const {data:activeDispute}=await sb.from("deal_disputes").select("id,status").eq("deal_id",dealId).in("status",["open","under_review"]).maybeSingle();
+    const {data:activeDispute,error:disputeError}=await sb.from("deal_disputes").select("id,status").eq("deal_id",dealId).in("status",["open","under_review"]).maybeSingle();
+    if(disputeError) return json(503,{ok:false,error:"Could not verify dispute status; release blocked"});
     if(activeDispute||["open","under_review"].includes(String(deal.dispute_status||"").toLowerCase())) return json(409,{ok:false,error:"Release blocked while a dispute is open"});
     if(deal.buyer_id!==userData.user.id&&deal.seller_id!==userData.user.id)
       return json(403,{ok:false,error:"Not a deal participant"});
