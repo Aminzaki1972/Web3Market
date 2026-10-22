@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Web3Market Support Preview — Test Login</title>
+<link rel="stylesheet" href="css/marketplace.css">
+<style>
+body{min-height:100vh;display:grid;place-items:center;padding:20px;background:#f5f7fb;color:#172033;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+.preview-login{width:min(100%,440px);background:#fff;border:1px solid #e2e7f0;border-radius:18px;padding:26px;box-shadow:0 16px 42px rgba(24,39,75,.08)}
+.preview-login h1{margin:0 0 8px;font-size:24px}.preview-login p{color:#5c6678;line-height:1.5}
+.preview-login label{display:block;font-weight:700;margin:14px 0 6px}
+.preview-login input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd3e1;border-radius:10px;font:inherit}
+.preview-login button{width:100%;margin-top:18px;padding:12px;border:0;border-radius:10px;background:#635bff;color:#fff;font-weight:800;font-size:15px}
+#status{overflow-wrap:anywhere;font-size:14px}.hint{font-size:12px}
+</style>
+</head>
+<body>
+<main class="preview-login">
+<p style="color:#635bff;font-weight:900;letter-spacing:1px;margin-top:0">WEB3MARKET · TEST ENVIRONMENT</p>
+<h1>Support Preview Login</h1>
+<p>Sign in with a test account from the separate support-test Supabase project. This preview is not connected to the live production database.</p>
+<form id="login-form">
+<label for="email">Test account email</label>
+<input id="email" name="email" type="email" autocomplete="username" required>
+<label for="password">Password</label>
+<input id="password" name="password" type="password" autocomplete="current-password" required>
+<button id="submit" type="submit">Sign in to test</button>
+</form>
+<p id="status" role="status" aria-live="polite"></p>
+<p class="hint">Use test credentials only. Do not enter your live Web3Market password.</p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js?v=preview-test-db"></script>
+<script>
+(function(){
+ const form=document.getElementById("login-form"),status=document.getElementById("status"),button=document.getElementById("submit");
+ form.addEventListener("submit",async function(event){
+  event.preventDefault();button.disabled=true;status.textContent="Signing in…";
+  try{
+   const client=window.Web3MarketSupabase&&window.Web3MarketSupabase.getClient();
+   if(!client)throw new Error("The test connection could not initialize. Refresh and try again.");
+   const result=await client.auth.signInWithPassword({email:document.getElementById("email").value.trim(),password:document.getElementById("password").value});
+   if(result.error)throw result.error;
+   const user=result.data&&result.data.user;
+   if(!user)throw new Error("No test user was returned.");
+   let target="support-chat.html";
+   const profile=await client.from("profiles").select("role").eq("id",user.id).maybeSingle();
+   if(!profile.error&&String(profile.data&&profile.data.role||"").toLowerCase()==="admin")target="admin-support.html";
+   location.href=target;
+  }catch(error){status.textContent=error&&error.message?error.message:"Sign-in failed. Check the test account and try again.";button.disabled=false;}
+ });
+})();
+</script>
+</body>
+</html>
