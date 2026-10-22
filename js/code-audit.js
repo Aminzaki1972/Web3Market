@@ -52,7 +52,9 @@
  window.W3MResumeAudit=async()=>{
    try{
      const c=await ensureClient();
-     const a=await getAudit(c,auditId); if(!a)throw Error("Audit not found.");
+     const auth=await c.auth.getSession();
+     if(!auth?.data?.session?.user)throw Error("Sign in to access this audit record.");
+     const a=await getAudit(c,auditId); if(!a)throw Error("Audit not found or you do not have permission to view it.");
      const r=await c.functions.invoke("w3m-code-audit",{body:{audit_id:a.id}});
      if(r.error)throw Error(r.error.message||"Unable to resume audit.");
      location.reload();
@@ -63,7 +65,10 @@
    if(!b||!m||!input)return;
    b.disabled=true;b.textContent="Starting…";m.innerHTML="<p class='muted'>Creating secure audit session…</p>";
    try{
-     const c=await ensureClient(),repo=input.value.trim();
+     const c=await ensureClient();
+     const auth=await c.auth.getSession();
+     if(!auth?.data?.session?.user)throw Error("Please sign in or create a Web3Market account before running an audit. Audit history and detailed results are protected for registered members.");
+     const repo=input.value.trim();
      if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
      b.textContent="Running Audit…";m.innerHTML="<p class='muted'>Scanning GitHub and preparing AI analysis…</p>";
      const body={repo_url:repo};if(id)body.project_id=id;
@@ -105,7 +110,13 @@
  async function openExisting(){
    if(!auditId)return false;
    try{
-     const c=await ensureClient(),a=await getAudit(c,auditId);if(!a)throw Error("Audit not found.");
+     const c=await ensureClient();
+     const auth=await c.auth.getSession();
+     if(!auth?.data?.session?.user){
+       root.innerHTML='<div class="audit-status"><h2>Sign in to view this audit</h2><p class="muted">Detailed reports and repository findings are available only to the audit owner and authorized administrators.</p><a class="btn btn-primary" href="login.html?next='+encodeURIComponent(location.pathname.split("/").pop()+location.search)+'">Sign in</a> <a class="btn btn-ghost" href="register.html">Create account</a></div>';
+       return true;
+     }
+     const a=await getAudit(c,auditId);if(!a)throw Error("Audit not found or you do not have permission to view it.");
      if(["queued","scanning","analyzing","retrying"].includes(a.status)){
        const p=a.analysis_progress||{}; const current=Number(a.current_chunk||p.current_chunk||0); const total=Number(a.total_chunks||p.total_chunks||0);
        const pct=total?Math.min(100,Math.round(current/total*100)):0;
