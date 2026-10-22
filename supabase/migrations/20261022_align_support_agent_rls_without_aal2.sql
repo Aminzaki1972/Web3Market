@@ -52,28 +52,7 @@ with check (
   )
 );
 
-create policy support_agent_read_call_signals_without_aal2
-on realtime.messages for select to authenticated
-using (
-  extension = 'broadcast'
-  and topic = realtime.topic()
-  and private.support_is_support_agent()
-  and exists (
-    select 1 from public.support_conversations c
-    where realtime.topic() = ('support-call:' || c.id::text)
-      and coalesce(c.status, 'open') <> 'closed'
-  )
-);
-
-create policy support_agent_send_call_signals_without_aal2
-on realtime.messages for insert to authenticated
-with check (
-  extension = 'broadcast'
-  and topic = realtime.topic()
-  and private.support_is_support_agent()
-  and exists (
-    select 1 from public.support_conversations c
-    where realtime.topic() = ('support-call:' || c.id::text)
-      and coalesce(c.status, 'open') <> 'closed'
-  )
-);
+-- Support agents must not participate in voice/video calls or access call signaling.
+-- Drop defensively in case this policy existed in an earlier test database.
+drop policy if exists support_agent_read_call_signals_without_aal2 on realtime.messages;
+drop policy if exists support_agent_send_call_signals_without_aal2 on realtime.messages;
