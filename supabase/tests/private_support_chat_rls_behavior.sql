@@ -224,6 +224,9 @@ reset role;
 
 select 'PASS: closed-thread writes, buyer status changes and sender spoofing are blocked' as result;
 
+-- Reset the buyer thread for the separate open-call signaling test (superuser setup).
+update public.support_conversations set status='open'
+where id='10000000-0000-0000-0000-000000000001';
 
 -- Realtime call signaling isolation: a buyer can signal only on their own
 -- open conversation topic, not another account's topic.
