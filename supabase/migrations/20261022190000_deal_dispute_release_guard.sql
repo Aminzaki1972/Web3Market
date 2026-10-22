@@ -17,7 +17,7 @@ begin
   update public.deals
      set dispute_status = case
            when v_status in ('open','under_review') then v_status
-           else 'closed'
+           else 'none'
          end,
          disputed_at = case
            when v_status in ('open','under_review') then coalesce(disputed_at, now())
