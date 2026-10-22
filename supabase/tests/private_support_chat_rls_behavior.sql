@@ -66,21 +66,26 @@ begin
 end $$;
 reset role;
 
--- Assigned support agents can read/reply at AAL1 but cannot change thread status.
+-- Assigned support agents require AAL2 to read/reply; AAL1 must not expose inbox data.
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000004',false);
 select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal1"}',false);
 do $support_agent_no_mfa$
 declare affected_rows integer;
 begin
-  if (select count(*) from public.support_conversations) <> 2 then
-    raise exception 'FAIL: assigned support agent without AAL2 expected 2 conversations, got %', (select count(*) from public.support_conversations);
+  if (select count(*) from public.support_conversations) <> 0 then
+    raise exception 'FAIL: support agent without AAL2 can read conversations';
   end if;
-  if (select count(*) from public.support_messages) <> 2 then
-    raise exception 'FAIL: assigned support agent without AAL2 cannot read all messages';
+  if (select count(*) from public.support_messages) <> 0 then
+    raise exception 'FAIL: support agent without AAL2 can read messages';
   end if;
-  insert into public.support_messages(conversation_id, sender_id, body)
-  values ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','Support agent reply without AAL2');
+  begin
+    insert into public.support_messages(conversation_id, sender_id, body)
+    values ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','Support agent reply without AAL2');
+    raise exception 'FAIL: support agent without AAL2 inserted a reply';
+  exception when insufficient_privilege then
+    null;
+  end;
   update public.support_conversations set status='closed'
   where id='10000000-0000-0000-0000-000000000001';
   get diagnostics affected_rows = row_count;
