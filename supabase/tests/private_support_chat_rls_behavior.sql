@@ -5,17 +5,24 @@
 insert into auth.users (id, email, raw_user_meta_data) values
  ('00000000-0000-0000-0000-000000000001','buyer1@example.test','{"name":"Buyer One"}'),
  ('00000000-0000-0000-0000-000000000002','seller2@example.test','{"name":"Seller Two"}'),
- ('00000000-0000-0000-0000-000000000003','admin@example.test','{"name":"Admin"}');
+ ('00000000-0000-0000-0000-000000000003','admin@example.test','{"name":"Admin"}'),
+ ('00000000-0000-0000-0000-000000000004','support-agent@example.test','{"name":"Support Agent"}');
 insert into public.profiles (id, role) values
  ('00000000-0000-0000-0000-000000000001','buyer'),
  ('00000000-0000-0000-0000-000000000002','seller'),
- ('00000000-0000-0000-0000-000000000003','admin');
+ ('00000000-0000-0000-0000-000000000003','admin'),
+ ('00000000-0000-0000-0000-000000000004','seller');
+insert into public.support_agents (user_id) values ('00000000-0000-0000-0000-000000000004');
 insert into public.support_conversations (id, user_id, subject) values
  ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','Buyer private conversation'),
  ('10000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000002','Seller private conversation');
 insert into public.support_messages (conversation_id, sender_id, body) values
  ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','Buyer private message'),
  ('10000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000002','Seller private message');
+
+insert into realtime.messages(topic, extension, payload, event, private) values
+ ('support-call:10000000-0000-0000-0000-000000000001','broadcast','{"type":"seed"}','signal',true),
+ ('support-call:10000000-0000-0000-0000-000000000002','broadcast','{"type":"seed"}','signal',true);
 
 -- Mock the request claims the same way Supabase PostgREST sets request context.
 create or replace function auth.uid() returns uuid
@@ -59,6 +66,44 @@ begin
 end $$;
 reset role;
 
+-- Assigned support agents require AAL2, can read/reply, but cannot change thread status.
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000004',false);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal1"}',false);
+do $$
+begin
+  if (select count(*) from public.support_conversations) <> 0 then
+    raise exception 'FAIL: support agent without AAL2 can read conversations';
+  end if;
+end $$;
+reset role;
+
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000004',false);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',false);
+do $$
+declare affected_rows integer;
+begin
+  if (select count(*) from public.support_conversations) <> 2 then
+    raise exception 'FAIL: assigned support agent cannot read all support conversations';
+  end if;
+  if (select count(*) from public.support_messages) <> 2 then
+    raise exception 'FAIL: assigned support agent cannot read all support messages';
+  end if;
+  insert into public.support_messages(conversation_id, sender_id, body)
+  values ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','Support agent reply');
+  update public.support_conversations set status='closed'
+  where id='10000000-0000-0000-0000-000000000001';
+  get diagnostics affected_rows = row_count;
+  if affected_rows <> 0 then
+    raise exception 'FAIL: support agent changed conversation status';
+  end if;
+  if (select status from public.support_conversations where id='10000000-0000-0000-0000-000000000001') <> 'open' then
+    raise exception 'FAIL: support agent changed conversation status';
+  end if;
+end $$;
+reset role;
+
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
 select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',false);
@@ -67,7 +112,7 @@ begin
   if (select count(*) from public.support_conversations) <> 2 then
     raise exception 'FAIL: admin with aal2 cannot read all support conversations';
   end if;
-  if (select count(*) from public.support_messages) <> 2 then
+  if (select count(*) from public.support_messages) <> 3 then
     raise exception 'FAIL: admin with aal2 cannot read all support messages';
   end if;
 end $$;
@@ -178,3 +223,53 @@ end $$;
 reset role;
 
 select 'PASS: closed-thread writes, buyer status changes and sender spoofing are blocked' as result;
+
+-- Reset the buyer thread for the separate open-call signaling test (superuser setup).
+update public.support_conversations set status='open'
+where id='10000000-0000-0000-0000-000000000001';
+
+-- Realtime call signaling isolation: a buyer can signal only on their own
+-- open conversation topic, not another account's topic.
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal1"}',false);
+select set_config('realtime.topic','support-call:10000000-0000-0000-0000-000000000001',false);
+do $$
+begin
+  if (select count(*) from realtime.messages) <> 1 then
+    raise exception 'FAIL: participant can read another account call signaling or cannot read own';
+  end if;
+  insert into realtime.messages(topic, extension, payload, event, private)
+  values ('support-call:10000000-0000-0000-0000-000000000001','broadcast','{"type":"signal"}','signal',true);
+  if not exists (
+    select 1 from realtime.messages
+    where topic='support-call:10000000-0000-0000-0000-000000000001'
+  ) then
+    raise exception 'FAIL: participant could not publish to own call topic';
+  end if;
+end $$;
+reset role;
+
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal1"}',false);
+select set_config('realtime.topic','support-call:10000000-0000-0000-0000-000000000002',false);
+do $$
+begin
+  begin
+    insert into realtime.messages(topic, extension, payload, event, private)
+    values ('support-call:10000000-0000-0000-0000-000000000002','broadcast','{"type":"signal"}','signal',true);
+    raise exception 'FAIL: buyer published to another account call topic';
+  exception when insufficient_privilege then
+    null;
+  end;
+  if exists (
+    select 1 from realtime.messages
+    where topic='support-call:10000000-0000-0000-0000-000000000002'
+  ) then
+    raise exception 'FAIL: unauthorized cross-account call signal exists';
+  end if;
+end $$;
+reset role;
+
+select 'PASS: private call signaling RLS blocks cross-account topic access in disposable PostgreSQL' as result;
