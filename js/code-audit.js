@@ -132,4 +132,43 @@ if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit coul
    }catch(e){root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit</h2><p class="audit-error">'+esc(e?.message||"Unable to load audit.")+"</p></div>";return true;}
  }
  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>openExisting().then(x=>{if(!x)start()}),{once:true});else openExisting().then(x=>{if(!x)start()});
+
+ async function loadAuditHistory(){
+   const panel=document.getElementById("auditHistory");
+   if(!panel||auditId)return;
+   const dateInput=document.getElementById("auditHistoryDate");
+   const countEl=document.getElementById("auditHistoryCount");
+   const message=document.getElementById("auditHistoryMessage");
+   const list=document.getElementById("auditHistoryList");
+   const localDate=d=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");return y+"-"+m+"-"+day;};
+   dateInput.value=localDate(new Date());
+   const load=async()=>{
+     const chosen=dateInput.value;
+     if(!chosen){message.textContent="Choose a date to view its audit activity.";countEl.textContent="—";list.innerHTML="";return;}
+     message.textContent="Loading audit records…";countEl.textContent="—";list.innerHTML="";
+     try{
+       const [y,m,d]=chosen.split("-").map(Number);
+       const start=new Date(y,m-1,d),end=new Date(y,m-1,d+1);
+       const c=await ensureClient();
+       const r=await c.from("code_audits").select("id,repo_url,repo_owner,repo_name,branch,commit_sha,status,files_scanned,overall_score,risk_level,created_at,completed_at").gte("created_at",start.toISOString()).lt("created_at",end.toISOString()).order("created_at",{ascending:false}).limit(500);
+       if(r.error)throw r.error;
+       const rows=r.data||[];countEl.textContent=String(rows.length);
+       if(!rows.length){message.textContent="No audit records were found for "+chosen+".";return;}
+       message.textContent="Showing "+rows.length+" recorded audit attempt"+(rows.length===1?"":"s")+" for "+chosen+".";
+       list.innerHTML=rows.map(a=>{
+         const repo=(a.repo_owner||"unknown-owner")+"/"+(a.repo_name||"repository");
+         const url=(()=>{try{const u=new URL(a.repo_url||"");return u.protocol==="https:"&&u.hostname==="github.com"&&u.pathname.split("/").filter(Boolean).length>=2?u.href:""}catch(_){return""}})();
+         const repoLabel=url?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(repo)+' ↗</a>':esc(repo);
+         const when=a.created_at?new Date(a.created_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"}):"Time unavailable";
+         const status=String(a.status||"unknown").toLowerCase();
+         const score=a.overall_score==null?"":'<div class="audit-history-score">'+esc(Number(a.overall_score).toFixed(1))+'/100</div>';
+         const result=a.overall_score==null?esc(a.risk_level||"Result pending"):esc(a.risk_level||"Risk not rated");
+         return '<article class="audit-history-row"><div><div class="audit-history-repo">'+repoLabel+'</div><div class="audit-history-meta">'+esc(when)+' · '+esc(a.files_scanned||0)+' files scanned'+(a.commit_sha?' · Commit '+esc(String(a.commit_sha).slice(0,10)):"")+'</div></div><div class="audit-history-result">'+score+'<div>'+result+'</div><span class="audit-history-status '+esc(status)+'">'+esc(status)+'</span></div></article>';
+       }).join("");
+     }catch(e){console.error("Unable to load public audit history",e);message.textContent="Audit history is temporarily unavailable. Please try again later.";countEl.textContent="—";}
+   };
+   dateInput.addEventListener("change",load);
+   await load();
+ }
+ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>loadAuditHistory(),{once:true});else loadAuditHistory();
 })();
