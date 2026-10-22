@@ -52,7 +52,9 @@
  window.W3MResumeAudit=async()=>{
    try{
      const c=await ensureClient();
-     const a=await getAudit(c,auditId); if(!a)throw Error("Audit not found.");
+     const auth=await c.auth.getSession();
+     if(!auth?.data?.session?.user)throw Error("Sign in to access this audit record.");
+     const a=await getAudit(c,auditId); if(!a)throw Error("Audit not found or you do not have permission to view it.");
      const r=await c.functions.invoke("w3m-code-audit",{body:{audit_id:a.id}});
      if(r.error)throw Error(r.error.message||"Unable to resume audit.");
      location.reload();
@@ -63,7 +65,10 @@
    if(!b||!m||!input)return;
    b.disabled=true;b.textContent="Starting…";m.innerHTML="<p class='muted'>Creating secure audit session…</p>";
    try{
-     const c=await ensureClient(),repo=input.value.trim();
+     const c=await ensureClient();
+     const auth=await c.auth.getSession();
+     if(!auth?.data?.session?.user)throw Error("Please sign in or create a Web3Market account before running an audit. Audit history and detailed results are protected for registered members.");
+     const repo=input.value.trim();
      if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
      b.textContent="Running Audit…";m.innerHTML="<p class='muted'>Scanning GitHub and preparing AI analysis…</p>";
      const body={repo_url:repo};if(id)body.project_id=id;
@@ -105,7 +110,13 @@
  async function openExisting(){
    if(!auditId)return false;
    try{
-     const c=await ensureClient(),a=await getAudit(c,auditId);if(!a)throw Error("Audit not found.");
+     const c=await ensureClient();
+     const auth=await c.auth.getSession();
+     if(!auth?.data?.session?.user){
+       root.innerHTML='<div class="audit-status"><h2>Sign in to view this audit</h2><p class="muted">Detailed reports and repository findings are available only to the audit owner and authorized administrators.</p><a class="btn btn-primary" href="login.html?next='+encodeURIComponent(location.pathname.split("/").pop()+location.search)+'">Sign in</a> <a class="btn btn-ghost" href="register.html">Create account</a></div>';
+       return true;
+     }
+     const a=await getAudit(c,auditId);if(!a)throw Error("Audit not found or you do not have permission to view it.");
      if(["queued","scanning","analyzing","retrying"].includes(a.status)){
        const p=a.analysis_progress||{}; const current=Number(a.current_chunk||p.current_chunk||0); const total=Number(a.total_chunks||p.total_chunks||0);
        const pct=total?Math.min(100,Math.round(current/total*100)):0;
@@ -132,4 +143,56 @@ if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit coul
    }catch(e){root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit</h2><p class="audit-error">'+esc(e?.message||"Unable to load audit.")+"</p></div>";return true;}
  }
  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>openExisting().then(x=>{if(!x)start()}),{once:true});else openExisting().then(x=>{if(!x)start()});
+
+ async function loadAuditHistory(){
+   const panel=document.getElementById("auditHistory");
+   if(!panel)return;
+   if(auditId){panel.hidden=true;return;}
+   const c=await ensureClient();
+   const sessionResult=await c.auth.getSession();
+   const session=sessionResult?.data?.session;
+   const topbar=document.querySelector(".topbar nav");
+   const accountLink=document.getElementById("auditAccountLink");
+   if(session?.user){
+     if(accountLink){accountLink.textContent="My Account";accountLink.href="login.html";accountLink.hidden=false;}
+   }else{
+     if(accountLink){accountLink.textContent="Sign in";accountLink.href="login.html?next="+encodeURIComponent("code-audit.html");accountLink.hidden=false;}
+     const card=panel.querySelector(".audit-history-card");
+     if(card)card.innerHTML='<div class="audit-kicker">MEMBERS AREA</div><h2 id="auditHistoryTitle">W3M AI Audit Activity &amp; History</h2><p class="muted">The community audit archive and statistics are available to signed-in members. Detailed audit findings remain restricted by account permissions.</p><div class="audit-history-controls"><a class="btn btn-primary" href="login.html?next='+encodeURIComponent("code-audit.html")+'">Sign in to view archive</a><a class="btn btn-ghost" href="register.html?next='+encodeURIComponent("code-audit.html")+'">Create account</a></div><p class="audit-history-footnote">Repository security details are not published in the public archive.</p>';
+     return;
+   }
+   const dateInput=document.getElementById("auditHistoryDate");
+   const countEl=document.getElementById("auditHistoryCount");
+   const message=document.getElementById("auditHistoryMessage");
+   const list=document.getElementById("auditHistoryList");
+   const localDate=d=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");return y+"-"+m+"-"+day;};
+   dateInput.value=localDate(new Date());
+   const load=async()=>{
+     const chosen=dateInput.value;
+     if(!chosen){message.textContent="Choose a date to view its audit activity.";countEl.textContent="—";list.innerHTML="";return;}
+     message.textContent="Loading audit records…";countEl.textContent="—";list.innerHTML="";
+     try{
+       const [y,m,d]=chosen.split("-").map(Number);
+       const start=new Date(y,m-1,d),end=new Date(y,m-1,d+1);
+       const r=await c.rpc("get_code_audit_archive",{p_start:start.toISOString(),p_end:end.toISOString()});
+       if(r.error)throw r.error;
+       const rows=r.data||[];countEl.textContent=String(rows.length);
+       if(!rows.length){message.textContent="No audit records were found for "+chosen+".";return;}
+       message.textContent="Showing "+rows.length+" recorded audit attempt"+(rows.length===1?"":"s")+" for "+chosen+".";
+       list.innerHTML=rows.map(a=>{
+         const repo=(a.repo_owner||"unknown-owner")+"/"+(a.repo_name||"repository");
+         const repoLabel=esc(repo);
+         const when=a.created_at?new Date(a.created_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"}):"Time unavailable";
+         const rawStatus=String(a.status||"unknown").toLowerCase();
+         const status=["completed","failed","paused","running","pending","processing","queued","scanning","analyzing","retrying"].includes(rawStatus)?rawStatus:"unknown";
+         const score=a.overall_score==null?"":'<div class="audit-history-score">'+esc(Number(a.overall_score).toFixed(1))+'/100</div>';
+         const result=a.overall_score==null?esc(a.risk_level||"Result pending"):esc(a.risk_level||"Risk not rated");
+         return '<article class="audit-history-row"><div><div class="audit-history-repo">'+repoLabel+'</div><div class="audit-history-meta">'+esc(when)+' · '+esc(a.files_scanned||0)+' files scanned'+'</div></div><div class="audit-history-result">'+score+'<div>'+result+'</div><span class="audit-history-status '+esc(status)+'">'+esc(status)+'</span></div></article>';
+       }).join("");
+     }catch(e){console.error("Unable to load public audit history",e);message.textContent="Audit history is temporarily unavailable. Please try again later.";countEl.textContent="—";}
+   };
+   dateInput.addEventListener("change",load);
+   await load();
+ }
+ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>loadAuditHistory(),{once:true});else loadAuditHistory();
 })();
