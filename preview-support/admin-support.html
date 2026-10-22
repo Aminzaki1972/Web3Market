@@ -17,29 +17,25 @@
   "use strict";
   const status=document.getElementById("adminSupportStatus");
   function report(message){
-    if(status && !window.__web3marketSupportBootFinished){
-      status.textContent=message;
-      status.style.color="#b91c1c";
-    }
+    if(status){status.textContent=message;status.style.color="#fbbf24";status.style.fontWeight="800";}
   }
+  report("DIAGNOSTIC ACTIVE · checking support scripts…");
   window.addEventListener("error",function(event){
     const source=String(event.filename||"");
     if(/support-chat\.js|supabase\.js|support-calls\.js/.test(source)){
-      report("Support script error. Reload the preview; if this repeats, report that the support script failed to execute.");
+      report("DIAGNOSTIC: a support script raised an error. Check the preview scripts and browser console.");
     }
   });
   window.addEventListener("unhandledrejection",function(event){
-    if(!window.__web3marketSupportBootFinished){
-      const reason=event.reason;
-      report("Support initialization failed: "+String(reason&&reason.message||reason||"unknown error").slice(0,220));
-    }
+    const reason=event.reason;
+    report("DIAGNOSTIC: initialization promise failed: "+String(reason&&reason.message||reason||"unknown error").slice(0,180));
   });
   setTimeout(function(){
-    if(!window.__web3marketSupportBootStarted){
-      report("Support script did not start. The preview may be serving a stale or incomplete deployment. Reload once and report this message if it remains.");
-    }else if(!window.__web3marketSupportBootFinished){
-      report("Support initialization is taking too long. Check the preview connection and reload; no production data was changed.");
-    }
+    report("DIAGNOSTIC RESULT · bootStarted="+String(!!window.__web3marketSupportBootStarted)
+      +" · bootFinished="+String(!!window.__web3marketSupportBootFinished)
+      +" · supabaseLibrary="+String(!!window.supabase)
+      +" · supabaseClient="+String(!!(window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase))
+      + (window.__web3marketSupportBootFinished ? " · boot finished; inspect status/auth flow." : window.__web3marketSupportBootStarted ? " · initialization is stuck." : " · support-chat.js did not start."));
   },5000);
 })();
 </script></body></html>
