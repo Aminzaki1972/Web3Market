@@ -33,9 +33,8 @@
     const {data:assignment,error:assignmentError}=await db.from("support_agents").select("user_id").eq("user_id",currentUser.id).maybeSingle();
     if(assignmentError)throw new Error("Limited support access could not be verified. "+assignmentError.message);
     if(!assignment)throw new Error("This account is not authorized to view the support inbox.");
-    const {data:aal,error:ae}=await db.auth.mfa.getAuthenticatorAssuranceLevel();
-    if(ae)throw ae;
-    if(aal?.currentLevel!=="aal2")throw new Error("For security, complete two-factor verification before opening the support inbox.");
+    // Assigned support agents are deliberately limited to reading and replying.
+    // They do not need AAL2; database RLS still blocks status changes and call signaling.
     supportAgent=true;
   }
   async function ensureUserRole(){
@@ -67,7 +66,7 @@
   function publishSupportCallContext(){
     window.dispatchEvent(new CustomEvent("web3market:support-context",{detail:{
       conversationId:currentConversation?.id||null,
-      role:ADMIN_PAGE?"admin":"user",
+      role:supportAgent?"support-agent":(ADMIN_PAGE?"admin":"user"),
       status:currentConversation?.status||"closed"
     }}));
   }
