@@ -137,6 +137,19 @@ if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit coul
    const panel=document.getElementById("auditHistory");
    if(!panel)return;
    if(auditId){panel.hidden=true;return;}
+   const c=await ensureClient();
+   const sessionResult=await c.auth.getSession();
+   const session=sessionResult?.data?.session;
+   const topbar=document.querySelector(".topbar nav");
+   const accountLink=document.getElementById("auditAccountLink");
+   if(session?.user){
+     if(accountLink){accountLink.textContent="My Account";accountLink.href="dashboard.html";accountLink.hidden=false;}
+   }else{
+     if(accountLink){accountLink.textContent="Sign in";accountLink.href="login.html?next="+encodeURIComponent("code-audit.html");accountLink.hidden=false;}
+     const card=panel.querySelector(".audit-history-card");
+     if(card)card.innerHTML='<div class="audit-kicker">MEMBERS AREA</div><h2 id="auditHistoryTitle">W3M AI Audit Activity &amp; History</h2><p class="muted">The community audit archive and statistics are available to signed-in members. Detailed audit findings remain restricted by account permissions.</p><div class="audit-history-controls"><a class="btn btn-primary" href="login.html?next='+encodeURIComponent("code-audit.html")+'">Sign in to view archive</a><a class="btn btn-ghost" href="signup.html?next='+encodeURIComponent("code-audit.html")+'">Create account</a></div><p class="audit-history-footnote">Repository security details are not published in the public archive.</p>';
+     return;
+   }
    const dateInput=document.getElementById("auditHistoryDate");
    const countEl=document.getElementById("auditHistoryCount");
    const message=document.getElementById("auditHistoryMessage");
@@ -150,22 +163,20 @@ if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit coul
      try{
        const [y,m,d]=chosen.split("-").map(Number);
        const start=new Date(y,m-1,d),end=new Date(y,m-1,d+1);
-       const c=await ensureClient();
-       const r=await c.from("code_audits").select("id,repo_url,repo_owner,repo_name,branch,commit_sha,status,files_scanned,overall_score,risk_level,created_at,completed_at").gte("created_at",start.toISOString()).lt("created_at",end.toISOString()).order("created_at",{ascending:false}).limit(500);
+       const r=await c.rpc("get_code_audit_archive",{p_start:start.toISOString(),p_end:end.toISOString()});
        if(r.error)throw r.error;
        const rows=r.data||[];countEl.textContent=String(rows.length);
        if(!rows.length){message.textContent="No audit records were found for "+chosen+".";return;}
        message.textContent="Showing "+rows.length+" recorded audit attempt"+(rows.length===1?"":"s")+" for "+chosen+".";
        list.innerHTML=rows.map(a=>{
          const repo=(a.repo_owner||"unknown-owner")+"/"+(a.repo_name||"repository");
-         const url=(()=>{try{const u=new URL(a.repo_url||"");return u.protocol==="https:"&&u.hostname==="github.com"&&u.pathname.split("/").filter(Boolean).length>=2?u.href:""}catch(_){return""}})();
-         const repoLabel=url?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(repo)+' ↗</a>':esc(repo);
+         const repoLabel=esc(repo);
          const when=a.created_at?new Date(a.created_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"}):"Time unavailable";
          const rawStatus=String(a.status||"unknown").toLowerCase();
          const status=["completed","failed","paused","running","pending","processing"].includes(rawStatus)?rawStatus:"unknown";
          const score=a.overall_score==null?"":'<div class="audit-history-score">'+esc(Number(a.overall_score).toFixed(1))+'/100</div>';
          const result=a.overall_score==null?esc(a.risk_level||"Result pending"):esc(a.risk_level||"Risk not rated");
-         return '<article class="audit-history-row"><div><div class="audit-history-repo">'+repoLabel+'</div><div class="audit-history-meta">'+esc(when)+' · '+esc(a.files_scanned||0)+' files scanned'+(a.commit_sha?' · Commit '+esc(String(a.commit_sha).slice(0,10)):"")+'</div></div><div class="audit-history-result">'+score+'<div>'+result+'</div><span class="audit-history-status '+esc(status)+'">'+esc(status)+'</span></div></article>';
+         return '<article class="audit-history-row"><div><div class="audit-history-repo">'+repoLabel+'</div><div class="audit-history-meta">'+esc(when)+' · '+esc(a.files_scanned||0)+' files scanned'+'</div></div><div class="audit-history-result">'+score+'<div>'+result+'</div><span class="audit-history-status '+esc(status)+'">'+esc(status)+'</span></div></article>';
        }).join("");
      }catch(e){console.error("Unable to load public audit history",e);message.textContent="Audit history is temporarily unavailable. Please try again later.";countEl.textContent="—";}
    };
