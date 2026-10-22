@@ -58,7 +58,8 @@ Deno.serve(async (req)=>{
     stage="deal_lookup";
     const {data:deal,error:dealError}=await supabase.from("deals").select("*").eq("id",dealId).maybeSingle();
     if(dealError||!deal) return json(404,{ok:false,error:"Deal not found"});
-    const {data:activeDispute}=await supabase.from("deal_disputes").select("id,status").eq("deal_id",dealId).in("status",["open","under_review"]).maybeSingle();
+    const {data:activeDispute,error:disputeError}=await supabase.from("deal_disputes").select("id,status").eq("deal_id",dealId).in("status",["open","under_review"]).maybeSingle();
+    if(disputeError) return json(503,{ok:false,error:"Could not verify dispute status; release blocked"});
     if(activeDispute||["open","under_review"].includes(String(deal.dispute_status||"").toLowerCase())) return json(409,{ok:false,error:"Release blocked while a dispute is open"});
     const uid=userData.user.id;
     if(deal.buyer_id!==uid && deal.seller_id!==uid) return json(403,{ok:false,error:"Not a deal participant"});
