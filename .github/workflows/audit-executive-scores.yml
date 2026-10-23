@@ -15,6 +15,7 @@ on:
       - "supabase/functions/w3m-code-audit/index.ts"
       - "supabase/migrations/*audit_executive_scores.sql"
       - "js/code-audit.js"
+      - "tests/audit-executive-scores-smoke.py"
       - ".github/workflows/audit-executive-scores.yml"
 
 permissions:
