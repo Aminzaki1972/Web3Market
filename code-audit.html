@@ -25,6 +25,104 @@
     <p class="audit-history-footnote">History reflects records currently stored by Web3Market; older attempts that were not recorded cannot be reconstructed. Times are displayed in your device’s local time zone.</p>
   </div>
 </section>
+
+<section class="w3m-guide-wrap" aria-labelledby="w3mGuideTitle">
+  <div class="audit-card w3m-guide-card">
+    <div class="audit-kicker">WHILE YOU WAIT · DISCOVER W3M</div>
+    <h2 id="w3mGuideTitle">More Than a Marketplace</h2>
+    <p class="muted w3m-guide-intro">Explore how Web3Market helps people discover projects, review opportunities, and move through a sale.</p>
+    <div class="w3m-guide-panel" aria-live="polite" aria-atomic="true">
+      <div class="w3m-guide-number" id="w3mGuideNumber">01 / 05</div>
+      <div class="w3m-guide-icon" id="w3mGuideIcon" aria-hidden="true">＋</div>
+      <h3 id="w3mGuideSlideTitle">List a project</h3>
+      <p id="w3mGuideSlideText">Present a Web3 project, AI app, website, SaaS product, or digital business. Add a clear description and the available website, public repository, screenshots, and supporting details.</p>
+      <p class="w3m-guide-step" id="w3mGuideStep">STEP 1 · LIST</p>
+    </div>
+    <div class="w3m-guide-controls">
+      <button type="button" class="btn btn-ghost" id="w3mGuidePrev" aria-label="Previous Web3Market feature">← Previous</button>
+      <div class="w3m-guide-dots" id="w3mGuideDots" aria-label="Guide slide navigation">
+        <button type="button" aria-label="Show slide 1" aria-current="true"></button>
+        <button type="button" aria-label="Show slide 2"></button>
+        <button type="button" aria-label="Show slide 3"></button>
+        <button type="button" aria-label="Show slide 4"></button>
+        <button type="button" aria-label="Show slide 5"></button>
+      </div>
+      <button type="button" class="btn btn-ghost" id="w3mGuideNext" aria-label="Next Web3Market feature">Next →</button>
+    </div>
+    <div class="w3m-guide-footer">
+      <span class="muted" id="w3mGuideAutoStatus">Automatically changes every 7 seconds</span>
+      <button type="button" class="w3m-guide-pause" id="w3mGuidePause" aria-pressed="false">Pause rotation</button>
+    </div>
+    <div class="w3m-guide-facts">
+      <div><strong>Free listings</strong><span class="muted">List eligible projects without an upfront listing fee.</span></div>
+      <div><strong>7.5% success fee</strong><span class="muted">Applies to completed sales, subject to the platform’s terms.</span></div>
+      <div><strong>AI-assisted review</strong><span class="muted">Helpful analysis, not a guarantee or certified security audit.</span></div>
+    </div>
+    <p class="muted w3m-guide-disclaimer">Features and deal steps depend on the project and transaction. Review the listing, agree on delivery terms, and confirm transaction status before treating a deal as complete.</p>
+  </div>
+</section>
+<style>
+.w3m-guide-wrap{max-width:1100px;margin:24px auto 40px;padding:0 16px;box-sizing:border-box}
+.w3m-guide-card{overflow:hidden}
+.w3m-guide-intro{max-width:720px;line-height:1.65}
+.w3m-guide-panel{margin-top:18px;padding:clamp(20px,4vw,34px);border:1px solid rgba(92,128,255,.28);border-radius:16px;background:linear-gradient(135deg,rgba(41,93,210,.12),rgba(117,78,190,.10));min-height:230px;box-sizing:border-box}
+.w3m-guide-number{font-size:12px;letter-spacing:.12em;font-weight:800;color:#7fa5ff}
+.w3m-guide-icon{display:grid;place-items:center;width:44px;height:44px;margin:15px 0 12px;border-radius:12px;background:rgba(82,123,255,.16);border:1px solid rgba(113,149,255,.3);font-size:24px;font-weight:700;color:#8fb0ff}
+.w3m-guide-panel h3{font-size:clamp(20px,3vw,27px);margin:0 0 9px}
+.w3m-guide-panel p{max-width:760px;line-height:1.75;margin:0}
+.w3m-guide-panel .w3m-guide-step{margin-top:18px;font-size:11px;font-weight:800;letter-spacing:.12em;color:#91a9df}
+.w3m-guide-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px}
+.w3m-guide-dots{display:flex;align-items:center;justify-content:center;gap:7px}
+.w3m-guide-dots button{width:9px;height:9px;padding:0;border:0;border-radius:99px;background:#74748a;cursor:pointer}
+.w3m-guide-dots button[aria-current="true"]{width:24px;background:#6d96ff}
+.w3m-guide-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;font-size:12px}
+.w3m-guide-pause{background:transparent;border:0;color:inherit;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:6px}
+.w3m-guide-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:24px}
+.w3m-guide-facts>div{padding:15px;border:1px solid rgba(128,128,160,.22);border-radius:12px;display:flex;flex-direction:column;gap:7px}
+.w3m-guide-facts strong{font-size:14px}
+.w3m-guide-facts span{font-size:13px;line-height:1.6}
+.w3m-guide-disclaimer{font-size:12px;line-height:1.6;margin-top:18px}
+@media(max-width:600px){.w3m-guide-controls{flex-wrap:wrap}.w3m-guide-dots{order:-1;width:100%;padding:4px 0 8px}.w3m-guide-facts{grid-template-columns:1fr}.w3m-guide-panel{min-height:270px}.w3m-guide-footer{align-items:flex-start}}
+@media(prefers-reduced-motion:reduce){.w3m-guide-panel *{animation:none!important;transition:none!important}}
+</style>
+<script>
+(function(){
+  const slides=[
+    {icon:"＋",title:"List a project",text:"Present a Web3 project, AI app, website, SaaS product, or digital business. Add a clear description and the available website, public repository, screenshots, and supporting details.",step:"STEP 1 · LIST"},
+    {icon:"⌕",title:"Help buyers evaluate it",text:"Keep the listing accurate and make supporting evidence easy to review. The GitHub audit can provide AI-assisted technical findings for a public repository; it does not guarantee that a project is safe.",step:"STEP 2 · REVIEW"},
+    {icon:"↔",title:"Discover projects and make offers",text:"Buyers can explore marketplace listings and submit an offer. Sellers review incoming offers and respond through the available marketplace workflow.",step:"STEP 3 · OFFER"},
+    {icon:"◇",title:"Coordinate the deal and delivery",text:"When a deal is available, use the Deal Room and follow the transaction’s displayed steps to agree on terms, coordinate asset delivery, and review settlement status.",step:"STEP 4 · DEAL"},
+    {icon:"✓",title:"Complete the transaction carefully",text:"Confirm the agreed delivery and transaction details before considering a sale complete. Web3Market’s stated success fee is 7.5% on completed sales, subject to the platform’s terms.",step:"STEP 5 · SETTLEMENT"}
+  ];
+  const get=id=>document.getElementById(id);
+  const title=get("w3mGuideSlideTitle");
+  if(!title)return;
+  const text=get("w3mGuideSlideText"),icon=get("w3mGuideIcon"),number=get("w3mGuideNumber"),step=get("w3mGuideStep");
+  const dots=Array.from(get("w3mGuideDots").querySelectorAll("button"));
+  const pause=get("w3mGuidePause"),status=get("w3mGuideAutoStatus");
+  let index=0,paused=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function render(next){
+    index=(next+slides.length)%slides.length;
+    const s=slides[index];
+    icon.textContent=s.icon;title.textContent=s.title;text.textContent=s.text;
+    number.textContent=String(index+1).padStart(2,"0")+" / "+String(slides.length).padStart(2,"0");
+    step.textContent=s.step;
+    dots.forEach((dot,i)=>{if(i===index)dot.setAttribute("aria-current","true");else dot.removeAttribute("aria-current");});
+  }
+  function setPaused(value){
+    paused=value;pause.setAttribute("aria-pressed",String(paused));
+    pause.textContent=paused?"Resume rotation":"Pause rotation";
+    status.textContent=paused?"Automatic rotation is paused":"Automatically changes every 7 seconds";
+  }
+  get("w3mGuidePrev").addEventListener("click",()=>render(index-1));
+  get("w3mGuideNext").addEventListener("click",()=>render(index+1));
+  dots.forEach((dot,i)=>dot.addEventListener("click",()=>render(i)));
+  pause.addEventListener("click",()=>setPaused(!paused));
+  window.setInterval(()=>{if(!paused&&!document.hidden)render(index+1);},7000);
+  render(0);setPaused(paused);
+})();
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js?v=20260904-6"></script>
 <script src="js/code-audit.js?v=20261023-english-calendar-layout-2"></script>
