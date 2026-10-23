@@ -20,3 +20,5 @@
 .audit-calendar-day.today:not(.selected){border-color:#635bff;color:#4338ca;font-weight:800}
 .audit-calendar-footer{display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid #eef0f3}
 @media(max-width:420px){.audit-calendar-picker{align-items:stretch}.audit-calendar-picker input{width:100%;box-sizing:border-box}.audit-calendar{left:0}}
+
+.audit-history-date-control{display:grid;gap:8px;min-width:min(100%,260px)}
