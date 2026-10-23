@@ -134,12 +134,18 @@ Deno.serve(async req=>{
    if(resume.status==="completed")return json({ok:true,audit_id:resume.id,status:"completed",reused:true});
    // Resuming an existing audit is not counted against the new-audit quota.
    const progress=resume.analysis_progress||{}; const heartbeat=progress.updated_at?Date.parse(progress.updated_at):0; const stale=resume.status==="scanning" && (!heartbeat || (Date.now()-heartbeat)>90000); if(resume.status==="scanning" && !stale)return json({ok:true,audit_id:resume.id,status:"scanning",reused:true});
-   // Never claim "scanning": another request may already own an active worker.
-   // Including it in the UPDATE predicate can launch duplicate workers on concurrent resumes.
-   if(resume.status==="scanning"&&stale)return json({ok:false,audit_id:resume.id,status:"failed",error:"This audit worker is stale. Start a new audit; saved history is preserved."},409);
    const resumable=["paused","analyzing","queued"].includes(resume.status);
-   if(!resumable)return json({ok:false,audit_id:resume.id,status:resume.status,error:"Audit cannot be resumed from its current state."},409);
-   const {data:claimed}=await sb.from("code_audits").update({status:"scanning",analysis_progress:{status:"scanning",current_chunk:Number(resume.current_chunk||progress.current_chunk||0),total_chunks:Number(resume.total_chunks||progress.total_chunks||0),updated_at:new Date().toISOString()}}).eq("id",resume.id).in("status",["paused","analyzing","queued"]).select("id").maybeSingle();
+   if(!resumable&&!(resume.status==="scanning"&&stale))return json({ok:false,audit_id:resume.id,status:resume.status,error:"Audit cannot be resumed from its current state."},409);
+   // Claim with compare-and-set semantics. For stale scans, match the heartbeat
+   // observed above so only one concurrent request can take over the worker.
+   let claimQuery=sb.from("code_audits").update({status:"scanning",analysis_progress:{status:"scanning",current_chunk:Number(resume.current_chunk||progress.current_chunk||0),total_chunks:Number(resume.total_chunks||progress.total_chunks||0),updated_at:new Date().toISOString()}}).eq("id",resume.id);
+   if(resume.status==="scanning"&&stale){
+    claimQuery=claimQuery.eq("status","scanning");
+    claimQuery=progress.updated_at?claimQuery.eq("analysis_progress->>updated_at",String(progress.updated_at)):claimQuery.is("analysis_progress->>updated_at",null);
+   }else{
+    claimQuery=claimQuery.in("status",["paused","analyzing","queued"]);
+   }
+   const {data:claimed}=await claimQuery.select("id").maybeSingle();
    if(!claimed)return json({ok:true,audit_id:resume.id,status:"scanning",reused:true});
    const rr=repo(String(resume.repo_url||""));
    // Do not keep the HTTP request open during GitHub/Gemini work. Supabase EdgeRuntime
