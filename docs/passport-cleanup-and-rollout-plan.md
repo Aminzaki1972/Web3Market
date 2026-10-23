@@ -28,7 +28,7 @@ Three project identities are directly referenced by marketplace projects (Studen
 2. Delete the 41 external-only Passport records. Their snapshots are configured to cascade from `external_passports`; verify the post-delete count rather than assuming the cascade.
 3. Delete the 33 `project_identities` that are not referenced by `projects.w3m_identity_id`, only after checking all remaining foreign-key references. Their `project_identity_aliases` cascade on identity deletion. Do not delete the three identities linked to marketplace projects.
 4. Confirm `saved_searches` remains empty; check whether any additional search traces exist in other tables before claiming all search history is removed.
-5. Remove legacy static registry data and old generated public Passport pages from the repository after enumerating exact paths and checking that none is a marketplace project route.
+5. The 21 legacy generated Passport pages, static registry JSON, registry generator, and sync/monitor workflows have been removed from this implementation branch. After merge/deploy, verify the public host no longer serves those old paths.
 6. Keep all technical audit data and the independent code-audit service: `code_audits`, `code_audit_files`, and `code_audit_findings` are explicitly out of scope for deletion.
 7. Keep marketplace project, seller, deal, verification, due-diligence, valuation, support, and transaction records unchanged.
 
