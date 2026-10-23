@@ -12,7 +12,7 @@
   async function findProject(query) {
     const response = await fetch(SUPABASE_URL + '/functions/v1/public-project-passport', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY },
       body: JSON.stringify({ query: query.trim() }),
       cache: 'no-store'
     });
