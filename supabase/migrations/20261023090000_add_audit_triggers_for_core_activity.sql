@@ -42,7 +42,7 @@ begin
     ),
     'recorded', 'db_trigger'
   );
-  return case when TG_OP = 'DELETE' then OLD else NEW end;
+  if TG_OP = 'DELETE' then return OLD; else return NEW; end if;
 end;
 $$;
 
@@ -78,7 +78,7 @@ begin
     jsonb_build_object('changed_fields', to_jsonb(v_changed), 'old_role', v_old->>'role', 'new_role', v_new->>'role'),
     'recorded', 'db_trigger'
   );
-  return case when TG_OP = 'DELETE' then OLD else NEW end;
+  if TG_OP = 'DELETE' then return OLD; else return NEW; end if;
 end;
 $$;
 
@@ -124,7 +124,7 @@ begin
       'recorded', 'db_trigger'
     );
   end if;
-  return case when TG_OP = 'DELETE' then OLD else NEW end;
+  if TG_OP = 'DELETE' then return OLD; else return NEW; end if;
 end;
 $$;
 
@@ -152,7 +152,7 @@ begin
       'recorded', 'db_trigger'
     );
   end if;
-  return case when TG_OP = 'DELETE' then OLD else NEW end;
+  if TG_OP = 'DELETE' then return OLD; else return NEW; end if;
 end;
 $$;
 
