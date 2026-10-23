@@ -166,7 +166,38 @@ if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit coul
    const message=document.getElementById("auditHistoryMessage");
    const list=document.getElementById("auditHistoryList");
    const localDate=d=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");return y+"-"+m+"-"+day;};
-   dateInput.value=localDate(new Date());
+   const calendar=document.getElementById("auditCalendar");
+   const calendarToggle=document.getElementById("auditCalendarToggle");
+   const monthNames=["January","February","March","April","May","June","July","August","September","October","November","December"];
+   const weekdayNames=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+   const today=new Date();let shownMonth=new Date(today.getFullYear(),today.getMonth(),1);
+   dateInput.value=localDate(today);
+   const renderCalendar=()=>{
+     if(!calendar)return;
+     const year=shownMonth.getFullYear(),month=shownMonth.getMonth();
+     const firstDay=new Date(year,month,1).getDay(),days=new Date(year,month+1,0).getDate();
+     const selected=dateInput.value;
+     let cells=weekdayNames.map(day=>'<span class="audit-calendar-weekday">'+day+'</span>').join("");
+     for(let i=0;i<firstDay;i++)cells+='<span class="audit-calendar-empty" aria-hidden="true"></span>';
+     for(let day=1;day<=days;day++){
+       const value=year+"-"+String(month+1).padStart(2,"0")+"-"+String(day).padStart(2,"0");
+       const active=value===selected?" selected":"";
+       const isToday=value===localDate(today)?" today":"";
+       cells+='<button type="button" class="audit-calendar-day'+active+isToday+'" data-date="'+value+'" aria-pressed="'+(value===selected?'true':'false')+'">'+day+'</button>';
+     }
+     calendar.innerHTML='<div class="audit-calendar-header"><button type="button" data-month="-1" aria-label="Previous month">‹</button><strong>'+monthNames[month]+' '+year+'</strong><button type="button" data-month="1" aria-label="Next month">›</button></div><div class="audit-calendar-grid">'+cells+'</div><div class="audit-calendar-footer"><button type="button" data-today="true">Today</button><button type="button" data-close="true">Close</button></div>';
+   };
+   const openCalendar=()=>{if(!calendar)return;calendar.hidden=false;dateInput.setAttribute("aria-expanded","true");calendarToggle?.setAttribute("aria-expanded","true");renderCalendar();};
+   const closeCalendar=()=>{if(!calendar)return;calendar.hidden=true;dateInput.setAttribute("aria-expanded","false");calendarToggle?.setAttribute("aria-expanded","false");};
+   calendarToggle?.addEventListener("click",()=>calendar?.hidden?openCalendar():closeCalendar());
+   dateInput.addEventListener("click",openCalendar);
+   calendar?.addEventListener("click",event=>{
+     const btn=event.target.closest("button");if(!btn)return;
+     if(btn.dataset.month){shownMonth=new Date(shownMonth.getFullYear(),shownMonth.getMonth()+Number(btn.dataset.month),1);renderCalendar();return;}
+     if(btn.dataset.close){closeCalendar();return;}
+     if(btn.dataset.today){dateInput.value=localDate(today);shownMonth=new Date(today.getFullYear(),today.getMonth(),1);closeCalendar();load();return;}
+     if(btn.dataset.date){dateInput.value=btn.dataset.date;const [y,m]=btn.dataset.date.split("-").map(Number);shownMonth=new Date(y,m-1,1);closeCalendar();load();}
+   });
    const load=async()=>{
      const chosen=dateInput.value;
      if(!chosen){message.textContent="Choose a date to view its audit activity.";countEl.textContent="—";list.innerHTML="";return;}
@@ -191,7 +222,6 @@ if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit coul
        }).join("");
      }catch(e){console.error("Unable to load public audit history",e);message.textContent="Audit history is temporarily unavailable. Please try again later.";countEl.textContent="—";}
    };
-   dateInput.addEventListener("change",load);
    await load();
  }
  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>loadAuditHistory(),{once:true});else loadAuditHistory();
