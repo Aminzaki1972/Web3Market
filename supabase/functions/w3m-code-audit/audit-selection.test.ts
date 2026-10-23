@@ -16,10 +16,10 @@ Deno.test("production source is prioritized ahead of harnesses and tests", () =>
 
 Deno.test("selection keeps the cap while prioritizing production files", () => {
   const production = Array.from({ length: 105 }, (_, i) => ({
-    type: "blob", path: \`src/Contract\${String(i).padStart(3, "0")}.sol\`, size: 100,
+    type: "blob", path: "src/Contract" + String(i).padStart(3, "0") + ".sol", size: 100,
   }));
   const testFiles = Array.from({ length: 15 }, (_, i) => ({
-    type: "blob", path: \`tests/Contract\${String(i).padStart(3, "0")}.test.ts\`, size: 100,
+    type: "blob", path: "tests/Contract" + String(i).padStart(3, "0") + ".test.ts", size: 100,
   }));
   const result = selectAuditCandidates([...testFiles, ...production], 100);
   assertEquals(result.candidateCount, 120);
