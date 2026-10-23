@@ -5,10 +5,10 @@ ALTER TABLE public.code_audits
   ADD COLUMN IF NOT EXISTS ai_fit_score integer;
 
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'code_audits_scalability_score_range') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'code_audits_scalability_score_range' AND conrelid = 'public.code_audits'::regclass) THEN
     ALTER TABLE public.code_audits ADD CONSTRAINT code_audits_scalability_score_range CHECK (scalability_score IS NULL OR scalability_score BETWEEN 0 AND 100);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'code_audits_ai_fit_score_range') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'code_audits_ai_fit_score_range' AND conrelid = 'public.code_audits'::regclass) THEN
     ALTER TABLE public.code_audits ADD CONSTRAINT code_audits_ai_fit_score_range CHECK (ai_fit_score IS NULL OR ai_fit_score BETWEEN 0 AND 100);
   END IF;
 END $$;
