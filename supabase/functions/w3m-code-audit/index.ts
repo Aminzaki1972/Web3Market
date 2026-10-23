@@ -134,19 +134,24 @@ Deno.serve(async req=>{
    if(resume.status==="completed")return json({ok:true,audit_id:resume.id,status:"completed",reused:true});
    // Resuming an existing audit is not counted against the new-audit quota.
    const progress=resume.analysis_progress||{}; const heartbeat=progress.updated_at?Date.parse(progress.updated_at):0; const stale=resume.status==="scanning" && (!heartbeat || (Date.now()-heartbeat)>90000); if(resume.status==="scanning" && !stale)return json({ok:true,audit_id:resume.id,status:"scanning",reused:true});
-   const resumable=["paused","analyzing","queued"].includes(resume.status)||(resume.status==="scanning"&&stale);
-   if(!resumable)return json({ok:false,audit_id:resume.id,status:resume.status,error:"Audit cannot be resumed from its current state."},409);
-   const {data:claimed}=await sb.from("code_audits").update({status:"scanning",analysis_progress:{status:"scanning",current_chunk:Number(resume.current_chunk||progress.current_chunk||0),total_chunks:Number(resume.total_chunks||progress.total_chunks||0),updated_at:new Date().toISOString()}}).eq("id",resume.id).in("status",["paused","analyzing","queued","scanning"]).select("id").maybeSingle();
+   const resumable=["paused","analyzing","queued"].includes(resume.status);
+   if(!resumable&&!(resume.status==="scanning"&&stale))return json({ok:false,audit_id:resume.id,status:resume.status,error:"Audit cannot be resumed from its current state."},409);
+   // Compare-and-set claim: stale workers must match the heartbeat observed above.
+   let claimQuery=sb.from("code_audits").update({status:"scanning",analysis_progress:{status:"scanning",current_chunk:Number(resume.current_chunk||progress.current_chunk||0),total_chunks:Number(resume.total_chunks||progress.total_chunks||0),updated_at:new Date().toISOString()}}).eq("id",resume.id);
+   if(resume.status==="scanning"&&stale){
+    claimQuery=claimQuery.eq("status","scanning");
+    claimQuery=progress.updated_at?claimQuery.eq("analysis_progress->>updated_at",String(progress.updated_at)):claimQuery.is("analysis_progress->>updated_at",null);
+   }else{
+    claimQuery=claimQuery.in("status",["paused","analyzing","queued"]);
+   }
+   const {data:claimed}=await claimQuery.select("id").maybeSingle();
    if(!claimed)return json({ok:true,audit_id:resume.id,status:"scanning",reused:true});
    const rr=repo(String(resume.repo_url||""));
-   // Do not keep the HTTP request open during GitHub/Gemini work. Supabase EdgeRuntime
-   // keeps the worker alive after the response and the worker persists progress to Postgres.
+   // Keep the HTTP response short while EdgeRuntime finishes and persists progress.
    const task=run(sb,{id:resume.id,repo_url:resume.repo_url},rr);
    const runtime=(globalThis as any).EdgeRuntime;
    if(runtime?.waitUntil)runtime.waitUntil(task);else await task;
    return json({ok:true,audit_id:resume.id,status:"scanning",current_chunk:Number(resume.current_chunk||0),total_chunks:Number(resume.total_chunks||0),analysis_progress:resume.analysis_progress||null});
-   const {data:afterResume}=await sb.from("code_audits").select("status,current_chunk,total_chunks,analysis_progress,error_message").eq("id",resume.id).maybeSingle();
-   return json({ok:true,audit_id:resume.id,status:afterResume?.status||"queued",current_chunk:afterResume?.current_chunk||0,total_chunks:afterResume?.total_chunks||0,analysis_progress:afterResume?.analysis_progress||null,error:afterResume?.error_message||null});
   }
   const {data:existing}=await sb.from("code_audits").select("id,status,created_at,commit_sha,analysis_progress").eq("repo_owner",r.owner).eq("repo_name",r.name).eq("requested_by",user.id).in("status",["queued","scanning","analyzing","completed"]).order("created_at",{ascending:false}).limit(1).maybeSingle();
   if(existing?.status==="queued"||existing?.status==="scanning"||existing?.status==="analyzing"){
