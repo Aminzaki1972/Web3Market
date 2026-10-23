@@ -43,3 +43,8 @@ jobs:
           ! grep -q 'passport/registry.json' passports.html
       - name: Ensure external Passport persistence is disabled in source
         run: grep -q 'MARKETPLACE_LISTING_REQUIRED' supabase/functions/external-passport-persist/index.ts
+      - name: Ensure safe Passport API and audit-history boundary
+        run: |
+          grep -q 'SUPABASE_SERVICE_ROLE_KEY' supabase/functions/public-project-passport/index.ts
+          grep -q 'eq.completed' supabase/functions/public-project-passport/index.ts
+          grep -q 'Technical Audit History' js/marketplace-passport.js
