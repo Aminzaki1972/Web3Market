@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { tier, auditPriority, selectAuditCandidates, calculateAuditCoverage } from "./audit-selection.ts";
-import { unzipSync } from "npm:fflate@0.8.2";
+import { decodeSelectedArchive } from "./audit-archive.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS"};
 const json=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...cors,"Content-Type":"application/json"}});
 const fail=(m:string,s=400,extra:any={})=>json({ok:false,error:m,...extra},s);
@@ -56,19 +56,11 @@ async function run(sb:any,a:any,r:any){
    if(ar.ok&&(!declaredSize||declaredSize<=50*1024*1024)){
     const zipBytes=new Uint8Array(await ar.arrayBuffer());
     if(zipBytes.byteLength<=50*1024*1024){
-     const entries=unzipSync(zipBytes);
-     const keys=Object.keys(entries);
-     const root=keys.find(k=>k.includes("/"))?.split("/")[0];
-     if(root){
-      for(const x of candidates){
-       if((x.size||0)>200000){oversizedFiles++;continue;}
-       const entry=entries[root+"/"+x.path];
-       if(!entry){unreadableFiles++;continue;}
-       try{files.push({path:x.path,content:new TextDecoder().decode(entry)});}
-       catch(e){unreadableFiles++;console.warn("W3M audit could not decode archive file",{path:x.path,error:String((e as any)?.message||e)});}
-      }
-      archiveLoaded=true;
-     }
+     const decoded=decodeSelectedArchive(zipBytes,candidates);
+     files.push(...decoded.files);
+     oversizedFiles+=decoded.oversizedFiles;
+     unreadableFiles+=decoded.unreadableFiles;
+     archiveLoaded=true;
     }
    }else if(!ar.ok){
     console.warn("W3M audit archive download unavailable",{status:ar.status});
