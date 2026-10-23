@@ -16,7 +16,7 @@ begin
   insert into public.admin_audit_log
     (actor_id, category, action, target_type, target_id, summary, details, outcome, source)
   values (
-    coalesce(auth.uid(), case when (v_row->>'sender_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12},
+    coalesce(auth.uid(), case when (v_row->>'sender_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then (v_row->>'sender_id')::uuid else null end),
     'Deals',
     case TG_OP when 'INSERT' then 'deal_message_sent' else 'deal_message_deleted' end,
     'deal', v_row->>'deal_id',
@@ -40,7 +40,7 @@ begin
   insert into public.admin_audit_log
     (actor_id, category, action, target_type, target_id, summary, details, outcome, source)
   values (
-    coalesce(auth.uid(), nullif(v_row->>'sender_id','')::uuid),
+    coalesce(auth.uid(), case when (v_row->>'sender_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then (v_row->>'sender_id')::uuid else null end),
     'Support',
     case TG_OP when 'INSERT' then 'support_message_sent' else 'support_message_deleted' end,
     'support_conversation', v_row->>'conversation_id',
@@ -105,7 +105,7 @@ begin
     insert into public.admin_audit_log
       (actor_id, category, action, target_type, target_id, summary, details, outcome, source)
     values (
-      coalesce(auth.uid(), case when (v_row->>'opened_by') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12},
+      coalesce(auth.uid(), case when (v_row->>'opened_by') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then (v_row->>'opened_by')::uuid else null end, case when (v_row->>'party_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then (v_row->>'party_id')::uuid else null end),
       v_category, v_action, v_target_type, v_target_id, v_summary, v_details,
       'recorded','db_trigger'
     );
@@ -167,7 +167,7 @@ begin
   insert into public.admin_audit_log
     (actor_id, category, action, target_type, target_id, summary, details, outcome, source)
   values (
-    coalesce(auth.uid(), nullif(v_row->>'sender_id','')::uuid),
+    coalesce(auth.uid(), case when (v_row->>'sender_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then (v_row->>'sender_id')::uuid else null end),
     'Support',
     case TG_OP when 'INSERT' then 'support_message_sent' else 'support_message_deleted' end,
     'support_conversation', v_row->>'conversation_id',
@@ -232,7 +232,7 @@ begin
     insert into public.admin_audit_log
       (actor_id, category, action, target_type, target_id, summary, details, outcome, source)
     values (
-      coalesce(auth.uid(), nullif(v_row->>'opened_by','')::uuid, nullif(v_row->>'party_id','')::uuid),
+      coalesce(auth.uid(), case when (v_row->>'opened_by') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then (v_row->>'opened_by')::uuid else null end, case when (v_row->>'party_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then (v_row->>'party_id')::uuid else null end),
       v_category, v_action, v_target_type, v_target_id, v_summary, v_details,
       'recorded','db_trigger'
     );
@@ -332,7 +332,7 @@ begin
   insert into public.admin_audit_log
     (actor_id, category, action, target_type, target_id, summary, details, outcome, source)
   values (
-    coalesce(auth.uid(), nullif(v_row->>'sender_id','')::uuid),
+    coalesce(auth.uid(), case when (v_row->>'sender_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then (v_row->>'sender_id')::uuid else null end),
     'Support',
     case TG_OP when 'INSERT' then 'support_message_sent' else 'support_message_deleted' end,
     'support_conversation', v_row->>'conversation_id',
@@ -397,7 +397,7 @@ begin
     insert into public.admin_audit_log
       (actor_id, category, action, target_type, target_id, summary, details, outcome, source)
     values (
-      coalesce(auth.uid(), nullif(v_row->>'opened_by','')::uuid, nullif(v_row->>'party_id','')::uuid),
+      coalesce(auth.uid(), case when (v_row->>'opened_by') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then (v_row->>'opened_by')::uuid else null end, case when (v_row->>'party_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then (v_row->>'party_id')::uuid else null end),
       v_category, v_action, v_target_type, v_target_id, v_summary, v_details,
       'recorded','db_trigger'
     );
@@ -497,7 +497,7 @@ begin
   insert into public.admin_audit_log
     (actor_id, category, action, target_type, target_id, summary, details, outcome, source)
   values (
-    coalesce(auth.uid(), nullif(v_row->>'sender_id','')::uuid),
+    coalesce(auth.uid(), case when (v_row->>'sender_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then (v_row->>'sender_id')::uuid else null end),
     'Support',
     case TG_OP when 'INSERT' then 'support_message_sent' else 'support_message_deleted' end,
     'support_conversation', v_row->>'conversation_id',
@@ -562,7 +562,7 @@ begin
     insert into public.admin_audit_log
       (actor_id, category, action, target_type, target_id, summary, details, outcome, source)
     values (
-      coalesce(auth.uid(), nullif(v_row->>'opened_by','')::uuid, nullif(v_row->>'party_id','')::uuid),
+      coalesce(auth.uid(), case when (v_row->>'opened_by') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then (v_row->>'opened_by')::uuid else null end, case when (v_row->>'party_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then (v_row->>'party_id')::uuid else null end),
       v_category, v_action, v_target_type, v_target_id, v_summary, v_details,
       'recorded','db_trigger'
     );
