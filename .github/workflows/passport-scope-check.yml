@@ -8,6 +8,8 @@ on:
       - "sitemap.xml"
       - "js/marketplace-passport.js"
       - "supabase/functions/external-passport-persist/**"
+      - "supabase/functions/public-project-passport/**"
+      - "supabase/config.toml"
       - ".github/workflows/passport-scope-check.yml"
 
 jobs:
@@ -20,6 +22,11 @@ jobs:
           node-version: "20"
       - name: Check Passport JavaScript syntax
         run: node --check js/marketplace-passport.js
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check safe Passport API
+        run: deno check --no-lock supabase/functions/public-project-passport/index.ts
       - name: Validate sitemap XML and retired URL removal
         run: |
           python - <<'PY'
@@ -36,3 +43,8 @@ jobs:
           ! grep -q 'passport/registry.json' passports.html
       - name: Ensure external Passport persistence is disabled in source
         run: grep -q 'MARKETPLACE_LISTING_REQUIRED' supabase/functions/external-passport-persist/index.ts
+      - name: Ensure safe Passport API and audit-history boundary
+        run: |
+          grep -q 'SUPABASE_SERVICE_ROLE_KEY' supabase/functions/public-project-passport/index.ts
+          grep -q 'eq.completed' supabase/functions/public-project-passport/index.ts
+          grep -q 'Technical Audit History' js/marketplace-passport.js
