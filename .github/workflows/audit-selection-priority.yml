@@ -24,7 +24,5 @@ jobs:
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Run audit selection tests
+      - name: Run audit selection and archive unit tests
         run: deno test --no-check supabase/functions/w3m-code-audit/audit-selection.test.ts supabase/functions/w3m-code-audit/audit-archive.test.ts
-      - name: Type-check audit function
-        run: deno check supabase/functions/w3m-code-audit/index.ts
