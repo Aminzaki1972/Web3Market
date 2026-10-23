@@ -13,7 +13,14 @@ const BASE_HEADERS = {
 };
 function cors(req: Request) {
   const origin = req.headers.get("Origin") || "";
-  return { ...BASE_HEADERS, "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin) ? origin : "https://web3market.xyz" };
+  let allowed = ALLOWED_ORIGINS.has(origin);
+  if (!allowed) {
+    try {
+      const parsed = new URL(origin);
+      allowed = parsed.protocol === "https:" && parsed.hostname.endsWith(".web3market.pages.dev");
+    } catch { /* use the canonical production origin */ }
+  }
+  return { ...BASE_HEADERS, "Access-Control-Allow-Origin": allowed ? origin : "https://web3market.xyz" };
 }
 function json(req: Request, body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: cors(req) });
