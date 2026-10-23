@@ -1,0 +1,38 @@
+name: Passport Scope Checks
+
+on:
+  pull_request:
+    paths:
+      - "ai-passport.html"
+      - "passports.html"
+      - "sitemap.xml"
+      - "js/marketplace-passport.js"
+      - "supabase/functions/external-passport-persist/**"
+      - ".github/workflows/passport-scope-check.yml"
+
+jobs:
+  passport-scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check Passport JavaScript syntax
+        run: node --check js/marketplace-passport.js
+      - name: Validate sitemap XML and retired URL removal
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          root = ET.parse("sitemap.xml").getroot()
+          urls = [node.text or "" for node in root.iter() if node.tag.endswith("loc")]
+          assert "https://web3market.xyz/passports.html" in urls
+          assert "https://web3market.xyz/ai-passport.html" in urls
+          assert not any("/passport/W3M-" in url for url in urls)
+          PY
+      - name: Ensure general external-search controls are absent
+        run: |
+          ! grep -q 'externalBtn' ai-passport.html
+          ! grep -q 'passport/registry.json' passports.html
+      - name: Ensure external Passport persistence is disabled in source
+        run: grep -q 'MARKETPLACE_LISTING_REQUIRED' supabase/functions/external-passport-persist/index.ts
