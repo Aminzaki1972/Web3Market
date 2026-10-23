@@ -99,6 +99,13 @@ class ExecutiveAuditScoreSmokeTests(unittest.TestCase):
         self.assertIn("not a load or production performance test", self.ui)
         self.assertIn("does not prove that an AI feature works", self.ui)
 
+    def test_resume_claim_is_atomic_for_stale_scans(self):
+        # Stale scans may be reclaimed only when the observed heartbeat still matches.
+        self.assertIn('claimQuery.eq("analysis_progress->>updated_at",String(progress.updated_at))', self.engine)
+        self.assertIn('claimQuery.is("analysis_progress->>updated_at",null)', self.engine)
+        self.assertIn('.in("status",["paused","analyzing","queued"])', self.engine)
+        self.assertNotIn('.in("status",["paused","analyzing","queued","scanning"])', self.engine)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
