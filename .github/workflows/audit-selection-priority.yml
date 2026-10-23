@@ -1,0 +1,25 @@
+name: Audit file selection tests
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/w3m-code-audit/audit-selection.ts"
+      - "supabase/functions/w3m-code-audit/audit-selection.test.ts"
+      - ".github/workflows/audit-selection-priority.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-selection-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Run audit selection tests
+        run: deno test --no-check supabase/functions/w3m-code-audit/audit-selection.test.ts
