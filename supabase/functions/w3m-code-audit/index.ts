@@ -154,8 +154,6 @@ Deno.serve(async req=>{
    const runtime=(globalThis as any).EdgeRuntime;
    if(runtime?.waitUntil)runtime.waitUntil(task);else await task;
    return json({ok:true,audit_id:resume.id,status:"scanning",current_chunk:Number(resume.current_chunk||0),total_chunks:Number(resume.total_chunks||0),analysis_progress:resume.analysis_progress||null});
-   const {data:afterResume}=await sb.from("code_audits").select("status,current_chunk,total_chunks,analysis_progress,error_message").eq("id",resume.id).maybeSingle();
-   return json({ok:true,audit_id:resume.id,status:afterResume?.status||"queued",current_chunk:afterResume?.current_chunk||0,total_chunks:afterResume?.total_chunks||0,analysis_progress:afterResume?.analysis_progress||null,error:afterResume?.error_message||null});
   }
   const {data:existing}=await sb.from("code_audits").select("id,status,created_at,commit_sha,analysis_progress").eq("repo_owner",r.owner).eq("repo_name",r.name).eq("requested_by",user.id).in("status",["queued","scanning","analyzing","completed"]).order("created_at",{ascending:false}).limit(1).maybeSingle();
   if(existing?.status==="queued"||existing?.status==="scanning"||existing?.status==="analyzing"){
