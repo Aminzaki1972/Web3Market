@@ -53,7 +53,6 @@ async function run(sb:any,a:any,r:any){
     if((x.size||0)>maxFileBytes){oversizedFiles++;return false;}
     return true;
   });
-  let archiveLoaded=false;
   try{
    const ar=await fetch("https://codeload.github.com/"+r.owner+"/"+r.name+"/zip/"+sha,{headers:{"User-Agent":"Web3Market-W3M-Code-Audit"}});
    const declaredSize=Number(ar.headers.get("content-length")||0);
@@ -62,7 +61,6 @@ async function run(sb:any,a:any,r:any){
     if(zipBytes.byteLength<=50*1024*1024){
      const decoded=decodeSelectedArchive(zipBytes,readableCandidates);
      files.push(...decoded.files);
-     archiveLoaded=true;
     }
    }else if(!ar.ok){
     console.warn("W3M audit archive download unavailable",{status:ar.status});
