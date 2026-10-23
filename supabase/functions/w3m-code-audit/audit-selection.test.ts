@@ -44,3 +44,31 @@ Deno.test("non-code assets and excluded build folders are ignored", () => {
   assertEquals(result.candidateCount, 1);
   assertEquals(result.candidates[0].path, "src/Pool.sol");
 });
+
+
+Deno.test("security-critical paths are selected before generic application code and tests", () => {
+  const tree = [
+    { type: "blob", path: "tests/auth.test.ts", size: 100 },
+    { type: "blob", path: "src/components/Header.tsx", size: 100 },
+    { type: "blob", path: "supabase/functions/settle-deal/index.ts", size: 100 },
+    { type: "blob", path: "src/contracts/Vault.sol", size: 100 },
+    { type: "blob", path: "package.json", size: 100 },
+  ];
+  const result = selectAuditCandidates(tree, 3);
+  assertEquals(result.candidates.map((f: any) => f.path), [
+    "src/contracts/Vault.sol",
+    "supabase/functions/settle-deal/index.ts",
+    "package.json",
+  ]);
+  assertEquals(auditPriority("supabase/functions/settle-deal/index.ts") < auditPriority("src/components/Header.tsx"), true);
+  assertEquals(auditPriority("src/components/Header.tsx") < auditPriority("tests/auth.test.ts"), true);
+});
+
+Deno.test("the reported coverage percentage still uses all eligible files", () => {
+  const tree = Array.from({ length: 100 }, (_, i) => ({
+    type: "blob", path: i < 10 ? "supabase/functions/function" + i + ".ts" : "src/file" + i + ".ts", size: 100,
+  }));
+  const result = selectAuditCandidates(tree, 100);
+  assertEquals(result.candidateCount, 100);
+  assertEquals(calculateAuditCoverage(57, result.candidateCount), 57);
+});
