@@ -18,7 +18,7 @@
 const API='https://hzhqlexnhtukfljcvnyd.supabase.co/rest/v1/projects';
 const KEY='sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-let rows=[];
+let rows=[];let identities={};
 function eligible(p){return ['active','sold'].includes(String(p.status||'').toLowerCase())&&String(p.project_status||'').toLowerCase()==='approved'&&String(p.ai_status||'').toLowerCase()==='approved'&&p.verification?.ai?.test_mode!==true}
 function render(){
  const q=String(document.getElementById('search').value||'').trim().toLowerCase();
@@ -27,7 +27,8 @@ function render(){
  if(!filtered.length){grid.innerHTML='<div class="empty">No approved marketplace projects match your search.</div>';return}
  grid.innerHTML=filtered.map(p=>{
   const sold=String(p.status||'').toLowerCase()==='sold';
-  return '<article class="card"><span class="badge '+(sold?'sold':'')+'">'+(sold?'SOLD / COMPLETED':'ACTIVE LISTING')+'</span><h2>'+esc(p.title||'Web3Market Project')+'</h2><div class="code">Project ID: '+esc(p.id)+'</div><div class="date">Passport link is tied to the project record, not the sale listing.</div><a class="view" href="ai-passport.html?id='+encodeURIComponent(p.id)+'">Open Project Passport →</a></article>';
+  const serial=identities[p.w3m_identity_id]?.identity_code||'W3M identity pending';
+  return '<article class="card"><span class="badge '+(sold?'sold':'')+'">'+(sold?'SOLD / COMPLETED':'ACTIVE LISTING')+'</span><h2>'+esc(p.title||'Web3Market Project')+'</h2><div class="code">'+esc(serial)+'</div><div class="date">Passport link is tied to the project record, not the sale listing.</div><a class="view" href="ai-passport.html?id='+encodeURIComponent(p.id)+'">Open Project Passport →</a></article>';
  }).join('');
 }
 function updateStats(){
@@ -37,11 +38,19 @@ function updateStats(){
 }
 async function load(){
  try{
-  const url=API+'?select=id,title,status,project_status,ai_status,verification,created_at&status=in.(active,sold)&project_status=eq.approved&ai_status=eq.approved&order=created_at.desc&limit=200';
+  const url=API+'?select=id,title,status,project_status,ai_status,verification,created_at,w3m_identity_id&status=in.(active,sold)&project_status=eq.approved&ai_status=eq.approved&order=created_at.desc&limit=200';
   const response=await fetch(url,{headers:{apikey:KEY,Authorization:'Bearer '+KEY,Accept:'application/json'},cache:'no-store'});
   if(!response.ok)throw new Error('Marketplace registry request returned '+response.status);
   const data=await response.json();
   rows=(Array.isArray(data)?data:[]).filter(eligible);
+  identities={};
+  const ids=[...new Set(rows.map(p=>p.w3m_identity_id).filter(Boolean))];
+  if(ids.length){
+   try{
+    const ir=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/rest/v1/project_identities?select=id,identity_code,identity_status&id=in.('+ids.join(',')+')',{headers:{apikey:KEY,Authorization:'Bearer '+KEY,Accept:'application/json'},cache:'no-store'});
+    if(ir.ok){const identityRows=await ir.json();(Array.isArray(identityRows)?identityRows:[]).forEach(item=>{identities[item.id]=item;});}
+   }catch(identityError){console.warn('Passport identity labels unavailable:',identityError)}
+  }
   updateStats();render();
  }catch(error){
   document.getElementById('grid').innerHTML='<div class="empty">The official marketplace registry could not be loaded right now. No old external Passport list is shown as a fallback. Please retry later.</div>';
