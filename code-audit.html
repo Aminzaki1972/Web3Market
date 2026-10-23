@@ -16,7 +16,7 @@
     <p class="muted">Explore recorded audit attempts by date. Each entry shows the public repository, recorded time, status, and available result. AI-assisted results are not a certified security audit.</p>
     <div class="audit-history-controls">
       <label for="auditHistoryDate"><strong>Choose an audit date</strong>
-        <input id="auditHistoryDate" type="date">
+        <div class="audit-calendar-picker"><input id="auditHistoryDate" type="text" readonly aria-haspopup="dialog" aria-expanded="false" placeholder="Select a date" lang="en-US"><button id="auditCalendarToggle" class="btn btn-ghost" type="button" aria-label="Choose audit date" aria-expanded="false">Choose date</button><div id="auditCalendar" class="audit-calendar" role="dialog" aria-label="Choose audit date" hidden></div></div>
       </label>
       <div class="audit-history-count" aria-live="polite"><span class="muted">Audits recorded on this date</span><strong id="auditHistoryCount">—</strong></div>
     </div>
@@ -27,7 +27,7 @@
 </section>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js?v=20260904-6"></script>
-<script src="js/code-audit.js?v=20261023-member-archive-3"></script>
+<script src="js/code-audit.js?v=20261023-english-calendar-1"></script>
 
 <script src="/js/brand.js?v=20261007" defer></script>
 </body></html>
