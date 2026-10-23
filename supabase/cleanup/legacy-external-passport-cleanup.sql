@@ -29,7 +29,6 @@ begin
     from public.project_identities i
     where exists (select 1 from public.projects p where p.w3m_identity_id = i.id);
   select count(*) into n_searches from public.saved_searches;
-  select count(*) into n_auto_posts from public.passport_x_auto_posts;
 
   if n_external <> 41
      or n_snapshots <> 52
@@ -70,6 +69,7 @@ begin
   select count(*) into n_snapshots from public.external_passport_snapshots;
   select count(*) into n_identities from public.project_identities;
   select count(*) into n_aliases from public.project_identity_aliases;
+  select count(*) into n_auto_posts from public.passport_x_auto_posts;
 
   if n_external <> 0 or n_snapshots <> 0 or n_identities <> 3 or n_aliases <> 0 or n_auto_posts <> 0 then
     raise exception
