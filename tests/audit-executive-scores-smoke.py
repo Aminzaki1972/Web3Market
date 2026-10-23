@@ -1,6 +1,7 @@
 # Free local smoke tests for W3M executive audit score display.
 # Run with: python3 tests/audit-executive-scores-smoke.py
 # Uses only Python's standard library; no API calls, secrets, database, or paid services.
+import json
 import re
 import unittest
 from pathlib import Path
@@ -9,6 +10,24 @@ ROOT = Path(__file__).resolve().parents[1]
 UI_PATH = ROOT / "js" / "code-audit.js"
 ENGINE_PATH = ROOT / "supabase" / "functions" / "w3m-code-audit" / "index.ts"
 MIGRATION_PATH = ROOT / "supabase" / "migrations" / "20261023000100_add_audit_executive_scores.sql"
+
+
+def validate_executive_scores(response):
+    """Validate a model-shaped response fixture without calling any AI provider."""
+    try:
+        payload = json.loads(response) if isinstance(response, str) else response
+    except (TypeError, json.JSONDecodeError):
+        return False
+    scores = payload.get("category_scores") if isinstance(payload, dict) else None
+    if not isinstance(scores, dict):
+        return False
+    for key in ("scalability", "ai_fit"):
+        value = scores.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return False
+        if not 0 <= value <= 100:
+            return False
+    return True
 
 
 def display_score(value):
@@ -32,6 +51,22 @@ class ExecutiveAuditScoreSmokeTests(unittest.TestCase):
     def test_historical_missing_scores_render_as_dash(self):
         self.assertEqual(display_score(None), "—")
         self.assertIn('(v==null?"—":esc(Math.round(Number(v)))', self.ui)
+
+    def test_sample_ai_response_contract_without_network(self):
+        fixture = {
+            "summary": "Sample only; not an actual AI audit.",
+            "category_scores": {"scalability": 74, "ai_fit": 88},
+            "findings": [],
+        }
+        self.assertTrue(validate_executive_scores(fixture))
+        self.assertTrue(validate_executive_scores(json.dumps(fixture)))
+
+    def test_sample_ai_response_rejects_missing_or_invalid_scores(self):
+        self.assertFalse(validate_executive_scores({"category_scores": {"scalability": 74}}))
+        self.assertFalse(validate_executive_scores({"category_scores": {"scalability": 74, "ai_fit": None}}))
+        self.assertFalse(validate_executive_scores({"category_scores": {"scalability": 101, "ai_fit": 80}}))
+        self.assertFalse(validate_executive_scores({"category_scores": {"scalability": True, "ai_fit": 80}}))
+        self.assertFalse(validate_executive_scores("not-json"))
 
     def test_valid_score_formatting(self):
         self.assertEqual(display_score(87), "87/100")
