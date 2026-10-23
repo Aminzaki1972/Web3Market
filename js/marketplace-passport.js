@@ -25,7 +25,12 @@
     const state = projectStatus === 'sold' ? 'SOLD / COMPLETED' : projectStatus === 'archived' ? 'WITHDRAWN / ARCHIVED' : 'ACTIVE LISTING';
     const website = safeUrl(project.website_url);
     const github = safeUrl(project.github_url);
-    let html = '<div class="passport-badge">Official Web3Market Project Passport</div>';
+    const identityStatus = String(identity?.identity_status || '').trim().toLowerCase();
+    const identityVerified = identityStatus === 'verified';
+    let html = '<div class="passport-badge">' + (identityVerified ? 'W3M Identity Verified' : 'W3M Project Record') + '</div>';
+    if (!identityVerified) {
+      html += '<section class="passport-card"><p class="muted"><strong>Verification level:</strong> This record confirms an approved marketplace project only. W3M Identity Verification has not been confirmed in the identity record, and this page does not claim Technical Assurance. Listing approval or an AI score alone is not proof of ownership or security.</p></section>';
+    }
     html += '<section class="passport-card"><h2>' + esc(project.title || 'Web3Market Project') + '</h2><p>' + esc(project.description || 'Official project record from Web3Market.') + '</p><span class="status connected">' + state + '</span>';
     html += '<div class="identity">';
     html += field('W3M Identity', identity?.identity_code || 'Identity not assigned yet');
