@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - "supabase/functions/w3m-code-audit/audit-selection.ts"
+      - "supabase/functions/w3m-code-audit/audit-archive.ts"
+      - "supabase/functions/w3m-code-audit/audit-archive.test.ts"
+      - "supabase/functions/w3m-code-audit/index.ts"
       - "supabase/functions/w3m-code-audit/audit-selection.test.ts"
       - ".github/workflows/audit-selection-priority.yml"
   workflow_dispatch:
@@ -22,4 +25,6 @@ jobs:
         with:
           deno-version: v2.x
       - name: Run audit selection tests
-        run: deno test --no-check supabase/functions/w3m-code-audit/audit-selection.test.ts
+        run: deno test --no-check supabase/functions/w3m-code-audit/audit-selection.test.ts supabase/functions/w3m-code-audit/audit-archive.test.ts
+      - name: Type-check audit function
+        run: deno check supabase/functions/w3m-code-audit/index.ts
