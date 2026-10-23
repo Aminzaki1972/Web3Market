@@ -77,6 +77,8 @@ class ExecutiveAuditScoreSmokeTests(unittest.TestCase):
         self.assertIn('"scalability","ai_fit"', self.engine)
         self.assertIn("scalability_score:sc.scalability", self.engine)
         self.assertIn("ai_fit_score:sc.ai_fit", self.engine)
+        self.assertIn("validExecutiveScore=(v:any)=>typeof v===\"number\"", self.engine)
+        self.assertIn("AI response is missing valid Scalability or AI-Fit scores", self.engine)
 
     def test_migration_is_additive_and_keeps_historical_nulls(self):
         self.assertIn("ADD COLUMN IF NOT EXISTS scalability_score integer", self.migration)
