@@ -5,15 +5,69 @@
 <title>AI Project Passport | Web3Market</title>
 <link rel="stylesheet" href="css/marketplace.css">
 <style>
-body{background:#f6f7f9;color:#141820}.passport-wrap{width:min(1120px,92%);margin:0 auto;padding:34px 0 70px}.passport-head{background:#141820;color:#fff;border-radius:24px;padding:30px;margin-bottom:18px}.passport-head h1{margin:0 0 8px;font-size:clamp(30px,5vw,46px)}.passport-head p{margin:0;color:#cbd3df}.passport-tools{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}.passport-tools input{flex:1;min-width:220px;height:44px;border:1px solid #dce1e8;border-radius:11px;padding:0 13px}.passport-tools button{height:44px;border:0;border-radius:11px;padding:0 17px;color:#fff;font-weight:800;cursor:pointer}.load{background:#635bff}.passport-card{background:#fff;border:1px solid #e2e6eb;border-radius:18px;padding:22px;margin-bottom:16px}.passport-card h2{margin:0 0 16px;font-size:19px}.identity{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.item{background:#f8f9fb;border-radius:12px;padding:13px}.item small{display:block;color:#7a8290;font-size:10px;font-weight:800;text-transform:uppercase}.item strong{display:block;margin-top:5px;font-size:13px;word-break:break-word}.status{font-size:10px;font-weight:900;border-radius:999px;padding:5px 8px;background:#eef0f5;display:inline-block;margin-top:7px}.status.connected{background:#e4f6ed;color:#167348}.passport-badge{display:inline-block;margin-bottom:12px;padding:7px 11px;border-radius:999px;background:#e8e5ff;color:#5149db;font-weight:900;font-size:12px}.finding{padding:12px;border:1px solid #e5e8ed;border-radius:12px;margin:9px 0}.muted{color:#737c89}.back{display:inline-block;margin-bottom:14px;font-weight:800;color:#5149db}.view{color:#5149db;font-size:12px;font-weight:900}.passport-card a{overflow-wrap:anywhere}@media(max-width:760px){.identity{grid-template-columns:repeat(2,1fr)}}@media(max-width:480px){.identity{grid-template-columns:1fr}.passport-wrap{padding-top:20px}}
+body{background:#f6f7f9;color:#141820}.passport-wrap{width:min(1120px,92%);margin:0 auto;padding:34px 0 70px}.passport-head{background:#141820;color:#fff;border-radius:24px;padding:30px;margin-bottom:18px}.passport-head h1{margin:0 0 8px;font-size:clamp(30px,5vw,46px)}.passport-head p{margin:0;color:#cbd3df}.passport-tools{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}.passport-tools input{flex:1;min-width:220px;height:44px;border:1px solid #dce1e8;border-radius:11px;padding:0 13px}.passport-tools button{height:44px;border:0;border-radius:11px;padding:0 17px;color:#fff;font-weight:800;cursor:pointer}.load{background:#635bff}.passport-card{background:#fff;border:1px solid #e2e6eb;border-radius:18px;padding:22px;margin-bottom:16px}.passport-card h2{margin:0 0 16px;font-size:19px}.identity{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.item{background:#f8f9fb;border-radius:12px;padding:13px}.item small{display:block;color:#7a8290;font-size:10px;font-weight:800;text-transform:uppercase}.item strong{display:block;margin-top:5px;font-size:13px;word-break:break-word}.status{font-size:10px;font-weight:900;border-radius:999px;padding:5px 8px;background:#eef0f5;display:inline-block;margin-top:7px}.status.connected{background:#e4f6ed;color:#167348}.passport-badge{display:inline-block;margin-bottom:12px;padding:7px 11px;border-radius:999px;background:#e8e5ff;color:#5149db;font-weight:900;font-size:12px}.finding{padding:12px;border:1px solid #e5e8ed;border-radius:12px;margin:9px 0}.muted{color:#737c89}.back{display:inline-block;margin-bottom:14px;font-weight:800;color:#5149db}.view{color:#5149db;font-size:12px;font-weight:900}.passport-card a{overflow-wrap:anywhere}
+.policy-card{background:#fff;border:1px solid #dce2ea;border-radius:18px;padding:22px;margin:0 0 18px}
+.policy-card h2{margin:0 0 8px;font-size:21px}
+.policy-intro{color:#59616e;margin:0 0 16px;line-height:1.65}
+.policy-levels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.policy-level{border:1px solid #e2e6eb;border-radius:13px;padding:15px;background:#fafbfc}
+.policy-level h3{font-size:14px;margin:0 0 8px}
+.policy-level p,.policy-level li{font-size:12px;line-height:1.6;color:#59616e}
+.policy-level ul{padding-left:18px;margin:8px 0 0}
+.policy-kicker{display:inline-block;background:#eef0f5;color:#343b48;border-radius:999px;padding:5px 8px;font-size:10px;font-weight:900;margin-bottom:9px}
+.policy-rules{margin-top:14px;padding:15px;border-radius:13px;background:#f4f6fa}
+.policy-rules h3{margin:0 0 8px;font-size:14px}
+.policy-rules ul{margin:0;padding-left:20px}
+.policy-rules li{font-size:12px;line-height:1.7;color:#59616e;margin:4px 0}
+.policy-note{margin:14px 0 0;font-size:12px;line-height:1.65;color:#737c89}
+@media(max-width:760px){.identity{grid-template-columns:repeat(2,1fr)}.policy-levels{grid-template-columns:1fr}}
+@media(max-width:480px){.identity{grid-template-columns:1fr}.passport-wrap{padding-top:20px}.policy-card{padding:17px}}
 </style>
 </head>
 <body>
 <header class="topbar"><a class="brand" href="index.html"><span class="brand-mark">W3</span><span>Web3Market</span></a><nav><a href="marketplace.html">Marketplace</a><a href="passports.html">Passport Directory</a></nav><a class="btn btn-ghost" href="login.html">Sign in</a></header>
 <main class="passport-wrap"><a class="back" href="marketplace.html">← Back to Marketplace</a>
-<section class="passport-head"><h1>AI Project Passport</h1><p>Official project identity and history for approved Web3Market marketplace listings.</p>
+<section class="passport-head"><h1>AI Project Passport</h1><p>Official project identity and history for approved Web3Market marketplace listings. Passport issuance is subject to the public eligibility policy below.</p>
 <div class="passport-tools"><input id="projectId" autocomplete="off" placeholder="Enter an exact project name or project ID"><button id="loadBtn" class="load" type="button">Load Passport</button></div></section>
-<div id="passport" class="passport-card"><p class="muted">Enter a Web3Market project name or project ID. Only approved marketplace projects are eligible for an official Passport.</p></div></main>
+<section class="policy-card" aria-labelledby="passport-policy-title">
+  <h2 id="passport-policy-title">W3M Passport Issuance Policy</h2>
+  <p class="policy-intro">Being listed on Web3Market does not automatically qualify a project for a verified Passport. W3M distinguishes marketplace listing, verified identity, and technical assurance. Each status describes only the checks actually completed.</p>
+  <div class="policy-levels">
+    <article class="policy-level">
+      <span class="policy-kicker">Marketplace status</span>
+      <h3>1. Listed — Not Verified</h3>
+      <p>A project may be eligible for marketplace listing after the marketplace's listing review, but it must not be presented as having a verified W3M identity or technical assurance.</p>
+    </article>
+    <article class="policy-level">
+      <span class="policy-kicker">Identity checks</span>
+      <h3>2. W3M Identity Verified</h3>
+      <p>Requires a clear project identity, sufficient evidence that the submitter controls or is authorized to represent the project, a reviewable source or product reference, complete core information, and successful basic verification.</p>
+      <ul>
+        <li>Project name, purpose, category and technology details</li>
+        <li>Public repository or another verifiable source</li>
+        <li>Ownership/control evidence appropriate to the project</li>
+        <li>Verification date and material limitations disclosed</li>
+      </ul>
+    </article>
+    <article class="policy-level">
+      <span class="policy-kicker">Additional technical checks</span>
+      <h3>3. W3M Technical Assurance</h3>
+      <p>Requires the identity checks plus technical evidence appropriate to the project's type, maturity and risk, such as reproducible tests, operational checks, and a documented security review with scope, date, findings and limitations.</p>
+    </article>
+  </div>
+  <div class="policy-rules">
+    <h3>Minimum eligibility and rejection rules</h3>
+    <ul>
+      <li>Core identity and project information must be complete and internally consistent.</li>
+      <li>The repository, product, or other declared evidence must be accessible and suitable for verification.</li>
+      <li>Projects claiming to be live web products must provide a working, independently reachable product URL or explain a verifiable alternative. A custom domain is not mandatory for every project type, but an unstable or untestable product cannot qualify for the same assurance level as a verifiable, operating product.</li>
+      <li>Material ownership doubts, inaccessible evidence, misleading claims, or unresolved critical security findings block the relevant verified status until reviewed.</li>
+      <li>An AI score or automated recommendation alone is never proof of ownership, operational stability, or security.</li>
+    </ul>
+  </div>
+  <p class="policy-note"><strong>What a Passport means:</strong> it records the identity and evidence W3M has checked; it is not a guarantee of profitability, uninterrupted availability, legal ownership, or vulnerability-free code. Technical audit records are separate and apply only to their stated repository/version and scope. W3M may re-check evidence and suspend a verification status if its basis can no longer be confirmed. Historical identity records may remain visible for sold or inactive projects with their status clearly shown.</p>
+</section>
+<div id="passport" class="passport-card"><p class="muted">Enter a Web3Market project name or project ID. Only approved marketplace projects that meet the applicable Passport checks are eligible for verified status.</p></div></main>
 <script src="js/marketplace-passport.js?v=20261023-marketplace-only"></script>
 <script src="js/global-language.js?v=20260923-4"></script>
 <script src="/js/brand.js?v=20261007" defer></script>
