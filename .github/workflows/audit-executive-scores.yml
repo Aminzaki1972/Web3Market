@@ -151,11 +151,5 @@ jobs:
           SELECT CASE WHEN count(*) = 0 THEN 'PASS: stale competing claimant was rejected'
                       ELSE 'FAIL: stale competing claimant unexpectedly acquired audit' END
           FROM claimed;
-          DO $
-          BEGIN
-            IF (SELECT analysis_progress->>'updated_at' FROM public.audit_claim_test WHERE id=1)
-              <> '2026-10-23T00:01:00Z' THEN
-              RAISE EXCEPTION 'FAIL: competing claimant overwrote the winning heartbeat';
-            END IF;
-          END $;
           SQL
+          test "$(psql -At -c "SELECT analysis_progress->>'updated_at' FROM public.audit_claim_test WHERE id=1")" = "2026-10-23T00:01:00Z"
