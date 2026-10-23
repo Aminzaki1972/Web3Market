@@ -32,6 +32,8 @@ Three project identities are directly referenced by marketplace projects (Studen
 6. Keep all technical audit data and the independent code-audit service: `code_audits`, `code_audit_files`, and `code_audit_findings` are explicitly out of scope for deletion.
 7. Keep marketplace project, seller, deal, verification, due-diligence, valuation, support, and transaction records unchanged.
 
+A guarded manual SQL cleanup script is included at `supabase/cleanup/legacy-external-passport-cleanup.sql`. It is not a migration, is not called by CI, and has not been executed. It aborts if the live row counts differ from the read-only inventory and checks that only the three project-linked identities remain.
+
 ## Application changes in this branch
 
 - The AI Project Passport page no longer exposes a general external-search button.
