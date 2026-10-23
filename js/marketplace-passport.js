@@ -23,7 +23,7 @@
     if (!response.ok) throw new Error('Project lookup failed (' + response.status + ').');
     const rows = await response.json();
     const eligible = (Array.isArray(rows) ? rows : []).filter(p =>
-      ['active', 'sold'].includes(String(p.status || '').toLowerCase()) &&
+      (isUuid(q) ? ['active', 'sold', 'archived'].includes(String(p.status || '').toLowerCase()) : ['active', 'sold'].includes(String(p.status || '').toLowerCase())) &&
       String(p.project_status || '').toLowerCase() === 'approved' &&
       String(p.ai_status || '').toLowerCase() === 'approved' &&
       p.verification?.ai?.test_mode !== true
@@ -41,7 +41,8 @@
     return rows?.[0] || null;
   }
   function renderProject(project, identity) {
-    const state = String(project.status || '').toLowerCase() === 'sold' ? 'SOLD / COMPLETED' : 'ACTIVE LISTING';
+    const projectStatus = String(project.status || '').toLowerCase();
+    const state = projectStatus === 'sold' ? 'SOLD / COMPLETED' : projectStatus === 'archived' ? 'WITHDRAWN / ARCHIVED' : 'ACTIVE LISTING';
     const website = safeUrl(project.website_url);
     const github = safeUrl(project.github_url);
     let html = '<div class="passport-badge">Official Web3Market Project Passport</div>';
