@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+      - name: Run free local smoke tests
+        run: python3 tests/audit-executive-scores-smoke.py
       - name: Verify executive score contract
         run: |
           python3 - <<'PY'
