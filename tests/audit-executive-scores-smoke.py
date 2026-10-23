@@ -99,6 +99,12 @@ class ExecutiveAuditScoreSmokeTests(unittest.TestCase):
         self.assertIn("not a load or production performance test", self.ui)
         self.assertIn("does not prove that an AI feature works", self.ui)
 
+    def test_resume_claim_excludes_scanning_state(self):
+        # Prevents a regression where concurrent resume requests both launch workers.
+        self.assertIn('if(resume.status==="scanning"&&stale)return json', self.engine)
+        self.assertIn('.in("status",["paused","analyzing","queued"])', self.engine)
+        self.assertNotIn('.in("status",["paused","analyzing","queued","scanning"])', self.engine)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
