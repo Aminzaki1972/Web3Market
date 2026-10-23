@@ -113,3 +113,49 @@ jobs:
           fi
           test "$(psql -At -c "SELECT count(*) FROM public.code_audits WHERE summary='boundary scores' AND scalability_score=0 AND ai_fit_score=100")" = "1"
           echo "PASS: migration executes on PostgreSQL, is idempotent, preserves historical NULLs, accepts boundaries, and rejects out-of-range scores."
+      - name: Verify stale-worker compare-and-set claim in PostgreSQL
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE TABLE public.audit_claim_test (
+            id integer PRIMARY KEY,
+            status text NOT NULL,
+            analysis_progress jsonb NOT NULL
+          );
+          INSERT INTO public.audit_claim_test VALUES
+            (1, 'scanning', '{"updated_at":"2026-10-23T00:00:00Z","status":"scanning"}'::jsonb);
+          -- First claimant matches the observed heartbeat and updates it.
+          WITH claimed AS (
+            UPDATE public.audit_claim_test
+            SET analysis_progress = jsonb_build_object(
+              'updated_at', '2026-10-23T00:01:00Z', 'status', 'scanning'
+            )
+            WHERE id = 1
+              AND status = 'scanning'
+              AND analysis_progress->>'updated_at' = '2026-10-23T00:00:00Z'
+            RETURNING id
+          )
+          SELECT CASE WHEN count(*) = 1 THEN 'PASS: first claimant acquired stale audit'
+                      ELSE 'FAIL: first claimant did not acquire stale audit' END
+          FROM claimed;
+          -- A competing claimant using the same stale heartbeat must lose.
+          WITH claimed AS (
+            UPDATE public.audit_claim_test
+            SET analysis_progress = jsonb_build_object(
+              'updated_at', '2026-10-23T00:02:00Z', 'status', 'scanning'
+            )
+            WHERE id = 1
+              AND status = 'scanning'
+              AND analysis_progress->>'updated_at' = '2026-10-23T00:00:00Z'
+            RETURNING id
+          )
+          SELECT CASE WHEN count(*) = 0 THEN 'PASS: stale competing claimant was rejected'
+                      ELSE 'FAIL: stale competing claimant unexpectedly acquired audit' END
+          FROM claimed;
+          DO $
+          BEGIN
+            IF (SELECT analysis_progress->>'updated_at' FROM public.audit_claim_test WHERE id=1)
+              <> '2026-10-23T00:01:00Z' THEN
+              RAISE EXCEPTION 'FAIL: competing claimant overwrote the winning heartbeat';
+            END IF;
+          END $;
+          SQL
