@@ -1,0 +1,62 @@
+name: Audit executive score contract checks
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/w3m-code-audit/index.ts"
+      - "supabase/migrations/*audit_executive_scores.sql"
+      - "js/code-audit.js"
+      - ".github/workflows/audit-executive-scores.yml"
+  push:
+    branches:
+      - "feat/audit-executive-scores"
+    paths:
+      - "supabase/functions/w3m-code-audit/index.ts"
+      - "supabase/migrations/*audit_executive_scores.sql"
+      - "js/code-audit.js"
+      - ".github/workflows/audit-executive-scores.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Verify executive score contract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          engine = Path("supabase/functions/w3m-code-audit/index.ts").read_text()
+          ui = Path("js/code-audit.js").read_text()
+          migrations = list(Path("supabase/migrations").glob("*audit_executive_scores.sql"))
+          if len(migrations) != 1:
+              sys.exit(f"Expected exactly one executive-score migration; found {len(migrations)}")
+          migration = migrations[0].read_text()
+
+          checks = {
+              "schema defines scalability": bool(re.search(r"scalability:\\s*\\{type:\\s*\\"NUMBER\\"", engine)),
+              "schema defines ai_fit": bool(re.search(r"ai_fit:\\s*\\{type:\\s*\\"NUMBER\\"", engine)),
+              "schema requires both executive scores": '"scalability","ai_fit"' in engine,
+              "model instructions request both scores": "web3, scalability, and ai_fit values 0-100" in engine,
+              "database mapping persists scalability": "scalability_score:sc.scalability" in engine,
+              "database mapping persists AI Fit": "ai_fit_score:sc.ai_fit" in engine,
+              "UI displays scalability": 'metric("Scalability (static estimate)",a.scalability_score)' in ui,
+              "UI displays AI Fit": 'metric("AI Fit (evidence-based)",a.ai_fit_score)' in ui,
+              "migration adds nullable integer columns": bool(re.search(r"ADD COLUMN IF NOT EXISTS scalability_score integer,\\s*ADD COLUMN IF NOT EXISTS ai_fit_score integer", migration, re.I)),
+              "migration bounds both scores": "scalability_score BETWEEN 0 AND 100" in migration and "ai_fit_score BETWEEN 0 AND 100" in migration,
+              "migration preserves historical nulls": "scalability_score IS NULL OR" in migration and "ai_fit_score IS NULL OR" in migration,
+              "UI discloses static-score limitations": "not a load or production performance test" in ui and "does not prove that an AI feature works" in ui,
+          }
+          failed = [name for name, passed in checks.items() if not passed]
+          for name, passed in checks.items():
+              print(f'{"PASS" if passed else "FAIL"}: {name}')
+          if failed:
+              sys.exit(f"{len(failed)} contract check(s) failed")
+          print(f"All {len(checks)} executive-score contract checks passed.")
+          PY
