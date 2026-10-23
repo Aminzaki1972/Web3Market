@@ -45,10 +45,14 @@ async function run(sb:any,a:any,r:any){
   // Keep the existing cost/runtime cap, but apply it only after sorting production code ahead of tests and support files.
   let oversizedFiles=0,unreadableFiles=0;
   const files:any[]=[];
-  // Download one immutable archive for the exact audited commit. Fetching each file
-  // through the unauthenticated Contents API exhausts GitHub's 60-request/hour limit.
-  // Keep archive size bounded to protect Edge Function memory; fall back to per-file
-  // requests when a repository archive is too large or unavailable.
+  // Prefer one immutable archive for the exact audited commit. If the archive is
+  // unavailable or omits any selected path, fetch only the missing files from
+  // raw.githubusercontent.com (which avoids the unauthenticated GitHub REST API quota).
+  const maxFileBytes=200000;
+  const readableCandidates=candidates.filter((x:any)=>{
+    if((x.size||0)>maxFileBytes){oversizedFiles++;return false;}
+    return true;
+  });
   let archiveLoaded=false;
   try{
    const ar=await fetch("https://codeload.github.com/"+r.owner+"/"+r.name+"/zip/"+sha,{headers:{"User-Agent":"Web3Market-W3M-Code-Audit"}});
@@ -56,36 +60,35 @@ async function run(sb:any,a:any,r:any){
    if(ar.ok&&(!declaredSize||declaredSize<=50*1024*1024)){
     const zipBytes=new Uint8Array(await ar.arrayBuffer());
     if(zipBytes.byteLength<=50*1024*1024){
-     const decoded=decodeSelectedArchive(zipBytes,candidates);
+     const decoded=decodeSelectedArchive(zipBytes,readableCandidates);
      files.push(...decoded.files);
-     oversizedFiles+=decoded.oversizedFiles;
-     unreadableFiles+=decoded.unreadableFiles;
      archiveLoaded=true;
     }
    }else if(!ar.ok){
     console.warn("W3M audit archive download unavailable",{status:ar.status});
    }
   }catch(e){
-   console.warn("W3M audit archive fetch failed; using per-file fallback",{error:String((e as any)?.message||e)});
+   console.warn("W3M audit archive fetch failed; using raw-file fallback",{error:String((e as any)?.message||e)});
   }
-  if(!archiveLoaded){
-   // Optional server-side token raises the REST API budget without exposing credentials.
-   for(let i=0;i<candidates.length;i+=4){
-    const batch=await Promise.all(candidates.slice(i,i+4).map(async (x:any)=>{
-     if((x.size||0)>200000){oversizedFiles++;return null;}
-     try{
-      const token=Deno.env.get("GITHUB_TOKEN");
-      const headers:Record<string,string>={"Accept":"application/vnd.github+json","User-Agent":"Web3Market-W3M-Code-Audit"};
-      if(token)headers.Authorization="Bearer "+token;
-      const response=await fetch("https://api.github.com/repos/"+r.owner+"/"+r.name+"/contents/"+x.path+"?ref="+sha,{headers});
-      if(!response.ok)throw Error("GitHub HTTP "+response.status);
-      const b=await response.json();
-      if(b.encoding==="base64"&&b.content)return {path:x.path,content:atob(b.content.replace(/\n/g,""))};
-     }catch(e){unreadableFiles++;console.warn("W3M audit skipped unreadable file",{path:x.path,error:String((e as any)?.message||e)});}
+  const fetchedPaths=new Set(files.map((f:any)=>f.path));
+  const pending=readableCandidates.filter((x:any)=>!fetchedPaths.has(x.path));
+  for(let i=0;i<pending.length;i+=4){
+   const batch=await Promise.all(pending.slice(i,i+4).map(async (x:any)=>{
+    try{
+     const encodedPath=String(x.path).split("/").map((part:string)=>encodeURIComponent(part)).join("/");
+     const response=await fetch("https://raw.githubusercontent.com/"+r.owner+"/"+r.name+"/"+sha+"/"+encodedPath,{headers:{"User-Agent":"Web3Market-W3M-Code-Audit"}});
+     if(!response.ok)throw Error("Raw GitHub HTTP "+response.status);
+     const content=await response.text();
+     const actualBytes=new TextEncoder().encode(content).length;
+     if(actualBytes>maxFileBytes){oversizedFiles++;return null;}
+     return {path:x.path,content};
+    }catch(e){
+     unreadableFiles++;
+     console.warn("W3M audit skipped unreadable file",{path:x.path,error:String((e as any)?.message||e)});
      return null;
-    }));
-    for(const f of batch)if(f)files.push(f);
-   }
+    }
+   }));
+   for(const f of batch)if(f)files.push(f);
   }
   if(!files.length)throw Error("No readable source files were fetched from this repository. Check that it is public and contains supported source files.");
   const lines=files.reduce((n,f)=>n+f.content.split("\n").length,0);
