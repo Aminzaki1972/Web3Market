@@ -37,6 +37,7 @@
       <h3 id="w3mGuideSlideTitle">List a project</h3>
       <p id="w3mGuideSlideText">Present a Web3 project, AI app, website, SaaS product, or digital business. Add a clear description and the available website, public repository, screenshots, and supporting details.</p>
       <p class="w3m-guide-step" id="w3mGuideStep">STEP 1 · LIST</p>
+      <figure class="w3m-guide-image-wrap"><img id="w3mGuideImage" src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80" alt="Team collaborating on a digital project" loading="lazy" decoding="async"><figcaption id="w3mGuideImageCaption">Bring your digital project to market</figcaption></figure>
     </div>
     <div class="w3m-guide-controls">
       <button type="button" class="btn btn-ghost" id="w3mGuidePrev" aria-label="Previous Web3Market feature">← Previous</button>
@@ -69,6 +70,10 @@
 .w3m-guide-number{font-size:12px;letter-spacing:.12em;font-weight:800;color:#7fa5ff}
 .w3m-guide-icon{display:grid;place-items:center;width:44px;height:44px;margin:15px 0 12px;border-radius:12px;background:rgba(82,123,255,.16);border:1px solid rgba(113,149,255,.3);font-size:24px;font-weight:700;color:#8fb0ff}
 .w3m-guide-panel h3{font-size:clamp(20px,3vw,27px);margin:0 0 9px}
+.w3m-guide-image-wrap{position:relative;margin:22px 0 0;overflow:hidden;border-radius:13px;border:1px solid rgba(104,145,255,.34);background:#08152d;aspect-ratio:16/6;max-height:270px}
+.w3m-guide-image-wrap img{display:block;width:100%;height:100%;min-height:140px;object-fit:cover;opacity:.95}
+.w3m-guide-image-wrap:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(4,14,34,.06),rgba(18,58,140,.24));pointer-events:none}
+.w3m-guide-image-wrap figcaption{position:absolute;z-index:1;left:12px;right:12px;bottom:12px;padding:10px 12px;border-radius:9px;background:rgba(4,12,29,.78);color:#f3f7ff;font-size:12px;line-height:1.5}
 .w3m-guide-panel p{max-width:760px;line-height:1.75;margin:0}
 .w3m-guide-panel .w3m-guide-step{margin-top:18px;font-size:11px;font-weight:800;letter-spacing:.12em;color:#91a9df}
 .w3m-guide-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px}
@@ -88,16 +93,16 @@
 <script>
 (function(){
   const slides=[
-    {icon:"＋",title:"List a project",text:"Present a Web3 project, AI app, website, SaaS product, or digital business. Add a clear description and the available website, public repository, screenshots, and supporting details.",step:"STEP 1 · LIST"},
-    {icon:"⌕",title:"Help buyers evaluate it",text:"Keep the listing accurate and make supporting evidence easy to review. The GitHub audit can provide AI-assisted technical findings for a public repository; it does not guarantee that a project is safe.",step:"STEP 2 · REVIEW"},
-    {icon:"↔",title:"Discover projects and make offers",text:"Buyers can explore marketplace listings and submit an offer. Sellers review incoming offers and respond through the available marketplace workflow.",step:"STEP 3 · OFFER"},
-    {icon:"◇",title:"Coordinate the deal and delivery",text:"When a deal is available, use the Deal Room and follow the transaction’s displayed steps to agree on terms, coordinate asset delivery, and review settlement status.",step:"STEP 4 · DEAL"},
-    {icon:"✓",title:"Complete the transaction carefully",text:"Confirm the agreed delivery and transaction details before considering a sale complete. Web3Market’s stated success fee is 7.5% on completed sales, subject to the platform’s terms.",step:"STEP 5 · SETTLEMENT"}
+    {icon:"＋",title:"List a project",text:"Present a Web3 project, AI app, website, SaaS product, or digital business. Add a clear description and the available website, public repository, screenshots, and supporting details.",step:"STEP 1 · LIST",image:"https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80",alt:"Team collaborating on a digital project",caption:"Bring your digital project to market"},
+    {icon:"⌕",title:"Help buyers evaluate it",text:"Keep the listing accurate and make supporting evidence easy to review. The GitHub audit can provide AI-assisted technical findings for a public repository; it does not guarantee that a project is safe.",step:"STEP 2 · REVIEW",image:"https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?auto=format&fit=crop&w=1200&q=80",alt:"Code displayed on a computer screen",caption:"Review technical evidence before you buy"},
+    {icon:"↔",title:"Discover projects and make offers",text:"Buyers can explore marketplace listings and submit an offer. Sellers review incoming offers and respond through the available marketplace workflow.",step:"STEP 3 · OFFER",image:"https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=1200&q=80",alt:"Professionals discussing an opportunity",caption:"Explore opportunities and negotiate clearly"},
+    {icon:"◇",title:"Coordinate the deal and delivery",text:"When a deal is available, use the Deal Room and follow the transaction’s displayed steps to agree on terms, coordinate asset delivery, and review settlement status.",step:"STEP 4 · DEAL",image:"https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80",alt:"Team reviewing business documents",caption:"Keep deal terms and delivery aligned"},
+    {icon:"✓",title:"Complete the transaction carefully",text:"Confirm the agreed delivery and transaction details before considering a sale complete. Web3Market’s stated success fee is 7.5% on completed sales, subject to the platform’s terms.",step:"STEP 5 · SETTLEMENT",image:"https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=1200&q=80",alt:"Abstract blockchain technology illustration",caption:"Complete each step with care"}
   ];
   const get=id=>document.getElementById(id);
   const title=get("w3mGuideSlideTitle");
   if(!title)return;
-  const text=get("w3mGuideSlideText"),icon=get("w3mGuideIcon"),number=get("w3mGuideNumber"),step=get("w3mGuideStep");
+  const text=get("w3mGuideSlideText"),icon=get("w3mGuideIcon"),number=get("w3mGuideNumber"),step=get("w3mGuideStep"),image=get("w3mGuideImage"),caption=get("w3mGuideImageCaption");
   const dots=Array.from(get("w3mGuideDots").querySelectorAll("button"));
   const pause=get("w3mGuidePause"),status=get("w3mGuideAutoStatus");
   let index=0,paused=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -105,6 +110,7 @@
     index=(next+slides.length)%slides.length;
     const s=slides[index];
     icon.textContent=s.icon;title.textContent=s.title;text.textContent=s.text;
+    image.src=s.image;image.alt=s.alt;caption.textContent=s.caption;
     number.textContent=String(index+1).padStart(2,"0")+" / "+String(slides.length).padStart(2,"0");
     step.textContent=s.step;
     dots.forEach((dot,i)=>{if(i===index)dot.setAttribute("aria-current","true");else dot.removeAttribute("aria-current");});
