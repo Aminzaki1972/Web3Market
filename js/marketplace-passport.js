@@ -12,7 +12,7 @@
   async function findProject(query) {
     const q = query.trim();
     if (!q) return null;
-    const select = 'id,title,description,category,website_url,github_url,technology_stack,blockchain,ai_score,ai_summary,ai_risk_score,ai_risk_level,ai_due_diligence,ai_valuation,status,project_status,ai_status,created_at,w3m_identity_id';
+    const select = 'id,title,description,category,website_url,github_url,technology_stack,blockchain,ai_score,ai_summary,ai_risk_score,ai_risk_level,ai_due_diligence,ai_valuation,status,project_status,ai_status,created_at,w3m_identity_id,verification';
     let url;
     if (isUuid(q)) {
       url = SUPABASE_URL + '/rest/v1/projects?id=eq.' + encodeURIComponent(q) + '&select=' + select + '&limit=1';
