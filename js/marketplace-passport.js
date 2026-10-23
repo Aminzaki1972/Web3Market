@@ -12,7 +12,7 @@
   async function findProject(query) {
     const q = query.trim();
     if (!q) return null;
-    const select = 'id,title,description,category,website_url,github_url,technology_stack,blockchain,ai_score,ai_summary,ai_risk_score,ai_risk_level,ai_due_diligence,ai_valuation,status,project_status,ai_status,created_at,w3m_identity_id,verification';
+    const select = 'id,title,description,short_description,full_description,category,website_url,github_url,technology_stack,blockchain,ai_score,status,project_status,ai_status,created_at,w3m_identity_id,verification';
     let url;
     if (isUuid(q)) {
       url = SUPABASE_URL + '/rest/v1/projects?id=eq.' + encodeURIComponent(q) + '&select=' + select + '&limit=1';
@@ -55,12 +55,13 @@
     html += field('Technology', project.technology_stack);
     html += field('Blockchain', project.blockchain);
     html += field('AI score', project.ai_score == null ? '' : String(project.ai_score));
-    html += field('AI risk level', project.ai_risk_level);
+    html += field('AI review status', project.ai_status);
     html += '</div>';
     if (website) html += '<p><strong>Official website:</strong> <a href="' + esc(website) + '" target="_blank" rel="noopener noreferrer">' + esc(website) + '</a></p>';
     if (github) html += '<p><strong>GitHub:</strong> <a href="' + esc(github) + '" target="_blank" rel="noopener noreferrer">' + esc(github) + '</a></p>';
     html += '</section>';
-    if (project.ai_summary) html += '<section class="passport-card"><h2>AI Project Summary</h2><p>' + esc(project.ai_summary) + '</p></section>';
+    const summary = project.full_description || project.short_description || project.description;
+    if (summary) html += '<section class="passport-card"><h2>Project Summary</h2><p>' + esc(summary) + '</p></section>';
     html += '<section class="passport-card"><h2>Technical Code Audit</h2><p>Technical audits remain a separate service. This Passport displays the project identity; audit reports and findings remain in the independent audit archive.</p><a class="view" href="code-audit.html">Open W3M AI Code Audit →</a></section>';
     html += '<section class="passport-card"><p class="muted">This Passport records the Web3Market project and listing state. AI scores are indicators, not a security guarantee. A sold or withdrawn listing does not erase the project identity.</p></section>';
     show(html);
