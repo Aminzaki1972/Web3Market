@@ -2,7 +2,7 @@
 'use strict';
 const SUPABASE_URL="https://hzhqlexnhtukfljcvnyd.supabase.co";
 const SUPABASE_KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
-const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 const val=(v,e='Not available')=>v===null||v===undefined||v===''?e:v;
 function safeHttpUrl(value){try{const url=new URL(String(value??''));return url.protocol==='https:'||url.protocol==='http:'?url.href:''}catch{return ''}}
 const status=(k,l)=>'<span class="status '+k+'">'+l+'</span>';
