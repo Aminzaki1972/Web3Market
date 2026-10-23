@@ -66,28 +66,28 @@ begin
 end $$;
 reset role;
 
--- Assigned support agents can read/reply at AAL1 but cannot change thread status.
+-- Assigned support agents may use AAL1; administrator-only status controls still require AAL2.
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000004',false);
 select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal1"}',false);
-do $support_agent_no_mfa$
+do $support_agent_aal1$
 declare affected_rows integer;
 begin
   if (select count(*) from public.support_conversations) <> 2 then
-    raise exception 'FAIL: assigned support agent without AAL2 cannot read all conversations';
+    raise exception 'FAIL: assigned support agent at AAL1 cannot read all conversations';
   end if;
   if (select count(*) from public.support_messages) <> 2 then
-    raise exception 'FAIL: assigned support agent without AAL2 cannot read all messages';
+    raise exception 'FAIL: assigned support agent at AAL1 cannot read all messages';
   end if;
   insert into public.support_messages(conversation_id, sender_id, body)
-  values ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','Support agent reply without AAL2');
+  values ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','Support agent reply at AAL1');
   update public.support_conversations set status='closed'
   where id='10000000-0000-0000-0000-000000000001';
   get diagnostics affected_rows = row_count;
   if affected_rows <> 0 then
-    raise exception 'FAIL: support agent without AAL2 changed conversation status';
+    raise exception 'FAIL: support agent at AAL1 changed conversation status';
   end if;
-end $support_agent_no_mfa$;
+end $support_agent_aal1$;
 reset role;
 
 set role authenticated;
