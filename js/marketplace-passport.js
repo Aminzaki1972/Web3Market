@@ -10,37 +10,17 @@
   const safeUrl = value => { try { const u = new URL(String(value || '')); return ['http:', 'https:'].includes(u.protocol) ? u.href : ''; } catch { return ''; } };
   const field = (label, value) => '<div class="item"><small>' + esc(label) + '</small><strong>' + esc(value || 'Not available') + '</strong></div>';
   async function findProject(query) {
-    const q = query.trim();
-    if (!q) return null;
-    const select = 'id,title,description,short_description,full_description,category,website_url,github_url,technology_stack,blockchain,ai_score,status,project_status,ai_status,created_at,w3m_identity_id,verification';
-    let url;
-    if (isUuid(q)) {
-      url = SUPABASE_URL + '/rest/v1/projects?id=eq.' + encodeURIComponent(q) + '&select=' + select + '&limit=1';
-    } else {
-      url = SUPABASE_URL + '/rest/v1/projects?title=ilike.' + encodeURIComponent('*' + q.replace(/[,*()]/g, ' ') + '*') + '&select=' + select + '&order=created_at.desc&limit=20';
-    }
-    const response = await fetch(url, { headers, cache: 'no-store' });
-    if (!response.ok) throw new Error('Project lookup failed (' + response.status + ').');
-    const rows = await response.json();
-    const eligible = (Array.isArray(rows) ? rows : []).filter(p =>
-      (isUuid(q) ? ['active', 'sold', 'archived'].includes(String(p.status || '').toLowerCase()) : ['active', 'sold'].includes(String(p.status || '').toLowerCase())) &&
-      String(p.project_status || '').toLowerCase() === 'approved' &&
-      String(p.ai_status || '').toLowerCase() === 'approved' &&
-      p.verification?.ai?.test_mode !== true
-    );
-    if (isUuid(q)) return eligible[0] || null;
-    const exact = eligible.find(p => String(p.title || '').trim().toLowerCase() === q.toLowerCase());
-    return exact || (eligible.length === 1 ? eligible[0] : eligible.length ? { matches: eligible } : null);
+    const response = await fetch(SUPABASE_URL + '/functions/v1/public-project-passport', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ query: query.trim() }),
+      cache: 'no-store'
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || 'Project Passport lookup failed (' + response.status + ').');
+    return data;
   }
-  async function identityFor(project) {
-    if (!project.w3m_identity_id) return null;
-    const url = SUPABASE_URL + '/rest/v1/project_identities?id=eq.' + encodeURIComponent(project.w3m_identity_id) + '&select=identity_code,first_seen_at,identity_status&limit=1';
-    const response = await fetch(url, { headers, cache: 'no-store' });
-    if (!response.ok) return null;
-    const rows = await response.json();
-    return rows?.[0] || null;
-  }
-  function renderProject(project, identity) {
+  function renderProject(project, identity, audits) {
     const projectStatus = String(project.status || '').toLowerCase();
     const state = projectStatus === 'sold' ? 'SOLD / COMPLETED' : projectStatus === 'archived' ? 'WITHDRAWN / ARCHIVED' : 'ACTIVE LISTING';
     const website = safeUrl(project.website_url);
@@ -62,7 +42,22 @@
     html += '</section>';
     const summary = project.full_description || project.short_description || project.description;
     if (summary) html += '<section class="passport-card"><h2>Project Summary</h2><p>' + esc(summary) + '</p></section>';
-    html += '<section class="passport-card"><h2>Technical Code Audit</h2><p>Technical audits remain a separate service. This Passport displays the project identity; audit reports and findings remain in the independent audit archive.</p><a class="view" href="code-audit.html">Open W3M AI Code Audit →</a></section>';
+    html += '<section class="passport-card"><h2>Technical Audit History</h2>';
+    if (Array.isArray(audits) && audits.length) {
+      html += '<p class="muted">Completed audits matching this project&#39;s exact public repository. Detailed findings and failed runs remain in the protected audit archive.</p>';
+      html += audits.map(a => {
+        const date = a.completed_at || a.created_at;
+        const when = date ? new Date(date).toLocaleString() : 'Date unavailable';
+        const score = a.overall_score == null ? 'Score unavailable' : Number(a.overall_score).toFixed(2) + '/100';
+        const risk = a.risk_level ? String(a.risk_level).toUpperCase() : 'NOT CLASSIFIED';
+        const counts = 'Critical ' + Number(a.critical_count || 0) + ' · High ' + Number(a.high_count || 0) + ' · Medium ' + Number(a.medium_count || 0) + ' · Low ' + Number(a.low_count || 0);
+        const commit = a.commit_sha ? String(a.commit_sha).slice(0, 12) : 'Commit not recorded';
+        return '<div class="finding"><strong>' + esc(when) + '</strong><p><span class="status">' + esc(score) + '</span> <span class="status">' + esc(risk) + '</span></p><p class="muted">Commit: ' + esc(commit) + ' · Files scanned: ' + esc(a.files_scanned ?? 'N/A') + ' · Lines scanned: ' + esc(a.lines_scanned ?? 'N/A') + '</p><p class="muted">' + esc(counts) + '</p></div>';
+      }).join('');
+    } else {
+      html += '<p class="muted">No completed audit has been matched to this repository yet. The full audit archive remains separate; only completed audits with an exact repository match appear here.</p>';
+    }
+    html += '<p><a class="view" href="code-audit.html">Open W3M AI Code Audit →</a></p></section>';
     html += '<section class="passport-card"><p class="muted">This Passport records the Web3Market project and listing state. AI scores are indicators, not a security guarantee. A sold or withdrawn listing does not erase the project identity.</p></section>';
     show(html);
   }
@@ -78,10 +73,9 @@
         root().querySelectorAll('[data-project-id]').forEach(button => button.addEventListener('click', () => { input.value = button.dataset.projectId; load(); }));
         return;
       }
-      if (!result) { show('<section class="passport-card"><h2>No eligible marketplace project found</h2><p class="muted">Official Passports are available only for approved Web3Market listings. External websites and arbitrary project names cannot create a Passport here.</p><a class="view" href="marketplace.html">Browse the marketplace →</a></section>'); return; }
-      const identity = await identityFor(result);
-      renderProject(result, identity);
-      const next = new URL(location.href); next.searchParams.set('id', result.id); history.replaceState({}, '', next.pathname + next.search);
+      if (!result?.project) { show('<section class="passport-card"><h2>No eligible marketplace project found</h2><p class="muted">Official Passports are available only for approved Web3Market listings. External websites and arbitrary project names cannot create a Passport here.</p><a class="view" href="marketplace.html">Browse the marketplace →</a></section>'); return; }
+      renderProject(result.project, result.identity, result.audits);
+      const next = new URL(location.href); next.searchParams.set('id', result.project.id); history.replaceState({}, '', next.pathname + next.search);
     } catch (error) {
       show('<section class="passport-card"><h2>Passport could not be loaded</h2><p class="muted">' + esc(error?.message || 'Please retry later.') + '</p></section>');
     }
