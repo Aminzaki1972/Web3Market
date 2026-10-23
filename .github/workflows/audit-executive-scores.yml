@@ -55,6 +55,8 @@ jobs:
               "migration adds nullable integer columns": "ADD COLUMN IF NOT EXISTS scalability_score integer" in migration and "ADD COLUMN IF NOT EXISTS ai_fit_score integer" in migration,
               "migration bounds both scores": "scalability_score BETWEEN 0 AND 100" in migration and "ai_fit_score BETWEEN 0 AND 100" in migration,
               "migration preserves historical nulls": "scalability_score IS NULL OR" in migration and "ai_fit_score IS NULL OR" in migration,
+              "constraint names are scoped to the target table": "conname = 'code_audits_scalability_score_range' AND conrelid = 'public.code_audits'::regclass" in migration and "conname = 'code_audits_ai_fit_score_range' AND conrelid = 'public.code_audits'::regclass" in migration,
+              "migration contains no destructive table/column drops": not re.search(r"\bDROP\s+(?:TABLE|COLUMN)\b", migration, re.IGNORECASE),
               "UI discloses static-score limitations": "not a load or production performance test" in ui and "does not prove that an AI feature works" in ui,
           }
           failed = [name for name, passed in checks.items() if not passed]
