@@ -40,15 +40,15 @@ jobs:
           migration = migrations[0].read_text()
 
           checks = {
-              "schema defines scalability": bool(re.search(r"scalability:\\s*\\{type:\\s*\\"NUMBER\\"", engine)),
-              "schema defines ai_fit": bool(re.search(r"ai_fit:\\s*\\{type:\\s*\\"NUMBER\\"", engine)),
+              "schema defines scalability": "scalability:{type:\"NUMBER\"" in engine,
+              "schema defines ai_fit": "ai_fit:{type:\"NUMBER\"" in engine,
               "schema requires both executive scores": '"scalability","ai_fit"' in engine,
               "model instructions request both scores": "web3, scalability, and ai_fit values 0-100" in engine,
               "database mapping persists scalability": "scalability_score:sc.scalability" in engine,
               "database mapping persists AI Fit": "ai_fit_score:sc.ai_fit" in engine,
               "UI displays scalability": 'metric("Scalability (static estimate)",a.scalability_score)' in ui,
               "UI displays AI Fit": 'metric("AI Fit (evidence-based)",a.ai_fit_score)' in ui,
-              "migration adds nullable integer columns": bool(re.search(r"ADD COLUMN IF NOT EXISTS scalability_score integer,\\s*ADD COLUMN IF NOT EXISTS ai_fit_score integer", migration, re.I)),
+              "migration adds nullable integer columns": "ADD COLUMN IF NOT EXISTS scalability_score integer" in migration and "ADD COLUMN IF NOT EXISTS ai_fit_score integer" in migration,
               "migration bounds both scores": "scalability_score BETWEEN 0 AND 100" in migration and "ai_fit_score BETWEEN 0 AND 100" in migration,
               "migration preserves historical nulls": "scalability_score IS NULL OR" in migration and "ai_fit_score IS NULL OR" in migration,
               "UI discloses static-score limitations": "not a load or production performance test" in ui and "does not prove that an AI feature works" in ui,
