@@ -37,19 +37,27 @@ async function run(sb:any,a:any,r:any){
 
  try{
   console.log("W3M audit worker start", {audit_id:a.id, owner:r.owner, name:r.name});
-  const {data:resumeState}=await sb.from("code_audits").select("ai_chunk_results,current_chunk,total_chunks").eq("id",a.id).maybeSingle(); const isResume=Array.isArray(resumeState?.ai_chunk_results)&&Number(resumeState?.current_chunk||0)>0; await sb.from("code_audits").update({status:"scanning",started_at:new Date().toISOString(),analysis_progress:{status:"scanning",current_chunk:isResume?Number(resumeState.current_chunk):0,total_chunks:isResume?Number(resumeState.total_chunks||0):0,updated_at:new Date().toISOString()},current_chunk:isResume?Number(resumeState.current_chunk):0,retry_count:0}).eq("id",a.id);
+  const {data:resumeState}=await sb.from("code_audits").select("ai_chunk_results,current_chunk,total_chunks,analysis_progress,commit_sha,repo_owner,repo_name,branch").eq("id",a.id).maybeSingle(); const priorProgress=resumeState?.analysis_progress||{}; const isResume=(Array.isArray(resumeState?.ai_chunk_results)&&Number(resumeState?.current_chunk||0)>0)||Number(priorProgress.file_batch_index||0)>0; await sb.from("code_audits").update({status:"scanning",started_at:new Date().toISOString(),analysis_progress:{...priorProgress,status:"scanning",current_chunk:isResume?Number(resumeState.current_chunk||0):0,total_chunks:isResume?Number(resumeState.total_chunks||0):0,updated_at:new Date().toISOString()},current_chunk:isResume?Number(resumeState.current_chunk||0):0,retry_count:0}).eq("id",a.id);
   const m=await gh("/repos/"+r.owner+"/"+r.name);if(m.private)throw Error("Private repositories are not supported in this MVP.");
-  const branch=m.default_branch||"main",c=await gh("/repos/"+r.owner+"/"+r.name+"/commits/"+encodeURIComponent(branch)),sha=c.sha;
-  const tree=await gh("/repos/"+r.owner+"/"+r.name+"/git/trees/"+sha+"?recursive=1");if(tree.truncated)throw Error("Repository tree is too large for this MVP.");
-  const {candidates,candidateCount}=selectAuditCandidates(tree.tree||[],100);
-  // Keep the existing cost/runtime cap, but apply it only after sorting production code ahead of tests and support files.
+  const branch=resumeState?.branch||m.default_branch||"main",headCommit=await gh("/repos/"+r.owner+"/"+r.name+"/commits/"+encodeURIComponent(branch)),sha=resumeState?.commit_sha||headCommit.sha;
+  const tree=await gh("/repos/"+r.owner+"/"+r.name+"/git/trees/"+sha+"?recursive=1");if(tree.truncated)throw Error("Repository tree is too large for GitHub's recursive tree API; no partial audit was reported.");
+  const {allCandidates,candidateCount}=selectAuditCandidates(tree.tree||[],Number.MAX_SAFE_INTEGER);
+  const maxFileBytes=200000;
+  const readableCandidates=allCandidates.filter((x:any)=>(x.size||0)<=maxFileBytes);
+  const preSkippedOversized=allCandidates.length-readableCandidates.length;
+  const fileBatchSize=100;
+  const totalFileBatches=Math.max(1,Math.ceil(readableCandidates.length/fileBatchSize));
+  const progressState=resumeState?.analysis_progress||{};
+  const fileBatchIndex=Math.min(Math.max(0,Number(progressState.file_batch_index||0)),totalFileBatches-1);
+  const candidates=readableCandidates.slice(fileBatchIndex*fileBatchSize,(fileBatchIndex+1)*fileBatchSize);
+  const batchStats=Array.isArray(progressState.batch_stats)?[...progressState.batch_stats]:[];
   let oversizedFiles=0,unreadableFiles=0;
   const files:any[]=[];
+  await sb.from("code_audits").update({analysis_progress:{...progressState,status:"scanning",file_batch_index:fileBatchIndex,total_file_batches:totalFileBatches,eligible_files:candidateCount,updated_at:new Date().toISOString()}}).eq("id",a.id);
   // Prefer one immutable archive for the exact audited commit. If the archive is
   // unavailable or omits any selected path, fetch only the missing files from
   // raw.githubusercontent.com (which avoids the unauthenticated GitHub REST API quota).
-  const maxFileBytes=200000;
-  const readableCandidates=candidates.filter((x:any)=>{
+  const batchReadableCandidates=candidates.filter((x:any)=>{
     if((x.size||0)>maxFileBytes){oversizedFiles++;return false;}
     return true;
   });
@@ -69,7 +77,7 @@ async function run(sb:any,a:any,r:any){
    console.warn("W3M audit archive fetch failed; using raw-file fallback",{error:String((e as any)?.message||e)});
   }
   const fetchedPaths=new Set(files.map((f:any)=>f.path));
-  const pending=readableCandidates.filter((x:any)=>!fetchedPaths.has(x.path));
+  const pending=batchReadableCandidates.filter((x:any)=>!fetchedPaths.has(x.path));
   for(let i=0;i<pending.length;i+=4){
    const batch=await Promise.all(pending.slice(i,i+4).map(async (x:any)=>{
     try{
@@ -95,25 +103,39 @@ async function run(sb:any,a:any,r:any){
   const savedResults=Array.isArray(state?.ai_chunk_results)?state.ai_chunk_results:[];
   const startChunk=Number(state?.current_chunk||0);
   const out=await ai(files,r.owner+"/"+r.name,async(p:any)=>{
-    const workerStatus=p.status==="chunk_completed"?"scanning":"scanning"; const patch:any={status:workerStatus,analysis_progress:{...p,updated_at:new Date().toISOString()},current_chunk:Number(p.current_chunk||startChunk),total_chunks:Number(p.total_chunks||0),retry_count:Number(p.attempt||0)};
+    const workerStatus="scanning"; const patch:any={status:workerStatus,analysis_progress:{...progressState,...p,file_batch_index:fileBatchIndex,total_file_batches:totalFileBatches,eligible_files:candidateCount,batch_stats:batchStats,updated_at:new Date().toISOString()},current_chunk:Number(p.current_chunk??startChunk),total_chunks:Number(p.total_chunks||0),retry_count:Number(p.attempt||0)};
     if(p.result){savedResults.push(p.result);patch.ai_chunk_results=savedResults;}
     await sb.from("code_audits").update(patch).eq("id",a.id);
   },savedResults,startChunk,1);
   if(!out.complete){
-    await sb.from("code_audits").update({status:"queued",current_chunk:Number(out.next_chunk||startChunk),total_chunks:Number(out.chunks_analyzed||0),analysis_progress:{status:"queued",current_chunk:Number(out.next_chunk||startChunk),total_chunks:Number(out.chunks_analyzed||0)}}).eq("id",a.id);
+    await sb.from("code_audits").update({status:"queued",current_chunk:Number(out.next_chunk??startChunk),total_chunks:Number(out.chunks_analyzed||0),analysis_progress:{...progressState,status:"queued",file_batch_index:fileBatchIndex,total_file_batches:totalFileBatches,eligible_files:candidateCount,batch_stats:batchStats,current_chunk:Number(out.next_chunk??startChunk),total_chunks:Number(out.chunks_analyzed||0),updated_at:new Date().toISOString()}}).eq("id",a.id);
     return;
   }
+  const {data:knownRows}=await sb.from("code_audit_files").select("path").eq("audit_id",a.id);
+  const knownPaths=new Set((knownRows||[]).map((x:any)=>String(x.path)));
+  const newFileRows=files.filter((f:any)=>!knownPaths.has(f.path)).map((f:any)=>({audit_id:a.id,path:f.path,line_count:f.content.split("\n").length,size_bytes:new TextEncoder().encode(f.content).length,selected_tier:tier(f.path)}));
+  if(newFileRows.length)await sb.from("code_audit_files").insert(newFileRows);
+  batchStats[fileBatchIndex]={files_scanned:files.length,lines_scanned:lines,bytes_analyzed:files.reduce((n:number,f:any)=>n+new TextEncoder().encode(f.content).length,0),oversized_files:oversizedFiles,unreadable_files:unreadableFiles};
+  if(fileBatchIndex+1<totalFileBatches){
+    await sb.from("code_audits").update({status:"queued",current_chunk:0,total_chunks:0,analysis_progress:{...progressState,status:"queued",file_batch_index:fileBatchIndex+1,total_file_batches:totalFileBatches,eligible_files:candidateCount,batch_stats:batchStats,current_chunk:0,total_chunks:0,updated_at:new Date().toISOString()}}).eq("id",a.id);
+    return;
+  }
+  const {data:allFileRows}=await sb.from("code_audit_files").select("path,line_count,size_bytes,selected_tier").eq("audit_id",a.id);
+  const totalScannedFiles=(allFileRows||[]).length;
+  const totalLines=(allFileRows||[]).reduce((n:number,x:any)=>n+Number(x.line_count||0),0);
+  const totalBytes=(allFileRows||[]).reduce((n:number,x:any)=>n+Number(x.size_bytes||0),0);
+  const totalOversized=preSkippedOversized+batchStats.reduce((n:number,x:any)=>n+Number(x?.oversized_files||0),0);
+  const totalUnreadable=batchStats.reduce((n:number,x:any)=>n+Number(x?.unreadable_files||0),0);
   const s=out.category_scores||{};
   const validExecutiveScore=(v:any)=>typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100;
   if(!validExecutiveScore(s.scalability)||!validExecutiveScore(s.ai_fit))throw Error("AI response is missing valid Scalability or AI-Fit scores (expected numbers from 0 to 100).");
   const sc={security:Number(s.security)||0,architecture:Number(s.architecture)||0,code_quality:Number(s.code_quality)||0,dependencies:Number(s.dependencies)||0,testing:Number(s.testing)||0,documentation:Number(s.documentation)||0,web3:Number(s.web3)||0,scalability:s.scalability,ai_fit:s.ai_fit};
-  const web3=files.some(f=>/\.(sol|rs)$/i.test(f.path))||/web3|blockchain|wallet|smart contract/i.test(m.description||"");
+  const web3=allCandidates.some((f:any)=>/\.(sol|rs)$/i.test(f.path))||/web3|blockchain|wallet|smart contract/i.test(m.description||"");
   let score=web3?sc.security*.30+sc.architecture*.20+sc.code_quality*.15+sc.dependencies*.10+sc.testing*.10+sc.documentation*.05+sc.web3*.10:sc.security*.35+sc.architecture*.25+sc.code_quality*.15+sc.dependencies*.10+sc.testing*.10+sc.documentation*.05;
   const findings=Array.isArray(out.findings)?out.findings.slice(0,100):[],cnt:any={critical:0,high:0,medium:0,low:0,info:0};for(const f of findings)if(cnt[f.severity]!==undefined)cnt[f.severity]++;
-  score=clamp(score);const coverage=calculateAuditCoverage(files.length,candidateCount);
-  if(files.length)await sb.from("code_audit_files").insert(files.map(f=>({audit_id:a.id,path:f.path,line_count:f.content.split("\n").length,size_bytes:new TextEncoder().encode(f.content).length,selected_tier:tier(f.path)})));
+  score=clamp(score);const coverage=calculateAuditCoverage(totalScannedFiles,candidateCount);
   if(findings.length)await sb.from("code_audit_findings").insert(findings.map((f:any)=>({audit_id:a.id,severity:f.severity,category:f.category,title:f.title,status:f.status,file_path:f.file_path,line_start:f.line_start,line_end:f.line_end,evidence:f.evidence,description:f.description,recommendation:f.recommendation,confidence:f.confidence})));
-  await sb.from("code_audits").update({status:"completed",overall_score:Number(score.toFixed(2)),coverage_score:coverage,security_score:sc.security,architecture_score:sc.architecture,code_quality_score:sc.code_quality,dependency_score:sc.dependencies,testing_score:sc.testing,documentation_score:sc.documentation,web3_score:sc.web3,scalability_score:sc.scalability,ai_fit_score:sc.ai_fit,risk_level:risk(score),critical_count:cnt.critical,high_count:cnt.high,medium_count:cnt.medium,low_count:cnt.low,info_count:cnt.info,summary:("File coverage: "+files.length+" of "+candidateCount+" eligible files scanned ("+coverage+"%). The existing per-audit fetch cap is 100 files; "+Math.max(0,candidateCount-candidates.length)+" eligible files were outside that cap. "+oversizedFiles+" selected files exceeded the 200 KB limit and "+unreadableFiles+" selected files could not be fetched. AI summary: "+String(out.summary||"")).slice(0,12000),model:String(out.model_used||"gemini-3.8-flash"),files_analyzed:files.length,bytes_analyzed:files.reduce((n,f)=>n+new TextEncoder().encode(f.content).length,0),chunks_analyzed:Number(out.chunks_analyzed)||1,ai_findings_count:findings.length,analysis_method:"multi-pass-gemini-v3-executive-scores",completed_at:new Date().toISOString(),current_chunk:Number(out.chunks_analyzed)||1,total_chunks:Number(out.chunks_analyzed)||1,analysis_progress:{status:"completed",current_chunk:Number(out.chunks_analyzed)||1,total_chunks:Number(out.chunks_analyzed)||1}}).eq("id",a.id);
+  await sb.from("code_audits").update({status:"completed",overall_score:Number(score.toFixed(2)),coverage_score:coverage,security_score:sc.security,architecture_score:sc.architecture,code_quality_score:sc.code_quality,dependency_score:sc.dependencies,testing_score:sc.testing,documentation_score:sc.documentation,web3_score:sc.web3,scalability_score:sc.scalability,ai_fit_score:sc.ai_fit,risk_level:risk(score),critical_count:cnt.critical,high_count:cnt.high,medium_count:cnt.medium,low_count:cnt.low,info_count:cnt.info,summary:("File coverage: "+totalScannedFiles+" of "+candidateCount+" eligible files scanned ("+coverage+"%). Processing used "+totalFileBatches+" resumable file batches of up to "+fileBatchSize+" files each; no fixed total-file cap was applied. "+totalOversized+" eligible files exceeded the 200 KB limit and "+totalUnreadable+" files could not be fetched. AI summary: "+String(out.summary||"")).slice(0,12000),model:String(out.model_used||"gemini-3.8-flash"),files_analyzed:totalScannedFiles,bytes_analyzed:totalBytes,chunks_analyzed:Number(out.chunks_analyzed)||1,ai_findings_count:findings.length,analysis_method:"multi-pass-gemini-v3-executive-scores",completed_at:new Date().toISOString(),current_chunk:Number(out.chunks_analyzed)||1,total_chunks:Number(out.chunks_analyzed)||1,analysis_progress:{status:"completed",current_chunk:Number(out.chunks_analyzed)||1,total_chunks:Number(out.chunks_analyzed)||1}}).eq("id",a.id);
  }catch(e){
     const msg=String(e?.message||e).slice(0,2000);
     console.error("W3M audit worker error", {audit_id:a.id, error:msg});
@@ -172,7 +194,7 @@ Deno.serve(async req=>{
    const resumable=["paused","analyzing","queued"].includes(resume.status);
    if(!resumable&&!(resume.status==="scanning"&&stale))return json({ok:false,audit_id:resume.id,status:resume.status,error:"Audit cannot be resumed from its current state."},409);
    // Compare-and-set claim: stale workers must match the heartbeat observed above.
-   let claimQuery=sb.from("code_audits").update({status:"scanning",analysis_progress:{status:"scanning",current_chunk:Number(resume.current_chunk||progress.current_chunk||0),total_chunks:Number(resume.total_chunks||progress.total_chunks||0),updated_at:new Date().toISOString()}}).eq("id",resume.id);
+   let claimQuery=sb.from("code_audits").update({status:"scanning",analysis_progress:{...progress,status:"scanning",current_chunk:Number(resume.current_chunk||progress.current_chunk||0),total_chunks:Number(resume.total_chunks||progress.total_chunks||0),updated_at:new Date().toISOString()}}).eq("id",resume.id);
    if(resume.status==="scanning"&&stale){
     claimQuery=claimQuery.eq("status","scanning");
     claimQuery=progress.updated_at?claimQuery.eq("analysis_progress->>updated_at",String(progress.updated_at)):claimQuery.is("analysis_progress->>updated_at",null);
