@@ -41,6 +41,10 @@ async function run(sb:any,a:any,r:any){
   const m=await gh("/repos/"+r.owner+"/"+r.name);if(m.private)throw Error("Private repositories are not supported in this MVP.");
   const branch=resumeState?.branch||m.default_branch||"main",headCommit=await gh("/repos/"+r.owner+"/"+r.name+"/commits/"+encodeURIComponent(branch)),sha=resumeState?.commit_sha||headCommit.sha;
   const tree=await gh("/repos/"+r.owner+"/"+r.name+"/git/trees/"+sha+"?recursive=1");if(tree.truncated)throw Error("Repository tree is too large for GitHub's recursive tree API; no partial audit was reported.");
+  // Pin the exact snapshot before any archive download, file fetch, or early batch return.
+  // A resumed worker must never silently switch to a newer default-branch commit.
+  const {error:pinError}=await sb.from("code_audits").update({repo_owner:r.owner,repo_name:r.name,branch,commit_sha:sha,language:m.language||null}).eq("id",a.id);
+  if(pinError)throw Error("Unable to pin the audited repository commit: "+String(pinError.message||pinError));
   const {allCandidates,candidateCount}=selectAuditCandidates(tree.tree||[],Number.MAX_SAFE_INTEGER);
   const maxFileBytes=200000;
   const readableCandidates=allCandidates.filter((x:any)=>(x.size||0)<=maxFileBytes);
