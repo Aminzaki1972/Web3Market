@@ -61,7 +61,8 @@ async function run(sb:any,a:any,r:any){
   const batchStats=Array.isArray(progressState.batch_stats)?[...progressState.batch_stats]:[];
   let oversizedFiles=0,unreadableFiles=0;
   const files:any[]=[];
-  await sb.from("code_audits").update({analysis_progress:{...progressState,status:"scanning",file_batch_index:fileBatchIndex,total_file_batches:totalFileBatches,eligible_files:candidateCount,updated_at:new Date().toISOString()}}).eq("id",a.id);
+  const {error:scanProgressError}=await sb.from("code_audits").update({analysis_progress:{...progressState,status:"scanning",file_batch_index:fileBatchIndex,total_file_batches:totalFileBatches,eligible_files:candidateCount,updated_at:new Date().toISOString()}}).eq("id",a.id);
+  if(scanProgressError)throw Error("Unable to persist file-scan progress: "+String(scanProgressError.message||scanProgressError));
   // Fetch only selected files pinned to the immutable commit SHA.
   // Each response is streamed with a hard per-file byte limit; no ZIP is expanded.
   for(let i=0;i<batchReadableCandidates.length;i+=4){
@@ -101,7 +102,8 @@ async function run(sb:any,a:any,r:any){
   const out=await ai(files,r.owner+"/"+r.name,async(p:any)=>{
     const workerStatus="scanning"; const patch:any={status:workerStatus,analysis_progress:{...progressState,...p,file_batch_index:fileBatchIndex,total_file_batches:totalFileBatches,eligible_files:candidateCount,batch_stats:batchStats,updated_at:new Date().toISOString()},current_chunk:Number(p.current_chunk??startChunk),total_chunks:Number(p.total_chunks||0),retry_count:Number(p.attempt||0)};
     if(p.result){savedResults.push(p.result);patch.ai_chunk_results=savedResults;}
-    await sb.from("code_audits").update(patch).eq("id",a.id);
+    const {error:progressSaveError}=await sb.from("code_audits").update(patch).eq("id",a.id);
+    if(progressSaveError)throw Error("Unable to persist AI chunk result/checkpoint: "+String(progressSaveError.message||progressSaveError));
   },savedResults,startChunk,1);
   if(!out.complete){
     const {error:chunkCheckpointError}=await sb.from("code_audits").update({status:"queued",current_chunk:Number(out.next_chunk??startChunk),total_chunks:Number(out.chunks_analyzed||0),analysis_progress:{...progressState,status:"queued",file_batch_index:fileBatchIndex,total_file_batches:totalFileBatches,eligible_files:candidateCount,batch_stats:batchStats,current_chunk:Number(out.next_chunk??startChunk),total_chunks:Number(out.chunks_analyzed||0),updated_at:new Date().toISOString()}}).eq("id",a.id);
