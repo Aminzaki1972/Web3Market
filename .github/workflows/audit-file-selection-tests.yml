@@ -30,3 +30,5 @@ jobs:
         run: deno test supabase/functions/w3m-code-audit/audit-pagination.test.ts
       - name: Run audit batch checkpoint tests
         run: deno test supabase/functions/w3m-code-audit/audit-progress.test.ts
+      - name: Run audit persistence guard tests
+        run: deno test supabase/functions/w3m-code-audit/audit-persistence.test.ts
