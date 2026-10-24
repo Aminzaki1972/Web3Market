@@ -19,7 +19,8 @@ def check(name, ok):
 
 html = html_path.read_text(encoding="utf-8") if html_path.exists() else ""
 sql = sql_path.read_text(encoding="utf-8") if sql_path.exists() else ""
-doc = doc_path.read_text(encoding="utf-8") if doc_path.exists() else ""\ntest_sql = test_sql_path.read_text(encoding="utf-8") if test_sql_path.exists() else ""
+doc = doc_path.read_text(encoding="utf-8") if doc_path.exists() else ""
+test_sql = test_sql_path.read_text(encoding="utf-8") if test_sql_path.exists() else ""
 
 check("preview HTML exists", bool(html))
 check("SQL migration draft exists", bool(sql))
