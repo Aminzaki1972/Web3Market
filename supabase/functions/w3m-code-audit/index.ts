@@ -80,26 +80,8 @@ async function run(sb:any,a:any,r:any){
    }));
    for(const f of batch)if(f)files.push(f);
   }
-  const fetchedPaths=new Set(files.map((f:any)=>f.path));
-  const pending=batchReadableCandidates.filter((x:any)=>!fetchedPaths.has(x.path));
-  for(let i=0;i<pending.length;i+=4){
-   const batch=await Promise.all(pending.slice(i,i+4).map(async (x:any)=>{
-    try{
-     const encodedPath=String(x.path).split("/").map((part:string)=>encodeURIComponent(part)).join("/");
-     const response=await fetch("https://raw.githubusercontent.com/"+r.owner+"/"+r.name+"/"+sha+"/"+encodedPath,{headers:{"User-Agent":"Web3Market-W3M-Code-Audit"}});
-     if(!response.ok)throw Error("Raw GitHub HTTP "+response.status);
-     const content=await response.text();
-     const actualBytes=new TextEncoder().encode(content).length;
-     if(actualBytes>maxFileBytes){oversizedFiles++;return null;}
-     return {path:x.path,content};
-    }catch(e){
-     unreadableFiles++;
-     console.warn("W3M audit skipped unreadable file",{path:x.path,error:String((e as any)?.message||e)});
-     return null;
-    }
-   }));
-   for(const f of batch)if(f)files.push(f);
-  }
+  // Do not retry failed downloads through response.text(): that path would bypass
+  // the streaming byte cap. Unreadable files remain explicitly counted as skipped.
   if(!files.length){
     batchStats[fileBatchIndex]={files_scanned:0,lines_scanned:0,bytes_analyzed:0,oversized_files:oversizedFiles,unreadable_files:unreadableFiles};
     if(fileBatchIndex+1<totalFileBatches){
