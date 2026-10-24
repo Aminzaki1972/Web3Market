@@ -22,6 +22,11 @@ Front-end prototype at `future-lab-community-preview.html`, based directly on `c
 - A successful local PostgreSQL test is useful regression evidence, but the migration has **not been integration-tested on Supabase** and this local test is not equivalent to Supabase integration testing. Supabase-specific schema, roles, default grants and profile structure still need validation in a dedicated isolated project before deployment.
 - Do not run this migration against production.
 
+## Admin moderation page
+- Added `admin-future-lab-review.html` and a link from the existing Admin Review Center on this isolated branch. It requires an authenticated session with MFA assurance level AAL2 and relies on the proposed database RLS policies for authorization.
+- Queue supports Approve & Publish, Request Changes, and Reject with a note. `changes_requested` is now included in the draft migration and authors may edit their own returned submissions, but still cannot set moderation metadata or publish themselves.
+- The page will not function against the current database until the migration is separately reviewed and applied to an approved isolated test environment. It deliberately reports that condition; the migration has not been applied to production.
+
 ## Not implemented / not verified
 - Real authentication, member profile display, or a working article submission UI connected to Supabase.
 - Persistent article records, comments, likes or moderation actions.
