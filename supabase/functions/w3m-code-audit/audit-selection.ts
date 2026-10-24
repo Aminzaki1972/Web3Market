@@ -61,5 +61,5 @@ export function buildAuditChunks(files: Array<{ path: string; content: string }>
 // Provider failures can be wrapped with different wording by the worker.
 // Recognize HTTP status codes in either provider-specific or generic error text.
 export function isTransientAuditError(message: string): boolean {
-  return /(?:Gemini(?:-only)? audit[^\n]*|Gemini API|HTTP)\s*\(?\s*(?:HTTP\s*)?(408|429|500|502|503|504)\b/i.test(message) || /Gemini quota exhausted|timed out|request timeout/i.test(message);
+  return /\b(?:HTTP\s*)?(408|429|500|502|503|504)\b/i.test(message) || /Gemini quota exhausted|timed out|request timeout/i.test(message);
 }
