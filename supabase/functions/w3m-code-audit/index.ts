@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { tier, auditPriority, selectAuditCandidates, selectAuditBatch, calculateAuditCoverage, buildAuditChunks, isTransientAuditError } from "./audit-selection.ts";
-import { decodeSelectedArchive } from "./audit-archive.ts";
+import { readResponseBytesLimited } from "./audit-download.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS"};
 const json=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...cors,"Content-Type":"application/json"}});
 const fail=(m:string,s=400,extra:any={})=>json({ok:false,error:m,...extra},s);
@@ -59,27 +59,25 @@ async function run(sb:any,a:any,r:any){
   let oversizedFiles=0,unreadableFiles=0;
   const files:any[]=[];
   await sb.from("code_audits").update({analysis_progress:{...progressState,status:"scanning",file_batch_index:fileBatchIndex,total_file_batches:totalFileBatches,eligible_files:candidateCount,updated_at:new Date().toISOString()}}).eq("id",a.id);
-  // Prefer one immutable archive for the exact audited commit. If the archive is
-  // unavailable or omits any selected path, fetch only the missing files from
-  // raw.githubusercontent.com (which avoids the unauthenticated GitHub REST API quota).
-  const batchReadableCandidates=candidates.filter((x:any)=>{
-    if((x.size||0)>maxFileBytes){oversizedFiles++;return false;}
-    return true;
-  });
-  try{
-   const ar=await fetch("https://codeload.github.com/"+r.owner+"/"+r.name+"/zip/"+sha,{headers:{"User-Agent":"Web3Market-W3M-Code-Audit"}});
-   const declaredSize=Number(ar.headers.get("content-length")||0);
-   if(ar.ok&&(!declaredSize||declaredSize<=50*1024*1024)){
-    const zipBytes=new Uint8Array(await ar.arrayBuffer());
-    if(zipBytes.byteLength<=50*1024*1024){
-     const decoded=decodeSelectedArchive(zipBytes,batchReadableCandidates);
-     files.push(...decoded.files);
+  // Fetch only selected files pinned to the immutable commit SHA.
+  // Each response is streamed with a hard per-file byte limit; no ZIP is expanded.
+  for(let i=0;i<batchReadableCandidates.length;i+=4){
+   const batch=await Promise.all(batchReadableCandidates.slice(i,i+4).map(async (x:any)=>{
+    try{
+     const encodedPath=String(x.path).split("/").map((part:string)=>encodeURIComponent(part)).join("/");
+     const response=await fetch("https://raw.githubusercontent.com/"+r.owner+"/"+r.name+"/"+sha+"/"+encodedPath,{headers:{"User-Agent":"Web3Market-W3M-Code-Audit"}});
+     if(!response.ok)throw Error("Raw GitHub HTTP "+response.status);
+     const bounded=await readResponseBytesLimited(response,maxFileBytes);
+     if(bounded.tooLarge){oversizedFiles++;return null;}
+     if(!bounded.bytes)throw Error("Raw GitHub response body was unavailable.");
+     return {path:x.path,content:new TextDecoder().decode(bounded.bytes)};
+    }catch(e){
+     unreadableFiles++;
+     console.warn("W3M audit skipped unreadable file",{path:x.path,error:String((e as any)?.message||e)});
+     return null;
     }
-   }else if(!ar.ok){
-    console.warn("W3M audit archive download unavailable",{status:ar.status});
-   }
-  }catch(e){
-   console.warn("W3M audit archive fetch failed; using raw-file fallback",{error:String((e as any)?.message||e)});
+   }));
+   for(const f of batch)if(f)files.push(f);
   }
   const fetchedPaths=new Set(files.map((f:any)=>f.path));
   const pending=batchReadableCandidates.filter((x:any)=>!fetchedPaths.has(x.path));
@@ -126,7 +124,10 @@ async function run(sb:any,a:any,r:any){
   const {data:knownRows}=await sb.from("code_audit_files").select("path").eq("audit_id",a.id);
   const knownPaths=new Set((knownRows||[]).map((x:any)=>String(x.path)));
   const newFileRows=files.filter((f:any)=>!knownPaths.has(f.path)).map((f:any)=>({audit_id:a.id,path:f.path,line_count:f.content.split("\n").length,size_bytes:new TextEncoder().encode(f.content).length,selected_tier:tier(f.path)}));
-  if(newFileRows.length)await sb.from("code_audit_files").insert(newFileRows);
+  if(newFileRows.length){
+    const {error:fileInsertError}=await sb.from("code_audit_files").insert(newFileRows);
+    if(fileInsertError)throw Error("Unable to persist scanned-file metadata: "+String(fileInsertError.message||fileInsertError));
+  }
   batchStats[fileBatchIndex]={files_scanned:files.length,lines_scanned:lines,bytes_analyzed:files.reduce((n:number,f:any)=>n+new TextEncoder().encode(f.content).length,0),oversized_files:oversizedFiles,unreadable_files:unreadableFiles};
   if(fileBatchIndex+1<totalFileBatches){
     await sb.from("code_audits").update({status:"queued",current_chunk:0,total_chunks:0,analysis_progress:{...progressState,status:"queued",file_batch_index:fileBatchIndex+1,total_file_batches:totalFileBatches,eligible_files:candidateCount,batch_stats:batchStats,current_chunk:0,total_chunks:0,updated_at:new Date().toISOString()}}).eq("id",a.id);
@@ -146,8 +147,18 @@ async function run(sb:any,a:any,r:any){
   let score=web3?sc.security*.30+sc.architecture*.20+sc.code_quality*.15+sc.dependencies*.10+sc.testing*.10+sc.documentation*.05+sc.web3*.10:sc.security*.35+sc.architecture*.25+sc.code_quality*.15+sc.dependencies*.10+sc.testing*.10+sc.documentation*.05;
   const findings=Array.isArray(out.findings)?out.findings.slice(0,100):[],cnt:any={critical:0,high:0,medium:0,low:0,info:0};for(const f of findings)if(cnt[f.severity]!==undefined)cnt[f.severity]++;
   score=clamp(score);const coverage=calculateAuditCoverage(totalScannedFiles,candidateCount);
-  if(findings.length)await sb.from("code_audit_findings").insert(findings.map((f:any)=>({audit_id:a.id,severity:f.severity,category:f.category,title:f.title,status:f.status,file_path:f.file_path,line_start:f.line_start,line_end:f.line_end,evidence:f.evidence,description:f.description,recommendation:f.recommendation,confidence:f.confidence})));
-  await sb.from("code_audits").update({status:"completed",overall_score:Number(score.toFixed(2)),coverage_score:coverage,security_score:sc.security,architecture_score:sc.architecture,code_quality_score:sc.code_quality,dependency_score:sc.dependencies,testing_score:sc.testing,documentation_score:sc.documentation,web3_score:sc.web3,scalability_score:sc.scalability,ai_fit_score:sc.ai_fit,risk_level:risk(score),files_scanned:totalScannedFiles,lines_scanned:totalLines,critical_count:cnt.critical,high_count:cnt.high,medium_count:cnt.medium,low_count:cnt.low,info_count:cnt.info,summary:("File coverage: "+totalScannedFiles+" of "+candidateCount+" eligible files scanned ("+coverage+"%). Processing used "+totalFileBatches+" resumable file batches of up to "+fileBatchSize+" files each; no fixed total-file cap was applied. "+totalOversized+" eligible files exceeded the 1 MB limit and "+totalUnreadable+" files could not be fetched. AI summary: "+String(out.summary||"")).slice(0,12000),model:String(out.model_used||"gemini-3.8-flash"),files_analyzed:totalScannedFiles,bytes_analyzed:totalBytes,chunks_analyzed:savedResults.length||Number(out.chunks_analyzed)||1,ai_findings_count:findings.length,analysis_method:"multi-pass-gemini-v3-executive-scores",completed_at:new Date().toISOString(),current_chunk:savedResults.length||Number(out.chunks_analyzed)||1,total_chunks:savedResults.length||Number(out.chunks_analyzed)||1,analysis_progress:{status:"completed",current_chunk:savedResults.length||Number(out.chunks_analyzed)||1,total_chunks:savedResults.length||Number(out.chunks_analyzed)||1,file_batch_index:fileBatchIndex,total_file_batches:totalFileBatches,eligible_files:candidateCount,updated_at:new Date().toISOString()}}).eq("id",a.id);
+  // Sequential-retry mitigation without changing production schema.
+  const {data:existingFindingRows,error:existingFindingError}=await sb.from("code_audit_findings").select("severity,category,title,file_path,line_start").eq("audit_id",a.id);
+  if(existingFindingError)throw Error("Unable to inspect existing findings before finalization: "+String(existingFindingError.message||existingFindingError));
+  const findingKey=(f:any)=>[String(f.file_path||"").trim().replace(/\\/g,"/"),Number(f.line_start||0),String(f.title||"").trim().toLowerCase(),String(f.category||"").trim().toLowerCase(),String(f.severity||"").trim().toLowerCase()].join("|");
+  const existingFindingKeys=new Set((existingFindingRows||[]).map((f:any)=>findingKey(f)));
+  const missingFindings=findings.filter((f:any)=>!existingFindingKeys.has(findingKey(f)));
+  if(missingFindings.length){
+    const {error:findingInsertError}=await sb.from("code_audit_findings").insert(missingFindings.map((f:any)=>({audit_id:a.id,severity:f.severity,category:f.category,title:f.title,status:f.status,file_path:f.file_path,line_start:f.line_start,line_end:f.line_end,evidence:f.evidence,description:f.description,recommendation:f.recommendation,confidence:f.confidence})));
+    if(findingInsertError)throw Error("Unable to persist audit findings: "+String(findingInsertError.message||findingInsertError));
+  }
+  const {error:completionError}=await sb.from("code_audits").update({status:"completed",overall_score:Number(score.toFixed(2)),coverage_score:coverage,security_score:sc.security,architecture_score:sc.architecture,code_quality_score:sc.code_quality,dependency_score:sc.dependencies,testing_score:sc.testing,documentation_score:sc.documentation,web3_score:sc.web3,scalability_score:sc.scalability,ai_fit_score:sc.ai_fit,risk_level:risk(score),files_scanned:totalScannedFiles,lines_scanned:totalLines,critical_count:cnt.critical,high_count:cnt.high,medium_count:cnt.medium,low_count:cnt.low,info_count:cnt.info,summary:("File coverage: "+totalScannedFiles+" of "+candidateCount+" eligible files scanned ("+coverage+"%). Processing used "+totalFileBatches+" resumable file batches of up to "+fileBatchSize+" files each; no fixed total-file cap was applied. "+totalOversized+" eligible files exceeded the 1 MB limit and "+totalUnreadable+" files could not be fetched. AI summary: "+String(out.summary||"")).slice(0,12000),model:String(out.model_used||"gemini-3.8-flash"),files_analyzed:totalScannedFiles,bytes_analyzed:totalBytes,chunks_analyzed:savedResults.length||Number(out.chunks_analyzed)||1,ai_findings_count:findings.length,analysis_method:"multi-pass-gemini-v3-executive-scores",completed_at:new Date().toISOString(),current_chunk:savedResults.length||Number(out.chunks_analyzed)||1,total_chunks:savedResults.length||Number(out.chunks_analyzed)||1,analysis_progress:{status:"completed",current_chunk:savedResults.length||Number(out.chunks_analyzed)||1,total_chunks:savedResults.length||Number(out.chunks_analyzed)||1,file_batch_index:fileBatchIndex,total_file_batches:totalFileBatches,eligible_files:candidateCount,updated_at:new Date().toISOString()}}).eq("id",a.id);
+  if(completionError)throw Error("Unable to finalize audit status: "+String(completionError.message||completionError));
  }catch(e){
     const msg=String(e?.message||e).slice(0,2000);
     console.error("W3M audit worker error", {audit_id:a.id, error:msg});
