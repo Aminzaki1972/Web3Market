@@ -21,8 +21,9 @@ as $$
       and lower(coalesce(p.role, '')) = 'admin'
   )
 $$;
-revoke all on function private.future_lab_is_admin() from public, anon;
-grant execute on function private.future_lab_is_admin() to authenticated;
+-- This helper returns only a boolean derived from auth.uid(); anonymous calls always resolve false.
+revoke all on function private.future_lab_is_admin() from public;
+grant execute on function private.future_lab_is_admin() to anon, authenticated;
 
 create table if not exists public.future_lab_articles (
   id uuid primary key default gen_random_uuid(),
