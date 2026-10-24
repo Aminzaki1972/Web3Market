@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { tier, auditPriority, selectAuditCandidates, selectAuditBatch, calculateAuditCoverage, buildAuditChunks, isTransientAuditError } from "./audit-selection.ts";
 import { readResponseBytesLimited } from "./audit-download.ts";
 import { collectPages } from "./audit-pagination.ts";
+import { queuedNextBatchProgress } from "./audit-progress.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS"};
 const json=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...cors,"Content-Type":"application/json"}});
 const fail=(m:string,s=400,extra:any={})=>json({ok:false,error:m,...extra},s);
@@ -86,7 +87,7 @@ async function run(sb:any,a:any,r:any){
   if(!files.length){
     batchStats[fileBatchIndex]={files_scanned:0,lines_scanned:0,bytes_analyzed:0,oversized_files:oversizedFiles,unreadable_files:unreadableFiles};
     if(fileBatchIndex+1<totalFileBatches){
-      await sb.from("code_audits").update({status:"queued",current_chunk:0,total_chunks:0,analysis_progress:{...progressState,status:"queued",file_batch_index:fileBatchIndex+1,total_file_batches:totalFileBatches,eligible_files:candidateCount,batch_stats:batchStats,current_chunk:0,total_chunks:0,updated_at:new Date().toISOString(),last_batch_error:"No readable files were fetched in this batch."}}).eq("id",a.id);
+      await sb.from("code_audits").update({status:"queued",current_chunk:0,total_chunks:0,analysis_progress:{...queuedNextBatchProgress(progressState,fileBatchIndex+1,totalFileBatches,candidateCount,batchStats),last_batch_error:"No readable files were fetched in this batch."}}).eq("id",a.id);
       return;
     }
     throw Error("No readable source files were fetched in the final file batch. The audit was not marked complete; review the recorded skipped-file details and retry.");
@@ -114,7 +115,7 @@ async function run(sb:any,a:any,r:any){
   }
   batchStats[fileBatchIndex]={files_scanned:files.length,lines_scanned:lines,bytes_analyzed:files.reduce((n:number,f:any)=>n+new TextEncoder().encode(f.content).length,0),oversized_files:oversizedFiles,unreadable_files:unreadableFiles};
   if(fileBatchIndex+1<totalFileBatches){
-    await sb.from("code_audits").update({status:"queued",current_chunk:0,total_chunks:0,analysis_progress:{...progressState,status:"queued",file_batch_index:fileBatchIndex+1,total_file_batches:totalFileBatches,eligible_files:candidateCount,batch_stats:batchStats,current_chunk:0,total_chunks:0,updated_at:new Date().toISOString()}}).eq("id",a.id);
+    await sb.from("code_audits").update({status:"queued",current_chunk:0,total_chunks:0,analysis_progress:queuedNextBatchProgress(progressState,fileBatchIndex+1,totalFileBatches,candidateCount,batchStats)}).eq("id",a.id);
     return;
   }
   const allFileRows=await collectPages(async (from,to)=>await sb.from("code_audit_files").select("path,line_count,size_bytes,selected_tier").eq("audit_id",a.id).range(from,to));
