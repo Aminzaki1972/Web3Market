@@ -87,7 +87,8 @@ async function run(sb:any,a:any,r:any){
   if(!files.length){
     batchStats[fileBatchIndex]={files_scanned:0,lines_scanned:0,bytes_analyzed:0,oversized_files:oversizedFiles,unreadable_files:unreadableFiles};
     if(fileBatchIndex+1<totalFileBatches){
-      await sb.from("code_audits").update({status:"queued",current_chunk:0,total_chunks:0,analysis_progress:{...queuedNextBatchProgress(progressState,fileBatchIndex+1,totalFileBatches,candidateCount,batchStats),last_batch_error:"No readable files were fetched in this batch."}}).eq("id",a.id);
+      const {error:checkpointError}=await sb.from("code_audits").update({status:"queued",current_chunk:0,total_chunks:0,analysis_progress:{...queuedNextBatchProgress(progressState,fileBatchIndex+1,totalFileBatches,candidateCount,batchStats),last_batch_error:"No readable files were fetched in this batch."}}).eq("id",a.id);
+      if(checkpointError)throw Error("Unable to persist empty-batch checkpoint: "+String(checkpointError.message||checkpointError));
       return;
     }
     throw Error("No readable source files were fetched in the final file batch. The audit was not marked complete; review the recorded skipped-file details and retry.");
@@ -103,7 +104,8 @@ async function run(sb:any,a:any,r:any){
     await sb.from("code_audits").update(patch).eq("id",a.id);
   },savedResults,startChunk,1);
   if(!out.complete){
-    await sb.from("code_audits").update({status:"queued",current_chunk:Number(out.next_chunk??startChunk),total_chunks:Number(out.chunks_analyzed||0),analysis_progress:{...progressState,status:"queued",file_batch_index:fileBatchIndex,total_file_batches:totalFileBatches,eligible_files:candidateCount,batch_stats:batchStats,current_chunk:Number(out.next_chunk??startChunk),total_chunks:Number(out.chunks_analyzed||0),updated_at:new Date().toISOString()}}).eq("id",a.id);
+    const {error:chunkCheckpointError}=await sb.from("code_audits").update({status:"queued",current_chunk:Number(out.next_chunk??startChunk),total_chunks:Number(out.chunks_analyzed||0),analysis_progress:{...progressState,status:"queued",file_batch_index:fileBatchIndex,total_file_batches:totalFileBatches,eligible_files:candidateCount,batch_stats:batchStats,current_chunk:Number(out.next_chunk??startChunk),total_chunks:Number(out.chunks_analyzed||0),updated_at:new Date().toISOString()}}).eq("id",a.id);
+    if(chunkCheckpointError)throw Error("Unable to persist AI chunk checkpoint: "+String(chunkCheckpointError.message||chunkCheckpointError));
     return;
   }
   const knownRows=await collectPages(async (from,to)=>await sb.from("code_audit_files").select("path").eq("audit_id",a.id).range(from,to));
@@ -115,7 +117,8 @@ async function run(sb:any,a:any,r:any){
   }
   batchStats[fileBatchIndex]={files_scanned:files.length,lines_scanned:lines,bytes_analyzed:files.reduce((n:number,f:any)=>n+new TextEncoder().encode(f.content).length,0),oversized_files:oversizedFiles,unreadable_files:unreadableFiles};
   if(fileBatchIndex+1<totalFileBatches){
-    await sb.from("code_audits").update({status:"queued",current_chunk:0,total_chunks:0,analysis_progress:queuedNextBatchProgress(progressState,fileBatchIndex+1,totalFileBatches,candidateCount,batchStats)}).eq("id",a.id);
+    const {error:nextBatchError}=await sb.from("code_audits").update({status:"queued",current_chunk:0,total_chunks:0,analysis_progress:queuedNextBatchProgress(progressState,fileBatchIndex+1,totalFileBatches,candidateCount,batchStats)}).eq("id",a.id);
+    if(nextBatchError)throw Error("Unable to persist next file-batch checkpoint: "+String(nextBatchError.message||nextBatchError));
     return;
   }
   const allFileRows=await collectPages(async (from,to)=>await sb.from("code_audit_files").select("path,line_count,size_bytes,selected_tier").eq("audit_id",a.id).range(from,to));
