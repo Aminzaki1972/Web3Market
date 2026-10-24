@@ -154,6 +154,35 @@ end $$;
 
 reset role;
 
+-- Author may revise an article after an admin requests changes, but cannot publish it.
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000002';
+update public.future_lab_articles
+set status='changes_requested', moderation_note='Please add sources.',
+    reviewed_by='00000000-0000-0000-0000-000000000002', reviewed_at=now()
+where id='10000000-0000-0000-0000-000000000002';
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000001';
+update public.future_lab_articles
+set title='Revised Web3 Research'
+where id='10000000-0000-0000-0000-000000000002';
+do $
+begin
+  if (select title from public.future_lab_articles where id='10000000-0000-0000-0000-000000000002') <> 'Revised Web3 Research' then
+    raise exception 'FAIL: author could not revise an article after changes were requested';
+  end if;
+  begin
+    update public.future_lab_articles set status='published', published_at=now()
+    where id='10000000-0000-0000-0000-000000000002';
+    raise exception 'FAIL: author published article after changes were requested';
+  exception when insufficient_privilege then
+    null;
+  end;
+end $;
+reset role;
+
 -- Admin moderation must work, while author self-publishing above was rejected.
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000002';
