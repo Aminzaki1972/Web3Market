@@ -68,7 +68,7 @@ check("admin moderation policy is explicit and authenticated-only",
       "for all to authenticated" in sql and
       "with check ((select private.future_lab_is_admin()))" in sql)
 check("migration uses no service-role credential or destructive table drop",
-      "service_role" not in sql.lower() and not re.search(r"\\bdrop\\s+table\\b", sql, re.I))
+      "service_role" not in sql.lower() and not re.search(r"\bdrop\s+table\b", sql, re.I))
 
 for name, ok in checks:
     print(f'{"PASS" if ok else "FAIL"}: {name}')
