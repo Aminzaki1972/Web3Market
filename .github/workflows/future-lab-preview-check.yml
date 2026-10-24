@@ -7,6 +7,7 @@ on:
     paths:
       - "future-lab-community-preview.html"
       - "supabase/migrations/202610250001_future_lab_community_draft.sql"
+      - "supabase/tests/future_lab_community.integration.sql"
       - "docs/future-lab-community-clean-preview.md"
       - "scripts/check-future-lab-preview.py"
       - ".github/workflows/future-lab-preview-check.yml"
@@ -16,6 +17,7 @@ on:
     paths:
       - "future-lab-community-preview.html"
       - "supabase/migrations/202610250001_future_lab_community_draft.sql"
+      - "supabase/tests/future_lab_community.integration.sql"
       - "docs/future-lab-community-clean-preview.md"
       - "scripts/check-future-lab-preview.py"
       - ".github/workflows/future-lab-preview-check.yml"
@@ -33,3 +35,27 @@ jobs:
         uses: actions/checkout@v4
       - name: Run isolated preview safety checks
         run: python3 scripts/check-future-lab-preview.py
+
+  disposable-postgres-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: future_lab_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d future_lab_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Run migration and RLS integration tests on disposable PostgreSQL
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d future_lab_test -v ON_ERROR_STOP=1 -f supabase/tests/future_lab_community.integration.sql
