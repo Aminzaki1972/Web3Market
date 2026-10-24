@@ -169,7 +169,7 @@ update public.future_lab_articles
 set title='Revised Web3 Research', status='pending_review',
     moderation_note=null, reviewed_by=null, reviewed_at=null, published_at=null
 where id='10000000-0000-0000-0000-000000000002';
-do $
+do $$
 begin
   if (select title from public.future_lab_articles where id='10000000-0000-0000-0000-000000000002') <> 'Revised Web3 Research' then
     raise exception 'FAIL: author could not revise an article after changes were requested';
@@ -181,7 +181,7 @@ begin
   exception when insufficient_privilege then
     null;
   end;
-end $;
+end $$;
 reset role;
 
 -- Admin moderation must work, while author self-publishing above was rejected.
