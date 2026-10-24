@@ -76,7 +76,7 @@ begin
   exception when insufficient_privilege then
     null; -- expected RLS rejection
   end;
-end $;
+end $$;
 
 -- An author cannot edit a published article, even if they originally wrote it.
 do $$
@@ -89,7 +89,7 @@ begin
       <> 'Published Web3 Research' then
     raise exception 'FAIL: author edited a published article';
   end if;
-end $;
+end $$;
 
 
 -- A member cannot create an article on behalf of another member.
@@ -108,7 +108,7 @@ begin
   exception when insufficient_privilege then
     null;
   end;
-end $;
+end $$;
 
 -- An author cannot edit a published article; RLS should leave it unchanged.
 do $$
@@ -121,7 +121,7 @@ begin
       <> 'Published Web3 Research' then
     raise exception 'FAIL: published article was changed by its author';
   end if;
-end $;
+end $$;
 
 -- A member can comment on a published article, not a draft.
 insert into public.future_lab_comments (article_id, author_id, body)
