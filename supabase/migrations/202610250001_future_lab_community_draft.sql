@@ -79,7 +79,7 @@ revoke all on public.future_lab_comments from anon, authenticated;
 revoke all on public.future_lab_likes from anon, authenticated;
 grant select on public.future_lab_articles to anon, authenticated;
 grant insert, update, delete on public.future_lab_articles to authenticated;
-grant select, insert, update, delete on public.future_lab_comments to authenticated;
+grant select, insert, delete on public.future_lab_comments to authenticated;
 grant select, insert, delete on public.future_lab_likes to authenticated;
 
 -- Public readers can only see published articles. Authors can see their own submissions.
@@ -145,12 +145,8 @@ with check (
   )
 );
 
-drop policy if exists future_lab_comments_author_update on public.future_lab_comments;
-create policy future_lab_comments_author_update on public.future_lab_comments
-for update to authenticated
-using (author_id = (select auth.uid()))
-with check (author_id = (select auth.uid()));
-
+-- Comment editing is intentionally disabled in v1 to avoid cross-article reassignment.
+-- Authors can delete their own comments and post a corrected replacement.
 drop policy if exists future_lab_comments_author_delete on public.future_lab_comments;
 create policy future_lab_comments_author_delete on public.future_lab_comments
 for delete to authenticated
