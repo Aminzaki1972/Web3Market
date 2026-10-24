@@ -8,7 +8,7 @@ export type AuditFindingKeyFields = {
 
 export function auditFindingKey(f: AuditFindingKeyFields): string {
   return [
-    String(f.file_path || "").trim().replace(/\\\\/g, "/"),
+    String(f.file_path || "").trim().replace(/\\/g, "/"),
     Number(f.line_start || 0),
     String(f.title || "").trim().toLowerCase(),
     String(f.category || "").trim().toLowerCase(),
