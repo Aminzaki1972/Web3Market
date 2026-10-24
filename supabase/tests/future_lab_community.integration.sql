@@ -61,7 +61,7 @@ end $$;
 
 
 -- Authors cannot submit an article under another member's identity.
-do $
+do $$
 begin
   begin
     insert into public.future_lab_articles
@@ -79,7 +79,7 @@ begin
 end $;
 
 -- An author cannot edit a published article, even if they originally wrote it.
-do $
+do $$
 begin
   update public.future_lab_articles
   set title='Unauthorized edited published title'
@@ -93,7 +93,7 @@ end $;
 
 
 -- A member cannot create an article on behalf of another member.
-do $
+do $$
 begin
   begin
     insert into public.future_lab_articles
@@ -111,7 +111,7 @@ begin
 end $;
 
 -- An author cannot edit a published article; RLS should leave it unchanged.
-do $
+do $$
 begin
   update public.future_lab_articles
   set title='Unauthorized changed title'
