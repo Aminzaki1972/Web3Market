@@ -46,7 +46,7 @@ async function run(sb:any,a:any,r:any){
   const {error:pinError}=await sb.from("code_audits").update({repo_owner:r.owner,repo_name:r.name,branch,commit_sha:sha,language:m.language||null}).eq("id",a.id);
   if(pinError)throw Error("Unable to pin the audited repository commit: "+String(pinError.message||pinError));
   const {allCandidates,candidateCount}=selectAuditCandidates(tree.tree||[],Number.MAX_SAFE_INTEGER);
-  const maxFileBytes=200000;
+  const maxFileBytes=1000000;
   const readableCandidates=allCandidates.filter((x:any)=>(x.size||0)<=maxFileBytes);
   const preSkippedOversized=allCandidates.length-readableCandidates.length;
   const fileBatchSize=100;
