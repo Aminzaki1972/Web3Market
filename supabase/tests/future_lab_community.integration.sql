@@ -91,6 +91,38 @@ begin
   end if;
 end $;
 
+
+-- A member cannot create an article on behalf of another member.
+do $
+begin
+  begin
+    insert into public.future_lab_articles
+      (author_id, title, category, summary, content, status)
+    values
+      ('00000000-0000-0000-0000-000000000003',
+       'Identity check article', 'Research',
+       'A summary that is long enough to pass all validation constraints.',
+       'The body of this test article is long enough to satisfy the required database content length constraint.',
+       'pending_review');
+    raise exception 'FAIL: mismatched author ID was accepted';
+  exception when insufficient_privilege then
+    null;
+  end;
+end $;
+
+-- An author cannot edit a published article; RLS should leave it unchanged.
+do $
+begin
+  update public.future_lab_articles
+  set title='Unauthorized changed title'
+  where id='10000000-0000-0000-0000-000000000001';
+  if (select title from public.future_lab_articles
+      where id='10000000-0000-0000-0000-000000000001')
+      <> 'Published Web3 Research' then
+    raise exception 'FAIL: published article was changed by its author';
+  end if;
+end $;
+
 -- A member can comment on a published article, not a draft.
 insert into public.future_lab_comments (article_id, author_id, body)
 values ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','A valid test comment.');
