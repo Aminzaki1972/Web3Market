@@ -19,3 +19,14 @@ export function auditPriority(p:string){
 export function selectAuditCandidates(tree:any[],limit=100){const allCandidates=tree.filter((x:any)=>x.type==="blob"&&!SKIP.test(x.path)&&!SKIP_EXT.test(x.path)&&tier(x.path)<=2).sort((a:any,b:any)=>auditPriority(a.path)-auditPriority(b.path)||a.path.localeCompare(b.path));return {allCandidates,candidates:allCandidates.slice(0,limit),candidateCount:allCandidates.length};}
 // Coverage deliberately uses the full eligible-file denominator, not the capped selected list.
 export function calculateAuditCoverage(scanned:number,eligible:number){return Math.max(0,Math.min(100,Math.round(scanned/Math.max(1,eligible)*100)));}
+
+
+export function selectAuditBatch<T extends { path: string }>(candidates: T[], batchIndex: number, batchSize = 100) {
+  const size = Math.max(1, Math.floor(Number.isFinite(batchSize) ? batchSize : 100));
+  const requestedIndex = Math.max(0, Math.floor(Number.isFinite(batchIndex) ? batchIndex : 0));
+  const totalBatches = Math.max(1, Math.ceil(candidates.length / size));
+  const index = Math.min(requestedIndex, totalBatches - 1);
+  const start = index * size;
+  const end = Math.min(candidates.length, start + size);
+  return { candidates: candidates.slice(start, end), batchIndex: index, totalBatches, start, end };
+}

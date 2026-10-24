@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { auditPriority, calculateAuditCoverage, selectAuditCandidates } from "./audit-selection.ts";
+import { auditPriority, calculateAuditCoverage, selectAuditBatch, selectAuditCandidates } from "./audit-selection.ts";
 
 Deno.test("production source is prioritized ahead of harnesses and tests", () => {
   const tree = [
@@ -71,4 +71,24 @@ Deno.test("the reported coverage percentage still uses all eligible files", () =
   const result = selectAuditCandidates(tree, 100);
   assertEquals(result.candidateCount, 100);
   assertEquals(calculateAuditCoverage(57, result.candidateCount), 57);
+});
+
+
+Deno.test("full-repository mode returns every eligible candidate without a fixed total cap", () => {
+  const files = Array.from({ length: 257 }, (_, i) => ({
+    type: "blob", path: "src/module" + String(i).padStart(3, "0") + ".ts", size: 100,
+  }));
+  const result = selectAuditCandidates(files, Number.MAX_SAFE_INTEGER);
+  assertEquals(result.candidateCount, 257);
+  assertEquals(result.candidates.length, 257);
+});
+
+Deno.test("file batches are deterministic, bounded, and cover each candidate exactly once", async () => {
+  const files = Array.from({ length: 257 }, (_, i) => ({ path: "src/file" + i + ".ts" }));
+  const first = selectAuditBatch(files, 0, 100);
+  const second = selectAuditBatch(files, 1, 100);
+  const third = selectAuditBatch(files, 2, 100);
+  assertEquals([first.candidates.length, second.candidates.length, third.candidates.length], [100, 100, 57]);
+  assertEquals([first.totalBatches, second.totalBatches, third.totalBatches], [3, 3, 3]);
+  assertEquals([...first.candidates, ...second.candidates, ...third.candidates].map((f) => f.path), files.map((f) => f.path));
 });
