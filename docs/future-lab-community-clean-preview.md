@@ -8,6 +8,8 @@ Front-end prototype at `future-lab-community-preview.html`, based directly on `c
 - Responsive article cards and article-reading panel.
 - Demo article form with required-field validation.
 - Demo draft / pending-review states held only in current page memory.
+- Explicitly labeled admin-review simulation: pending submissions stay out of the public feed until approved in the demo; approve/reject actions are temporary and are not authenticated or connected to production.
+- Demo likes are limited to one click per article per page session.
 - Sample likes are temporary and do not persist.
 - A visible notice says no production database or account system is connected.
 
