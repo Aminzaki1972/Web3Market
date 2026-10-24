@@ -34,3 +34,5 @@ jobs:
         run: deno test supabase/functions/w3m-code-audit/audit-persistence.test.ts
       - name: Run audit finding idempotency tests
         run: deno test supabase/functions/w3m-code-audit/audit-findings.test.ts
+      - name: Run mocked worker-flow integration tests
+        run: deno test supabase/functions/w3m-code-audit/audit-worker-flow.integration.test.ts
