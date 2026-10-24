@@ -37,3 +37,19 @@ Front-end prototype at `future-lab-community-preview.html`, based directly on `c
 5. Confirm Cloudflare Pages preview behavior and URL before presenting it as live.
 6. Regression-check marketplace, AI Code Audit, AI Passport, Deal Room and support before any merge.
 7. Do not merge or deploy until explicitly approved.
+
+## Security review checklist before real Supabase wiring
+The following checks are required in addition to the passing disposable PostgreSQL suite. They are **not yet claimed as tested**:
+- Verify the real `public.profiles` schema and the exact administrator role convention without exposing profile data.
+- Verify Supabase grants and RLS behavior using actual `anon` and `authenticated` JWT contexts in a dedicated free test environment.
+- Confirm a member cannot create an article using another member's author ID.
+- Confirm a member cannot alter or delete an already-published article through author policies.
+- Confirm a member cannot change moderation metadata or status to publish their own article.
+- Confirm comments can only be added to published articles, and that comment authors cannot move a comment to another article.
+- Confirm duplicate likes are rejected by the database primary key, not just by browser UI state.
+- Confirm admin moderation works only for authenticated users whose trusted profile role is admin.
+- Confirm unauthenticated requests cannot call any write path or upload endpoint.
+- Run browser regression tests against a verified preview URL before proposing a merge.
+
+## Current verification evidence
+Latest recorded workflow run: [Future Lab isolated preview checks](https://github.com/Aminzaki1972/Web3Market/actions/runs/40143208792). Both the disposable PostgreSQL integration job and static-safety job completed successfully for the then-tested commit. This does not prove that any later change has passed, and does not replace Supabase-specific testing.
