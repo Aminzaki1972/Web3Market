@@ -30,7 +30,7 @@ check("demo submit is explicitly non-persistent",
 check("HTML includes search and category filter", 'id="search"' in html and 'id="category"' in html)
 check("article input has minimum-length validation", 'minlength="80"' in html and 'minlength="8"' in html)
 check("HTML escapes untrusted values before rendering",
-      "function esc(" in html and bool(re.search(r"replace\\(/\\[&<>.*?\\]/g", html)))
+      "function esc(" in html and bool(re.search(r"replace\(/\[&<>.*?\]/g", html)))
 check("no direct production Supabase project URL in preview HTML",
       "hzhqlexnhtukfljcvnyd.supabase.co" not in html)
 check("migration is clearly marked not to apply to production",
