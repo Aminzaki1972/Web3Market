@@ -41,7 +41,7 @@ async function run(sb:any,a:any,r:any){
 
  try{
   console.log("W3M audit worker start", {audit_id:a.id, owner:r.owner, name:r.name});
-  const {data:resumeState}=await sb.from("code_audits").select("ai_chunk_results,current_chunk,total_chunks,analysis_progress,commit_sha,repo_owner,repo_name,branch").eq("id",a.id).maybeSingle(); const priorProgress=resumeState?.analysis_progress||{}; const isResume=(Array.isArray(resumeState?.ai_chunk_results)&&Number(resumeState?.current_chunk||0)>0)||Number(priorProgress.file_batch_index||0)>0; await sb.from("code_audits").update({status:"scanning",started_at:new Date().toISOString(),analysis_progress:{...priorProgress,status:"scanning",current_chunk:isResume?Number(resumeState.current_chunk||0):0,total_chunks:isResume?Number(resumeState.total_chunks||0):0,updated_at:new Date().toISOString()},current_chunk:isResume?Number(resumeState.current_chunk||0):0,retry_count:0}).eq("id",a.id);
+  const {data:resumeState,error:resumeStateError}=await sb.from("code_audits").select("ai_chunk_results,current_chunk,total_chunks,analysis_progress,commit_sha,repo_owner,repo_name,branch").eq("id",a.id).maybeSingle();if(resumeStateError)throw Error("Unable to read audit resume state: "+String(resumeStateError.message||resumeStateError));if(!resumeState)throw Error("Audit record was not found while starting worker."); const priorProgress=resumeState.analysis_progress||{}; const isResume=(Array.isArray(resumeState.ai_chunk_results)&&Number(resumeState.current_chunk||0)>0)||Number(priorProgress.file_batch_index||0)>0; const startSave=await sb.from("code_audits").update({status:"scanning",started_at:new Date().toISOString(),analysis_progress:{...priorProgress,status:"scanning",current_chunk:isResume?Number(resumeState.current_chunk||0):0,total_chunks:isResume?Number(resumeState.total_chunks||0):0,updated_at:new Date().toISOString()},current_chunk:isResume?Number(resumeState.current_chunk||0):0,retry_count:0}).eq("id",a.id);assertAuditWriteSucceeded(startSave,"Unable to persist initial worker state");
   const m=await gh("/repos/"+r.owner+"/"+r.name);if(m.private)throw Error("Private repositories are not supported in this MVP.");
   const branch=resumeState?.branch||m.default_branch||"main",headCommit=await gh("/repos/"+r.owner+"/"+r.name+"/commits/"+encodeURIComponent(branch)),sha=resumeState?.commit_sha||headCommit.sha;
   const tree=await gh("/repos/"+r.owner+"/"+r.name+"/git/trees/"+sha+"?recursive=1");if(tree.truncated)throw Error("Repository tree is too large for GitHub's recursive tree API; no partial audit was reported.");
@@ -97,7 +97,7 @@ async function run(sb:any,a:any,r:any){
     throw Error("No readable source files were fetched in the final file batch. The audit was not marked complete; review the recorded skipped-file details and retry.");
   }
   const lines=files.reduce((n,f)=>n+f.content.split("\n").length,0);
-  await sb.from("code_audits").update({status:"analyzing",repo_owner:r.owner,repo_name:r.name,branch,commit_sha:sha,files_scanned:files.length,lines_scanned:lines,language:m.language||null}).eq("id",a.id);
+  const analyzingSave=await sb.from("code_audits").update({status:"analyzing",repo_owner:r.owner,repo_name:r.name,branch,commit_sha:sha,files_scanned:files.length,lines_scanned:lines,language:m.language||null}).eq("id",a.id);assertAuditWriteSucceeded(analyzingSave,"Unable to persist analysis-start status");
   const {data:state}=await sb.from("code_audits").select("ai_chunk_results,current_chunk,total_chunks,retry_count").eq("id",a.id).maybeSingle();
   const savedResults=Array.isArray(state?.ai_chunk_results)?state.ai_chunk_results:[];
   const startChunk=Number(state?.current_chunk||0);
@@ -156,7 +156,7 @@ async function run(sb:any,a:any,r:any){
     const retryAfter=qm?Math.ceil((Number(qm[1]||0)*3600)+(Number(qm[2]||0)*60)+Number(qm[3]||0)):0;
     const {data:failureState}=await sb.from("code_audits").select("analysis_progress").eq("id",a.id).maybeSingle();
     const previousProgress=failureState?.analysis_progress||{};
-    await sb.from("code_audits").update({status:transient?"paused":"failed",error_message:msg,completed_at:transient?null:new Date().toISOString(),analysis_progress:{...previousProgress,status:transient?"paused":"failed",error:msg,retry_after_seconds:retryAfter||null,updated_at:new Date().toISOString()}}).eq("id",a.id);
+    const failureSave=await sb.from("code_audits").update({status:transient?"paused":"failed",error_message:msg,completed_at:transient?null:new Date().toISOString(),analysis_progress:{...previousProgress,status:transient?"paused":"failed",error:msg,retry_after_seconds:retryAfter||null,updated_at:new Date().toISOString()}}).eq("id",a.id);if(failureSave.error)console.error("W3M audit failure status could not be persisted",{audit_id:a.id,error:String(failureSave.error.message||failureSave.error)});
     // Refund the reserved public-audit slot when the AI provider fails transiently.
     // This prevents Gemini 429/5xx overload from consuming the user's hourly quota.
     if(transient){
