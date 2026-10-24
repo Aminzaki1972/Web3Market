@@ -57,7 +57,23 @@ begin
   exception when insufficient_privilege then
     null; -- expected RLS WITH CHECK rejection
   end;
-end $$;
+end $;
+
+-- Authors must not forge editorial notes reserved for moderators.
+do $
+begin
+  begin
+    update public.future_lab_articles
+    set moderation_note='Fake moderator note'
+    where id='10000000-0000-0000-0000-000000000002';
+  exception when insufficient_privilege then
+    null; -- expected RLS WITH CHECK rejection
+  end;
+  if (select moderation_note from public.future_lab_articles
+      where id='10000000-0000-0000-0000-000000000002') is not null then
+    raise exception 'FAIL: author forged moderation note';
+  end if;
+end $;
 
 
 -- Authors cannot submit an article under another member's identity.
