@@ -11,28 +11,27 @@ Front-end prototype at `future-lab-community-preview.html`, based directly on `c
 - Sample likes are temporary and do not persist.
 - A visible notice says no production database or account system is connected.
 
-## Database draft added — NOT APPLIED
-`supabase/migrations/202610250001_future_lab_community_draft.sql` proposes:
-- Articles with draft, pending-review, published and rejected states.
-- Public reads limited to published articles; authors can view their own submissions.
-- Admin moderation based on the existing `profiles.role = 'admin'` convention found in the support helper migration.
-- Comments and one-like-per-member constraints, with RLS enabled on all three tables.
+## Database draft — NOT APPLIED
+`supabase/migrations/202610250001_future_lab_community_draft.sql` proposes articles with moderation states, public published-only reads, author-owned submissions, admin moderation, comments, likes and RLS. It assumes `public.profiles(id, role)` exists and must be verified against the actual Supabase schema before any real deployment.
 
-This is a migration draft only. It has **not** been run against any database, and its RLS behavior has not been integration-tested. Before use, review function permissions and RLS interactions, add SQL regression tests, confirm the exact current schema and grants, and test against a dedicated isolated Supabase project. Do not apply to production.
+## Free isolated test strategy
+- GitHub Actions now runs static safety checks and starts a disposable PostgreSQL 16 service container for integration tests. This uses the workflow runner; it does not create a Supabase project or connect to any Supabase database.
+- `supabase/tests/future_lab_community.integration.sql` creates minimal local auth/profile stubs, applies the draft migration and tests anonymous published-only reads, author self-publishing rejection, comment restrictions, duplicate-like prevention and admin moderation.
+- A successful local PostgreSQL test is useful regression evidence, but it is **not equivalent to integration testing on Supabase**. Supabase-specific schema, roles, default grants and profile structure still need validation in a dedicated isolated project before deployment.
+- Do not run this migration against production.
 
 ## Not implemented / not verified
 - Real authentication, member profile display, or a working article submission UI connected to Supabase.
 - Persistent article records, comments, likes or moderation actions.
 - Image upload/storage.
 - Hosted Cloudflare preview URL.
-- Database migration execution, SQL integration tests, or full browser/security testing.
+- Real Supabase integration or full browser/security testing.
 
 ## Isolation and next steps
 1. Do not modify `future-lab.html`, existing article files, production Supabase project `hzhqlexnhtukfljcvnyd`, or production deployment settings.
-2. The existing `web3market-support-test` project is used for support testing; do not reuse it for Future Lab without a separate explicit isolation decision.
-3. No dedicated Future Lab test project was found in the currently listed Supabase projects. Do not create a new project or branch until cost is checked and any nonzero charge is approved.
-4. Run the SQL draft only in a dedicated test project after confirming schema, grants and RLS policies.
-5. Test ownership spoofing, status tampering, author self-approval, duplicate likes, unauthorized comment access, XSS payloads and anonymous reads.
-6. Confirm Cloudflare Pages preview behavior and URL before presenting it as a live preview.
-7. Run regression checks for marketplace, AI Code Audit, AI Passport, Deal Room and support.
-8. Show the working preview and test report to the owner. Do not merge or deploy until explicitly approved.
+2. Do not reuse `web3market-support-test` for Future Lab; it is dedicated to support testing.
+3. A Supabase development branch was quoted at **$0.01344/hour**, so it was not created under the free-only requirement. That would be about $9.81 for 730 hours if charged continuously; actual billing may vary.
+4. Run and inspect the disposable PostgreSQL integration workflow first. Only consider a Supabase test environment if the cost is confirmed to be zero or the owner explicitly approves a charge.
+5. Confirm Cloudflare Pages preview behavior and URL before presenting it as live.
+6. Regression-check marketplace, AI Code Audit, AI Passport, Deal Room and support before any merge.
+7. Do not merge or deploy until explicitly approved.
