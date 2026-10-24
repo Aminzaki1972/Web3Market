@@ -95,7 +95,7 @@ Deno.test("file batches are deterministic, bounded, and cover each candidate exa
 
 
 Deno.test("large source files are split across bounded AI evidence chunks instead of dropped", () => {
-  const source = "const evidence = \"" + "x".repeat(8500) + "\";\\n".repeat(1);
+  const source = "const evidence = \"" + "x".repeat(8500) + "\";\n".repeat(1);
   const chunks = buildAuditChunks([{ path: "src/large.ts", content: source }], 2048);
   assertEquals(chunks.length > 1, true);
   assertEquals(chunks.every((chunk) => chunk.length <= 2048), true);
