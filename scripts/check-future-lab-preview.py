@@ -9,6 +9,8 @@ html_path = root / "future-lab-community-preview.html"
 sql_path = root / "supabase/migrations/202610250001_future_lab_community_draft.sql"
 doc_path = root / "docs/future-lab-community-clean-preview.md"
 test_sql_path = root / "supabase/tests/future_lab_community.integration.sql"
+admin_review_path = root / "admin-future-lab-review.html"
+admin_center_path = root / "admin-review.html"
 errors = []
 checks = []
 
@@ -21,8 +23,20 @@ html = html_path.read_text(encoding="utf-8") if html_path.exists() else ""
 sql = sql_path.read_text(encoding="utf-8") if sql_path.exists() else ""
 doc = doc_path.read_text(encoding="utf-8") if doc_path.exists() else ""
 test_sql = test_sql_path.read_text(encoding="utf-8") if test_sql_path.exists() else ""
+admin_review = admin_review_path.read_text(encoding="utf-8") if admin_review_path.exists() else ""
+admin_center = admin_center_path.read_text(encoding="utf-8") if admin_center_path.exists() else ""
 
 check("preview HTML exists", bool(html))
+check("Future Lab admin review page exists", bool(admin_review))
+check("existing admin center links to Future Lab moderation",
+      'href="admin-future-lab-review.html"' in admin_center)
+check("Future Lab admin review requires an authenticated session and MFA AAL2",
+      "auth.getSession()" in admin_review and "mfa.getAuthenticatorAssuranceLevel()" in admin_review and 'currentLevel!=="aal2"' in admin_review)
+check("Future Lab admin moderation only targets expected review states",
+      'in("status",["pending_review","changes_requested"])' in admin_review and
+      'data-action="published"' in admin_review and 'data-action="changes_requested"' in admin_review and 'data-action="rejected"' in admin_review)
+check("admin moderation page does not contain service-role credentials",
+      "service_role" not in admin_review.lower())
 check("SQL migration draft exists", bool(sql))
 check("scope and test-gate document exists", bool(doc))
 check("preview explicitly says no production database is connected",
