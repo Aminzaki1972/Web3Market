@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { tier, auditPriority, selectAuditCandidates, calculateAuditCoverage } from "./audit-selection.ts";
+import { tier, auditPriority, selectAuditCandidates, selectAuditBatch, calculateAuditCoverage } from "./audit-selection.ts";
 import { decodeSelectedArchive } from "./audit-archive.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS"};
 const json=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...cors,"Content-Type":"application/json"}});
@@ -46,10 +46,11 @@ async function run(sb:any,a:any,r:any){
   const readableCandidates=allCandidates.filter((x:any)=>(x.size||0)<=maxFileBytes);
   const preSkippedOversized=allCandidates.length-readableCandidates.length;
   const fileBatchSize=100;
-  const totalFileBatches=Math.max(1,Math.ceil(readableCandidates.length/fileBatchSize));
   const progressState=resumeState?.analysis_progress||{};
-  const fileBatchIndex=Math.min(Math.max(0,Number(progressState.file_batch_index||0)),totalFileBatches-1);
-  const candidates=readableCandidates.slice(fileBatchIndex*fileBatchSize,(fileBatchIndex+1)*fileBatchSize);
+  const selectedBatch=selectAuditBatch(readableCandidates,Number(progressState.file_batch_index||0),fileBatchSize);
+  const totalFileBatches=selectedBatch.totalBatches;
+  const fileBatchIndex=selectedBatch.batchIndex;
+  const candidates=selectedBatch.candidates;
   const batchStats=Array.isArray(progressState.batch_stats)?[...progressState.batch_stats]:[];
   let oversizedFiles=0,unreadableFiles=0;
   const files:any[]=[];
