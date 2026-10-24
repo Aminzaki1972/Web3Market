@@ -97,7 +97,14 @@ async function run(sb:any,a:any,r:any){
    }));
    for(const f of batch)if(f)files.push(f);
   }
-  if(!files.length)throw Error("No readable source files were fetched from this repository. Check that it is public and contains supported source files.");
+  if(!files.length){
+    batchStats[fileBatchIndex]={files_scanned:0,lines_scanned:0,bytes_analyzed:0,oversized_files:oversizedFiles,unreadable_files:unreadableFiles};
+    if(fileBatchIndex+1<totalFileBatches){
+      await sb.from("code_audits").update({status:"queued",current_chunk:0,total_chunks:0,analysis_progress:{...progressState,status:"queued",file_batch_index:fileBatchIndex+1,total_file_batches:totalFileBatches,eligible_files:candidateCount,batch_stats:batchStats,current_chunk:0,total_chunks:0,updated_at:new Date().toISOString(),last_batch_error:"No readable files were fetched in this batch."}}).eq("id",a.id);
+      return;
+    }
+    throw Error("No readable source files were fetched in the final file batch. The audit was not marked complete; review the recorded skipped-file details and retry.");
+  }
   const lines=files.reduce((n,f)=>n+f.content.split("\n").length,0);
   await sb.from("code_audits").update({status:"analyzing",repo_owner:r.owner,repo_name:r.name,branch,commit_sha:sha,files_scanned:files.length,lines_scanned:lines,language:m.language||null}).eq("id",a.id);
   const {data:state}=await sb.from("code_audits").select("ai_chunk_results,current_chunk,total_chunks,retry_count").eq("id",a.id).maybeSingle();
