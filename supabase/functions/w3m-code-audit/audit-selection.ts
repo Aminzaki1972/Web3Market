@@ -30,3 +30,29 @@ export function selectAuditBatch<T extends { path: string }>(candidates: T[], ba
   const end = Math.min(candidates.length, start + size);
   return { candidates: candidates.slice(start, end), batchIndex: index, totalBatches, start, end };
 }
+
+
+// Split every selected file into bounded evidence chunks; never silently drop a file
+// merely because its content is larger than the model context budget.
+export function buildAuditChunks(files: Array<{ path: string; content: string }>, maxChars = 90000): string[] {
+  const limit = Math.max(1024, Math.floor(Number.isFinite(maxChars) ? maxChars : 90000));
+  const chunks: string[] = [];
+  let current = "";
+  for (const file of files) {
+    const content = String(file.content || "");
+    const header = "===== FILE: " + file.path + " =====\\n";
+    const partSize = Math.max(1, limit - header.length - 160);
+    for (let offset = 0, part = 0; offset < content.length || (!content.length && part === 0); offset += partSize, part++) {
+      const lineStart = content.slice(0, offset).split("\\n").length;
+      const block = header + "[content part " + (part + 1) + ", starts near line " + lineStart + "]\\n" + content.slice(offset, offset + partSize) + "\\n";
+      if (current && current.length + block.length > limit) {
+        chunks.push(current);
+        current = "";
+      }
+      current += block;
+      if (!content.length) break;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
