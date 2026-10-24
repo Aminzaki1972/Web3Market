@@ -5,7 +5,7 @@ begin;
 
 create schema if not exists private;
 revoke all on schema private from public, anon;
-grant usage on schema private to authenticated;
+grant usage on schema private to anon, authenticated;
 
 create or replace function private.future_lab_is_admin()
 returns boolean
