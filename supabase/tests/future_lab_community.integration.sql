@@ -166,7 +166,8 @@ reset role;
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000001';
 update public.future_lab_articles
-set title='Revised Web3 Research'
+set title='Revised Web3 Research', status='pending_review',
+    moderation_note=null, reviewed_by=null, reviewed_at=null, published_at=null
 where id='10000000-0000-0000-0000-000000000002';
 do $
 begin
