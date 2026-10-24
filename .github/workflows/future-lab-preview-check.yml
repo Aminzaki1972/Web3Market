@@ -1,0 +1,35 @@
+name: Future Lab isolated preview checks
+
+on:
+  push:
+    branches:
+      - preview/future-lab-community-clean-20261025
+    paths:
+      - "future-lab-community-preview.html"
+      - "supabase/migrations/202610250001_future_lab_community_draft.sql"
+      - "docs/future-lab-community-clean-preview.md"
+      - "scripts/check-future-lab-preview.py"
+      - ".github/workflows/future-lab-preview-check.yml"
+  pull_request:
+    branches:
+      - cloudflare-test
+    paths:
+      - "future-lab-community-preview.html"
+      - "supabase/migrations/202610250001_future_lab_community_draft.sql"
+      - "docs/future-lab-community-clean-preview.md"
+      - "scripts/check-future-lab-preview.py"
+      - ".github/workflows/future-lab-preview-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-safety-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Run isolated preview safety checks
+        run: python3 scripts/check-future-lab-preview.py
