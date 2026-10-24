@@ -57,10 +57,10 @@ begin
   exception when insufficient_privilege then
     null; -- expected RLS WITH CHECK rejection
   end;
-end $;
+end $$;
 
 -- Authors must not forge editorial notes reserved for moderators.
-do $
+do $$
 begin
   begin
     update public.future_lab_articles
