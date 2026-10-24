@@ -30,6 +30,18 @@ check("preview explicitly says no production database is connected",
 check("demo submit is explicitly non-persistent",
       "nothing is published or sent" in html.lower() and "does not authenticate" in html.lower())
 check("HTML includes search and category filter", 'id="search"' in html and 'id="category"' in html)
+check("preview includes an explicitly non-authenticated moderation demo",
+      'id="reviewBtn"' in html and "DEMO ONLY · NO AUTHENTICATION" in html and
+      "not an admin console" in html)
+check("pending demo submissions are hidden from the public feed until approved",
+      "demos.filter(a=>a.status==='published')" in html and
+      "a.status==='pending'||a.status==='draft'" in html and
+      "a.status='published'" in html)
+check("demo moderation is clearly non-persistent and does not call production services",
+      "Actions stay in this browser page" in html and "nothing was uploaded" in html.lower() and
+      "fetch(" not in html.lower())
+check("demo likes are limited to one click per article per page session",
+      "const liked=new Set()" in html and "liked.has(a.id)" in html)
 check("article input has minimum-length validation", 'minlength="80"' in html and 'minlength="8"' in html)
 check("HTML escapes untrusted values before rendering",
       "esc=s=>" in html and "replace(/[" in html and "&#39;" in html)
