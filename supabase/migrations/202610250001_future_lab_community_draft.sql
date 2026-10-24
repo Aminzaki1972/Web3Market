@@ -33,7 +33,7 @@ create table if not exists public.future_lab_articles (
   summary text not null check (char_length(trim(summary)) between 20 and 400),
   content text not null check (char_length(trim(content)) between 80 and 50000),
   sources text not null default '',
-  status text not null default 'draft' check (status in ('draft','pending_review','published','rejected')),
+  status text not null default 'draft' check (status in ('draft','pending_review','changes_requested','published','rejected')),
   moderation_note text,
   reviewed_by uuid references auth.users(id) on delete set null,
   reviewed_at timestamptz,
@@ -102,10 +102,10 @@ with check (
 drop policy if exists future_lab_articles_author_update on public.future_lab_articles;
 create policy future_lab_articles_author_update on public.future_lab_articles
 for update to authenticated
-using (author_id = (select auth.uid()) and status in ('draft','pending_review'))
+using (author_id = (select auth.uid()) and status in ('draft','pending_review','changes_requested'))
 with check (
   author_id = (select auth.uid())
-  and status in ('draft','pending_review')
+  and status in ('draft','pending_review','changes_requested')
   and reviewed_by is null
   and reviewed_at is null
   and published_at is null
