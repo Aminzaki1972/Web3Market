@@ -54,6 +54,22 @@ check("migration does not insert, update or delete existing production data",
 check("docs explain no database integration test has run",
       "not integration-tested" in doc.lower() or "not been integration-tested" in doc.lower())
 
+check("admin helper is SECURITY DEFINER with an empty fixed search_path",
+      "security definer" in sql.lower() and "set search_path = ''" in sql.lower())
+check("comment authors cannot reassign comments through UPDATE",
+      "grant select, insert, delete on public.future_lab_comments to authenticated;" in sql and
+      "grant select, insert, update, delete on public.future_lab_comments to authenticated;" not in sql and
+      "create policy future_lab_comments_author_update" not in sql)
+check("comment inserts require the current author and a published article",
+      "author_id = (select auth.uid())" in sql and
+      "where a.id = article_id and a.status = 'published'" in sql)
+check("admin moderation policy is explicit and authenticated-only",
+      "create policy future_lab_articles_admin_manage" in sql and
+      "for all to authenticated" in sql and
+      "with check ((select private.future_lab_is_admin()))" in sql)
+check("migration uses no service-role credential or destructive table drop",
+      "service_role" not in sql.lower() and not re.search(r"\\bdrop\\s+table\\b", sql, re.I))
+
 for name, ok in checks:
     print(f'{"PASS" if ok else "FAIL"}: {name}')
 print(f"\n{sum(ok for _, ok in checks)}/{len(checks)} static checks passed.")
