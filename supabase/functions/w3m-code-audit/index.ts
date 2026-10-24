@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { tier, auditPriority, selectAuditCandidates, selectAuditBatch, calculateAuditCoverage, buildAuditChunks } from "./audit-selection.ts";
+import { tier, auditPriority, selectAuditCandidates, selectAuditBatch, calculateAuditCoverage, buildAuditChunks, isTransientAuditError } from "./audit-selection.ts";
 import { decodeSelectedArchive } from "./audit-archive.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS"};
 const json=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...cors,"Content-Type":"application/json"}});
@@ -151,7 +151,7 @@ async function run(sb:any,a:any,r:any){
  }catch(e){
     const msg=String(e?.message||e).slice(0,2000);
     console.error("W3M audit worker error", {audit_id:a.id, error:msg});
-    const transient=/Gemini API (408|429|500|502|503|504)|Gemini quota exhausted|timed out/i.test(msg);
+    const transient=isTransientAuditError(msg);
     const qm=msg.match(/retry in (?:(\d+)h\s*)?(?:(\d+)m\s*)?(?:(\d+(?:\.\d+)?)s)?/i);
     const retryAfter=qm?Math.ceil((Number(qm[1]||0)*3600)+(Number(qm[2]||0)*60)+Number(qm[3]||0)):0;
     const {data:failureState}=await sb.from("code_audits").select("analysis_progress").eq("id",a.id).maybeSingle();
