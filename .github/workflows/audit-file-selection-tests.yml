@@ -18,6 +18,8 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      - name: Type-check W3M audit Edge Function
+        run: deno check supabase/functions/w3m-code-audit/index.ts
       - name: Run audit selection unit tests
         run: deno test supabase/functions/w3m-code-audit/audit-selection.test.ts
       - name: Run audit archive unit tests
