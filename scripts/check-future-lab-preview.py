@@ -58,7 +58,10 @@ check("RLS enabled for articles, comments and likes",
 check("public article policy restricts anonymous access to published articles",
       "using (status = 'published' or author_id = (select auth.uid()) or (select private.future_lab_is_admin()))" in sql)
 check("article submission policy prevents author-supplied published status",
-      "status in ('draft','pending_review')" in sql and "published_at is null" in sql)
+      "status in ('draft','pending_review','changes_requested')" in sql and "published_at is null" in sql)
+      
+check("moderation schema supports requested changes without author self-publishing",
+      "'changes_requested'" in sql and "reviewed_by is null" in sql and "reviewed_at is null" in sql)
 check("likes enforce one row per member per article",
       "primary key (article_id, user_id)" in sql)
 check("migration does not drop existing marketplace tables",
