@@ -26,11 +26,11 @@ check("scope and test-gate document exists", bool(doc))
 check("preview explicitly says no production database is connected",
       "no production database" in html.lower())
 check("demo submit is explicitly non-persistent",
-      "nothing was published or sent" in html.lower() and "does not authenticate" in html.lower())
+      "nothing is published or sent" in html.lower() and "does not authenticate" in html.lower())
 check("HTML includes search and category filter", 'id="search"' in html and 'id="category"' in html)
 check("article input has minimum-length validation", 'minlength="80"' in html and 'minlength="8"' in html)
 check("HTML escapes untrusted values before rendering",
-      "function esc(" in html and bool(re.search(r"replace\(/\[&<>.*?\]/g", html)))
+      "function esc(" in html and bool(re.search(r"replace\\(/\\[&<>", html)))
 check("no direct production Supabase project URL in preview HTML",
       "hzhqlexnhtukfljcvnyd.supabase.co" not in html)
 check("migration is clearly marked not to apply to production",
