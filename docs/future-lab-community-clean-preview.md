@@ -17,7 +17,7 @@ Front-end prototype at `future-lab-community-preview.html`, based directly on `c
 ## Free isolated test strategy
 - GitHub Actions now runs static safety checks and starts a disposable PostgreSQL 16 service container for integration tests. This uses the workflow runner; it does not create a Supabase project or connect to any Supabase database.
 - `supabase/tests/future_lab_community.integration.sql` creates minimal local auth/profile stubs, applies the draft migration and tests anonymous published-only reads, author self-publishing rejection, comment restrictions, duplicate-like prevention and admin moderation.
-- A successful local PostgreSQL test is useful regression evidence, but it is **not equivalent to integration testing on Supabase**. Supabase-specific schema, roles, default grants and profile structure still need validation in a dedicated isolated project before deployment.
+- A successful local PostgreSQL test is useful regression evidence, but the migration has **not been integration-tested on Supabase** and this local test is not equivalent to Supabase integration testing. Supabase-specific schema, roles, default grants and profile structure still need validation in a dedicated isolated project before deployment.
 - Do not run this migration against production.
 
 ## Not implemented / not verified
