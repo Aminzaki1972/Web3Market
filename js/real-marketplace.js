@@ -65,7 +65,7 @@
     ensureHomepageUsesLiveListings(grid);
     var sec=ensureSoldSection();var soldGrid=sec?.querySelector('.wm-sold-grid');
     try{
-      var sb=await ensureSupabase();if(!sb){grid.innerHTML='<div class="empty">No active projects are currently listed for sale.</div>';if(soldGrid)soldGrid.innerHTML='<div class="empty">No sold projects are available.</div>';return;}
+      var sb=await ensureSupabase();if(!sb){grid.innerHTML='<div class="empty" role="status">Marketplace listings are temporarily unavailable. Please refresh the page shortly.</div>';if(soldGrid)soldGrid.innerHTML='<div class="empty" role="status">Completed sales are temporarily unavailable. Please refresh the page shortly.</div>';return;}
       /* Fetch Active and Sold separately so the two views can never cross-contaminate. */
       var baseSelect='id,title,description,short_description,price,currency,category,status,project_status,created_at,ai_score,ai_status,logo_url,cover_image_url,verification';
       var activeQ=await sb.from('projects').select(baseSelect).eq('status','active').eq('project_status','approved').eq('ai_status','approved').order('created_at',{ascending:false}).limit(50);
@@ -80,7 +80,7 @@
       grid.style.visibility='visible';
       if(!document.getElementById('web3market-live-project-style')){var st=document.createElement('style');st.id='web3market-live-project-style';st.textContent='.listingGrid{opacity:1!important;visibility:visible!important}.listingGrid .listing,.wm-sold-grid .listing{min-height:100%}.listingGrid .listing h3 a,.wm-sold-grid .listing h3 a{color:#141820;text-decoration:none}.listingGrid .listingArt:after,.wm-sold-grid .listingArt:after{content:none}.ai-badge{display:inline-flex;align-items:center;margin-left:4px;padding:3px 6px;border-radius:999px;background:#eeedff;color:#5149db;font-size:9px;font-weight:900}.wm-project-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.wm-project-title a{color:#141820;text-decoration:none}.wm-sold-badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:7px;background:#16a34a;color:#fff;font-size:11px;font-weight:900;line-height:1;white-space:nowrap;box-shadow:0 2px 7px rgba(22,163,74,.18)}';document.head.appendChild(st)}
       window.dispatchEvent(new CustomEvent('web3market:projects-rendered',{detail:{active:active.length,sold:sold.length}}));
-    }catch(e){grid.innerHTML='<div class="empty">No active projects are currently listed for sale.</div>';if(soldGrid)soldGrid.innerHTML='<div class="empty">Sold / Completed Projects are temporarily unavailable.</div>';console.warn('Web3Market live marketplace unavailable',e);}
+    }catch(e){grid.innerHTML='<div class="empty" role="status">Marketplace listings are temporarily unavailable. Please refresh the page shortly.</div>';if(soldGrid)soldGrid.innerHTML='<div class="empty" role="status">Completed sales are temporarily unavailable. Please refresh the page shortly.</div>';console.warn('Web3Market live marketplace unavailable',e);}
   }
   function boot(){render();setTimeout(render,1200);setTimeout(render,3000)}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
