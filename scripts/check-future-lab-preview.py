@@ -93,6 +93,10 @@ check("integration tests cover anonymous reads and author self-publishing reject
 check("integration tests cover comments and duplicate likes",
       "comment inserted on a non-published article" in test_sql and
       "duplicate like was accepted" in test_sql)
+check("integration tests cover author identity enforcement",
+      "mismatched author ID was accepted" in test_sql)
+check("integration tests cover published article edit restrictions",
+      "published article was changed by its author" in test_sql)
 check("integration tests cover admin moderation",
       "admin could not publish a reviewed article" in test_sql)
 
