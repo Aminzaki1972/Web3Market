@@ -253,7 +253,5 @@ Deno.serve(async req=>{
   const runtime=(globalThis as any).EdgeRuntime;
   if(runtime?.waitUntil)runtime.waitUntil(task);else await task;
   return json({ok:true,audit_id:a.id,status:"queued",current_chunk:0,total_chunks:0,analysis_progress:{status:"queued",updated_at:new Date().toISOString()}},202);
-  const {data:afterStart}=await sb.from("code_audits").select("status,current_chunk,total_chunks,analysis_progress,error_message").eq("id",a.id).maybeSingle();
-  return json({ok:true,audit_id:a.id,status:afterStart?.status||"queued",current_chunk:afterStart?.current_chunk||0,total_chunks:afterStart?.total_chunks||0,analysis_progress:afterStart?.analysis_progress||null,error:afterStart?.error_message||null});
  }catch(e){const msg=String((e as any)?.message||e);console.error("w3m-code-audit request error",msg);return fail(msg,429===Number((e as any)?.status)?429:400,{code:"AUDIT_REQUEST_FAILED"});}
 });
