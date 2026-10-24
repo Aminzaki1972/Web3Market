@@ -59,6 +59,38 @@ begin
   end;
 end $$;
 
+
+-- Authors cannot submit an article under another member's identity.
+do $
+begin
+  begin
+    insert into public.future_lab_articles
+      (author_id, title, category, summary, content, status)
+    values
+      ('00000000-0000-0000-0000-000000000003',
+       'Spoofed author test', 'Research',
+       'A valid summary long enough to pass the database constraints.',
+       'This test article body is deliberately long enough to pass the database minimum content length constraint.',
+       'pending_review');
+    raise exception 'FAIL: member submitted an article as another author';
+  exception when insufficient_privilege then
+    null; -- expected RLS rejection
+  end;
+end $;
+
+-- An author cannot edit a published article, even if they originally wrote it.
+do $
+begin
+  update public.future_lab_articles
+  set title='Unauthorized edited published title'
+  where id='10000000-0000-0000-0000-000000000001';
+  if (select title from public.future_lab_articles
+      where id='10000000-0000-0000-0000-000000000001')
+      <> 'Published Web3 Research' then
+    raise exception 'FAIL: author edited a published article';
+  end if;
+end $;
+
 -- A member can comment on a published article, not a draft.
 insert into public.future_lab_comments (article_id, author_id, body)
 values ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','A valid test comment.');
