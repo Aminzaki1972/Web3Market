@@ -40,11 +40,11 @@ export function buildAuditChunks(files: Array<{ path: string; content: string }>
   let current = "";
   for (const file of files) {
     const content = String(file.content || "");
-    const header = "===== FILE: " + file.path + " =====\\n";
+    const header = "===== FILE: " + file.path + " =====\n";
     const partSize = Math.max(1, limit - header.length - 160);
     for (let offset = 0, part = 0; offset < content.length || (!content.length && part === 0); offset += partSize, part++) {
-      const lineStart = content.slice(0, offset).split("\\n").length;
-      const block = header + "[content part " + (part + 1) + ", starts near line " + lineStart + "]\\n" + content.slice(offset, offset + partSize) + "\\n";
+      const lineStart = content.slice(0, offset).split("\n").length;
+      const block = header + "[content part " + (part + 1) + ", starts near line " + lineStart + "]\n" + content.slice(offset, offset + partSize) + "\n";
       if (current && current.length + block.length > limit) {
         chunks.push(current);
         current = "";
