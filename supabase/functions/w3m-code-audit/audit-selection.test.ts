@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { auditPriority, buildAuditChunks, calculateAuditCoverage, selectAuditBatch, selectAuditCandidates } from "./audit-selection.ts";
+import { auditPriority, buildAuditChunks, calculateAuditCoverage, isTransientAuditError, selectAuditBatch, selectAuditCandidates } from "./audit-selection.ts";
 
 Deno.test("production source is prioritized ahead of harnesses and tests", () => {
   const tree = [
@@ -102,4 +102,12 @@ Deno.test("large source files are split across bounded AI evidence chunks instea
   assertEquals(chunks.some((chunk) => chunk.includes("content part 1")), true);
   assertEquals(chunks.some((chunk) => chunk.includes("content part 2")), true);
   assertEquals(chunks.map((chunk) => chunk.length).reduce((sum, length) => sum + length, 0) >= source.length, true);
+});
+
+
+Deno.test("transient Gemini HTTP failures remain resumable and permanent failures do not", () => {
+  assertEquals(isTransientAuditError("Gemini-only audit could not complete chunk 1 after 4 attempts (HTTP 503): unavailable."), true);
+  assertEquals(isTransientAuditError("Gemini API 429: quota exhausted"), true);
+  assertEquals(isTransientAuditError("Gemini-only audit could not complete chunk 1 (HTTP 404): model not found."), false);
+  assertEquals(isTransientAuditError("Invalid JSON returned by Gemini"), false);
 });
