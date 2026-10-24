@@ -5,6 +5,7 @@ import { readResponseBytesLimited } from "./audit-download.ts";
 import { collectPages } from "./audit-pagination.ts";
 import { queuedNextBatchProgress } from "./audit-progress.ts";
 import { assertAuditWriteSucceeded } from "./audit-persistence.ts";
+import { filterMissingAuditFindings } from "./audit-findings.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS"};
 const json=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...cors,"Content-Type":"application/json"}});
 const fail=(m:string,s=400,extra:any={})=>json({ok:false,error:m,...extra},s);
@@ -140,9 +141,7 @@ async function run(sb:any,a:any,r:any){
   score=clamp(score);const coverage=calculateAuditCoverage(totalScannedFiles,candidateCount);
   // Sequential-retry mitigation without changing production schema.
   const existingFindingRows=await collectPages(async (from,to)=>await sb.from("code_audit_findings").select("severity,category,title,file_path,line_start").eq("audit_id",a.id).range(from,to));
-  const findingKey=(f:any)=>[String(f.file_path||"").trim().replace(/\\/g,"/"),Number(f.line_start||0),String(f.title||"").trim().toLowerCase(),String(f.category||"").trim().toLowerCase(),String(f.severity||"").trim().toLowerCase()].join("|");
-  const existingFindingKeys=new Set((existingFindingRows||[]).map((f:any)=>findingKey(f)));
-  const missingFindings=findings.filter((f:any)=>!existingFindingKeys.has(findingKey(f)));
+  const missingFindings=filterMissingAuditFindings(findings,existingFindingRows||[]);
   if(missingFindings.length){
     const {error:findingInsertError}=await sb.from("code_audit_findings").insert(missingFindings.map((f:any)=>({audit_id:a.id,severity:f.severity,category:f.category,title:f.title,status:f.status,file_path:f.file_path,line_start:f.line_start,line_end:f.line_end,evidence:f.evidence,description:f.description,recommendation:f.recommendation,confidence:f.confidence})));
     if(findingInsertError)throw Error("Unable to persist audit findings: "+String(findingInsertError.message||findingInsertError));
