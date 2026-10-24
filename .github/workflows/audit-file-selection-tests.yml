@@ -18,5 +18,23 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      - name: Type-check W3M audit Edge Function
+        run: deno check supabase/functions/w3m-code-audit/index.ts
       - name: Run audit selection unit tests
         run: deno test supabase/functions/w3m-code-audit/audit-selection.test.ts
+      - name: Run audit archive unit tests
+        run: deno test supabase/functions/w3m-code-audit/audit-archive.test.ts
+      - name: Run bounded download unit tests
+        run: deno test supabase/functions/w3m-code-audit/audit-download.test.ts
+      - name: Run public repository multi-batch integration test
+        run: deno test --allow-net=api.github.com supabase/functions/w3m-code-audit/audit-public-repository.integration.test.ts
+      - name: Run audit pagination tests
+        run: deno test supabase/functions/w3m-code-audit/audit-pagination.test.ts
+      - name: Run audit batch checkpoint tests
+        run: deno test supabase/functions/w3m-code-audit/audit-progress.test.ts
+      - name: Run audit persistence guard tests
+        run: deno test supabase/functions/w3m-code-audit/audit-persistence.test.ts
+      - name: Run audit finding idempotency tests
+        run: deno test supabase/functions/w3m-code-audit/audit-findings.test.ts
+      - name: Run mocked worker-flow integration tests
+        run: deno test supabase/functions/w3m-code-audit/audit-worker-flow.integration.test.ts

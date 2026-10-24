@@ -11,7 +11,7 @@ Deno.test("archive decoder extracts selected files from the exact repository roo
   const result = decodeSelectedArchive(archive, [
     { path: "src/main.ts", size: 23 },
     { path: "missing.ts", size: 10 },
-    { path: "large.ts", size: 200001 },
+    { path: "large.ts", size: 1000001 },
   ]);
   assertEquals(result.files, [{ path: "src/main.ts", content: "export const ok = true;" }]);
   assertEquals(result.unreadableFiles, 1);

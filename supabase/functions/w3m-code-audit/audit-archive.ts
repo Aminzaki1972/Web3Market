@@ -1,6 +1,6 @@
 import { unzipSync } from "npm:fflate@0.8.2";
 
-export function decodeSelectedArchive(zipBytes: Uint8Array, candidates: any[], maxFileBytes = 200000) {
+export function decodeSelectedArchive(zipBytes: Uint8Array, candidates: any[], maxFileBytes = 1000000) {
   const entries = unzipSync(zipBytes);
   const keys = Object.keys(entries);
   const firstPath = keys.find((key) => key.includes("/"));

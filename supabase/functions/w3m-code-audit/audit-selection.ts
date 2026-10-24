@@ -19,3 +19,47 @@ export function auditPriority(p:string){
 export function selectAuditCandidates(tree:any[],limit=100){const allCandidates=tree.filter((x:any)=>x.type==="blob"&&!SKIP.test(x.path)&&!SKIP_EXT.test(x.path)&&tier(x.path)<=2).sort((a:any,b:any)=>auditPriority(a.path)-auditPriority(b.path)||a.path.localeCompare(b.path));return {allCandidates,candidates:allCandidates.slice(0,limit),candidateCount:allCandidates.length};}
 // Coverage deliberately uses the full eligible-file denominator, not the capped selected list.
 export function calculateAuditCoverage(scanned:number,eligible:number){return Math.max(0,Math.min(100,Math.round(scanned/Math.max(1,eligible)*100)));}
+
+
+export function selectAuditBatch<T extends { path: string }>(candidates: T[], batchIndex: number, batchSize = 100) {
+  const size = Math.max(1, Math.floor(Number.isFinite(batchSize) ? batchSize : 100));
+  const requestedIndex = Math.max(0, Math.floor(Number.isFinite(batchIndex) ? batchIndex : 0));
+  const totalBatches = Math.max(1, Math.ceil(candidates.length / size));
+  const index = Math.min(requestedIndex, totalBatches - 1);
+  const start = index * size;
+  const end = Math.min(candidates.length, start + size);
+  return { candidates: candidates.slice(start, end), batchIndex: index, totalBatches, start, end };
+}
+
+
+// Split every selected file into bounded evidence chunks; never silently drop a file
+// merely because its content is larger than the model context budget.
+export function buildAuditChunks(files: Array<{ path: string; content: string }>, maxChars = 90000): string[] {
+  const limit = Math.max(1024, Math.floor(Number.isFinite(maxChars) ? maxChars : 90000));
+  const chunks: string[] = [];
+  let current = "";
+  for (const file of files) {
+    const content = String(file.content || "");
+    const header = "===== FILE: " + file.path + " =====\n";
+    const partSize = Math.max(1, limit - header.length - 160);
+    for (let offset = 0, part = 0; offset < content.length || (!content.length && part === 0); offset += partSize, part++) {
+      const lineStart = content.slice(0, offset).split("\n").length;
+      const block = header + "[content part " + (part + 1) + ", starts near line " + lineStart + "]\n" + content.slice(offset, offset + partSize) + "\n";
+      if (current && current.length + block.length > limit) {
+        chunks.push(current);
+        current = "";
+      }
+      current += block;
+      if (!content.length) break;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+
+// Provider failures can be wrapped with different wording by the worker.
+// Recognize HTTP status codes in either provider-specific or generic error text.
+export function isTransientAuditError(message: string): boolean {
+  return /\b(?:HTTP\s*)?(408|429|500|502|503|504)\b/i.test(message) || /Gemini quota exhausted|timed out|request timeout/i.test(message);
+}

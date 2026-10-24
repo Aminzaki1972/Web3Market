@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { auditPriority, calculateAuditCoverage, selectAuditCandidates } from "./audit-selection.ts";
+import { auditPriority, buildAuditChunks, calculateAuditCoverage, isTransientAuditError, selectAuditBatch, selectAuditCandidates } from "./audit-selection.ts";
 
 Deno.test("production source is prioritized ahead of harnesses and tests", () => {
   const tree = [
@@ -71,4 +71,43 @@ Deno.test("the reported coverage percentage still uses all eligible files", () =
   const result = selectAuditCandidates(tree, 100);
   assertEquals(result.candidateCount, 100);
   assertEquals(calculateAuditCoverage(57, result.candidateCount), 57);
+});
+
+
+Deno.test("full-repository mode returns every eligible candidate without a fixed total cap", () => {
+  const files = Array.from({ length: 257 }, (_, i) => ({
+    type: "blob", path: "src/module" + String(i).padStart(3, "0") + ".ts", size: 100,
+  }));
+  const result = selectAuditCandidates(files, Number.MAX_SAFE_INTEGER);
+  assertEquals(result.candidateCount, 257);
+  assertEquals(result.candidates.length, 257);
+});
+
+Deno.test("file batches are deterministic, bounded, and cover each candidate exactly once", async () => {
+  const files = Array.from({ length: 257 }, (_, i) => ({ path: "src/file" + i + ".ts" }));
+  const first = selectAuditBatch(files, 0, 100);
+  const second = selectAuditBatch(files, 1, 100);
+  const third = selectAuditBatch(files, 2, 100);
+  assertEquals([first.candidates.length, second.candidates.length, third.candidates.length], [100, 100, 57]);
+  assertEquals([first.totalBatches, second.totalBatches, third.totalBatches], [3, 3, 3]);
+  assertEquals([...first.candidates, ...second.candidates, ...third.candidates].map((f) => f.path), files.map((f) => f.path));
+});
+
+
+Deno.test("large source files are split across bounded AI evidence chunks instead of dropped", () => {
+  const source = "const evidence = \"" + "x".repeat(8500) + "\";\n".repeat(1);
+  const chunks = buildAuditChunks([{ path: "src/large.ts", content: source }], 2048);
+  assertEquals(chunks.length > 1, true);
+  assertEquals(chunks.every((chunk) => chunk.length <= 2048), true);
+  assertEquals(chunks.some((chunk) => chunk.includes("content part 1")), true);
+  assertEquals(chunks.some((chunk) => chunk.includes("content part 2")), true);
+  assertEquals(chunks.map((chunk) => chunk.length).reduce((sum, length) => sum + length, 0) >= source.length, true);
+});
+
+
+Deno.test("transient Gemini HTTP failures remain resumable and permanent failures do not", () => {
+  assertEquals(isTransientAuditError("Gemini-only audit could not complete chunk 1 after 4 attempts (HTTP 503): unavailable."), true);
+  assertEquals(isTransientAuditError("Gemini API 429: quota exhausted"), true);
+  assertEquals(isTransientAuditError("Gemini-only audit could not complete chunk 1 (HTTP 404): model not found."), false);
+  assertEquals(isTransientAuditError("Invalid JSON returned by Gemini"), false);
 });

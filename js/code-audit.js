@@ -93,7 +93,7 @@
    const progress=a.analysis_progress||{};
    const total=Number(a.total_chunks||progress.total_chunks||0);
    const current=Number(a.current_chunk||progress.current_chunk||0);
-   if(!["queued","scanning","analyzing","retrying"].includes(status)||!total||current>=total)return;
+   const fileBatchIndex=Number(progress.file_batch_index||0);const totalFileBatches=Number(progress.total_file_batches||0);const hasPendingFileBatch=status==="queued"&&totalFileBatches>0&&fileBatchIndex<totalFileBatches;if(!["queued","scanning","analyzing","retrying"].includes(status)||(!hasPendingFileBatch&&(!total||current>=total)))return;
    const heartbeat=progress.updated_at?Date.parse(progress.updated_at):0;
    const stale=!heartbeat||!Number.isFinite(heartbeat)||(Date.now()-heartbeat)>90000;
    // A fresh scanning heartbeat means a worker is already active. Never call resume on every poll.
@@ -121,7 +121,7 @@
        const p=a.analysis_progress||{}; const current=Number(a.current_chunk||p.current_chunk||0); const total=Number(a.total_chunks||p.total_chunks||0);
        const pct=total?Math.min(100,Math.round(current/total*100)):0;
        const retry=a.status==="retrying" ? '<p class="muted">Gemini is temporarily busy. W3M is retrying automatically'+(p.retry_after_seconds?' — next retry in about '+esc(p.retry_after_seconds)+'s':'')+'.</p>' : '';
-       root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit is running…</h2><p class="muted">Status: '+esc(a.status)+'</p><p class="muted">AI analysis progress: '+esc(current)+' / '+esc(total||'?')+' chunks ('+esc(pct)+'%).</p><div style="height:8px;background:#25213a;border-radius:99px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:currentColor"></div></div>'+retry+'<p class="muted">Progress is saved automatically. You can leave this page safely.</p><button id="w3mStopFollow" class="btn btn-ghost" type="button" onclick="window.W3MStopAuditFollow&&window.W3MStopAuditFollow()">Stop automatic follow-up</button><p id="w3mFollowNote" class="muted" aria-live="polite">This stops browser polling/resume attempts; an already-running server request may finish its current chunk.</p></div>';
+       root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit is running…</h2><p class="muted">Status: '+esc(a.status)+'</p>'+(total?'<p class="muted">AI analysis progress: '+esc(current)+' / '+esc(total)+' chunks ('+esc(pct)+'%).</p>':'<p class="muted">File batch: '+esc(Number(p.file_batch_index||0)+1)+' / '+esc(p.total_file_batches||'?')+'.</p>')+'<div style="height:8px;background:#25213a;border-radius:99px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:currentColor"></div></div>'+retry+'<p class="muted">Progress is saved automatically. You can leave this page safely.</p><button id="w3mStopFollow" class="btn btn-ghost" type="button" onclick="window.W3MStopAuditFollow&&window.W3MStopAuditFollow()">Stop automatic follow-up</button><p id="w3mFollowNote" class="muted" aria-live="polite">This stops browser polling/resume attempts; an already-running server request may finish its current chunk.</p></div>';
        setTimeout(async()=>{if(!autoFollow)return;await resumeIfNeeded(a);if(autoFollow)openExisting();},10000);return true;
      }
      if(a.status==="paused"){
