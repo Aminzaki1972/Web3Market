@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { auditPriority, calculateAuditCoverage, selectAuditBatch, selectAuditCandidates } from "./audit-selection.ts";
+import { auditPriority, buildAuditChunks, calculateAuditCoverage, selectAuditBatch, selectAuditCandidates } from "./audit-selection.ts";
 
 Deno.test("production source is prioritized ahead of harnesses and tests", () => {
   const tree = [
@@ -91,4 +91,15 @@ Deno.test("file batches are deterministic, bounded, and cover each candidate exa
   assertEquals([first.candidates.length, second.candidates.length, third.candidates.length], [100, 100, 57]);
   assertEquals([first.totalBatches, second.totalBatches, third.totalBatches], [3, 3, 3]);
   assertEquals([...first.candidates, ...second.candidates, ...third.candidates].map((f) => f.path), files.map((f) => f.path));
+});
+
+
+Deno.test("large source files are split across bounded AI evidence chunks instead of dropped", () => {
+  const source = "const evidence = \"" + "x".repeat(8500) + "\";\\n".repeat(1);
+  const chunks = buildAuditChunks([{ path: "src/large.ts", content: source }], 2048);
+  assertEquals(chunks.length > 1, true);
+  assertEquals(chunks.every((chunk) => chunk.length <= 2048), true);
+  assertEquals(chunks.some((chunk) => chunk.includes("content part 1")), true);
+  assertEquals(chunks.some((chunk) => chunk.includes("content part 2")), true);
+  assertEquals(chunks.map((chunk) => chunk.length).reduce((sum, length) => sum + length, 0) >= source.length, true);
 });
