@@ -97,6 +97,7 @@ with check (
   and reviewed_by is null
   and reviewed_at is null
   and published_at is null
+  and moderation_note is null
 );
 
 drop policy if exists future_lab_articles_author_update on public.future_lab_articles;
