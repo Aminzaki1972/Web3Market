@@ -72,7 +72,7 @@ async function run(sb:any,a:any,r:any){
    if(ar.ok&&(!declaredSize||declaredSize<=50*1024*1024)){
     const zipBytes=new Uint8Array(await ar.arrayBuffer());
     if(zipBytes.byteLength<=50*1024*1024){
-     const decoded=decodeSelectedArchive(zipBytes,readableCandidates);
+     const decoded=decodeSelectedArchive(zipBytes,batchReadableCandidates);
      files.push(...decoded.files);
     }
    }else if(!ar.ok){
