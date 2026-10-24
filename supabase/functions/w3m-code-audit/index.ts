@@ -55,6 +55,7 @@ async function run(sb:any,a:any,r:any){
   const totalFileBatches=selectedBatch.totalBatches;
   const fileBatchIndex=selectedBatch.batchIndex;
   const candidates=selectedBatch.candidates;
+  const batchReadableCandidates=candidates;
   const batchStats=Array.isArray(progressState.batch_stats)?[...progressState.batch_stats]:[];
   let oversizedFiles=0,unreadableFiles=0;
   const files:any[]=[];
