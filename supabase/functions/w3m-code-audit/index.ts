@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { tier, auditPriority, selectAuditCandidates, selectAuditBatch, calculateAuditCoverage, buildAuditChunks, isTransientAuditError } from "./audit-selection.ts";
 import { readResponseBytesLimited } from "./audit-download.ts";
+import { collectPages } from "./audit-pagination.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS"};
 const json=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...cors,"Content-Type":"application/json"}});
 const fail=(m:string,s=400,extra:any={})=>json({ok:false,error:m,...extra},s);
@@ -104,8 +105,8 @@ async function run(sb:any,a:any,r:any){
     await sb.from("code_audits").update({status:"queued",current_chunk:Number(out.next_chunk??startChunk),total_chunks:Number(out.chunks_analyzed||0),analysis_progress:{...progressState,status:"queued",file_batch_index:fileBatchIndex,total_file_batches:totalFileBatches,eligible_files:candidateCount,batch_stats:batchStats,current_chunk:Number(out.next_chunk??startChunk),total_chunks:Number(out.chunks_analyzed||0),updated_at:new Date().toISOString()}}).eq("id",a.id);
     return;
   }
-  const {data:knownRows}=await sb.from("code_audit_files").select("path").eq("audit_id",a.id);
-  const knownPaths=new Set((knownRows||[]).map((x:any)=>String(x.path)));
+  const knownRows=await collectPages((from,to)=>sb.from("code_audit_files").select("path").eq("audit_id",a.id).range(from,to));
+  const knownPaths=new Set(knownRows.map((x:any)=>String(x.path)));
   const newFileRows=files.filter((f:any)=>!knownPaths.has(f.path)).map((f:any)=>({audit_id:a.id,path:f.path,line_count:f.content.split("\n").length,size_bytes:new TextEncoder().encode(f.content).length,selected_tier:tier(f.path)}));
   if(newFileRows.length){
     const {error:fileInsertError}=await sb.from("code_audit_files").insert(newFileRows);
@@ -116,10 +117,10 @@ async function run(sb:any,a:any,r:any){
     await sb.from("code_audits").update({status:"queued",current_chunk:0,total_chunks:0,analysis_progress:{...progressState,status:"queued",file_batch_index:fileBatchIndex+1,total_file_batches:totalFileBatches,eligible_files:candidateCount,batch_stats:batchStats,current_chunk:0,total_chunks:0,updated_at:new Date().toISOString()}}).eq("id",a.id);
     return;
   }
-  const {data:allFileRows}=await sb.from("code_audit_files").select("path,line_count,size_bytes,selected_tier").eq("audit_id",a.id);
-  const totalScannedFiles=(allFileRows||[]).length;
-  const totalLines=(allFileRows||[]).reduce((n:number,x:any)=>n+Number(x.line_count||0),0);
-  const totalBytes=(allFileRows||[]).reduce((n:number,x:any)=>n+Number(x.size_bytes||0),0);
+  const allFileRows=await collectPages((from,to)=>sb.from("code_audit_files").select("path,line_count,size_bytes,selected_tier").eq("audit_id",a.id).range(from,to));
+  const totalScannedFiles=allFileRows.length;
+  const totalLines=allFileRows.reduce((n:number,x:any)=>n+Number(x.line_count||0),0);
+  const totalBytes=allFileRows.reduce((n:number,x:any)=>n+Number(x.size_bytes||0),0);
   const totalOversized=preSkippedOversized+batchStats.reduce((n:number,x:any)=>n+Number(x?.oversized_files||0),0);
   const totalUnreadable=batchStats.reduce((n:number,x:any)=>n+Number(x?.unreadable_files||0),0);
   const s=out.category_scores||{};
@@ -131,8 +132,7 @@ async function run(sb:any,a:any,r:any){
   const findings=Array.isArray(out.findings)?out.findings.slice(0,100):[],cnt:any={critical:0,high:0,medium:0,low:0,info:0};for(const f of findings)if(cnt[f.severity]!==undefined)cnt[f.severity]++;
   score=clamp(score);const coverage=calculateAuditCoverage(totalScannedFiles,candidateCount);
   // Sequential-retry mitigation without changing production schema.
-  const {data:existingFindingRows,error:existingFindingError}=await sb.from("code_audit_findings").select("severity,category,title,file_path,line_start").eq("audit_id",a.id);
-  if(existingFindingError)throw Error("Unable to inspect existing findings before finalization: "+String(existingFindingError.message||existingFindingError));
+  const existingFindingRows=await collectPages((from,to)=>sb.from("code_audit_findings").select("severity,category,title,file_path,line_start").eq("audit_id",a.id).range(from,to));
   const findingKey=(f:any)=>[String(f.file_path||"").trim().replace(/\\/g,"/"),Number(f.line_start||0),String(f.title||"").trim().toLowerCase(),String(f.category||"").trim().toLowerCase(),String(f.severity||"").trim().toLowerCase()].join("|");
   const existingFindingKeys=new Set((existingFindingRows||[]).map((f:any)=>findingKey(f)));
   const missingFindings=findings.filter((f:any)=>!existingFindingKeys.has(findingKey(f)));
