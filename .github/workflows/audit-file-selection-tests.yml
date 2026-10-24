@@ -20,3 +20,7 @@ jobs:
           deno-version: v2.x
       - name: Run audit selection unit tests
         run: deno test supabase/functions/w3m-code-audit/audit-selection.test.ts
+      - name: Run audit archive unit tests
+        run: deno test supabase/functions/w3m-code-audit/audit-archive.test.ts
+      - name: Run bounded download unit tests
+        run: deno test supabase/functions/w3m-code-audit/audit-download.test.ts
