@@ -72,6 +72,18 @@ check("admin moderation policy is explicit and authenticated-only",
 check("migration uses no service-role credential or destructive table drop",
       "service_role" not in sql.lower() and not re.search(r"\bdrop\s+table\b", sql, re.I))
 
+check("disposable PostgreSQL integration test file exists", bool(test_sql))
+check("integration test applies the checked-in migration and avoids live Supabase",
+      "future_lab_community_draft.sql" in test_sql and "supabase.co" not in test_sql and "service_role" not in test_sql.lower())
+check("integration tests cover anonymous reads and author self-publishing rejection",
+      "anonymous reader can see non-published articles" in test_sql and
+      "author published their own article without moderation" in test_sql)
+check("integration tests cover comments and duplicate likes",
+      "comment inserted on a non-published article" in test_sql and
+      "duplicate like was accepted" in test_sql)
+check("integration tests cover admin moderation",
+      "admin could not publish a reviewed article" in test_sql)
+
 for name, ok in checks:
     print(f'{"PASS" if ok else "FAIL"}: {name}')
 print(f"\n{sum(ok for _, ok in checks)}/{len(checks)} static checks passed.")
