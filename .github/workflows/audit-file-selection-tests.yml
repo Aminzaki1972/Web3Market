@@ -28,3 +28,5 @@ jobs:
         run: deno test --allow-net=api.github.com supabase/functions/w3m-code-audit/audit-public-repository.integration.test.ts
       - name: Run audit pagination tests
         run: deno test supabase/functions/w3m-code-audit/audit-pagination.test.ts
+      - name: Run audit batch checkpoint tests
+        run: deno test supabase/functions/w3m-code-audit/audit-progress.test.ts
