@@ -7,7 +7,7 @@ import sys
 root = Path(__file__).resolve().parents[1]
 html_path = root / "future-lab-community-preview.html"
 sql_path = root / "supabase/migrations/202610250001_future_lab_community_draft.sql"
-doc_path = root / "docs/future-lab-community-clean-preview.md"
+doc_path = root / "docs/future-lab-community-clean-preview.md"\ntest_sql_path = root / "supabase/tests/future_lab_community.integration.sql"
 errors = []
 checks = []
 
@@ -18,7 +18,7 @@ def check(name, ok):
 
 html = html_path.read_text(encoding="utf-8") if html_path.exists() else ""
 sql = sql_path.read_text(encoding="utf-8") if sql_path.exists() else ""
-doc = doc_path.read_text(encoding="utf-8") if doc_path.exists() else ""
+doc = doc_path.read_text(encoding="utf-8") if doc_path.exists() else ""\ntest_sql = test_sql_path.read_text(encoding="utf-8") if test_sql_path.exists() else ""
 
 check("preview HTML exists", bool(html))
 check("SQL migration draft exists", bool(sql))
