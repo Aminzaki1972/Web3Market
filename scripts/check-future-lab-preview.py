@@ -101,8 +101,12 @@ check("docs explain no database integration test has run",
 
 check("admin helper is SECURITY DEFINER with an empty fixed search_path",
       "security definer" in sql.lower() and "set search_path = ''" in sql.lower())
+check("public can read comments and likes only where RLS permits published articles",
+      "grant select on public.future_lab_comments to anon, authenticated;" in sql and
+      "grant select on public.future_lab_likes to anon, authenticated;" in sql and
+      "where a.id = article_id and a.status = 'published'" in sql)
 check("comment authors cannot reassign comments through UPDATE",
-      "grant select, insert, delete on public.future_lab_comments to authenticated;" in sql and
+      "grant insert, delete on public.future_lab_comments to authenticated;" in sql and
       "grant select, insert, update, delete on public.future_lab_comments to authenticated;" not in sql and
       "create policy future_lab_comments_author_update" not in sql)
 check("comment inserts require the current author and a published article",
@@ -124,12 +128,33 @@ check("integration tests cover anonymous reads and author self-publishing reject
 check("integration tests cover comments and duplicate likes",
       "comment inserted on a non-published article" in test_sql and
       "duplicate like was accepted" in test_sql)
+check("integration tests verify anonymous public reads and RLS filtering for comments and likes",
+      "anonymous reader can see comments on non-published articles" in test_sql and
+      "anonymous reader can see likes on non-published articles" in test_sql)
 check("integration tests cover author identity enforcement",
       "mismatched author ID was accepted" in test_sql)
 check("integration tests cover published article edit restrictions",
       "published article was changed by its author" in test_sql)
 check("integration tests cover admin moderation",
       "admin could not publish a reviewed article" in test_sql)
+
+community_service_path = root / "js/future-lab-community.js"
+community_doc_path = root / "docs/future-lab-community-data-service.md"
+community_service = community_service_path.read_text(encoding="utf-8") if community_service_path.exists() else ""
+community_doc = community_doc_path.read_text(encoding="utf-8") if community_doc_path.exists() else ""
+check("draft Supabase community service exists but is not wired into live Future Lab HTML",
+      bool(community_service) and "not loaded by future-lab.html yet" in community_service and
+      "future-lab-community.js" not in (root / "future-lab.html").read_text(encoding="utf-8"))
+check("community service covers articles, comments, likes and admin moderation",
+      all(token in community_service for token in ("listPublished", "submitArticle", "addComment", "toggleLike", "listReviewQueue", "reviewArticle")))
+check("community service requires authentication for member writes",
+      "currentUser(client)" in community_service and "Sign in to use Future Lab community features." in community_service)
+check("community service never exposes a public list of member IDs for likes",
+      "countLikes" in community_service and "listLikes" not in community_service)
+check("community service documents RLS as the security boundary",
+      "Supabase RLS" in community_service and "Database policies also enforce" in community_service)
+check("service integration documentation lists isolated-test blockers",
+      "dedicated isolated Supabase test project" in community_doc and "web3market-support-test" in community_doc.lower())
 
 for name, ok in checks:
     print(f'{"PASS" if ok else "FAIL"}: {name}')
