@@ -61,9 +61,10 @@ check("pending, draft and changes-requested demo submissions stay hidden from th
       "['pending','draft','changes_requested'].includes(a.status)" in html and
       "a.status='published'" in html)
 check("demo queue supports request-changes and resubmission transitions",
-      'data-moderate=\"changes\"' in html and 'data-moderate=\"resubmit\"' in html and
+      'data-moderate=\"changes\"' in html and 'data-moderate=\"edit\"' in html and
       "a.status='changes_requested'" in html and "a.status='pending'" in html and
-      "Request changes (demo)" in html and "Resubmit after changes (demo)" in html)
+      "Edit and resubmit (demo)" in html and "Revise and resubmit article" in html and
+      "Object.assign(obj,{title,category:topic,excerpt:summary,content,sources" in html)
 check("demo moderation is clearly non-persistent and does not call production services",
       "Actions stay in this browser page" in html and "nothing was uploaded" in html.lower() and
       "fetch(" not in html.lower())
