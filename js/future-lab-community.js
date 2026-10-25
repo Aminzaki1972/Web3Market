@@ -142,11 +142,13 @@
         .single());
     },
 
-    async listLikes(articleId) {
+    async countLikes(articleId) {
       if (!articleId) throw new Error("Article ID is required.");
       const client = getClient();
-      const result = await client.from(TABLES.likes).select("article_id,user_id,created_at").eq("article_id", articleId).limit(5000);
-      return checked(result) || [];
+      // Return only the count, never a public list of member IDs.
+      const result = await client.from(TABLES.likes).select("article_id", { count: "exact", head: true }).eq("article_id", articleId);
+      if (result && result.error) throw result.error;
+      return Number(result && result.count) || 0;
     },
 
     async hasLiked(articleId) {
