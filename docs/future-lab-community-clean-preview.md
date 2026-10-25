@@ -23,15 +23,15 @@ Front-end prototype at `future-lab-community-preview.html`, based directly on `c
 - Do not run this migration against production.
 
 ## Admin moderation page
-- Added `admin-future-lab-review.html` and a link from the existing Admin Review Center on this isolated branch. It requires an authenticated session with MFA assurance level AAL2 and relies on the proposed database RLS policies for authorization.
+- Added `admin-future-lab-review.html` and a link from the existing Admin Review Center on this isolated branch. **Current state: the safety lock stops execution before authentication or any database request**, so the page is not yet a usable moderation console. The authentication/MFA checks visible in the code are intended for a future integration only; they have not been exercised.
 - Queue supports Approve & Publish, Request Changes, and Reject with a note. `changes_requested` is now included in the draft migration and authors may edit their own returned submissions, but still cannot set moderation metadata or publish themselves.
-- The page will not function against the current database until the migration is separately reviewed and applied to an approved isolated test environment. It deliberately reports that condition; the migration has not been applied to production.
+- The page deliberately cannot function as live moderation while `PREVIEW_SAFETY_LOCK=true`. Only after a dedicated isolated test environment is approved should the lock be reconsidered, followed by actual Supabase JWT/RLS and MFA tests. The migration has not been applied to production.
 
 ## Not implemented / not verified
 - Real authentication, member profile display, or a working article submission UI connected to Supabase.
 - Persistent article records, comments, likes or moderation actions.
 - Image upload/storage.
-- Hosted Cloudflare preview URL.
+- Browser-level verification of the hosted Cloudflare preview URL; deployment status alone is not proof that the page loads and works in a real browser.
 - Real Supabase integration or full browser/security testing.
 
 ## Isolation and next steps
@@ -57,4 +57,4 @@ The following checks are required in addition to the passing disposable PostgreS
 - Run browser regression tests against a verified preview URL before proposing a merge.
 
 ## Current verification evidence
-Latest verified workflow run: [Future Lab isolated preview checks, run #70](https://github.com/Aminzaki1972/Web3Market/actions/runs/40144383783). Both the disposable PostgreSQL integration job and static-safety job completed successfully after fixing the SQL dollar-quote delimiters. The disposable tests include anonymous published-only reads, author self-publish rejection, mismatched author ID rejection, published-article edit restrictions, comment-on-draft rejection, duplicate-like rejection and admin moderation. This is a local PostgreSQL test using mock auth/profile tables; it does not replace Supabase-specific schema/JWT testing or a verified browser preview.
+Latest verified workflow run before the workflow-path update: [Future Lab isolated preview checks, run #97](https://github.com/Aminzaki1972/Web3Market/actions/runs/40145946215). The workflow now also triggers when either admin review page changes. Both the disposable PostgreSQL integration job and static-safety job completed successfully after fixing the SQL dollar-quote delimiters. The disposable tests include anonymous published-only reads, author self-publish rejection, mismatched author ID rejection, published-article edit restrictions, comment-on-draft rejection, duplicate-like rejection and admin moderation. This is a local PostgreSQL test using mock auth/profile tables; it does not replace Supabase-specific schema/JWT testing or a verified browser preview.
