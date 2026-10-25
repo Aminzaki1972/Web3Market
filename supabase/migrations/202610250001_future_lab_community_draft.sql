@@ -3,11 +3,11 @@
 -- Requires public.profiles(id, role) and auth.users to exist.
 begin;
 
-create schema if not exists private;
-revoke all on schema private from public, anon;
-grant usage on schema private to anon, authenticated;
+create schema if not exists future_lab_private;
+revoke all on schema future_lab_private from public, anon;
+grant usage on schema future_lab_private to anon, authenticated;
 
-create or replace function private.future_lab_is_admin()
+create or replace function future_lab_private.is_admin()
 returns boolean
 language sql
 stable
@@ -22,8 +22,8 @@ as $$
   )
 $$;
 -- This helper returns only a boolean derived from auth.uid(); anonymous calls always resolve false.
-revoke all on function private.future_lab_is_admin() from public;
-grant execute on function private.future_lab_is_admin() to anon, authenticated;
+revoke all on function future_lab_private.is_admin() from public, anon;
+grant execute on function future_lab_private.is_admin() to anon, authenticated;
 
 create table if not exists public.future_lab_articles (
   id uuid primary key default gen_random_uuid(),
@@ -86,7 +86,7 @@ grant select, insert, delete on public.future_lab_likes to authenticated;
 drop policy if exists future_lab_articles_read on public.future_lab_articles;
 create policy future_lab_articles_read on public.future_lab_articles
 for select to anon, authenticated
-using (status = 'published' or author_id = (select auth.uid()) or (select private.future_lab_is_admin()));
+using (status = 'published' or author_id = (select auth.uid()) or (select future_lab_private.is_admin()));
 
 drop policy if exists future_lab_articles_insert on public.future_lab_articles;
 create policy future_lab_articles_insert on public.future_lab_articles
@@ -121,8 +121,8 @@ using (author_id = (select auth.uid()) and status in ('draft','pending_review','
 drop policy if exists future_lab_articles_admin_manage on public.future_lab_articles;
 create policy future_lab_articles_admin_manage on public.future_lab_articles
 for all to authenticated
-using ((select private.future_lab_is_admin()))
-with check ((select private.future_lab_is_admin()));
+using ((select future_lab_private.is_admin()))
+with check ((select future_lab_private.is_admin()));
 
 drop policy if exists future_lab_comments_read on public.future_lab_comments;
 create policy future_lab_comments_read on public.future_lab_comments
@@ -133,7 +133,7 @@ using (
     where a.id = article_id and a.status = 'published'
   )
   or author_id = (select auth.uid())
-  or (select private.future_lab_is_admin())
+  or (select future_lab_private.is_admin())
 );
 
 drop policy if exists future_lab_comments_insert on public.future_lab_comments;
@@ -152,7 +152,7 @@ with check (
 drop policy if exists future_lab_comments_author_delete on public.future_lab_comments;
 create policy future_lab_comments_author_delete on public.future_lab_comments
 for delete to authenticated
-using (author_id = (select auth.uid()) or (select private.future_lab_is_admin()));
+using (author_id = (select auth.uid()) or (select future_lab_private.is_admin()));
 
 drop policy if exists future_lab_likes_read on public.future_lab_likes;
 create policy future_lab_likes_read on public.future_lab_likes
@@ -163,7 +163,7 @@ using (
     where a.id = article_id and a.status = 'published'
   )
   or user_id = (select auth.uid())
-  or (select private.future_lab_is_admin())
+  or (select future_lab_private.is_admin())
 );
 
 drop policy if exists future_lab_likes_insert on public.future_lab_likes;
@@ -180,6 +180,6 @@ with check (
 drop policy if exists future_lab_likes_delete on public.future_lab_likes;
 create policy future_lab_likes_delete on public.future_lab_likes
 for delete to authenticated
-using (user_id = (select auth.uid()) or (select private.future_lab_is_admin()));
+using (user_id = (select auth.uid()) or (select future_lab_private.is_admin()));
 
 commit;
