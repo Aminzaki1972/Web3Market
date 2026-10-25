@@ -68,7 +68,7 @@ check("no direct production Supabase project URL in preview HTML",
 check("migration is clearly marked not to apply to production",
       "DO NOT apply to production" in sql)
 check("anonymous role can evaluate the published-article RLS helper",
-      "grant usage on schema private to anon, authenticated;" in sql and
+      "grant usage on schema future_lab_private to anon, authenticated;" in sql and
       "grant execute on function future_lab_private.is_admin() to anon, authenticated;" in sql)
 check("RLS enabled for articles, comments and likes",
       all(f"alter table public.future_lab_{t} enable row level security;" in sql
