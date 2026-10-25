@@ -43,7 +43,27 @@ async function run(sb:any,a:any,r:any){
   console.log("W3M audit worker start", {audit_id:a.id, owner:r.owner, name:r.name});
   const {data:resumeState,error:resumeStateError}=await sb.from("code_audits").select("ai_chunk_results,current_chunk,total_chunks,analysis_progress,commit_sha,repo_owner,repo_name,branch").eq("id",a.id).maybeSingle();if(resumeStateError)throw Error("Unable to read audit resume state: "+String(resumeStateError.message||resumeStateError));if(!resumeState)throw Error("Audit record was not found while starting worker."); const priorProgress=resumeState.analysis_progress||{}; const isResume=(Array.isArray(resumeState.ai_chunk_results)&&Number(resumeState.current_chunk||0)>0)||Number(priorProgress.file_batch_index||0)>0; const startSave=await sb.from("code_audits").update({status:"scanning",started_at:new Date().toISOString(),analysis_progress:{...priorProgress,status:"scanning",current_chunk:isResume?Number(resumeState.current_chunk||0):0,total_chunks:isResume?Number(resumeState.total_chunks||0):0,updated_at:new Date().toISOString()},current_chunk:isResume?Number(resumeState.current_chunk||0):0,retry_count:0}).eq("id",a.id);assertAuditWriteSucceeded(startSave,"Unable to persist initial worker state");
   const m=await gh("/repos/"+r.owner+"/"+r.name);if(m.private)throw Error("Private repositories are not supported in this MVP.");
-  const branch=resumeState?.branch||m.default_branch||"main",headCommit=await gh("/repos/"+r.owner+"/"+r.name+"/commits/"+encodeURIComponent(branch));const savedSha=String(resumeState?.commit_sha||"");const sha=/^[0-9a-f]{40}$/i.test(savedSha)?savedSha:headCommit.sha;if(!/^[0-9a-f]{40}$/i.test(String(sha||"")))throw Error("GitHub did not return a valid commit SHA for branch "+branch+".");
+  const defaultBranch=String(m.default_branch||"main");
+  const storedBranch=String(resumeState?.branch||"").trim();
+  let branch=storedBranch||defaultBranch;
+  const savedSha=String(resumeState?.commit_sha||"");
+  const hasPinnedCommit=isResume&&/^[0-9a-f]{40}$/i.test(savedSha);
+  let headCommit:any=null;
+  // A resumed audit with a pinned SHA must stay on that exact snapshot, even if its branch was renamed or deleted.
+  if(!hasPinnedCommit){
+   try{
+    headCommit=await gh("/repos/"+r.owner+"/"+r.name+"/commits/"+encodeURIComponent(branch));
+   }catch(branchError){
+    const branchErrorMessage=String((branchError as any)?.message||branchError);
+    const missingStoredBranch=/GitHub API (?:404|422).*?(?:No commit found|branch not found|not found|does not exist)/i.test(branchErrorMessage);
+    if(!storedBranch||branch===defaultBranch||!missingStoredBranch)throw branchError;
+    console.warn("W3M audit stored branch is unavailable; falling back to repository default branch",{audit_id:a.id,stored_branch:branch,default_branch:defaultBranch,error:branchErrorMessage});
+    branch=defaultBranch;
+    headCommit=await gh("/repos/"+r.owner+"/"+r.name+"/commits/"+encodeURIComponent(branch));
+   }
+  }
+  const sha=hasPinnedCommit?savedSha:headCommit?.sha;
+  if(!/^[0-9a-f]{40}$/i.test(String(sha||"")))throw Error("GitHub did not return a valid commit SHA for branch "+branch+".");
   const tree=await gh("/repos/"+r.owner+"/"+r.name+"/git/trees/"+sha+"?recursive=1");if(tree.truncated)throw Error("Repository tree is too large for GitHub's recursive tree API; no partial audit was reported.");
   // Pin the exact snapshot before any archive download, file fetch, or early batch return.
   // A resumed worker must never silently switch to a newer default-branch commit.
