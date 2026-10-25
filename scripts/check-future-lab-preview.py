@@ -51,6 +51,11 @@ check("HTML includes search and category filter", 'id="search"' in html and 'id=
 check("preview includes an explicitly non-authenticated moderation demo",
       'id="reviewBtn"' in html and "DEMO ONLY · NO AUTHENTICATION" in html and
       "not an admin console" in html)
+check("demo clearly discloses that reviewer roles and self-approval are not enforced",
+      "does not authenticate reviewers or prevent self-approval" in html and
+      "server-side authorization will restrict review to administrators" in html)
+check("submission button accurately describes the simulated queue action",
+      "Submit to demo review queue" in html)
 check("pending demo submissions are hidden from the public feed until approved",
       "demos.filter(a=>a.status==='published')" in html and
       "a.status==='pending'||a.status==='draft'" in html and
