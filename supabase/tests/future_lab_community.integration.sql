@@ -39,7 +39,7 @@ begin
   if (select count(*) from public.future_lab_articles) <> 1 then
     raise exception 'FAIL: anonymous reader can see non-published articles';
   end if;
-end $$$;
+end $;
 reset role;
 
 -- Authors can see their own work but cannot publish it themselves.
@@ -57,7 +57,7 @@ begin
   exception when insufficient_privilege then
     null; -- expected RLS WITH CHECK rejection
   end;
-end $$$;
+end $;
 
 -- Authors must not forge editorial notes reserved for moderators.
 do $$
@@ -92,7 +92,7 @@ begin
   exception when insufficient_privilege then
     null; -- expected RLS rejection
   end;
-end $$$;
+end $;
 
 -- An author cannot edit a published article, even if they originally wrote it.
 do $$
@@ -105,7 +105,7 @@ begin
       <> 'Published Web3 Research' then
     raise exception 'FAIL: author edited a published article';
   end if;
-end $$$;
+end $;
 
 
 -- A member cannot create an article on behalf of another member.
@@ -124,7 +124,7 @@ begin
   exception when insufficient_privilege then
     null;
   end;
-end $$$;
+end $;
 
 -- An author cannot edit a published article; RLS should leave it unchanged.
 do $$
@@ -137,7 +137,7 @@ begin
       <> 'Published Web3 Research' then
     raise exception 'FAIL: published article was changed by its author';
   end if;
-end $$$;
+end $;
 
 -- A member can comment on a published article, not a draft.
 insert into public.future_lab_comments (article_id, author_id, body)
@@ -152,7 +152,7 @@ begin
   exception when insufficient_privilege then
     null; -- expected RLS rejection
   end;
-end $$$;
+end $;
 
 -- A duplicate like by the same member for the same article must fail.
 insert into public.future_lab_likes (article_id, user_id)
@@ -166,7 +166,7 @@ begin
   exception when unique_violation then
     null; -- expected primary-key rejection
   end;
-end $$$;
+end $;
 
 reset role;
 
@@ -197,7 +197,7 @@ begin
   exception when insufficient_privilege then
     null;
   end;
-end $$$;
+end $;
 reset role;
 
 -- Admin moderation must work, while author self-publishing above was rejected.
@@ -212,7 +212,7 @@ begin
   if (select status from public.future_lab_articles where id='10000000-0000-0000-0000-000000000002') <> 'published' then
     raise exception 'FAIL: admin could not publish a reviewed article';
   end if;
-end $$$;
+end $;
 reset role;
 
 select 'PASS: Future Lab disposable PostgreSQL integration tests completed' as result;
