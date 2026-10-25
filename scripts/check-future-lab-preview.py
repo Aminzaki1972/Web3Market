@@ -69,12 +69,12 @@ check("migration is clearly marked not to apply to production",
       "DO NOT apply to production" in sql)
 check("anonymous role can evaluate the published-article RLS helper",
       "grant usage on schema private to anon, authenticated;" in sql and
-      "grant execute on function private.future_lab_is_admin() to anon, authenticated;" in sql)
+      "grant execute on function future_lab_private.is_admin() to anon, authenticated;" in sql)
 check("RLS enabled for articles, comments and likes",
       all(f"alter table public.future_lab_{t} enable row level security;" in sql
           for t in ("articles", "comments", "likes")))
 check("public article policy restricts anonymous access to published articles",
-      "using (status = 'published' or author_id = (select auth.uid()) or (select private.future_lab_is_admin()))" in sql)
+      "using (status = 'published' or author_id = (select auth.uid()) or (select future_lab_private.is_admin()))" in sql)
 check("article submission policy prevents author-supplied published status",
       "status in ('draft','pending_review','changes_requested')" in sql and "published_at is null" in sql)
       
@@ -101,7 +101,7 @@ check("comment inserts require the current author and a published article",
 check("admin moderation policy is explicit and authenticated-only",
       "create policy future_lab_articles_admin_manage" in sql and
       "for all to authenticated" in sql and
-      "with check ((select private.future_lab_is_admin()))" in sql)
+      "with check ((select future_lab_private.is_admin()))" in sql)
 check("migration uses no service-role credential or destructive table drop",
       "service_role" not in sql.lower() and not re.search(r"\bdrop\s+table\b", sql, re.I))
 
