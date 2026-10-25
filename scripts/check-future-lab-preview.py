@@ -56,10 +56,14 @@ check("demo clearly discloses that reviewer roles and self-approval are not enfo
       "server-side authorization will restrict review to administrators" in html)
 check("submission button accurately describes the simulated queue action",
       "Submit to demo review queue" in html)
-check("pending demo submissions are hidden from the public feed until approved",
+check("pending, draft and changes-requested demo submissions stay hidden from the public feed",
       "demos.filter(a=>a.status==='published')" in html and
-      "a.status==='pending'||a.status==='draft'" in html and
+      "['pending','draft','changes_requested'].includes(a.status)" in html and
       "a.status='published'" in html)
+check("demo queue supports request-changes and resubmission transitions",
+      'data-moderate=\"changes\"' in html and 'data-moderate=\"resubmit\"' in html and
+      "a.status='changes_requested'" in html and "a.status='pending'" in html and
+      "Request changes (demo)" in html and "Resubmit after changes (demo)" in html)
 check("demo moderation is clearly non-persistent and does not call production services",
       "Actions stay in this browser page" in html and "nothing was uploaded" in html.lower() and
       "fetch(" not in html.lower())
