@@ -18,7 +18,7 @@ Front-end prototype at `future-lab-community-preview.html`, based directly on `c
 
 ## Free isolated test strategy
 - GitHub Actions now runs static safety checks and starts a disposable PostgreSQL 16 service container for integration tests. This uses the workflow runner; it does not create a Supabase project or connect to any Supabase database.
-- `supabase/tests/future_lab_community.integration.sql` creates minimal local auth/profile stubs, applies the draft migration and tests anonymous published-only reads, author self-publishing rejection, comment restrictions, duplicate-like prevention and admin moderation.
+- `supabase/tests/future_lab_community.integration.sql` creates minimal local auth/profile stubs, applies the draft migration and tests anonymous published-only article reads, public comment/like reads filtered to published articles, author self-publishing rejection, comment restrictions, duplicate-like prevention and admin moderation.
 - A successful local PostgreSQL test is useful regression evidence, but the migration has **not been integration-tested on Supabase** and this local test is not equivalent to Supabase integration testing. Supabase-specific schema, roles, default grants and profile structure still need validation in a dedicated isolated project before deployment.
 - Do not run this migration against production.
 
@@ -50,7 +50,7 @@ The following checks are required in addition to the passing disposable PostgreS
 - Confirm a member cannot create an article using another member's author ID.
 - Confirm a member cannot alter or delete an already-published article through author policies.
 - Confirm a member cannot change moderation metadata or status to publish their own article.
-- Confirm comments can only be added to published articles, and that comment authors cannot move a comment to another article.
+- Confirm comments can only be added to published articles, public readers see comments/likes only for published articles, and comment authors cannot move a comment to another article.
 - Confirm duplicate likes are rejected by the database primary key, not just by browser UI state.
 - Confirm admin moderation works only for authenticated users whose trusted profile role is admin.
 - Confirm unauthenticated requests cannot call any write path or upload endpoint.
