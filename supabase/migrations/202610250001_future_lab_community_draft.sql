@@ -79,8 +79,10 @@ revoke all on public.future_lab_comments from anon, authenticated;
 revoke all on public.future_lab_likes from anon, authenticated;
 grant select on public.future_lab_articles to anon, authenticated;
 grant insert, update, delete on public.future_lab_articles to authenticated;
-grant select, insert, delete on public.future_lab_comments to authenticated;
-grant select, insert, delete on public.future_lab_likes to authenticated;
+grant select on public.future_lab_comments to anon, authenticated;
+grant insert, delete on public.future_lab_comments to authenticated;
+grant select on public.future_lab_likes to anon, authenticated;
+grant insert, delete on public.future_lab_likes to authenticated;
 
 -- Public readers can only see published articles. Authors can see their own submissions.
 drop policy if exists future_lab_articles_read on public.future_lab_articles;
