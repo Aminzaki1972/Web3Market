@@ -6,6 +6,7 @@ import { collectPages } from "./audit-pagination.ts";
 import { queuedNextBatchProgress } from "./audit-progress.ts";
 import { assertAuditWriteSucceeded } from "./audit-persistence.ts";
 import { filterMissingAuditFindings } from "./audit-findings.ts";
+import { shouldFallbackToDefaultBranch } from "./audit-branch-resolution.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS"};
 const json=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...cors,"Content-Type":"application/json"}});
 const fail=(m:string,s=400,extra:any={})=>json({ok:false,error:m,...extra},s);
@@ -55,8 +56,8 @@ async function run(sb:any,a:any,r:any){
     headCommit=await gh("/repos/"+r.owner+"/"+r.name+"/commits/"+encodeURIComponent(branch));
    }catch(branchError){
     const branchErrorMessage=String((branchError as any)?.message||branchError);
-    const missingStoredBranch=/GitHub API (?:404|422).*?(?:No commit found|branch not found|not found|does not exist)/i.test(branchErrorMessage);
-    if(!storedBranch||branch===defaultBranch||!missingStoredBranch)throw branchError;
+    const shouldFallback=shouldFallbackToDefaultBranch(storedBranch,branch,defaultBranch,branchErrorMessage);
+    if(!shouldFallback)throw branchError;
     console.warn("W3M audit stored branch is unavailable; falling back to repository default branch",{audit_id:a.id,stored_branch:branch,default_branch:defaultBranch,error:branchErrorMessage});
     branch=defaultBranch;
     headCommit=await gh("/repos/"+r.owner+"/"+r.name+"/commits/"+encodeURIComponent(branch));
