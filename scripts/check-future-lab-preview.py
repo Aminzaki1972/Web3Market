@@ -138,6 +138,24 @@ check("integration tests cover published article edit restrictions",
 check("integration tests cover admin moderation",
       "admin could not publish a reviewed article" in test_sql)
 
+community_service_path = root / "js/future-lab-community.js"
+community_doc_path = root / "docs/future-lab-community-data-service.md"
+community_service = community_service_path.read_text(encoding="utf-8") if community_service_path.exists() else ""
+community_doc = community_doc_path.read_text(encoding="utf-8") if community_doc_path.exists() else ""
+check("draft Supabase community service exists but is not wired into live Future Lab HTML",
+      bool(community_service) and "not loaded by future-lab.html yet" in community_service and
+      "future-lab-community.js" not in (root / "future-lab.html").read_text(encoding="utf-8"))
+check("community service covers articles, comments, likes and admin moderation",
+      all(token in community_service for token in ("listPublished", "submitArticle", "addComment", "toggleLike", "listReviewQueue", "reviewArticle")))
+check("community service requires authentication for member writes",
+      "currentUser(client)" in community_service and "Sign in to use Future Lab community features." in community_service)
+check("community service never exposes a public list of member IDs for likes",
+      "countLikes" in community_service and "listLikes" not in community_service)
+check("community service documents RLS as the security boundary",
+      "Supabase RLS" in community_service and "Database policies also enforce" in community_service)
+check("service integration documentation lists isolated-test blockers",
+      "dedicated isolated Supabase test project" in community_doc and "web3market-support-test" in community_doc.lower())
+
 for name, ok in checks:
     print(f'{"PASS" if ok else "FAIL"}: {name}')
 print(f"\n{sum(ok for _, ok in checks)}/{len(checks)} static checks passed.")
