@@ -170,6 +170,26 @@ end $$;
 
 reset role;
 
+-- Seed private rows as the database owner to verify anonymous RLS filtering.
+insert into public.future_lab_comments (article_id, author_id, body)
+values ('10000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000003','Private draft comment seed.');
+insert into public.future_lab_likes (article_id, user_id)
+values ('10000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000003');
+
+-- Anonymous readers can read comments and likes on published articles, not draft records.
+set role anon;
+set request.jwt.claim.sub = '';
+do $
+begin
+  if (select count(*) from public.future_lab_comments) <> 1 then
+    raise exception 'FAIL: anonymous reader can see comments on non-published articles or cannot read public comments';
+  end if;
+  if (select count(*) from public.future_lab_likes) <> 1 then
+    raise exception 'FAIL: anonymous reader can see likes on non-published articles or cannot read public likes';
+  end if;
+end $;
+reset role;
+
 -- Author may revise an article after an admin requests changes, but cannot publish it.
 reset role;
 set role authenticated;
