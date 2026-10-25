@@ -1,0 +1,76 @@
+name: Future Lab isolated preview checks
+
+on:
+  push:
+    branches:
+      - preview/future-lab-community-clean-20261025
+    paths:
+      - "future-lab-community-preview.html"
+      - "admin-future-lab-review.html"
+      - "admin-review.html"
+      - "supabase/migrations/202610250001_future_lab_community_draft.sql"
+      - "supabase/tests/future_lab_community.integration.sql"
+      - "docs/future-lab-community-clean-preview.md"
+      - "scripts/check-future-lab-preview.py"
+      - ".github/workflows/future-lab-preview-check.yml"
+  pull_request:
+    branches:
+      - cloudflare-test
+    paths:
+      - "future-lab-community-preview.html"
+      - "admin-future-lab-review.html"
+      - "admin-review.html"
+      - "supabase/migrations/202610250001_future_lab_community_draft.sql"
+      - "supabase/tests/future_lab_community.integration.sql"
+      - "docs/future-lab-community-clean-preview.md"
+      - "scripts/check-future-lab-preview.py"
+      - ".github/workflows/future-lab-preview-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-safety-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Run isolated preview safety checks
+        run: python3 scripts/check-future-lab-preview.py
+      - name: Check preview JavaScript syntax
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          html = Path('future-lab-community-preview.html').read_text(encoding='utf-8')
+          scripts = html.split('<script>', 1)
+          if len(scripts) != 2 or '</script>' not in scripts[1]:
+              raise SystemExit('Expected one inline preview script')
+          Path('/tmp/future-lab-preview.js').write_text(scripts[1].split('</script>', 1)[0], encoding='utf-8')
+          PY
+          node --check /tmp/future-lab-preview.js
+
+  disposable-postgres-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: future_lab_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d future_lab_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Run migration and RLS integration tests on disposable PostgreSQL
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d future_lab_test -v ON_ERROR_STOP=1 -f supabase/tests/future_lab_community.integration.sql
