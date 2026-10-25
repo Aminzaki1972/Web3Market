@@ -37,6 +37,10 @@ check("Future Lab admin moderation only targets expected review states",
       'data-action="published"' in admin_review and 'data-action="changes_requested"' in admin_review and 'data-action="rejected"' in admin_review)
 check("admin moderation page does not contain service-role credentials",
       "service_role" not in admin_review.lower())
+check("admin review preview has an explicit database safety lock",
+      "PREVIEW_SAFETY_LOCK=true" in admin_review and "Preview safety lock is active" in admin_review)
+check("admin review preview cannot connect directly to the production Supabase project",
+      "hzhqlexnhtukfljcvnyd.supabase.co" not in admin_review and "js/supabase.js" not in admin_review)
 check("SQL migration draft exists", bool(sql))
 check("scope and test-gate document exists", bool(doc))
 check("preview explicitly says no production database is connected",
