@@ -179,9 +179,21 @@
     refresh();
   }
   function start() {
-    const fallback = document.getElementById("future-lab-community-loading");
-    if (fallback) fallback.remove();
-    if (document.querySelector("main")) build();
+    try {
+      build();
+      const community = document.getElementById("future-lab-community");
+      const fallback = document.getElementById("future-lab-community-loading");
+      if (community && fallback) fallback.remove();
+      if (!community && fallback) {
+        const p = fallback.querySelector("p");
+        if (p) p.textContent = "Community interface could not start. Please refresh; the existing bookshelf is unchanged.";
+      }
+    } catch (error) {
+      console.error("Future Lab community startup failed:", error);
+      const fallback = document.getElementById("future-lab-community-loading");
+      const p = fallback && fallback.querySelector("p");
+      if (p) p.textContent = "Community interface failed to start. Please refresh; the existing bookshelf is unchanged.";
+    }
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, {once:true});
   else start();
