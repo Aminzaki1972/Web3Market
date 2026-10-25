@@ -179,6 +179,8 @@
     refresh();
   }
   function start() {
+    const fallback = document.getElementById("future-lab-community-loading");
+    if (fallback) fallback.remove();
     if (document.querySelector("main")) build();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, {once:true});
