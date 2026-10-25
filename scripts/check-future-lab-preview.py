@@ -62,7 +62,7 @@ check("pending, draft and changes-requested demo submissions stay hidden from th
       "a.status='published'" in html)
 check("demo queue supports request-changes and author editing before resubmission",
       "Request changes (demo)" in html and "Edit and resubmit (demo)" in html and
-      "a.status='changes_requested'" in html and "a.status='pending'" in html and
+      "a.status='changes_requested'" in html and "status:status==='pending'?'pending':'draft'" in html and
       "Revise and resubmit article" in html and
       "Object.assign(obj,{title,category:topic,excerpt:summary,content,sources" in html)
 check("demo moderation is clearly non-persistent and does not call production services",
