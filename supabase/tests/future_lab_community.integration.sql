@@ -73,7 +73,7 @@ begin
       where id='10000000-0000-0000-0000-000000000002') is not null then
     raise exception 'FAIL: author forged moderation note';
   end if;
-end $$;
+end $;
 
 
 -- Authors cannot submit an article under another member's identity.
