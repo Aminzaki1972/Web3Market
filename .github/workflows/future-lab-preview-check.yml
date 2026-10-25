@@ -6,6 +6,8 @@ on:
       - preview/future-lab-community-clean-20261025
     paths:
       - "future-lab-community-preview.html"
+      - "admin-future-lab-review.html"
+      - "admin-review.html"
       - "supabase/migrations/202610250001_future_lab_community_draft.sql"
       - "supabase/tests/future_lab_community.integration.sql"
       - "docs/future-lab-community-clean-preview.md"
@@ -16,6 +18,8 @@ on:
       - cloudflare-test
     paths:
       - "future-lab-community-preview.html"
+      - "admin-future-lab-review.html"
+      - "admin-review.html"
       - "supabase/migrations/202610250001_future_lab_community_draft.sql"
       - "supabase/tests/future_lab_community.integration.sql"
       - "docs/future-lab-community-clean-preview.md"
