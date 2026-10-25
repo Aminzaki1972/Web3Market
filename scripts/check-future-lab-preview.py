@@ -101,8 +101,12 @@ check("docs explain no database integration test has run",
 
 check("admin helper is SECURITY DEFINER with an empty fixed search_path",
       "security definer" in sql.lower() and "set search_path = ''" in sql.lower())
+check("public can read comments and likes only where RLS permits published articles",
+      "grant select on public.future_lab_comments to anon, authenticated;" in sql and
+      "grant select on public.future_lab_likes to anon, authenticated;" in sql and
+      "where a.id = article_id and a.status = 'published'" in sql)
 check("comment authors cannot reassign comments through UPDATE",
-      "grant select, insert, delete on public.future_lab_comments to authenticated;" in sql and
+      "grant insert, delete on public.future_lab_comments to authenticated;" in sql and
       "grant select, insert, update, delete on public.future_lab_comments to authenticated;" not in sql and
       "create policy future_lab_comments_author_update" not in sql)
 check("comment inserts require the current author and a published article",
@@ -124,6 +128,9 @@ check("integration tests cover anonymous reads and author self-publishing reject
 check("integration tests cover comments and duplicate likes",
       "comment inserted on a non-published article" in test_sql and
       "duplicate like was accepted" in test_sql)
+check("integration tests verify anonymous public reads and RLS filtering for comments and likes",
+      "anonymous reader can see comments on non-published articles" in test_sql and
+      "anonymous reader can see likes on non-published articles" in test_sql)
 check("integration tests cover author identity enforcement",
       "mismatched author ID was accepted" in test_sql)
 check("integration tests cover published article edit restrictions",
