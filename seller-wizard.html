@@ -1,4 +1,13 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Seller Project Wizard | Web3Market</title></head><body><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script>
+<!doctype html><html lang="en"><head>
+<!-- Google tag (gtag.js) — Web3Market GA4 -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-DBNFYVMZBT"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-DBNFYVMZBT');
+</script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Seller Project Wizard | Web3Market</title></head><body><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script>
 const SB_URL='https://hzhqlexnhtukfljcvnyd.supabase.co',SB_KEY='sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI',db=supabase.createClient(SB_URL,SB_KEY);
 async function submitReview(){
  const {data:{session}}=await db.auth.getSession();
