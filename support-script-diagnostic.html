@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Web3Market Support Script Diagnostic</title>
+<style>
+body{font:16px system-ui,sans-serif;background:#0b1020;color:#eef2ff;margin:0;padding:24px}
+main{max-width:760px;margin:auto}section{background:#131a2e;border:1px solid #2b3555;border-radius:12px;padding:16px;margin:12px 0}
+code{overflow-wrap:anywhere;color:#c4b5fd}.ok{color:#86efac}.bad{color:#fda4af}
+</style>
+</head>
+<body>
+<main>
+<h1>Support Script Diagnostic</h1>
+<p>This read-only test does not access or modify the database.</p>
+<section><h2>Page script execution</h2><div id="inline">Inline script: NOT RUN</div><div id="external">External probe: waiting…</div><div id="cdn">Supabase CDN: waiting…</div><div id="client">Web3Market Supabase client: waiting…</div><div id="timing">Diagnostic timer: waiting…</div><div id="errors"></div></section>
+<section><p>If this page loads, share the status lines above. Do not share tokens or passwords.</p></section>
+</main>
+<script>
+(function(){
+  var el=function(id){return document.getElementById(id)};
+  el("inline").textContent="Inline script: RUNNING";
+  el("inline").className="ok";
+  window.addEventListener("error",function(e){
+    if(e.target&&e.target.tagName==="SCRIPT"){
+      var d=document.createElement("div");d.className="bad";
+      d.textContent="Script load error: "+(e.target.src||"inline script");
+      el("errors").appendChild(d);
+    }else if(e.message){
+      var d=document.createElement("div");d.className="bad";
+      d.textContent="JavaScript error: "+e.message;
+      el("errors").appendChild(d);
+    }
+  },true);
+  window.setTimeout(function(){
+    el("timing").textContent="Diagnostic timer: RUNNING";
+    el("timing").className="ok";
+    el("cdn").textContent="Supabase CDN global: "+(window.supabase&&typeof window.supabase.createClient==="function"?"AVAILABLE":"NOT AVAILABLE");
+    el("cdn").className=window.supabase&&typeof window.supabase.createClient==="function"?"ok":"bad";
+    el("client").textContent="Web3Market client global: "+(window.Web3MarketSupabase?"AVAILABLE":"NOT AVAILABLE");
+    el("client").className=window.Web3MarketSupabase?"ok":"bad";
+    el("external").textContent="External probe: "+(window.__w3mExternalProbe?"LOADED":"NOT LOADED");
+    el("external").className=window.__w3mExternalProbe?"ok":"bad";
+  },2500);
+})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js?v=20261026-diagnostic1"></script>
+<script src="js/support-diagnostic-probe.js?v=20261026-diagnostic1"></script>
+</body>
+</html>
