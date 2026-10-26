@@ -22,6 +22,8 @@ jobs:
         run: deno check supabase/functions/w3m-code-audit/index.ts
       - name: Run audit selection unit tests
         run: deno test supabase/functions/w3m-code-audit/audit-selection.test.ts
+      - name: Run stale branch resolution regression tests
+        run: deno test supabase/functions/w3m-code-audit/audit-branch-resolution.test.ts
       - name: Run audit archive unit tests
         run: deno test supabase/functions/w3m-code-audit/audit-archive.test.ts
       - name: Run bounded download unit tests
