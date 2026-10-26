@@ -4,7 +4,7 @@
   const BUCKET = "support-attachments";
   const MAX_FILE_BYTES = 20 * 1024 * 1024;
   const ALLOWED = new Set(["image/jpeg","image/png","image/webp","image/gif","video/mp4","video/webm","video/quicktime"]);
-  let db, currentUser, currentConversation = null, selectedFile = null, refreshTimer = null, renderSequence = 0;
+  let db, currentUser, currentConversation = null, selectedFile = null, refreshTimer = null, renderSequence = 0, supportAgent = false;
   const $ = id => document.getElementById(id);
   const say = (id, text, error=false) => { const el=$(id); if(el){el.textContent=text||"";el.style.color=error?"#b91c1c":"";} };
   const escName = name => String(name||"attachment").replace(/[^a-zA-Z0-9._-]+/g,"_").slice(0,90) || "attachment";
@@ -20,13 +20,22 @@
     if(!currentUser)throw new Error("Please sign in to your Web3Market account first.");
   }
   async function ensureAdmin(){
-    // Match the database RLS authority source: public.is_admin() checks profiles.role.
     const {data,error}=await db.from("profiles").select("id,role").eq("id",currentUser.id).maybeSingle();
-    if(error)throw new Error("Administrator verification failed. "+error.message);
-    if(String(data?.role||"").toLowerCase()!=="admin")throw new Error("This account is not authorized to view the administrator inbox.");
-    const {data:aal,error:ae}=await db.auth.mfa.getAuthenticatorAssuranceLevel();
-    if(ae)throw ae;
-    if(aal?.currentLevel!=="aal2")throw new Error("For security, complete administrator two-factor verification in Admin Review Center, then open this inbox again.");
+    if(error)throw new Error("Support access verification failed. "+error.message);
+    const role=String(data?.role||"").toLowerCase();
+    if(role==="admin"){
+      const {data:aal,error:ae}=await db.auth.mfa.getAuthenticatorAssuranceLevel();
+      if(ae)throw ae;
+      if(aal?.currentLevel!=="aal2")throw new Error("For security, complete administrator two-factor verification in Admin Review Center, then open this inbox again.");
+      supportAgent=false;
+      return;
+    }
+    const {data:assignment,error:assignmentError}=await db.from("support_agents").select("user_id").eq("user_id",currentUser.id).maybeSingle();
+    if(assignmentError)throw new Error("Limited support access could not be verified. "+assignmentError.message);
+    if(!assignment)throw new Error("This account is not authorized to view the support inbox.");
+    // Assigned support agents are deliberately limited to reading and replying.
+    // They do not need AAL2; database RLS still blocks status changes and call signaling.
+    supportAgent=true;
   }
   async function ensureUserRole(){
     const {data,error}=await db.from("profiles").select("id,role").eq("id",currentUser.id).maybeSingle();
@@ -57,7 +66,7 @@
   function publishSupportCallContext(){
     window.dispatchEvent(new CustomEvent("web3market:support-context",{detail:{
       conversationId:currentConversation?.id||null,
-      role:ADMIN_PAGE?"admin":"user",
+      role:supportAgent?"support-agent":(ADMIN_PAGE?"admin":"user"),
       status:currentConversation?.status||"closed"
     }}));
   }
@@ -132,15 +141,15 @@
   function syncAdminConversationControls(){
     const chosen=!!currentConversation, closed=currentConversation?.status==="closed";
     const state=$("adminConversationState"), close=$("adminCloseConversation"), reopen=$("adminReopenConversation");
-    if(state)state.textContent=!chosen?"Choose a conversation to manage its status.":(closed?"Status: Closed · replies disabled":"Status: Open · replies enabled");
-    if(close)close.disabled=!chosen||closed;
-    if(reopen)reopen.disabled=!chosen||!closed;
+    if(state)state.textContent=supportAgent?"Support agent mode · replies only; administrators manage conversation status.":(!chosen?"Choose a conversation to manage its status.":(closed?"Status: Closed · replies disabled":"Status: Open · replies enabled"));
+    if(close)close.disabled=supportAgent||!chosen||closed;
+    if(reopen)reopen.disabled=supportAgent||!chosen||!closed;
     $("adminSupportBody").disabled=!chosen||closed;
     $("adminSupportFile").disabled=!chosen||closed;
     $("adminSupportSend").disabled=!chosen||closed;
   }
   async function setAdminConversationStatus(nextStatus){
-    if(!currentConversation||!["open","closed"].includes(nextStatus))return;
+    if(supportAgent||!currentConversation||!["open","closed"].includes(nextStatus))return;
     const conversationId=currentConversation.id;
     const close=$("adminCloseConversation"), reopen=$("adminReopenConversation");
     if(close)close.disabled=true;if(reopen)reopen.disabled=true;
@@ -185,7 +194,7 @@
     const thread=$("adminSupportThread");await renderMessages(data,"adminSupportThread");
     if(currentConversation?.id!==conversationId)return;
     thread.querySelectorAll(".msg").forEach((el,i)=>{if(data?.[i]&&data[i].sender_id===ownerId)el.classList.add("user-message");});
-    say("adminSupportStatus","Administrator access verified · private support inbox.");
+    say("adminSupportStatus",supportAgent?"Support agent access verified · replies only.":"Administrator access verified · private support inbox.");
   }
   async function sendMessage(bodyId,fileId,sendId,errorId,admin){
     const body=$(bodyId).value.trim(), file=selectedFile;
@@ -210,7 +219,14 @@
         if(upErr)throw new Error("Attachment upload failed: "+upErr.message);
       }
       const payload={conversation_id:conversation.id,sender_id:currentUser.id,body,attachment_path,attachment_name,attachment_mime};
-      const {error}=await db.from("support_messages").insert(payload);if(error)throw error;
+      const {data:insertedMessage,error}=await db.from("support_messages").insert(payload).select("id").single();if(error)throw error;
+      // Notify the platform owner when a buyer/seller sends support a message. Email failure must not undo the saved message.
+      if(!admin&&insertedMessage?.id){
+        try{
+          const {error:notifyError}=await db.functions.invoke("admin-support-email-notification",{body:{message_id:insertedMessage.id,conversation_id:conversation.id}});
+          if(notifyError)console.warn("Web3Market support email notification failed:",notifyError.message||notifyError);
+        }catch(notifyError){console.warn("Web3Market support email notification failed:",notifyError);}
+      }
       // Clear the draft only if the sender is still viewing the conversation that received it.
       // Switching threads during an upload must not erase a different thread's draft.
       if(currentConversation?.id===conversation.id){
@@ -241,6 +257,19 @@
   }
   async function startAdmin(){
     await sessionOrThrow();await ensureAdmin();
+    if(supportAgent){
+      const eyebrow=document.querySelector(".head > div > p");
+      if(eyebrow)eyebrow.textContent="WEB3MARKET · SUPPORT TEAM";
+      const heading=document.querySelector(".head h1");
+      if(heading)heading.textContent="Support Inbox";
+      const description=document.querySelector(".head .muted");
+      if(description)description.textContent="Limited access: read support conversations and reply only. Conversation status and all other administration remain restricted.";
+      const adminLink=document.querySelector('.head a[href="admin-review.html"]');
+      if(adminLink)adminLink.hidden=true;
+      const stateRow=$("adminConversationState")?.parentElement;
+      if(stateRow)stateRow.querySelectorAll("button").forEach(button=>button.hidden=true);
+      if($("adminConversationState"))$("adminConversationState").textContent="Support agent mode · replies only; administrators manage conversation status.";
+    }
     $("adminSupportForm").addEventListener("submit",e=>{e.preventDefault();sendMessage("adminSupportBody","adminSupportFile","adminSupportSend","adminSupportError",true);});
     setupFileInput("adminSupportFile","adminSupportFileName");
     $("adminCloseConversation").addEventListener("click",()=>setAdminConversationStatus("closed"));
@@ -249,9 +278,28 @@
     await loadAdminConversations();
     refreshTimer=setInterval(async()=>{try{await loadAdminConversations();const conversationId=currentConversation?.id;if(conversationId){const {data,error}=await db.from("support_conversations").select("id,user_id,subject,user_email,user_display_name,status,last_message_at").eq("id",conversationId).maybeSingle();if(error)throw error;if(data&&currentConversation?.id===conversationId){currentConversation=data;syncAdminConversationControls();await loadAdminMessages();}}}catch(e){say("adminSupportError",e.message,true);}},10000);
   }
-  document.addEventListener("DOMContentLoaded",async()=>{
-    try{if(ADMIN_PAGE)await startAdmin();else await startUser();}
-    catch(e){const status=ADMIN_PAGE?"adminSupportStatus":"supportStatus";say(status,e?.message||"Unable to initialize support chat.",true);const thread=ADMIN_PAGE?"adminSupportThread":"supportThread";if($(thread))$(thread).replaceChildren(node("div","empty",e?.message||"Unable to initialize support chat."));}
-  });
+  async function bootSupportChat(){
+    window.__web3marketSupportBootStarted=true;
+    const status=ADMIN_PAGE?"adminSupportStatus":"supportStatus";
+    const thread=ADMIN_PAGE?"adminSupportThread":"supportThread";
+    try{
+      say(status,"Connecting to the private support inbox…");
+      if(ADMIN_PAGE) await startAdmin(); else await startUser();
+    }catch(e){
+      const message=e?.message||"Unable to initialize support chat.";
+      console.error("Web3Market support initialization failed:",e);
+      say(status,message,true);
+      if($(thread))$(thread).replaceChildren(node("div","empty",message));
+    }finally{
+      window.__web3marketSupportBootFinished=true;
+    }
+  }
+  // Scripts may execute after DOMContentLoaded on slow/cached navigations.
+  // Start immediately when the document is already ready; otherwise wait once.
+  if(document.readyState==="loading"){
+    document.addEventListener("DOMContentLoaded",bootSupportChat,{once:true});
+  }else{
+    bootSupportChat();
+  }
   window.addEventListener("beforeunload",()=>{if(refreshTimer)clearInterval(refreshTimer);});
 })();
