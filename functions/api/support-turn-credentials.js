@@ -28,7 +28,7 @@ export async function onRequestPost({ request, env }) {
   if (!origin || origin !== requestOrigin) return reply({ error: "Request origin is not allowed." }, 403);
 
   const authorization = request.headers.get("Authorization") || "";
-  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
   if (!match) return reply({ error: "Please sign in again before starting a call." }, 401);
 
   const supabaseUrl = env.SUPABASE_URL || DEFAULT_SUPABASE_URL;
@@ -51,7 +51,7 @@ export async function onRequestPost({ request, env }) {
   const authHeaders = { "apikey": supabaseKey, "Authorization": "Bearer " + token };
   let userResponse;
   try {
-    userResponse = await fetch(supabaseUrl.replace(/\\/$/, "") + "/auth/v1/user", { headers: authHeaders });
+    userResponse = await fetch(supabaseUrl.replace(/\/$/, "") + "/auth/v1/user", { headers: authHeaders });
   } catch {
     return reply({ error: "Could not verify your Web3Market session. Try again." }, 502);
   }
@@ -59,7 +59,7 @@ export async function onRequestPost({ request, env }) {
   const user = await userResponse.json();
   if (!user?.id) return reply({ error: "Could not verify your Web3Market account." }, 401);
 
-  const profileUrl = supabaseUrl.replace(/\\/$/, "") + "/rest/v1/profiles?id=eq." +
+  const profileUrl = supabaseUrl.replace(/\/$/, "") + "/rest/v1/profiles?id=eq." +
     encodeURIComponent(user.id) + "&select=id,role";
   const profileResponse = await fetch(profileUrl, { headers: { ...authHeaders, "Accept": "application/json" } });
   if (!profileResponse.ok) return reply({ error: "Could not verify support-call permissions." }, 403);
@@ -73,7 +73,7 @@ export async function onRequestPost({ request, env }) {
     return reply({ error: "This account is not authorized to use support calls." }, 403);
   }
 
-  const conversationUrl = supabaseUrl.replace(/\\/$/, "") + "/rest/v1/support_conversations?id=eq." +
+  const conversationUrl = supabaseUrl.replace(/\/$/, "") + "/rest/v1/support_conversations?id=eq." +
     encodeURIComponent(conversationId) + "&select=id,user_id,status";
   const conversationResponse = await fetch(conversationUrl, { headers: { ...authHeaders, "Accept": "application/json" } });
   if (!conversationResponse.ok) return reply({ error: "Could not verify access to this support conversation." }, 403);
