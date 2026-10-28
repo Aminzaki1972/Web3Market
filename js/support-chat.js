@@ -12,19 +12,23 @@
   function node(tag, cls, text){const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;}
   function shortId(id){return id?String(id).slice(0,8)+"…"+String(id).slice(-4):"unknown account";}
   function dateText(value){try{return new Date(value).toLocaleString()}catch(_){return ""}}
+  function withTimeout(promise,label,ms=10000){let timer;return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(label+" timed out. Please reload and sign in again.")),ms);})]).finally(()=>clearTimeout(timer));}
   async function sessionOrThrow(){
+    say(ADMIN_PAGE?"adminSupportStatus":"supportStatus","Connecting to secure sign-in…");
     for(let i=0;i<30&&!db;i++){db=getClient();if(!db)await new Promise(r=>setTimeout(r,100));}
-    if(!db?.auth)throw new Error("Secure connection unavailable. Reload the page and try again.");
-    const {data,error}=await db.auth.getSession();if(error)throw error;
+    if(!db?.auth)throw new Error("Secure connection unavailable: Supabase client did not initialize. Reload the page.");
+    const {data,error}=await withTimeout(db.auth.getSession(),"Reading sign-in session");if(error)throw error;
     currentUser=data?.session?.user||null;
-    if(!currentUser)throw new Error("Please sign in to your Web3Market account first.");
+    if(!currentUser)throw new Error("Your session is missing or expired. Sign in again, then reopen Support.");
   }
   async function ensureAdmin(){
-    const {data,error}=await db.from("profiles").select("id,role").eq("id",currentUser.id).maybeSingle();
+    say("adminSupportStatus","Verifying administrator permissions…");
+    const {data,error}=await withTimeout(db.from("profiles").select("id,role").eq("id",currentUser.id).maybeSingle(),"Checking administrator profile");
     if(error)throw new Error("Support access verification failed. "+error.message);
     const role=String(data?.role||"").toLowerCase();
     if(role!=="admin")throw new Error("This account is not authorized to view the support inbox. Sign in with the administrator account.");
-    const {data:aal,error:ae}=await db.auth.mfa.getAuthenticatorAssuranceLevel();
+    say("adminSupportStatus","Checking administrator two-factor verification…");
+    const {data:aal,error:ae}=await withTimeout(db.auth.mfa.getAuthenticatorAssuranceLevel(),"Checking administrator two-factor verification");
     if(ae)throw ae;
     if(aal?.currentLevel!=="aal2")throw new Error("For security, complete administrator two-factor verification in Admin Review Center, then open this inbox again.");
   }
