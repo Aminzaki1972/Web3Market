@@ -1,5 +1,12 @@
 const JSON_HEADERS = { "Content-Type": "application/json", "Cache-Control": "no-store" };
 
+// These are the same public Supabase project settings used by js/supabase.js.
+// The publishable key is intended for browser use; authorization and RLS still
+// enforce access. Allow the preview endpoint to authenticate without copying
+// these public settings into Cloudflare environment variables.
+const DEFAULT_SUPABASE_URL = "https://hzhqlexnhtukfljcvnyd.supabase.co";
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
+
 function reply(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
 }
@@ -21,11 +28,11 @@ export async function onRequestPost({ request, env }) {
   if (!origin || origin !== requestOrigin) return reply({ error: "Request origin is not allowed." }, 403);
 
   const authorization = request.headers.get("Authorization") || "";
-  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  const match = authorization.match(/^Bearer\\s+(.+)$/i);
   if (!match) return reply({ error: "Please sign in again before starting a call." }, 401);
 
-  const supabaseUrl = env.SUPABASE_URL;
-  const supabaseKey = env.SUPABASE_ANON_KEY;
+  const supabaseUrl = env.SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const supabaseKey = env.SUPABASE_ANON_KEY || DEFAULT_SUPABASE_PUBLISHABLE_KEY;
   const turnKeyId = env.CLOUDFLARE_TURN_KEY_ID;
   const turnKeyToken = env.CLOUDFLARE_TURN_API_TOKEN;
   if (!supabaseUrl || !supabaseKey) return reply({ error: "Preview authentication settings are missing." }, 503);
@@ -44,7 +51,7 @@ export async function onRequestPost({ request, env }) {
   const authHeaders = { "apikey": supabaseKey, "Authorization": "Bearer " + token };
   let userResponse;
   try {
-    userResponse = await fetch(supabaseUrl.replace(/\/$/, "") + "/auth/v1/user", { headers: authHeaders });
+    userResponse = await fetch(supabaseUrl.replace(/\\/$/, "") + "/auth/v1/user", { headers: authHeaders });
   } catch {
     return reply({ error: "Could not verify your Web3Market session. Try again." }, 502);
   }
@@ -52,7 +59,7 @@ export async function onRequestPost({ request, env }) {
   const user = await userResponse.json();
   if (!user?.id) return reply({ error: "Could not verify your Web3Market account." }, 401);
 
-  const profileUrl = supabaseUrl.replace(/\/$/, "") + "/rest/v1/profiles?id=eq." +
+  const profileUrl = supabaseUrl.replace(/\\/$/, "") + "/rest/v1/profiles?id=eq." +
     encodeURIComponent(user.id) + "&select=id,role";
   const profileResponse = await fetch(profileUrl, { headers: { ...authHeaders, "Accept": "application/json" } });
   if (!profileResponse.ok) return reply({ error: "Could not verify support-call permissions." }, 403);
@@ -66,7 +73,7 @@ export async function onRequestPost({ request, env }) {
     return reply({ error: "This account is not authorized to use support calls." }, 403);
   }
 
-  const conversationUrl = supabaseUrl.replace(/\/$/, "") + "/rest/v1/support_conversations?id=eq." +
+  const conversationUrl = supabaseUrl.replace(/\\/$/, "") + "/rest/v1/support_conversations?id=eq." +
     encodeURIComponent(conversationId) + "&select=id,user_id,status";
   const conversationResponse = await fetch(conversationUrl, { headers: { ...authHeaders, "Accept": "application/json" } });
   if (!conversationResponse.ok) return reply({ error: "Could not verify access to this support conversation." }, 403);
