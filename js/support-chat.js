@@ -140,7 +140,7 @@
     $("adminSupportSend").disabled=!chosen||closed;
   }
   async function setAdminConversationStatus(nextStatus){
-    if(supportAgent||!currentConversation||!["open","closed"].includes(nextStatus))return;
+    if(!currentConversation||!["open","closed"].includes(nextStatus))return;
     const conversationId=currentConversation.id;
     const close=$("adminCloseConversation"), reopen=$("adminReopenConversation");
     if(close)close.disabled=true;if(reopen)reopen.disabled=true;
