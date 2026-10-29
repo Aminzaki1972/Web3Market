@@ -4,7 +4,7 @@
   const BUCKET = "support-attachments";
   const MAX_FILE_BYTES = 20 * 1024 * 1024;
   const ALLOWED = new Set(["image/jpeg","image/png","image/webp","image/gif","video/mp4","video/webm","video/quicktime"]);
-  let db, currentUser, currentConversation = null, selectedFile = null, refreshTimer = null, renderSequence = 0, supportAgent = false;
+  let db, currentUser, currentConversation = null, selectedFile = null, refreshTimer = null, renderSequence = 0, supportAgent = false, typingChannel = null, typingTopic = null, typingTimeout = null, lastTypingSent = 0;
   const $ = id => document.getElementById(id);
   const say = (id, text, error=false) => { const el=$(id); if(el){el.textContent=text||"";el.style.color=error?"#b91c1c":"";} };
   const escName = name => String(name||"attachment").replace(/[^a-zA-Z0-9._-]+/g,"_").slice(0,90) || "attachment";
@@ -75,6 +75,66 @@
     const {data,error}=await db.storage.from(BUCKET).createSignedUrl(path,300);
     if(error)throw error;return data?.signedUrl||null;
   }
+  function ensureTypingIndicator(){
+    const id=ADMIN_PAGE?"adminSupportTyping":"supportTyping";
+    let indicator=$(id);if(indicator)return indicator;
+    const form=$(ADMIN_PAGE?"adminSupportForm":"supportForm");if(!form)return null;
+    indicator=node("div","support-typing","");indicator.id=id;indicator.hidden=true;indicator.setAttribute("role","status");indicator.setAttribute("aria-live","polite");
+    form.insertAdjacentElement("beforebegin",indicator);
+    if(!document.getElementById("supportReadTypingStyles")){
+      const style=node("style");style.id="supportReadTypingStyles";
+      style.textContent=".support-read-state{display:inline-flex;align-items:center;gap:5px;margin-left:6px;font-size:12px}.support-read-dot{display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle}.support-read-dot.unread{background:#dc2626}.support-read-dot.read{background:#16a34a}.support-typing{min-height:20px;padding:4px 2px;color:#64748b;font-size:13px}.support-typing[hidden]{display:none}.support-typing:after{content:' ';display:inline-block;width:14px;animation:supportDots 1s steps(4,end) infinite}@keyframes supportDots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}100%{content:''}}";
+      document.head.append(style);
+    }
+    return indicator;
+  }
+  function showTyping(active){
+    const indicator=ensureTypingIndicator();if(!indicator)return;
+    indicator.hidden=!active;
+    indicator.textContent=active?(ADMIN_PAGE?"Dashboard user is typing":"Web3Market Administration is typing"):"";
+  }
+  async function setupTypingChannel(conversationId){
+    if(typingTopic==="support-chat:"+conversationId&&typingChannel)return;
+    if(typingTimeout)clearTimeout(typingTimeout);typingTimeout=null;showTyping(false);
+    if(typingChannel){try{await db.removeChannel(typingChannel);}catch(_){}typingChannel=null;typingTopic=null;}
+    if(!conversationId)return;
+    const topic="support-chat:"+conversationId;
+    const ch=db.channel(topic,{config:{private:true}});
+    ch.on("broadcast",{event:"typing"},({payload})=>{
+      if(!payload||payload.from===currentUser?.id)return;
+      showTyping(payload.typing===true);
+      if(typingTimeout)clearTimeout(typingTimeout);
+      if(payload.typing===true)typingTimeout=setTimeout(()=>showTyping(false),2500);
+    });
+    await new Promise((resolve,reject)=>{
+      const timeout=setTimeout(()=>reject(new Error("Typing indicator connection timed out.")),8000);
+      ch.subscribe(state=>{
+        if(state==="SUBSCRIBED"){clearTimeout(timeout);typingChannel=ch;typingTopic=topic;resolve();}
+        else if(state==="CHANNEL_ERROR"||state==="TIMED_OUT"){clearTimeout(timeout);reject(new Error("Typing indicator is unavailable right now."));}
+      });
+    }).catch(async e=>{try{await db.removeChannel(ch);}catch(_){}console.warn("Support typing channel:",e.message);});
+  }
+  async function sendTyping(active){
+    if(!typingChannel||!currentConversation)return;
+    if(active&&Date.now()-lastTypingSent<900)return;
+    lastTypingSent=Date.now();
+    try{await typingChannel.send({type:"broadcast",event:"typing",payload:{from:currentUser.id,typing:!!active}});}catch(e){console.warn("Typing update failed:",e?.message||e);}
+  }
+  async function markMessagesRead(rows,conversationId){
+    const incoming=(rows||[]).filter(m=>m.sender_id!==currentUser.id);
+    for(const m of incoming){
+      try{
+        const {error}=await db.from("support_message_reads").insert({message_id:m.id,reader_id:currentUser.id});
+        if(error&&error.code!=="23505")console.warn("Support read receipt failed:",error.message||error);
+      }catch(e){console.warn("Support read receipt failed:",e?.message||e);}
+    }
+    const mine=(rows||[]).filter(m=>m.sender_id===currentUser.id).map(m=>m.id);
+    if(!mine.length)return rows||[];
+    const {data,error}=await db.from("support_message_reads").select("message_id,reader_id,read_at").in("message_id",mine);
+    if(error){console.warn("Could not load support read receipts:",error.message||error);return rows||[];}
+    const readSet=new Set((data||[]).filter(r=>r.reader_id!==currentUser.id).map(r=>r.message_id));
+    return (rows||[]).map(m=>({...m,readByRecipient:readSet.has(m.id)}));
+  }
   async function renderMessages(rows, threadId){
     const thread=$(threadId);if(!thread)return;
     // Ignore an older render if another conversation refresh starts while a signed URL is loading.
@@ -100,7 +160,15 @@
       }
       if(renderId!==renderSequence)return;
       const senderLabel = mine ? "You" : (ADMIN_PAGE ? (currentConversation?.user_display_name || currentConversation?.user_email || "Dashboard account") : "Web3Market Administration");
-      bubble.append(node("small","",senderLabel+" · "+dateText(m.created_at)));
+      const meta=node("small","",senderLabel+" · "+dateText(m.created_at));
+      if(mine){
+        const receipt=node("span","support-read-state");
+        const dot=node("span","support-read-dot "+(m.readByRecipient?"read":"unread"));
+        dot.setAttribute("aria-label",m.readByRecipient?"Read":"Unread");
+        const label=node("span","",m.readByRecipient?"Read":"Unread");
+        receipt.append(dot,label);meta.append(receipt);
+      }
+      bubble.append(meta);
       thread.append(bubble);
     }
     thread.scrollTop=thread.scrollHeight;
@@ -118,7 +186,9 @@
     const {data,error}=await db.from("support_messages").select("id,conversation_id,sender_id,body,attachment_path,attachment_name,attachment_mime,created_at").eq("conversation_id",conversationId).order("created_at",{ascending:true}).limit(500);
     if(error)throw error;
     if(currentConversation?.id!==conversationId)return;
-    await renderMessages(data,"supportThread");
+    await setupTypingChannel(conversationId);
+    const rowsWithReads=await markMessagesRead(data,conversationId);
+    await renderMessages(rowsWithReads,"supportThread");
     if(currentConversation?.id!==conversationId)return;
     say("supportStatus","Private conversation · "+(currentConversation.status==="closed"?"Closed":"Open")+" · only you and authorized administrators can access it.");
     const closed=currentConversation.status==="closed";
@@ -191,7 +261,9 @@
     const {data,error}=await db.from("support_messages").select("id,conversation_id,sender_id,body,attachment_path,attachment_name,attachment_mime,created_at").eq("conversation_id",conversationId).order("created_at",{ascending:true}).limit(500);
     if(error)throw error;
     if(currentConversation?.id!==conversationId)return;
-    const thread=$("adminSupportThread");await renderMessages(data,"adminSupportThread");
+    await setupTypingChannel(conversationId);
+    const rowsWithReads=await markMessagesRead(data,conversationId);
+    const thread=$("adminSupportThread");await renderMessages(rowsWithReads,"adminSupportThread");
     if(currentConversation?.id!==conversationId)return;
     thread.querySelectorAll(".msg").forEach((el,i)=>{if(data?.[i]&&data[i].sender_id===ownerId)el.classList.add("user-message");});
     say("adminSupportStatus",supportAgent?"Support agent access verified · replies only.":"Administrator access verified · private support inbox.");
@@ -249,7 +321,8 @@
   async function startUser(){
     await sessionOrThrow();await ensureUserRole();
     currentConversation=await getOrCreateConversation();
-    $("supportForm").addEventListener("submit",e=>{e.preventDefault();sendMessage("supportBody","supportFile","supportSend","supportError",false);});
+    $("supportForm").addEventListener("submit",e=>{e.preventDefault();void sendTyping(false);sendMessage("supportBody","supportFile","supportSend","supportError",false);});
+    $("supportBody").addEventListener("input",()=>{void sendTyping(!!$("supportBody").value.trim());});
     $("supportNewConversation").addEventListener("click",requestNewConversation);
     setupFileInput("supportFile","supportFileName");
     await loadUserMessages();
@@ -270,7 +343,8 @@
       if(stateRow)stateRow.querySelectorAll("button").forEach(button=>button.hidden=true);
       if($("adminConversationState"))$("adminConversationState").textContent="Support agent mode · replies only; administrators manage conversation status.";
     }
-    $("adminSupportForm").addEventListener("submit",e=>{e.preventDefault();sendMessage("adminSupportBody","adminSupportFile","adminSupportSend","adminSupportError",true);});
+    $("adminSupportForm").addEventListener("submit",e=>{e.preventDefault();void sendTyping(false);sendMessage("adminSupportBody","adminSupportFile","adminSupportSend","adminSupportError",true);});
+    $("adminSupportBody").addEventListener("input",()=>{void sendTyping(!!$("adminSupportBody").value.trim());});
     setupFileInput("adminSupportFile","adminSupportFileName");
     $("adminCloseConversation").addEventListener("click",()=>setAdminConversationStatus("closed"));
     $("adminReopenConversation").addEventListener("click",()=>setAdminConversationStatus("open"));
@@ -301,5 +375,5 @@
   }else{
     bootSupportChat();
   }
-  window.addEventListener("beforeunload",()=>{if(refreshTimer)clearInterval(refreshTimer);});
+  window.addEventListener("beforeunload",()=>{if(refreshTimer)clearInterval(refreshTimer);if(typingTimeout)clearTimeout(typingTimeout);if(typingChannel)try{void db?.removeChannel(typingChannel);}catch(_){};});
 })();
