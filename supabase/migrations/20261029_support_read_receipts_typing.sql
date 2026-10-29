@@ -65,7 +65,7 @@ using (
       and (
         c.user_id = (select auth.uid())
         or (public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2')
-        or private.support_is_support_agent()
+        or (private.support_is_support_agent() and (select auth.jwt() ->> 'aal') = 'aal2')
       )
   )
 );
@@ -81,7 +81,7 @@ with check (
       and (
         c.user_id = (select auth.uid())
         or (public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2')
-        or private.support_is_support_agent()
+        or (private.support_is_support_agent() and (select auth.jwt() ->> 'aal') = 'aal2')
       )
   )
 );
