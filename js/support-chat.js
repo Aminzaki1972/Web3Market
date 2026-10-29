@@ -186,7 +186,7 @@
     const {data,error}=await db.from("support_messages").select("id,conversation_id,sender_id,body,attachment_path,attachment_name,attachment_mime,created_at").eq("conversation_id",conversationId).order("created_at",{ascending:true}).limit(500);
     if(error)throw error;
     if(currentConversation?.id!==conversationId)return;
-    await renderMessages(data,"supportThread");
+    await setupTypingChannel(conversationId);\n    const rowsWithReads=await markMessagesRead(data,conversationId);\n    await renderMessages(rowsWithReads,"supportThread");
     if(currentConversation?.id!==conversationId)return;
     say("supportStatus","Private conversation · "+(currentConversation.status==="closed"?"Closed":"Open")+" · only you and authorized administrators can access it.");
     const closed=currentConversation.status==="closed";
@@ -259,7 +259,7 @@
     const {data,error}=await db.from("support_messages").select("id,conversation_id,sender_id,body,attachment_path,attachment_name,attachment_mime,created_at").eq("conversation_id",conversationId).order("created_at",{ascending:true}).limit(500);
     if(error)throw error;
     if(currentConversation?.id!==conversationId)return;
-    const thread=$("adminSupportThread");await renderMessages(data,"adminSupportThread");
+    await setupTypingChannel(conversationId);\n    const rowsWithReads=await markMessagesRead(data,conversationId);\n    const thread=$("adminSupportThread");await renderMessages(rowsWithReads,"adminSupportThread");
     if(currentConversation?.id!==conversationId)return;
     thread.querySelectorAll(".msg").forEach((el,i)=>{if(data?.[i]&&data[i].sender_id===ownerId)el.classList.add("user-message");});
     say("adminSupportStatus",supportAgent?"Support agent access verified · replies only.":"Administrator access verified · private support inbox.");
