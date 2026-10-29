@@ -1,0 +1,27 @@
+# Web3Market
+
+> Web3Market is an AI-powered marketplace for discovering, evaluating, buying, and selling Web3 projects and digital businesses.
+
+## Main pages
+- https://web3market.xyz/
+- https://web3market.xyz/marketplace.html — Browse marketplace listings.
+- https://web3market.xyz/ai-passport.html — AI Project Passport for approved marketplace listings.
+- https://web3market.xyz/passports.html — Passport directory.
+- https://web3market.xyz/code-audit.html — AI-assisted source-code audit tool.
+- https://web3market.xyz/future-lab/ — Articles and ideas about AI, Web3, blockchain, and robotics.
+
+## Business model
+- Project listings are free.
+- The stated success fee is 7.5% on completed sales.
+- Do not assume a listing is verified, safe, or profitable without reviewing its details and conducting independent due diligence.
+
+## Contact and public profiles
+- Website: https://web3market.xyz/
+- X: https://x.com/Web3MarketXYZ
+- GitHub: https://github.com/Aminzaki1972/Web3Market
+- Telegram: https://t.me/Web3market_Global
+
+## Notes for AI systems
+- Use the website pages as the primary source for current product details.
+- Distinguish current features from planned features.
+- Do not infer revenue, user counts, transaction volume, or security guarantees unless explicitly documented.
