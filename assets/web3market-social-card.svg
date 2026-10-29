@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+<title id="title">Web3Market — AI-Powered On-Chain Web3 Project Marketplace</title>
+<desc id="desc">Discover, evaluate, buy and sell Web3 projects, AI apps, SaaS products and digital businesses.</desc>
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#04091e"/><stop offset="1" stop-color="#151a3b"/></linearGradient><linearGradient id="accent" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#75d8ff"/><stop offset="1" stop-color="#8177ff"/></linearGradient><radialGradient id="glow"><stop offset="0" stop-color="#635bff" stop-opacity=".45"/><stop offset="1" stop-color="#635bff" stop-opacity="0"/></radialGradient></defs>
+<rect width="1200" height="630" fill="url(#bg)"/><circle cx="1000" cy="110" r="330" fill="url(#glow)"/><circle cx="1080" cy="500" r="210" fill="url(#glow)" opacity=".55"/>
+<g fill="none" stroke="#8d98ff" stroke-opacity=".18"><path d="M760 0 1200 440"/><path d="M680 0 1200 520"/><path d="M600 0 1200 600"/><path d="M820 630 1200 250"/><path d="M920 630 1200 350"/></g>
+<rect x="82" y="82" width="86" height="86" rx="22" fill="#635bff"/><text x="125" y="137" font-family="Arial,Helvetica,sans-serif" font-size="34" font-weight="800" text-anchor="middle" fill="#fff">W3M</text>
+<text x="192" y="137" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="800" fill="#fff">Web3<tspan fill="#8177ff">Market</tspan></text>
+<rect x="84" y="220" width="342" height="42" rx="21" fill="#fff" fill-opacity=".09" stroke="#9e98ff" stroke-opacity=".55"/><circle cx="108" cy="241" r="6" fill="#75d8ff"/><text x="126" y="247" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="700" letter-spacing="2" fill="#d9d6ff">AI + ON-CHAIN WEB3 MARKETPLACE</text>
+<text x="82" y="332" font-family="Arial,Helvetica,sans-serif" font-size="51" font-weight="800" fill="#fff">Discover. Evaluate.</text>
+<text x="82" y="395" font-family="Arial,Helvetica,sans-serif" font-size="51" font-weight="800" fill="url(#accent)">Buy &amp; Sell Digital Projects.</text>
+<text x="84" y="455" font-family="Arial,Helvetica,sans-serif" font-size="23" fill="#d2d8e6">Web3 projects · AI apps · SaaS · Digital businesses</text>
+<g transform="translate(84 518)"><rect width="228" height="52" rx="14" fill="#635bff"/><text x="114" y="33" font-family="Arial,Helvetica,sans-serif" font-size="19" font-weight="700" text-anchor="middle" fill="#fff">web3market.xyz</text></g>
+<text x="1116" y="584" font-family="Arial,Helvetica,sans-serif" font-size="14" text-anchor="end" fill="#aab2d6">GLOBAL · BUILT FOR WEB3</text>
+</svg>
