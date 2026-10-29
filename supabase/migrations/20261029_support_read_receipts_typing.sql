@@ -24,7 +24,7 @@ using (
       and (
         m.sender_id = (select auth.uid())
         or (public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2')
-        or private.support_is_support_agent()
+        or (private.support_is_support_agent() and (select auth.jwt() ->> 'aal') = 'aal2')
         or exists (
           select 1 from public.support_conversations c
           where c.id = m.conversation_id and c.user_id = (select auth.uid())
@@ -47,7 +47,7 @@ with check (
       and (
         c.user_id = (select auth.uid())
         or (public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2')
-        or private.support_is_support_agent()
+        or (private.support_is_support_agent() and (select auth.jwt() ->> 'aal') = 'aal2')
       )
   )
 );
