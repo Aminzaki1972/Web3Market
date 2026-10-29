@@ -1,33 +1,28 @@
 # Private support chat enhancements — test branch
 
 Branch: `test/support-read-receipts-typing`
+Draft PR: https://github.com/Aminzaki1972/Web3Market/pull/124
 
-## Current change
-- Voice/video buttons remain visible, but starting or accepting a call is disabled with a clear “coming soon” message.
-- No production deployment, production database change, or secret change is included.
+## Implemented on the test branch
+- Voice/video buttons remain visible, but outgoing and incoming call signaling is disabled with a clear “coming soon” message.
+- Read receipts use a dedicated `support_message_reads` table rather than client-controlled fields on `support_messages`.
+- The sender sees a red dot for unread and a green dot after the other authorized participant records a read.
+- Typing uses private Supabase Realtime broadcasts on a per-conversation topic; it does not create fake chat messages.
+- Typing indicators time out after a short interval.
+- Assigned support agents can read/reply at AAL1, but cannot change conversation status; administrator access remains AAL2-gated.
 
-## Read receipts (implemented on test branch; database behavior still unverified)
-- Use a dedicated `support_message_reads` table, not client-controlled fields on `support_messages`.
-- Store the authenticated reader and message ID with a unique constraint; a read is recorded only when the conversation is actually opened/rendered.
-- RLS must restrict reads to the conversation participant or an AAL2 administrator, and inserts to the authenticated recipient only. A sender should only see receipts for their own messages.
-- Use a red dot for sent-but-unread and a green dot for read, shown only on messages sent by the current viewer. Do not treat delivery/polling as a read.
+## Validation completed
+- GitHub Actions static/security checks passed on the current head commit: JavaScript syntax and critical support-chat safeguards.
+- GitHub Actions disposable PostgreSQL migration-smoke test passed on the current head commit. It applies the support chat migrations and checks schema/RLS, participant isolation, admin AAL2 behavior, read-receipt isolation, typing-topic authorization, attachment isolation, closed-thread behavior, and sender spoofing safeguards.
+- The new migration was applied only to the isolated Supabase test project `web3market-support-test` (`vdceprygdzgluejdvdoa`). It has not been applied to production.
 
-## Typing indicator (implemented on test branch; Realtime authorization still unverified)
-- Use Supabase Realtime on a private per-conversation topic; never insert fake messages into the message table.
-- Realtime authorization must verify the user is the conversation owner, an authorized AAL2 administrator, or an explicitly assigned support agent with existing limited access.
-- Send only a minimal typing event; clear it after a short timeout and when the input is cleared or the page is left.
-
-## Current validation and test checklist before any production approval
-- JavaScript syntax check passed for `js/support-chat.js` and `js/support-calls.js`.
-- No Supabase migration has been applied and no browser/database integration test has been completed.
-- Draft PR #124 is open for review only; it is not merged.
-- User sends a message; administrator reads it; red dot changes to green only after the read event.
-- Administrator replies; user reads it; same state transition works in reverse.
-- Typing appears only to the other authorized participant and disappears after timeout.
-- Unrelated users cannot subscribe to a conversation's typing topic or read receipts.
-- Assigned support agents remain limited to permitted conversation reading/replies and cannot change conversation status.
-- Voice/video buttons remain visible but neither outgoing nor incoming calls can start.
-- Test both support pages on mobile and desktop; check console/network errors and existing attachment behavior.
+## Still required before any production approval
+- Run end-to-end browser tests with separate customer and administrator sessions.
+- Verify in both directions: a sent message starts red, changes green only after the recipient opens the conversation, and the typing indicator appears only to the other authorized participant.
+- Verify typing disappears after timeout and when the input is cleared or the page is left.
+- Test assigned support-agent access with a dedicated AAL1 agent account; do not repurpose an existing real account without explicit approval.
+- Test mobile and desktop, console/network errors, and existing attachment behavior.
+- Review the test project's security/performance advisories separately; they are not evidence that this feature is production-ready.
 
 ## Safety gate
-The SQL and frontend implementation for receipts/typing must be reviewed against the live schema and existing RLS before merging. This branch is isolated from production; do not apply migrations to the production Supabase project or merge/deploy without explicit approval.
+This branch is isolated and the PR remains a draft. Passing static and disposable PostgreSQL tests is not a substitute for hosted browser integration testing. Do not merge, deploy, or apply migrations to the production Supabase project without Amin's explicit approval.
