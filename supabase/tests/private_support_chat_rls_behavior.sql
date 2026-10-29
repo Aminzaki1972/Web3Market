@@ -16,9 +16,9 @@ insert into public.support_agents (user_id) values ('00000000-0000-0000-0000-000
 insert into public.support_conversations (id, user_id, subject) values
  ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','Buyer private conversation'),
  ('10000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000002','Seller private conversation');
-insert into public.support_messages (conversation_id, sender_id, body) values
- ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','Buyer private message'),
- ('10000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000002','Seller private message');
+insert into public.support_messages (id, conversation_id, sender_id, body) values
+ ('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','Buyer private message'),
+ ('20000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000002','Seller private message');
 
 insert into realtime.messages(topic, extension, payload, event, private) values
  ('support-call:10000000-0000-0000-0000-000000000001','broadcast','{"type":"seed"}','signal',true),
@@ -304,10 +304,7 @@ begin
   if not exists (select 1 from public.support_message_reads where message_id=incoming_id and reader_id='00000000-0000-0000-0000-000000000001') then
     raise exception 'FAIL: participant could not record an incoming message read';
   end if;
-  select id into own_id from public.support_messages
-  where conversation_id='10000000-0000-0000-0000-000000000001'
-    and sender_id='00000000-0000-0000-0000-000000000001'
-  order by created_at limit 1;
+  own_id := '20000000-0000-0000-0000-000000000001';
   begin
     insert into public.support_message_reads(message_id, reader_id)
     values (own_id,'00000000-0000-0000-0000-000000000001');
@@ -316,11 +313,7 @@ begin
   end;
   begin
     insert into public.support_message_reads(message_id, reader_id)
-    select id,'00000000-0000-0000-0000-000000000001'
-    from public.support_messages
-    where conversation_id='10000000-0000-0000-0000-000000000002'
-      and sender_id='00000000-0000-0000-0000-000000000002'
-    order by created_at limit 1;
+    values ('20000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000001');
     raise exception 'FAIL: participant marked another account message as read';
   exception when insufficient_privilege then null;
   end;
