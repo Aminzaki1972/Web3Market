@@ -186,7 +186,9 @@
     const {data,error}=await db.from("support_messages").select("id,conversation_id,sender_id,body,attachment_path,attachment_name,attachment_mime,created_at").eq("conversation_id",conversationId).order("created_at",{ascending:true}).limit(500);
     if(error)throw error;
     if(currentConversation?.id!==conversationId)return;
-    await setupTypingChannel(conversationId);\n    const rowsWithReads=await markMessagesRead(data,conversationId);\n    await renderMessages(rowsWithReads,"supportThread");
+    await setupTypingChannel(conversationId);
+    const rowsWithReads=await markMessagesRead(data,conversationId);
+    await renderMessages(rowsWithReads,"supportThread");
     if(currentConversation?.id!==conversationId)return;
     say("supportStatus","Private conversation · "+(currentConversation.status==="closed"?"Closed":"Open")+" · only you and authorized administrators can access it.");
     const closed=currentConversation.status==="closed";
@@ -259,7 +261,9 @@
     const {data,error}=await db.from("support_messages").select("id,conversation_id,sender_id,body,attachment_path,attachment_name,attachment_mime,created_at").eq("conversation_id",conversationId).order("created_at",{ascending:true}).limit(500);
     if(error)throw error;
     if(currentConversation?.id!==conversationId)return;
-    await setupTypingChannel(conversationId);\n    const rowsWithReads=await markMessagesRead(data,conversationId);\n    const thread=$("adminSupportThread");await renderMessages(rowsWithReads,"adminSupportThread");
+    await setupTypingChannel(conversationId);
+    const rowsWithReads=await markMessagesRead(data,conversationId);
+    const thread=$("adminSupportThread");await renderMessages(rowsWithReads,"adminSupportThread");
     if(currentConversation?.id!==conversationId)return;
     thread.querySelectorAll(".msg").forEach((el,i)=>{if(data?.[i]&&data[i].sender_id===ownerId)el.classList.add("user-message");});
     say("adminSupportStatus",supportAgent?"Support agent access verified · replies only.":"Administrator access verified · private support inbox.");
@@ -317,7 +321,8 @@
   async function startUser(){
     await sessionOrThrow();await ensureUserRole();
     currentConversation=await getOrCreateConversation();
-    $("supportForm").addEventListener("submit",e=>{e.preventDefault();void sendTyping(false);sendMessage("supportBody","supportFile","supportSend","supportError",false);});\n    $("supportBody").addEventListener("input",()=>{void sendTyping(!!$("supportBody").value.trim());});
+    $("supportForm").addEventListener("submit",e=>{e.preventDefault();void sendTyping(false);sendMessage("supportBody","supportFile","supportSend","supportError",false);});
+    $("supportBody").addEventListener("input",()=>{void sendTyping(!!$("supportBody").value.trim());});
     $("supportNewConversation").addEventListener("click",requestNewConversation);
     setupFileInput("supportFile","supportFileName");
     await loadUserMessages();
@@ -338,7 +343,8 @@
       if(stateRow)stateRow.querySelectorAll("button").forEach(button=>button.hidden=true);
       if($("adminConversationState"))$("adminConversationState").textContent="Support agent mode · replies only; administrators manage conversation status.";
     }
-    $("adminSupportForm").addEventListener("submit",e=>{e.preventDefault();void sendTyping(false);sendMessage("adminSupportBody","adminSupportFile","adminSupportSend","adminSupportError",true);});\n    $("adminSupportBody").addEventListener("input",()=>{void sendTyping(!!$("adminSupportBody").value.trim());});
+    $("adminSupportForm").addEventListener("submit",e=>{e.preventDefault();void sendTyping(false);sendMessage("adminSupportBody","adminSupportFile","adminSupportSend","adminSupportError",true);});
+    $("adminSupportBody").addEventListener("input",()=>{void sendTyping(!!$("adminSupportBody").value.trim());});
     setupFileInput("adminSupportFile","adminSupportFileName");
     $("adminCloseConversation").addEventListener("click",()=>setAdminConversationStatus("closed"));
     $("adminReopenConversation").addEventListener("click",()=>setAdminConversationStatus("open"));
