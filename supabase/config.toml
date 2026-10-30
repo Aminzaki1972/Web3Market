@@ -4,3 +4,9 @@ verify_jwt = false
 
 [functions.public-project-passport]
 verify_jwt = false
+
+[functions.w3m-trust-badge]
+verify_jwt = false
+
+[functions.w3m-trust-badge-approve]
+verify_jwt = false

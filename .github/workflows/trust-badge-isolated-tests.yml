@@ -1,0 +1,73 @@
+name: Isolated W3M trust badge checks
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/w3m-code-audit/**"
+      - "supabase/functions/w3m-trust-badge/**"
+      - "supabase/functions/w3m-trust-badge-approve/**"
+      - "supabase/migrations/20261031000100_code_audit_badge_approvals.sql"
+      - "supabase/tests/trust-badge-approval-migration.test.sql"
+      - "supabase/config.toml"
+      - ".github/workflows/trust-badge-isolated-tests.yml"
+  push:
+    branches:
+      - feature/trust-badge-isolated-20261031
+    paths:
+      - "supabase/functions/w3m-code-audit/**"
+      - "supabase/functions/w3m-trust-badge/**"
+      - "supabase/functions/w3m-trust-badge-approve/**"
+      - "supabase/migrations/20261031000100_code_audit_badge_approvals.sql"
+      - "supabase/tests/trust-badge-approval-migration.test.sql"
+      - "supabase/config.toml"
+      - ".github/workflows/trust-badge-isolated-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trust-badge:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check audit worker and both trust badge endpoints
+        run: |
+          deno check supabase/functions/w3m-code-audit/index.ts
+          deno check supabase/functions/w3m-trust-badge/index.ts
+          deno check supabase/functions/w3m-trust-badge-approve/index.ts
+      - name: Run trust badge eligibility tests
+        run: deno test supabase/functions/w3m-trust-badge/eligibility.test.ts
+      - name: Run structured evidence aggregation tests
+        run: deno test supabase/functions/w3m-code-audit/trust-badge-evidence.test.ts
+      - name: Run related audit worker unit tests
+        run: |
+          deno test supabase/functions/w3m-code-audit/audit-progress.test.ts
+          deno test supabase/functions/w3m-code-audit/audit-pagination.test.ts
+          deno test supabase/functions/w3m-code-audit/audit-findings.test.ts
+          deno test supabase/functions/w3m-code-audit/audit-persistence.test.ts
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Test Premium approval migration on disposable PostgreSQL
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/trust-badge-approval-migration.test.sql
