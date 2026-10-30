@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     if (projectError || !project || String(project.status).toLowerCase() !== "active") return reply({error:"Active marketplace project not found"},404,origin);
     const {data:audit,error:auditError} = await admin.from("code_audits")
       .select("id,repo_url,commit_sha,status,files_scanned,coverage_score,overall_score,risk_level,engine_version,completed_at,critical_count,high_count,medium_count,low_count,info_count")
-      .eq("project_id",projectId).eq("status","completed").order("completed_at",{ascending:false}).limit(1).maybeSingle();
+      .eq("repo_url",project.github_url || "").eq("status","completed").order("completed_at",{ascending:false}).limit(1).maybeSingle();
     if (auditError) throw auditError;
     const normalizeRepo = (value: unknown) => String(value || "").trim().toLowerCase().replace(/\.git$/, "").replace(/\/$/, "");
     const auditMatchesCurrentListing = !!audit && !!project.github_url && normalizeRepo(audit.repo_url) === normalizeRepo(project.github_url);
