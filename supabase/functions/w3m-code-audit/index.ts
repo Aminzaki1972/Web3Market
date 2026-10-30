@@ -139,7 +139,7 @@ async function run(sb:any,a:any,r:any){
   const sc={security:Number(s.security)||0,architecture:Number(s.architecture)||0,code_quality:Number(s.code_quality)||0,dependencies:Number(s.dependencies)||0,testing:Number(s.testing)||0,documentation:Number(s.documentation)||0,web3:Number(s.web3)||0,scalability:s.scalability,ai_fit:s.ai_fit};
   const web3=allCandidates.some((f:any)=>/\.(sol|rs)$/i.test(f.path))||/web3|blockchain|wallet|smart contract/i.test(m.description||"");
   let score=web3?sc.security*.30+sc.architecture*.20+sc.code_quality*.15+sc.dependencies*.10+sc.testing*.10+sc.documentation*.05+sc.web3*.10:sc.security*.35+sc.architecture*.25+sc.code_quality*.15+sc.dependencies*.10+sc.testing*.10+sc.documentation*.05;
-  const findings=Array.isArray(out.findings)?out.findings.slice(0,100):[],cnt:Record<string,number>={critical:0,high:0,medium:0,low:0,info:0};for(const f of findings){const sev=String(f.severity||"");if(cnt[sev]!==undefined)cnt[sev]++;}
+  const findings=Array.isArray(out.findings)?out.findings.slice(0,100):[];
   score=clamp(score);const coverage=calculateAuditCoverage(totalScannedFiles,candidateCount);
   // Sequential-retry mitigation without changing production schema.
   const existingFindingRows=await collectPages(async (from,to)=>await sb.from("code_audit_findings").select("severity,category,title,file_path,line_start").eq("audit_id",a.id).range(from,to));
