@@ -82,6 +82,28 @@ Deno.serve(async (req: Request) => {
         Number(progress.files_scanned) !== Number(audit.files_scanned)) {
       return json({ ok: true, badge: null, reason: "structured_audit_evidence_missing_or_mismatched" });
     }
+    const batchStats = Array.isArray(progress.batch_stats) ? progress.batch_stats as Record<string, unknown>[] : [];
+    const totalBatches = Number(progress.total_file_batches);
+    if (!Number.isInteger(totalBatches) || totalBatches <= 0 || batchStats.length !== totalBatches ||
+        !Number.isInteger(progress.pre_skipped_oversized_files) || !Number.isInteger(progress.oversized_files) ||
+        !Number.isInteger(progress.unreadable_files)) {
+      return json({ ok: true, badge: null, reason: "batch_evidence_missing_or_invalid" });
+    }
+    let batchScanned = 0, batchOversized = 0, batchUnreadable = 0;
+    for (const batch of batchStats) {
+      const scanned = Number(batch.files_scanned), oversized = Number(batch.oversized_files), unreadable = Number(batch.unreadable_files);
+      if (![scanned, oversized, unreadable].every((value) => Number.isInteger(value) && value >= 0)) {
+        return json({ ok: true, badge: null, reason: "batch_evidence_invalid" });
+      }
+      batchScanned += scanned;
+      batchOversized += oversized;
+      batchUnreadable += unreadable;
+    }
+    if (batchScanned !== Number(progress.files_scanned) ||
+        batchOversized + Number(progress.pre_skipped_oversized_files) !== Number(progress.oversized_files) ||
+        batchUnreadable !== Number(progress.unreadable_files)) {
+      return json({ ok: true, badge: null, reason: "batch_evidence_mismatch" });
+    }
 
     const persistedFiles = await collectPages(async (from, to) =>
       await admin.from("code_audit_files").select("path").eq("audit_id", audit.id).range(from, to)
