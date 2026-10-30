@@ -1,0 +1,33 @@
+name: Admin Review AAL tests
+
+on:
+  push:
+    branches:
+      - security/admin-review-aal2-test
+    paths:
+      - 'scripts/test-admin-review-aal.mjs'
+      - 'supabase/functions/_shared/aal.mjs'
+      - 'supabase/functions/admin-review/index.ts'
+      - '.github/workflows/admin-review-aal-tests.yml'
+  pull_request:
+    paths:
+      - 'scripts/test-admin-review-aal.mjs'
+      - 'supabase/functions/_shared/aal.mjs'
+      - 'supabase/functions/admin-review/index.ts'
+      - '.github/workflows/admin-review-aal-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run AAL parser tests
+        run: node --test scripts/test-admin-review-aal.mjs
