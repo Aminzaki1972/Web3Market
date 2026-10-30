@@ -9,6 +9,7 @@
 | Buyer A | Save/update/delete own note | Allowed |
 | Buyer B | Read Buyer A report | No rows / denied |
 | Buyer B | Read or update Buyer A note | No rows / denied |
+| Seller-role account | Open Buyer Center | Buyer Due Diligence panel is not rendered |
 | Seller-role account | Invoke create function | 403 |
 | Buyer | Request inactive/nonexistent project | 404 |
 | Buyer | Submit malformed project ID | 400 |
