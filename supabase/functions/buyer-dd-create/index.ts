@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     // before using ILIKE, then compare the complete normalized repository path.
     const repoPathMatch = rawRepo.match(/github\\.com\\/([^?#]+)/i);
     const repoPath = repoPathMatch?.[1]?.replace(/\\.git$/i, "").replace(/\\/$/, "") || "";
-    const escapedRepoPath = repoPath.replace(/[\\\\%_]/g, (_match, char) => "\\\\" + char);
+    const escapedRepoPath = repoPath.replace(/[\\%_]/g, match => "\\" + match);
     const {data:auditRows,error:auditError} = normalizedListingRepo && repoPath
       ? await admin.from("code_audits")
           .select("id,repo_url,commit_sha,status,files_scanned,coverage_score,overall_score,risk_level,engine_version,completed_at,critical_count,high_count,medium_count,low_count,info_count")
