@@ -91,6 +91,39 @@ These are implementation requirements, not confirmation that the current project
 - [ ] Run the full two-account authorization matrix and security advisors.
 - [ ] Obtain separate explicit approval before any production migration, function deployment, or live UI integration.
 
+
+## 7. Findings from read-only inspection of the current production project
+
+**Inspection only:** current Supabase schema, RLS policy definitions and deployed function source were read. No rows were changed, no SQL DDL was executed, and no function was deployed.
+
+### Existing marketplace listing access
+- `projects` already has RLS enabled.
+- The current public listing policy allows anonymous reads for `active` and `sold` projects, excluding the configured test-mode marker.
+- The authenticated listing policy permits admins, listing owners, and public active/sold listings.
+- Therefore the buyer flow can begin from a listing the buyer is already authorized to view, but the server must re-check this before every report request.
+
+### Existing AI Due Diligence is a different workflow
+The production project already contains `ai_due_diligence_reports` and `ai_due_diligence_evidence`. These are not automatically suitable for the new buyer-private feature:
+
+- The deployed `ai-due-diligence` Edge Function currently checks that the caller owns the project (or is an admin) before creating a report. A buyer who is not the seller/project owner is rejected.
+- The existing report SELECT policy allows the report requester, the project owner, and completed reports marked public for published projects to read. This is broader than the new requirement that a buyer's report and notes remain private to that buyer.
+- The evidence SELECT policy also allows the report requester **or project owner** to read evidence.
+- The existing report schema includes `requested_by`, `is_public`, score fields, findings and evidence JSON; it does not provide the complete buyer-owned report/notes access model described above.
+
+**Decision:** do not connect the buyer dashboard to these tables or the existing Edge Function as-is. Keep the buyer-private report model separate unless a later, reviewed design proves a safe migration path. Do not flip `is_public` or alter existing policies as a shortcut.
+
+### Existing W3M Code Audit access
+- `code_audits`, `code_audit_files` and `code_audit_findings` have RLS enabled.
+- Current SELECT policies restrict audit rows and their child file/finding rows to the audit requester or an admin.
+- This means a buyer cannot automatically read a seller's existing audit just because the audit references a marketplace project.
+- Future buyer integration should use a deliberately authorized, minimal report snapshot or a separately reviewed buyer-access policy. It must not expose the seller's private audit record, raw file inventory or unrelated audit history.
+
+### Consequence for the implementation plan
+1. Keep the new buyer-owned report and private-notes model separate from the existing seller-oriented AI Due Diligence records.
+2. Define a narrow, explicit method to show a buyer only the technical audit summary/findings that are safe and authorized for that listing.
+3. Preserve the current audit requester/admin privacy boundary unless the platform owner separately approves a carefully scoped change.
+4. Build and test the new buyer-only policies in a separate Supabase test project; the current production project is not the test environment.
+
 ## Explicit non-actions in this stage
 
 No Supabase table, policy, function, secret, storage bucket, production setting, Cloudflare deployment, public route, PR, merge or production file has been changed by this design document.
