@@ -19,6 +19,7 @@ Deno.test("aggregates every batch into structured completion evidence", () => {
     files_scanned: 202,
     persisted_file_count: 202,
     oversized_files: 2,
+    pre_skipped_oversized_files: 1,
     unreadable_files: 1,
     total_file_batches: 3,
   });
