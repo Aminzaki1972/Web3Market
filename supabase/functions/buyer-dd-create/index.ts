@@ -39,10 +39,10 @@ Deno.serve(async (req) => {
       const raw = String(value || "").trim();
       if (!raw) return "";
       try {
-        const parsed = new URL(/^https?:\\/\\//i.test(raw) ? raw : "https://" + raw);
-        const host = parsed.hostname.toLowerCase().replace(/^www\\./, "");
+        const parsed = new URL(/^https?:\/\//i.test(raw) ? raw : "https://" + raw);
+        const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
         if (host !== "github.com") return "";
-        const path = parsed.pathname.replace(/^\\/+|\\/+$/g, "").replace(/\\.git$/i, "").toLowerCase();
+        const path = parsed.pathname.replace(/^\/+|\/+$/g, "").replace(/\.git$/i, "").toLowerCase();
         return path ? "github.com/" + path : "";
       } catch {
         return "";
@@ -52,8 +52,8 @@ Deno.serve(async (req) => {
     const normalizedListingRepo = normalizeRepo(rawRepo);
     // GitHub repository paths are case-insensitive. Escape SQL LIKE wildcards
     // before using ILIKE, then compare the complete normalized repository path.
-    const repoPathMatch = rawRepo.match(/github\\.com\\/([^?#]+)/i);
-    const repoPath = repoPathMatch?.[1]?.replace(/\\.git$/i, "").replace(/\\/$/, "") || "";
+    const repoPathMatch = rawRepo.match(/github\.com\/([^?#]+)/i);
+    const repoPath = repoPathMatch?.[1]?.replace(/\.git$/i, "").replace(/\/$/, "") || "";
     const escapedRepoPath = repoPath.replace(/[\\%_]/g, match => "\\" + match);
     const {data:auditRows,error:auditError} = normalizedListingRepo && repoPath
       ? await admin.from("code_audits")
