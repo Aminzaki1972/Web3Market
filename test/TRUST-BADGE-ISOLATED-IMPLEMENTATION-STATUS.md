@@ -13,7 +13,8 @@ Status: isolated prototype only; not deployed and not merged.
 - Critical/High totals are now computed from persisted finding rows, not only the latest in-memory AI response.
 - Public read-only badge endpoint validates active/sold listing, exact GitHub repository binding, latest completed audit, structured batch evidence, persisted file count, persisted findings, and current GitHub branch HEAD.
 - The public read-only endpoint issues automatic Code Audit Verified for qualifying 80–89.99 scores and withholds scores 90–100 until an approval record exists.
-- A separate `w3m-trust-badge-approve` Edge Function prototype now verifies the bearer token with `auth.getUser()`, requires AAL2 and `admin_users` membership, calls the independent read-only verifier, rechecks GitHub HEAD immediately before insert, and writes the approval through the service role. It is not deployed.
+- A separate `w3m-trust-badge-approve` Edge Function prototype verifies the bearer token with `auth.getUser()`, requires AAL2 and `admin_users` membership, calls the independent read-only verifier, rechecks GitHub HEAD immediately before insert, and writes the approval through the service role. It is not deployed.
+- The public read-only endpoint now loads a matching approval record by audit ID, project ID, and exact commit SHA, then passes that server-loaded record into the policy evaluator. A stale or mismatched approval cannot grant Premium Verified.
 - Deno CI workflow added for type-checking and relevant unit tests.
 
 ## Deliberately not implemented
