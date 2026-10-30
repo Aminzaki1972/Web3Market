@@ -11,6 +11,7 @@ export type TrustBadgeCompletionEvidence = {
   files_scanned: number;
   persisted_file_count: number;
   oversized_files: number;
+  pre_skipped_oversized_files: number;
   unreadable_files: number;
   total_file_batches: number;
 };
@@ -59,6 +60,7 @@ export function buildTrustBadgeCompletionEvidence(input: {
     files_scanned: filesScanned,
     persisted_file_count: persistedFileCount,
     oversized_files: oversizedFiles,
+    pre_skipped_oversized_files: preSkippedOversized,
     unreadable_files: unreadableFiles,
     total_file_batches: totalFileBatches,
   };
