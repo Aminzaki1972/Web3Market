@@ -35,17 +35,17 @@ Deno.serve(async (req) => {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(projectId)) return reply({error:"Valid project_id required"},400,origin);
     const {data:project,error:projectError} = await admin.from("projects").select("id,title,status,github_url").eq("id",projectId).maybeSingle();
     if (projectError || !project || String(project.status).toLowerCase() !== "active") return reply({error:"Active marketplace project not found"},404,origin);
-    const normalizeRepo = (value: unknown) => String(value || "").trim().toLowerCase().replace(/\\.git$/, "").replace(/\\/$/, "");
+    const normalizeRepo = (value: unknown) => String(value || "").trim().toLowerCase().replace(/\.git$/, "").replace(/\/$/, "");
     const rawRepo = String(project.github_url || "").trim();
     const normalizedListingRepo = normalizeRepo(rawRepo);
-    // Preserve the repository path's original casing for a case-insensitive database lookup.
-    // GitHub owner/repository names are case-insensitive, while Postgres .in() is not.
-    const repoPathMatch = rawRepo.match(/github\\.com\\/([^?#]+)/i);
-    const repoPath = repoPathMatch?.[1]?.replace(/\\.git$/i, "").replace(/\\/$/, "") || "";
+    // GitHub repository paths are case-insensitive; Postgres .in() matching is not.
+    // Use the original path with ilike, then verify the normalized full repository URL.
+    const repoPathMatch = rawRepo.match(/github\.com\/([^?#]+)/i);
+    const repoPath = repoPathMatch?.[1]?.replace(/\.git$/i, "").replace(/\/$/, "") || "";
     const {data:auditRows,error:auditError} = repoPath
       ? await admin.from("code_audits")
           .select("id,repo_url,commit_sha,status,files_scanned,coverage_score,overall_score,risk_level,engine_version,completed_at,critical_count,high_count,medium_count,low_count,info_count")
-          .eq("status","completed").ilike("repo_url", `%github.com/${repoPath}%`)
+          .eq("status","completed").ilike("repo_url", \`%github.com/\${repoPath}%\`)
           .order("completed_at",{ascending:false}).limit(20)
       : {data:[],error:null};
     if (auditError) throw auditError;
