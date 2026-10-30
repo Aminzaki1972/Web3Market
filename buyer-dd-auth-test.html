@@ -13,6 +13,11 @@
 <div class="actions"><button id="signup">Create isolated test login</button><button id="signin" class="secondary">Sign in</button><button id="signout" class="secondary hidden">Sign out</button></div>
 </section>
 <div id="status" class="status" role="status" aria-live="polite">Not connected. Test project only.</div>
+<section id="anonymousTest"><hr><h2>Anonymous visitor — access test</h2><p class="muted">These checks use a separate client with no signed-in session. You can run them before or after signing out.</p>
+<label for="anonReportId">Report ID for anonymous test</label><input id="anonReportId" placeholder="Paste a report ID">
+<div class="actions"><button id="anonReportCheck">Test anonymous report access</button><button id="anonNotesCheck" class="secondary">Test anonymous private-note access</button></div>
+<div id="anonResults" class="status" role="status" aria-live="polite">Ready. Paste a report ID and run either check.</div>
+</section>
 <section id="data" class="hidden"><hr><h2>Private buyer report — RLS test</h2><p class="muted">Create a fictional report owned by the signed-in test identity. Then sign in as another test identity and verify it cannot be read.</p>
 <div class="actions"><button id="createReport">Create my fictional test report</button><button id="refresh" class="secondary">Refresh my reports</button></div>
 <div id="reports"></div>
@@ -26,6 +31,7 @@
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const supabase=createClient('https://nizguzhmyjodujdmoygl.supabase.co','sb_publishable_ZAPQc08e0_Ie4rwFWM7YfQ_sNSmneNg');
+const anonymousClient=createClient('https://nizguzhmyjodujdmoygl.supabase.co','sb_publishable_ZAPQc08e0_Ie4rwFWM7YfQ_sNSmneNg',{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
 const $=id=>document.getElementById(id);
 const show=(m,good=false)=>{$('status').textContent=m;$('status').className='status '+(good?'ok':'bad')};
 let currentUser=null;
@@ -40,5 +46,8 @@ async function loadNotes(id){const {data,error}=await supabase.from('buyer_dd_pr
 $('addNote').onclick=async()=>{if(!currentUser)return;const report_id=$('reportId').value.trim(),note=$('note').value.trim();if(!report_id||!note){show('Enter a report ID and test note.');return;}const {error}=await supabase.from('buyer_dd_private_notes').insert({report_id,buyer_id:currentUser.id,note});if(error){show('Private note insert blocked or failed: '+error.message);return;}$('note').value='';show('Private note saved for this identity only.',true);await loadNotes(report_id);};
 $('checkForeign').onclick=async()=>{const id=$('reportId').value.trim();if(!id){show('Paste a report ID first.');return;}const {data,error}=await supabase.from('buyer_dd_reports').select('id').eq('id',id);if(error){show('Access check error: '+error.message);return;}show(data.length?'Report is visible to this identity. If this is another buyer’s report, investigate.':'PASS: this identity cannot read that report (0 rows returned).',true);};
 $('checkPrivateNotes').onclick=async()=>{const id=$('reportId').value.trim();if(!id){show('Paste a report ID first.');return;}const {data,error}=await supabase.from('buyer_dd_private_notes').select('id,note').eq('report_id',id);if(error){show('Private-note access check error: '+error.message);return;}show(data.length?'FAIL: this identity can read '+data.length+' note(s) for this report. Review RLS immediately.':'PASS: this identity cannot read private notes for that report (0 rows returned).',true);};
+async function runAnonymousCheck(table,buttonId,label){const id=$('anonReportId').value.trim();if(!id){$('anonResults').textContent='Paste a report ID first.';return;}$(buttonId).disabled=true;$('anonResults').textContent='Checking '+label+' with anonymous access…';try{const {data,error}=await anonymousClient.from(table).select(table==='buyer_dd_reports'?'id':'id,note').eq(table==='buyer_dd_reports'?'id':'report_id',id);if(error){$('anonResults').textContent='PASS: anonymous access to '+label+' was blocked by the database ('+error.message+').';$('anonResults').className='status ok';return;}if(data.length===0){$('anonResults').textContent='PASS: anonymous access to '+label+' returned 0 rows.';$('anonResults').className='status ok';return;}$('anonResults').textContent='FAIL: anonymous access returned '+data.length+' row(s) for '+label+'. Stop and review RLS.';$('anonResults').className='status bad';}catch(e){$('anonResults').textContent='Check could not complete: '+(e?.message||String(e));$('anonResults').className='status bad';}finally{$(buttonId).disabled=false;}}
+$('anonReportCheck').onclick=()=>runAnonymousCheck('buyer_dd_reports','anonReportCheck','the report');
+$('anonNotesCheck').onclick=()=>runAnonymousCheck('buyer_dd_private_notes','anonNotesCheck','private notes');
 supabase.auth.onAuthStateChange(()=>{setTimeout(syncSession,0);});await syncSession();
 </script></body></html>
