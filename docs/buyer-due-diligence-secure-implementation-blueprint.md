@@ -127,3 +127,33 @@ The production project already contains `ai_due_diligence_reports` and `ai_due_d
 ## Explicit non-actions in this stage
 
 No Supabase table, policy, function, secret, storage bucket, production setting, Cloudflare deployment, public route, PR, merge or production file has been changed by this design document.
+
+
+## 8. Code Audit integration contract — reviewed, not implemented
+
+### Safe display boundary
+- The buyer report must not query `code_audits`, `code_audit_files`, or `code_audit_findings` directly from the browser.
+- Current production SELECT policies authorize the audit requester and admin; a listing being public does not grant the buyer access to the seller's audit record.
+- Do not loosen those policies or expose a seller's raw file inventory, findings history, repository metadata, or audit ID as an authorization shortcut.
+- Do not reuse the legacy `ai-due-diligence` function: its current ownership check is seller/project-owner oriented, and its report policies are broader than the buyer-private requirement.
+
+### Proposed minimal buyer-safe snapshot
+If product policy later authorizes a seller audit to be shown to a buyer, create a separately reviewed, minimal snapshot that is explicitly associated with a currently visible listing. The snapshot should contain only:
+- source audit ID and repository commit SHA, retained as internal provenance;
+- audit completion time and collector/version identifier;
+- the existing score and risk label, with the original audit scope/coverage and limitations;
+- only the finding summaries specifically approved for buyer disclosure;
+- a clear indication when no audit exists, it is stale, incomplete, or not authorized for display.
+
+Never silently rerun an audit, recalculate its score, or present missing results as a clean result. A snapshot is not a new certification and does not issue a Passport.
+
+### Authorization requirements before any implementation
+1. Authenticate the buyer and re-check that the listing is visible and eligible on the server.
+2. Resolve the audit-to-listing relationship from trusted database state; never trust a client-submitted audit ID as proof of access.
+3. Apply a narrowly scoped server-side disclosure rule for the minimal snapshot; do not make the seller's audit row readable to the buyer.
+4. Keep the buyer report and notes owned by the requesting buyer, independent of the seller's audit permissions.
+5. Test with two buyers, the seller, an anonymous session, and an admin in a separate isolated no-cost environment.
+6. Log authorization denials without leaking private listing, audit, or account details.
+
+### Current disposition
+This section is a design contract only. No production table, policy, grant, Edge Function, secret, or API was changed. Implementation remains blocked until an isolated, verified no-cost test environment is available and the platform owner separately approves the test changes.
