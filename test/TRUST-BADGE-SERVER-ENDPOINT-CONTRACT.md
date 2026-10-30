@@ -17,7 +17,7 @@ The `evaluateTrustBadge` helper is a pure policy function. Its `source: "server"
 ## Required server sequence
 
 1. Validate the bearer token and resolve the user with Supabase Auth `getUser(token)`. Reject missing, invalid, or expired sessions.
-2. Resolve the caller's authorization from the trusted server-side admin membership source already used by the application. Do not trust user-editable profile fields, request headers, local storage, or client claims. Reuse the existing authorization policy; do not invent a new admin allowlist.
+2. Resolve the caller's authorization from the trusted server-side `admin_users` membership table, following the existing `admin-review` Edge Function pattern: validate the bearer token with service-role `auth.getUser(token)`, then query `admin_users.user_id = user.id`. Do not trust user-editable profile fields, request headers, local storage, or client claims. For any approval or other sensitive admin action, require the application's established AAL2/MFA assurance check as well; the existing `admin-review` function applies AAL2 to its sensitive archive action. Confirm the exact required assurance level with the current admin policy before implementation.
 3. Load the audit row by `audit_id` from the database. Confirm it belongs to the expected repository/project and that the requesting user is allowed to view/request this result.
 4. Require a completed audit and validate the stored audit ID, score, commit SHA, and status.
 5. Obtain the current commit SHA from GitHub using the server-held credential, for the exact repository and branch/ref associated with this audit. Never accept the current SHA from the browser.
