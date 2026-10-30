@@ -85,8 +85,9 @@ Deno.serve(async (req: Request) => {
     const batchStats = Array.isArray(progress.batch_stats) ? progress.batch_stats as Record<string, unknown>[] : [];
     const totalBatches = Number(progress.total_file_batches);
     if (!Number.isInteger(totalBatches) || totalBatches <= 0 || batchStats.length !== totalBatches ||
-        !Number.isInteger(progress.pre_skipped_oversized_files) || !Number.isInteger(progress.oversized_files) ||
-        !Number.isInteger(progress.unreadable_files)) {
+        !Number.isInteger(progress.pre_skipped_oversized_files) || Number(progress.pre_skipped_oversized_files) < 0 ||
+        !Number.isInteger(progress.oversized_files) || Number(progress.oversized_files) < 0 ||
+        !Number.isInteger(progress.unreadable_files) || Number(progress.unreadable_files) < 0) {
       return json({ ok: true, badge: null, reason: "batch_evidence_missing_or_invalid" });
     }
     let batchScanned = 0, batchOversized = 0, batchUnreadable = 0;
