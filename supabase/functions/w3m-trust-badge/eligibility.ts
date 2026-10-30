@@ -37,7 +37,10 @@ export function evaluateTrustBadge(
   audit: AuditEvidence,
   approval?: TrustedPremiumApproval | null,
 ): BadgeDecision {
-  if (typeof audit.audit_id !== "string" || audit.audit_id.trim().length === 0) {\n    return { eligible: false, badge: null, reason: "invalid_audit_id" };\n  }\n  if (audit.status !== "completed") return { eligible: false, badge: null, reason: "audit_not_completed" };
+  if (typeof audit.audit_id !== "string" || audit.audit_id.trim().length === 0) {
+    return { eligible: false, badge: null, reason: "invalid_audit_id" };
+  }
+  if (audit.status !== "completed") return { eligible: false, badge: null, reason: "audit_not_completed" };
   if (!Number.isFinite(audit.overall_score) || audit.overall_score < 80 || audit.overall_score > 100) {
     return { eligible: false, badge: null, reason: "score_below_threshold_or_invalid" };
   }
@@ -46,7 +49,11 @@ export function evaluateTrustBadge(
       !Number.isInteger(audit.persisted_file_count) || audit.persisted_file_count !== audit.files_scanned) {
     return { eligible: false, badge: null, reason: "incomplete_file_coverage" };
   }
-  const counts = [audit.oversized_files, audit.unreadable_files, audit.critical_count, audit.high_count];\n  if (counts.some((count) => !Number.isInteger(count) || count < 0)) {\n    return { eligible: false, badge: null, reason: "invalid_evidence_counts" };\n  }\n  if (audit.oversized_files !== 0 || audit.unreadable_files !== 0) {
+  const counts = [audit.oversized_files, audit.unreadable_files, audit.critical_count, audit.high_count];
+  if (counts.some((count) => !Number.isInteger(count) || count < 0)) {
+    return { eligible: false, badge: null, reason: "invalid_evidence_counts" };
+  }
+  if (audit.oversized_files !== 0 || audit.unreadable_files !== 0) {
     return { eligible: false, badge: null, reason: "skipped_or_unreadable_files" };
   }
   if (audit.critical_count !== 0 || audit.high_count !== 0) {
