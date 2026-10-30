@@ -77,8 +77,10 @@ Deno.serve(async (req: Request) => {
     const progress = audit.analysis_progress && typeof audit.analysis_progress === "object"
       ? audit.analysis_progress as Record<string, unknown>
       : {};
-    if (progress.evidence_version !== "w3m-audit-evidence-v1" || progress.tree_truncated !== false) {
-      return json({ ok: true, badge: null, reason: "structured_audit_evidence_missing" });
+    if (progress.evidence_version !== "w3m-audit-evidence-v1" || progress.tree_truncated !== false ||
+        !Number.isInteger(progress.persisted_file_count) || !Number.isInteger(progress.files_scanned) ||
+        Number(progress.files_scanned) !== Number(audit.files_scanned)) {
+      return json({ ok: true, badge: null, reason: "structured_audit_evidence_missing_or_mismatched" });
     }
 
     const persistedFiles = await collectPages(async (from, to) =>
@@ -127,6 +129,9 @@ Deno.serve(async (req: Request) => {
       commit_sha: String(audit.commit_sha || ""),
       current_commit_sha: currentCommitSha,
     };
+    if (Number(progress.persisted_file_count) !== persistedFiles.length) {
+      return json({ ok: true, badge: null, reason: "persisted_file_count_mismatch" });
+    }
     const decision = evaluateTrustBadge(evidence);
     return json({
       ok: true,
