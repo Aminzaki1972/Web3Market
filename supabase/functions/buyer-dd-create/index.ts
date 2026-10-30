@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
       .select("id,repo_url,commit_sha,status,files_scanned,coverage_score,overall_score,risk_level,engine_version,completed_at,critical_count,high_count,medium_count,low_count,info_count")
       .eq("status","completed").order("completed_at",{ascending:false}).limit(200);
     if (auditError) throw auditError;
-    const normalizeRepo = (value: unknown) => String(value || "").trim().toLowerCase().replace(/\\.git$/, "").replace(/\\/$/, "");
+    const normalizeRepo = (value: unknown) => String(value || "").trim().toLowerCase().replace(/\.git$/, "").replace(/\/$/, "");
     const normalizedListingRepo = normalizeRepo(project.github_url);
     const audit = normalizedListingRepo ? (auditRows || []).find(row => normalizeRepo(row.repo_url) === normalizedListingRepo) || null : null;
     const auditMatchesCurrentListing = !!audit;
