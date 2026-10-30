@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>W3M Trust Badge — Isolated Prototype</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#121d30;--line:#26364d;--muted:#9fb0c7;--text:#edf4ff;--blue:#54a8ff;--green:#39d98a;--gold:#f4c95d;--red:#ff7777}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,Arial,sans-serif;padding:24px}
+main{max-width:1050px;margin:auto}h1,h2{line-height:1.2}h1{font-size:27px}h2{font-size:19px;margin-top:28px}
+.notice,.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0}
+.notice{border-left:4px solid var(--blue);color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+label{display:block;color:var(--muted);font-size:13px;margin:8px 0 4px}
+input,select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#0b1424;color:var(--text)}
+button{padding:10px 14px;border:0;border-radius:8px;background:var(--blue);color:#061426;font-weight:700;cursor:pointer;margin:8px 6px 0 0}
+button.secondary{background:#293b54;color:var(--text)}
+.badge{display:inline-block;padding:6px 11px;border-radius:999px;font-weight:800;font-size:13px;border:1px solid currentColor}
+.standard{color:var(--green)}.premium{color:var(--gold)}.neutral{color:var(--muted)}.blocked{color:var(--red)}
+#result{font-size:18px;margin:10px 0}
+table{width:100%;border-collapse:collapse;margin-top:12px}th,td{text-align:left;border-bottom:1px solid var(--line);padding:9px;font-size:13px}th{color:var(--muted)}
+small,.muted{color:var(--muted)}code{overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<main>
+<h1>W3M Trust Badge</h1>
+<p class="muted">Isolated prototype · Synthetic data only · No Supabase connection · No production writes</p>
+<div class="notice"><strong>Important:</strong> This is a rules/UI prototype, not a live security certification. A badge must refer to the exact audited commit. A later code change makes the previous badge stale.</div>
+<section class="panel">
+<h2>Eligibility rules</h2>
+<ul>
+<li>Audit must be completed and have a commit SHA.</li>
+<li>Coverage must be exactly 100%.</li>
+<li>There must be zero unresolved Critical and High findings.</li>
+<li>Score 80–89: automatic <strong>Code Audit Verified</strong>.</li>
+<li>Score 90–100: <strong>Premium Verified</strong> only after manual admin approval.</li>
+<li>Score 70–79: Audit Completed, not verified. Below 70: Improvement Needed.</li>
+</ul>
+</section>
+<section class="panel">
+<h2>Try a synthetic audit</h2>
+<div class="grid">
+<div><label for="score">Score (0–100)</label><input id="score" type="number" min="0" max="100" value="85"></div>
+<div><label for="coverage">Coverage (%)</label><input id="coverage" type="number" min="0" max="100" value="100"></div>
+<div><label for="status">Audit status</label><select id="status"><option value="completed">Completed</option><option value="in_progress">In progress</option><option value="failed">Failed</option></select></div>
+<div><label for="critical">Unresolved Critical findings</label><input id="critical" type="number" min="0" value="0"></div>
+<div><label for="high">Unresolved High findings</label><input id="high" type="number" min="0" value="0"></div>
+<div><label for="commit">Audited commit SHA</label><input id="commit" value="a1b2c3d4e5f678901234567890abcdef12345678"></div>
+<div><label for="currentCommit">Current project commit SHA</label><input id="currentCommit" value="a1b2c3d4e5f678901234567890abcdef12345678"></div>
+<div><label for="approval">Premium admin approval</label><select id="approval"><option value="no">Not approved</option><option value="yes">Approved</option></select></div>
+</div>
+<button id="evaluate">Evaluate badge</button><button class="secondary" id="reset">Reset example</button>
+<div id="result" aria-live="polite"></div><p id="reason" class="muted"></p>
+</section>
+<section class="panel">
+<h2>Acceptance checks</h2>
+<p class="muted">Expected outcomes are calculated locally in this page using fixed synthetic test cases.</p>
+<table><thead><tr><th>Scenario</th><th>Expected result</th><th>Test</th></tr></thead><tbody id="tests"></tbody></table>
+</section>
+<p class="muted">Prototype only. It does not issue, store, publish, or revoke real Web3Market badges.</p>
+</main>
+<script>
+(function(){
+ const $=id=>document.getElementById(id);
+ function evaluate(a){
+  const numeric=[a.score,a.coverage,a.critical,a.high];
+  if(!numeric.every(Number.isFinite))return {code:"invalid_data",label:"Not Eligible",reason:"Score, coverage and finding counts must be valid numbers."};
+  if(a.score<0||a.score>100||a.coverage<0||a.coverage>100||a.critical<0||a.high<0||!Number.isInteger(a.critical)||!Number.isInteger(a.high))
+   return {code:"invalid_data",label:"Not Eligible",reason:"Values are outside allowed ranges or finding counts are not whole numbers."};
+  if(a.status!=="completed")return {code:"not_ready",label:"Audit Not Complete",reason:"The audit is not completed."};
+  if(!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(a.commit))return {code:"invalid_commit",label:"Not Eligible",reason:"A valid audited commit SHA is required."};
+  if(!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(a.currentCommit))return {code:"invalid_commit",label:"Not Eligible",reason:"A valid current project commit SHA is required."};
+  if(a.commit.toLowerCase()!==a.currentCommit.toLowerCase())return {code:"stale",label:"Badge Stale",reason:"The current project commit differs from the audited commit. Re-audit is required."};
+  if(a.coverage!==100)return {code:"coverage",label:"Not Eligible",reason:"Coverage must be exactly 100%."};
+  if(a.critical>0||a.high>0)return {code:"findings",label:"Not Eligible",reason:"Unresolved Critical or High findings block verification."};
+  if(a.score>=90)return a.approval===true?{code:"premium",label:"Premium Verified",reason:"All technical conditions pass and an administrator approved Premium."}:{code:"premium_pending",label:"Premium Approval Required",reason:"Technical threshold passed; Premium remains pending until an administrator approves it."};
+  if(a.score>=80)return {code:"verified",label:"Code Audit Verified",reason:"All standard verification conditions pass."};
+  if(a.score>=70)return {code:"completed",label:"Audit Completed",reason:"Score is below the 80-point verification threshold."};
+  return {code:"improve",label:"Improvement Needed",reason:"Score is below 70."};
+ }
+ function values(){const number=id=>{const raw=$(id).value.trim();return raw===""?NaN:Number(raw);};return {score:number("score"),coverage:number("coverage"),status:$("status").value,critical:number("critical"),high:number("high"),commit:$("commit").value.trim(),currentCommit:$("currentCommit").value.trim(),approval:$("approval").value==="yes"};}
+ function render(){const r=evaluate(values());const cls=r.code==="verified"?"standard":r.code==="premium"?"premium":r.code==="premium_pending"?"premium":r.code==="completed"?"neutral":r.code==="improve"?"blocked":"blocked";$("result").innerHTML='<span class="badge '+cls+'">'+r.label+'</span>';$("reason").textContent=r.reason;}
+ $("evaluate").addEventListener("click",render);
+ $("reset").addEventListener("click",()=>{ $("score").value=85;$("coverage").value=100;$("status").value="completed";$("critical").value=0;$("high").value=0;$("commit").value="a1b2c3d4e5f678901234567890abcdef12345678";$("currentCommit").value="a1b2c3d4e5f678901234567890abcdef12345678";$("approval").value="no";render();});
+ const cases=[
+ ["79, complete, clean, 100%","Audit Completed",{score:79,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["80, complete, clean, 100%","Code Audit Verified",{score:80,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["89, complete, clean, 100%","Code Audit Verified",{score:89,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["90, no admin approval","Premium Approval Required",{score:90,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["90, admin approved","Premium Verified",{score:90,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:true}],
+ ["Critical finding present","Not Eligible",{score:95,coverage:100,status:"completed",critical:1,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:true}],
+ ["High finding present","Not Eligible",{score:85,coverage:100,status:"completed",critical:0,high:1,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["Coverage 99%","Not Eligible",{score:88,coverage:99,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["Commit changed after audit","Badge Stale",{score:92,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"f1e2d3c4b5a697887766554433221100fedcba98",approval:true}],
+ ["Audit in progress","Audit Not Complete",{score:99,coverage:100,status:"in_progress",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:true}],
+ ["Coverage above 100%","Not Eligible",{score:95,coverage:101,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:true}],
+ ["Negative finding count","Not Eligible",{score:95,coverage:100,status:"completed",critical:-1,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:true}],
+ ["Missing current commit","Not Eligible",{score:95,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"",approval:true}],
+ ["Score above 100","Not Eligible",{score:101,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:true}],
+ ["Blank score","Not Eligible",{score:NaN,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["Blank coverage","Not Eligible",{score:95,coverage:NaN,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["Blank Critical count","Not Eligible",{score:95,coverage:100,status:"completed",critical:NaN,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["Blank High count","Not Eligible",{score:95,coverage:100,status:"completed",critical:0,high:NaN,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["Fractional finding count","Not Eligible",{score:95,coverage:100,status:"completed",critical:0.5,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["Abbreviated commit SHA","Not Eligible",{score:85,coverage:100,status:"completed",critical:0,high:0,commit:"abcdef123",currentCommit:"abcdef123",approval:false}],
+ ["Malformed commit SHA","Not Eligible",{score:85,coverage:100,status:"completed",critical:0,high:0,commit:"g".repeat(40),currentCommit:"g".repeat(40),approval:false}],
+ ["79.99 boundary","Audit Completed",{score:79.99,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["89.99 boundary","Code Audit Verified",{score:89.99,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["90.01 without approval","Premium Approval Required",{score:90.01,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["100 with approval","Premium Verified",{score:100,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:true}],
+ ["Truthy string is not approval","Premium Approval Required",{score:95,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:"yes"}],
+ ["Score 100.01","Not Eligible",{score:100.01,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:true}]
+ ];
+ $("tests").innerHTML=cases.map(([name,expected,a])=>{const actual=evaluate(a).label;const pass=actual===expected;return '<tr><td>'+name+'</td><td>'+expected+'</td><td style="color:'+(pass?'#39d98a':'#ff7777')+'">'+(pass?'PASS':'FAIL: '+actual)+'</td></tr>';}).join("");
+ render();
+})();
+</script>
+</body>
+</html>
