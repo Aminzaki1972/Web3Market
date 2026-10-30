@@ -8,7 +8,10 @@ on:
       - "supabase/functions/w3m-trust-badge-approve/**"
       - "supabase/migrations/20261031000100_code_audit_badge_approvals.sql"
       - "supabase/tests/trust-badge-approval-migration.test.sql"
-      - "supabase/config.toml"\n      - "js/trust-badges.js"\n      - "project.html"\n      - "marketplace.html"
+      - "supabase/config.toml"
+      - "js/trust-badges.js"
+      - "project.html"
+      - "marketplace.html"
       - ".github/workflows/trust-badge-isolated-tests.yml"
   push:
     branches:
@@ -51,7 +54,8 @@ jobs:
         run: |
           deno check supabase/functions/w3m-code-audit/index.ts
           deno check supabase/functions/w3m-trust-badge/index.ts
-          deno check supabase/functions/w3m-trust-badge-approve/index.ts\n          deno check js/trust-badges.js
+          deno check supabase/functions/w3m-trust-badge-approve/index.ts
+          deno check js/trust-badges.js
       - name: Run trust badge eligibility tests
         run: deno test supabase/functions/w3m-trust-badge/eligibility.test.ts
       - name: Run structured evidence aggregation tests
