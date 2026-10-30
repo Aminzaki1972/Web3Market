@@ -56,17 +56,26 @@ async function renderReports(){
   return '<article style="border-top:1px solid #e4eaf0;padding:16px 0;margin-top:12px"><h3>'+esc(names.get(r.project_id)||"Marketplace project")+'</h3><p><b>'+(available?"Code audit available":"No completed code audit found")+'</b> · '+esc(new Date(r.created_at).toLocaleString())+'</p>'+
   (available?'<p>Score: '+esc(s.score??"N/A")+' / 100 · Risk: '+esc(s.risk_level??"Not rated")+' · Files scanned: '+esc(s.files_scanned??"N/A")+' · Coverage: '+esc(s.coverage_percent??"N/A")+'%</p><p>Commit: <code>'+esc(s.commit_sha||"Not recorded")+'</code></p>':'<p>This project has no linked completed code audit. This does not mean the project is safe.</p>')+
   '<ul>'+(s.limitations||["Automated review is limited and is not a security guarantee."]).map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>'+
-  '<label for="dd-note-'+r.id+'">Private buyer notes</label><textarea id="dd-note-'+r.id+'" rows="3" maxlength="10000" style="display:block;width:100%;box-sizing:border-box;margin:8px 0;padding:10px;border:1px solid #ccd6e0;border-radius:8px" placeholder="Only you can read these notes…"></textarea><button class="btn" data-save-note="'+r.id+'" type="button">Save private note</button><span class="muted" id="dd-note-status-'+r.id+'"></span></article>';
+  '<label for="dd-note-'+r.id+'">Private buyer notes</label><textarea id="dd-note-'+r.id+'" rows="3" maxlength="10000" style="display:block;width:100%;box-sizing:border-box;margin:8px 0;padding:10px;border:1px solid #ccd6e0;border-radius:8px" placeholder="Only you can read these notes…"></textarea><button class="btn" data-save-note="'+r.id+'" type="button">Save private note</button> <button class="btn" data-delete-note="'+r.id+'" type="button">Delete note</button><span class="muted" id="dd-note-status-'+r.id+'"></span></article>';
  }).join("");
  host.querySelectorAll("[data-save-note]").forEach(b=>b.addEventListener("click",()=>saveNote(b.dataset.saveNote)));
+ host.querySelectorAll("[data-delete-note]").forEach(b=>b.addEventListener("click",()=>deleteNote(b.dataset.deleteNote)));
  const noteRows=await client.from("buyer_due_diligence_private_notes").select("report_id,note").in("report_id",q.data.map(r=>r.id));
  if(!noteRows.error)(noteRows.data||[]).forEach(n=>{const el=document.getElementById("dd-note-"+n.report_id);if(el)el.value=n.note});
 }
 async function saveNote(reportId){
  const field=document.getElementById("dd-note-"+reportId),status=document.getElementById("dd-note-status-"+reportId);
- if(!field||!user)return;
+ if(!field||!status||!user)return;
  const result=await client.from("buyer_due_diligence_private_notes").upsert({report_id:reportId,buyer_id:user.id,note:field.value},{onConflict:"report_id,buyer_id"});
  status.textContent=result.error?" Could not save note.":" Saved privately.";
+}
+async function deleteNote(reportId){
+ const field=document.getElementById("dd-note-"+reportId),status=document.getElementById("dd-note-status-"+reportId);
+ if(!field||!status||!user)return;
+ const result=await client.from("buyer_due_diligence_private_notes").delete().eq("report_id",reportId).eq("buyer_id",user.id);
+ if(result.error){status.textContent=" Could not delete note.";return}
+ field.value="";
+ status.textContent=" Note deleted.";
 }
 const observer=new MutationObserver(mount);observer.observe(root,{childList:true,subtree:true});mount();
 })();
