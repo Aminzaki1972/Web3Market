@@ -25,6 +25,11 @@ Deno.serve(async (req) => {
   try {
     const profile = await admin.from("profiles").select("role").eq("id",user.id).maybeSingle();
     if (profile.error || String(profile.data?.role || "").toLowerCase() !== "buyer") return reply({error:"Buyer account required"},403,origin);
+    const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const {count:recentReports,error:rateError} = await admin.from("buyer_due_diligence_reports")
+      .select("id",{count:"exact",head:true}).eq("buyer_id",user.id).gte("created_at",since);
+    if (rateError) throw rateError;
+    if ((recentReports || 0) >= 10) return reply({error:"Report limit reached. Try again later."},429,origin);
     const body = await req.json();
     const projectId = String(body.project_id || "");
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(projectId)) return reply({error:"Valid project_id required"},400,origin);
