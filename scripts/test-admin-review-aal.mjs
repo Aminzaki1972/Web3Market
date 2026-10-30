@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { verifiedAal } from '../supabase/functions/_shared/aal.js';
+import { verifiedAal } from '../supabase/functions/_shared/aal.mjs';
 
 const makeToken = (claims) => `header.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.signature`;
 
