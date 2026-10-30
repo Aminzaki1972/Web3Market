@@ -87,19 +87,6 @@
 })();
 
 
-(function(){
-  'use strict';
-  function loadGuide(){
-    var p=(location.pathname||'').replace(/\/+$/,'');
-    var home=p===''||p==='/index.html'||p.endsWith('/index.html');
-    if(!home||document.getElementById('wmx-homepage-enhancements'))return;
-    var s=document.createElement('script');s.id='wmx-homepage-enhancements';s.src='/js/homepage-enhancements.js?v=20260914-restore-ai';s.async=true;
-    (document.head||document.body||document.documentElement).appendChild(s);
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadGuide,{once:true});else loadGuide();
-  window.addEventListener('load',loadGuide,{once:true});setTimeout(loadGuide,500);
-})();
-
 /* Seller entry architecture: every seller CTA on the homepage goes to account creation first. */
 (function(){
   'use strict';
