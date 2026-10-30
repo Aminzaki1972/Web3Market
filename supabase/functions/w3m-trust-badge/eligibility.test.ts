@@ -80,6 +80,8 @@ Deno.test("a truthy string or incomplete approval cannot grant Premium", () => {
   assertEquals(evaluateTrustBadge(audit, forged).reason, "premium_approval_required");
   const missingActor = { ...approval(), actor_id: "" };
   assertEquals(evaluateTrustBadge(audit, missingActor).reason, "premium_approval_required");
+  const malformed = { approved: true, source: "server", audit_id: "audit-123" } as unknown as TrustedPremiumApproval;
+  assertEquals(evaluateTrustBadge(audit, malformed).reason, "premium_approval_required");
 });
 
 Deno.test("approval for another audit or commit cannot grant Premium", () => {
