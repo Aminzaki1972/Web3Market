@@ -104,3 +104,19 @@ Deno.test("score below 80 or outside the valid range is rejected", () => {
   audit.overall_score = 100.01;
   assertEquals(evaluateTrustBadge(audit).reason, "score_below_threshold_or_invalid");
 });
+
+
+Deno.test("empty audit ID is rejected", () => {
+  const audit = baseAudit();
+  audit.audit_id = "   ";
+  assertEquals(evaluateTrustBadge(audit).reason, "invalid_audit_id");
+});
+
+Deno.test("negative or fractional evidence counts are rejected", () => {
+  const audit = baseAudit();
+  audit.critical_count = -1;
+  assertEquals(evaluateTrustBadge(audit).reason, "invalid_evidence_counts");
+  audit.critical_count = 0;
+  audit.unreadable_files = 0.5;
+  assertEquals(evaluateTrustBadge(audit).reason, "invalid_evidence_counts");
+});
