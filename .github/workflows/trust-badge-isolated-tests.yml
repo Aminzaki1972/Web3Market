@@ -8,7 +8,7 @@ on:
       - "supabase/functions/w3m-trust-badge-approve/**"
       - "supabase/migrations/20261031000100_code_audit_badge_approvals.sql"
       - "supabase/tests/trust-badge-approval-migration.test.sql"
-      - "supabase/config.toml"
+      - "supabase/config.toml"\n      - "js/trust-badges.js"\n      - "project.html"\n      - "marketplace.html"
       - ".github/workflows/trust-badge-isolated-tests.yml"
   push:
     branches:
