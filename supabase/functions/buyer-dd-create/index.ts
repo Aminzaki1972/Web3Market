@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     const {data:auditRows,error:auditError} = repoPath
       ? await admin.from("code_audits")
           .select("id,repo_url,commit_sha,status,files_scanned,coverage_score,overall_score,risk_level,engine_version,completed_at,critical_count,high_count,medium_count,low_count,info_count")
-          .eq("status","completed").ilike("repo_url", \`%github.com/\${repoPath}%\`)
+          .eq("status","completed").ilike("repo_url", "%github.com/" + repoPath + "%")
           .order("completed_at",{ascending:false}).limit(20)
       : {data:[],error:null};
     if (auditError) throw auditError;
