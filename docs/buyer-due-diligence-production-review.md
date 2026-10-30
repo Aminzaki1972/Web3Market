@@ -14,7 +14,7 @@
 - This first integration surfaces the audit summary and finding counts only. It does not yet collect website/domain/social evidence or run a new audit.
 
 ## Review findings / known limits
-- Reports are tied to a marketplace `project_id` and the most recent completed `code_audits` row already linked to that project.
+- Reports are tied to a marketplace `project_id` and the most recent completed `code_audits` row whose normalized public GitHub repository URL matches the listing's `github_url` (the current production audit rows have null `project_id`).
 - Projects without a completed linked audit receive a saved `missing` status; absence of an audit is not a safety signal.
 - The audit snapshot is point-in-time and does not update automatically when a newer audit is completed.
 - The dashboard loads up to 200 active projects and displays the latest 30 saved reports.
