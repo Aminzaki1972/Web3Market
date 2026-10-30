@@ -35,13 +35,32 @@ Deno.serve(async (req) => {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(projectId)) return reply({error:"Valid project_id required"},400,origin);
     const {data:project,error:projectError} = await admin.from("projects").select("id,title,status,github_url").eq("id",projectId).maybeSingle();
     if (projectError || !project || String(project.status).toLowerCase() !== "active") return reply({error:"Active marketplace project not found"},404,origin);
-    const {data:auditRows,error:auditError} = await admin.from("code_audits")
-      .select("id,repo_url,commit_sha,status,files_scanned,coverage_score,overall_score,risk_level,engine_version,completed_at,critical_count,high_count,medium_count,low_count,info_count")
-      .eq("status","completed").order("completed_at",{ascending:false}).limit(200);
-    if (auditError) throw auditError;
     const normalizeRepo = (value: unknown) => String(value || "").trim().toLowerCase().replace(/\.git$/, "").replace(/\/$/, "");
-    const normalizedListingRepo = normalizeRepo(project.github_url);
-    const audit = normalizedListingRepo ? (auditRows || []).find(row => normalizeRepo(row.repo_url) === normalizedListingRepo) || null : null;
+    const rawRepo = String(project.github_url || "").trim();
+    const normalizedListingRepo = normalizeRepo(rawRepo);
+    const repoCandidates = new Set<string>();
+    if (normalizedListingRepo) {
+      const withoutScheme = normalizedListingRepo.replace(/^https?:\/\//, "").replace(/^www\./, "");
+      const path = withoutScheme.startsWith("github.com/") ? withoutScheme.slice("github.com/".length) : "";
+      if (path) {
+        const canonicalPath = path.replace(/\.git$/, "").replace(/\/$/, "");
+        for (const host of ["https://github.com/", "http://github.com/", "https://www.github.com/"]) {
+          repoCandidates.add(host + canonicalPath);
+          repoCandidates.add(host + canonicalPath + ".git");
+          repoCandidates.add(host + canonicalPath + "/");
+        }
+      }
+      repoCandidates.add(rawRepo);
+      repoCandidates.add(normalizedListingRepo);
+    }
+    const {data:auditRows,error:auditError} = repoCandidates.size
+      ? await admin.from("code_audits")
+          .select("id,repo_url,commit_sha,status,files_scanned,coverage_score,overall_score,risk_level,engine_version,completed_at,critical_count,high_count,medium_count,low_count,info_count")
+          .eq("status","completed").in("repo_url",Array.from(repoCandidates))
+          .order("completed_at",{ascending:false}).limit(20)
+      : {data:[],error:null};
+    if (auditError) throw auditError;
+    const audit = (auditRows || []).find(row => normalizeRepo(row.repo_url) === normalizedListingRepo) || null;
     const auditMatchesCurrentListing = !!audit;
     let snapshot: Record<string,unknown> = {};
     let auditStatus: "available"|"missing" = "missing";
