@@ -61,12 +61,15 @@ export function evaluateTrustBadge(
     return { eligible: true, badge: "code_audit_verified", reason: "automatic_threshold" };
   }
 
-  const trustedApproval = approval?.approved === true &&
+  const trustedApproval = approval !== null && approval !== undefined &&
+    typeof approval === "object" &&
+    approval.approved === true &&
     approval.source === "server" &&
-    approval.audit_id === audit.audit_id &&
+    typeof approval.audit_id === "string" && approval.audit_id === audit.audit_id &&
+    typeof approval.commit_sha === "string" &&
     approval.commit_sha.toLowerCase() === audit.commit_sha.toLowerCase() &&
-    Boolean(approval.actor_id.trim()) &&
-    Boolean(approval.event_id.trim());
+    typeof approval.actor_id === "string" && approval.actor_id.trim().length > 0 &&
+    typeof approval.event_id === "string" && approval.event_id.trim().length > 0;
 
   if (!trustedApproval) return { eligible: false, badge: null, reason: "premium_approval_required" };
   return { eligible: true, badge: "premium_verified", reason: "admin_approved" };
