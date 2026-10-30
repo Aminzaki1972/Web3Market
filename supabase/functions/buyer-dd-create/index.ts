@@ -30,12 +30,14 @@ Deno.serve(async (req) => {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(projectId)) return reply({error:"Valid project_id required"},400,origin);
     const {data:project,error:projectError} = await admin.from("projects").select("id,title,status,github_url").eq("id",projectId).maybeSingle();
     if (projectError || !project || String(project.status).toLowerCase() !== "active") return reply({error:"Active marketplace project not found"},404,origin);
-    const {data:audit,error:auditError} = await admin.from("code_audits")
+    const {data:auditRows,error:auditError} = await admin.from("code_audits")
       .select("id,repo_url,commit_sha,status,files_scanned,coverage_score,overall_score,risk_level,engine_version,completed_at,critical_count,high_count,medium_count,low_count,info_count")
-      .eq("repo_url",project.github_url || "").eq("status","completed").order("completed_at",{ascending:false}).limit(1).maybeSingle();
+      .eq("status","completed").order("completed_at",{ascending:false}).limit(200);
     if (auditError) throw auditError;
-    const normalizeRepo = (value: unknown) => String(value || "").trim().toLowerCase().replace(/\.git$/, "").replace(/\/$/, "");
-    const auditMatchesCurrentListing = !!audit && !!project.github_url && normalizeRepo(audit.repo_url) === normalizeRepo(project.github_url);
+    const normalizeRepo = (value: unknown) => String(value || "").trim().toLowerCase().replace(/\\.git$/, "").replace(/\\/$/, "");
+    const normalizedListingRepo = normalizeRepo(project.github_url);
+    const audit = normalizedListingRepo ? (auditRows || []).find(row => normalizeRepo(row.repo_url) === normalizedListingRepo) || null : null;
+    const auditMatchesCurrentListing = !!audit;
     let snapshot: Record<string,unknown> = {};
     let auditStatus: "available"|"missing" = "missing";
     if (auditMatchesCurrentListing && audit) {
