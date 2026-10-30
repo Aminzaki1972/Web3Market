@@ -1,6 +1,12 @@
 name: Isolated W3M trust badge checks
 
 on:
+  pull_request:
+    paths:
+      - "supabase/functions/w3m-code-audit/**"
+      - "supabase/functions/w3m-trust-badge/**"
+      - "supabase/config.toml"
+      - ".github/workflows/trust-badge-isolated-tests.yml"
   push:
     branches:
       - feature/trust-badge-isolated-20261031
