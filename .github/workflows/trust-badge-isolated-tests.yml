@@ -51,7 +51,7 @@ jobs:
         run: |
           deno check supabase/functions/w3m-code-audit/index.ts
           deno check supabase/functions/w3m-trust-badge/index.ts
-          deno check supabase/functions/w3m-trust-badge-approve/index.ts
+          deno check supabase/functions/w3m-trust-badge-approve/index.ts\n          deno check js/trust-badges.js
       - name: Run trust badge eligibility tests
         run: deno test supabase/functions/w3m-trust-badge/eligibility.test.ts
       - name: Run structured evidence aggregation tests
