@@ -139,3 +139,17 @@ The live database inspection found:
 ### Current implementation decision
 
 Do not issue a badge from the existing rounded `coverage_score` field alone. Treat the above as a release-blocking requirement for the badge endpoint. This is a design finding only; no production changes were made.
+
+
+## Isolated eligibility-policy prototype added (2026-10-31)
+
+Added an isolated, non-deployed pure policy helper and Deno test suite:
+
+- `supabase/functions/w3m-trust-badge/eligibility.ts`
+- `supabase/functions/w3m-trust-badge/eligibility.test.ts`
+
+The evaluator encodes the agreed hybrid rules: 80–89.99 may receive automatic `code_audit_verified`; 90–100 requires a matching server-sourced Premium approval event. It rejects incomplete file counts, nonzero oversized/unreadable counts, Critical/High findings, unfinished audits, invalid/stale commit SHAs, malformed approval objects, and approvals for another audit or commit.
+
+**Important limitation:** this is a pure policy evaluator only. It does not authenticate a requester, query Supabase, verify GitHub's live branch head, persist or cryptographically protect approvals, or expose an Edge Function endpoint. It must only receive evidence and approval data loaded and validated by a future server-side handler. It is not imported by or wired into the existing `w3m-code-audit` production function.
+
+The Deno tests were added but have **not been executed** in this work session. No production database, secrets, deployed Edge Function, Cloudflare configuration, or live site was changed.
