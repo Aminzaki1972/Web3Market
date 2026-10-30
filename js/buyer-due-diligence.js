@@ -5,7 +5,8 @@ if(!root)return;
 const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let mounted=false, client=null, user=null;
 function mount(){
- if(mounted || !document.getElementById("buyerNotice") || !window.Web3MarketSupabase?.getClient)return;
+ const notice=document.getElementById("buyerNotice");
+ if(mounted || !notice || !notice.textContent.includes("Buyer account verified") || !window.Web3MarketSupabase?.getClient)return;
  client=window.Web3MarketSupabase.getClient(); if(!client)return;
  mounted=true;
  const section=document.createElement("section");
@@ -22,6 +23,8 @@ async function load(){
  const msg=document.getElementById("ddMessage"),select=document.getElementById("ddProject");
  const session=await client.auth.getSession(); user=session.data?.session?.user;
  if(!user){msg.textContent="Sign in to use Buyer Due Diligence.";return}
+ const profile=await client.from("profiles").select("role").eq("id",user.id).maybeSingle();
+ if(profile.error || String(profile.data?.role||"").toLowerCase()!=="buyer"){msg.textContent="Buyer account required.";return}
  const projects=await client.from("projects").select("id,title").eq("status","active").order("title").limit(200);
  if(projects.error){msg.textContent="Marketplace projects could not be loaded.";return}
  select.innerHTML='<option value="">Choose a marketplace project…</option>'+(projects.data||[]).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.title)+'</option>').join("");
