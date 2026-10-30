@@ -18,7 +18,7 @@
 <div id="reports"></div>
 <h2>Add a private note</h2><label for="reportId">Report ID</label><input id="reportId" placeholder="Paste a report ID from above">
 <label for="note">Private note (test text only)</label><textarea id="note" placeholder="Example: Buyer-only test note — not a real assessment."></textarea>
-<div class="actions"><button id="addNote">Save private note</button><button id="checkForeign" class="secondary">Check access to pasted report ID</button></div>
+<div class="actions"><button id="addNote">Save private note</button><button id="checkForeign" class="secondary">Check access to pasted report ID</button><button id="checkPrivateNotes" class="secondary">Check private-note access</button></div>
 <div id="notes"></div>
 </section>
 <small>Project: w3m-buyer-dd-test · EU Central · No production deployment, data, or credentials are used.</small>
@@ -39,5 +39,6 @@ $('createReport').onclick=async()=>{if(!currentUser)return;const {data,error}=aw
 async function loadNotes(id){const {data,error}=await supabase.from('buyer_dd_private_notes').select('id,note,created_at').eq('report_id',id).order('created_at');if(error){$('notes').textContent='Note read error: '+error.message;return;} $('notes').innerHTML=data.length?data.map(n=>'<div class="report">'+esc(n.note)+'<br><small>'+esc(n.created_at)+'</small></div>').join(''):'<p class="muted">No notes visible for this report ID.</p>';show('Visible notes for this report: '+data.length,true);}
 $('addNote').onclick=async()=>{if(!currentUser)return;const report_id=$('reportId').value.trim(),note=$('note').value.trim();if(!report_id||!note){show('Enter a report ID and test note.');return;}const {error}=await supabase.from('buyer_dd_private_notes').insert({report_id,buyer_id:currentUser.id,note});if(error){show('Private note insert blocked or failed: '+error.message);return;}$('note').value='';show('Private note saved for this identity only.',true);await loadNotes(report_id);};
 $('checkForeign').onclick=async()=>{const id=$('reportId').value.trim();if(!id){show('Paste a report ID first.');return;}const {data,error}=await supabase.from('buyer_dd_reports').select('id').eq('id',id);if(error){show('Access check error: '+error.message);return;}show(data.length?'Report is visible to this identity. If this is another buyer’s report, investigate.':'PASS: this identity cannot read that report (0 rows returned).',true);};
+$('checkPrivateNotes').onclick=async()=>{const id=$('reportId').value.trim();if(!id){show('Paste a report ID first.');return;}const {data,error}=await supabase.from('buyer_dd_private_notes').select('id,note').eq('report_id',id);if(error){show('Private-note access check error: '+error.message);return;}show(data.length?'FAIL: this identity can read '+data.length+' note(s) for this report. Review RLS immediately.':'PASS: this identity cannot read private notes for that report (0 rows returned).',true);};
 supabase.auth.onAuthStateChange(()=>{setTimeout(syncSession,0);});await syncSession();
 </script></body></html>
