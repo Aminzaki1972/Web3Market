@@ -72,3 +72,20 @@ If no suitable free environment is available, keep this stage blocked. Do not we
 ## Explicitly prohibited in this plan
 
 No production SQL, migrations, RLS changes, Edge Function deployment, secrets changes, storage changes, billing changes, project restoration, Cloudflare deployment, merge, or public launch.
+
+
+## Stage D — Code Audit disclosure review (read-only design)
+
+Before implementation, verify the exact audit-to-listing relationship and decide which existing result fields the product is authorized to disclose to a buyer. Do not grant buyers direct SELECT access to seller-owned audit rows or child tables. The preferred design is a minimal, server-authorized snapshot with source audit ID and commit SHA retained as provenance, plus scope/coverage, timestamp, and explicitly approved summaries only.
+
+Required outcomes:
+- No audit exists: show "No authorized audit available"; do not infer a clean result.
+- Audit is incomplete or stale: disclose that status and its timestamp.
+- Buyer is not authorized for the audit/listing: return no private audit details.
+- Private buyer report and notes: remain independent from seller audit permissions.
+
+This stage is a design review only; it does not query or alter production data.
+
+## Updated implementation blocker
+
+No verified, active, isolated, no-cost Supabase environment has been confirmed. Therefore real RLS tests, migrations, Edge Function changes, and UI/API integration remain blocked. Continue only with static prototype and documentation work until an isolated environment is verified and the owner explicitly approves its use.
