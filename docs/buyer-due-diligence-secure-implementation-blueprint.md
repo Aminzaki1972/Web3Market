@@ -1,0 +1,96 @@
+# Buyer Due Diligence — Secure Implementation Blueprint
+
+**Branch:** `prototype/w3m-buyer-due-diligence`  
+**Stage:** design only — not deployed or applied to Supabase  
+**Scope:** buyer dashboard feature, private reports
+
+## 1. Proposed data model (logical, not migration SQL)
+
+### `buyer_due_diligence_reports`
+- `id` — generated UUID primary key.
+- `buyer_id` — references the authenticated account identity; set by trusted server/database logic, never accepted from an untrusted browser payload.
+- `listing_id` — references an eligible marketplace listing.
+- `status` — constrained lifecycle such as `queued`, `collecting`, `ready`, `partial`, `failed`, `deleted`.
+- `created_at`, `updated_at`, `completed_at`.
+- `report_version` — version of the report format/collector.
+- `source_snapshot_at` — when evidence was collected.
+- `limitations` — structured list of unavailable checks and scope limitations.
+
+### `buyer_due_diligence_evidence`
+- `id`, `report_id`, `source_type`, `source_url`, `observed_at`.
+- `evidence_class` — constrained values: `verified_public_fact`, `source_claim`, `candidate_only`, `unresolved`.
+- `observation`, `content_hash`, `collector_version`, `metadata`.
+- Keep source observations separate from model-generated summaries. Do not store secrets, private seller credentials or unrestricted scraped page dumps.
+
+### `buyer_due_diligence_notes`
+- `id`, `report_id`, `buyer_id`, `body`, `created_at`, `updated_at`.
+- Notes are private to the report owner and must not be included in seller-facing views or shared exports by default.
+
+### Audit linkage
+Store a nullable reference to an existing saved Code Audit record only after verifying that the buyer is allowed to see the associated listing and audit result. Record the repository commit SHA shown by that audit. Do not duplicate or recalculate its score.
+
+## 2. Authorization invariants
+
+1. The authenticated identity is derived from a verified session; never trust a submitted `buyer_id`, role, or listing owner value.
+2. A report is readable only by its owner. Seller, other buyer, anonymous visitor and ordinary support user have no report access by default.
+3. Creating a report requires that the listing is currently visible to that buyer and that the requested sources are public or explicitly authorized.
+4. Every read, insert, update, delete and export checks report ownership server-side.
+5. Evidence and notes inherit the parent report's ownership. A child row cannot be accessed merely by guessing its UUID.
+6. Update policies must prevent changing `buyer_id` or moving a report to another owner.
+7. Report IDs are opaque identifiers, not access tokens.
+8. No public report URL, public storage bucket, or unauthenticated export is created.
+9. If an account is disabled or access is revoked, future requests must fail authorization. Consider session revocation and token lifetime for sensitive operations.
+10. Any future explicit share flow must create a separate, narrowly scoped share object with expiry and revocation; it is not included now.
+
+## 3. Supabase-specific safeguards for implementation stage
+
+- Enable RLS on every exposed table before granting client access.
+- Use `TO authenticated` plus a real ownership predicate; authentication alone is not authorization.
+- Do not use editable user metadata as an authorization source.
+- For updates, use both row visibility and new-row ownership checks so an owner cannot reassign a record.
+- Review all views: ordinary views can bypass RLS unless configured with appropriate invoker security or kept out of exposed schemas.
+- Avoid `SECURITY DEFINER` functions unless there is a documented necessity and a separate security review.
+- Never expose service-role/secret keys in browser code.
+- Verify Data API grants separately from RLS policies.
+- Run database security advisors and test cross-account access with two distinct buyer accounts before any release.
+
+These are implementation requirements, not confirmation that the current project already satisfies them.
+
+## 4. Backend request flow
+
+1. Browser submits a listing reference and report request from the signed-in buyer dashboard.
+2. Server verifies the session and derives the buyer identity.
+3. Server checks listing visibility and request limits.
+4. Collector retrieves only approved public/authorized sources with SSRF defenses, redirect checks, response-size limits and timeouts.
+5. Collector stores evidence provenance and creates a report state.
+6. Report rendering queries only rows authorized for the current buyer.
+7. Existing Code Audit data is linked by verified audit ID and commit SHA, never fetched by an arbitrary client-provided ID without authorization.
+
+## 5. Minimum security test matrix
+
+| Test | Expected result |
+|---|---|
+| Buyer A reads Buyer A report | Allow |
+| Buyer B reads Buyer A report by guessed UUID | Deny |
+| Seller reads buyer's private report | Deny |
+| Anonymous visitor opens report URL | Deny |
+| Buyer changes submitted `buyer_id` to another account | Reject |
+| Buyer changes report owner on update | Reject |
+| Buyer requests a listing they cannot view | Deny |
+| Buyer reads a child evidence row from another report | Deny |
+| Buyer exports another buyer's report | Deny |
+| Revoked/disabled account requests report | Deny according to revocation policy |
+
+## 6. Rollout gates
+
+- [ ] Review the current marketplace listing access model and existing table policies.
+- [ ] Inspect the existing Code Audit schema and its access rules before linking it.
+- [ ] Confirm whether a separate isolated Supabase test project is available; do not use production for experiments.
+- [ ] Prepare migration SQL only after the above reviews and current Supabase documentation checks.
+- [ ] Apply changes only to the isolated test project after explicit approval.
+- [ ] Run the full two-account authorization matrix and security advisors.
+- [ ] Obtain separate explicit approval before any production migration, function deployment, or live UI integration.
+
+## Explicit non-actions in this stage
+
+No Supabase table, policy, function, secret, storage bucket, production setting, Cloudflare deployment, public route, PR, merge or production file has been changed by this design document.
