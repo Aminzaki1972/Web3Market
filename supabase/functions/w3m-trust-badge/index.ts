@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { collectPages } from "../w3m-code-audit/audit-pagination.ts";
+import { collectPages } from "./pagination.ts";
 import { evaluateTrustBadge, type AuditEvidence } from "./eligibility.ts";
 
 const cors = {
