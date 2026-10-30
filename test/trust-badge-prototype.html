@@ -64,8 +64,13 @@ small,.muted{color:var(--muted)}code{overflow-wrap:anywhere}
 (function(){
  const $=id=>document.getElementById(id);
  function evaluate(a){
+  const numeric=[a.score,a.coverage,a.critical,a.high];
+  if(!numeric.every(Number.isFinite))return {code:"invalid_data",label:"Not Eligible",reason:"Score, coverage and finding counts must be valid numbers."};
+  if(a.score<0||a.score>100||a.coverage<0||a.coverage>100||a.critical<0||a.high<0||!Number.isInteger(a.critical)||!Number.isInteger(a.high))
+   return {code:"invalid_data",label:"Not Eligible",reason:"Values are outside allowed ranges or finding counts are not whole numbers."};
   if(a.status!=="completed")return {code:"not_ready",label:"Audit Not Complete",reason:"The audit is not completed."};
   if(!/^[a-f0-9]{7,64}$/i.test(a.commit))return {code:"invalid_commit",label:"Not Eligible",reason:"A valid audited commit SHA is required."};
+  if(!/^[a-f0-9]{7,64}$/i.test(a.currentCommit))return {code:"invalid_commit",label:"Not Eligible",reason:"A valid current project commit SHA is required."};
   if(a.commit.toLowerCase()!==a.currentCommit.toLowerCase())return {code:"stale",label:"Badge Stale",reason:"The current project commit differs from the audited commit. Re-audit is required."};
   if(a.coverage!==100)return {code:"coverage",label:"Not Eligible",reason:"Coverage must be exactly 100%."};
   if(a.critical>0||a.high>0)return {code:"findings",label:"Not Eligible",reason:"Unresolved Critical or High findings block verification."};
@@ -88,7 +93,11 @@ small,.muted{color:var(--muted)}code{overflow-wrap:anywhere}
  ["High finding present","Not Eligible",{score:85,coverage:100,status:"completed",critical:0,high:1,commit:"abcdef123",currentCommit:"abcdef123",approval:false}],
  ["Coverage 99%","Not Eligible",{score:88,coverage:99,status:"completed",critical:0,high:0,commit:"abcdef123",currentCommit:"abcdef123",approval:false}],
  ["Commit changed after audit","Badge Stale",{score:92,coverage:100,status:"completed",critical:0,high:0,commit:"abcdef123",currentCommit:"fedcba987",approval:true}],
- ["Audit in progress","Audit Not Complete",{score:99,coverage:100,status:"in_progress",critical:0,high:0,commit:"abcdef123",currentCommit:"abcdef123",approval:true}]
+ ["Audit in progress","Audit Not Complete",{score:99,coverage:100,status:"in_progress",critical:0,high:0,commit:"abcdef123",currentCommit:"abcdef123",approval:true}],
+ ["Coverage above 100%","Not Eligible",{score:95,coverage:101,status:"completed",critical:0,high:0,commit:"abcdef123",currentCommit:"abcdef123",approval:true}],
+ ["Negative finding count","Not Eligible",{score:95,coverage:100,status:"completed",critical:-1,high:0,commit:"abcdef123",currentCommit:"abcdef123",approval:true}],
+ ["Missing current commit","Not Eligible",{score:95,coverage:100,status:"completed",critical:0,high:0,commit:"abcdef123",currentCommit:"",approval:true}],
+ ["Score above 100","Not Eligible",{score:101,coverage:100,status:"completed",critical:0,high:0,commit:"abcdef123",currentCommit:"abcdef123",approval:true}]
  ];
  $("tests").innerHTML=cases.map(([name,expected,a])=>{const actual=evaluate(a).label;const pass=actual===expected;return '<tr><td>'+name+'</td><td>'+expected+'</td><td style="color:'+(pass?'#39d98a':'#ff7777')+'">'+(pass?'PASS':'FAIL: '+actual)+'</td></tr>';}).join("");
  render();
