@@ -31,3 +31,9 @@ jobs:
           node-version: 22
       - name: Run AAL parser tests
         run: node --test scripts/test-admin-review-aal.mjs
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check Supabase Edge Function
+        run: deno check supabase/functions/admin-review/index.ts
