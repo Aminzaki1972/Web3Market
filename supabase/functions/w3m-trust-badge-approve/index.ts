@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { extractBearerToken, readJwtClaims } from "./request-auth.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "https://web3market.xyz",
@@ -11,17 +12,6 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
-function tokenClaims(token: string): Record<string, unknown> | null {
-  try {
-    const part = token.split(".")[1];
-    if (!part) return null;
-    const normalized = part.replace(/-/g, "+").replace(/_/g, "/");
-    return JSON.parse(atob(normalized + "=".repeat((4 - normalized.length % 4) % 4)));
-  } catch {
-    return null;
-  }
-}
-
 function validUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
@@ -32,8 +22,8 @@ Deno.serve(async (req: Request) => {
 
   try {
     const authorization = req.headers.get("Authorization") || "";
-    const token = authorization.replace(/^Bearer\\s+/i, "").trim();
-    if (!token || token === authorization) return json({ ok: false, error: "Unauthorized" }, 401);
+    const token = extractBearerToken(authorization);
+    if (!token) return json({ ok: false, error: "Unauthorized" }, 401);
 
     const url = Deno.env.get("SUPABASE_URL");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -49,7 +39,7 @@ Deno.serve(async (req: Request) => {
     const user = authData?.user;
     if (authError || !user) return json({ ok: false, error: "Unauthorized" }, 401);
 
-    const claims = tokenClaims(token);
+    const claims = readJwtClaims(token);
     if (claims?.aal !== "aal2") {
       return json({ ok: false, error: "Administrator MFA verification (AAL2) is required" }, 403);
     }
