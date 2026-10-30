@@ -29,7 +29,7 @@ create index if not exists code_audit_badge_approvals_project_approved_at_idx
 alter table public.code_audit_badge_approvals enable row level security;
 
 -- No browser role can read or mutate the approval ledger directly.
-revoke all privileges on table public.code_audit_badge_approvals from public, anon, authenticated;
+revoke all privileges on table public.code_audit_badge_approvals from public, anon, authenticated, service_role;
 grant select, insert on table public.code_audit_badge_approvals to service_role;
 
 create or replace function public.guard_code_audit_badge_approval()
