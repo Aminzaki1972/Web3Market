@@ -79,7 +79,7 @@ small,.muted{color:var(--muted)}code{overflow-wrap:anywhere}
   if(a.score>=70)return {code:"completed",label:"Audit Completed",reason:"Score is below the 80-point verification threshold."};
   return {code:"improve",label:"Improvement Needed",reason:"Score is below 70."};
  }
- function values(){return {score:Number($("score").value),coverage:Number($("coverage").value),status:$("status").value,critical:Number($("critical").value),high:Number($("high").value),commit:$("commit").value.trim(),currentCommit:$("currentCommit").value.trim(),approval:$("approval").value==="yes"};}
+ function values(){const number=id=>{const raw=$(id).value.trim();return raw===""?NaN:Number(raw);};return {score:number("score"),coverage:number("coverage"),status:$("status").value,critical:number("critical"),high:number("high"),commit:$("commit").value.trim(),currentCommit:$("currentCommit").value.trim(),approval:$("approval").value==="yes"};}
  function render(){const r=evaluate(values());const cls=r.code==="verified"?"standard":r.code==="premium"?"premium":r.code==="premium_pending"?"premium":r.code==="completed"?"neutral":r.code==="improve"?"blocked":"blocked";$("result").innerHTML='<span class="badge '+cls+'">'+r.label+'</span>';$("reason").textContent=r.reason;}
  $("evaluate").addEventListener("click",render);
  $("reset").addEventListener("click",()=>{ $("score").value=85;$("coverage").value=100;$("status").value="completed";$("critical").value=0;$("high").value=0;$("commit").value="a1b2c3d4e5f678901234567890abcdef12345678";$("currentCommit").value="a1b2c3d4e5f678901234567890abcdef12345678";$("approval").value="no";render();});
@@ -97,7 +97,12 @@ small,.muted{color:var(--muted)}code{overflow-wrap:anywhere}
  ["Coverage above 100%","Not Eligible",{score:95,coverage:101,status:"completed",critical:0,high:0,commit:"abcdef123",currentCommit:"abcdef123",approval:true}],
  ["Negative finding count","Not Eligible",{score:95,coverage:100,status:"completed",critical:-1,high:0,commit:"abcdef123",currentCommit:"abcdef123",approval:true}],
  ["Missing current commit","Not Eligible",{score:95,coverage:100,status:"completed",critical:0,high:0,commit:"abcdef123",currentCommit:"",approval:true}],
- ["Score above 100","Not Eligible",{score:101,coverage:100,status:"completed",critical:0,high:0,commit:"abcdef123",currentCommit:"abcdef123",approval:true}]
+ ["Score above 100","Not Eligible",{score:101,coverage:100,status:"completed",critical:0,high:0,commit:"abcdef123",currentCommit:"abcdef123",approval:true}],
+ ["Blank score","Not Eligible",{score:NaN,coverage:100,status:"completed",critical:0,high:0,commit:"abcdef123",currentCommit:"abcdef123",approval:false}],
+ ["Blank coverage","Not Eligible",{score:95,coverage:NaN,status:"completed",critical:0,high:0,commit:"abcdef123",currentCommit:"abcdef123",approval:false}],
+ ["Blank Critical count","Not Eligible",{score:95,coverage:100,status:"completed",critical:NaN,high:0,commit:"abcdef123",currentCommit:"abcdef123",approval:false}],
+ ["Blank High count","Not Eligible",{score:95,coverage:100,status:"completed",critical:0,high:NaN,commit:"abcdef123",currentCommit:"abcdef123",approval:false}],
+ ["Fractional finding count","Not Eligible",{score:95,coverage:100,status:"completed",critical:0.5,high:0,commit:"abcdef123",currentCommit:"abcdef123",approval:false}]
  ];
  $("tests").innerHTML=cases.map(([name,expected,a])=>{const actual=evaluate(a).label;const pass=actual===expected;return '<tr><td>'+name+'</td><td>'+expected+'</td><td style="color:'+(pass?'#39d98a':'#ff7777')+'">'+(pass?'PASS':'FAIL: '+actual)+'</td></tr>';}).join("");
  render();
