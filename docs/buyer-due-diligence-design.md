@@ -1,20 +1,40 @@
-# W3M Buyer Due Diligence — Prototype Design
+# W3M Buyer Due Diligence — Buyer Dashboard Prototype
 
 **Status:** isolated design/prototype only  
-**Target:** Web3Market marketplace buyers  
+**Target:** authenticated buyer dashboard only  
 **Branch:** `prototype/w3m-buyer-due-diligence`
 
-## Product boundary
+## Product placement and access boundary
 
-Buyer Due Diligence is an evidence-organizing report that helps a buyer inspect a listed project before making an offer. It is **not** a W3M Passport, investment recommendation, legal opinion, penetration test, smart-contract certification, or guarantee that a project is legitimate or safe.
+This feature belongs **only inside the signed-in buyer dashboard**. It is not a public website page, public project badge, seller dashboard feature, or general visitor tool.
 
-The official W3M Passport remains a separate identity/status program for eligible, approved Web3Market marketplace listings. Research alone must never create, upgrade, or publish a Passport.
+- Entry point: Buyer Dashboard → **Project Due Diligence**.
+- A buyer starts a report from a marketplace listing they are permitted to view.
+- Reports and buyer notes are private to the requesting buyer by default.
+- Sellers do not receive access to the buyer's private report, saved notes, or decision history.
+- Seller-provided facts may be included only as clearly labelled claims/evidence, not as verified facts.
+- Access must be enforced server-side on every read, create, update, export and delete operation. Hiding a menu item is not authorization.
+- A buyer must not be able to inspect private repositories, non-public listing data, seller accounts, internal platform records, or another buyer's reports.
+- Any future seller response or shared report must require a separate, explicit sharing action and a clearly scoped shared copy. It is not part of this prototype.
+
+The official W3M Passport remains a separate identity/status program for eligible, approved Web3Market marketplace listings. Due Diligence research never creates, upgrades, or publishes a Passport.
 
 ## Prototype contents
 
-- `buyer-due-diligence-demo.html`: standalone, static UI with clearly labelled illustrative data.
-- No Supabase client, API calls, external services, secrets, writes, authentication, or production integration.
-- The demo can be opened as a static page in a branch preview, if the hosting provider creates one.
+- `buyer-dashboard-preview.html`: static visual preview of the feature entry inside the buyer dashboard.
+- `buyer-due-diligence-demo.html`: static sample report detail page intended to be opened from that dashboard.
+- Both pages use illustrative data only. No Supabase client, API calls, external services, secrets, writes, authentication, or production integration.
+- The preview pages are design artifacts, not production-ready access control.
+
+## Buyer journey
+
+1. Buyer signs in and opens the Buyer Dashboard.
+2. Buyer chooses a listed project and selects **Run Due Diligence**.
+3. The system checks listing visibility and buyer authorization server-side.
+4. The report is created from permitted public evidence and the listing's explicitly available information.
+5. The buyer sees progress, evidence provenance, technical findings and unknowns.
+6. The buyer can save private notes and revisit reports from **My Due Diligence Reports**.
+7. The buyer decides whether to contact the seller or submit an offer; the report does not automatically submit an offer or alter a deal.
 
 ## Proposed report sections
 
@@ -23,8 +43,9 @@ The official W3M Passport remains a separate identity/status program for eligibl
 3. **Technical review** — link to an existing W3M AI Code Audit result; do not silently rerun it or copy its score as an overall trust score.
 4. **Risk register** — severity, status (`confirmed`, `likely`, `needs_verification`), evidence, impact and suggested buyer question.
 5. **Change history** — timestamped snapshots and material changes only after a properly secured monitoring service exists.
-6. **Buyer checklist** — ownership/control, IP and licensing, revenue proof, liabilities, admin access, deployment, contracts, dependencies and handover.
-7. **Limitations** — what was not checked, unavailable sources, rate limits, stale evidence and model uncertainty.
+6. **Private buyer notes** — visible only to the report owner unless they explicitly share a separate copy.
+7. **Buyer checklist** — ownership/control, IP and licensing, revenue proof, liabilities, admin access, deployment, contracts, dependencies and handover.
+8. **Limitations** — what was not checked, unavailable sources, rate limits, stale evidence and model uncertainty.
 
 ## Reuse decisions from legacy Passport research
 
@@ -48,8 +69,10 @@ The audit endpoint is a production service. This prototype does not call it.
 
 ## Required security design before any backend work
 
-- Authenticated user session and server-side authorization.
-- Verify the user can access the relevant marketplace listing/report.
+- Authenticated buyer session and server-side authorization for every report operation.
+- Verify the buyer can access the marketplace listing and each referenced audit.
+- Enforce report ownership in database policies; never trust a buyer ID supplied by the browser.
+- No seller, other buyer, public visitor, or ordinary support account can read private buyer reports by default.
 - Strict URL allow-listing and DNS/IP checks on every redirect; block private, loopback, link-local and metadata IP ranges (IPv4 and IPv6).
 - Bounded response size, content types, redirect count, timeout, concurrency and per-user/IP quotas.
 - Do not fetch arbitrary user-supplied URLs from a privileged network context.
@@ -63,16 +86,20 @@ The audit endpoint is a production service. This prototype does not call it.
 ## Suggested delivery sequence
 
 1. Review and threat-model the legacy research/monitor code and existing Code Audit data contract.
-2. Validate the static UI with sample data only.
+2. Validate both static buyer-dashboard and report-detail UI with sample data only.
 3. Design a read-only evidence collector with strict limits and no Passport writes.
 4. Test in an isolated, non-production environment with synthetic/public test targets.
-5. Security and cost review.
-6. Only then request explicit approval for a production integration.
+5. Design and test buyer-only authorization, row-level access and private report ownership.
+6. Security and cost review.
+7. Only then request explicit approval for a production integration.
 
-## Acceptance criteria for the prototype
+## Acceptance criteria
 
+- Entry point exists only in the buyer dashboard after sign-in.
+- Every backend operation checks buyer identity, listing visibility and report ownership server-side.
+- Reports and private notes are private to their buyer by default.
 - All sample data is visibly labelled illustrative.
-- No network requests or writes are made by the demo.
+- No network requests or writes are made by either demo page.
 - No Passport serial or verification badge is generated.
 - Evidence and interpretation are visually distinct.
 - Missing or unverified information is displayed as unknown, not assumed safe.
