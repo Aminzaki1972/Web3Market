@@ -8,7 +8,7 @@
 - https://web3market.xyz/ai-passport.html — AI Project Passport for approved marketplace listings.
 - https://web3market.xyz/passports.html — Passport directory.
 - https://web3market.xyz/code-audit.html — AI-assisted source-code audit tool.
-- https://web3market.xyz/future-lab/ — Articles and ideas about AI, Web3, blockchain, and robotics.
+- https://web3market.xyz/future-lab.html — Articles and ideas about AI, Web3, blockchain, and robotics.
 
 ## Business model
 - Project listings are free.
