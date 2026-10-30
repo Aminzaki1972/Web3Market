@@ -93,3 +93,49 @@ The existing prototype's browser approval toggle is illustrative only and must n
 ## Release boundary
 
 This document is a design plan only. No migration or endpoint has been created. Do not change production schema, RLS, secrets, Edge Functions, Cloudflare configuration, or deployment until the owner explicitly approves a reviewed implementation plan.
+
+
+## Follow-up source review — coverage calculation and admin-log writes (2026-10-31)
+
+### Coverage calculation: important precision issue found
+
+The deployed audit function imports `calculateAuditCoverage` from `audit-selection.ts`. Its current implementation is:
+
+```ts
+Math.max(0, Math.min(100, Math.round(scanned / Math.max(1, eligible) * 100)))
+```
+
+The candidate denominator is the complete set of eligible repository files after the scanner's explicit path/extension exclusions. Files larger than 1 MB remain in that denominator but are excluded from the readable fetch list. Fetch failures are also counted as unreadable and omitted from persisted `code_audit_files`.
+
+At finalization, the worker computes:
+- `totalScannedFiles` from persisted `code_audit_files` rows;
+- `candidateCount` from all eligible candidates;
+- `totalOversized` and `totalUnreadable` from batch counters;
+- `coverage_score` using the rounded percentage helper.
+
+**Badge consequence:** `coverage_score = 100` alone is not a sufficiently strict proof of 100% coverage. Because the percentage is rounded, a near-complete scan can display 100. A badge gate must independently require:
+- `files_scanned === analysis_progress.eligible_files` (both positive);
+- zero oversized eligible files;
+- zero unreadable files;
+- completed status and all file metadata persisted;
+- a complete recursive Git tree (the worker already fails if GitHub returns a truncated tree).
+
+The final `analysis_progress` currently stores `eligible_files` but does not retain structured final `batch_stats`; oversized/unreadable totals are currently included in the human-readable audit summary. For a reliable future badge decision, persist these counts as explicit machine-readable fields (or derive them from a trusted immutable scan manifest) rather than parsing summary prose.
+
+The scanner intentionally excludes configured directories and non-code/binary extensions from the denominator. This is a definition of "eligible source-file coverage", not coverage of every file in the repository. The badge's public wording should say "100% of eligible source files scanned", not "100% of the entire repository".
+
+### Admin audit log: trigger evidence and write boundary
+
+A repository migration defines database triggers that insert activity records into `admin_audit_log` for project, profile, deal lifecycle, and support-conversation changes. The trigger functions are SECURITY DEFINER and revoke direct execution from public, anon, and authenticated roles.
+
+The live database inspection found:
+- RLS enabled on `admin_audit_log`;
+- no table policies and no user-defined triggers on the log table itself;
+- `service_role` has INSERT, SELECT, UPDATE, DELETE, and TRUNCATE privileges on the log table;
+- no `anon` or `authenticated` table grants were returned.
+
+**Conclusion:** the log is protected from direct ordinary-client access under the observed grants/policies, and existing business triggers append activity records. It is not cryptographically or database-enforced append-only: privileged service-role code can update/delete/truncate it. Do not reuse it as the sole Premium approval ledger unless the design explicitly accepts that trust boundary. Prefer a dedicated approval-event table with no client write grants, narrowly scoped server writes, immutable event semantics, and tightly audited service-role access.
+
+### Current implementation decision
+
+Do not issue a badge from the existing rounded `coverage_score` field alone. Treat the above as a release-blocking requirement for the badge endpoint. This is a design finding only; no production changes were made.
