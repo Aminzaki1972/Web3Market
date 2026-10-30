@@ -14,14 +14,14 @@ The production Supabase project currently has these relevant structures:
 - `admin_users`: contains `user_id` and `created_at`; RLS is enabled. Its observed policy permits an authenticated user to read only their own membership row.
 - `admin_audit_log`: already exists with `actor_id`, `category`, `action`, `target_type`, `target_id`, `details`, `outcome`, and timestamps.
 
-The audit tables have owner-or-admin SELECT policies. The audit function currently performs an explicit Supabase user lookup using `auth.getUser()`, then creates/updates audit rows using its server-side service-role client. The deployed function metadata reported `verify_jwt=false`; the handler's explicit user verification is therefore an important existing control and must not be removed casually.
+The audit tables have owner-or-admin SELECT policies. Finding severity is constrained to critical/high/medium/low/info and finding status to confirmed/likely/needs_verification; there is no resolved status. A read-only grouped inspection found Critical and High findings currently present, so the platform's strict zero-Critical/zero-High rule would block any audit containing them. The audit function currently performs an explicit Supabase user lookup using `auth.getUser()`, then creates/updates audit rows using its server-side service-role client. The deployed function metadata reported `verify_jwt=false`; the handler's explicit user verification is therefore an important existing control and must not be removed casually.
 
 ## Important unknowns — do not assume
 
 1. The exact meaning and calculation guarantees of `coverage_score` must be confirmed from the audit completion path before it is accepted as the badge's 100% coverage value.
-2. Finding `status` values and the canonical definition of "unresolved" must be confirmed from constraints and all write paths. Do not assume every status other than a literal string is resolved.
+2. Finding status is constrained to `confirmed`, `likely`, and `needs_verification`; there is no `resolved` status in the current table constraint. Therefore every Critical or High finding currently blocks verification. Remediation should be demonstrated by a fresh completed audit, not by assuming a finding can be marked resolved in place.
 3. The current project/listing-to-repository binding must be revalidated. A stored `project_id` alone does not prove that a later repository URL still belongs to that listing.
-4. `admin_audit_log` is an existing activity log, not yet proven append-only or suitable as the authoritative Premium approval ledger. Inspect its RLS, grants, triggers, and all write paths before considering reuse.
+4. `admin_audit_log` has RLS enabled, but the inspection found no table policies and no non-internal triggers. This means ordinary client roles have no policy-based access, but it does not prove append-only behavior for privileged server/service-role writers. It is not yet suitable as the authoritative Premium approval ledger without inspecting grants and every privileged write path.
 5. The current branch head must be fetched from GitHub at approval/read time. A saved audit commit SHA is an immutable historical snapshot, not proof that it is still the listing's current code.
 
 ## Proposed trusted eligibility calculation
