@@ -104,7 +104,12 @@ small,.muted{color:var(--muted)}code{overflow-wrap:anywhere}
  ["Blank High count","Not Eligible",{score:95,coverage:100,status:"completed",critical:0,high:NaN,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
  ["Fractional finding count","Not Eligible",{score:95,coverage:100,status:"completed",critical:0.5,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
  ["Abbreviated commit SHA","Not Eligible",{score:85,coverage:100,status:"completed",critical:0,high:0,commit:"abcdef123",currentCommit:"abcdef123",approval:false}],
- ["Malformed commit SHA","Not Eligible",{score:85,coverage:100,status:"completed",critical:0,high:0,commit:"g".repeat(40),currentCommit:"g".repeat(40),approval:false}]
+ ["Malformed commit SHA","Not Eligible",{score:85,coverage:100,status:"completed",critical:0,high:0,commit:"g".repeat(40),currentCommit:"g".repeat(40),approval:false}],
+ ["79.99 boundary","Audit Completed",{score:79.99,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["89.99 boundary","Code Audit Verified",{score:89.99,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["90.01 without approval","Premium Approval Required",{score:90.01,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:false}],
+ ["100 with approval","Premium Verified",{score:100,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:true}],
+ ["Score 100.01","Not Eligible",{score:100.01,coverage:100,status:"completed",critical:0,high:0,commit:"a1b2c3d4e5f678901234567890abcdef12345678",currentCommit:"a1b2c3d4e5f678901234567890abcdef12345678",approval:true}]
  ];
  $("tests").innerHTML=cases.map(([name,expected,a])=>{const actual=evaluate(a).label;const pass=actual===expected;return '<tr><td>'+name+'</td><td>'+expected+'</td><td style="color:'+(pass?'#39d98a':'#ff7777')+'">'+(pass?'PASS':'FAIL: '+actual)+'</td></tr>';}).join("");
  render();
