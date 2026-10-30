@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Web3Market Buyer DD — Isolated Auth Test</title>
+<style>
+:root{color-scheme:dark;--bg:#09111f;--panel:#121e31;--line:#2b3c57;--text:#eef4ff;--muted:#a8b6cb;--blue:#83b3ff;--green:#75d6ad;--red:#ff9999}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,sans-serif}.panel{width:min(100%,520px);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px}h1{font-size:23px;margin:4px 0}.muted{color:var(--muted)}.tag{color:var(--blue);font-size:11px;font-weight:800;letter-spacing:.12em}.warning{padding:12px;border:1px solid #735d35;border-radius:9px;background:#241f15;color:#f2d7a6;font-size:12px;margin:16px 0}label{display:block;margin:14px 0 5px;color:var(--muted);font-size:12px}input{width:100%;padding:12px;border-radius:8px;border:1px solid var(--line);background:#0a1424;color:var(--text);font:inherit}button{padding:11px 15px;border:0;border-radius:8px;background:var(--blue);color:#071326;font-weight:800;cursor:pointer}button.secondary{background:#263852;color:var(--text);border:1px solid var(--line)}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:17px}.status{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:15px;padding:12px;border-radius:8px;background:#0b1728;border:1px solid var(--line);font-size:12px}.ok{color:var(--green)}.bad{color:var(--red)}small{display:block;color:var(--muted);margin-top:14px}
+</style>
+</head>
+<body>
+<main class="panel">
+<div class="tag">ISOLATED TEST PROJECT · NOT PRODUCTION</div>
+<h1>Web3Market Due Diligence — Test Access</h1>
+<p class="muted">Use an email address you already own and use on Web3Market. This creates a separate identity only in the isolated test project; it does not change your production account.</p>
+<div class="warning"><strong>Important:</strong> Never enter your production password here. Choose a temporary test password. Signup may send a verification email. No production data is accessed by this page.</div>
+<label for="email">Existing email address</label>
+<input id="email" type="email" autocomplete="email" placeholder="you@example.com">
+<label for="password">Temporary test-project password</label>
+<input id="password" type="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters">
+<div class="actions">
+<button id="signup">Create isolated test login</button>
+<button id="signin" class="secondary">Sign in</button>
+<button id="signout" class="secondary" hidden>Sign out</button>
+</div>
+<div id="status" class="status" role="status" aria-live="polite">Not connected. This page only authenticates against the dedicated test project.</div>
+<small>Test project: w3m-buyer-dd-test · Region: EU Central · No production deployment or database writes from this page.</small>
+</main>
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const supabase = createClient('https://nizguzhmyjodujdmoygl.supabase.co','sb_publishable_ZAPQc08e0_Ie4rwFWM7YfQ_sNSmneNg');
+const $ = id => document.getElementById(id);
+const show = (message, good=false) => { $('status').textContent=message; $('status').className='status '+(good?'ok':''); };
+const credentials = () => ({email:$('email').value.trim(),password:$('password').value});
+$('signup').addEventListener('click',async()=>{
+ const {email,password}=credentials();
+ if(!email || password.length<8){show('Enter a valid email and a temporary password of at least 8 characters.');return;}
+ $('signup').disabled=true;
+ const {data,error}=await supabase.auth.signUp({email,password});
+ $('signup').disabled=false;
+ if(error){show('Signup error: '+error.message);return;}
+ show(data.session?'Test account created and signed in. User ID: '+data.user.id:'Signup request accepted. Check this mailbox for the verification email, then sign in. User ID: '+(data.user?.id||'pending'),true);
+});
+$('signin').addEventListener('click',async()=>{
+ const {email,password}=credentials();
+ if(!email||!password){show('Enter your email and temporary test password.');return;}
+ const {data,error}=await supabase.auth.signInWithPassword({email,password});
+ if(error){show('Sign-in error: '+error.message);return;}
+ show('Signed in to the isolated test project. User ID: '+data.user.id,true);
+ $('signout').hidden=false;
+});
+$('signout').addEventListener('click',async()=>{
+ const {error}=await supabase.auth.signOut();
+ show(error?'Sign-out error: '+error.message:'Signed out from the test project.',!error);
+ $('signout').hidden=true;
+});
+</script>
+</body></html>
