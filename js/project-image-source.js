@@ -44,7 +44,10 @@
   }
 
   async function patchHomepage() {
-    const cards = [...document.querySelectorAll('.listing[data-project-id]')];
+    const cards = [...document.querySelectorAll('.listing[data-project-id]')].filter((card) => {
+      const art = card.querySelector('.listingArt');
+      return art && !/url\\(/i.test(art.style.backgroundImage || '');
+    });
     if (!cards.length) return;
     const sb = client();
     if (!sb) return;
@@ -81,9 +84,9 @@
   }
 
   function boot() {
-    patchHomepage().catch(() => {});
     patchDetail().catch(() => {});
   }
+  window.addEventListener('web3market:projects-rendered', () => patchHomepage().catch(() => {}));
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
   window.addEventListener('load', boot, { once: true });
