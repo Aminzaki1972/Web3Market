@@ -154,7 +154,29 @@ Deno.serve(async (req: Request) => {
     if (Number(progress.persisted_file_count) !== persistedFiles.length) {
       return json({ ok: true, badge: null, reason: "persisted_file_count_mismatch" });
     }
-    const decision = evaluateTrustBadge(evidence);
+    let premiumApproval = null;
+    if (Number(audit.overall_score) >= 90) {
+      const { data: approval, error: approvalError } = await admin
+        .from("code_audit_badge_approvals")
+        .select("audit_id,project_id,commit_sha,approved_by,event_id")
+        .eq("audit_id", audit.id)
+        .eq("project_id", projectId)
+        .eq("commit_sha", String(audit.commit_sha || "").toLowerCase())
+        .maybeSingle();
+      if (approvalError) throw approvalError;
+      if (approval) {
+        premiumApproval = {
+          approved: true,
+          source: "server" as const,
+          audit_id: String(approval.audit_id),
+          commit_sha: String(approval.commit_sha),
+          actor_id: String(approval.approved_by),
+          event_id: String(approval.event_id),
+        };
+      }
+    }
+
+    const decision = evaluateTrustBadge(evidence, premiumApproval);
     return json({
       ok: true,
       badge: decision.eligible ? decision.badge : null,
@@ -165,7 +187,9 @@ Deno.serve(async (req: Request) => {
       current_commit: currentCommitSha,
       completed_at: audit.completed_at,
       evidence_version: progress.evidence_version,
-      premium_status: Number(audit.overall_score) >= 90 ? "admin_approval_ledger_required" : "not_applicable",
+      premium_status: Number(audit.overall_score) >= 90
+        ? decision.badge === "premium_verified" ? "approved" : "admin_approval_required"
+        : "not_applicable",
     });
   } catch (error) {
     console.error("w3m-trust-badge request failed", error instanceof Error ? error.message : "unknown error");
