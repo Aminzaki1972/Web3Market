@@ -30,9 +30,19 @@ Deno.serve(async (req) => {
       .select("id",{count:"exact",head:true}).eq("buyer_id",user.id).gte("created_at",since);
     if (rateError) throw rateError;
     if ((recentReports || 0) >= 10) return reply({error:"Report limit reached. Try again later."},429,origin);
-    const body = await req.json();
-    const projectId = String(body.project_id || "");
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(projectId)) return reply({error:"Valid project_id required"},400,origin);
+    let body: Record<string, unknown>;
+    try {
+      const parsed = await req.json();
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return reply({error:"JSON object required"},400,origin);
+      }
+      body = parsed as Record<string, unknown>;
+    } catch {
+      return reply({error:"Valid JSON body required"},400,origin);
+    }
+    const projectId = String(body.project_id || "").trim();
+    // Accept canonical UUIDs across versions (including newer UUIDv7 IDs).
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId)) return reply({error:"Valid project_id required"},400,origin);
     const {data:project,error:projectError} = await admin.from("projects").select("id,title,status,github_url").eq("id",projectId).maybeSingle();
     if (projectError || !project || String(project.status).toLowerCase() !== "active") return reply({error:"Active marketplace project not found"},404,origin);
     const normalizeRepo = (value: unknown) => {
