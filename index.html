@@ -1,6 +1,10 @@
 <!doctype html>
 <html lang="en">
 <head>
+<link rel="preconnect" href="https://www.googletagmanager.com" crossorigin>
+<link rel="preconnect" href="https://pagead2.googlesyndication.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="canonical" href="https://web3market.xyz/">
 <!-- Google tag (gtag.js) — Web3Market GA4 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-DBNFYVMZBT"></script>
 <script>
@@ -159,7 +163,7 @@ if("serviceWorker" in navigator){ window.addEventListener("load",function(){ nav
 
 <script src="js/auth-aware-navigation.js?v=20261013-4" defer></script>
 <script src="/js/brand.js?v=20261008" defer></script>
-<script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js?v=20261011").catch(function(){});});}</script>
+<!-- Service worker is registered once above to avoid duplicate registration/update checks. -->
 <script src="js/support-account-routing.js?v=20261021-1" defer></script>
 </body>
 </html>
