@@ -105,10 +105,10 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, badge: null, reason: "batch_evidence_mismatch" });
     }
 
-    const persistedFiles = await collectPages(async (from, to) =>
+    const persistedFiles = await collectPages<{path:string}>(async (from, to) =>
       await admin.from("code_audit_files").select("path").eq("audit_id", audit.id).range(from, to)
     );
-    const persistedFindings = await collectPages(async (from, to) =>
+    const persistedFindings = await collectPages<{severity:string}>(async (from, to) =>
       await admin.from("code_audit_findings").select("severity").eq("audit_id", audit.id).range(from, to)
     );
     const findingCounts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
