@@ -3,6 +3,7 @@
   "use strict";
   const CACHE_TTL_MS = 30_000;
   const cache = new Map();
+  const NO_BADGE = Symbol("no-badge");
   const active = new Map();
   let refreshGeneration = 0;
   let lastRefreshAt = 0;
@@ -18,15 +19,17 @@
   async function decision(projectId) {
     const now = Date.now();
     const cached = cache.get(projectId);
-    if (cached && cached.expiresAt > now) return cached.promise;
+    if (cached && cached.expiresAt > now) return cached.promise.then(result => result === NO_BADGE ? null : result);
     const request = (async () => {
       const sb = client();
       if (!sb?.functions?.invoke) return null;
       try {
         const { data, error } = await sb.functions.invoke("w3m-trust-badge", { body: { project_id: projectId } });
-        if (error || data?.ok !== true || !data?.badge) return null;
-        if (!["code_audit_verified", "premium_verified"].includes(data.badge)) return null;
-        if (!Number.isFinite(Number(data.score)) || Number(data.score) < 80 || !/^[0-9a-f]{40}$/i.test(String(data.audited_commit || "")) || String(data.audited_commit).toLowerCase() !== String(data.current_commit || "").toLowerCase()) return null;
+        if (error || data?.ok !== true) return null;
+        if (data.badge === null) return NO_BADGE;
+        if (!data.badge) return null;
+        if (!["code_audit_verified", "premium_verified"].includes(data.badge)) return NO_BADGE;
+        if (!Number.isFinite(Number(data.score)) || Number(data.score) < 80 || !/^[0-9a-f]{40}$/i.test(String(data.audited_commit || "")) || String(data.audited_commit).toLowerCase() !== String(data.current_commit || "").toLowerCase()) return NO_BADGE;
         return data;
       } catch (error) { console.warn("W3M trust badge verification unavailable:", error); return null; }
     })();
@@ -34,7 +37,7 @@
     cache.set(projectId, entry);
     const result = await request;
     if (!result && cache.get(projectId) === entry) cache.delete(projectId);
-    return result;
+    return result === NO_BADGE ? null : result;
   }
 
   function badgeHtml(data, compact) {
