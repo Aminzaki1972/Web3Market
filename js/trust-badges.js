@@ -142,14 +142,15 @@
       observer.observe(page, { childList: true, subtree: true });
       void decorateProjectPage();
     }
-    const listingGrid = document.querySelector(".listingGrid");
-    if (listingGrid) {
+    const listingRoot = document.querySelector(".listingGrid, .wm-sold-grid");
+    if (listingRoot) {
       const observer = new MutationObserver(decorateListings);
-      observer.observe(listingGrid.parentElement || document.body, {
+      observer.observe(listingRoot.parentElement || document.body, {
         childList: true, subtree: true
       });
-      decorateListings();
     }
+    // Run once even when a page contains only sold listings.
+    decorateListings();
     window.addEventListener("focus", refreshVisibleBadges);
     document.addEventListener("visibilitychange", refreshVisibleBadges);
   }
