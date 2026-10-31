@@ -3,7 +3,7 @@
   "use strict";
   const CACHE_TTL_MS = 30_000;
   const cache = new Map();
-  const active = new Set();
+  const active = new Map();
   let refreshGeneration = 0;
   let lastRefreshAt = 0;
 
@@ -95,9 +95,10 @@
 
   async function decorateListingCard(article) {
     const id = article?.getAttribute("data-project-id");
-    if (!id || article.dataset.wmTrustBadgeChecked === "1" || active.has(id)) return;
+    if (!id || article.dataset.wmTrustBadgeChecked === "1") return;
     const generation = refreshGeneration;
-    active.add(id);
+    if (active.get(id) === generation) return;
+    active.set(id, generation);
     try {
       const result = await decision(id);
       if (!result || generation !== refreshGeneration || !article.isConnected) return;
@@ -109,7 +110,7 @@
       seller.appendChild(host);
       article.dataset.wmTrustBadgeChecked = "1";
     } finally {
-      active.delete(id);
+      if (active.get(id) === generation) active.delete(id);
     }
   }
 
@@ -123,7 +124,6 @@
     lastRefreshAt = Date.now();
     refreshGeneration++;
     cache.clear();
-    active.clear();
 
     document.querySelectorAll("[data-wm-code-audit-badge], [data-wm-trust-badge]")
       .forEach(node => node.remove());
