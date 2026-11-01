@@ -7,9 +7,10 @@ import { queuedNextBatchProgress } from "./audit-progress.ts";
 import { assertAuditWriteSucceeded } from "./audit-persistence.ts";
 import { filterMissingAuditFindings } from "./audit-findings.ts";
 import { buildTrustBadgeCompletionEvidence } from "./trust-badge-evidence.ts";
-const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS"};
-const json=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...cors,"Content-Type":"application/json"}});
-const fail=(m:string,s=400,extra:any={})=>json({ok:false,error:m,...extra},s);
+const allowedOrigins=new Set(["https://web3market.xyz","https://www.web3market.xyz"]);
+function corsHeaders(req:Request){const origin=req.headers.get("Origin")||"";const headers:Record<string,string>={"Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS","Vary":"Origin"};if(allowedOrigins.has(origin))headers["Access-Control-Allow-Origin"]=origin;return headers;}
+const json=(req:Request,x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...corsHeaders(req),"Content-Type":"application/json"}});
+const fail=(req:Request,m:string,s=400,extra:any={})=>json(req,{ok:false,error:m,...extra},s);
 
 function repo(u:string){const x=new URL(u);if(x.protocol!=="https:"||x.hostname!=="github.com")throw Error("Only public GitHub repositories are supported.");const p=x.pathname.split("/").filter(Boolean);if(p.length<2)throw Error("Invalid GitHub repository URL.");return {owner:p[0],name:p[1].replace(/\.git$/,"")};}
 
