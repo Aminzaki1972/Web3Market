@@ -2,23 +2,25 @@
 (function(){
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   function manager(){return window.Web3MarketWalletManager||null}
+  let managerLoadPromise=null;
   async function ensureManager(){
-    let wm=manager();
-    if(wm)return wm;
-    const notice=document.getElementById("walletNotice");
-    if(notice)notice.textContent="Loading wallet connection…";
-    try{
-      const s=document.createElement("script");
-      s.src="/js/wallet-manager.js?v=20261014-dashboard-wallet-fix1";
-      s.async=false;
-      document.head.appendChild(s);
-    }catch(e){console.warn("Web3Market wallet manager reload failed",e)}
-    for(let i=0;i<80;i++){
-      wm=manager();
-      if(wm)return wm;
-      await sleep(100);
+    const ready=manager();if(ready)return ready;
+    if(!managerLoadPromise){
+      managerLoadPromise=(async()=>{
+        const notice=document.getElementById("walletNotice");
+        if(notice)notice.textContent="Loading wallet connection…";
+        let script=document.getElementById("web3market-wallet-manager-dynamic");
+        if(!script){
+          script=document.createElement("script");script.id="web3market-wallet-manager-dynamic";
+          script.src="/js/wallet-manager.js?v=20261014-dashboard-wallet-fix1";script.async=true;
+          const loaded=new Promise((resolve,reject)=>{script.addEventListener("load",resolve,{once:true});script.addEventListener("error",()=>reject(new Error("Wallet manager script failed to load.")),{once:true})});
+          document.head.appendChild(script);await loaded;
+        }
+        for(let i=0;i<80;i++){const wm=manager();if(wm)return wm;await sleep(100)}
+        return null;
+      })().finally(()=>{managerLoadPromise=null});
     }
-    return null;
+    return managerLoadPromise;
   }
   const wanted=()=>new URLSearchParams(location.search).get("wm_wallet");
   function closeModal(){const m=document.getElementById("walletModal");if(m){m.hidden=true;m.style.display="none"}}
