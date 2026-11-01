@@ -318,7 +318,6 @@
   });
   reasonField.focus();
  }
- }
  renderDealWalletState();
  await loadMessages();await renderTerms();
  // Safe deployment is manual-only from the Deal Room button to prevent automatic rerenders from hiding diagnostics or starting repeated deployment attempts.
