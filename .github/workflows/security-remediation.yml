@@ -69,3 +69,28 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
           PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/security/profile-guard.sql
+  cdn-sri-hashes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify pinned CDN assets against npm package tarballs and calculate SHA-384
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          mkdir -p "$work/supabase" "$work/ethers"
+
+          npm pack @supabase/supabase-js@2.118.0 --pack-destination "$work"
+          supabase_tgz="$(find "$work" -maxdepth 1 -name 'supabase-supabase-js-2.118.0.tgz' -print -quit)"
+          test -n "$supabase_tgz"
+          tar -xzf "$supabase_tgz" -C "$work/supabase"
+          curl -fsSL 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js' -o "$work/supabase-cdn.js"
+          cmp "$work/supabase/package/dist/umd/supabase.js" "$work/supabase-cdn.js"
+          echo "SUPABASE_SRI=sha384-$(openssl dgst -sha384 -binary "$work/supabase-cdn.js" | openssl base64 -A)"
+
+          npm pack ethers@6.15.0 --pack-destination "$work"
+          ethers_tgz="$(find "$work" -maxdepth 1 -name 'ethers-6.15.0.tgz' -print -quit)"
+          test -n "$ethers_tgz"
+          tar -xzf "$ethers_tgz" -C "$work/ethers"
+          curl -fsSL 'https://cdn.jsdelivr.net/npm/ethers@6.15.0/dist/ethers.umd.min.js' -o "$work/ethers-cdn.js"
+          cmp "$work/ethers/package/dist/ethers.umd.min.js" "$work/ethers-cdn.js"
+          echo "ETHERS_SRI=sha384-$(openssl dgst -sha384 -binary "$work/ethers-cdn.js" | openssl base64 -A)"
