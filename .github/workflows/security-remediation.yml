@@ -1,0 +1,71 @@
+name: Security remediation checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'js/deal-checkout.js'
+      - 'js/deal-room.js'
+      - 'js/seller-wallet.js'
+      - 'js/ai-passport-history.js'
+      - 'js/auth.js'
+      - 'js/delete-account.js'
+      - 'wallet.js'
+      - 'auth-callback.html'
+      - 'deal-room.html'
+      - 'index.html'
+      - 'login.html'
+      - 'project.html'
+      - 'seller-dashboard.html'
+      - 'supabase/functions/w3m-code-audit/**'
+      - 'supabase/migrations/**'
+      - 'tests/security/**'
+      - '.github/workflows/security-remediation.yml'
+  push:
+    branches: [security/audit-25-remediation-20261101]
+
+jobs:
+  javascript-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check modified browser JavaScript syntax
+        run: |
+          set -euo pipefail
+          for file in \
+            js/deal-checkout.js \
+            js/deal-room.js \
+            js/seller-wallet.js \
+            js/ai-passport-history.js \
+            js/auth.js \
+            js/delete-account.js \
+            wallet.js; do
+            node --check "$file"
+          done
+
+  profile-guard-migration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test profile privilege migration on disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          container_id="$(docker ps --filter 'ancestor=postgres:16' --format '{{.ID}}' | head -n 1)"
+          test -n "$container_id"
+          docker exec -i "$container_id" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/security/profile-guard.sql
