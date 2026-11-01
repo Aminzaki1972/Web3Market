@@ -14,6 +14,12 @@ on:
       - 'auth-callback.html'
       - 'deal-room.html'
       - 'index.html'
+      - 'admin-login.html'
+      - 'admin-mfa-v2.html'
+      - 'admin-mfa.html'
+      - 'register.html'
+      - 'sell-project.html'
+      - 'verification.html'
       - 'login.html'
       - 'project.html'
       - 'seller-dashboard.html'
@@ -86,6 +92,8 @@ jobs:
           tar -xzf "$supabase_tgz" -C "$work/supabase"
           curl -fsSL 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js' -o "$work/supabase-cdn.js"
           cmp "$work/supabase/package/dist/umd/supabase.js" "$work/supabase-cdn.js"
+          curl -fsSL 'https://unpkg.com/@supabase/supabase-js@2.118.0/dist/umd/supabase.js' -o "$work/supabase-unpkg.js"
+          cmp "$work/supabase/package/dist/umd/supabase.js" "$work/supabase-unpkg.js"
           echo "SUPABASE_SRI=sha384-$(openssl dgst -sha384 -binary "$work/supabase-cdn.js" | openssl base64 -A)"
 
           npm pack ethers@6.15.0 --pack-destination "$work"
