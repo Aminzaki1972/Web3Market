@@ -2,7 +2,6 @@
 (function(){
   const SUPABASE_URL="https://hzhqlexnhtukfljcvnyd.supabase.co";
   const FUNCTION_URL=SUPABASE_URL+"/functions/v1/delete-account";
-  let inserted=false;
 
   function getClient(){
     return window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase||null;
@@ -32,9 +31,8 @@
 
   function mount(){
     const root=document.getElementById("sellerGrid")||document.getElementById("buyerRoot");
-    if(!root||inserted)return;
+    if(!root||document.getElementById("deleteAccountPanel"))return;
     if(!root.innerHTML||/Loading seller dashboard|Loading Buyer Center/i.test(root.textContent||""))return;
-    inserted=true;
 
     const logoutBox=document.createElement("section");
     logoutBox.id="logoutAccountPanel";
