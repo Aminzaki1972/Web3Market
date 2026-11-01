@@ -16,9 +16,9 @@ insert into public.support_agents (user_id) values ('00000000-0000-0000-0000-000
 insert into public.support_conversations (id, user_id, subject) values
  ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','Buyer private conversation'),
  ('10000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000002','Seller private conversation');
-insert into public.support_messages (conversation_id, sender_id, body) values
- ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','Buyer private message'),
- ('10000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000002','Seller private message');
+insert into public.support_messages (id, conversation_id, sender_id, body) values
+ ('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','Buyer private message'),
+ ('20000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000002','Seller private message');
 
 insert into realtime.messages(topic, extension, payload, event, private) values
  ('support-call:10000000-0000-0000-0000-000000000001','broadcast','{"type":"seed"}','signal',true),
@@ -285,3 +285,78 @@ end $$;
 reset role;
 
 select 'PASS: private call signaling RLS blocks cross-account topic access in disposable PostgreSQL' as result;
+
+
+-- Read receipts: participants can mark only incoming messages in their own thread.
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal1"}',false);
+do $$
+declare incoming_id uuid; own_id uuid;
+begin
+  select id into incoming_id from public.support_messages
+  where conversation_id='10000000-0000-0000-0000-000000000001'
+    and sender_id <> '00000000-0000-0000-0000-000000000001'
+  order by created_at limit 1;
+  if incoming_id is null then raise exception 'FAIL: no incoming message available for read receipt test'; end if;
+  insert into public.support_message_reads(message_id, reader_id)
+  values (incoming_id,'00000000-0000-0000-0000-000000000001');
+  if not exists (select 1 from public.support_message_reads where message_id=incoming_id and reader_id='00000000-0000-0000-0000-000000000001') then
+    raise exception 'FAIL: participant could not record an incoming message read';
+  end if;
+  own_id := '20000000-0000-0000-0000-000000000001';
+  begin
+    insert into public.support_message_reads(message_id, reader_id)
+    values (own_id,'00000000-0000-0000-0000-000000000001');
+    raise exception 'FAIL: participant marked their own message as read';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.support_message_reads(message_id, reader_id)
+    values ('20000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000001');
+    raise exception 'FAIL: participant marked another account message as read';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+
+-- An assigned support agent may mark reads and broadcast typing at AAL1,
+-- but still cannot change conversation status (checked above).
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000004',false);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal1"}',false);
+select set_config('realtime.topic','support-chat:10000000-0000-0000-0000-000000000001',false);
+do $$
+declare incoming_id uuid;
+begin
+  select id into incoming_id from public.support_messages
+  where conversation_id='10000000-0000-0000-0000-000000000001'
+    and sender_id <> '00000000-0000-0000-0000-000000000004'
+  order by created_at limit 1;
+  insert into public.support_message_reads(message_id, reader_id)
+  values (incoming_id,'00000000-0000-0000-0000-000000000004');
+  insert into realtime.messages(topic, extension, payload, event, private)
+  values ('support-chat:10000000-0000-0000-0000-000000000001','broadcast','{"typing":true}','typing',true);
+  if not exists (select 1 from realtime.messages where topic='support-chat:10000000-0000-0000-0000-000000000001' and event='typing') then
+    raise exception 'FAIL: assigned support agent could not publish typing at AAL1';
+  end if;
+end $$;
+reset role;
+
+-- A buyer can publish typing only in their own private support topic.
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal1"}',false);
+select set_config('realtime.topic','support-chat:10000000-0000-0000-0000-000000000002',false);
+do $$
+begin
+  begin
+    insert into realtime.messages(topic, extension, payload, event, private)
+    values ('support-chat:10000000-0000-0000-0000-000000000002','broadcast','{"typing":true}','typing',true);
+    raise exception 'FAIL: buyer published typing to another account conversation';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+
+select 'PASS: read receipts and private typing RLS verified on disposable PostgreSQL' as result;

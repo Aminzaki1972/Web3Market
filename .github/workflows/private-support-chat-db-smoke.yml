@@ -5,6 +5,7 @@ on:
     paths:
       - "supabase/migrations/20261020_private_support_chat.sql"
       - "supabase/migrations/20261021_limited_support_agent.sql"
+      - "supabase/migrations/20261029_support_read_receipts_typing.sql"
       - "js/support-chat.js"
       - "admin-support.html"
       - "supabase/tests/private_support_chat_rls_behavior.sql"
@@ -108,6 +109,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020_private_support_chat.sql
       - name: Apply limited support-agent migration to disposable PostgreSQL
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261021_limited_support_agent.sql
+      - name: Apply support read receipts and typing migration to disposable PostgreSQL
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261029_support_read_receipts_typing.sql
       - name: Assert schema, RLS, private bucket and policies
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
