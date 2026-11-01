@@ -263,10 +263,18 @@
   if(chain!==56){box.innerHTML=`<div class="safe-panel warn"><strong>Chain mismatch.</strong><br>Expected BNB Smart Chain (56), got ${esc(chain||'unknown')}.</div>`;return}
   try{
    if(!window.ethers?.JsonRpcProvider)throw new Error('Safe verification library unavailable');
-   const provider=new ethers.JsonRpcProvider('https://bsc-dataseed.binance.org');
-   const c=new ethers.Contract(safe,['function getOwners() view returns (address[])','function getThreshold() view returns (uint256)','function nonce() view returns (uint256)'],provider);
-   const [owners,threshold,nonce]=await Promise.all([c.getOwners(),c.getThreshold(),c.nonce()]);
-   const code=await provider.getCode(safe),ok=code!=='0x'&&owners.length===3&&Number(threshold)===2;
+   const rpcUrls=['https://bsc-dataseed.binance.org','https://bsc-dataseed1.binance.org','https://bsc.publicnode.com'];
+   let verification=null,lastRpcError=null;
+   for(const rpcUrl of rpcUrls){
+    const provider=new ethers.JsonRpcProvider(rpcUrl,56,{staticNetwork:true});
+    try{
+     const contract=new ethers.Contract(safe,['function getOwners() view returns (address[])','function getThreshold() view returns (uint256)','function nonce() view returns (uint256)'],provider);
+     const [owners,threshold,nonce,code]=await Promise.all([contract.getOwners(),contract.getThreshold(),contract.nonce(),provider.getCode(safe)]);
+     verification={owners,threshold,nonce,code};break;
+    }catch(error){lastRpcError=error;try{provider.destroy()}catch(_){}}
+   }
+   if(!verification)throw new Error('All BNB RPC verification endpoints failed: '+String(lastRpcError?.message||lastRpcError||'unknown RPC error'));
+   const {owners,threshold,nonce,code}=verification,ok=code!=='0x'&&owners.length===3&&Number(threshold)===2;
    box.innerHTML=`<div class="safe-panel ${ok?'ok':'warn'}"><strong>Safe 2-of-3 verification</strong><br>${code!=='0x'?'Contract detected':'Not a contract'} · ${owners.length} owner(s) · threshold ${Number(threshold)}<br>Nonce: ${esc(nonce)}<div class="safe-note">${ok?'The Safe configuration is valid. Web3Market cannot release funds alone.':'Expected exactly 3 owners with a 2-signature threshold.'}</div>${ok?`<a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:${encodeURIComponent(safe)}" target="_blank" rel="noopener noreferrer">Open Safe Queue</a>`:''}</div>`;
   }catch(e){console.error('safe verification',e);box.innerHTML='<div class="safe-panel warn"><strong>Safe could not be verified.</strong><br>No release action will be enabled.</div>'}
  }
