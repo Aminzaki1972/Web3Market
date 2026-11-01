@@ -1,3 +1,6 @@
+alter table public.code_audits
+  add column if not exists public_rate_window_started_at timestamptz;
+
 -- Atomic per-account hourly quota for W3M Code Audit.
 -- This migration is intentionally separate from deployment; review before applying.
 
