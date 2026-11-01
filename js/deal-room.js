@@ -263,10 +263,18 @@
   if(chain!==56){box.innerHTML=`<div class="safe-panel warn"><strong>Chain mismatch.</strong><br>Expected BNB Smart Chain (56), got ${esc(chain||'unknown')}.</div>`;return}
   try{
    if(!window.ethers?.JsonRpcProvider)throw new Error('Safe verification library unavailable');
-   const provider=new ethers.JsonRpcProvider('https://bsc-dataseed.binance.org');
-   const c=new ethers.Contract(safe,['function getOwners() view returns (address[])','function getThreshold() view returns (uint256)','function nonce() view returns (uint256)'],provider);
-   const [owners,threshold,nonce]=await Promise.all([c.getOwners(),c.getThreshold(),c.nonce()]);
-   const code=await provider.getCode(safe),ok=code!=='0x'&&owners.length===3&&Number(threshold)===2;
+   const rpcUrls=['https://bsc-dataseed.binance.org','https://bsc-dataseed1.binance.org','https://bsc.publicnode.com'];
+   let verification=null,lastRpcError=null;
+   for(const rpcUrl of rpcUrls){
+    const provider=new ethers.JsonRpcProvider(rpcUrl,56,{staticNetwork:true});
+    try{
+     const contract=new ethers.Contract(safe,['function getOwners() view returns (address[])','function getThreshold() view returns (uint256)','function nonce() view returns (uint256)'],provider);
+     const [owners,threshold,nonce,code]=await Promise.all([contract.getOwners(),contract.getThreshold(),contract.nonce(),provider.getCode(safe)]);
+     verification={owners,threshold,nonce,code};break;
+    }catch(error){lastRpcError=error;try{provider.destroy()}catch(_){}}
+   }
+   if(!verification)throw new Error('All BNB RPC verification endpoints failed: '+String(lastRpcError?.message||lastRpcError||'unknown RPC error'));
+   const {owners,threshold,nonce,code}=verification,ok=code!=='0x'&&owners.length===3&&Number(threshold)===2;
    box.innerHTML=`<div class="safe-panel ${ok?'ok':'warn'}"><strong>Safe 2-of-3 verification</strong><br>${code!=='0x'?'Contract detected':'Not a contract'} · ${owners.length} owner(s) · threshold ${Number(threshold)}<br>Nonce: ${esc(nonce)}<div class="safe-note">${ok?'The Safe configuration is valid. Web3Market cannot release funds alone.':'Expected exactly 3 owners with a 2-signature threshold.'}</div>${ok?`<a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:${encodeURIComponent(safe)}" target="_blank" rel="noopener noreferrer">Open Safe Queue</a>`:''}</div>`;
   }catch(e){console.error('safe verification',e);box.innerHTML='<div class="safe-panel warn"><strong>Safe could not be verified.</strong><br>No release action will be enabled.</div>'}
  }
@@ -278,7 +286,38 @@
   const agreeBtn=document.querySelector('#agreeBtn');
   if(agreeBtn&&!mine?.agreed_at&&participant!=='platform')agreeBtn.onclick=async()=>{agreeBtn.disabled=true;const {error}=await sb.from('deal_party_agreements').upsert({deal_id:deal.id,party_role:participant,party_id:user.id,agreed_at:new Date().toISOString()},{onConflict:'deal_id,party_role,party_id'});if(error){alert(error.message||'Could not save agreement');agreeBtn.disabled=false;return}await renderTerms()};
   const db=document.querySelector('#disputeBtn');
-  if(db)db.onclick=async()=>{const reason=prompt('Describe the dispute');if(!reason)return;const {error}=await sb.from('deal_disputes').insert({deal_id:deal.id,opened_by:user.id,reason,status:'open'});if(error)alert(error.message||'Could not open dispute');else alert('Dispute opened for Web3Market review.')};
+  if(db)db.onclick=()=>openDisputeModal();
+ }
+ // Keep dispute input bounded and accessible; never pass unvalidated prompt text into the database.
+ async function openDisputeModal(){
+  let modal=document.getElementById('dealDisputeModal');
+  if(modal){modal.hidden=false;modal.querySelector('textarea')?.focus();return}
+  modal=document.createElement('div');modal.id='dealDisputeModal';
+  modal.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(10,15,30,.72);display:grid;place-items:center;padding:18px';
+  modal.innerHTML='<section role="dialog" aria-modal="true" aria-labelledby="dealDisputeTitle" style="width:min(520px,100%);background:#fff;border:1px solid #dbe4ef;border-radius:16px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.25)"><h2 id="dealDisputeTitle" style="margin:0 0 8px;font-size:19px">Open a deal dispute</h2><p style="margin:0 0 14px;color:#64748b;font-size:13px;line-height:1.5">Describe the issue clearly. Web3Market will review the dispute; opening it does not execute or release funds.</p><form id="dealDisputeForm"><label for="dealDisputeReason" style="display:block;font-size:13px;font-weight:700;margin-bottom:7px">Dispute details</label><textarea id="dealDisputeReason" required minlength="10" maxlength="5000" rows="6" style="box-sizing:border-box;width:100%;resize:vertical;padding:11px;border:1px solid #cbd5e1;border-radius:10px;font:inherit" placeholder="Explain what happened and what resolution you are requesting…"></textarea><p id="dealDisputeStatus" role="status" aria-live="polite" style="min-height:20px;margin:8px 0;color:#64748b;font-size:12px"></p><div style="display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap"><button id="dealDisputeCancel" type="button" style="padding:10px 14px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155">Cancel</button><button id="dealDisputeSubmit" type="submit" style="padding:10px 14px;border:0;border-radius:9px;background:#7c3aed;color:#fff;font-weight:800">Submit dispute</button></div></form></section>';
+  document.body.appendChild(modal);
+  const form=modal.querySelector('#dealDisputeForm'),reasonField=modal.querySelector('#dealDisputeReason'),status=modal.querySelector('#dealDisputeStatus'),submit=modal.querySelector('#dealDisputeSubmit'),cancel=modal.querySelector('#dealDisputeCancel');
+  const close=()=>{if(form.dataset.submitting==='true')return;modal.remove()};
+  cancel.addEventListener('click',close);
+  modal.addEventListener('click',event=>{if(event.target===modal)close()});
+  form.addEventListener('submit',async event=>{
+   event.preventDefault();
+   if(form.dataset.submitting==='true')return;
+   const reason=String(reasonField.value||'').trim();
+   if(reason.length<10||reason.length>5000){status.textContent='Please enter between 10 and 5,000 characters.';reasonField.focus();return}
+   form.dataset.submitting='true';submit.disabled=true;cancel.disabled=true;status.textContent='Submitting dispute…';
+   try{
+    const {error}=await sb.from('deal_disputes').insert({deal_id:deal.id,opened_by:user.id,reason,status:'open'});
+    if(error)throw error;
+    status.textContent='Dispute submitted successfully.';
+    submit.textContent='Submitted';
+    setTimeout(()=>modal.remove(),700);
+   }catch(error){
+    status.textContent=error?.message||'Could not submit the dispute. Please try again.';
+    form.dataset.submitting='false';submit.disabled=false;cancel.disabled=false;
+   }
+  });
+  reasonField.focus();
  }
  renderDealWalletState();
  await loadMessages();await renderTerms();
