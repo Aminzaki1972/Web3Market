@@ -45,6 +45,7 @@ jobs:
             wallet.js; do
             node --check "$file"
           done
+          node tests/security/check-cdn-sri.mjs
 
   profile-guard-migration:
     runs-on: ubuntu-latest
