@@ -14,8 +14,6 @@ begin
        or new.wallet_address is distinct from old.wallet_address
        or new.wallet_verified is distinct from old.wallet_verified
        or new.wallet_verified_at is distinct from old.wallet_verified_at
-       or new.wallet_provider is distinct from old.wallet_provider
-       or new.wallet_route is distinct from old.wallet_route
      )
   then
     raise exception 'Role and verified wallet identity fields can only be changed by trusted Web3Market workflows.'
