@@ -66,6 +66,6 @@ jobs:
       - name: Test profile privilege migration on disposable PostgreSQL
         run: |
           set -euo pipefail
-          container_id="$(docker ps --filter 'ancestor=postgres:16' --format '{{.ID}}' | head -n 1)"
-          test -n "$container_id"
-          docker exec -i "$container_id" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/security/profile-guard.sql
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/security/profile-guard.sql
