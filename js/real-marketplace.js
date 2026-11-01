@@ -16,7 +16,7 @@
     if(!window.supabase?.createClient){
       await new Promise(function(resolve,reject){
         var s=document.createElement('script');
-        s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+        s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js';s.integrity='sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK';s.crossOrigin='anonymous';
         s.onload=resolve;s.onerror=reject;document.head.appendChild(s);
       });
     }
