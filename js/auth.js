@@ -11,9 +11,9 @@
  function normalizeRole(role){const value=typeof role==="string"?role.trim().toLowerCase():"";return VALID_ROLES.has(value)?value:"";}
  function normalizeWalletAddress(address){return typeof address==="string"?address.trim():"";}
  function isValidWalletAddress(address){return /^0x[a-fA-F0-9]{40}$/.test(address);}
- function savePendingRegistration(data){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({walletAddress:data.walletAddress||"",email:data.email||"",role:normalizeRole(data.role),fullName:data.fullName||"",createdAt:Date.now()}));}catch(_){} }
- function getPendingRegistration(){try{const raw=localStorage.getItem(STORAGE_KEY);return raw?JSON.parse(raw):null;}catch(_){return null;}}
- function clearPendingRegistration(){try{localStorage.removeItem(STORAGE_KEY);}catch(_){} }
+ function savePendingRegistration(data){try{sessionStorage.setItem(STORAGE_KEY,JSON.stringify({walletAddress:data.walletAddress||"",email:data.email||"",role:normalizeRole(data.role),fullName:data.fullName||"",createdAt:Date.now()}));}catch(_){} }
+ function getPendingRegistration(){try{const raw=sessionStorage.getItem(STORAGE_KEY);return raw?JSON.parse(raw):null;}catch(_){return null;}}
+ function clearPendingRegistration(){try{sessionStorage.removeItem(STORAGE_KEY);}catch(_){} }
  function normalizeAuthError(error){const message=String(error?.message||error?.error_description||error?.msg||"Authentication failed.");const lower=message.toLowerCase();if(lower.includes("rate limit")||lower.includes("too many"))return new Error("Too many verification requests. Please wait and try again.");if(lower.includes("failed to fetch")||lower.includes("network"))return new Error("Unable to connect to Web3Market. Please check your connection and try again.");return new Error(message);}
  async function updateUserMetadata(client,walletAddress,role,fullName){if(!client?.auth)return null;const selectedRole=normalizeRole(role);if(!selectedRole)throw new Error("A valid Buyer or Seller role is required.");const metadata={wallet_address:normalizeWalletAddress(walletAddress),wallet_verified:Boolean(walletAddress),registration_method:walletAddress?"wallet":"email",role:selectedRole,web3market_account:true};if(fullName)metadata.full_name=String(fullName).trim();const {data,error}=await client.auth.updateUser({data:metadata});if(error)throw error;return data||null;}
  async function syncProfileServerSide(client){
