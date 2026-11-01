@@ -5,7 +5,7 @@ const SUPABASE_KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 const val=(v,e='Not available')=>v===null||v===undefined||v===''?e:v;
 function safeHttpUrl(value){try{const url=new URL(String(value??''));return url.protocol==='https:'||url.protocol==='http:'?url.href:''}catch{return ''}}
-const status=(k,l)=>'<span class="status '+k+'">'+l+'</span>';
+const status=(k,l)=>'<span class="status '+esc(k)+'">'+esc(l)+'</span>';
 async function session(){try{return await window.Web3MarketSupabase?.getSession?.()||null}catch{return null}}
 function jsonValue(v){if(v===null||v===undefined)return '—';if(typeof v==='string')return v;try{return JSON.stringify(v)}catch{return String(v)}}
 async function snapshotHistoryUI(p){
@@ -42,7 +42,7 @@ async function monitorUI(p){
   const c=window.Web3MarketSupabase?.client;if(!c)return '';
   const {data:m}=await c.from('external_passport_monitors').select('id,enabled,interval_minutes,next_run_at,last_run_at,last_success_at,last_error').eq('passport_id',id).maybeSingle();
   const active=!!m?.enabled;
-  return '<div class="passport-monitor"><div><strong>Passport Monitoring: '+(active?'Active':'Off')+'</strong><div class="monitor-note">'+(active?('Last scan: '+val(m.last_success_at,'Not run yet')+' • Next: '+val(m.next_run_at,'Pending')):'Automatic re-checks are disabled for this Passport.')+'</div></div><div><select id="passportInterval" style="padding:9px;border-radius:9px;margin-right:6px"><option value="60">1 hour</option><option value="360">6 hours</option><option value="1440" selected>24 hours</option><option value="10080">7 days</option></select><button id="monitorToggle" data-passport-id="'+esc(id)+'">'+(active?'Disable':'Enable Monitoring')+'</button></div></div>';
+  return '<div class="passport-monitor"><div><strong>Passport Monitoring: '+(active?'Active':'Off')+'</strong><div class="monitor-note">'+(active?('Last scan: '+esc(val(m.last_success_at,'Not run yet'))+' • Next: '+esc(val(m.next_run_at,'Pending'))):'Automatic re-checks are disabled for this Passport.')+'</div></div><div><select id="passportInterval" style="padding:9px;border-radius:9px;margin-right:6px"><option value="60">1 hour</option><option value="360">6 hours</option><option value="1440" selected>24 hours</option><option value="10080">7 days</option></select><button id="monitorToggle" data-passport-id="'+esc(id)+'">'+(active?'Disable':'Enable Monitoring')+'</button></div></div>';
  }catch{return '<div class="passport-monitor"><div><strong>Passport Monitoring</strong><div class="monitor-note">Status unavailable.</div></div></div>'}
 }
 async function wireMonitor(p){
