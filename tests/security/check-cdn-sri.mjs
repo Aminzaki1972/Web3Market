@@ -35,7 +35,8 @@ for (const file of walk(root).filter((p) => p.endsWith(".html"))) {
     const src = tag.match(/\bsrc=["']([^"']+)["']/i)?.[1] || "";
     const integrity = tag.match(/\bintegrity=["']([^"']+)["']/i)?.[1] || "";
     const crossorigin = tag.match(/\bcrossorigin=["']([^"']+)["']/i)?.[1] || "";
-    if (src !== expectedAsset.src || integrity !== expectedAsset.integrity || crossorigin.toLowerCase() !== "anonymous") {
+    const fallback = tag.match(/\bonerror=["']([^"']+)["']/i)?.[1] || "";
+    if (src !== expectedAsset.src || integrity !== expectedAsset.integrity || crossorigin.toLowerCase() !== "anonymous" || (fallback && (!isSupabase || !fallback.includes("https://unpkg.com/@supabase/supabase-js@2.118.0/dist/umd/supabase.js")))) {
       failures.push(`${path.relative(root, file)}: CDN script is not pinned with the verified SRI attributes: ${tag}`);
     }
     if (isSupabase) supabaseTags++;
