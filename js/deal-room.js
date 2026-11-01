@@ -288,7 +288,8 @@
   const db=document.querySelector('#disputeBtn');
   if(db)db.onclick=()=>openDisputeModal();
  }
- // Keep dispute input bounded and accessible; never pass unvalidated prompt text into the database.\n async function openDisputeModal(){
+ // Keep dispute input bounded and accessible; never pass unvalidated prompt text into the database.
+ async function openDisputeModal(){
   let modal=document.getElementById('dealDisputeModal');
   if(modal){modal.hidden=false;modal.querySelector('textarea')?.focus();return}
   modal=document.createElement('div');modal.id='dealDisputeModal';
