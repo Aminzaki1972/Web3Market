@@ -176,12 +176,8 @@
             const signature = await signOwnershipMessage(address);
             const result = { success: true, address, signature, message: SIGN_MESSAGE };
 
-            try {
-                localStorage.setItem("web3market_wallet", JSON.stringify({ address, verified: true }));
-            } catch (error) {
-                console.warn("Web3Market Wallet storage warning:", error);
-            }
-
+            // Do not persist a client-side "verified" flag. Verification is authoritative
+            // only after the signed message is checked by the server and saved to the profile.
             window.dispatchEvent(new CustomEvent("web3market:wallet-verified", { detail: result }));
             showMessage("Wallet ownership signature completed successfully.", "success");
             return result;
