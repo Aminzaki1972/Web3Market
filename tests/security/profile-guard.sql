@@ -31,7 +31,7 @@ set role authenticated;
 set test.is_admin = 'false';
 update public.profiles set display_name = 'Updated Buyer' where id = '11111111-1111-4111-8111-111111111111';
 
--- But they may not self-promote, forge verification, or replace a verified wallet.
+-- Direct authenticated updates are denied; trusted onboarding and wallet workflows are tested separately below.
 do $test$
 begin
   begin
