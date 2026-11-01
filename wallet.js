@@ -7,6 +7,9 @@
 
 (function () {
 
+    // Remove the legacy client-side verification marker; only server-verified profile state is authoritative.
+    try { localStorage.removeItem("web3market_wallet"); } catch (_) {}
+
     const SIGN_MESSAGE =
         "Web3Market Wallet Verification\n\n" +
         "I confirm that I own this wallet address and I want to connect it to my Web3Market account.\n\n" +
