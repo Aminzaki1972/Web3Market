@@ -167,13 +167,11 @@ async function run(sb:any,a:any,r:any){
     // This prevents Gemini 429/5xx overload from consuming the user's hourly quota.
     if(transient){
       try{
-        const {data:meta}=await sb.from("code_audits").select("public_fingerprint,created_at").eq("id",a.id).maybeSingle();
-        if(meta?.public_fingerprint&&meta?.created_at){
-          const ws=new Date(Math.floor(new Date(meta.created_at).getTime()/3600000)*3600000).toISOString();
-          const {data:quota}=await sb.from("code_audit_rate_limits").select("request_count").eq("fingerprint",meta.public_fingerprint).eq("window_started_at",ws).maybeSingle();
-          if(quota&&Number(quota.request_count)>0){
-            await sb.from("code_audit_rate_limits").update({request_count:Math.max(0,Number(quota.request_count)-1)}).eq("fingerprint",meta.public_fingerprint).eq("window_started_at",ws);
-          }
+        const {data:meta}=await sb.from("code_audits").select("public_fingerprint,public_rate_window_started_at").eq("id",a.id).maybeSingle();
+        if(meta?.public_fingerprint&&meta?.public_rate_window_started_at){
+          const ws=meta.public_rate_window_started_at;
+          const {error:refundError}=await sb.rpc("refund_code_audit_slot",{p_fingerprint:meta.public_fingerprint,p_window_started_at:ws});
+          if(refundError)throw Error(String(refundError.message||refundError));
         }
       }catch(refundError){console.warn("W3M audit quota refund failed",{audit_id:a.id,error:String(refundError)});}
     }
@@ -188,8 +186,8 @@ Deno.serve(async req=>{
  const userClient=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_ANON_KEY")!,{global:{headers:{Authorization:authHeader}}});
  const {data:{user},error:authError}=await userClient.auth.getUser();
  if(authError||!user)return failReq("Sign in with a Web3Market account to run or access code audits.",401);
- const ip=(req.headers.get("cf-connecting-ip")||req.headers.get("x-forwarded-for")||"unknown").split(",")[0].trim();
- const raw=ip+"|w3m-code-audit";
+ // Quota identity is the authenticated Supabase user, never a client-supplied forwarding header.
+ const raw=user.id+"|w3m-code-audit";
  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw));
  const fingerprint=Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,"0")).join("");
 
@@ -202,8 +200,6 @@ Deno.serve(async req=>{
   }
   const now=new Date();
   const windowStart=new Date(Math.floor(now.getTime()/3600000)*3600000).toISOString();
-  const {data:rl}=await sb.from("code_audit_rate_limits").select("request_count").eq("fingerprint",fingerprint).eq("window_started_at",windowStart).maybeSingle();
-  if(!requestedAuditId&&(rl?.request_count||0)>=3){const retry=Math.max(1,3600-Math.floor((now.getTime()-new Date(windowStart).getTime())/1000));return new Response(JSON.stringify({ok:false,error:requestedAuditId?"Resume limit reached: maximum 120 resume requests per hour. Your saved audit data is preserved.":"Rate limit reached: maximum 3 new public audits per hour.",code:"RATE_LIMIT",retry_after_seconds:retry}),{status:429,headers:{...corsHeaders(req),"Content-Type":"application/json","Retry-After":String(retry)}});}
   if(requestedAuditId){
    const {data:resume,error:resumeError}=await sb.from("code_audits").select("id,status,repo_url,repo_owner,repo_name,current_chunk,total_chunks,analysis_progress,public_fingerprint,requested_by").eq("id",requestedAuditId).maybeSingle();
    // Public audits are resumable only by the same requester fingerprint.
@@ -240,9 +236,10 @@ Deno.serve(async req=>{
    await sb.from("code_audits").update({status:"failed",error_message:"This audit worker became stale and did not finish. Start a new audit to use the updated scanner.",completed_at:now.toISOString(),analysis_progress:{...(existing.analysis_progress||{}),status:"failed",error:"Stale audit worker timed out."}}).eq("id",existing.id).in("status",["queued","scanning","analyzing"]);
   }
   if(existing?.status==="completed" && existing.created_at && (now.getTime()-new Date(existing.created_at).getTime())<86400000)return respond({ok:true,audit_id:existing.id,status:"completed",reused:true});
-  const next=(rl?.request_count||0)+1;
-  if(rl) await sb.from("code_audit_rate_limits").update({request_count:next}).eq("fingerprint",fingerprint).eq("window_started_at",windowStart);
-  else await sb.from("code_audit_rate_limits").insert({fingerprint,window_started_at:windowStart,request_count:1});
+  // Reserve one hourly slot atomically; concurrent requests cannot overrun the quota.
+  const {data:reservation,error:reservationError}=await sb.rpc("reserve_code_audit_slot",{p_fingerprint:fingerprint,p_window_started_at:windowStart,p_max_requests:3});
+  if(reservationError)throw Error("Unable to reserve code-audit quota: "+String(reservationError.message||reservationError));
+  if(Number(reservation||0)===0){const retry=Math.max(1,3600-Math.floor((now.getTime()-new Date(windowStart).getTime())/1000));return new Response(JSON.stringify({ok:false,error:"Rate limit reached: maximum 3 new audits per account per hour.",code:"RATE_LIMIT",retry_after_seconds:retry}),{status:429,headers:{...corsHeaders(req),"Content-Type":"application/json","Retry-After":String(retry)}});}
   let projectId=null;
   if(b.project_id){
    const pid=String(b.project_id);
@@ -255,7 +252,7 @@ Deno.serve(async req=>{
     }
    }
   }
-  const {data:a,error}=await sb.from("code_audits").insert({project_id:projectId,requested_by:user.id,public_fingerprint:fingerprint,repo_url:"https://github.com/"+r.owner+"/"+r.name,repo_owner:r.owner,repo_name:r.name}).select("id").single();if(error)throw Error("Unable to create audit record: "+(error.message||"database write failed"));if(!a)throw Error("Unable to create audit record: database returned no audit row");
+  const {data:a,error}=await sb.from("code_audits").insert({project_id:projectId,requested_by:user.id,public_fingerprint:fingerprint,public_rate_window_started_at:windowStart,repo_url:"https://github.com/"+r.owner+"/"+r.name,repo_owner:r.owner,repo_name:r.name}).select("id").single();if(error)throw Error("Unable to create audit record: "+(error.message||"database write failed"));if(!a)throw Error("Unable to create audit record: database returned no audit row");
   // Respond quickly and let the Edge Runtime finish the audit asynchronously.
   const task=run(sb,a,r);
   const runtime=(globalThis as any).EdgeRuntime;
