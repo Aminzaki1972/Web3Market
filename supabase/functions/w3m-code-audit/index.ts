@@ -7,9 +7,10 @@ import { queuedNextBatchProgress } from "./audit-progress.ts";
 import { assertAuditWriteSucceeded } from "./audit-persistence.ts";
 import { filterMissingAuditFindings } from "./audit-findings.ts";
 import { buildTrustBadgeCompletionEvidence } from "./trust-badge-evidence.ts";
-const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS"};
-const json=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...cors,"Content-Type":"application/json"}});
-const fail=(m:string,s=400,extra:any={})=>json({ok:false,error:m,...extra},s);
+const allowedOrigins=new Set(["https://web3market.xyz","https://www.web3market.xyz"]);
+function corsHeaders(req:Request){const origin=req.headers.get("Origin")||"";let trusted=allowedOrigins.has(origin);if(!trusted){try{const host=new URL(origin).hostname;trusted=/^(?:[a-z0-9-]+\.)*web3market\.pages\.dev$/i.test(host)&&new URL(origin).protocol==="https:"}catch(_){trusted=false}}const headers:Record<string,string>={"Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS","Vary":"Origin"};if(trusted)headers["Access-Control-Allow-Origin"]=origin;return headers;}
+const json=(req:Request,x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...corsHeaders(req),"Content-Type":"application/json"}});
+const fail=(req:Request,m:string,s=400,extra:any={})=>json(req,{ok:false,error:m,...extra},s);
 
 function repo(u:string){const x=new URL(u);if(x.protocol!=="https:"||x.hostname!=="github.com")throw Error("Only public GitHub repositories are supported.");const p=x.pathname.split("/").filter(Boolean);if(p.length<2)throw Error("Invalid GitHub repository URL.");return {owner:p[0],name:p[1].replace(/\.git$/,"")};}
 
@@ -179,12 +180,14 @@ async function run(sb:any,a:any,r:any){
   }
 }
 Deno.serve(async req=>{
- if(req.method==="OPTIONS")return new Response("ok",{headers:cors});if(req.method!=="POST")return fail("POST required",405);
+ const respond=(x:any,s=200)=>json(req,x,s);
+ const failReq=(m:string,s=400,extra:any={})=>respond({ok:false,error:m,...extra},s);
+ if(req.method==="OPTIONS")return new Response(null,{status:204,headers:corsHeaders(req)});if(req.method!=="POST")return failReq("POST required",405);
  const sb=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
  const authHeader=req.headers.get("Authorization")||"";
  const userClient=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_ANON_KEY")!,{global:{headers:{Authorization:authHeader}}});
  const {data:{user},error:authError}=await userClient.auth.getUser();
- if(authError||!user)return fail("Sign in with a Web3Market account to run or access code audits.",401);
+ if(authError||!user)return failReq("Sign in with a Web3Market account to run or access code audits.",401);
  const ip=(req.headers.get("cf-connecting-ip")||req.headers.get("x-forwarded-for")||"unknown").split(",")[0].trim();
  const raw=ip+"|w3m-code-audit";
  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw));
@@ -194,24 +197,24 @@ Deno.serve(async req=>{
   const requestedAuditId=String(b.audit_id||"").trim();
   let r:any=null;
   if(!requestedAuditId){
-   const url=String(b.repo_url||"");if(!url)return fail("repo_url is required");
+   const url=String(b.repo_url||"");if(!url)return failReq("repo_url is required");
    r=repo(url);
   }
   const now=new Date();
   const windowStart=new Date(Math.floor(now.getTime()/3600000)*3600000).toISOString();
   const {data:rl}=await sb.from("code_audit_rate_limits").select("request_count").eq("fingerprint",fingerprint).eq("window_started_at",windowStart).maybeSingle();
-  if(!requestedAuditId&&(rl?.request_count||0)>=3){const retry=Math.max(1,3600-Math.floor((now.getTime()-new Date(windowStart).getTime())/1000));return new Response(JSON.stringify({ok:false,error:requestedAuditId?"Resume limit reached: maximum 120 resume requests per hour. Your saved audit data is preserved.":"Rate limit reached: maximum 3 new public audits per hour.",code:"RATE_LIMIT",retry_after_seconds:retry}),{status:429,headers:{...cors,"Content-Type":"application/json","Retry-After":String(retry)}});}
+  if(!requestedAuditId&&(rl?.request_count||0)>=3){const retry=Math.max(1,3600-Math.floor((now.getTime()-new Date(windowStart).getTime())/1000));return new Response(JSON.stringify({ok:false,error:requestedAuditId?"Resume limit reached: maximum 120 resume requests per hour. Your saved audit data is preserved.":"Rate limit reached: maximum 3 new public audits per hour.",code:"RATE_LIMIT",retry_after_seconds:retry}),{status:429,headers:{...corsHeaders(req),"Content-Type":"application/json","Retry-After":String(retry)}});}
   if(requestedAuditId){
    const {data:resume,error:resumeError}=await sb.from("code_audits").select("id,status,repo_url,repo_owner,repo_name,current_chunk,total_chunks,analysis_progress,public_fingerprint,requested_by").eq("id",requestedAuditId).maybeSingle();
    // Public audits are resumable only by the same requester fingerprint.
    // Return 404 on mismatch so audit IDs cannot be used to operate on another audit owner.
-   if(resumeError||!resume||resume.requested_by!==user.id)return fail("Audit not found.",404);
-   if(resumeError||!resume)return fail("Audit not found.",404);
-   if(resume.status==="completed")return json({ok:true,audit_id:resume.id,status:"completed",reused:true});
+   if(resumeError||!resume||resume.requested_by!==user.id)return failReq("Audit not found.",404);
+   if(resumeError||!resume)return failReq("Audit not found.",404);
+   if(resume.status==="completed")return respond({ok:true,audit_id:resume.id,status:"completed",reused:true});
    // Resuming an existing audit is not counted against the new-audit quota.
-   const progress=resume.analysis_progress||{}; const heartbeat=progress.updated_at?Date.parse(progress.updated_at):0; const stale=resume.status==="scanning" && (!heartbeat || (Date.now()-heartbeat)>90000); if(resume.status==="scanning" && !stale)return json({ok:true,audit_id:resume.id,status:"scanning",reused:true});
+   const progress=resume.analysis_progress||{}; const heartbeat=progress.updated_at?Date.parse(progress.updated_at):0; const stale=resume.status==="scanning" && (!heartbeat || (Date.now()-heartbeat)>90000); if(resume.status==="scanning" && !stale)return respond({ok:true,audit_id:resume.id,status:"scanning",reused:true});
    const resumable=["paused","analyzing","queued"].includes(resume.status);
-   if(!resumable&&!(resume.status==="scanning"&&stale))return json({ok:false,audit_id:resume.id,status:resume.status,error:"Audit cannot be resumed from its current state."},409);
+   if(!resumable&&!(resume.status==="scanning"&&stale))return respond({ok:false,audit_id:resume.id,status:resume.status,error:"Audit cannot be resumed from its current state."},409);
    // Compare-and-set claim: stale workers must match the heartbeat observed above.
    let claimQuery=sb.from("code_audits").update({status:"scanning",analysis_progress:{...progress,status:"scanning",current_chunk:Number(resume.current_chunk||progress.current_chunk||0),total_chunks:Number(resume.total_chunks||progress.total_chunks||0),updated_at:new Date().toISOString()}}).eq("id",resume.id);
    if(resume.status==="scanning"&&stale){
@@ -221,22 +224,22 @@ Deno.serve(async req=>{
     claimQuery=claimQuery.in("status",["paused","analyzing","queued"]);
    }
    const {data:claimed}=await claimQuery.select("id").maybeSingle();
-   if(!claimed)return json({ok:true,audit_id:resume.id,status:"scanning",reused:true});
+   if(!claimed)return respond({ok:true,audit_id:resume.id,status:"scanning",reused:true});
    const rr=repo(String(resume.repo_url||""));
    // Keep the HTTP response short while EdgeRuntime finishes and persists progress.
    const task=run(sb,{id:resume.id,repo_url:resume.repo_url},rr);
    const runtime=(globalThis as any).EdgeRuntime;
    if(runtime?.waitUntil)runtime.waitUntil(task);else await task;
-   return json({ok:true,audit_id:resume.id,status:"scanning",current_chunk:Number(resume.current_chunk||0),total_chunks:Number(resume.total_chunks||0),analysis_progress:resume.analysis_progress||null});
+   return respond({ok:true,audit_id:resume.id,status:"scanning",current_chunk:Number(resume.current_chunk||0),total_chunks:Number(resume.total_chunks||0),analysis_progress:resume.analysis_progress||null});
   }
   const {data:existing}=await sb.from("code_audits").select("id,status,created_at,commit_sha,analysis_progress").eq("repo_owner",r.owner).eq("repo_name",r.name).eq("requested_by",user.id).in("status",["queued","scanning","analyzing","completed"]).order("created_at",{ascending:false}).limit(1).maybeSingle();
   if(existing?.status==="queued"||existing?.status==="scanning"||existing?.status==="analyzing"){
    const progressAt=existing.analysis_progress?.updated_at?Date.parse(existing.analysis_progress.updated_at):Date.parse(existing.created_at||"");
    const stale=!progressAt||!Number.isFinite(progressAt)||(now.getTime()-progressAt)>600000;
-   if(!stale)return json({ok:true,audit_id:existing.id,status:existing.status,reused:true});
+   if(!stale)return respond({ok:true,audit_id:existing.id,status:existing.status,reused:true});
    await sb.from("code_audits").update({status:"failed",error_message:"This audit worker became stale and did not finish. Start a new audit to use the updated scanner.",completed_at:now.toISOString(),analysis_progress:{...(existing.analysis_progress||{}),status:"failed",error:"Stale audit worker timed out."}}).eq("id",existing.id).in("status",["queued","scanning","analyzing"]);
   }
-  if(existing?.status==="completed" && existing.created_at && (now.getTime()-new Date(existing.created_at).getTime())<86400000)return json({ok:true,audit_id:existing.id,status:"completed",reused:true});
+  if(existing?.status==="completed" && existing.created_at && (now.getTime()-new Date(existing.created_at).getTime())<86400000)return respond({ok:true,audit_id:existing.id,status:"completed",reused:true});
   const next=(rl?.request_count||0)+1;
   if(rl) await sb.from("code_audit_rate_limits").update({request_count:next}).eq("fingerprint",fingerprint).eq("window_started_at",windowStart);
   else await sb.from("code_audit_rate_limits").insert({fingerprint,window_started_at:windowStart,request_count:1});
@@ -257,6 +260,6 @@ Deno.serve(async req=>{
   const task=run(sb,a,r);
   const runtime=(globalThis as any).EdgeRuntime;
   if(runtime?.waitUntil)runtime.waitUntil(task);else await task;
-  return json({ok:true,audit_id:a.id,status:"queued",current_chunk:0,total_chunks:0,analysis_progress:{status:"queued",updated_at:new Date().toISOString()}},202);
- }catch(e){const msg=String((e as any)?.message||e);console.error("w3m-code-audit request error",msg);return fail(msg,429===Number((e as any)?.status)?429:400,{code:"AUDIT_REQUEST_FAILED"});}
+  return respond({ok:true,audit_id:a.id,status:"queued",current_chunk:0,total_chunks:0,analysis_progress:{status:"queued",updated_at:new Date().toISOString()}},202);
+ }catch(e){const msg=String((e as any)?.message||e);console.error("w3m-code-audit request error",msg);return failReq(msg,429===Number((e as any)?.status)?429:400,{code:"AUDIT_REQUEST_FAILED"});}
 });

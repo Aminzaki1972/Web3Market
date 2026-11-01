@@ -1,0 +1,105 @@
+name: Security remediation checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'js/deal-checkout.js'
+      - 'js/deal-room.js'
+      - 'js/seller-wallet.js'
+      - 'js/ai-passport-history.js'
+      - 'js/auth.js'
+      - 'js/delete-account.js'
+      - 'wallet.js'
+      - 'auth-callback.html'
+      - 'deal-room.html'
+      - 'index.html'
+      - 'admin-login.html'
+      - 'admin-mfa-v2.html'
+      - 'admin-mfa.html'
+      - 'register.html'
+      - 'sell-project.html'
+      - 'verification.html'
+      - 'login.html'
+      - 'project.html'
+      - 'seller-dashboard.html'
+      - 'supabase/functions/w3m-code-audit/**'
+      - 'supabase/migrations/**'
+      - 'tests/security/**'
+      - '.github/workflows/security-remediation.yml'
+  push:
+    branches: [security/audit-25-remediation-20261101]
+
+jobs:
+  javascript-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check modified browser JavaScript syntax
+        run: |
+          set -euo pipefail
+          for file in \
+            js/deal-checkout.js \
+            js/deal-room.js \
+            js/seller-wallet.js \
+            js/ai-passport-history.js \
+            js/auth.js \
+            js/delete-account.js \
+            wallet.js; do
+            node --check "$file"
+          done
+          node tests/security/check-cdn-sri.mjs
+
+  profile-guard-migration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test profile privilege migration on disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/security/profile-guard.sql
+  cdn-sri-hashes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify pinned CDN assets against npm package tarballs and calculate SHA-384
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          mkdir -p "$work/supabase" "$work/ethers"
+
+          npm pack @supabase/supabase-js@2.118.0 --pack-destination "$work"
+          supabase_tgz="$(find "$work" -maxdepth 1 -name 'supabase-supabase-js-2.118.0.tgz' -print -quit)"
+          test -n "$supabase_tgz"
+          tar -xzf "$supabase_tgz" -C "$work/supabase"
+          curl -fsSL 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js' -o "$work/supabase-cdn.js"
+          cmp "$work/supabase/package/dist/umd/supabase.js" "$work/supabase-cdn.js"
+          curl -fsSL 'https://unpkg.com/@supabase/supabase-js@2.118.0/dist/umd/supabase.js' -o "$work/supabase-unpkg.js"
+          cmp "$work/supabase/package/dist/umd/supabase.js" "$work/supabase-unpkg.js"
+          echo "SUPABASE_SRI=sha384-$(openssl dgst -sha384 -binary "$work/supabase-cdn.js" | openssl base64 -A)"
+
+          npm pack ethers@6.15.0 --pack-destination "$work"
+          ethers_tgz="$(find "$work" -maxdepth 1 -name 'ethers-6.15.0.tgz' -print -quit)"
+          test -n "$ethers_tgz"
+          tar -xzf "$ethers_tgz" -C "$work/ethers"
+          curl -fsSL 'https://cdn.jsdelivr.net/npm/ethers@6.15.0/dist/ethers.umd.min.js' -o "$work/ethers-cdn.js"
+          cmp "$work/ethers/package/dist/ethers.umd.min.js" "$work/ethers-cdn.js"
+          echo "ETHERS_SRI=sha384-$(openssl dgst -sha384 -binary "$work/ethers-cdn.js" | openssl base64 -A)"
