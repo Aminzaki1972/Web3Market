@@ -167,9 +167,9 @@ async function run(sb:any,a:any,r:any){
     // This prevents Gemini 429/5xx overload from consuming the user's hourly quota.
     if(transient){
       try{
-        const {data:meta}=await sb.from("code_audits").select("public_fingerprint,created_at").eq("id",a.id).maybeSingle();
-        if(meta?.public_fingerprint&&meta?.created_at){
-          const ws=new Date(Math.floor(new Date(meta.created_at).getTime()/3600000)*3600000).toISOString();
+        const {data:meta}=await sb.from("code_audits").select("public_fingerprint,public_rate_window_started_at").eq("id",a.id).maybeSingle();
+        if(meta?.public_fingerprint&&meta?.public_rate_window_started_at){
+          const ws=meta.public_rate_window_started_at;
           const {error:refundError}=await sb.rpc("refund_code_audit_slot",{p_fingerprint:meta.public_fingerprint,p_window_started_at:ws});
           if(refundError)throw Error(String(refundError.message||refundError));
         }
@@ -252,7 +252,7 @@ Deno.serve(async req=>{
     }
    }
   }
-  const {data:a,error}=await sb.from("code_audits").insert({project_id:projectId,requested_by:user.id,public_fingerprint:fingerprint,repo_url:"https://github.com/"+r.owner+"/"+r.name,repo_owner:r.owner,repo_name:r.name}).select("id").single();if(error)throw Error("Unable to create audit record: "+(error.message||"database write failed"));if(!a)throw Error("Unable to create audit record: database returned no audit row");
+  const {data:a,error}=await sb.from("code_audits").insert({project_id:projectId,requested_by:user.id,public_fingerprint:fingerprint,public_rate_window_started_at:windowStart,repo_url:"https://github.com/"+r.owner+"/"+r.name,repo_owner:r.owner,repo_name:r.name}).select("id").single();if(error)throw Error("Unable to create audit record: "+(error.message||"database write failed"));if(!a)throw Error("Unable to create audit record: database returned no audit row");
   // Respond quickly and let the Edge Runtime finish the audit asynchronously.
   const task=run(sb,a,r);
   const runtime=(globalThis as any).EdgeRuntime;
