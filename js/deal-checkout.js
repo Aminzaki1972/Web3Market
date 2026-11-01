@@ -41,7 +41,12 @@
   const {data:profile}=await sb.from('profiles').select('wallet_address,wallet_verified').eq('id',deal.buyer_id).maybeSingle();
   if(!profile?.wallet_address||profile.wallet_verified!==true)throw new Error('Buyer wallet must be connected and verified before payment.');
   if(from.toLowerCase()!==String(profile.wallet_address).toLowerCase())throw new Error('Connect the Buyer wallet locked to this deal.');
-  const decimalsHex=await provider.request({method:'eth_call',params:[{to:deal.token_contract,data:'0x313ce567'},'latest']}),decimals=Number(BigInt(decimalsHex));if(!Number.isInteger(decimals)||decimals<0||decimals>36)throw new Error('Could not determine token decimals.');
+  const tokenAddress=String(deal.token_contract||'');
+  const safeAddress=String(deal.safe_address||'');
+  if(!/^0x[a-fA-F0-9]{40}$/.test(tokenAddress)||!/^0x[a-fA-F0-9]{40}$/.test(safeAddress))throw new Error('Deal token or Safe contract address is invalid.');
+  const decimalsHex=await provider.request({method:'eth_call',params:[{to:tokenAddress,data:'0x313ce567'},'latest']});
+  if(typeof decimalsHex!=='string'||!/^0x[0-9a-fA-F]+$/.test(decimalsHex))throw new Error('Token decimals response is invalid.');
+  const decimals=Number(BigInt(decimalsHex));if(!Number.isInteger(decimals)||decimals<0||decimals>36)throw new Error('Could not determine token decimals.');
   // Parse the database decimal string without floating-point conversion. Preserve fractional leading zeros (e.g. 0.01) because they are positional digits, not padding to strip.
   const value=String(deal.expected_amount??deal.amount??'').trim();
   const amountMatch=/^(0|[1-9][0-9]*)(?:\.([0-9]+))?$/.exec(value);
@@ -51,8 +56,8 @@
   const scaledFraction=fraction.padEnd(decimals,'0');
   const baseUnits=whole*(10n**BigInt(decimals))+BigInt(scaledFraction||'0');
   if(baseUnits<=0n||baseUnits>=(1n<<256n))throw new Error('Deal amount is outside the supported token transfer range.');
-  const base=baseUnits.toString(16).padStart(64,'0'),to=String(deal.safe_address).toLowerCase().replace(/^0x/,'').padStart(64,'0'),data='0xa9059cbb'+to+base;
-  payBtn.textContent='Confirm payment in wallet…';const txHash=await provider.request({method:'eth_sendTransaction',params:[{from,to:deal.token_contract,data}]}),valid=/^0x[0-9a-fA-F]{64}$/.test(txHash);if(!valid)throw new Error('Wallet returned an invalid transaction hash.');
+  const base=baseUnits.toString(16).padStart(64,'0'),to=safeAddress.toLowerCase().replace(/^0x/,'').padStart(64,'0'),data='0xa9059cbb'+to+base;
+  payBtn.textContent='Confirm payment in wallet…';const txHash=await provider.request({method:'eth_sendTransaction',params:[{from,to:tokenAddress,data}]}),valid=/^0x[0-9a-fA-F]{64}$/.test(txHash);if(!valid)throw new Error('Wallet returned an invalid transaction hash.');
   payBtn.textContent='Verifying payment on BNB…';const {data:{session}}=await sb.auth.getSession();if(!session)throw new Error('Session expired. Please sign in again.');
   const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/verify-deal-payment',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({deal_id:deal.id,tx_hash:txHash})});
   const result=await response.json().catch(()=>({error:'Invalid verifier response'}));if(!response.ok||!result.ok)throw new Error(result.error||'Payment verification failed');alert('Payment confirmed on-chain.');location.reload();
