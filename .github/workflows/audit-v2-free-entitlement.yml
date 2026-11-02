@@ -5,6 +5,9 @@ on:
       - "supabase/functions/w3m-code-audit/index.ts"
       - "supabase/functions/verify-audit-payment/**"
       - "supabase/migrations/*audit_v2_contracts_and_payment_orders.sql"
+      - "supabase/migrations/*audit_v2_guest_checkout.sql"
+      - "supabase/functions/guest-audit-access/**"
+      - "supabase/functions/create-audit-payment-order/**"
       - "supabase/tests/audit-v2-free-entitlement.test.sql"
       - "supabase/tests/audit-v2-migration.test.sql"
       - ".github/workflows/audit-v2-free-entitlement.yml"
@@ -46,7 +49,7 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Type-check payment verifier and event matcher
-        run: deno check supabase/functions/verify-audit-payment/index.ts
+      - name: Type-check payment verifier, guest checkout and report access
+        run: deno check supabase/functions/verify-audit-payment/index.ts supabase/functions/create-audit-payment-order/index.ts supabase/functions/guest-audit-access/index.ts supabase/functions/w3m-code-audit/index.ts
       - name: Test exact token transfer matching
         run: deno test --allow-net supabase/functions/verify-audit-payment/payment-verification.test.ts
