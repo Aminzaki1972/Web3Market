@@ -114,6 +114,18 @@ BEGIN
   IF allowed IS DISTINCT FROM true THEN RAISE EXCEPTION 'First guest email claim must succeed'; END IF;
   SELECT public.claim_guest_audit_email_delivery(test_access_id) INTO allowed;
   IF allowed IS DISTINCT FROM false THEN RAISE EXCEPTION 'Concurrent guest email claim must be rejected'; END IF;
-END $$;
+
+  UPDATE public.guest_audit_access
+     SET email_claimed_at = now() - interval '11 minutes'
+   WHERE id = test_access_id;
+  SELECT public.claim_guest_audit_email_delivery(test_access_id) INTO allowed;
+  IF allowed IS DISTINCT FROM true THEN RAISE EXCEPTION 'Expired guest email claim must be recoverable'; END IF;
+
+  UPDATE public.guest_audit_access
+     SET email_sent_at = now()
+   WHERE id = test_access_id;
+  SELECT public.claim_guest_audit_email_delivery(test_access_id) INTO allowed;
+  IF allowed IS DISTINCT FROM false THEN RAISE EXCEPTION 'Already-sent guest email must not be claimed again'; END IF;
+END $;
 
 ROLLBACK;
