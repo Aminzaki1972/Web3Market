@@ -21,7 +21,7 @@ COMMENT ON COLUMN public.platform_payment_configs.recipient_address IS
   'Platform fee/audit-payment receiving wallet; distinct from the Safe escrow address.';
 
 -- Preserve the known platform fee wallet separately from the Safe escrow wallet.
--- This BNB Smart Chain USDT route is inserted DISABLED and requires admin review before activation.
+-- This Binance-Peg BSC-USD route is inserted DISABLED and requires admin review before activation.
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -36,7 +36,7 @@ BEGIN
        '0xe1851d2aadc3d24175acaa22298c0418c830bf3f',
        '0x2b15cc63ee3b833f502c065767695fa2b584f8c9',
        '0x55d398326f99059ff775485246999027b3197955',
-       'USDT',
+       'BSC-USD',
        false);
   END IF;
 END $$;
@@ -72,9 +72,9 @@ CREATE TABLE IF NOT EXISTS public.audit_payment_orders (
   repo_url text NOT NULL,
   price_usd numeric(10,2) NOT NULL CHECK (price_usd IN (9.00,29.00,79.00)),
   chain_id bigint NOT NULL CHECK (chain_id=56),
-  token_contract text NOT NULL CHECK (token_contract ~* '^0x[a-f0-9]{40}$'),
-  token_symbol text NOT NULL CHECK (token_symbol='USDT'),
-  token_decimals smallint NOT NULL CHECK (token_decimals BETWEEN 0 AND 36),
+  token_contract text NOT NULL CHECK (lower(token_contract)='0x55d398326f99059ff775485246999027b3197955'),
+  token_symbol text NOT NULL CHECK (token_symbol='BSC-USD'),
+  token_decimals smallint NOT NULL CHECK (token_decimals=18),
   recipient_address text NOT NULL CHECK (recipient_address ~* '^0x[a-f0-9]{40}$'),
   amount_atomic numeric(78,0) NOT NULL CHECK (amount_atomic>0),
   payer_address text NULL CHECK (payer_address IS NULL OR payer_address ~* '^0x[a-f0-9]{40}$'),
@@ -90,7 +90,7 @@ ALTER TABLE public.audit_payment_orders
   ADD COLUMN IF NOT EXISTS transfer_block_number bigint NULL,
   ADD COLUMN IF NOT EXISTS transfer_block_hash text NULL;
 
-DO $
+DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='audit_payment_orders_transfer_log_index_nonnegative' AND conrelid='public.audit_payment_orders'::regclass) THEN
     ALTER TABLE public.audit_payment_orders ADD CONSTRAINT audit_payment_orders_transfer_log_index_nonnegative
@@ -102,61 +102,9 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='audit_payment_orders_transfer_block_hash_format' AND conrelid='public.audit_payment_orders'::regclass) THEN
     ALTER TABLE public.audit_payment_orders ADD CONSTRAINT audit_payment_orders_transfer_block_hash_format
-      CHECK (transfer_block_hash IS NULL OR transfer_block_hash ~* '^0x[a-f0-9]{64}
-  ON public.audit_payment_orders(lower(tx_hash))
-  WHERE tx_hash IS NOT NULL;
-
-CREATE INDEX IF NOT EXISTS audit_payment_orders_user_created_idx
-  ON public.audit_payment_orders(user_id,created_at DESC);
-
-ALTER TABLE public.audit_payment_orders ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE public.audit_payment_orders FROM PUBLIC,anon,authenticated;
-GRANT SELECT,INSERT,UPDATE ON TABLE public.audit_payment_orders TO service_role;
-
-ALTER TABLE public.code_audits
-  ADD COLUMN IF NOT EXISTS payment_order_id uuid NULL
-  REFERENCES public.audit_payment_orders(id) ON DELETE SET NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS code_audits_payment_order_unique
-  ON public.code_audits(payment_order_id)
-  WHERE payment_order_id IS NOT NULL;
-
--- Atomic one-free-audit entitlement per listed project for the V2 engine.
--- Failed audits release the entitlement; active and completed audits reserve it.
--- Paid audits are excluded by payment_order_id IS NULL.
-CREATE UNIQUE INDEX IF NOT EXISTS code_audits_one_free_v2_per_project_unique
-  ON public.code_audits(project_id)
-  WHERE project_id IS NOT NULL
-    AND payment_order_id IS NULL
-    AND engine_version = 'w3m-code-audit-2.0'
-    AND status IN ('pending','processing','queued','scanning','analyzing','retrying','paused','completed');
-
-COMMENT ON TABLE public.audit_payment_orders IS
-  'Server-only USDT audit orders. The server must verify BNB Chain receipt, exact token Transfer event, recipient, amount, confirmations and unique transaction hash before confirmation.';
-
-CREATE TABLE IF NOT EXISTS public.code_audit_autofix_prs (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  audit_id uuid NOT NULL REFERENCES public.code_audits(id) ON DELETE CASCADE,
-  requested_by uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
-  source_commit_sha text NOT NULL CHECK (source_commit_sha ~ '^[0-9a-f]{40}$'),
-  branch_name text NOT NULL,
-  pr_number integer NOT NULL,
-  pr_url text NOT NULL,
-  files_changed integer NOT NULL DEFAULT 0 CHECK (files_changed BETWEEN 1 AND 8),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (audit_id, source_commit_sha),
-  UNIQUE (pr_number)
-);
-
-ALTER TABLE public.code_audit_autofix_prs ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE public.code_audit_autofix_prs FROM PUBLIC,anon,authenticated;
-GRANT SELECT,INSERT ON TABLE public.code_audit_autofix_prs TO service_role;
-
-COMMENT ON TABLE public.code_audit_autofix_prs IS
-  'Audit-linked AI-proposed GitHub fix PRs. Never auto-merges; users must review changes in GitHub.';
-);
+      CHECK (transfer_block_hash IS NULL OR transfer_block_hash ~* '^0x[a-f0-9]{64}$');
   END IF;
-END $;
+END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS audit_payment_orders_tx_hash_unique
   ON public.audit_payment_orders(lower(tx_hash))
@@ -188,7 +136,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS code_audits_one_free_v2_per_project_unique
     AND status IN ('pending','processing','queued','scanning','analyzing','retrying','paused','completed');
 
 COMMENT ON TABLE public.audit_payment_orders IS
-  'Server-only USDT audit orders. The server must verify BNB Chain receipt, exact token Transfer event, recipient, amount, confirmations and unique transaction hash before confirmation.';
+  'Server-only Binance-Peg BSC-USD audit orders. This is a Binance-pegged BEP-20 representation, not direct Tether-issued USD₮. The server verifies chain ID, exact approved token contract, recipient, amount, confirmations and unique transaction hash before confirmation.';
 
 CREATE TABLE IF NOT EXISTS public.code_audit_autofix_prs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -1,3 +1,9 @@
+export const BNB_PEG_BSC_USD_CONTRACT = "0x55d398326f99059ff775485246999027b3197955";
+export function assertSupportedPaymentAsset(chainId: number, tokenContract: string, tokenSymbol: string, tokenDecimals: number): void {
+  if (chainId !== 56 || String(tokenContract || "").toLowerCase() !== BNB_PEG_BSC_USD_CONTRACT || tokenSymbol !== "BSC-USD" || tokenDecimals !== 18) {
+    throw new Error("Unsupported payment asset. Only Binance-Peg BSC-USD on BNB Smart Chain (chain ID 56, approved contract, 18 decimals) is accepted.");
+  }
+}
 export const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 export type TransferLog = {
   address?: string;

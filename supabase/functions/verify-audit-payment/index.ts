@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { findExactTransferLog } from "./payment-verification.ts";
+import { assertSupportedPaymentAsset, findExactTransferLog } from "./payment-verification.ts";
 const allowedOrigins=new Set(["https://web3market.xyz","https://www.web3market.xyz"]);
 function cors(req:Request){const origin=req.headers.get("Origin")||"";let trusted=allowedOrigins.has(origin);if(!trusted){try{const parsed=new URL(origin);trusted=parsed.protocol==="https:"&&/^(?:[a-z0-9-]+\.)*web3market\.pages\.dev$/i.test(parsed.hostname);}catch(_){trusted=false;}}const h:Record<string,string>={"Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS","Vary":"Origin"};if(trusted)h["Access-Control-Allow-Origin"]=origin;return h;}
 function json(req:Request,data:unknown,status=200){return new Response(JSON.stringify(data),{status,headers:{...cors(req),"Content-Type":"application/json"}});}
@@ -20,6 +20,7 @@ Deno.serve(async req=>{
   if(!/^[0-9a-f-]{36}$/i.test(orderId)||!/^0x[0-9a-f]{64}$/.test(txHash))return json(req,{ok:false,error:"A valid order ID and transaction hash are required."},400);
   const {data:order,error}=await sb.from("audit_payment_orders").select("*").eq("id",orderId).eq("user_id",user.id).maybeSingle();
   if(error||!order)return json(req,{ok:false,error:"Payment order not found."},404);
+  try{assertSupportedPaymentAsset(Number(order.chain_id),String(order.token_contract||""),String(order.token_symbol||""),Number(order.token_decimals));}catch(e){return json(req,{ok:false,error:String((e as any)?.message||"Unsupported payment asset.")},503);}
   if(order.status==="confirmed"&&String(order.tx_hash||"").toLowerCase()!==txHash)return json(req,{ok:false,error:"This order has already been confirmed with another transaction."},409);
   if(order.status!=="confirmed"&&order.status!=="pending")return json(req,{ok:false,error:"This payment order is no longer payable."},409);
   if(order.status!=="confirmed"&&new Date(order.expires_at).getTime()<Date.now())return json(req,{ok:false,error:"Payment order expired. Create a new order."},410);
