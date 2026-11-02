@@ -104,6 +104,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS code_audits_payment_order_unique
   ON public.code_audits(payment_order_id)
   WHERE payment_order_id IS NOT NULL;
 
+-- Atomic one-free-audit entitlement per listed project for the V2 engine.
+-- Failed audits release the entitlement; active and completed audits reserve it.
+-- Paid audits are excluded by payment_order_id IS NULL.
+CREATE UNIQUE INDEX IF NOT EXISTS code_audits_one_free_v2_per_project_unique
+  ON public.code_audits(project_id)
+  WHERE project_id IS NOT NULL
+    AND payment_order_id IS NULL
+    AND engine_version = 'w3m-code-audit-2.0'
+    AND status IN ('queued','scanning','analyzing','retrying','paused','completed');
+
 COMMENT ON TABLE public.audit_payment_orders IS
   'Server-only USDT audit orders. The server must verify BNB Chain receipt, exact token Transfer event, recipient, amount, confirmations and unique transaction hash before confirmation.';
 
