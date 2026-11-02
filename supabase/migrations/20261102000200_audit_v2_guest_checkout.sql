@@ -1,6 +1,5 @@
 -- Guest checkout for paid W3M AI Code Audits.
 -- Additive and review-only: do not apply to production until the full flow is tested.
-BEGIN;
 
 ALTER TABLE public.audit_payment_orders
   ALTER COLUMN user_id DROP NOT NULL;
@@ -80,5 +79,3 @@ COMMENT ON COLUMN public.audit_payment_orders.user_id IS
   'Authenticated buyer for member orders; NULL for guest checkout. Guest ownership is held in guest_audit_access.';
 COMMENT ON COLUMN public.code_audits.requested_by IS
   'Authenticated requester; NULL only for a paid guest audit whose ownership is validated through guest_audit_access.';
-
-COMMIT;
