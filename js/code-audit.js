@@ -145,6 +145,60 @@
      await ensureClient().then(c=>c.functions.invoke("w3m-code-audit",{body:{audit_id:a.id}}));
    }catch(e){console.warn("W3M audit resume request failed",e);}
  }
+ async function openGuestReport(){
+   const params=new URLSearchParams(location.search);
+   const linkToken=params.get("guest_report");
+   const key="w3m_guest_audit_session";
+   const existing=sessionStorage.getItem(key);
+   if(!linkToken&&!existing)return false;
+   if(linkToken){
+     root.innerHTML='<div class="audit-status"><h2>Private audit report</h2><p class="muted">This secure email link can be exchanged once for a 12-hour private report session.</p><button id="openGuestReport" class="btn btn-primary" type="button">Open my private report</button></div>';
+     document.getElementById("openGuestReport").addEventListener("click",async()=>{
+       const button=document.getElementById("openGuestReport");button.disabled=true;button.textContent="Securing report access…";
+       try{
+         const c=await ensureClient();
+         const r=await c.functions.invoke("guest-audit-access",{body:{action:"exchange",report_token:linkToken}});
+         if(r.error||!r.data?.session_token)throw Error(r.data?.error||r.error?.message||"This report link is invalid or expired.");
+         sessionStorage.setItem(key,r.data.session_token);
+         history.replaceState(null,"",location.pathname);
+         await loadGuestReport(r.data.session_token);
+       }catch(e){root.innerHTML='<div class="audit-status"><h2>Report access unavailable</h2><p class="audit-error">'+esc(e?.message||"Unable to open this report.")+'</p></div>';}
+     });
+     return true;
+   }
+   await loadGuestReport(existing);
+   return true;
+ }
+ async function loadGuestReport(sessionToken){
+   const c=await ensureClient();
+   const response=await c.functions.invoke("guest-audit-access",{body:{action:"report",session_token:sessionToken}});
+   if(response.error||!response.data?.ok)throw Error(response.data?.error||response.error?.message||"Unable to load the private report.");
+   const d=response.data;
+   if(d.pending||!d.audit){
+     root.innerHTML='<div class="audit-status"><h2>Payment confirmed — preparing your audit</h2><p class="muted">Your paid order is confirmed. The audit will begin automatically. This page will check progress every 10 seconds.</p></div>';
+     setTimeout(()=>loadGuestReport(sessionToken).catch(e=>{root.innerHTML='<p class="audit-error">'+esc(e?.message||"Unable to refresh report.")+'</p>';}),10000);
+     return;
+   }
+   const a=d.audit, fl=d.findings||[], files=d.files||[], score=a.overall_score==null?null:Number(a.overall_score);
+   if(a.status!=="completed"){
+     const progress=a.analysis_progress||{};
+     const current=Number(a.current_chunk||progress.current_chunk||0),total=Number(a.total_chunks||progress.total_chunks||0);
+     root.innerHTML='<div class="audit-status"><h2>Your W3M AI Code Audit is running…</h2><p class="muted">Status: '+esc(a.status)+'</p><p class="muted">'+(total?'AI analysis progress: '+esc(current)+' / '+esc(total)+' chunks.':'Scanning the public repository and preparing analysis…')+'</p><p class="muted">Your payment is confirmed. You can close this page; use the same email link on this device to return during this session.</p></div>';
+     setTimeout(()=>loadGuestReport(sessionToken).catch(e=>{root.innerHTML='<p class="audit-error">'+esc(e?.message||"Unable to refresh report.")+'</p>';}),10000);
+     return;
+   }
+   const cnt=counts(fl), date=a.completed_at||a.created_at||new Date().toISOString();
+   root.innerHTML='<div class="audit-head"><div><div class="audit-kicker">W3M AI CODE AUDIT — PRIVATE GUEST REPORT</div><h1>Repository Technical Due Diligence</h1><p class="muted">'+esc(a.repo_owner||"")+' / '+esc(a.repo_name||"")+' · '+esc(a.commit_sha||"snapshot")+'</p></div><div><div class="audit-score">'+(score==null?"—":esc(score)+"/100")+'</div><div class="audit-risk">'+esc(String(a.risk_level||"Pending").toUpperCase())+'</div></div></div>'+
+   '<div class="audit-actions"><button class="btn btn-primary" type="button" onclick="window.print()">Print / Save PDF</button><a class="btn btn-ghost" href="marketplace.html">Marketplace</a></div>'+
+   '<div class="audit-meta"><div><strong>Audit ID</strong><span class="audit-id">'+esc(a.id)+'</span></div><div><strong>Commit</strong><span class="audit-id">'+esc(a.commit_sha||"—")+'</span></div><div><strong>Audit Date</strong><span>'+esc(new Date(date).toLocaleString())+'</span></div><div><strong>Engine</strong><span>'+esc(a.engine_version||"W3M AI Code Audit")+'</span></div></div>'+
+   '<div class="audit-grid">'+metric("Security",a.security_score)+metric("Architecture",a.architecture_score)+metric("Code Quality",a.code_quality_score)+metric("Dependencies",a.dependency_score)+metric("Testing",a.testing_score)+metric("Documentation",a.documentation_score)+metric("Web3",a.web3_score)+metric("Scalability (static estimate)",a.scalability_score)+metric("AI Fit (evidence-based)",a.ai_fit_score)+'</div>'+
+   '<div class="audit-section"><h2>Audit Summary</h2><p class="audit-summary">'+esc(a.summary||"No summary available.")+'</p><p class="muted">Files scanned: '+esc(a.files_scanned||0)+' · Lines scanned: '+esc(a.lines_scanned||0)+' · Coverage: '+esc(a.coverage_score||0)+'% · Findings: '+esc(fl.length)+'</p></div>'+
+   '<div class="audit-section"><h2>Risk Overview</h2><div class="audit-grid">'+metric("Critical",cnt.critical,false)+metric("High",cnt.high,false)+metric("Medium",cnt.medium,false)+metric("Low",cnt.low,false)+metric("Info",cnt.info,false)+'</div></div>'+
+   '<div class="audit-section"><h2>Technical Findings</h2>'+findings(fl)+'</div>'+
+   '<div class="audit-section"><h2>Repository Snapshot</h2><div class="audit-grid">'+files.slice(0,30).map(x=>'<div class="audit-metric"><strong>'+esc(x.path)+'</strong><span class="muted">'+esc(x.language||"source")+' · '+esc(x.line_count||0)+' lines</span></div>').join("")+'</div></div>'+
+   '<div class="audit-certificate"><div class="audit-kicker">W3M AI CODE AUDIT RECORD</div><h2>Audit Analysis Record</h2><p>This report records the analysis result for the repository and commit shown above. It is not a formal penetration test, certification, guarantee, or investment advice.</p><p class="audit-id">'+esc(a.id)+'</p></div>'+
+   '<div class="audit-section"><small class="muted">Private guest report. This browser session expires automatically after 12 hours. Do not share this page or session.</small></div>';
+ }
  async function openExisting(){
    if(!auditId)return false;
    try{
@@ -180,7 +234,7 @@ if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit coul
      await render(a);return true;
    }catch(e){root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit</h2><p class="audit-error">'+esc(e?.message||"Unable to load audit.")+"</p></div>";return true;}
  }
- if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>openExisting().then(x=>{if(!x)start()}),{once:true});else openExisting().then(x=>{if(!x)start()});
+ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>openGuestReport().then(x=>{if(!x)return openExisting().then(y=>{if(!y)start()});}).catch(e=>{root.innerHTML='<div class="audit-status"><h2>Private report</h2><p class="audit-error">'+esc(e?.message||"Unable to open report.")+"</p></div>";}),{once:true});else openGuestReport().then(x=>{if(!x)return openExisting().then(y=>{if(!y)start()});}).catch(e=>{root.innerHTML='<div class="audit-status"><h2>Private report</h2><p class="audit-error">'+esc(e?.message||"Unable to open report.")+"</p></div>";});
 
  async function loadAuditHistory(){
    const panel=document.getElementById("auditHistory");
