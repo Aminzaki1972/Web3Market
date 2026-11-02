@@ -17,7 +17,7 @@ Deno.serve(async req=>{
  if(!url||!anon||!service)return json(req,{ok:false,error:"Payment service is not configured."},503);
  if(!rpcUrl)return json(req,{ok:false,error:"Paid audits are temporarily unavailable until the BNB Chain payment verifier is configured."},503);
  const userClient=createClient(url,anon,{global:{headers:{Authorization:auth}}});
- const authResult=auth?await userClient.auth.getUser():{data:{user:null},error:null};
+ const authResult=auth&&auth!=="Bearer "+anon?await userClient.auth.getUser():{data:{user:null},error:null};
  if(authResult.error)return json(req,{ok:false,error:"Invalid sign-in session."},401);
  const user=authResult.data.user;
  const sb=createClient(url,service);
