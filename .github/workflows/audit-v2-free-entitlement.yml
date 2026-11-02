@@ -1,0 +1,37 @@
+name: W3M atomic free audit entitlement
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/w3m-code-audit/index.ts"
+      - "supabase/migrations/*audit_v2_contracts_and_payment_orders.sql"
+      - "supabase/tests/audit-v2-free-entitlement.test.sql"
+      - ".github/workflows/audit-v2-free-entitlement.yml"
+permissions:
+  contents: read
+jobs:
+  postgres-entitlement-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: w3m_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d w3m_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: w3m_test
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Test atomic entitlement index behavior
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/audit-v2-free-entitlement.test.sql
