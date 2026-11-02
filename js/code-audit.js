@@ -68,10 +68,10 @@
      const c=await ensureClient();
      const auth=await c.auth.getSession();
      if(!auth?.data?.session?.user)throw Error("Please sign in or create a Web3Market account before running an audit. Audit history and detailed results are protected for registered members.");
-     const repo=input.value.trim();
+     const repo=input.value.trim();\n     const auditType=document.getElementById("auditType")?.value||"code";\n     if(!["code","smart_contract"].includes(auditType))throw Error("Choose a valid audit type.");
      if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
      b.textContent="Running Audit…";m.innerHTML="<p class='muted'>Scanning GitHub and preparing AI analysis…</p>";
-     const body={repo_url:repo};if(id)body.project_id=id;
+     const body={repo_url:repo,audit_type:auditType};if(id)body.project_id=id;
      const r=await c.functions.invoke("w3m-code-audit",{body});
      if(r.error){
        let detail=r.error?.message||"The audit service returned an error.";
