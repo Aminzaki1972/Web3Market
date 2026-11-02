@@ -6,6 +6,7 @@ on:
       - "supabase/functions/verify-audit-payment/**"
       - "supabase/migrations/*audit_v2_contracts_and_payment_orders.sql"
       - "supabase/tests/audit-v2-free-entitlement.test.sql"
+      - "supabase/tests/audit-v2-migration.test.sql"
       - ".github/workflows/audit-v2-free-entitlement.yml"
 permissions:
   contents: read
@@ -34,6 +35,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+      - name: Test audit V2 migration on an isolated schema
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/audit-v2-migration.test.sql
       - name: Test atomic entitlement index behavior
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/audit-v2-free-entitlement.test.sql
   transfer-verification-tests:
