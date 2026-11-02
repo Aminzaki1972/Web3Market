@@ -1,0 +1,5 @@
+import { applyExactReplacement, isAllowedAutoFixPath } from "./autofix-utils.ts";
+Deno.test("allows supported source files",()=>{if(!isAllowedAutoFixPath("src/app.ts")||!isAllowedAutoFixPath("contracts/Vault.sol"))throw new Error("Supported source path rejected");});
+Deno.test("blocks secrets, workflows, migrations, manifests and traversal",()=>{for(const p of [".env","src/.env.local",".github/workflows/ci.yml","supabase/migrations/001.sql","package.json","../secret.ts","/tmp/app.ts","src/../secret.ts"]){if(isAllowedAutoFixPath(p))throw new Error("Unsafe path allowed: "+p);}});
+Deno.test("replaces one exact unique source snippet",()=>{const result=applyExactReplacement("const a = 1;\nconst b = 2;","const a = 1;","const a = 3;");if(result!=="const a = 3;\nconst b = 2;")throw new Error("Exact replacement failed");});
+Deno.test("rejects missing or repeated snippets",()=>{if(applyExactReplacement("abc","xyz","new")!==null)throw new Error("Missing snippet accepted");if(applyExactReplacement("abc abc","abc","new")!==null)throw new Error("Repeated snippet accepted");});
