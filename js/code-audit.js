@@ -46,7 +46,7 @@
    '<div class="audit-section"><h2>Risk Overview</h2><div class="audit-grid">'+metric("Critical",cnt.critical,false)+metric("High",cnt.high,false)+metric("Medium",cnt.medium,false)+metric("Low",cnt.low,false)+metric("Info",cnt.info,false)+'</div></div>'+
    '<div class="audit-section"><h2>Technical Findings</h2><p class="muted">Every finding below is tied to repository evidence returned by the audit engine. Confidence and status indicate how strongly the evidence supports the finding.</p>'+findings(fl)+"</div>"+
    '<div class="audit-section"><h2>Repository Snapshot</h2><div class="audit-grid">'+files.slice(0,30).map(x=>'<div class="audit-metric"><strong>'+esc(x.path)+'</strong><span class="muted">'+esc(x.language||"source")+' · '+esc(x.line_count||0)+' lines</span></div>').join("")+'</div>'+(files.length>30?'<p class="muted">Showing the first 30 scanned files in this report.</p>':"")+'</div>'+
-   '<div class="audit-certificate"><div class="audit-kicker">W3M AI CODE AUDIT RECORD</div><h2>Audit Analysis Record</h2><p>This report records the analysis result for the repository and commit shown above. It is not a formal penetration test, smart-contract audit, certification, guarantee, or investment advice.</p><p class="audit-id">'+esc(a.id)+'</p><p class="muted">Repository: '+esc(a.repo_owner||"")+"/"+esc(a.repo_name||"")+' · Commit: '+esc(a.commit_sha||"—")+'</p></div>'+
+   '<div class="audit-certificate"><div class="audit-kicker">W3M AI CODE AUDIT RECORD</div><h2>Audit Analysis Record</h2><p>This report records the analysis result for the repository and commit shown above. It is not a formal penetration test, smart-contract audit, certification, guarantee, or investment advice.</p><p class="audit-id">'+esc(a.id)+'</p><p class="muted">Repository: '+esc(a.repo_owner||"")+"/"+esc(a.repo_name||"")+' · Commit: '+esc(a.commit_sha||"—")+'</p><div class="audit-stamp" role="img" aria-label="Web3Market W3M AI Audit record dated '+esc(new Date(date).toLocaleDateString("en-GB"))+'"><span>WEB3MARKET</span><b>W3M AI AUDIT</b><time datetime="'+esc(date)+'">'+esc(new Date(date).toLocaleDateString("en-GB"))+'</time><small>AUDIT RECORD</small></div></div>'+
    '<div class="audit-section"><small class="muted">Limitations: public repository data only; no private infrastructure, runtime penetration testing, or private repositories. Line references may be approximate. A later commit requires a new audit.</small></div>';
  }
  window.W3MResumeAudit=async()=>{
@@ -97,8 +97,7 @@
    const heartbeat=progress.updated_at?Date.parse(progress.updated_at):0;
    const stale=!heartbeat||!Number.isFinite(heartbeat)||(Date.now()-heartbeat)>90000;
    // A fresh scanning heartbeat means a worker is already active. Never call resume on every poll.
-   if(["scanning","analyzing","retrying"].includes(status)&&!stale)return;
-   // Avoid burning the server-side resume allowance if a queued audit is polled repeatedly.
+   if(["scanning","analyzing","retrying"].includes(status)&&!stale)return;   // Avoid burning the server-side resume allowance if a queued audit is polled repeatedly.
    const key="w3m:lastResumeAttempt:"+a.id;
    const last=Number(sessionStorage.getItem(key)||0);
    if(Date.now()-last<60000)return;
@@ -197,8 +196,7 @@ if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit coul
      if(btn.dataset.close){closeCalendar();return;}
      if(btn.dataset.today){dateInput.value=localDate(today);shownMonth=new Date(today.getFullYear(),today.getMonth(),1);closeCalendar();load();return;}
      if(btn.dataset.date){dateInput.value=btn.dataset.date;const [y,m]=btn.dataset.date.split("-").map(Number);shownMonth=new Date(y,m-1,1);closeCalendar();load();}
-   });
-   const load=async()=>{
+   });   const load=async()=>{
      const chosen=dateInput.value;
      if(!chosen){message.textContent="Choose a date to view its audit activity.";countEl.textContent="—";list.innerHTML="";return;}
      message.textContent="Loading audit records…";countEl.textContent="—";list.innerHTML="";
