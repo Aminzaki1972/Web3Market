@@ -12,20 +12,20 @@ CREATE UNIQUE INDEX code_audits_one_free_v2_per_project_unique
   WHERE project_id IS NOT NULL
     AND payment_order_id IS NULL
     AND engine_version = 'w3m-code-audit-2.0'
-    AND status IN ('queued','scanning','analyzing','retrying','paused','completed');
+    AND status IN ('pending','processing','queued','scanning','analyzing','retrying','paused','completed');
 
 -- A failed free audit releases the entitlement so a retry can be created.
 INSERT INTO public.code_audits VALUES
 ('00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',NULL,'w3m-code-audit-2.0','failed');
 INSERT INTO public.code_audits VALUES
-('00000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001',NULL,'w3m-code-audit-2.0','queued');
+('00000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001',NULL,'w3m-code-audit-2.0','pending');
 
 -- A second active/completed free audit for the same project must be rejected.
 DO $$
 BEGIN
   BEGIN
     INSERT INTO public.code_audits VALUES
-    ('00000000-0000-0000-0000-000000000003','10000000-0000-0000-0000-000000000001',NULL,'w3m-code-audit-2.0','queued');
+    ('00000000-0000-0000-0000-000000000003','10000000-0000-0000-0000-000000000001',NULL,'w3m-code-audit-2.0','pending');
     RAISE EXCEPTION 'FAIL: duplicate active free audit was accepted';
   EXCEPTION WHEN unique_violation THEN
     RAISE NOTICE 'PASS: duplicate active free audit rejected';
