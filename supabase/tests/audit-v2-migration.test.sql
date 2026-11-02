@@ -45,4 +45,31 @@ BEGIN
   END IF;
 END $$;
 
+DO $$
+DECLARE
+  nullable_user text;
+  nullable_requester text;
+  allowed boolean;
+  i integer;
+  fingerprint text := repeat('a',64);
+BEGIN
+  SELECT is_nullable INTO nullable_user FROM information_schema.columns
+   WHERE table_schema='public' AND table_name='audit_payment_orders' AND column_name='user_id';
+  SELECT is_nullable INTO nullable_requester FROM information_schema.columns
+   WHERE table_schema='public' AND table_name='code_audits' AND column_name='requested_by';
+  IF nullable_user <> 'YES' OR nullable_requester <> 'YES' THEN
+    RAISE EXCEPTION 'Guest checkout requires nullable user_id and requested_by';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relname='guest_audit_access' AND c.relrowsecurity) THEN
+    RAISE EXCEPTION 'Guest access table must enforce RLS';
+  END IF;
+  FOR i IN 1..5 LOOP
+    SELECT public.consume_guest_audit_order_rate_limit(fingerprint) INTO allowed;
+    IF allowed IS DISTINCT FROM true THEN RAISE EXCEPTION 'Rate limit rejected request % too early', i; END IF;
+  END LOOP;
+  SELECT public.consume_guest_audit_order_rate_limit(fingerprint) INTO allowed;
+  IF allowed IS DISTINCT FROM false THEN RAISE EXCEPTION 'Rate limit must reject request six'; END IF;
+END $$;
+
 ROLLBACK;
