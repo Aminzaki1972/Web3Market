@@ -261,7 +261,7 @@ Deno.serve(async req=>{
    if(linkedAudit){await sb.from("audit_payment_orders").update({audit_id:linkedAudit.id}).eq("id",paymentOrderId).eq("status","confirmed");return respond({ok:true,audit_id:linkedAudit.id,status:linkedAudit.status,reused:true});}
    projectId=order.project_id||null;
   }else if(auditType!=="code"&&!isAdmin)return failReq("Smart Contract and Complete audits require a paid order.",402);
-  if(b.project_id&&!paymentOrderId){
+  if(b.project_id&&!paymentOrderId&&!isAdmin){
    const pid=String(b.project_id);
    if(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pid)){
     const {data:p}=await sb.from("projects").select("id,github_url,owner_id,status").eq("id",pid).maybeSingle();
