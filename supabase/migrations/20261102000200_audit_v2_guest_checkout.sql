@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS public.guest_audit_access (
   session_expires_at timestamptz NULL,
   revoked_at timestamptz NULL,
   email_sent_at timestamptz NULL,
+  email_claimed_at timestamptz NULL,
   email_last_error text NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   last_access_at timestamptz NULL,
@@ -79,3 +80,28 @@ COMMENT ON COLUMN public.audit_payment_orders.user_id IS
   'Authenticated buyer for member orders; NULL for guest checkout. Guest ownership is held in guest_audit_access.';
 COMMENT ON COLUMN public.code_audits.requested_by IS
   'Authenticated requester; NULL only for a paid guest audit whose ownership is validated through guest_audit_access.';
+
+
+-- Serialize guest report-email issuance. Only one verifier may hold the
+-- short lease for an order at a time; stale claims can be recovered.
+CREATE OR REPLACE FUNCTION public.claim_guest_audit_email_delivery(p_access_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_claimed_id uuid;
+BEGIN
+  UPDATE public.guest_audit_access
+     SET email_claimed_at = now()
+   WHERE id = p_access_id
+     AND email_sent_at IS NULL
+     AND revoked_at IS NULL
+     AND (email_claimed_at IS NULL OR email_claimed_at < now() - interval '10 minutes')
+  RETURNING id INTO v_claimed_id;
+  RETURN v_claimed_id IS NOT NULL;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.claim_guest_audit_email_delivery(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_guest_audit_email_delivery(uuid) TO service_role;
