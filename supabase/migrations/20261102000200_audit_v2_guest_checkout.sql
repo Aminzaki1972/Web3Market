@@ -96,8 +96,14 @@ BEGIN
   UPDATE public.guest_audit_access
      SET email_claimed_at = now()
    WHERE id = p_access_id
-     AND email_sent_at IS NULL
      AND revoked_at IS NULL
+     AND (
+       email_sent_at IS NULL
+       OR (
+         (report_token_hash IS NULL OR report_token_expires_at <= now() OR report_token_used_at IS NOT NULL)
+         AND (session_token_hash IS NULL OR session_expires_at <= now())
+       )
+     )
      AND (email_claimed_at IS NULL OR email_claimed_at < now() - interval '10 minutes')
   RETURNING id INTO v_claimed_id;
   RETURN v_claimed_id IS NOT NULL;
