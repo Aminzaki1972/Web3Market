@@ -189,14 +189,17 @@ Deno.serve(async req=>{
  const respond=(x:any,s=200)=>json(req,x,s);
  const failReq=(m:string,s=400,extra:any={})=>respond({ok:false,error:m,...extra},s);
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:corsHeaders(req)});if(req.method!=="POST")return failReq("POST required",405);
- const sb=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+ const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"";
  const authHeader=req.headers.get("Authorization")||"";
+ const internalGuestCall=!!serviceKey&&authHeader==="Bearer "+serviceKey;
+ const sb=createClient(Deno.env.get("SUPABASE_URL")!,serviceKey);
  const userClient=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_ANON_KEY")!,{global:{headers:{Authorization:authHeader}}});
- const {data:{user},error:authError}=await userClient.auth.getUser();
- if(authError||!user)return failReq("Sign in with a Web3Market account to run or access code audits.",401);
+ const authResult=internalGuestCall?{data:{user:null},error:null}:await userClient.auth.getUser();
+ const user=authResult.data.user;
+ if(authResult.error||(!user&&!internalGuestCall))return failReq("Sign in with a Web3Market account or use a verified paid guest order.",401);
  // Admin entitlement is derived from the protected server-side profile role, never browser input or user-editable metadata.
- const {data:profile,error:profileError}=await sb.from("profiles").select("role").eq("id",user.id).maybeSingle();
- if(profileError)return failReq("Unable to verify audit permissions. Please retry.",503);
+ let profile:any=null;
+ if(user){const {data,error:profileError}=await sb.from("profiles").select("role").eq("id",user.id).maybeSingle();if(profileError)return failReq("Unable to verify audit permissions. Please retry.",503);profile=data;}
  const isAdmin=String(profile?.role||"").toLowerCase()==="admin";
  const ip=(req.headers.get("cf-connecting-ip")||req.headers.get("x-forwarded-for")||"unknown").split(",")[0].trim();
  const raw=ip+"|w3m-code-audit";
@@ -215,10 +218,11 @@ Deno.serve(async req=>{
   const {data:rl}=await sb.from("code_audit_rate_limits").select("request_count").eq("fingerprint",fingerprint).eq("window_started_at",windowStart).maybeSingle();
   if(!requestedAuditId&&!isAdmin&&(rl?.request_count||0)>=3){const retry=Math.max(1,3600-Math.floor((now.getTime()-new Date(windowStart).getTime())/1000));return new Response(JSON.stringify({ok:false,error:requestedAuditId?"Resume limit reached: maximum 120 resume requests per hour. Your saved audit data is preserved.":"Rate limit reached: maximum 3 new public audits per hour.",code:"RATE_LIMIT",retry_after_seconds:retry}),{status:429,headers:{...corsHeaders(req),"Content-Type":"application/json","Retry-After":String(retry)}});}
   if(requestedAuditId){
-   const {data:resume,error:resumeError}=await sb.from("code_audits").select("id,status,repo_url,repo_owner,repo_name,current_chunk,total_chunks,analysis_progress,public_fingerprint,requested_by,audit_type").eq("id",requestedAuditId).maybeSingle();
+   const {data:resume,error:resumeError}=await sb.from("code_audits").select("id,status,repo_url,repo_owner,repo_name,current_chunk,total_chunks,analysis_progress,public_fingerprint,requested_by,audit_type,payment_order_id").eq("id",requestedAuditId).maybeSingle();
    // Public audits are resumable only by the same requester fingerprint.
    // Return 404 on mismatch so audit IDs cannot be used to operate on another audit owner.
-   if(resumeError||!resume||resume.requested_by!==user.id)return failReq("Audit not found.",404);
+   if(resumeError||!resume||(!internalGuestCall&&resume.requested_by!==user?.id))return failReq("Audit not found.",404);
+   if(internalGuestCall){const {data:guestOrder}=await sb.from("audit_payment_orders").select("id,user_id,status").eq("id",resume.payment_order_id).is("user_id",null).eq("status","confirmed").maybeSingle();if(!guestOrder)return failReq("Guest audit authorization failed.",404);}
    if(resumeError||!resume)return failReq("Audit not found.",404);
    if(resume.status==="completed")return respond({ok:true,audit_id:resume.id,status:"completed",reused:true});
    // Resuming an existing audit is not counted against the new-audit quota.
@@ -252,8 +256,10 @@ Deno.serve(async req=>{
   const paymentOrderId=String(b.payment_order_id||"").trim()||null;
   let projectId=null;
   if(paymentOrderId){
-   const {data:order}=await sb.from("audit_payment_orders").select("id,user_id,repo_url,audit_type,status,audit_id,project_id").eq("id",paymentOrderId).eq("user_id",user.id).maybeSingle();
-   if(!order||order.status!=="confirmed")return failReq("A confirmed payment is required for this audit.",402);
+   let orderQuery=sb.from("audit_payment_orders").select("id,user_id,repo_url,audit_type,status,audit_id,project_id").eq("id",paymentOrderId);
+   orderQuery=user?orderQuery.eq("user_id",user.id):orderQuery.is("user_id",null);
+   const {data:order}=await orderQuery.maybeSingle();
+   if(!order||order.status!=="confirmed"||(!user&&!internalGuestCall))return failReq("A confirmed payment is required for this audit.",402);
    const expectedRepo=("https://github.com/"+r.owner+"/"+r.name).toLowerCase();
    if(String(order.repo_url||"").toLowerCase()!==expectedRepo||order.audit_type!==auditType)return failReq("Payment order does not match this repository or audit type.",409);
    if(order.audit_id){const {data:prior}=await sb.from("code_audits").select("id,status").eq("id",order.audit_id).maybeSingle();if(prior)return respond({ok:true,audit_id:prior.id,status:prior.status,reused:true});}
@@ -275,7 +281,7 @@ Deno.serve(async req=>{
   if(!projectId&&!paymentOrderId&&!isAdmin)return failReq("A paid audit order is required unless this is the one free audit for the exact repository of your active listed project.",402);
   if(projectId&&!paymentOrderId&&!isAdmin){const {data:used}=await sb.from("code_audits").select("id,requested_by").eq("project_id",projectId).is("payment_order_id",null).eq("status","completed").limit(1).maybeSingle();if(used){if(used.requested_by===user.id)return respond({ok:true,audit_id:used.id,status:"completed",reused:true,free_entitlement_already_used:true});return failReq("This listed project has already used its one free audit entitlement.",409);}}
   if(projectId&&!paymentOrderId&&!isAdmin){const {data:running}=await sb.from("code_audits").select("id,status,requested_by").eq("project_id",projectId).is("payment_order_id",null).in("status",["pending","processing","queued","scanning","analyzing","retrying","paused"]).limit(1).maybeSingle();if(running){if(running.requested_by===user.id)return respond({ok:true,audit_id:running.id,status:running.status,reused:true});return failReq("A free audit for this project is already in progress.",409);}}
-  const {data:a,error}=await sb.from("code_audits").insert({project_id:projectId,payment_order_id:paymentOrderId,requested_by:user.id,public_fingerprint:fingerprint,repo_url:"https://github.com/"+r.owner+"/"+r.name,repo_owner:r.owner,repo_name:r.name,audit_type:auditType,engine_version:"w3m-code-audit-2.0"}).select("id").single();if(error){if(error.code==="23505"&&projectId&&!paymentOrderId&&!isAdmin){const {data:existing}=await sb.from("code_audits").select("id,status,requested_by").eq("project_id",projectId).is("payment_order_id",null).in("status",["pending","processing","queued","scanning","analyzing","retrying","paused","completed"]).limit(1).maybeSingle();if(existing?.requested_by===user.id)return respond({ok:true,audit_id:existing.id,status:existing.status,reused:true,free_entitlement_already_used:existing.status==="completed"});return failReq("This project already has an active or completed free audit. The one-free-audit limit is enforced atomically.",409);}throw Error("Unable to create audit record: "+(error.message||"database write failed"));}if(!a)throw Error("Unable to create audit record: database returned no audit row");
+  const {data:a,error}=await sb.from("code_audits").insert({project_id:projectId,payment_order_id:paymentOrderId,requested_by:user?.id||null,public_fingerprint:fingerprint,repo_url:"https://github.com/"+r.owner+"/"+r.name,repo_owner:r.owner,repo_name:r.name,audit_type:auditType,engine_version:"w3m-code-audit-2.0"}).select("id").single();if(error){if(error.code==="23505"&&projectId&&!paymentOrderId&&!isAdmin){const {data:existing}=await sb.from("code_audits").select("id,status,requested_by").eq("project_id",projectId).is("payment_order_id",null).in("status",["pending","processing","queued","scanning","analyzing","retrying","paused","completed"]).limit(1).maybeSingle();if(existing?.requested_by===user.id)return respond({ok:true,audit_id:existing.id,status:existing.status,reused:true,free_entitlement_already_used:existing.status==="completed"});return failReq("This project already has an active or completed free audit. The one-free-audit limit is enforced atomically.",409);}throw Error("Unable to create audit record: "+(error.message||"database write failed"));}if(!a)throw Error("Unable to create audit record: database returned no audit row");
   if(paymentOrderId){const {error:linkError}=await sb.from("audit_payment_orders").update({audit_id:a.id}).eq("id",paymentOrderId).eq("status","confirmed").is("audit_id",null);if(linkError)throw Error("Unable to link paid order to audit: "+String(linkError.message||linkError));}
   // Respond quickly and let the Edge Runtime finish the audit asynchronously.
   const task=run(sb,a,r);
