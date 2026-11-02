@@ -34,6 +34,8 @@ Deno.serve(async req=>{
   const decimalsHex=await rpc(rpcUrl,"eth_call",[{to:config.token_contract,data:"0x313ce567"},"latest"]);
   const decimals=Number(BigInt(decimalsHex));
   if(decimals!==18)throw Error("The approved Binance-Peg BSC-USD contract must return exactly 18 decimals.");
+  // BscScan labels this contract Binance-Peg BSC-USD, while the BEP-20 symbol() call returns "USDT".
+  // Keep the customer-facing asset identity pinned to the exact contract + chain, not the on-chain ticker alone.
   const symbolHex=await rpc(rpcUrl,"eth_call",[{to:config.token_contract,data:"0x95d89b41"},"latest"]);
   const symbol=decodeAbiString(symbolHex);
   if(symbol!=="USDT")return json(req,{ok:false,error:"The approved Binance-Peg contract metadata check failed. Paid audits remain disabled."},503);
