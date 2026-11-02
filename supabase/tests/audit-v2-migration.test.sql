@@ -64,6 +64,20 @@ BEGIN
     WHERE n.nspname='public' AND c.relname='guest_audit_access' AND c.relrowsecurity) THEN
     RAISE EXCEPTION 'Guest access table must enforce RLS';
   END IF;
+  IF has_table_privilege('anon','public.guest_audit_access','SELECT')
+     OR has_table_privilege('authenticated','public.guest_audit_access','SELECT')
+     OR has_table_privilege('anon','public.guest_audit_access','INSERT')
+     OR has_table_privilege('authenticated','public.guest_audit_access','UPDATE') THEN
+    RAISE EXCEPTION 'Guest access table must not be directly accessible to client roles';
+  END IF;
+  IF NOT has_table_privilege('service_role','public.guest_audit_access','SELECT,INSERT,UPDATE') THEN
+    RAISE EXCEPTION 'Service role must have the required guest access table privileges';
+  END IF;
+  IF has_function_privilege('anon','public.consume_guest_audit_order_rate_limit(text)','EXECUTE')
+     OR has_function_privilege('authenticated','public.consume_guest_audit_order_rate_limit(text)','EXECUTE')
+     OR NOT has_function_privilege('service_role','public.consume_guest_audit_order_rate_limit(text)','EXECUTE') THEN
+    RAISE EXCEPTION 'Guest rate-limit RPC execute privileges are not restricted to service_role';
+  END IF;
   FOR i IN 1..5 LOOP
     SELECT public.consume_guest_audit_order_rate_limit(fingerprint) INTO allowed;
     IF allowed IS DISTINCT FROM true THEN RAISE EXCEPTION 'Rate limit rejected request % too early', i; END IF;
