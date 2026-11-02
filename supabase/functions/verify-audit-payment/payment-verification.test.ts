@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { findExactTransferLog, TRANSFER_TOPIC } from "./payment-verification.ts";
+import { assertSupportedPaymentAsset, BNB_PEG_BSC_USD_CONTRACT, findExactTransferLog, TRANSFER_TOPIC } from "./payment-verification.ts";
 const token = "0x" + "a".repeat(40);
 const payer = "0x" + "b".repeat(40);
 const recipient = "0x" + "c".repeat(40);
@@ -30,4 +30,14 @@ Deno.test("rejects ambiguous duplicate matching events", () => {
 });
 Deno.test("rejects a missing or unsafe log index", () => {
   assertThrows(() => findExactTransferLog([log({ logIndex: undefined })], token, recipient, 9000000n));
+});
+
+Deno.test("accepts only the approved Binance-Peg BSC-USD payment asset", () => {
+  assertEquals(assertSupportedPaymentAsset(56, BNB_PEG_BSC_USD_CONTRACT, "BSC-USD", 18), undefined);
+});
+Deno.test("rejects wrong chain, token contract, label, or decimals", () => {
+  assertThrows(() => assertSupportedPaymentAsset(1, BNB_PEG_BSC_USD_CONTRACT, "BSC-USD", 18));
+  assertThrows(() => assertSupportedPaymentAsset(56, "0x" + "d".repeat(40), "BSC-USD", 18));
+  assertThrows(() => assertSupportedPaymentAsset(56, BNB_PEG_BSC_USD_CONTRACT, "USDT", 18));
+  assertThrows(() => assertSupportedPaymentAsset(56, BNB_PEG_BSC_USD_CONTRACT, "BSC-USD", 6));
 });
