@@ -135,6 +135,6 @@ BEGIN
    WHERE id = test_access_id;
   SELECT public.claim_guest_audit_email_delivery(test_access_id) INTO allowed;
   IF allowed IS DISTINCT FROM true THEN RAISE EXCEPTION 'Expired guest report link must be eligible for secure reissue'; END IF;
-END $;
+END $$;
 
 ROLLBACK;
