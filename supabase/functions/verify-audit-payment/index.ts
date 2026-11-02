@@ -1,11 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { findExactTransferLog } from "./payment-verification.ts";
 const allowedOrigins=new Set(["https://web3market.xyz","https://www.web3market.xyz"]);
-const TRANSFER_TOPIC="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 function cors(req:Request){const origin=req.headers.get("Origin")||"";let trusted=allowedOrigins.has(origin);if(!trusted){try{const parsed=new URL(origin);trusted=parsed.protocol==="https:"&&/^(?:[a-z0-9-]+\.)*web3market\.pages\.dev$/i.test(parsed.hostname);}catch(_){trusted=false;}}const h:Record<string,string>={"Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS","Vary":"Origin"};if(trusted)h["Access-Control-Allow-Origin"]=origin;return h;}
 function json(req:Request,data:unknown,status=200){return new Response(JSON.stringify(data),{status,headers:{...cors(req),"Content-Type":"application/json"}});}
 async function rpc(url:string,method:string,params:unknown[]){const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method,params})});if(!r.ok)throw Error("BNB RPC request failed ("+r.status+").");const j=await r.json();if(j.error)throw Error("BNB RPC error: "+String(j.error.message||"unknown"));return j.result;}
-function topicAddress(topic:string){return "0x"+String(topic||"").slice(-40).toLowerCase();}
 Deno.serve(async req=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(req)});
  if(req.method!=="POST")return json(req,{ok:false,error:"POST required"},405);
@@ -29,16 +28,18 @@ Deno.serve(async req=>{
   const receipt=await rpc(rpcUrl,"eth_getTransactionReceipt",[txHash]);
   if(!receipt)return json(req,{ok:false,pending:true,error:"Transaction not found yet. Wait for confirmation and try again."},202);
   if(String(receipt.transactionHash||"").toLowerCase()!==txHash||String(receipt.status)!=="0x1")return json(req,{ok:false,error:"Transaction failed or transaction hash does not match."},400);
+  const transferBlockHash=String(receipt.blockHash||"").toLowerCase();
+  if(!/^0x[0-9a-f]{64}$/.test(transferBlockHash)||!/^0x[0-9a-f]+$/i.test(String(receipt.blockNumber||"")))return json(req,{ok:false,error:"Transaction receipt is missing valid block evidence."},400);
   const latest=BigInt(await rpc(rpcUrl,"eth_blockNumber",[]));
   const block=BigInt(receipt.blockNumber);
   const confirmations=latest>=block?Number(latest-block+1n):0;
   if(confirmations<12)return json(req,{ok:false,pending:true,confirmations,required_confirmations:12,error:"Payment is included but is awaiting 12 block confirmations."},202);
   const wantedTo=String(order.recipient_address).toLowerCase(),wantedToken=String(order.token_contract).toLowerCase(),wantedAmount=BigInt(String(order.amount_atomic));
-  const match=(receipt.logs||[]).find((log:any)=>String(log.address||"").toLowerCase()===wantedToken&&String(log.topics?.[0]||"").toLowerCase()===TRANSFER_TOPIC&&topicAddress(log.topics?.[2])===wantedTo&&BigInt(log.data||"0x0")===wantedAmount);
-  if(!match)return json(req,{ok:false,error:"No exact USDT transfer to the platform receiving wallet was found in this transaction."},400);
-  const payer=topicAddress(match.topics?.[1]);
+  let transfer:{payerAddress:string;logIndex:number};
+  try{transfer=findExactTransferLog(receipt.logs||[],wantedToken,wantedTo,wantedAmount);}catch(e){return json(req,{ok:false,error:String((e as any)?.message||"Exact token transfer verification failed.")},400);}
+  const payer=transfer.payerAddress;
   if(order.status!=="confirmed"){
-   const {data:updated,error:updateError}=await sb.from("audit_payment_orders").update({status:"confirmed",tx_hash:txHash,payer_address:payer,confirmed_at:new Date().toISOString()}).eq("id",order.id).eq("status","pending").is("tx_hash",null).select("id").maybeSingle();
+   const {data:updated,error:updateError}=await sb.from("audit_payment_orders").update({status:"confirmed",tx_hash:txHash,payer_address:payer,transfer_log_index:transfer.logIndex,transfer_block_number:BigInt(receipt.blockNumber).toString(),transfer_block_hash:transferBlockHash,confirmed_at:new Date().toISOString()}).eq("id",order.id).eq("status","pending").is("tx_hash",null).select("id").maybeSingle();
    if(updateError||!updated){const {data:latestOrder}=await sb.from("audit_payment_orders").select("status,tx_hash").eq("id",order.id).maybeSingle();if(latestOrder?.status!=="confirmed"||String(latestOrder.tx_hash||"").toLowerCase()!==txHash)return json(req,{ok:false,error:"Payment verification could not be safely finalized. Retry once; the transaction will not be charged twice."},409);}
   }
   if(order.audit_id)return json(req,{ok:true,paid:true,audit_id:order.audit_id,confirmations,already_started:true});
