@@ -28,6 +28,8 @@ Deno.serve(async req=>{
   const receipt=await rpc(rpcUrl,"eth_getTransactionReceipt",[txHash]);
   if(!receipt)return json(req,{ok:false,pending:true,error:"Transaction not found yet. Wait for confirmation and try again."},202);
   if(String(receipt.transactionHash||"").toLowerCase()!==txHash||String(receipt.status)!=="0x1")return json(req,{ok:false,error:"Transaction failed or transaction hash does not match."},400);
+  const transferBlockHash=String(receipt.blockHash||"").toLowerCase();
+  if(!/^0x[0-9a-f]{64}$/.test(transferBlockHash)||!/^0x[0-9a-f]+$/i.test(String(receipt.blockNumber||"")))return json(req,{ok:false,error:"Transaction receipt is missing valid block evidence."},400);
   const latest=BigInt(await rpc(rpcUrl,"eth_blockNumber",[]));
   const block=BigInt(receipt.blockNumber);
   const confirmations=latest>=block?Number(latest-block+1n):0;
@@ -37,7 +39,7 @@ Deno.serve(async req=>{
   try{transfer=findExactTransferLog(receipt.logs||[],wantedToken,wantedTo,wantedAmount);}catch(e){return json(req,{ok:false,error:String((e as any)?.message||"Exact token transfer verification failed.")},400);}
   const payer=transfer.payerAddress;
   if(order.status!=="confirmed"){
-   const {data:updated,error:updateError}=await sb.from("audit_payment_orders").update({status:"confirmed",tx_hash:txHash,payer_address:payer,transfer_log_index:transfer.logIndex,transfer_block_number:BigInt(receipt.blockNumber).toString(),transfer_block_hash:String(receipt.blockHash||"").toLowerCase(),confirmed_at:new Date().toISOString()}).eq("id",order.id).eq("status","pending").is("tx_hash",null).select("id").maybeSingle();
+   const {data:updated,error:updateError}=await sb.from("audit_payment_orders").update({status:"confirmed",tx_hash:txHash,payer_address:payer,transfer_log_index:transfer.logIndex,transfer_block_number:BigInt(receipt.blockNumber).toString(),transfer_block_hash:transferBlockHash,confirmed_at:new Date().toISOString()}).eq("id",order.id).eq("status","pending").is("tx_hash",null).select("id").maybeSingle();
    if(updateError||!updated){const {data:latestOrder}=await sb.from("audit_payment_orders").select("status,tx_hash").eq("id",order.id).maybeSingle();if(latestOrder?.status!=="confirmed"||String(latestOrder.tx_hash||"").toLowerCase()!==txHash)return json(req,{ok:false,error:"Payment verification could not be safely finalized. Retry once; the transaction will not be charged twice."},409);}
   }
   if(order.audit_id)return json(req,{ok:true,paid:true,audit_id:order.audit_id,confirmations,already_started:true});
