@@ -86,7 +86,7 @@ Deno.serve(async req => {
     }
     if (!order.audit_id) return json(req, { ok: true, pending: true, email: access.email }, 202);
     const { data: auditState } = await db.from("code_audits").select("status").eq("id", order.audit_id).maybeSingle();
-    if (auditState && ["paused", "queued", "analyzing"].includes(String(auditState.status))) {
+    if (auditState && ["paused", "queued"].includes(String(auditState.status))) {
       await fetch(url + "/functions/v1/w3m-code-audit", { method: "POST", headers: internalHeaders, body: JSON.stringify({ audit_id: order.audit_id }) });
     }
     const { data: audit, error: auditError } = await db.from("code_audits")
