@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - "supabase/functions/w3m-code-audit/index.ts"
+      - "supabase/functions/verify-audit-payment/**"
       - "supabase/migrations/*audit_v2_contracts_and_payment_orders.sql"
       - "supabase/tests/audit-v2-free-entitlement.test.sql"
       - ".github/workflows/audit-v2-free-entitlement.yml"
@@ -35,3 +36,14 @@ jobs:
         uses: actions/checkout@v4
       - name: Test atomic entitlement index behavior
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/audit-v2-free-entitlement.test.sql
+  transfer-verification-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check payment verifier and event matcher
+        run: deno check supabase/functions/verify-audit-payment/index.ts
+      - name: Test exact token transfer matching
+        run: deno test --allow-net supabase/functions/verify-audit-payment/payment-verification.test.ts
