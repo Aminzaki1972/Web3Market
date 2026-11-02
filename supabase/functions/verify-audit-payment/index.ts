@@ -25,7 +25,7 @@ Deno.serve(async req=>{
   if(!user){
    const guestToken=String(body.guest_order_token||"");
    if(!/^[0-9a-f]{64}$/i.test(guestToken))return json(req,{ok:false,error:"The guest order access token is missing or invalid."},401);
-   const {data:access,error:accessError}=await sb.from("guest_audit_access").select("id,email,order_token_hash,revoked_at").eq("payment_order_id",orderId).maybeSingle();
+   const {data:access,error:accessError}=await sb.from("guest_audit_access").select("id,email,order_token_hash,revoked_at,report_token_hash,report_token_expires_at,session_token_hash,session_expires_at,email_sent_at").eq("payment_order_id",orderId).maybeSingle();
    if(accessError||!access||access.revoked_at||access.order_token_hash!==await sha256(guestToken))return json(req,{ok:false,error:"Guest payment order not found."},404);
    guestAccess=access;
   }
@@ -57,19 +57,22 @@ Deno.serve(async req=>{
    if(updateError||!updated){const {data:latestOrder}=await sb.from("audit_payment_orders").select("status,tx_hash").eq("id",order.id).maybeSingle();if(latestOrder?.status!=="confirmed"||String(latestOrder.tx_hash||"").toLowerCase()!==txHash)return json(req,{ok:false,error:"Payment verification could not be safely finalized. Retry once; the transaction will not be charged twice."},409);}
   }
   if(order.audit_id&&!guestAccess)return json(req,{ok:true,paid:true,audit_id:order.audit_id,confirmations,already_started:true});
-  let reportToken:string|null=null;
   if(guestAccess){
-   reportToken=randomToken();
-   const reportExpiry=new Date(Date.now()+7*24*60*60*1000).toISOString();
-   const {error:tokenError}=await sb.from("guest_audit_access").update({report_token_hash:await sha256(reportToken),report_token_expires_at:reportExpiry,report_token_used_at:null,session_token_hash:null,session_expires_at:null,email_last_error:null}).eq("id",guestAccess.id).is("revoked_at",null);
-   if(tokenError)return json(req,{ok:false,paid:true,error:"Payment is confirmed, but secure report-link preparation failed. Retry verification with the same order token."},503);
-   const resendKey=Deno.env.get("RESEND_API_KEY"),fromEmail=Deno.env.get("RESEND_FROM_EMAIL");
-   if(!resendKey||!fromEmail)return json(req,{ok:false,paid:true,error:"Payment is confirmed. Report email is not configured yet; the platform administrator must configure RESEND_API_KEY and RESEND_FROM_EMAIL before delivery."},503);
-   const reportUrl="https://web3market.xyz/code-audit.html?guest_report="+encodeURIComponent(reportToken);
-   const mail=await fetch("https://api.resend.com/emails",{method:"POST",headers:{"Authorization":"Bearer "+resendKey,"Content-Type":"application/json","Idempotency-Key":"w3m-guest-audit:"+order.id+":"+await sha256(reportToken)},body:JSON.stringify({from:fromEmail,to:[guestAccess.email],subject:"Your private Web3Market AI Code Audit report",html:"<div style='font-family:Arial,sans-serif;line-height:1.6;color:#172033'><h2>Your paid W3M AI Code Audit is underway</h2><p>Your payment has been verified on BNB Smart Chain. Use the private link below to view progress and access the report when complete.</p><p><a href='"+reportUrl+"'>Open your private audit report</a></p><p>This link can be exchanged once and expires in 7 days. The report session expires after 12 hours. Do not forward this email or share the link.</p><p>Repository: "+String(order.repo_url).replace(/[&<>"]/g,"")+"</p><p>Payment asset: Binance-Peg BSC-USD.</p></div>"})});
-   const mailResult=await mail.json().catch(()=>({}));
-   if(!mail.ok){await sb.from("guest_audit_access").update({email_last_error:String(mailResult?.message||"Resend delivery failed").slice(0,500)}).eq("id",guestAccess.id);return json(req,{ok:false,paid:true,error:"Payment is confirmed, but the report email could not be sent. Retry verification with the same order token."},502);}
-   await sb.from("guest_audit_access").update({email_sent_at:new Date().toISOString(),email_last_error:null}).eq("id",guestAccess.id);
+   const activeReportLink=!!guestAccess.report_token_hash&&!!guestAccess.report_token_expires_at&&new Date(guestAccess.report_token_expires_at).getTime()>Date.now();
+   const activeSession=!!guestAccess.session_token_hash&&!!guestAccess.session_expires_at&&new Date(guestAccess.session_expires_at).getTime()>Date.now();
+   if(!guestAccess.email_sent_at||(!activeReportLink&&!activeSession)){
+    const reportToken=randomToken();
+    const reportExpiry=new Date(Date.now()+7*24*60*60*1000).toISOString();
+    const {error:tokenError}=await sb.from("guest_audit_access").update({report_token_hash:await sha256(reportToken),report_token_expires_at:reportExpiry,report_token_used_at:null,session_token_hash:null,session_expires_at:null,email_last_error:null}).eq("id",guestAccess.id).is("revoked_at",null);
+    if(tokenError)return json(req,{ok:false,paid:true,error:"Payment is confirmed, but secure report-link preparation failed. Retry verification with the same order token."},503);
+    const resendKey=Deno.env.get("RESEND_API_KEY"),fromEmail=Deno.env.get("RESEND_FROM_EMAIL");
+    if(!resendKey||!fromEmail)return json(req,{ok:false,paid:true,error:"Payment is confirmed. Report email is not configured yet; the platform administrator must configure RESEND_API_KEY and RESEND_FROM_EMAIL before delivery."},503);
+    const reportUrl="https://web3market.xyz/code-audit.html?guest_report="+encodeURIComponent(reportToken);
+    const mail=await fetch("https://api.resend.com/emails",{method:"POST",headers:{"Authorization":"Bearer "+resendKey,"Content-Type":"application/json","Idempotency-Key":"w3m-guest-audit:"+order.id+":"+await sha256(reportToken)},body:JSON.stringify({from:fromEmail,to:[guestAccess.email],subject:"Your private Web3Market AI Code Audit report",html:"<div style='font-family:Arial,sans-serif;line-height:1.6;color:#172033'><h2>Your paid W3M AI Code Audit is underway</h2><p>Your payment has been verified on BNB Smart Chain. Use the private link below to view progress and access the report when complete.</p><p><a href='"+reportUrl+"'>Open your private audit report</a></p><p>This link can be exchanged once and expires in 7 days. The report session expires after 12 hours. Do not forward this email or share the link.</p><p>Repository: "+String(order.repo_url).replace(/[&<>"]/g,"")+"</p><p>Payment asset: Binance-Peg BSC-USD.</p></div>"})});
+    const mailResult=await mail.json().catch(()=>({}));
+    if(!mail.ok){await sb.from("guest_audit_access").update({email_last_error:String(mailResult?.message||"Resend delivery failed").slice(0,500)}).eq("id",guestAccess.id);return json(req,{ok:false,paid:true,error:"Payment is confirmed, but the report email could not be sent. Retry verification with the same order token."},502);}
+    await sb.from("guest_audit_access").update({email_sent_at:new Date().toISOString(),email_last_error:null}).eq("id",guestAccess.id);
+   }
   }
   const engineAuth=guestAccess?"Bearer "+service:auth;
   const engineResponse=await fetch(url+"/functions/v1/w3m-code-audit",{method:"POST",headers:{"Authorization":engineAuth,"apikey":anon,"Content-Type":"application/json"},body:JSON.stringify({repo_url:order.repo_url,audit_type:order.audit_type,payment_order_id:order.id,project_id:order.project_id||undefined})});
