@@ -1,0 +1,5 @@
+import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { analyzeSmartContracts } from "./contract-analysis.ts";
+Deno.test("only Solidity files are inspected",()=>{assertEquals(analyzeSmartContracts([{path:"src/app.ts",content:"tx.origin; selfdestruct(payable(msg.sender));"}]).length,0);});
+Deno.test("flags candidates with source evidence",()=>{const f=analyzeSmartContracts([{path:"contracts/Vault.sol",content:"pragma solidity ^0.8.20;\nfunction auth() external { require(tx.origin == owner); }\nfunction pay() external { payable(msg.sender).call{value: amount}(\"\"); }"}]);assertEquals(f.length,2);assertEquals(f[0].file_path,"contracts/Vault.sol");assertEquals(f[0].line_start,2);assertEquals(f[0].status,"needs_verification");});
+Deno.test("ignores comments and caps findings",()=>{const f=analyzeSmartContracts([{path:"contracts/Example.sol",content:"// tx.origin\n/* block.timestamp */\n"+Array(50).fill("assembly { }").join("\n")}]);assertEquals(f.length,40);});
