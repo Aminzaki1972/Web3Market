@@ -4,6 +4,7 @@ on:
     paths:
       - "supabase/functions/w3m-code-audit/index.ts"
       - "js/code-audit.js"
+      - "code-audit.html"
       - "supabase/functions/verify-audit-payment/**"
       - "supabase/migrations/*audit_v2_contracts_and_payment_orders.sql"
       - "supabase/migrations/*audit_v2_guest_checkout.sql"
@@ -55,6 +56,9 @@ jobs:
           grep -q 'sessionStorage.setItem(PENDING_PAYMENT_KEY' js/code-audit.js
           grep -q 'restorePendingPayment(c)' js/code-audit.js
           grep -q 'sessionStorage.removeItem(PENDING_PAYMENT_KEY)' js/code-audit.js
+          grep -q 'window.__W3MGuestReportToken = token' code-audit.html
+          grep -q 'history.replaceState(null, "", location.pathname' code-audit.html
+          grep -q 'window.__W3MGuestReportToken||params.get("guest_report")' js/code-audit.js
   transfer-verification-tests:
     runs-on: ubuntu-latest
     steps:
