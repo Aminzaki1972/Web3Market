@@ -1,5 +1,6 @@
 -- Apply the audit V2 migration against a minimal isolated PostgreSQL schema.
 -- This catches migration syntax/DDL errors without touching any Supabase project.
+BEGIN;
 CREATE ROLE anon NOLOGIN;
 CREATE ROLE authenticated NOLOGIN;
 CREATE ROLE service_role NOLOGIN;
@@ -41,3 +42,5 @@ BEGIN
     RAISE EXCEPTION 'Unexpected audit payment recipient';
   END IF;
 END $$;
+
+ROLLBACK;
