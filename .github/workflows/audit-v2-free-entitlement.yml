@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - "supabase/functions/w3m-code-audit/index.ts"
+      - "js/code-audit.js"
       - "supabase/functions/verify-audit-payment/**"
       - "supabase/migrations/*audit_v2_contracts_and_payment_orders.sql"
       - "supabase/migrations/*audit_v2_guest_checkout.sql"
@@ -42,6 +43,18 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/audit-v2-migration.test.sql
       - name: Test atomic entitlement index behavior
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/audit-v2-free-entitlement.test.sql
+  guest-checkout-browser-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Validate browser audit script syntax
+        run: node --check js/code-audit.js
+      - name: Verify pending payment session restore hooks
+        run: |
+          grep -q 'sessionStorage.setItem(PENDING_PAYMENT_KEY' js/code-audit.js
+          grep -q 'restorePendingPayment(c)' js/code-audit.js
+          grep -q 'sessionStorage.removeItem(PENDING_PAYMENT_KEY)' js/code-audit.js
   transfer-verification-tests:
     runs-on: ubuntu-latest
     steps:
