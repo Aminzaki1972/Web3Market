@@ -6,6 +6,8 @@ function cors(req:Request){const origin=req.headers.get("Origin")||"";let truste
 function json(req:Request,data:unknown,status=200){return new Response(JSON.stringify(data),{status,headers:{...cors(req),"Content-Type":"application/json"}});}
 function canonicalRepo(value:string){const u=new URL(value);if(u.protocol!=="https:"||u.hostname!=="github.com")throw Error("Only public GitHub repository URLs are supported.");const p=u.pathname.split("/").filter(Boolean);if(p.length!==2)throw Error("Enter a repository URL in https://github.com/owner/repository format.");const owner=p[0],name=p[1].replace(/\.git$/i,"");if(!/^[A-Za-z0-9-]+$/.test(owner)||! /^[A-Za-z0-9_.-]+$/.test(name))throw Error("Invalid GitHub repository path.");return "https://github.com/"+owner+"/"+name;}
 async function rpc(url:string,method:string,params:unknown[]){const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method,params})});if(!r.ok)throw Error("BNB RPC request failed ("+r.status+").");const j=await r.json();if(j.error)throw Error("BNB RPC error: "+String(j.error.message||"unknown"));return j.result;}
+function randomToken(){const b=new Uint8Array(32);crypto.getRandomValues(b);return Array.from(b,x=>x.toString(16).padStart(2,"0")).join("");}
+async function sha256(v:string){const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v));return Array.from(new Uint8Array(d),x=>x.toString(16).padStart(2,"0")).join("");}
 function decodeAbiString(hex:string){if(!/^0x[0-9a-f]+$/i.test(hex)||hex.length<130)return "";const bytes=hex.slice(2);try{const offset=Number(BigInt("0x"+bytes.slice(0,64)))*2;const length=Number(BigInt("0x"+bytes.slice(offset,offset+64)));if(!Number.isSafeInteger(length)||length<1||length>64)return "";const data=bytes.slice(offset+64,offset+64+length*2);return new TextDecoder().decode(Uint8Array.from(data.match(/.{2}/g)||[],x=>parseInt(x,16)));}catch(_){return "";}}
 Deno.serve(async req=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(req)});
@@ -15,11 +17,16 @@ Deno.serve(async req=>{
  if(!url||!anon||!service)return json(req,{ok:false,error:"Payment service is not configured."},503);
  if(!rpcUrl)return json(req,{ok:false,error:"Paid audits are temporarily unavailable until the BNB Chain payment verifier is configured."},503);
  const userClient=createClient(url,anon,{global:{headers:{Authorization:auth}}});
- const {data:{user},error:authError}=await userClient.auth.getUser();
- if(authError||!user)return json(req,{ok:false,error:"Sign in before creating a paid audit order."},401);
+ const authResult=auth?await userClient.auth.getUser():{data:{user:null},error:null};
+ if(authResult.error)return json(req,{ok:false,error:"Invalid sign-in session."},401);
+ const user=authResult.data.user;
  const sb=createClient(url,service);
  try{
   const body=await req.json();
+  const guestEmail=String(body.email||"").trim().toLowerCase();
+  if(!user&&!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(guestEmail))return json(req,{ok:false,error:"Enter a valid email address to receive your private audit report."},400);
+  let guestOrderToken:string|null=null;
+  if(!user){const ip=(req.headers.get("cf-connecting-ip")||req.headers.get("x-forwarded-for")||"unknown").split(",")[0].trim();const fingerprint=await sha256(ip+"|w3m-guest-audit-order");const {data:allowed,error:rateError}=await sb.rpc("consume_guest_audit_order_rate_limit",{p_fingerprint:fingerprint});if(rateError||allowed!==true)return json(req,{ok:false,error:"Guest checkout limit reached. Try again in an hour or sign in to continue."},429);guestOrderToken=randomToken();}
   const auditType=String(body.audit_type||"code");
   const prices:Record<string,number>={code:9,smart_contract:29,complete:79};
   if(!(auditType in prices))return json(req,{ok:false,error:"Unsupported audit type."},400);
@@ -43,11 +50,12 @@ Deno.serve(async req=>{
   const amountAtomic=(BigInt(price)*(10n**BigInt(decimals))).toString();
   const projectId=typeof body.project_id==="string"&&/^[0-9a-f-]{36}$/i.test(body.project_id)?body.project_id:null;
   const {data:order,error}=await sb.from("audit_payment_orders").insert({
-   user_id:user.id,project_id:projectId,audit_type:auditType,repo_url:repoUrl,price_usd:price,chain_id:56,
+   user_id:user?.id||null,project_id:projectId,audit_type:auditType,repo_url:repoUrl,price_usd:price,chain_id:56,
    token_contract:String(config.token_contract).toLowerCase(),token_symbol:"BSC-USD",token_decimals:decimals,
    recipient_address:String(config.recipient_address).toLowerCase(),amount_atomic:amountAtomic
   }).select("id,price_usd,chain_id,token_contract,token_symbol,token_decimals,recipient_address,amount_atomic,expires_at").single();
   if(error||!order)throw Error("Unable to create payment order.");
-  return json(req,{ok:true,order:{...order,amount:"$"+Number(price).toFixed(2)+" BSC-USD",asset_label:"Binance-Peg BSC-USD",network:"BNB Smart Chain",instructions:"Send the exact Binance-Peg BSC-USD amount to the receiving address, then submit the transaction hash for verification."}},201);
+  if(!user&&guestOrderToken){const {error:guestError}=await sb.from("guest_audit_access").insert({payment_order_id:order.id,email:guestEmail,order_token_hash:await sha256(guestOrderToken)});if(guestError){await sb.from("audit_payment_orders").delete().eq("id",order.id).is("user_id",null);throw Error("Unable to secure guest checkout. Please retry.");}}
+  return json(req,{ok:true,guest:!user,guest_order_token:guestOrderToken,email:!user?guestEmail:undefined,order:{...order,amount:"$"+Number(price).toFixed(2)+" BSC-USD",asset_label:"Binance-Peg BSC-USD",network:"BNB Smart Chain",instructions:"Send the exact Binance-Peg BSC-USD amount to the receiving address, then submit the transaction hash for verification."}},201);
  }catch(e){console.error("create-audit-payment-order",String((e as any)?.message||e));return json(req,{ok:false,error:String((e as any)?.message||"Unable to create payment order.")},400);}
 });
