@@ -35,3 +35,21 @@ GRANT SELECT,INSERT,UPDATE ON TABLE public.audit_payment_orders TO service_role;
 ALTER TABLE public.code_audits ADD COLUMN IF NOT EXISTS payment_order_id uuid NULL REFERENCES public.audit_payment_orders(id) ON DELETE SET NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS code_audits_payment_order_unique ON public.code_audits(payment_order_id) WHERE payment_order_id IS NOT NULL;
 COMMENT ON TABLE public.audit_payment_orders IS 'Server-only USDT audit orders. A server verifier must validate BNB Chain receipt, token Transfer event, recipient, exact atomic amount, confirmations and unique transaction hash before confirmation.';
+
+CREATE TABLE IF NOT EXISTS public.code_audit_autofix_prs (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ audit_id uuid NOT NULL REFERENCES public.code_audits(id) ON DELETE CASCADE,
+ requested_by uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+ source_commit_sha text NOT NULL CHECK (source_commit_sha ~ '^[0-9a-f]{40}$'),
+ branch_name text NOT NULL,
+ pr_number integer NOT NULL,
+ pr_url text NOT NULL,
+ files_changed integer NOT NULL DEFAULT 0 CHECK (files_changed BETWEEN 1 AND 8),
+ created_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE (audit_id, source_commit_sha),
+ UNIQUE (pr_number)
+);
+ALTER TABLE public.code_audit_autofix_prs ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.code_audit_autofix_prs FROM PUBLIC,anon,authenticated;
+GRANT SELECT,INSERT ON TABLE public.code_audit_autofix_prs TO service_role;
+COMMENT ON TABLE public.code_audit_autofix_prs IS 'Audit-linked, AI-proposed GitHub fix PRs. Never auto-merges; users must review changes in GitHub.';
