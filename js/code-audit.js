@@ -71,8 +71,33 @@
      const repo=input.value.trim();\n     const auditType=document.getElementById("auditType")?.value||"code";\n     if(!["code","smart_contract"].includes(auditType))throw Error("Choose a valid audit type.");
      if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
      b.textContent="Running Audit…";m.innerHTML="<p class='muted'>Scanning GitHub and preparing AI analysis…</p>";
-     const body={repo_url:repo,audit_type:auditType};if(id)body.project_id=id;
-     const r=await c.functions.invoke("w3m-code-audit",{body});
+     if(id&&auditType==="code"){
+      const r=await c.functions.invoke("w3m-code-audit",{body:{repo_url:repo,project_id:id,audit_type:"code"}});
+      if(r.error)throw Error(r.error.message||"Unable to start the free project audit.");
+      const aid=r.data?.audit_id||r.data?.id;if(!aid)throw Error(r.data?.error||"Audit started but no audit ID was returned.");
+      location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));return;
+     }
+     const orderResponse=await c.functions.invoke("create-audit-payment-order",{body:{repo_url:repo,audit_type:auditType,project_id:id||undefined}});
+     if(orderResponse.error)throw Error(orderResponse.error.message||"Unable to create a payment order.");
+     const order=orderResponse.data?.order;if(!order?.id)throw Error(orderResponse.data?.error||"Payment order was not created.");
+     m.innerHTML="<div class='audit-payment-order'><h3>Payment order created</h3><p>Send <strong>"+esc(order.amount)+"</strong> on <strong>BNB Smart Chain</strong> to the official Web3Market receiving wallet below.</p><p><strong>Receiving wallet</strong><br><code>"+esc(order.recipient_address)+"</code></p><p><strong>USDT contract</strong><br><code>"+esc(order.token_contract)+"</code></p><p><strong>Order expires</strong><br>"+esc(new Date(order.expires_at).toLocaleString())+"</p><label for='auditPaymentTxHash'><strong>Transaction hash</strong></label><input id='auditPaymentTxHash' type='text' placeholder='0x…' autocomplete='off' style='display:block;width:100%;box-sizing:border-box;margin:8px 0;padding:12px;border:1px solid #3a3158;border-radius:9px;background:#0d0c19;color:#f5f2ff'><button id='verifyAuditPayment' class='btn btn-primary' type='button'>Verify payment and start audit</button><p class='muted'>The audit starts only after the server verifies the exact USDT transfer and 12 block confirmations. Never send funds to an address other than the one shown in this order.</p></div>";
+     window.W3MVerifyAuditPayment=async()=>{
+      const verifyButton=document.getElementById("verifyAuditPayment"),txInput=document.getElementById("auditPaymentTxHash");
+      if(!verifyButton||!txInput)return;
+      const txHash=txInput.value.trim();if(!/^0x[0-9a-f]{64}$/i.test(txHash)){m.innerHTML+="<p class='muted'>Enter a valid transaction hash.</p>";return;}
+      verifyButton.disabled=true;verifyButton.textContent="Verifying on BNB Chain…";
+      try{
+       const verified=await c.functions.invoke("verify-audit-payment",{body:{order_id:order.id,tx_hash:txHash}});
+       if(verified.error)throw Error(verified.error.message||"Payment verification failed.");
+       const data=verified.data||{};
+       if(data.audit_id){location.replace("code-audit.html?audit_id="+encodeURIComponent(data.audit_id));return;}
+       if(data.pending){verifyButton.disabled=false;verifyButton.textContent="Verify payment and start audit";throw Error(data.error||"Payment is awaiting confirmations.");}
+       if(data.audit_started===false){verifyButton.disabled=false;verifyButton.textContent="Retry starting audit";throw Error(data.error||"Payment confirmed; audit start can be retried.");}
+       throw Error(data.error||"Payment could not be verified.");
+      }catch(error){const note=document.createElement("p");note.className="muted";note.textContent=error?.message||"Payment verification failed.";m.querySelector(".audit-payment-order")?.appendChild(note);verifyButton.disabled=false;verifyButton.textContent="Verify payment and start audit";}
+     };
+     document.getElementById("verifyAuditPayment").addEventListener("click",window.W3MVerifyAuditPayment);
+     return;
      if(r.error){
        let detail=r.error?.message||"The audit service returned an error.";
        try{if(r.error?.context){const ctx=r.error.context;let payload=null;if(typeof ctx.json==="function"){try{payload=await ctx.clone().json()}catch(_){try{payload=await ctx.json()}catch(__){}}}else if(typeof ctx==="object")payload=ctx;if(payload?.code==="RATE_LIMIT")detail="Rate limit reached. Please try again in about "+Math.ceil(Number(payload.retry_after_seconds||60)/60)+" minute(s).";else if(payload?.error)detail=payload.error;}}catch(_){}
