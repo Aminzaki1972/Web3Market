@@ -122,10 +122,19 @@ BEGIN
   IF allowed IS DISTINCT FROM true THEN RAISE EXCEPTION 'Expired guest email claim must be recoverable'; END IF;
 
   UPDATE public.guest_audit_access
-     SET email_sent_at = now()
+     SET email_sent_at = now(),
+         report_token_hash = repeat('c',64),
+         report_token_expires_at = now() + interval '1 day',
+         report_token_used_at = NULL
    WHERE id = test_access_id;
   SELECT public.claim_guest_audit_email_delivery(test_access_id) INTO allowed;
-  IF allowed IS DISTINCT FROM false THEN RAISE EXCEPTION 'Already-sent guest email must not be claimed again'; END IF;
+  IF allowed IS DISTINCT FROM false THEN RAISE EXCEPTION 'Active guest report link must not be reissued'; END IF;
+
+  UPDATE public.guest_audit_access
+     SET report_token_expires_at = now() - interval '1 minute'
+   WHERE id = test_access_id;
+  SELECT public.claim_guest_audit_email_delivery(test_access_id) INTO allowed;
+  IF allowed IS DISTINCT FROM true THEN RAISE EXCEPTION 'Expired guest report link must be eligible for secure reissue'; END IF;
 END $;
 
 ROLLBACK;
