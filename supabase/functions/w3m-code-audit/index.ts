@@ -249,20 +249,32 @@ Deno.serve(async req=>{
   const next=(rl?.request_count||0)+1;
   if(rl) await sb.from("code_audit_rate_limits").update({request_count:next}).eq("fingerprint",fingerprint).eq("window_started_at",windowStart);
   else await sb.from("code_audit_rate_limits").insert({fingerprint,window_started_at:windowStart,request_count:1});
+  const auditType=String(b.audit_type||"code").trim();
+  if(!["code","smart_contract","complete"].includes(auditType))return failReq("Unsupported audit_type.");
+  const paymentOrderId=String(b.payment_order_id||"").trim()||null;
   let projectId=null;
-  if(b.project_id){
+  if(paymentOrderId){
+   const {data:order}=await sb.from("audit_payment_orders").select("id,user_id,repo_url,audit_type,status,audit_id,project_id").eq("id",paymentOrderId).eq("user_id",user.id).maybeSingle();
+   if(!order||order.status!=="confirmed")return failReq("A confirmed payment is required for this audit.",402);
+   const expectedRepo=("https://github.com/"+r.owner+"/"+r.name).toLowerCase();
+   if(String(order.repo_url||"").toLowerCase()!==expectedRepo||order.audit_type!==auditType)return failReq("Payment order does not match this repository or audit type.",409);
+   if(order.audit_id)return respond({ok:true,audit_id:order.audit_id,status:"completed",reused:true});
+   projectId=order.project_id||null;
+  }else if(auditType!=="code")return failReq("Smart Contract and Complete audits require a paid order.",402);
+  if(b.project_id&&!paymentOrderId){
    const pid=String(b.project_id);
    if(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pid)){
-    const {data:p}=await sb.from("projects").select("id,github_url").eq("id",pid).maybeSingle();
-    if(p?.id){
+    const {data:p}=await sb.from("projects").select("id,github_url,owner_id,status").eq("id",pid).maybeSingle();
+    if(p?.id&&p.owner_id===user.id&&p.status==="active"){
      const pg=String(p.github_url||"").trim().toLowerCase().replace(/\.git$/,"").replace(/\/$/,"");
      const rg=("https://github.com/"+r.owner+"/"+r.name).toLowerCase();
      if(pg && pg===rg) projectId=p.id;
     }
    }
   }
-  const auditType=String(b.audit_type||"code").trim();if(!["code","smart_contract"].includes(auditType))return failReq("Unsupported audit_type. Use code or smart_contract.");
-  const {data:a,error}=await sb.from("code_audits").insert({project_id:projectId,requested_by:user.id,public_fingerprint:fingerprint,repo_url:"https://github.com/"+r.owner+"/"+r.name,repo_owner:r.owner,repo_name:r.name,audit_type:auditType}).select("id").single();if(error)throw Error("Unable to create audit record: "+(error.message||"database write failed"));if(!a)throw Error("Unable to create audit record: database returned no audit row");
+  if(!projectId&&!paymentOrderId)return failReq("A paid audit order is required unless this is the one free audit for the exact repository of your active listed project.",402);
+  if(projectId&&!paymentOrderId){const {data:used}=await sb.from("code_audits").select("id,requested_by").eq("project_id",projectId).eq("status","completed").limit(1).maybeSingle();if(used)return respond({ok:true,audit_id:used.id,status:"completed",reused:true,free_entitlement_already_used:true});}
+  const {data:a,error}=await sb.from("code_audits").insert({project_id:projectId,payment_order_id:paymentOrderId,requested_by:user.id,public_fingerprint:fingerprint,repo_url:"https://github.com/"+r.owner+"/"+r.name,repo_owner:r.owner,repo_name:r.name,audit_type:auditType}).select("id").single();if(error)throw Error("Unable to create audit record: "+(error.message||"database write failed"));if(!a)throw Error("Unable to create audit record: database returned no audit row");
   // Respond quickly and let the Edge Runtime finish the audit asynchronously.
   const task=run(sb,a,r);
   const runtime=(globalThis as any).EdgeRuntime;
