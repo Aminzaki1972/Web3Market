@@ -19,6 +19,7 @@ jobs:
         with:
           deno-version: v2.x
       - name: Type-check W3M audit and payment Edge Functions
+        # Includes the Auto-Fix PR endpoint and exact-source patch safety tests.
         run: |
           deno check supabase/functions/w3m-code-audit/index.ts
           deno check supabase/functions/create-audit-payment-order/index.ts
