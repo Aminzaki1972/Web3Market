@@ -14,7 +14,7 @@ Deno.serve(async req=>{
  const url=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY"),service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),rpcUrl=Deno.env.get("BSC_RPC_URL");
  if(!url||!anon||!service||!rpcUrl)return json(req,{ok:false,error:"Payment verifier is not configured."},503);
  const userClient=createClient(url,anon,{global:{headers:{Authorization:auth}}});
- const authResult=auth?await userClient.auth.getUser():{data:{user:null},error:null};
+ const authResult=auth&&auth!=="Bearer "+anon?await userClient.auth.getUser():{data:{user:null},error:null};
  if(authResult.error)return json(req,{ok:false,error:"Invalid sign-in session."},401);
  const user=authResult.data.user;
  const sb=createClient(url,service);
