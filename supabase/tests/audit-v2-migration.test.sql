@@ -123,6 +123,7 @@ BEGIN
 
   UPDATE public.guest_audit_access
      SET email_sent_at = now(),
+         email_claimed_at = NULL,
          report_token_hash = repeat('c',64),
          report_token_expires_at = now() + interval '1 day',
          report_token_used_at = NULL
