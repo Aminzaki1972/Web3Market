@@ -251,6 +251,8 @@ Deno.serve(async req=>{
    const expectedRepo=("https://github.com/"+r.owner+"/"+r.name).toLowerCase();
    if(String(order.repo_url||"").toLowerCase()!==expectedRepo||order.audit_type!==auditType)return failReq("Payment order does not match this repository or audit type.",409);
    if(order.audit_id){const {data:prior}=await sb.from("code_audits").select("id,status").eq("id",order.audit_id).maybeSingle();if(prior)return respond({ok:true,audit_id:prior.id,status:prior.status,reused:true});}
+   const {data:linkedAudit}=await sb.from("code_audits").select("id,status").eq("payment_order_id",paymentOrderId).maybeSingle();
+   if(linkedAudit){await sb.from("audit_payment_orders").update({audit_id:linkedAudit.id}).eq("id",paymentOrderId).eq("status","confirmed");return respond({ok:true,audit_id:linkedAudit.id,status:linkedAudit.status,reused:true});}
    projectId=order.project_id||null;
   }else if(auditType!=="code")return failReq("Smart Contract and Complete audits require a paid order.",402);
   if(b.project_id&&!paymentOrderId){
