@@ -39,7 +39,7 @@ Deno.serve(async req=>{
   const payer=topicAddress(match.topics?.[1]);
   if(order.status!=="confirmed"){
    const {data:updated,error:updateError}=await sb.from("audit_payment_orders").update({status:"confirmed",tx_hash:txHash,payer_address:payer,confirmed_at:new Date().toISOString()}).eq("id",order.id).eq("status","pending").is("tx_hash",null).select("id").maybeSingle();
-   if(updateError||!updated)return json(req,{ok:false,error:"Payment verification could not be safely finalized. Retry once; the transaction will not be charged twice."},409);
+   if(updateError||!updated){const {data:latestOrder}=await sb.from("audit_payment_orders").select("status,tx_hash").eq("id",order.id).maybeSingle();if(latestOrder?.status!=="confirmed"||String(latestOrder.tx_hash||"").toLowerCase()!==txHash)return json(req,{ok:false,error:"Payment verification could not be safely finalized. Retry once; the transaction will not be charged twice."},409);}
   }
   if(order.audit_id)return json(req,{ok:true,paid:true,audit_id:order.audit_id,confirmations,already_started:true});
   const engineResponse=await fetch(url+"/functions/v1/w3m-code-audit",{method:"POST",headers:{"Authorization":auth,"apikey":anon,"Content-Type":"application/json"},body:JSON.stringify({repo_url:order.repo_url,audit_type:order.audit_type,payment_order_id:order.id,project_id:order.project_id||undefined})});
