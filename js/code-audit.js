@@ -75,6 +75,36 @@
      location.reload();
    }catch(e){alert(e?.message||"Unable to resume audit.");}
  };
+ const PENDING_PAYMENT_KEY="w3m:audit-payment-order:v1";
+ function clearPendingPayment(){try{sessionStorage.removeItem(PENDING_PAYMENT_KEY);}catch(_){}}
+ function savePendingPayment(order,guestToken,email,repo,auditType){
+   try{sessionStorage.setItem(PENDING_PAYMENT_KEY,JSON.stringify({order,guestToken:guestToken||"",email:email||"",repo,auditType,savedAt:Date.now()}));}
+   catch(_){throw Error("This browser tab cannot securely retain the pending payment session. Keep this page open until payment verification is complete.");}
+ }
+ function renderPaymentOrder(c,m,pending){
+   const {order,guestToken,email}=pending;
+   m.innerHTML="<div class='audit-payment-order'><h3>Payment order "+esc(order.id)+"</h3><p>Send <strong>"+esc(order.amount)+"</strong> on <strong>BNB Smart Chain</strong> to the official Web3Market receiving wallet below.</p><p><strong>Receiving wallet</strong><br><code>"+esc(order.recipient_address)+"</code></p><p><strong>Payment asset: Binance-Peg BSC-USD (not direct Tether-issued USD₮)</strong><br><strong>Approved token contract</strong><br><code>"+esc(order.token_contract)+"</code></p><p><strong>Order expires</strong><br>"+esc(new Date(order.expires_at).toLocaleString())+"</p>"+(email?"<p>Private report email: <strong>"+esc(email)+"</strong></p>":"")+"<label for='auditPaymentTxHash'><strong>Transaction hash</strong></label><input id='auditPaymentTxHash' type='text' placeholder='0x…' autocomplete='off' style='display:block;width:100%;box-sizing:border-box;margin:8px 0;padding:12px;border:1px solid #3a3158;border-radius:9px;background:#0d0c19;color:#f5f2ff'><button id='verifyAuditPayment' class='btn btn-primary' type='button'>Verify payment and start audit</button><button id='discardAuditPayment' class='btn btn-ghost' type='button'>Discard saved order</button><p class='muted'>The audit starts only after the server verifies the exact Binance-Peg BSC-USD transfer and 12 block confirmations. This is not direct Tether-issued USD₮. Confirm the network and full token contract before sending. Never send funds to an address other than the one shown in this order. A pending order is retained only in this browser tab's session storage; do not share this device or browser tab.</p></div>";
+   const verifyButton=document.getElementById("verifyAuditPayment");
+   document.getElementById("discardAuditPayment").addEventListener("click",()=>{clearPendingPayment();m.innerHTML="<p class='muted'>Saved payment order removed from this browser tab. If you already sent funds, do not discard it; contact support with the order ID.</p>";});
+   window.W3MVerifyAuditPayment=async()=>{
+     const txInput=document.getElementById("auditPaymentTxHash");
+     if(!verifyButton||!txInput)return;
+     const txHash=txInput.value.trim();
+     if(!/^0x[0-9a-f]{64}$/i.test(txHash)){const note=document.createElement("p");note.className="muted";note.textContent="Enter a valid transaction hash.";m.querySelector(".audit-payment-order")?.appendChild(note);return;}
+     verifyButton.disabled=true;verifyButton.textContent="Verifying on BNB Chain…";
+     try{
+       const verified=await c.functions.invoke("verify-audit-payment",{body:{order_id:order.id,tx_hash:txHash,guest_order_token:guestToken||undefined}});
+       if(verified.error)throw Error(verified.error.message||"Payment verification failed.");
+       const data=verified.data||{};
+       if(data.guest){clearPendingPayment();m.innerHTML="<div class='audit-payment-order'><h3>Payment verified</h3><p>Your audit is being prepared. We sent a private report-access link to <strong>"+esc(data.email||email)+"</strong>. Check your inbox and spam folder. The link expires and can be exchanged only once.</p></div>";return;}
+       if(data.audit_id){clearPendingPayment();location.replace("code-audit.html?audit_id="+encodeURIComponent(data.audit_id));return;}
+       if(data.pending){verifyButton.disabled=false;verifyButton.textContent="Verify payment and start audit";throw Error(data.error||"Payment is awaiting confirmations.");}
+       if(data.audit_started===false){verifyButton.disabled=false;verifyButton.textContent="Retry starting audit";throw Error(data.error||"Payment confirmed; audit start can be retried.");}
+       throw Error(data.error||"Payment could not be verified.");
+     }catch(error){const note=document.createElement("p");note.className="muted";note.textContent=error?.message||"Payment verification failed.";m.querySelector(".audit-payment-order")?.appendChild(note);verifyButton.disabled=false;verifyButton.textContent="Verify payment and start audit";}
+   };
+   verifyButton.addEventListener("click",window.W3MVerifyAuditPayment);
+ }
  window.W3MRunAudit=async()=>{
    const b=document.getElementById("runAudit"),m=document.getElementById("auditMsg"),input=document.getElementById("auditRepo");
    if(!b||!m||!input)return;
@@ -92,36 +122,35 @@
      if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
      b.textContent="Running Audit…";m.innerHTML="<p class='muted'>Scanning GitHub and preparing AI analysis…</p>";
      if(id&&auditType==="code"){
-      const r=await c.functions.invoke("w3m-code-audit",{body:{repo_url:repo,project_id:id,audit_type:"code"}});
-      if(r.error)throw Error(r.error.message||"Unable to start the free project audit.");
-      const aid=r.data?.audit_id||r.data?.id;if(!aid)throw Error(r.data?.error||"Audit started but no audit ID was returned.");
-      location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));return;
+       const r=await c.functions.invoke("w3m-code-audit",{body:{repo_url:repo,project_id:id,audit_type:"code"}});
+       if(r.error)throw Error(r.error.message||"Unable to start the free project audit.");
+       const aid=r.data?.audit_id||r.data?.id;if(!aid)throw Error(r.data?.error||"Audit started but no audit ID was returned.");
+       location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));return;
      }
      const orderResponse=await c.functions.invoke("create-audit-payment-order",{body:{repo_url:repo,audit_type:auditType,project_id:id||undefined,email:guestEmail||undefined}});
      if(orderResponse.error)throw Error(orderResponse.error.message||"Unable to create a payment order.");
      const order=orderResponse.data?.order;if(!order?.id)throw Error(orderResponse.data?.error||"Payment order was not created.");
-     m.innerHTML="<div class='audit-payment-order'><h3>Payment order created</h3><p>Send <strong>"+esc(order.amount)+"</strong> on <strong>BNB Smart Chain</strong> to the official Web3Market receiving wallet below.</p><p><strong>Receiving wallet</strong><br><code>"+esc(order.recipient_address)+"</code></p><p><strong>Payment asset: Binance-Peg BSC-USD (not direct Tether-issued USD₮)</strong><br><strong>Approved token contract</strong><br><code>"+esc(order.token_contract)+"</code></p><p><strong>Order expires</strong><br>"+esc(new Date(order.expires_at).toLocaleString())+"</p><label for='auditPaymentTxHash'><strong>Transaction hash</strong></label><input id='auditPaymentTxHash' type='text' placeholder='0x…' autocomplete='off' style='display:block;width:100%;box-sizing:border-box;margin:8px 0;padding:12px;border:1px solid #3a3158;border-radius:9px;background:#0d0c19;color:#f5f2ff'><button id='verifyAuditPayment' class='btn btn-primary' type='button'>Verify payment and start audit</button><p class='muted'>The audit starts only after the server verifies the exact Binance-Peg BSC-USD transfer and 12 block confirmations. This is not direct Tether-issued USD₮. Confirm the network and full token contract before sending. Never send funds to an address other than the one shown in this order.</p></div>";
-     window.W3MVerifyAuditPayment=async()=>{
-      const verifyButton=document.getElementById("verifyAuditPayment"),txInput=document.getElementById("auditPaymentTxHash");
-      if(!verifyButton||!txInput)return;
-      const txHash=txInput.value.trim();if(!/^0x[0-9a-f]{64}$/i.test(txHash)){m.innerHTML+="<p class='muted'>Enter a valid transaction hash.</p>";return;}
-      verifyButton.disabled=true;verifyButton.textContent="Verifying on BNB Chain…";
-      try{
-       const verified=await c.functions.invoke("verify-audit-payment",{body:{order_id:order.id,tx_hash:txHash,guest_order_token:orderResponse.data?.guest_order_token||undefined}});
-       if(verified.error)throw Error(verified.error.message||"Payment verification failed.");
-       const data=verified.data||{};
-       if(data.guest){m.innerHTML="<div class='audit-payment-order'><h3>Payment verified</h3><p>Your audit is being prepared. We sent a private report-access link to <strong>"+esc(data.email||guestEmail)+"</strong>. Check your inbox and spam folder. The link expires and can be exchanged only once.</p></div>";verifyButton.textContent="Email sent";return;}
-       if(data.audit_id){location.replace("code-audit.html?audit_id="+encodeURIComponent(data.audit_id));return;}
-       if(data.pending){verifyButton.disabled=false;verifyButton.textContent="Verify payment and start audit";throw Error(data.error||"Payment is awaiting confirmations.");}
-       if(data.audit_started===false){verifyButton.disabled=false;verifyButton.textContent="Retry starting audit";throw Error(data.error||"Payment confirmed; audit start can be retried.");}
-       throw Error(data.error||"Payment could not be verified.");
-      }catch(error){const note=document.createElement("p");note.className="muted";note.textContent=error?.message||"Payment verification failed.";m.querySelector(".audit-payment-order")?.appendChild(note);verifyButton.disabled=false;verifyButton.textContent="Verify payment and start audit";}
-     };
-     document.getElementById("verifyAuditPayment").addEventListener("click",window.W3MVerifyAuditPayment);
+     const pending={order,guestToken:orderResponse.data?.guest_order_token||"",email:orderResponse.data?.email||guestEmail,repo,auditType};
+     if(!signedIn&&!pending.guestToken)throw Error("The guest order token was not returned; the order cannot be safely verified. Contact support before sending funds.");
+     savePendingPayment(order,pending.guestToken,pending.email,repo,auditType);
+     renderPaymentOrder(c,m,pending);
      return;
    }catch(e){console.error(e);m.innerHTML="<p class='muted'>"+esc(e?.message||"Unable to start audit.")+"</p>";b.disabled=false;b.textContent="Run W3M AI Code Audit";}
  };
- async function start(){
+ function restorePendingPayment(c){
+   try{
+     const raw=sessionStorage.getItem(PENDING_PAYMENT_KEY);if(!raw)return false;
+     const pending=JSON.parse(raw);
+     if(!pending||!pending.order?.id||!pending.order?.recipient_address||!pending.order?.token_contract||!pending.order?.expires_at||!pending.repo||!["code","smart_contract","complete"].includes(pending.auditType)||typeof pending.guestToken!=="string")throw Error("Saved payment session is incomplete.");
+     const m=document.getElementById("auditMsg");if(!m)return false;
+     const b=document.getElementById("runAudit");if(b){b.disabled=true;b.textContent="Pending payment order restored";}
+     if(pending.guestToken&&!/^[0-9a-f]{64}$/i.test(pending.guestToken))throw Error("Saved guest access token is invalid.");
+     if(!pending.guestToken&&pending.email)throw Error("Guest access token is missing. Do not send payment to this expired browser session.");
+     renderPaymentOrder(c,m,pending);
+     return true;
+   }catch(e){clearPendingPayment();const m=document.getElementById("auditMsg");if(m)m.innerHTML="<p class='muted'>"+esc(e?.message||"Unable to restore the saved payment order.")+"</p>";return false;}
+ }
+async function start(){
    try{const c=await ensureClient();let prefill="";if(id){const p=await c.from("projects").select("github_url").eq("id",id).maybeSingle();if(!p.error&&p.data)prefill=p.data.github_url||"";}if(initialRepoInput)initialRepoInput.value=prefill;if(id){const freeOption=document.querySelector("#auditType option[value=code]");if(freeOption)freeOption.textContent="Full Repository Code Audit — Free once for this project";}}
    catch(e){console.error(e);root.innerHTML='<h1>W3M AI Code Audit</h1><p class="muted">'+esc(e?.message||"Unable to load audit.")+"</p>"}
  }
