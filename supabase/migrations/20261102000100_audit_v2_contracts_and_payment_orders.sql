@@ -57,6 +57,14 @@ GRANT SELECT,INSERT ON TABLE public.code_audit_autofix_prs TO service_role;
 COMMENT ON TABLE public.code_audit_autofix_prs IS 'Audit-linked, AI-proposed GitHub fix PRs. Never auto-merges; users must review changes in GitHub.';
 ); END IF; END $;
 COMMENT ON COLUMN public.platform_payment_configs.recipient_address IS 'Platform fee/audit-payment receiving wallet; distinct from the Safe escrow address.';
+-- Pre-fill the existing platform fee wallet and Safe escrow reference, but keep paid audits disabled until an administrator explicitly enables this route.
+DO $ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM public.platform_payment_configs WHERE chain_id=56 AND lower(token_contract)=lower('0x55d398326f99059ff775485246999027b3197955')) THEN
+  INSERT INTO public.platform_payment_configs(chain_id,safe_address,recipient_address,token_contract,token_symbol,enabled)
+  VALUES(56,'0xe1851d2aadc3d24175acaa22298c0418c830bf3f','0x2b15cc63ee3b833f502c065767695fa2b584f8c9','0x55d398326f99059ff775485246999027b3197955','USDT',false);
+ END IF;
+END $;
+COMMENT ON COLUMN public.platform_payment_configs.token_contract IS 'For BNB Smart Chain, configure the exact approved BEP-20 token contract; verify the token representation and decimals before enabling payments.';
 ALTER TABLE public.code_audits ADD COLUMN IF NOT EXISTS audit_type text NOT NULL DEFAULT 'code';
 DO $$ BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='code_audits_audit_type_check' AND conrelid='public.code_audits'::regclass) THEN
