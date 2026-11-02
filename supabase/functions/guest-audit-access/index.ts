@@ -10,7 +10,7 @@ function cors(req: Request) {
     "Vary": "Origin",
   };
   let allowed = ORIGINS.has(origin);
-  try { const parsed = new URL(origin); allowed = allowed || (parsed.protocol === "https:" && /^(?:[a-z0-9-]+\\.)*web3market\\.pages\\.dev$/i.test(parsed.hostname)); } catch (_) { /* deny unknown origins */ }
+  try { const parsed = new URL(origin); allowed = allowed || (parsed.protocol === "https:" && /^(?:[a-z0-9-]+\.)*web3market\.pages\.dev$/i.test(parsed.hostname)); } catch (_) { /* deny unknown origins */ }
   if (allowed) headers["Access-Control-Allow-Origin"] = origin;
   return headers;
 }
