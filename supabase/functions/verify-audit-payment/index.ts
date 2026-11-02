@@ -66,7 +66,7 @@ Deno.serve(async req=>{
     const reportToken=randomToken();
     const reportExpiry=new Date(Date.now()+7*24*60*60*1000).toISOString();
     const {error:tokenError}=await sb.from("guest_audit_access").update({report_token_hash:await sha256(reportToken),report_token_expires_at:reportExpiry,report_token_used_at:null,session_token_hash:null,session_expires_at:null,email_sent_at:null,email_last_error:null}).eq("id",guestAccess.id).is("revoked_at",null);
-    if(tokenError)return json(req,{ok:false,paid:true,error:"Payment is confirmed, but secure report-link preparation failed. Retry verification with the same order token."},503);
+    if(tokenError){await sb.from("guest_audit_access").update({email_claimed_at:null}).eq("id",guestAccess.id);return json(req,{ok:false,paid:true,error:"Payment is confirmed, but secure report-link preparation failed. Retry verification with the same order token."},503);}
     const resendKey=Deno.env.get("RESEND_API_KEY"),fromEmail=Deno.env.get("RESEND_FROM_EMAIL");
     if(!resendKey||!fromEmail){await sb.from("guest_audit_access").update({email_claimed_at:null}).eq("id",guestAccess.id);return json(req,{ok:false,paid:true,error:"Payment is confirmed. Report email is not configured yet; the platform administrator must configure RESEND_API_KEY and RESEND_FROM_EMAIL before delivery."},503);}
     const reportUrl="https://web3market.xyz/code-audit.html?guest_report="+encodeURIComponent(reportToken);
