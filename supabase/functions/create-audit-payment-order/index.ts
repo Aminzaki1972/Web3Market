@@ -25,6 +25,7 @@ Deno.serve(async req=>{
   const repoUrl=canonicalRepo(String(body.repo_url||""));
   const chainId=await rpc(rpcUrl,"eth_chainId",[]);
   if(BigInt(chainId)!==56n)return json(req,{ok:false,error:"Configured RPC is not connected to BNB Smart Chain mainnet."},503);
+  // Audit payments go to the platform fee recipient wallet, never to the separate Safe escrow address.
   const {data:config,error:configError}=await sb.from("platform_payment_configs").select("chain_id,recipient_address,token_contract,token_symbol,enabled").eq("chain_id",56).eq("enabled",true).eq("token_symbol","USDT").order("updated_at",{ascending:false}).limit(1).maybeSingle();
   if(configError)throw Error("Unable to read platform payment configuration.");
   if(!config||!/^0x[a-f0-9]{40}$/i.test(String(config.recipient_address||""))||!/^0x[a-f0-9]{40}$/i.test(String(config.token_contract||"")))return json(req,{ok:false,error:"Paid audits are not enabled yet: the platform USDT receiving wallet and token contract have not been configured by an administrator."},503);
