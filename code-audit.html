@@ -6,6 +6,21 @@
 <link rel="stylesheet" href="css/marketplace.css">
 <link rel="stylesheet" href="css/code-audit.css">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><!-- Google tag (gtag.js) — Web3Market GA4 -->
+<script>
+  // Strip one-time guest report bearer tokens before analytics or third-party scripts load.
+  (function () {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var token = params.get("guest_report");
+      if (token) {
+        window.__W3MGuestReportToken = token;
+        params.delete("guest_report");
+        var query = params.toString();
+        history.replaceState(null, "", location.pathname + (query ? "?" + query : "") + location.hash);
+      }
+    } catch (_) { /* guest report access will fail closed if URL cleanup is unavailable */ }
+  })();
+</script>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-DBNFYVMZBT"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
