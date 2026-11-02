@@ -68,7 +68,9 @@
      const c=await ensureClient();
      const auth=await c.auth.getSession();
      if(!auth?.data?.session?.user)throw Error("Please sign in or create a Web3Market account before running an audit. Audit history and detailed results are protected for registered members.");
-     const repo=input.value.trim();\n     const auditType=document.getElementById("auditType")?.value||"code";\n     if(!["code","smart_contract"].includes(auditType))throw Error("Choose a valid audit type.");
+     const repo=input.value.trim();
+     const auditType=document.getElementById("auditType")?.value||"code";
+     if(!["code","smart_contract","complete"].includes(auditType))throw Error("Choose a valid audit type.");
      if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
      b.textContent="Running Audit…";m.innerHTML="<p class='muted'>Scanning GitHub and preparing AI analysis…</p>";
      if(id&&auditType==="code"){
@@ -98,14 +100,6 @@
      };
      document.getElementById("verifyAuditPayment").addEventListener("click",window.W3MVerifyAuditPayment);
      return;
-     if(r.error){
-       let detail=r.error?.message||"The audit service returned an error.";
-       try{if(r.error?.context){const ctx=r.error.context;let payload=null;if(typeof ctx.json==="function"){try{payload=await ctx.clone().json()}catch(_){try{payload=await ctx.json()}catch(__){}}}else if(typeof ctx==="object")payload=ctx;if(payload?.code==="RATE_LIMIT")detail="Rate limit reached. Please try again in about "+Math.ceil(Number(payload.retry_after_seconds||60)/60)+" minute(s).";else if(payload?.error)detail=payload.error;}}catch(_){}
-       throw Error(detail);
-     }
-     if(r.data?.error)throw Error(r.data.error);
-     const aid=r.data?.audit_id||r.data?.id;if(!aid)throw Error("Audit started but no audit ID was returned.");
-     location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));
    }catch(e){console.error(e);m.innerHTML="<p class='muted'>"+esc(e?.message||"Unable to start audit.")+"</p>";b.disabled=false;b.textContent="Run W3M AI Code Audit";}
  };
  async function start(){
