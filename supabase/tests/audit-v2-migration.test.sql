@@ -70,7 +70,9 @@ BEGIN
      OR has_table_privilege('authenticated','public.guest_audit_access','UPDATE') THEN
     RAISE EXCEPTION 'Guest access table must not be directly accessible to client roles';
   END IF;
-  IF NOT has_table_privilege('service_role','public.guest_audit_access','SELECT,INSERT,UPDATE') THEN
+  IF NOT has_table_privilege('service_role','public.guest_audit_access','SELECT')
+     OR NOT has_table_privilege('service_role','public.guest_audit_access','INSERT')
+     OR NOT has_table_privilege('service_role','public.guest_audit_access','UPDATE') THEN
     RAISE EXCEPTION 'Service role must have the required guest access table privileges';
   END IF;
   IF has_function_privilege('anon','public.consume_guest_audit_order_rate_limit(text)','EXECUTE')
