@@ -24,6 +24,7 @@ jobs:
           deno check supabase/functions/create-audit-payment-order/index.ts
           deno check supabase/functions/verify-audit-payment/index.ts
           deno check supabase/functions/w3m-audit-autofix-pr/index.ts
+          deno test supabase/functions/w3m-audit-autofix-pr/autofix-utils.test.ts
       - name: Run Solidity static review candidate tests
         run: deno test supabase/functions/w3m-code-audit/contract-analysis.test.ts
       - name: Run audit selection unit tests
