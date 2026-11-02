@@ -176,7 +176,9 @@ async function start(){
  }
  async function openGuestReport(){
    const params=new URLSearchParams(location.search);
-   const linkToken=params.get("guest_report");
+   const linkToken=window.__W3MGuestReportToken||params.get("guest_report");
+   // The HTML head removes this bearer token before analytics scripts load.
+   try{delete window.__W3MGuestReportToken;}catch(_){window.__W3MGuestReportToken=null;}
    const key="w3m_guest_audit_session";
    const existing=sessionStorage.getItem(key);
    if(!linkToken&&!existing)return false;
