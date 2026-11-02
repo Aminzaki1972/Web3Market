@@ -27,6 +27,20 @@
  }
  function counts(list){const c={critical:0,high:0,medium:0,low:0,info:0};(list||[]).forEach(f=>{if(c[f.severity]!=null)c[f.severity]++});return c;}
  async function getAudit(c,aid){const r=await c.from("code_audits").select("*").eq("id",aid).maybeSingle();if(r.error)throw r.error;return r.data;}
+ window.W3MCreateAutoFixPR=async(audit)=>{
+   const button=document.getElementById("createAutoFixPR"),message=document.getElementById("autoFixPRMessage");
+   if(!button||!message||!audit?.id)return;
+   button.disabled=true;button.textContent="Preparing reviewable fixes…";message.textContent="Checking the audited commit and preparing a separate GitHub branch. The default branch will not be changed.";
+   try{
+    const c=await ensureClient();const auth=await c.auth.getSession();if(!auth?.data?.session?.user)throw Error("Sign in to create an Auto-Fix PR.");
+    const result=await c.functions.invoke("w3m-audit-autofix-pr",{body:{audit_id:audit.id}});
+    if(result.error)throw Error(result.error.message||"Unable to create Auto-Fix PR.");
+    const data=result.data||{};if(!data.ok||!data.pull_request)throw Error(data.error||"No pull request was created.");
+    message.textContent="Reviewable pull request created. It has not been merged.";
+    const link=document.createElement("a");link.href=data.pull_request;link.target="_blank";link.rel="noopener noreferrer";link.textContent="Open Auto-Fix PR #"+data.pr_number+" ↗";link.className="btn btn-primary";message.appendChild(document.createTextNode(" "));message.appendChild(link);
+    button.textContent="Auto-Fix PR created";button.disabled=true;
+   }catch(error){message.textContent=error?.message||"Auto-Fix PR could not be created.";button.disabled=false;button.textContent="Generate Auto-Fix PR";}
+  };
  async function render(a){
    const c=await ensureClient();
    const [fr,filesr]=await Promise.all([
@@ -39,8 +53,8 @@
    const risk=String(a.risk_level||"Pending");
    const date=a.completed_at||a.created_at||new Date().toISOString();
    root.innerHTML='<div class="audit-head"><div><div class="audit-kicker">W3M AI CODE AUDIT</div><h1>Repository Technical Due Diligence</h1><p class="muted">'+esc(a.repo_owner||"")+" / "+esc(a.repo_name||"")+' · '+esc(a.commit_sha||"snapshot")+'</p></div><div><div class="audit-score">'+(score==null?"—":esc(score)+"/100")+'</div><div class="audit-risk">'+esc(risk.toUpperCase())+'</div></div></div>'+
-   '<div class="audit-actions"><button class="btn btn-primary" type="button" onclick="window.print()">Print / Save PDF</button><a class="btn btn-ghost" href="'+(a.project_id?"project.html?id="+encodeURIComponent(a.project_id):"code-audit.html")+'">Back to Project</a><a class="btn btn-primary" href="'+esc(a.repo_url||"#")+'" target="_blank" rel="noopener noreferrer">Open GitHub ↗</a></div>'+
-   '<div class="audit-meta"><div><strong>Audit ID</strong><span class="audit-id">'+esc(a.id)+'</span></div><div><strong>Commit</strong><span class="audit-id">'+esc(a.commit_sha||"—")+'</span></div><div><strong>Audit Date</strong><span>'+esc(new Date(date).toLocaleString())+'</span></div><div><strong>Engine</strong><span>'+esc(a.engine_version||a.model||"W3M AI Code Audit")+'</span></div></div>'+
+   '<div class="audit-actions"><button class="btn btn-primary" type="button" onclick="window.print()">Print / Save PDF</button>${a.status==="completed"?"<button id=\\"createAutoFixPR\\" class=\\"btn btn-primary\\" type=\\"button\\" onclick=\\"window.W3MCreateAutoFixPR&&window.W3MCreateAutoFixPR("+JSON.stringify(a).replace(/\\"/g,"&quot;")+")\\">Generate Auto-Fix PR</button>":""}<a class="btn btn-ghost" href="'+(a.project_id?"project.html?id="+encodeURIComponent(a.project_id):"code-audit.html")+'">Back to Project</a><a class="btn btn-primary" href="'+esc(a.repo_url||"#")+'" target="_blank" rel="noopener noreferrer">Open GitHub ↗</a></div>'+
+   '<div id="autoFixPRMessage" class="muted" style="margin:8px 0"></div><div class="audit-meta"><div><strong>Audit ID</strong><span class="audit-id">'+esc(a.id)+'</span></div><div><strong>Commit</strong><span class="audit-id">'+esc(a.commit_sha||"—")+'</span></div><div><strong>Audit Date</strong><span>'+esc(new Date(date).toLocaleString())+'</span></div><div><strong>Engine</strong><span>'+esc(a.engine_version||a.model||"W3M AI Code Audit")+'</span></div></div>'+
    '<div class="audit-grid">'+metric("Security",a.security_score)+metric("Architecture",a.architecture_score)+metric("Code Quality",a.code_quality_score)+metric("Dependencies",a.dependency_score)+metric("Testing",a.testing_score)+metric("Documentation",a.documentation_score)+metric("Web3",a.web3_score)+metric("Scalability (static estimate)",a.scalability_score)+metric("AI Fit (evidence-based)",a.ai_fit_score)+'</div>'+
    '<div class="audit-section"><h2>About Executive Scores</h2><p class="muted">Scalability is a static estimate from scanned code, not a load or production performance test. AI Fit is an evidence-based estimate from available repository content; it does not prove that an AI feature works or delivers value. A dash means the metric was not recorded for this audit.</p></div><div class="audit-section"><h2>Audit Summary</h2><p class="audit-summary">'+esc(a.summary||"No summary available yet.")+'</p><p class="muted">Files scanned: '+esc(a.files_scanned||0)+' · Lines scanned: '+esc(a.lines_scanned||0)+' · Scan coverage: '+esc(a.coverage_score||0)+'% · Findings: '+esc(fl.length)+'</p></div>'+
    '<div class="audit-section"><h2>Risk Overview</h2><div class="audit-grid">'+metric("Critical",cnt.critical,false)+metric("High",cnt.high,false)+metric("Medium",cnt.medium,false)+metric("Low",cnt.low,false)+metric("Info",cnt.info,false)+'</div></div>'+
