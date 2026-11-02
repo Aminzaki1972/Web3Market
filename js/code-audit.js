@@ -97,7 +97,8 @@
    const heartbeat=progress.updated_at?Date.parse(progress.updated_at):0;
    const stale=!heartbeat||!Number.isFinite(heartbeat)||(Date.now()-heartbeat)>90000;
    // A fresh scanning heartbeat means a worker is already active. Never call resume on every poll.
-   if(["scanning","analyzing","retrying"].includes(status)&&!stale)return;   // Avoid burning the server-side resume allowance if a queued audit is polled repeatedly.
+   if(["scanning","analyzing","retrying"].includes(status)&&!stale)return;
+   // Avoid burning the server-side resume allowance if a queued audit is polled repeatedly.
    const key="w3m:lastResumeAttempt:"+a.id;
    const last=Number(sessionStorage.getItem(key)||0);
    if(Date.now()-last<60000)return;
@@ -196,7 +197,8 @@ if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit coul
      if(btn.dataset.close){closeCalendar();return;}
      if(btn.dataset.today){dateInput.value=localDate(today);shownMonth=new Date(today.getFullYear(),today.getMonth(),1);closeCalendar();load();return;}
      if(btn.dataset.date){dateInput.value=btn.dataset.date;const [y,m]=btn.dataset.date.split("-").map(Number);shownMonth=new Date(y,m-1,1);closeCalendar();load();}
-   });   const load=async()=>{
+   });
+   const load=async()=>{
      const chosen=dateInput.value;
      if(!chosen){message.textContent="Choose a date to view its audit activity.";countEl.textContent="—";list.innerHTML="";return;}
      message.textContent="Loading audit records…";countEl.textContent="—";list.innerHTML="";
