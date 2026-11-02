@@ -52,6 +52,8 @@ DECLARE
   allowed boolean;
   i integer;
   fingerprint text := repeat('a',64);
+  test_order_id uuid;
+  test_access_id uuid;
 BEGIN
   SELECT is_nullable INTO nullable_user FROM information_schema.columns
    WHERE table_schema='public' AND table_name='audit_payment_orders' AND column_name='user_id';
@@ -86,6 +88,32 @@ BEGIN
   END LOOP;
   SELECT public.consume_guest_audit_order_rate_limit(fingerprint) INTO allowed;
   IF allowed IS DISTINCT FROM false THEN RAISE EXCEPTION 'Rate limit must reject request six'; END IF;
+
+  IF has_function_privilege('anon','public.claim_guest_audit_email_delivery(uuid)','EXECUTE')
+     OR has_function_privilege('authenticated','public.claim_guest_audit_email_delivery(uuid)','EXECUTE')
+     OR NOT has_function_privilege('service_role','public.claim_guest_audit_email_delivery(uuid)','EXECUTE') THEN
+    RAISE EXCEPTION 'Guest email claim RPC must be restricted to service_role';
+  END IF;
+
+  INSERT INTO public.audit_payment_orders
+    (user_id,audit_type,repo_url,price_usd,chain_id,token_contract,token_symbol,
+     token_decimals,recipient_address,amount_atomic)
+  VALUES
+    (NULL,'code','https://github.com/example/repo',9.00,56,
+     '0x55d398326f99059ff775485246999027b3197955','BSC-USD',18,
+     '0x2b15cc63ee3b833f502c065767695fa2b584f8c9',9000000000000000000)
+  RETURNING id INTO test_order_id;
+
+  INSERT INTO public.guest_audit_access
+    (payment_order_id,email,order_token_hash)
+  VALUES
+    (test_order_id,'buyer@example.com',repeat('b',64))
+  RETURNING id INTO test_access_id;
+
+  SELECT public.claim_guest_audit_email_delivery(test_access_id) INTO allowed;
+  IF allowed IS DISTINCT FROM true THEN RAISE EXCEPTION 'First guest email claim must succeed'; END IF;
+  SELECT public.claim_guest_audit_email_delivery(test_access_id) INTO allowed;
+  IF allowed IS DISTINCT FROM false THEN RAISE EXCEPTION 'Concurrent guest email claim must be rejected'; END IF;
 END $$;
 
 ROLLBACK;
