@@ -2,7 +2,7 @@
 ALTER TABLE public.code_audits ADD COLUMN IF NOT EXISTS audit_type text NOT NULL DEFAULT 'code';
 DO $$ BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='code_audits_audit_type_check' AND conrelid='public.code_audits'::regclass) THEN
-  ALTER TABLE public.code_audits ADD CONSTRAINT code_audits_audit_type_check CHECK (audit_type IN ('code','smart_contract'));
+  ALTER TABLE public.code_audits ADD CONSTRAINT code_audits_audit_type_check CHECK (audit_type IN ('code','smart_contract','complete'));
  END IF;
 END $$;
 COMMENT ON COLUMN public.code_audits.audit_type IS 'Audit scope: code or Solidity-focused smart_contract. Neither is independent certification.';
@@ -32,4 +32,6 @@ CREATE INDEX IF NOT EXISTS audit_payment_orders_user_created_idx ON public.audit
 ALTER TABLE public.audit_payment_orders ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.audit_payment_orders FROM PUBLIC,anon,authenticated;
 GRANT SELECT,INSERT,UPDATE ON TABLE public.audit_payment_orders TO service_role;
+ALTER TABLE public.code_audits ADD COLUMN IF NOT EXISTS payment_order_id uuid NULL REFERENCES public.audit_payment_orders(id) ON DELETE SET NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS code_audits_payment_order_unique ON public.code_audits(payment_order_id) WHERE payment_order_id IS NOT NULL;
 COMMENT ON TABLE public.audit_payment_orders IS 'Server-only USDT audit orders. A server verifier must validate BNB Chain receipt, token Transfer event, recipient, exact atomic amount, confirmations and unique transaction hash before confirmation.';
