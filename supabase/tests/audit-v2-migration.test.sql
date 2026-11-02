@@ -17,12 +17,14 @@ CREATE TABLE public.platform_payment_configs (
 );
 CREATE TABLE public.code_audits (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  requested_by uuid NOT NULL REFERENCES auth.users(id),
   project_id uuid NULL REFERENCES public.projects(id),
   status text NOT NULL DEFAULT 'pending',
   engine_version text NOT NULL DEFAULT 'w3m-code-audit-2.0'
 );
 
 \i supabase/migrations/20261102000100_audit_v2_contracts_and_payment_orders.sql
+\i supabase/migrations/20261102000200_audit_v2_guest_checkout.sql
 
 DO $$
 DECLARE
