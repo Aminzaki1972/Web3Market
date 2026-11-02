@@ -75,13 +75,13 @@ Deno.serve(async req => {
     }
     await db.from("guest_audit_access").update({ last_access_at: new Date().toISOString() }).eq("id", access.id);
     const { data: order, error: orderError } = await db.from("audit_payment_orders")
-      .select("id,status,audit_id,repo_url,audit_type,price_usd,created_at,confirmed_at")
-      .eq("id", access.payment_order_id).eq("status", "confirmed").maybeSingle();
+      .select("id,user_id,status,audit_id,repo_url,audit_type,price_usd,created_at,confirmed_at")
+      .eq("id", access.payment_order_id).is("user_id", null).eq("status", "confirmed").maybeSingle();
     if (orderError || !order) return json(req, { ok: false, error: "The paid audit order could not be found." }, 404);
     const internalHeaders = { "Authorization": "Bearer " + service, "apikey": Deno.env.get("SUPABASE_ANON_KEY") || service, "Content-Type": "application/json" };
     if (!order.audit_id) {
       await fetch(url + "/functions/v1/w3m-code-audit", { method: "POST", headers: internalHeaders, body: JSON.stringify({ repo_url: order.repo_url, audit_type: order.audit_type, payment_order_id: order.id }) });
-      const { data: refreshed } = await db.from("audit_payment_orders").select("id,status,audit_id,repo_url,audit_type,price_usd,created_at,confirmed_at").eq("id", access.payment_order_id).eq("status", "confirmed").maybeSingle();
+      const { data: refreshed } = await db.from("audit_payment_orders").select("id,user_id,status,audit_id,repo_url,audit_type,price_usd,created_at,confirmed_at").eq("id", access.payment_order_id).is("user_id", null).eq("status", "confirmed").maybeSingle();
       if (refreshed) Object.assign(order, refreshed);
     }
     if (!order.audit_id) return json(req, { ok: true, pending: true, email: access.email }, 202);
