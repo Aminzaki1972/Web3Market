@@ -24,7 +24,7 @@ Deno.serve(async req=>{
  try{
   const body=await req.json();
   const guestEmail=String(body.email||"").trim().toLowerCase();
-  if(!user&&!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(guestEmail))return json(req,{ok:false,error:"Enter a valid email address to receive your private audit report."},400);
+  if(!user&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(guestEmail))return json(req,{ok:false,error:"Enter a valid email address to receive your private audit report."},400);
   let guestOrderToken:string|null=null;
   if(!user){const ip=(req.headers.get("cf-connecting-ip")||req.headers.get("x-forwarded-for")||"unknown").split(",")[0].trim();const fingerprint=await sha256(ip+"|w3m-guest-audit-order");const {data:allowed,error:rateError}=await sb.rpc("consume_guest_audit_order_rate_limit",{p_fingerprint:fingerprint});if(rateError||allowed!==true)return json(req,{ok:false,error:"Guest checkout limit reached. Try again in an hour or sign in to continue."},429);guestOrderToken=randomToken();}
   const auditType=String(body.audit_type||"code");
