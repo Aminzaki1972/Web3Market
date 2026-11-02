@@ -26,7 +26,6 @@ Deno.serve(async req=>{
   const guestEmail=String(body.email||"").trim().toLowerCase();
   if(!user&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(guestEmail))return json(req,{ok:false,error:"Enter a valid email address to receive your private audit report."},400);
   let guestOrderToken:string|null=null;
-  if(!user){const ip=(req.headers.get("cf-connecting-ip")||req.headers.get("x-forwarded-for")||"unknown").split(",")[0].trim();const fingerprint=await sha256(ip+"|w3m-guest-audit-order");const {data:allowed,error:rateError}=await sb.rpc("consume_guest_audit_order_rate_limit",{p_fingerprint:fingerprint});if(rateError||allowed!==true)return json(req,{ok:false,error:"Guest checkout limit reached. Try again in an hour or sign in to continue."},429);guestOrderToken=randomToken();}
   const auditType=String(body.audit_type||"code");
   const prices:Record<string,number>={code:9,smart_contract:29,complete:79};
   if(!(auditType in prices))return json(req,{ok:false,error:"Unsupported audit type."},400);
@@ -46,6 +45,15 @@ Deno.serve(async req=>{
   const symbolHex=await rpc(rpcUrl,"eth_call",[{to:config.token_contract,data:"0x95d89b41"},"latest"]);
   const symbol=decodeAbiString(symbolHex);
   if(symbol!=="USDT")return json(req,{ok:false,error:"The approved Binance-Peg contract metadata check failed. Paid audits remain disabled."},503);
+  // Consume the guest quota only after validating the request and the configured payment asset.
+  // Invalid repository/type/configuration requests must not burn a legitimate buyer's hourly allowance.
+  if(!user){
+   const ip=(req.headers.get("cf-connecting-ip")||req.headers.get("x-forwarded-for")||"unknown").split(",")[0].trim();
+   const fingerprint=await sha256(ip+"|w3m-guest-audit-order");
+   const {data:allowed,error:rateError}=await sb.rpc("consume_guest_audit_order_rate_limit",{p_fingerprint:fingerprint});
+   if(rateError||allowed!==true)return json(req,{ok:false,error:"Guest checkout limit reached. Try again in an hour or sign in to continue."},429);
+   guestOrderToken=randomToken();
+  }
   const price=prices[auditType];
   const amountAtomic=(BigInt(price)*(10n**BigInt(decimals))).toString();
   const projectId=typeof body.project_id==="string"&&/^[0-9a-f-]{36}$/i.test(body.project_id)?body.project_id:null;
