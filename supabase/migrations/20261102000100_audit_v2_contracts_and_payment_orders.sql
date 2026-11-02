@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS public.audit_payment_orders (
   audit_id uuid NULL REFERENCES public.code_audits(id) ON DELETE SET NULL,
   audit_type text NOT NULL CHECK (audit_type IN ('code','smart_contract','complete')),
   repo_url text NOT NULL,
-  price_usd numeric(10,2) NOT NULL CHECK (price_usd IN (9.00,19.00,29.00)),
+  price_usd numeric(10,2) NOT NULL CHECK (price_usd IN (9.00,29.00,79.00)),
   chain_id bigint NOT NULL CHECK (chain_id=56),
   token_contract text NOT NULL CHECK (token_contract ~* '^0x[a-f0-9]{40}$'),
   token_symbol text NOT NULL CHECK (token_symbol='USDT'),
