@@ -20,7 +20,7 @@ Deno.serve(async req=>{
  try{
   const body=await req.json();
   const auditType=String(body.audit_type||"code");
-  const prices:Record<string,number>={code:9,smart_contract:19,complete:29};
+  const prices:Record<string,number>={code:9,smart_contract:29,complete:79};
   if(!(auditType in prices))return json(req,{ok:false,error:"Unsupported audit type."},400);
   const repoUrl=canonicalRepo(String(body.repo_url||""));
   const chainId=await rpc(rpcUrl,"eth_chainId",[]);
