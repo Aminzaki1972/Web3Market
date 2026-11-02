@@ -9,9 +9,9 @@ function cors(req: Request) {
     "Access-Control-Allow-Methods": "POST,OPTIONS",
     "Vary": "Origin",
   };
-  if (ORIGINS.has(origin) || /^https:\/\/(?:[a-z0-9-]+\.)*web3market\.pages\.dev$/i.test(new URL(origin || "https://invalid.local").hostname)) {
-    headers["Access-Control-Allow-Origin"] = origin;
-  }
+  let allowed = ORIGINS.has(origin);
+  try { const parsed = new URL(origin); allowed = allowed || (parsed.protocol === "https:" && /^(?:[a-z0-9-]+\\.)*web3market\\.pages\\.dev$/i.test(parsed.hostname)); } catch (_) { /* deny unknown origins */ }
+  if (allowed) headers["Access-Control-Allow-Origin"] = origin;
   return headers;
 }
 const json = (req: Request, body: unknown, status = 200) =>
@@ -78,7 +78,17 @@ Deno.serve(async req => {
       .select("id,status,audit_id,repo_url,audit_type,price_usd,created_at,confirmed_at")
       .eq("id", access.payment_order_id).eq("status", "confirmed").maybeSingle();
     if (orderError || !order) return json(req, { ok: false, error: "The paid audit order could not be found." }, 404);
+    const internalHeaders = { "Authorization": "Bearer " + service, "apikey": Deno.env.get("SUPABASE_ANON_KEY") || service, "Content-Type": "application/json" };
+    if (!order.audit_id) {
+      await fetch(url + "/functions/v1/w3m-code-audit", { method: "POST", headers: internalHeaders, body: JSON.stringify({ repo_url: order.repo_url, audit_type: order.audit_type, payment_order_id: order.id }) });
+      const { data: refreshed } = await db.from("audit_payment_orders").select("id,status,audit_id,repo_url,audit_type,price_usd,created_at,confirmed_at").eq("id", access.payment_order_id).eq("status", "confirmed").maybeSingle();
+      if (refreshed) Object.assign(order, refreshed);
+    }
     if (!order.audit_id) return json(req, { ok: true, pending: true, email: access.email }, 202);
+    const { data: auditState } = await db.from("code_audits").select("status").eq("id", order.audit_id).maybeSingle();
+    if (auditState && ["paused", "queued", "analyzing"].includes(String(auditState.status))) {
+      await fetch(url + "/functions/v1/w3m-code-audit", { method: "POST", headers: internalHeaders, body: JSON.stringify({ audit_id: order.audit_id }) });
+    }
     const { data: audit, error: auditError } = await db.from("code_audits")
       .select("id,status,repo_url,repo_owner,repo_name,commit_sha,engine_version,audit_type,overall_score,risk_level,summary,files_scanned,lines_scanned,coverage_score,security_score,architecture_score,code_quality_score,dependency_score,testing_score,documentation_score,web3_score,scalability_score,ai_fit_score,analysis_progress,current_chunk,total_chunks,error_message,created_at,completed_at")
       .eq("id", order.audit_id).eq("payment_order_id", order.id).maybeSingle();
