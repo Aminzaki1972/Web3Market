@@ -85,6 +85,11 @@ CREATE TABLE IF NOT EXISTS public.audit_payment_orders (
   confirmed_at timestamptz NULL
 );
 
+ALTER TABLE public.audit_payment_orders
+  ADD COLUMN IF NOT EXISTS transfer_log_index integer NULL,
+  ADD COLUMN IF NOT EXISTS transfer_block_number bigint NULL,
+  ADD COLUMN IF NOT EXISTS transfer_block_hash text NULL;
+
 CREATE UNIQUE INDEX IF NOT EXISTS audit_payment_orders_tx_hash_unique
   ON public.audit_payment_orders(lower(tx_hash))
   WHERE tx_hash IS NOT NULL;
