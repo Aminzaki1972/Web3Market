@@ -34,7 +34,7 @@ Deno.serve(async req=>{
   if(!Number.isInteger(decimals)||decimals<0||decimals>36)throw Error("The configured USDT contract returned invalid decimals.");
   const symbolHex=await rpc(rpcUrl,"eth_call",[{to:config.token_contract,data:"0x95d89b41"},"latest"]);
   const symbol=decodeAbiString(symbolHex);
-  if(symbol&&symbol!=="USDT")return json(req,{ok:false,error:"Configured token contract does not identify itself as USDT."},503);
+  if(symbol!=="USDT")return json(req,{ok:false,error:"Configured token contract did not return the exact USDT symbol. Paid audits remain disabled until the receiving token is verified."},503);
   const price=prices[auditType];
   const amountAtomic=(BigInt(price)*(10n**BigInt(decimals))).toString();
   const projectId=typeof body.project_id==="string"&&/^[0-9a-f-]{36}$/i.test(body.project_id)?body.project_id:null;
