@@ -18,7 +18,7 @@
         var query = params.toString();
         history.replaceState(null, "", location.pathname + (query ? "?" + query : "") + location.hash);
       }
-    } catch (_) { /* guest report access will fail closed if URL cleanup is unavailable */ }
+    } catch (_) { window.__W3MDisableAnalytics = true; }
   })();
 </script>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-DBNFYVMZBT"></script>
@@ -26,7 +26,7 @@
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
-  gtag('config', 'G-DBNFYVMZBT');
+  if (!window.__W3MDisableAnalytics) gtag('config', 'G-DBNFYVMZBT');
 </script>
 
 </head>
