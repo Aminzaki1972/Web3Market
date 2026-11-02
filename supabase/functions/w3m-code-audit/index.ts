@@ -104,7 +104,7 @@ async function run(sb:any,a:any,r:any){
   const {data:state}=await sb.from("code_audits").select("ai_chunk_results,current_chunk,total_chunks,retry_count").eq("id",a.id).maybeSingle();
   const savedResults=Array.isArray(state?.ai_chunk_results)?state.ai_chunk_results:[];
   const startChunk=Number(state?.current_chunk||0);
-  const auditType=String(resumeState.audit_type||"code");\n  if(auditType==="smart_contract"&&!files.some((f:any)=>/\\.sol$/i.test(f.path)))throw Error("Smart Contract Audit requires at least one Solidity (.sol) source file in the selected public repository.");\n  const out=await ai(files,r.owner+"/"+r.name,async(p:any)=>{
+  const auditType=String(resumeState.audit_type||"code");\n  if(auditType==="smart_contract"&&!files.some((f:any)=>/\.sol$/i.test(f.path)))throw Error("Smart Contract Audit requires at least one Solidity (.sol) source file in the selected public repository.");\n  const out=await ai(files,r.owner+"/"+r.name,async(p:any)=>{
     const workerStatus="scanning"; const patch:any={status:workerStatus,analysis_progress:{...progressState,...p,file_batch_index:fileBatchIndex,total_file_batches:totalFileBatches,eligible_files:candidateCount,batch_stats:batchStats,updated_at:new Date().toISOString()},current_chunk:Number(p.current_chunk??startChunk),total_chunks:Number(p.total_chunks||0),retry_count:Number(p.attempt||0)};
     if(p.result){savedResults.push(p.result);patch.ai_chunk_results=savedResults;}
     const progressSave=await sb.from("code_audits").update(patch).eq("id",a.id);
