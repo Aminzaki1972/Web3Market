@@ -58,6 +58,7 @@ jobs:
           grep -q 'sessionStorage.removeItem(PENDING_PAYMENT_KEY)' js/code-audit.js
           grep -q 'window.__W3MGuestReportToken = token' code-audit.html
           grep -q 'history.replaceState(null, "", location.pathname' code-audit.html
+          grep -q '<meta name="referrer" content="no-referrer">' code-audit.html
           grep -q 'window.__W3MDisableAnalytics = true' code-audit.html
           grep -q 'if (!window.__W3MDisableAnalytics) gtag' code-audit.html
           grep -q 'window.__W3MGuestReportToken||params.get("guest_report")' js/code-audit.js
