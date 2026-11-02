@@ -103,7 +103,7 @@
    }catch(e){console.error(e);m.innerHTML="<p class='muted'>"+esc(e?.message||"Unable to start audit.")+"</p>";b.disabled=false;b.textContent="Run W3M AI Code Audit";}
  };
  async function start(){
-   try{const c=await ensureClient();let prefill="";if(id){const p=await c.from("projects").select("github_url").eq("id",id).maybeSingle();if(!p.error&&p.data)prefill=p.data.github_url||"";}if(initialRepoInput)initialRepoInput.value=prefill;}
+   try{const c=await ensureClient();let prefill="";if(id){const p=await c.from("projects").select("github_url").eq("id",id).maybeSingle();if(!p.error&&p.data)prefill=p.data.github_url||"";}if(initialRepoInput)initialRepoInput.value=prefill;if(id){const freeOption=document.querySelector("#auditType option[value=code]");if(freeOption)freeOption.textContent="Full Repository Code Audit — Free once for this project";}}
    catch(e){console.error(e);root.innerHTML='<h1>W3M AI Code Audit</h1><p class="muted">'+esc(e?.message||"Unable to load audit.")+"</p>"}
  }
  async function resumeIfNeeded(a){
