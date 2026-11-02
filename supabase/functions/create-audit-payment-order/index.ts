@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { assertSupportedPaymentAsset, BNB_PEG_BSC_USD_CONTRACT } from "../verify-audit-payment/payment-verification.ts";
 const allowedOrigins=new Set(["https://web3market.xyz","https://www.web3market.xyz"]);
 function cors(req:Request){const origin=req.headers.get("Origin")||"";let trusted=allowedOrigins.has(origin);if(!trusted){try{const parsed=new URL(origin);trusted=parsed.protocol==="https:"&&/^(?:[a-z0-9-]+\.)*web3market\.pages\.dev$/i.test(parsed.hostname);}catch(_){trusted=false;}}const h:Record<string,string>={"Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS","Vary":"Origin"};if(trusted)h["Access-Control-Allow-Origin"]=origin;return h;}
 function json(req:Request,data:unknown,status=200){return new Response(JSON.stringify(data),{status,headers:{...cors(req),"Content-Type":"application/json"}});}
@@ -26,24 +27,25 @@ Deno.serve(async req=>{
   const chainId=await rpc(rpcUrl,"eth_chainId",[]);
   if(BigInt(chainId)!==56n)return json(req,{ok:false,error:"Configured RPC is not connected to BNB Smart Chain mainnet."},503);
   // Audit payments go to the platform fee recipient wallet, never to the separate Safe escrow address.
-  const {data:config,error:configError}=await sb.from("platform_payment_configs").select("chain_id,recipient_address,token_contract,token_symbol,enabled").eq("chain_id",56).eq("enabled",true).eq("token_symbol","USDT").order("updated_at",{ascending:false}).limit(1).maybeSingle();
+  const {data:config,error:configError}=await sb.from("platform_payment_configs").select("chain_id,recipient_address,token_contract,token_symbol,enabled").eq("chain_id",56).eq("enabled",true).eq("token_symbol","BSC-USD").order("updated_at",{ascending:false}).limit(1).maybeSingle();
   if(configError)throw Error("Unable to read platform payment configuration.");
-  if(!config||!/^0x[a-f0-9]{40}$/i.test(String(config.recipient_address||""))||!/^0x[a-f0-9]{40}$/i.test(String(config.token_contract||"")))return json(req,{ok:false,error:"Paid audits are not enabled yet: the platform USDT receiving wallet and token contract have not been configured by an administrator."},503);
+  if(!config||!/^0x[a-f0-9]{40}$/i.test(String(config.recipient_address||"")))return json(req,{ok:false,error:"Paid audits are not enabled yet: the platform receiving wallet and approved BSC-USD asset have not been configured by an administrator."},503);
+  try{assertSupportedPaymentAsset(56,String(config.token_contract||""),String(config.token_symbol||""),18);}catch(e){return json(req,{ok:false,error:String((e as any)?.message||"Unsupported payment asset.")},503);}
   const decimalsHex=await rpc(rpcUrl,"eth_call",[{to:config.token_contract,data:"0x313ce567"},"latest"]);
   const decimals=Number(BigInt(decimalsHex));
-  if(!Number.isInteger(decimals)||decimals<0||decimals>36)throw Error("The configured USDT contract returned invalid decimals.");
+  if(decimals!==18)throw Error("The approved Binance-Peg BSC-USD contract must return exactly 18 decimals.");
   const symbolHex=await rpc(rpcUrl,"eth_call",[{to:config.token_contract,data:"0x95d89b41"},"latest"]);
   const symbol=decodeAbiString(symbolHex);
-  if(symbol!=="USDT")return json(req,{ok:false,error:"Configured token contract did not return the exact USDT symbol. Paid audits remain disabled until the receiving token is verified."},503);
+  if(symbol!=="USDT")return json(req,{ok:false,error:"The approved Binance-Peg contract metadata check failed. Paid audits remain disabled."},503);
   const price=prices[auditType];
   const amountAtomic=(BigInt(price)*(10n**BigInt(decimals))).toString();
   const projectId=typeof body.project_id==="string"&&/^[0-9a-f-]{36}$/i.test(body.project_id)?body.project_id:null;
   const {data:order,error}=await sb.from("audit_payment_orders").insert({
    user_id:user.id,project_id:projectId,audit_type:auditType,repo_url:repoUrl,price_usd:price,chain_id:56,
-   token_contract:String(config.token_contract).toLowerCase(),token_symbol:"USDT",token_decimals:decimals,
+   token_contract:String(config.token_contract).toLowerCase(),token_symbol:"BSC-USD",token_decimals:decimals,
    recipient_address:String(config.recipient_address).toLowerCase(),amount_atomic:amountAtomic
   }).select("id,price_usd,chain_id,token_contract,token_symbol,token_decimals,recipient_address,amount_atomic,expires_at").single();
   if(error||!order)throw Error("Unable to create payment order.");
-  return json(req,{ok:true,order:{...order,amount:"$"+Number(price).toFixed(2)+" USDT",network:"BNB Smart Chain",instructions:"Send the exact USDT amount to the receiving address, then submit the transaction hash for verification."}},201);
+  return json(req,{ok:true,order:{...order,amount:"$"+Number(price).toFixed(2)+" BSC-USD",asset_label:"Binance-Peg BSC-USD",network:"BNB Smart Chain",instructions:"Send the exact Binance-Peg BSC-USD amount to the receiving address, then submit the transaction hash for verification."}},201);
  }catch(e){console.error("create-audit-payment-order",String((e as any)?.message||e));return json(req,{ok:false,error:String((e as any)?.message||"Unable to create payment order.")},400);}
 });
