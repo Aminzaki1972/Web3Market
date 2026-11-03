@@ -270,7 +270,7 @@ jobs:
           solc-select use "$SOLC_VERSION"
           solc --version
 
-      - name: Run Slither across every Solidity source file
+      - name: Run Slither across configured Solidity source roots
         if: steps.source.outputs.has_solidity == 'true'
         id: slither
         shell: bash
@@ -310,7 +310,7 @@ jobs:
                       if name.endswith(".sol"):
                           files.append(os.path.join(current, name))
           for path in sorted(set(files)):
-              sys.stdout.buffer.write(os.fsencode(path) + b"\\0")
+              sys.stdout.buffer.write(os.fsencode(path) + b"\0")
           PY
           )
           if [ "${#SOL_FILES[@]}" -eq 0 ]; then
