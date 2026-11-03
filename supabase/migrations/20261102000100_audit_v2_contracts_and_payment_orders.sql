@@ -22,7 +22,14 @@ COMMENT ON COLUMN public.platform_payment_configs.recipient_address IS
 
 -- Dedicated audit-fee recipient supplied by the platform owner for review.
 -- Keep this Binance-Peg BSC-USD route DISABLED until independent address/network checks and explicit activation approval.
-DO $$
+UPDATE public.platform_payment_configs
+   SET recipient_address = '0xEE3157C2DeC61AFA7f2fbe86CD0427BedEAcBe85',
+       enabled = false,
+       updated_at = now()
+ WHERE chain_id = 56
+   AND lower(token_contract) = lower('0x55d398326f99059ff775485246999027b3197955');
+
+DO $
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.platform_payment_configs
