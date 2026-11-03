@@ -176,7 +176,7 @@ async function start(){
    const progress=a.analysis_progress||{};
    const total=Number(a.total_chunks||progress.total_chunks||0);
    const current=Number(a.current_chunk||progress.current_chunk||0);
-   const fileBatchIndex=Number(progress.file_batch_index||0);const totalFileBatches=Number(progress.total_file_batches||0);const hasPendingFileBatch=status==="queued"&&totalFileBatches>0&&fileBatchIndex<totalFileBatches;if(!["queued","scanning","analyzing","retrying"].includes(status)||(!hasPendingFileBatch&&(!total||current>=total)))return;
+   const fileBatchIndex=Number(progress.file_batch_index||0);const totalFileBatches=Number(progress.total_file_batches||0);const hasPendingFileBatch=status==="queued"&&totalFileBatches>0&&fileBatchIndex<totalFileBatches;const hasPendingStaticAnalysis=status==="queued"&&progress.static_analysis?.state==="pending";if(!["queued","scanning","analyzing","retrying"].includes(status)||(!hasPendingFileBatch&&!hasPendingStaticAnalysis&&(!total||current>=total)))return;
    const heartbeat=progress.updated_at?Date.parse(progress.updated_at):0;
    const stale=!heartbeat||!Number.isFinite(heartbeat)||(Date.now()-heartbeat)>90000;
    // A fresh scanning heartbeat means a worker is already active. Never call resume on every poll.
