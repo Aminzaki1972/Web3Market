@@ -85,7 +85,7 @@
    const {order,guestToken,email}=pending;
    m.innerHTML="<div class='audit-payment-order'><h3>Payment order "+esc(order.id)+"</h3><p>Send <strong>"+esc(order.amount)+"</strong> on <strong>BNB Smart Chain</strong> to the official Web3Market receiving wallet below.</p><p><strong>Receiving wallet</strong><br><code>"+esc(order.recipient_address)+"</code></p><p><strong>Payment asset: Binance-Peg BSC-USD (not direct Tether-issued USD₮)</strong><br><strong>Approved token contract</strong><br><code>"+esc(order.token_contract)+"</code></p><p><strong>Order expires</strong><br>"+esc(new Date(order.expires_at).toLocaleString())+"</p>"+(email?"<p>Private report email: <strong>"+esc(email)+"</strong></p>":"")+"<label for='auditPaymentTxHash'><strong>Transaction hash</strong></label><input id='auditPaymentTxHash' type='text' placeholder='0x…' autocomplete='off' style='display:block;width:100%;box-sizing:border-box;margin:8px 0;padding:12px;border:1px solid #3a3158;border-radius:9px;background:#0d0c19;color:#f5f2ff'><button id='verifyAuditPayment' class='btn btn-primary' type='button'>Verify payment and start audit</button><button id='discardAuditPayment' class='btn btn-ghost' type='button'>Discard saved order</button><p class='muted'>The audit starts only after the server verifies the exact Binance-Peg BSC-USD transfer and 12 block confirmations. This is not direct Tether-issued USD₮. Confirm the network and full token contract before sending. Never send funds to an address other than the one shown in this order. Your pending order is saved in this browser on this device so you can resume after closing the tab. Do not use a shared device; clear the order after completion.</p></div>";
    const verifyButton=document.getElementById("verifyAuditPayment");
-   document.getElementById("discardAuditPayment").addEventListener("click",()=>{if(!window.confirm("Only remove this saved order if you have NOT sent any funds. If you already paid, cancel and contact support with the order ID."))return;clearPendingPayment();const runButton=document.getElementById("runAudit");if(runButton){runButton.disabled=false;runButton.textContent="Run W3M AI Code Audit";}m.innerHTML="<p class='muted'>Saved payment order removed from this browser tab. If you already sent funds, contact support with the order ID before creating another order.</p>";});
+   document.getElementById("discardAuditPayment").addEventListener("click",()=>{if(!window.confirm("Only remove this saved order if you have NOT sent any funds. If you already paid, cancel and contact support with the order ID."))return;clearPendingPayment();const runButton=document.getElementById("runAudit");if(runButton){runButton.disabled=false;runButton.textContent="Run W3M AI Code Audit";}m.innerHTML="<p class='muted'>Saved payment order removed from this browser on this device. If you already sent funds, contact support with the order ID before creating another order.</p>";});
    window.W3MVerifyAuditPayment=async()=>{
      const txInput=document.getElementById("auditPaymentTxHash");
      if(!verifyButton||!txInput)return;
@@ -184,22 +184,24 @@ async function start(){
    try{delete window.__W3MGuestReportToken;}catch(_){window.__W3MGuestReportToken=null;}
    const key="w3m_guest_audit_session:v1";
    const legacyKey="w3m_guest_audit_session";
-   let existing="";
+   let existing="",existingLinkHash="";
    try{
      const saved=localStorage.getItem(key);
      if(saved){
        const record=JSON.parse(saved);
-       if(record&&typeof record.token==="string"&&Number(record.expiresAt)>Date.now())existing=record.token;
+       if(record&&typeof record.token==="string"&&Number(record.expiresAt)>Date.now()){existing=record.token;existingLinkHash=String(record.reportLinkHash||"");}
        else localStorage.removeItem(key);
      }
      if(!existing){
        const legacy=sessionStorage.getItem(legacyKey);
-       if(legacy){existing=legacy;localStorage.setItem(key,JSON.stringify({token:legacy,expiresAt:Date.now()+12*60*60*1000}));sessionStorage.removeItem(legacyKey);}
+       if(legacy){existing=legacy;existingLinkHash="";localStorage.setItem(key,JSON.stringify({token:legacy,expiresAt:Date.now()+12*60*60*1000,reportLinkHash:""}));sessionStorage.removeItem(legacyKey);}
      }
    }catch(_){existing="";}
-   // A previously exchanged session takes precedence over the one-time email token.
-   // This lets the same browser resume after closing/reopening a tab without reusing the link.
-   if(existing){
+   // Reuse a saved session only when no new link was supplied or it belongs to that same link.
+   // A different email link may represent a different paid report on the same browser.
+   let suppliedLinkHash="";
+   if(linkToken){const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(linkToken));suppliedLinkHash=Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,"0")).join("");}
+   if(existing&&(!linkToken||(existingLinkHash&&existingLinkHash===suppliedLinkHash))){
      try{await loadGuestReport(existing);return true;}
      catch(error){
        const message=String(error?.message||"");
@@ -218,7 +220,7 @@ async function start(){
          const c=await ensureClient();
          const r=await c.functions.invoke("guest-audit-access",{body:{action:"exchange",report_token:linkToken}});
          if(r.error||!r.data?.session_token)throw Error(r.data?.error||r.error?.message||"This report link is invalid or expired.");
-         localStorage.setItem(key,JSON.stringify({token:r.data.session_token,expiresAt:Date.parse(r.data.expires_at)||Date.now()+12*60*60*1000}));
+         localStorage.setItem(key,JSON.stringify({token:r.data.session_token,expiresAt:Date.parse(r.data.expires_at)||Date.now()+12*60*60*1000,reportLinkHash:suppliedLinkHash}));
          history.replaceState(null,"",location.pathname);
          await loadGuestReport(r.data.session_token);
        }catch(e){root.innerHTML='<div class="audit-status"><h2>Report access unavailable</h2><p class="audit-error">'+esc(e?.message||"Unable to open this report.")+'</p></div>';}
