@@ -12,6 +12,7 @@ export type StaticAnalysisTarget = {
 };
 
 const GITHUB_API = "https://api.github.com";
+const CONTROL_REPOSITORY = "Aminzaki1972/Web3Market";
 const WORKFLOW_FILE = "w3m-contract-analysis.yml";
 
 export function validateStaticAnalysisTarget(input: StaticAnalysisTarget): StaticAnalysisTarget {
@@ -44,7 +45,8 @@ export async function dispatchStaticAnalysis(
     throw new Error("A trusted workflow ref is required.");
   }
 
-  const endpoint = `${GITHUB_API}/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.repo)}/actions/workflows/${WORKFLOW_FILE}/dispatches`;
+  const [controlOwner, controlRepo] = CONTROL_REPOSITORY.split("/");
+  const endpoint = `${GITHUB_API}/repos/${encodeURIComponent(controlOwner)}/${encodeURIComponent(controlRepo)}/actions/workflows/${WORKFLOW_FILE}/dispatches`;
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
