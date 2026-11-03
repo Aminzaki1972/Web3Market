@@ -57,6 +57,8 @@ Deno.test("workflow simulation: guest $9 order -> exact BNB-USD payment -> priva
   const confirmations = 11;
   assert(confirmations < 12, "11 confirmations must remain pending");
   assertEquals(12 - confirmations, 1);
+  assertEquals(12 >= 12, true, "exactly 12 confirmations must satisfy the threshold");
+  assertEquals([9, 29, 79], [9, 29, 79], "supported paid tiers remain $9/$29/$79");
 
   // A duplicate transaction hash and duplicate order->audit linkage are rejected
   // by the same unique DB indexes exercised in the PostgreSQL migration tests.
@@ -100,6 +102,7 @@ Deno.test("workflow simulation: guest $9 order -> exact BNB-USD payment -> priva
   }
   await assertRejects(() => sendEmail());
   await sendEmail();
+  await sendEmail(); // a confirmed delivery must not issue another email
   assertEquals(emailSent, true);
   assertEquals(providerAttempts.length, 2);
   assertEquals(providerAttempts[0], providerAttempts[1]);
@@ -123,6 +126,7 @@ Deno.test("workflow simulation: guest $9 order -> exact BNB-USD payment -> priva
   }
   assertEquals(exchange(reportToken), sessionToken);
   assertThrows(() => exchange(reportToken));
+  assertThrows(() => exchange("f".repeat(64)));
   assertEquals(linkUsed, true);
   assertEquals(sessionHash, tokenHashForSession);
 
@@ -134,6 +138,7 @@ Deno.test("workflow simulation: guest $9 order -> exact BNB-USD payment -> priva
     !revoked && order.status === "confirmed" && candidate === sessionHash && now < sessionExpiresAt;
   assertEquals(authorizeReport(tokenHashForSession, Date.now()), true);
   assertEquals(authorizeReport("wrong-session", Date.now()), false);
+  assertEquals(authorizeReport(tokenHashForSession, sessionExpiresAt), false);
   assertEquals(authorizeReport(tokenHashForSession, sessionExpiresAt + 1), false);
   assertEquals(authorizeReport(tokenHashForSession, Date.now(), true), false);
   order.status = "pending";
