@@ -27,6 +27,20 @@
  }
  function counts(list){const c={critical:0,high:0,medium:0,low:0,info:0};(list||[]).forEach(f=>{if(c[f.severity]!=null)c[f.severity]++});return c;}
  async function getAudit(c,aid){const r=await c.from("code_audits").select("*").eq("id",aid).maybeSingle();if(r.error)throw r.error;return r.data;}
+ window.W3MCreateAutoFixPR=async(audit)=>{
+   const button=document.getElementById("createAutoFixPR"),message=document.getElementById("autoFixPRMessage");
+   if(!button||!message||!audit?.id)return;
+   button.disabled=true;button.textContent="Preparing reviewable fixes…";message.textContent="Checking the audited commit and preparing a separate GitHub branch. The default branch will not be changed.";
+   try{
+    const c=await ensureClient();const auth=await c.auth.getSession();if(!auth?.data?.session?.user)throw Error("Sign in to create an Auto-Fix PR.");
+    const result=await c.functions.invoke("w3m-audit-autofix-pr",{body:{audit_id:audit.id}});
+    if(result.error)throw Error(result.error.message||"Unable to create Auto-Fix PR.");
+    const data=result.data||{};if(!data.ok||!data.pull_request)throw Error(data.error||"No pull request was created.");
+    message.textContent="Reviewable pull request created. It has not been merged.";
+    const link=document.createElement("a");link.href=data.pull_request;link.target="_blank";link.rel="noopener noreferrer";link.textContent="Open Auto-Fix PR #"+data.pr_number+" ↗";link.className="btn btn-primary";message.appendChild(document.createTextNode(" "));message.appendChild(link);
+    button.textContent="Auto-Fix PR created";button.disabled=true;
+   }catch(error){message.textContent=error?.message||"Auto-Fix PR could not be created.";button.disabled=false;button.textContent="Generate Auto-Fix PR";}
+  };
  async function render(a){
    const c=await ensureClient();
    const [fr,filesr]=await Promise.all([
@@ -38,9 +52,10 @@
    const score=a.overall_score==null?null:Number(a.overall_score);
    const risk=String(a.risk_level||"Pending");
    const date=a.completed_at||a.created_at||new Date().toISOString();
+   window.W3MCurrentAudit=a;
    root.innerHTML='<div class="audit-head"><div><div class="audit-kicker">W3M AI CODE AUDIT</div><h1>Repository Technical Due Diligence</h1><p class="muted">'+esc(a.repo_owner||"")+" / "+esc(a.repo_name||"")+' · '+esc(a.commit_sha||"snapshot")+'</p></div><div><div class="audit-score">'+(score==null?"—":esc(score)+"/100")+'</div><div class="audit-risk">'+esc(risk.toUpperCase())+'</div></div></div>'+
-   '<div class="audit-actions"><button class="btn btn-primary" type="button" onclick="window.print()">Print / Save PDF</button><a class="btn btn-ghost" href="'+(a.project_id?"project.html?id="+encodeURIComponent(a.project_id):"code-audit.html")+'">Back to Project</a><a class="btn btn-primary" href="'+esc(a.repo_url||"#")+'" target="_blank" rel="noopener noreferrer">Open GitHub ↗</a></div>'+
-   '<div class="audit-meta"><div><strong>Audit ID</strong><span class="audit-id">'+esc(a.id)+'</span></div><div><strong>Commit</strong><span class="audit-id">'+esc(a.commit_sha||"—")+'</span></div><div><strong>Audit Date</strong><span>'+esc(new Date(date).toLocaleString())+'</span></div><div><strong>Engine</strong><span>'+esc(a.engine_version||a.model||"W3M AI Code Audit")+'</span></div></div>'+
+   '<div class="audit-actions"><button class="btn btn-primary" type="button" onclick="window.print()">Print / Save PDF</button>'+ (a.status==="completed"?'<button id="createAutoFixPR" class="btn btn-primary" type="button" onclick="window.W3MCreateAutoFixPR&&window.W3MCreateAutoFixPR(window.W3MCurrentAudit)">Generate Auto-Fix PR</button>':"")+'<a class="btn btn-ghost" href="'+(a.project_id?"project.html?id="+encodeURIComponent(a.project_id):"code-audit.html")+'">Back to Project</a><a class="btn btn-primary" href="'+esc(a.repo_url||"#")+'" target="_blank" rel="noopener noreferrer">Open GitHub ↗</a></div>'+
+   '<div id="autoFixPRMessage" class="muted" style="margin:8px 0"></div><div class="audit-meta"><div><strong>Audit ID</strong><span class="audit-id">'+esc(a.id)+'</span></div><div><strong>Commit</strong><span class="audit-id">'+esc(a.commit_sha||"—")+'</span></div><div><strong>Audit Date</strong><span>'+esc(new Date(date).toLocaleString())+'</span></div><div><strong>Engine</strong><span>'+esc(a.engine_version||a.model||"W3M AI Code Audit")+'</span></div></div>'+
    '<div class="audit-grid">'+metric("Security",a.security_score)+metric("Architecture",a.architecture_score)+metric("Code Quality",a.code_quality_score)+metric("Dependencies",a.dependency_score)+metric("Testing",a.testing_score)+metric("Documentation",a.documentation_score)+metric("Web3",a.web3_score)+metric("Scalability (static estimate)",a.scalability_score)+metric("AI Fit (evidence-based)",a.ai_fit_score)+'</div>'+
    '<div class="audit-section"><h2>About Executive Scores</h2><p class="muted">Scalability is a static estimate from scanned code, not a load or production performance test. AI Fit is an evidence-based estimate from available repository content; it does not prove that an AI feature works or delivers value. A dash means the metric was not recorded for this audit.</p></div><div class="audit-section"><h2>Audit Summary</h2><p class="audit-summary">'+esc(a.summary||"No summary available yet.")+'</p><p class="muted">Files scanned: '+esc(a.files_scanned||0)+' · Lines scanned: '+esc(a.lines_scanned||0)+' · Scan coverage: '+esc(a.coverage_score||0)+'% · Findings: '+esc(fl.length)+'</p></div>'+
    '<div class="audit-section"><h2>Risk Overview</h2><div class="audit-grid">'+metric("Critical",cnt.critical,false)+metric("High",cnt.high,false)+metric("Medium",cnt.medium,false)+metric("Low",cnt.low,false)+metric("Info",cnt.info,false)+'</div></div>'+
@@ -69,22 +84,41 @@
      const auth=await c.auth.getSession();
      if(!auth?.data?.session?.user)throw Error("Please sign in or create a Web3Market account before running an audit. Audit history and detailed results are protected for registered members.");
      const repo=input.value.trim();
+     const auditType=document.getElementById("auditType")?.value||"code";
+     if(!["code","smart_contract","complete"].includes(auditType))throw Error("Choose a valid audit type.");
      if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
      b.textContent="Running Audit…";m.innerHTML="<p class='muted'>Scanning GitHub and preparing AI analysis…</p>";
-     const body={repo_url:repo};if(id)body.project_id=id;
-     const r=await c.functions.invoke("w3m-code-audit",{body});
-     if(r.error){
-       let detail=r.error?.message||"The audit service returned an error.";
-       try{if(r.error?.context){const ctx=r.error.context;let payload=null;if(typeof ctx.json==="function"){try{payload=await ctx.clone().json()}catch(_){try{payload=await ctx.json()}catch(__){}}}else if(typeof ctx==="object")payload=ctx;if(payload?.code==="RATE_LIMIT")detail="Rate limit reached. Please try again in about "+Math.ceil(Number(payload.retry_after_seconds||60)/60)+" minute(s).";else if(payload?.error)detail=payload.error;}}catch(_){}
-       throw Error(detail);
+     if(id&&auditType==="code"){
+      const r=await c.functions.invoke("w3m-code-audit",{body:{repo_url:repo,project_id:id,audit_type:"code"}});
+      if(r.error)throw Error(r.error.message||"Unable to start the free project audit.");
+      const aid=r.data?.audit_id||r.data?.id;if(!aid)throw Error(r.data?.error||"Audit started but no audit ID was returned.");
+      location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));return;
      }
-     if(r.data?.error)throw Error(r.data.error);
-     const aid=r.data?.audit_id||r.data?.id;if(!aid)throw Error("Audit started but no audit ID was returned.");
-     location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));
+     const orderResponse=await c.functions.invoke("create-audit-payment-order",{body:{repo_url:repo,audit_type:auditType,project_id:id||undefined}});
+     if(orderResponse.error)throw Error(orderResponse.error.message||"Unable to create a payment order.");
+     const order=orderResponse.data?.order;if(!order?.id)throw Error(orderResponse.data?.error||"Payment order was not created.");
+     m.innerHTML="<div class='audit-payment-order'><h3>Payment order created</h3><p>Send <strong>"+esc(order.amount)+"</strong> on <strong>BNB Smart Chain</strong> to the official Web3Market receiving wallet below.</p><p><strong>Receiving wallet</strong><br><code>"+esc(order.recipient_address)+"</code></p><p><strong>USDT contract</strong><br><code>"+esc(order.token_contract)+"</code></p><p><strong>Order expires</strong><br>"+esc(new Date(order.expires_at).toLocaleString())+"</p><label for='auditPaymentTxHash'><strong>Transaction hash</strong></label><input id='auditPaymentTxHash' type='text' placeholder='0x…' autocomplete='off' style='display:block;width:100%;box-sizing:border-box;margin:8px 0;padding:12px;border:1px solid #3a3158;border-radius:9px;background:#0d0c19;color:#f5f2ff'><button id='verifyAuditPayment' class='btn btn-primary' type='button'>Verify payment and start audit</button><p class='muted'>The audit starts only after the server verifies the exact USDT transfer and 12 block confirmations. Never send funds to an address other than the one shown in this order.</p></div>";
+     window.W3MVerifyAuditPayment=async()=>{
+      const verifyButton=document.getElementById("verifyAuditPayment"),txInput=document.getElementById("auditPaymentTxHash");
+      if(!verifyButton||!txInput)return;
+      const txHash=txInput.value.trim();if(!/^0x[0-9a-f]{64}$/i.test(txHash)){m.innerHTML+="<p class='muted'>Enter a valid transaction hash.</p>";return;}
+      verifyButton.disabled=true;verifyButton.textContent="Verifying on BNB Chain…";
+      try{
+       const verified=await c.functions.invoke("verify-audit-payment",{body:{order_id:order.id,tx_hash:txHash}});
+       if(verified.error)throw Error(verified.error.message||"Payment verification failed.");
+       const data=verified.data||{};
+       if(data.audit_id){location.replace("code-audit.html?audit_id="+encodeURIComponent(data.audit_id));return;}
+       if(data.pending){verifyButton.disabled=false;verifyButton.textContent="Verify payment and start audit";throw Error(data.error||"Payment is awaiting confirmations.");}
+       if(data.audit_started===false){verifyButton.disabled=false;verifyButton.textContent="Retry starting audit";throw Error(data.error||"Payment confirmed; audit start can be retried.");}
+       throw Error(data.error||"Payment could not be verified.");
+      }catch(error){const note=document.createElement("p");note.className="muted";note.textContent=error?.message||"Payment verification failed.";m.querySelector(".audit-payment-order")?.appendChild(note);verifyButton.disabled=false;verifyButton.textContent="Verify payment and start audit";}
+     };
+     document.getElementById("verifyAuditPayment").addEventListener("click",window.W3MVerifyAuditPayment);
+     return;
    }catch(e){console.error(e);m.innerHTML="<p class='muted'>"+esc(e?.message||"Unable to start audit.")+"</p>";b.disabled=false;b.textContent="Run W3M AI Code Audit";}
  };
  async function start(){
-   try{const c=await ensureClient();let prefill="";if(id){const p=await c.from("projects").select("github_url").eq("id",id).maybeSingle();if(!p.error&&p.data)prefill=p.data.github_url||"";}if(initialRepoInput)initialRepoInput.value=prefill;}
+   try{const c=await ensureClient();let prefill="";if(id){const p=await c.from("projects").select("github_url").eq("id",id).maybeSingle();if(!p.error&&p.data)prefill=p.data.github_url||"";}if(initialRepoInput)initialRepoInput.value=prefill;if(id){const freeOption=document.querySelector("#auditType option[value=code]");if(freeOption)freeOption.textContent="Full Repository Code Audit — Free once for this project";}}
    catch(e){console.error(e);root.innerHTML='<h1>W3M AI Code Audit</h1><p class="muted">'+esc(e?.message||"Unable to load audit.")+"</p>"}
  }
  async function resumeIfNeeded(a){
