@@ -128,7 +128,20 @@
        location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));return;
      }
      const orderResponse=await c.functions.invoke("create-audit-payment-order",{body:{repo_url:repo,audit_type:auditType,project_id:id||undefined,email:guestEmail||undefined}});
-     if(orderResponse.error)throw Error(orderResponse.error.message||"Unable to create a payment order.");
+     if(orderResponse.error){
+       // Supabase FunctionsHttpError stores the Edge Function JSON response in
+       // error.context (a Response), so surface the server's safe message instead
+       // of the generic "Edge Function returned a non-2xx status code".
+       let detail=orderResponse.data?.error||"";
+       if(!detail&&orderResponse.error.context){
+         try{
+           const response=orderResponse.error.context.clone?.()||orderResponse.error.context;
+           const payload=await response.json();
+           if(typeof payload?.error==="string")detail=payload.error;
+         }catch(_){/* Fall back to the SDK message when no JSON body is available. */}
+       }
+       throw Error(detail||orderResponse.error.message||"Unable to create a payment order.");
+     }
      const order=orderResponse.data?.order;if(!order?.id)throw Error(orderResponse.data?.error||"Payment order was not created.");
      const pending={order,guestToken:orderResponse.data?.guest_order_token||"",email:orderResponse.data?.email||guestEmail,repo,auditType};
      if(!signedIn&&!pending.guestToken)throw Error("The guest order token was not returned; the order cannot be safely verified. Contact support before sending funds.");
