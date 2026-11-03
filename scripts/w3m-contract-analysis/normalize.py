@@ -201,6 +201,10 @@ def normalize_aderyn(data: Any) -> list[dict[str, Any]]:
     return findings
 
 
+def engine_metadata(version: str, status: str, process_exit_code: int) -> dict[str, Any]:
+    return {"version": version, "status": status, "process_exit_code": process_exit_code}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--slither", required=True)
@@ -210,6 +214,7 @@ def main() -> None:
     parser.add_argument("--audit-id", default=None)
     parser.add_argument("--slither-exit", type=int, default=0)
     parser.add_argument("--aderyn-exit", type=int, default=0)
+    parser.add_argument("--aderyn-status", choices=("completed", "unavailable"), default="completed")
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
 
@@ -237,8 +242,8 @@ def main() -> None:
         "audit_id": args.audit_id,
         "analysis_scope": "solidity_static_analysis",
         "engines": {
-            "slither": {"version": "0.11.6", "status": "completed", "process_exit_code": args.slither_exit},
-            "aderyn": {"version": "0.6.8", "status": "completed", "process_exit_code": args.aderyn_exit},
+            "slither": engine_metadata("0.11.6", "completed", args.slither_exit),
+            "aderyn": engine_metadata("0.6.8", args.aderyn_status, args.aderyn_exit),
         },
         "summary": {
             "finding_candidates": len(findings),
@@ -256,6 +261,10 @@ def main() -> None:
             "This workflow does not perform fuzzing, symbolic execution, deployment simulation, or formal verification.",
         ],
     }
+    if args.aderyn_status != "completed":
+        report["limitations"].append(
+            "Aderyn did not complete for this target; the report is partial and contains Slither findings only. Review Aderyn stdout/stderr artifacts."
+        )
     Path(args.output).write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
