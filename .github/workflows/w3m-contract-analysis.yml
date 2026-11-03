@@ -63,6 +63,7 @@ jobs:
               owner, name = os.environ["EVENT_REPOSITORY"].split("/", 1)
               url = f"https://github.com/{owner}/{name}"
               sha = os.environ["PR_HEAD_SHA"] if event == "pull_request" else os.environ["EVENT_SHA"]
+              audit_id = ""
           else:
               url = os.environ["INPUT_URL"].strip()
               sha = os.environ.get("INPUT_SHA", "").strip()
