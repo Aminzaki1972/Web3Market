@@ -76,10 +76,10 @@
    }catch(e){alert(e?.message||"Unable to resume audit.");}
  };
  const PENDING_PAYMENT_KEY="w3m:audit-payment-order:v1";
- function clearPendingPayment(){try{sessionStorage.removeItem(PENDING_PAYMENT_KEY);}catch(_){}}
+ function clearPendingPayment(){try{localStorage.removeItem(PENDING_PAYMENT_KEY);sessionStorage.removeItem(PENDING_PAYMENT_KEY);}catch(_){}}
  function savePendingPayment(order,guestToken,email,repo,auditType){
-   try{sessionStorage.setItem(PENDING_PAYMENT_KEY,JSON.stringify({order,guestToken:guestToken||"",email:email||"",repo,auditType,savedAt:Date.now()}));}
-   catch(_){throw Error("This browser tab cannot securely retain the pending payment session. Keep this page open until payment verification is complete.");}
+   try{localStorage.setItem(PENDING_PAYMENT_KEY,JSON.stringify({order,guestToken:guestToken||"",email:email||"",repo,auditType,savedAt:Date.now()}));}
+   catch(_){throw Error("This browser cannot retain the payment session. Keep this page open and complete verification before closing it.");}
  }
  function renderPaymentOrder(c,m,pending){
    const {order,guestToken,email}=pending;
@@ -139,9 +139,12 @@
  };
  function restorePendingPayment(c){
    try{
-     const raw=sessionStorage.getItem(PENDING_PAYMENT_KEY);if(!raw)return false;
+     const raw=localStorage.getItem(PENDING_PAYMENT_KEY)||sessionStorage.getItem(PENDING_PAYMENT_KEY);if(!raw)return false;
      const pending=JSON.parse(raw);
      if(!pending||!pending.order?.id||!pending.order?.recipient_address||!pending.order?.token_contract||!pending.order?.expires_at||!pending.repo||!["code","smart_contract","complete"].includes(pending.auditType)||typeof pending.guestToken!=="string")throw Error("Saved payment session is incomplete.");
+     if(Date.parse(pending.order.expires_at)<=Date.now()){clearPendingPayment();throw Error("This saved payment order has expired. Do not send funds to it; create a new order. If you already sent funds, contact support with the order ID and transaction hash.");}
+     localStorage.setItem(PENDING_PAYMENT_KEY,JSON.stringify(pending));
+     try{sessionStorage.removeItem(PENDING_PAYMENT_KEY);}catch(_){} 
      const m=document.getElementById("auditMsg");if(!m)return false;
      const b=document.getElementById("runAudit");if(b){b.disabled=true;b.textContent="Pending payment order restored";}
      if(pending.guestToken&&!/^[0-9a-f]{64}$/i.test(pending.guestToken))throw Error("Saved guest access token is invalid.");
@@ -179,9 +182,28 @@ async function start(){
    const linkToken=window.__W3MGuestReportToken||params.get("guest_report");
    // The HTML head removes this bearer token before analytics scripts load.
    try{delete window.__W3MGuestReportToken;}catch(_){window.__W3MGuestReportToken=null;}
-   const key="w3m_guest_audit_session";
-   const existing=sessionStorage.getItem(key);
-   if(!linkToken&&!existing)return false;
+   const key="w3m_guest_audit_session:v1";
+   const legacyKey="w3m_guest_audit_session";
+   let existing="";
+   try{
+     const saved=localStorage.getItem(key);
+     if(saved){
+       const record=JSON.parse(saved);
+       if(record&&typeof record.token==="string"&&Number(record.expiresAt)>Date.now())existing=record.token;
+       else localStorage.removeItem(key);
+     }
+     if(!existing){
+       const legacy=sessionStorage.getItem(legacyKey);
+       if(legacy){existing=legacy;localStorage.setItem(key,JSON.stringify({token:legacy,expiresAt:Date.now()+12*60*60*1000}));sessionStorage.removeItem(legacyKey);}
+     }
+   }catch(_){existing="";}
+   // A previously exchanged session takes precedence over the one-time email token.
+   // This lets the same browser resume after closing/reopening a tab without reusing the link.
+   if(existing){
+     try{await loadGuestReport(existing);return true;}
+     catch(_){try{localStorage.removeItem(key);}catch(__){}}
+   }
+   if(!linkToken)return false;
    if(linkToken){
      root.innerHTML='<div class="audit-status"><h2>Private audit report</h2><p class="muted">This secure email link can be exchanged once for a 12-hour private report session.</p><button id="openGuestReport" class="btn btn-primary" type="button">Open my private report</button></div>';
      document.getElementById("openGuestReport").addEventListener("click",async()=>{
@@ -190,7 +212,7 @@ async function start(){
          const c=await ensureClient();
          const r=await c.functions.invoke("guest-audit-access",{body:{action:"exchange",report_token:linkToken}});
          if(r.error||!r.data?.session_token)throw Error(r.data?.error||r.error?.message||"This report link is invalid or expired.");
-         sessionStorage.setItem(key,r.data.session_token);
+         localStorage.setItem(key,JSON.stringify({token:r.data.session_token,expiresAt:Date.parse(r.data.expires_at)||Date.now()+12*60*60*1000}));
          history.replaceState(null,"",location.pathname);
          await loadGuestReport(r.data.session_token);
        }catch(e){root.innerHTML='<div class="audit-status"><h2>Report access unavailable</h2><p class="audit-error">'+esc(e?.message||"Unable to open this report.")+'</p></div>';}
