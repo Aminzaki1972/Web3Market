@@ -52,6 +52,33 @@ class NormalizeTests(unittest.TestCase):
         self.assertEqual(rows[0]["line_start"], 17)
         self.assertEqual(rows[0]["triage_status"], "needs_ai_triage")
 
+    def test_aderyn_06_issue_bucket_and_instances_shape(self):
+        data = {
+            "issue_count": {"high": 1, "low": 1},
+            "high_issues": {"issues": [{
+                "title": "Reentrancy: State change after external call",
+                "description": "State changes after an external call.",
+                "detector_name": "reentrancy-state-change",
+                "instances": [
+                    {"contract_path": "contracts/Vault.sol", "line_no": 15},
+                    {"contract_path": "contracts/Vault.sol", "line_no": 28},
+                ],
+            }]},
+            "low_issues": {"issues": [{
+                "title": "State Change Without Event",
+                "description": "Emit an event after changing state.",
+                "detector_name": "state-change-without-event",
+                "instances": [{"contract_path": "contracts/Vault.sol", "line_no": 9}],
+            }]},
+        }
+        rows = NORMALIZER.normalize_aderyn(data)
+        self.assertEqual(len(rows), 3)
+        self.assertEqual([row["severity"] for row in rows], ["high", "high", "low"])
+        self.assertEqual(rows[0]["file_path"], "contracts/Vault.sol")
+        self.assertEqual(rows[0]["line_start"], 15)
+        self.assertTrue(all(row["triage_status"] == "needs_ai_triage" for row in rows))
+        self.assertTrue(all(row["confirmed"] is False for row in rows))
+
     def test_no_automatic_cross_engine_confirmation(self):
         a = NORMALIZER.make_finding("slither", "detector-a", "Same area", "x",
                                     "High", "High", "src/A.sol", 9, 9)
