@@ -116,7 +116,7 @@
      const repo=input.value.trim();
      const auditType=document.getElementById("auditType")?.value||"code";
      const guestEmail=document.getElementById("auditGuestEmail")?.value.trim().toLowerCase()||"";
-     if(!signedIn&&auditType==="code")throw Error("The one-time free audit is reserved for signed-in owners of an active listed project. Choose a paid audit to continue as a guest.");
+     // Guests may purchase the base Code Audit tier; the free entitlement is enforced only by the signed-in project-owner path below.
      if(!signedIn&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(guestEmail))throw Error("Enter a valid email address to receive your private report.");
      if(!["code","smart_contract","complete"].includes(auditType))throw Error("Choose a valid audit type.");
      if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
