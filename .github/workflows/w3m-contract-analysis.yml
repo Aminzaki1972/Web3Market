@@ -89,6 +89,7 @@ jobs:
               f.write(f"owner={owner}\nrepo={repo}\n")
               f.write(f"requested_sha={sha}\n")
               f.write(f"sha={sha}\n")
+              f.write(f"audit_id={audit_id}\n")
           print(f"Target: {owner}/{repo} @ {sha}")
           PY
 
