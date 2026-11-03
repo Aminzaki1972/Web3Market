@@ -237,6 +237,9 @@ jobs:
       - name: Run dispatcher validation tests
         run: deno test w3m-tools/supabase/functions/w3m-code-audit/github-static-analysis.test.ts
 
+      - name: Type-check integrated audit worker
+        run: deno check w3m-tools/supabase/functions/w3m-code-audit/index.ts
+
       - name: Run normalizer unit tests
         shell: bash
         run: |
