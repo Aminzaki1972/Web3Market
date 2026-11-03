@@ -30,8 +30,14 @@ Deno.serve(async req=>{
   const prices:Record<string,number>={code:9,smart_contract:29,complete:79};
   if(!(auditType in prices))return json(req,{ok:false,error:"Unsupported audit type."},400);
   const repoUrl=canonicalRepo(String(body.repo_url||""));
-  // Validate user input before consuming quota, but rate-limit before outbound RPC calls
-  // so invalid requests do not burn quota and abusive requests cannot exhaust the RPC allowance.
+  // Check the administrator-controlled payment switch before consuming guest quota.
+  // Disabled checkout attempts must not exhaust the guest's hourly allowance.
+  // Keep the rate limit immediately before outbound RPC calls once checkout is enabled.
+  // Audit payments go to the platform fee recipient wallet, never to the separate Safe escrow address.
+  const {data:config,error:configError}=await sb.from("platform_payment_configs").select("chain_id,recipient_address,token_contract,token_symbol,enabled").eq("chain_id",56).eq("enabled",true).eq("token_symbol","BSC-USD").order("updated_at",{ascending:false}).limit(1).maybeSingle();
+  if(configError)throw Error("Unable to read platform payment configuration.");
+  if(!config||!/^0x[a-f0-9]{40}$/i.test(String(config.recipient_address||"")))return json(req,{ok:false,error:"Paid audits are not enabled yet: the platform receiving wallet and approved BSC-USD asset have not been configured by an administrator."},503);
+  try{assertSupportedPaymentAsset(56,String(config.token_contract||""),String(config.token_symbol||""),18);}catch(e){return json(req,{ok:false,error:String((e as any)?.message||"Unsupported payment asset.")},503);}
   if(!user){
    const ip=(req.headers.get("cf-connecting-ip")||req.headers.get("x-forwarded-for")||"unknown").split(",")[0].trim();
    const fingerprint=await sha256(ip+"|w3m-guest-audit-order");
@@ -41,11 +47,6 @@ Deno.serve(async req=>{
   }
   const chainId=await rpc(rpcUrl,"eth_chainId",[]);
   if(BigInt(chainId)!==56n)return json(req,{ok:false,error:"Configured RPC is not connected to BNB Smart Chain mainnet."},503);
-  // Audit payments go to the platform fee recipient wallet, never to the separate Safe escrow address.
-  const {data:config,error:configError}=await sb.from("platform_payment_configs").select("chain_id,recipient_address,token_contract,token_symbol,enabled").eq("chain_id",56).eq("enabled",true).eq("token_symbol","BSC-USD").order("updated_at",{ascending:false}).limit(1).maybeSingle();
-  if(configError)throw Error("Unable to read platform payment configuration.");
-  if(!config||!/^0x[a-f0-9]{40}$/i.test(String(config.recipient_address||"")))return json(req,{ok:false,error:"Paid audits are not enabled yet: the platform receiving wallet and approved BSC-USD asset have not been configured by an administrator."},503);
-  try{assertSupportedPaymentAsset(56,String(config.token_contract||""),String(config.token_symbol||""),18);}catch(e){return json(req,{ok:false,error:String((e as any)?.message||"Unsupported payment asset.")},503);}
   const decimalsHex=await rpc(rpcUrl,"eth_call",[{to:config.token_contract,data:"0x313ce567"},"latest"]);
   const decimals=Number(BigInt(decimalsHex));
   if(decimals!==18)throw Error("The approved Binance-Peg BSC-USD contract must return exactly 18 decimals.");
