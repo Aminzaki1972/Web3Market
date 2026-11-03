@@ -156,13 +156,41 @@ jobs:
           cast --version
           anvil --version
 
-      - name: Install pinned Slither
+      - name: Build Foundry target before Slither analysis
+        if: steps.source.outputs.has_solidity == 'true'
+        shell: bash
         run: |
+          set -euo pipefail
+          if [ -f "$GITHUB_WORKSPACE/target/foundry.toml" ]; then
+            echo "Foundry project detected; building pinned target to generate out/build-info."
+            forge build --root "$GITHUB_WORKSPACE/target" --skip test
+          else
+            echo "No foundry.toml found; skipping Foundry build."
+          fi
+
+      - name: Install pinned Slither
+        shell: bash
+        run: |
+          set -euo pipefail
           python3 -m pip install --user "slither-analyzer==0.11.6"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/slither" --version
-          solc-select install 0.8.20
-          solc-select use 0.8.20
+          SOLC_VERSION="0.8.20"
+          if [ -f "$GITHUB_WORKSPACE/target/foundry.toml" ]; then
+            SOLC_VERSION="$(python3 - "$GITHUB_WORKSPACE/target/foundry.toml" <<'PY'
+          import re, sys, tomllib
+          with open(sys.argv[1], "rb") as handle:
+              config = tomllib.load(handle)
+          version = config.get("profile", {}).get("default", {}).get("solc_version") or config.get("solc_version") or "0.8.20"
+          if not re.fullmatch(r"\\d+\\.\\d+\\.\\d+", str(version)):
+              raise SystemExit(f"Unsupported solc_version in foundry.toml: {version!r}")
+          print(version)
+          PY
+          )"
+          fi
+          echo "Using solc version: $SOLC_VERSION"
+          solc-select install "$SOLC_VERSION"
+          solc-select use "$SOLC_VERSION"
           solc --version
 
       - name: Install pinned Aderyn with installer checksum verification
