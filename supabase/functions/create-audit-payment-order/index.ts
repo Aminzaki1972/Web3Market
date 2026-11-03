@@ -56,7 +56,18 @@ Deno.serve(async req=>{
   if(symbol!=="USDT")return json(req,{ok:false,error:"The approved Binance-Peg contract metadata check failed. Paid audits remain disabled."},503);
   const price=prices[auditType];
   const amountAtomic=(BigInt(price)*(10n**BigInt(decimals))).toString();
-  const projectId=typeof body.project_id==="string"&&/^[0-9a-f-]{36}$/i.test(body.project_id)?body.project_id:null;
+  let projectId:string|null=null;
+  const requestedProjectId=typeof body.project_id==="string"&&/^[0-9a-f-]{36}$/i.test(body.project_id)?body.project_id:null;
+  // Never attach a paid audit to an unrelated listing. A project association is
+  // optional metadata and is accepted only for the caller's active listing
+  // whose canonical GitHub repository exactly matches the paid audit target.
+  if(user&&requestedProjectId){
+   const {data:listedProject,error:projectError}=await sb.from("projects").select("id,github_url,owner_id,status").eq("id",requestedProjectId).maybeSingle();
+   if(projectError)return json(req,{ok:false,error:"Unable to validate the selected marketplace project."},503);
+   if(listedProject&&listedProject.owner_id===user.id&&listedProject.status==="active"){
+    try{if(canonicalRepo(String(listedProject.github_url||"")).toLowerCase()===repoUrl.toLowerCase())projectId=listedProject.id;}catch(_){/* Unmatched or malformed listing remains unlinked. */}
+   }
+  }
   const {data:order,error}=await sb.from("audit_payment_orders").insert({
    user_id:user?.id||null,project_id:projectId,audit_type:auditType,repo_url:repoUrl,price_usd:price,chain_id:56,
    token_contract:String(config.token_contract).toLowerCase(),token_symbol:"BSC-USD",token_decimals:decimals,
