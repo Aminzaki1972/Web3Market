@@ -16,6 +16,7 @@ export type StaticAnalysisTarget = {
 const GITHUB_API = "https://api.github.com";
 const CONTROL_REPOSITORY = "Aminzaki1972/Web3Market";
 const WORKFLOW_FILE = "w3m-contract-analysis.yml";
+const CONTROL_WORKFLOW_REF = "main";
 
 export function validateStaticAnalysisTarget(input: StaticAnalysisTarget): StaticAnalysisTarget {
   const owner = String(input.owner || "").trim();
@@ -139,16 +140,11 @@ export async function retrieveStaticAnalysisReport(
 
 export async function dispatchStaticAnalysis(
   targetInput: StaticAnalysisTarget,
-  options: { token: string; workflowRef: string },
+  options: { token: string },
 ): Promise<{ accepted: true; repository: string; commitSha: string; auditId: string }> {
   const target = validateStaticAnalysisTarget(targetInput);
   const token = String(options.token || "").trim();
-  const workflowRef = String(options.workflowRef || "").trim();
   if (!token) throw new Error("W3M_GITHUB_ACTIONS_TOKEN is not configured.");
-  if (!workflowRef || !/^[A-Za-z0-9_./-]{1,200}$/.test(workflowRef) || workflowRef.includes("..")) {
-    throw new Error("A trusted workflow ref is required.");
-  }
-
   const [controlOwner, controlRepo] = CONTROL_REPOSITORY.split("/");
   const endpoint = `${GITHUB_API}/repos/${encodeURIComponent(controlOwner)}/${encodeURIComponent(controlRepo)}/actions/workflows/${WORKFLOW_FILE}/dispatches`;
   const response = await fetch(endpoint, {
@@ -161,7 +157,7 @@ export async function dispatchStaticAnalysis(
       "User-Agent": "Web3Market-W3M-Code-Audit",
     },
     body: JSON.stringify({
-      ref: workflowRef,
+      ref: CONTROL_WORKFLOW_REF,
       inputs: {
         repository_url: `https://github.com/${target.owner}/${target.repo}`,
         commit_sha: target.commitSha,
