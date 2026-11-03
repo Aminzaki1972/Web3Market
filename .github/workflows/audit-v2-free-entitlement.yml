@@ -95,7 +95,7 @@ jobs:
 
       - uses: supabase/setup-cli@v3
 
-      - name: Start isolated local Supabase stack and apply migrations
+      - name: Start isolated local Supabase services without incomplete repository migrations
         run: supabase start -x studio,logflare,vector,supavisor,imgproxy,postgres-meta
 
       - uses: denoland/setup-deno@v2
