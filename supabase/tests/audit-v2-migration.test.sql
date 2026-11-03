@@ -89,8 +89,12 @@ BEGIN
     SELECT public.consume_guest_audit_order_rate_limit(fingerprint) INTO allowed;
     IF allowed IS DISTINCT FROM true THEN RAISE EXCEPTION 'Rate limit rejected request % too early', i; END IF;
   END LOOP;
-  SELECT public.consume_guest_audit_order_rate_limit(fingerprint) INTO allowed;
-  IF allowed IS DISTINCT FROM false THEN RAISE EXCEPTION 'Rate limit must reject request six'; END IF;
+  FOR i IN 6..12 LOOP
+    SELECT public.consume_guest_audit_order_rate_limit(fingerprint) INTO allowed;
+    IF allowed IS DISTINCT FROM false THEN
+      RAISE EXCEPTION 'Rate limit must keep rejecting request % without raising a database error', i;
+    END IF;
+  END LOOP;
 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns
     WHERE table_schema='public' AND table_name='guest_audit_access' AND column_name='report_token_ciphertext')

@@ -37,6 +37,25 @@ Deno.test("rejects a missing or unsafe log index", () => {
   assertThrows(() => findExactTransferLog([log({ logIndex: undefined })], token, recipient, 9000000n));
 });
 
+
+Deno.test("rejects non-canonical ABI address topic padding", () => {
+  const malformedPayerTopic = "0x" + "1".repeat(24) + payer.slice(2);
+  assertThrows(() => findExactTransferLog(
+    [log({ topics: [TRANSFER_TOPIC, malformedPayerTopic, topic(recipient)] })],
+    token, recipient, 9000000n,
+  ));
+});
+Deno.test("rejects zero expected amount and malformed expected addresses", () => {
+  assertThrows(() => findExactTransferLog([log()], token, recipient, 0n));
+  assertThrows(() => findExactTransferLog([log()], "not-an-address", recipient, 9000000n));
+  assertThrows(() => findExactTransferLog([log()], token, "not-an-address", 9000000n));
+});
+Deno.test("rejects a transfer log index outside JavaScript's safe integer range", () => {
+  assertThrows(() => findExactTransferLog(
+    [log({ logIndex: "0x20000000000000" })], token, recipient, 9000000n,
+  ));
+});
+
 Deno.test("accepts only the approved Binance-Peg BSC-USD payment asset", () => {
   assertEquals(assertSupportedPaymentAsset(56, BNB_PEG_BSC_USD_CONTRACT, "BSC-USD", 18), undefined);
 });

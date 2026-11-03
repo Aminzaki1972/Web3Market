@@ -72,7 +72,7 @@ BEGIN
   INSERT INTO public.guest_audit_order_rate_limits(fingerprint, window_started_at, request_count)
   VALUES (p_fingerprint, v_window, 1)
   ON CONFLICT (fingerprint, window_started_at)
-  DO UPDATE SET request_count = public.guest_audit_order_rate_limits.request_count + 1
+  DO UPDATE SET request_count = LEAST(public.guest_audit_order_rate_limits.request_count + 1, 6)
   RETURNING request_count INTO v_count;
   RETURN v_count <= 5;
 END;
