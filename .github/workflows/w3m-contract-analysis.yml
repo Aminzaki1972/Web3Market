@@ -240,6 +240,7 @@ jobs:
         env:
           TARGET_REPOSITORY: ${{ steps.target.outputs.owner }}/${{ steps.target.outputs.repo }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
+          AUDIT_ID: ${{ steps.target.outputs.audit_id }}
           SLITHER_EXIT: ${{ steps.slither.outputs.exit_code }}
           ADERYN_EXIT: ${{ steps.aderyn.outputs.exit_code }}
         run: |
