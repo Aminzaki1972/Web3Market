@@ -53,7 +53,7 @@ GRANT SELECT, INSERT, UPDATE ON TABLE public.guest_audit_order_rate_limits TO se
 CREATE OR REPLACE FUNCTION public.consume_guest_audit_order_rate_limit(p_fingerprint text)
 RETURNS boolean
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
@@ -87,7 +87,7 @@ COMMENT ON COLUMN public.code_audits.requested_by IS
 CREATE OR REPLACE FUNCTION public.claim_guest_audit_email_delivery(p_access_id uuid)
 RETURNS boolean
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
