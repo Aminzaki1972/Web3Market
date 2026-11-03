@@ -387,7 +387,17 @@ jobs:
           CODE=$?
           echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
           if [ ! -s ../aderyn.json ]; then
-            echo "Aderyn did not produce its expected JSON report."
+            echo "::error::Aderyn did not produce its expected JSON report."
+            echo "Aderyn exit code: $CODE"
+            echo "----- Aderyn stdout -----"
+            cat ../aderyn.stdout.log || true
+            echo "----- Aderyn stderr -----"
+            cat ../aderyn.stderr.log || true
+            echo "----- Target Solidity source inventory -----"
+            find . -type f -name '*.sol' -not -path './.git/*' | head -80 || true
+            echo "----- Aderyn help/version -----"
+            aderyn --version || true
+            aderyn --help | head -100 || true
             exit 1
           fi
           python3 -m json.tool ../aderyn.json > /dev/null
