@@ -153,7 +153,13 @@ def normalize_aderyn(data: Any) -> list[dict[str, Any]]:
                     if not isinstance(instance, dict):
                         continue
                     file_path = first_text(instance, ("contract_path", "file_path", "filename", "file", "path"))
+                    location = instance.get("location")
+                    location = location if isinstance(location, dict) else {}
+                    if not file_path:
+                        file_path = first_text(location, ("contract_path", "file_path", "filename", "file", "path"))
                     start = instance.get("line_no", instance.get("line_start", instance.get("line", instance.get("start_line"))))
+                    if start is None:
+                        start = location.get("line_no", location.get("line_start", location.get("line")))
                     end = instance.get("line_end", instance.get("end_line", start))
                     item = make_finding("aderyn", detector, title, desc, level,
                                         issue.get("confidence", "unknown"), file_path, start, end)
