@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { assertCanonicalReceiptBlock, assertSupportedPaymentAsset, BNB_PEG_BSC_USD_CONTRACT, findExactTransferLog, TRANSFER_TOPIC } from "./payment-verification.ts";
+import { assertCanonicalReceiptBlock, assertPaymentBlockBeforeExpiry, assertSupportedPaymentAsset, BNB_PEG_BSC_USD_CONTRACT, findExactTransferLog, TRANSFER_TOPIC } from "./payment-verification.ts";
 const token = "0x" + "a".repeat(40);
 const payer = "0x" + "b".repeat(40);
 const recipient = "0x" + "c".repeat(40);
@@ -51,4 +51,19 @@ Deno.test("rejects a receipt when the canonical block hash differs", () => {
 Deno.test("rejects a missing canonical block or mismatched block number", () => {
   assertThrows(() => assertCanonicalReceiptBlock("0x10", "0x" + "a".repeat(64), null));
   assertThrows(() => assertCanonicalReceiptBlock("0x10", "0x" + "a".repeat(64), { number: "0x11", hash: "0x" + "a".repeat(64) }));
+});
+
+Deno.test("accepts a payment included before order expiry even if checked later", () => {
+  const expiry = "2026-11-03T12:00:00.000Z";
+  const before = "0x" + BigInt(Math.floor(Date.parse(expiry) / 1000) - 1).toString(16);
+  assertEquals(assertPaymentBlockBeforeExpiry(expiry, before), undefined);
+});
+Deno.test("rejects a payment included after order expiry", () => {
+  const expiry = "2026-11-03T12:00:00.000Z";
+  const after = "0x" + BigInt(Math.floor(Date.parse(expiry) / 1000) + 1).toString(16);
+  assertThrows(() => assertPaymentBlockBeforeExpiry(expiry, after));
+});
+Deno.test("rejects invalid order expiry or missing canonical block timestamp", () => {
+  assertThrows(() => assertPaymentBlockBeforeExpiry("not-a-date", "0x1"));
+  assertThrows(() => assertPaymentBlockBeforeExpiry("2026-11-03T12:00:00.000Z", null));
 });
