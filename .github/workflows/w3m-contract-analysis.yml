@@ -380,6 +380,10 @@ jobs:
         if: steps.source.outputs.has_solidity == 'true'
         id: aderyn
         shell: bash
+        env:
+          # OpenZeppelin's Math.sol uses the CLZ opcode, introduced in Osaka.
+          # Override the target's Prague setting only for Aderyn's compiler context.
+          FOUNDRY_EVM_VERSION: osaka
         run: |
           set +e
           cd target
