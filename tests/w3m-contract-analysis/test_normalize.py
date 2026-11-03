@@ -79,6 +79,11 @@ class NormalizeTests(unittest.TestCase):
         self.assertTrue(all(row["triage_status"] == "needs_ai_triage" for row in rows))
         self.assertTrue(all(row["confirmed"] is False for row in rows))
 
+    def test_unavailable_aderyn_status_is_explicit(self):
+        metadata = NORMALIZER.engine_metadata("0.6.8", "unavailable", 1)
+        self.assertEqual(metadata["status"], "unavailable")
+        self.assertEqual(metadata["process_exit_code"], 1)
+
     def test_no_automatic_cross_engine_confirmation(self):
         a = NORMALIZER.make_finding("slither", "detector-a", "Same area", "x",
                                     "High", "High", "src/A.sol", 9, 9)
