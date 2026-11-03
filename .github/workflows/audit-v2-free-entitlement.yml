@@ -122,12 +122,12 @@ jobs:
         run: |
           set -euo pipefail
           STATUS="$(supabase status -o env)"
-          ANON_KEY="$(printf '%s\\n' "$STATUS" | sed -n 's/^ANON_KEY=//p' | head -n1 | tr -d '"')"
+          ANON_KEY="$(printf '%s\n' "$STATUS" | sed -n 's/^ANON_KEY=//p' | head -n1 | tr -d '"')"
           test -n "$ANON_KEY"
           for attempt in $(seq 1 60); do
-            CODE="$(curl -sS -o /tmp/create-order.json -w '%{http_code}' \\
-              -X POST http://127.0.0.1:54321/functions/v1/create-audit-payment-order \\
-              -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' \\
+            CODE="$(curl --connect-timeout 3 --max-time 10 -sS -o /tmp/create-order.json -w '%{http_code}' \
+              -X POST http://127.0.0.1:54321/functions/v1/create-audit-payment-order \
+              -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' \
               --data '{"audit_type":"code","repo_url":"https://github.com/example/repo"}' || true)"
             if [ "$CODE" = "400" ]; then break; fi
             sleep 2
@@ -135,16 +135,16 @@ jobs:
           test "$CODE" = "400"
           grep -q 'valid email address' /tmp/create-order.json
 
-          CODE="$(curl -sS -o /tmp/verify-payment.json -w '%{http_code}' \\
-            -X POST http://127.0.0.1:54321/functions/v1/verify-audit-payment \\
-            -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' \\
+          CODE="$(curl --connect-timeout 3 --max-time 10 -sS -o /tmp/verify-payment.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:54321/functions/v1/verify-audit-payment \
+            -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' \
             --data '{"order_id":"invalid","tx_hash":"invalid"}')"
           test "$CODE" = "400"
           grep -q 'valid order ID' /tmp/verify-payment.json
 
-          CODE="$(curl -sS -o /tmp/guest-access.json -w '%{http_code}' \\
-            -X POST http://127.0.0.1:54321/functions/v1/guest-audit-access \\
-            -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' \\
+          CODE="$(curl --connect-timeout 3 --max-time 10 -sS -o /tmp/guest-access.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:54321/functions/v1/guest-audit-access \
+            -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' \
             --data '{"action":"exchange","report_token":"invalid"}')"
           test "$CODE" = "400"
           grep -q 'Invalid or expired report link' /tmp/guest-access.json
