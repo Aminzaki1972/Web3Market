@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { assertSupportedPaymentAsset, findExactTransferLog } from "./payment-verification.ts";
+import { assertCanonicalReceiptBlock, assertSupportedPaymentAsset, findExactTransferLog } from "./payment-verification.ts";
 import { decryptGuestToken, encryptGuestToken, importGuestTokenKey } from "./guest-report-token.ts";
 const allowedOrigins=new Set(["https://web3market.xyz","https://www.web3market.xyz"]);
 function cors(req:Request){const origin=req.headers.get("Origin")||"";let trusted=allowedOrigins.has(origin);if(!trusted){try{const parsed=new URL(origin);trusted=parsed.protocol==="https:"&&/^(?:[a-z0-9-]+\.)*web3market\.pages\.dev$/i.test(parsed.hostname);}catch(_){trusted=false;}}const h:Record<string,string>={"Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS","Vary":"Origin"};if(trusted)h["Access-Control-Allow-Origin"]=origin;return h;}
@@ -53,6 +53,11 @@ Deno.serve(async req=>{
   let transfer:{payerAddress:string;logIndex:number};
   try{transfer=findExactTransferLog(receipt.logs||[],wantedToken,wantedTo,wantedAmount);}catch(e){return json(req,{ok:false,error:String((e as any)?.message||"Exact token transfer verification failed.")},400);}
   const payer=transfer.payerAddress;
+  const canonicalBlock=await rpc(rpcUrl,"eth_getBlockByNumber",[receipt.blockNumber,false]) as {number?:unknown;hash?:unknown}|null;
+  try{assertCanonicalReceiptBlock(String(receipt.blockNumber),transferBlockHash,canonicalBlock);}catch(e){
+   return json(req,{ok:false,pending:true,confirmations,required_confirmations:12,error:String((e as any)?.message||"Canonical block verification is unavailable; payment remains pending.")},202);
+  }
+  if(order.status==="confirmed"&&order.transfer_block_hash&&String(order.transfer_block_hash).toLowerCase()!==transferBlockHash)return json(req,{ok:false,pending:true,error:"The transaction receipt no longer matches the block recorded at confirmation. Payment needs manual review; no new audit will be started."},409);
   if(order.status!=="confirmed"){
    const {data:updated,error:updateError}=await sb.from("audit_payment_orders").update({status:"confirmed",tx_hash:txHash,payer_address:payer,transfer_log_index:transfer.logIndex,transfer_block_number:BigInt(receipt.blockNumber).toString(),transfer_block_hash:transferBlockHash,confirmed_at:new Date().toISOString()}).eq("id",order.id).eq("status","pending").is("tx_hash",null).select("id").maybeSingle();
    if(updateError||!updated){const {data:latestOrder}=await sb.from("audit_payment_orders").select("status,tx_hash").eq("id",order.id).maybeSingle();if(latestOrder?.status!=="confirmed"||String(latestOrder.tx_hash||"").toLowerCase()!==txHash)return json(req,{ok:false,error:"Payment verification could not be safely finalized. Retry once; the transaction will not be charged twice."},409);}
