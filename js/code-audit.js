@@ -75,6 +75,36 @@
      location.reload();
    }catch(e){alert(e?.message||"Unable to resume audit.");}
  };
+ const PENDING_PAYMENT_KEY="w3m:audit-payment-order:v1";
+ function clearPendingPayment(){try{localStorage.removeItem(PENDING_PAYMENT_KEY);sessionStorage.removeItem(PENDING_PAYMENT_KEY);}catch(_){}}
+ function savePendingPayment(order,guestToken,email,repo,auditType){
+   try{localStorage.setItem(PENDING_PAYMENT_KEY,JSON.stringify({order,guestToken:guestToken||"",email:email||"",repo,auditType,savedAt:Date.now()}));}
+   catch(_){throw Error("This browser cannot retain the payment session. Keep this page open and complete verification before closing it.");}
+ }
+ function renderPaymentOrder(c,m,pending){
+   const {order,guestToken,email}=pending;
+   m.innerHTML="<div class='audit-payment-order'><h3>Payment order "+esc(order.id)+"</h3><p>Send <strong>"+esc(order.amount)+"</strong> on <strong>BNB Smart Chain</strong> to the official Web3Market receiving wallet below.</p><p><strong>Receiving wallet</strong><br><code>"+esc(order.recipient_address)+"</code></p><p><strong>Payment asset: Binance-Peg BSC-USD (not direct Tether-issued USD₮)</strong><br><strong>Approved token contract</strong><br><code>"+esc(order.token_contract)+"</code></p><p><strong>Order expires</strong><br>"+esc(new Date(order.expires_at).toLocaleString())+"</p>"+(email?"<p>Private report email: <strong>"+esc(email)+"</strong></p>":"")+"<label for='auditPaymentTxHash'><strong>Transaction hash</strong></label><input id='auditPaymentTxHash' type='text' placeholder='0x…' autocomplete='off' style='display:block;width:100%;box-sizing:border-box;margin:8px 0;padding:12px;border:1px solid #3a3158;border-radius:9px;background:#0d0c19;color:#f5f2ff'><button id='verifyAuditPayment' class='btn btn-primary' type='button'>Verify payment and start audit</button><button id='discardAuditPayment' class='btn btn-ghost' type='button'>Discard saved order</button><p class='muted'>The audit starts only after the server verifies the exact Binance-Peg BSC-USD transfer and 12 block confirmations. This is not direct Tether-issued USD₮. Confirm the network and full token contract before sending. Never send funds to an address other than the one shown in this order. Your pending order is saved in this browser on this device so you can resume after closing the tab. Do not use a shared device; clear the order after completion.</p></div>";
+   const verifyButton=document.getElementById("verifyAuditPayment");
+   document.getElementById("discardAuditPayment").addEventListener("click",()=>{if(!window.confirm("Only remove this saved order if you have NOT sent any funds. If you already paid, cancel and contact support with the order ID."))return;clearPendingPayment();const runButton=document.getElementById("runAudit");if(runButton){runButton.disabled=false;runButton.textContent="Run W3M AI Code Audit";}m.innerHTML="<p class='muted'>Saved payment order removed from this browser on this device. If you already sent funds, contact support with the order ID before creating another order.</p>";});
+   window.W3MVerifyAuditPayment=async()=>{
+     const txInput=document.getElementById("auditPaymentTxHash");
+     if(!verifyButton||!txInput)return;
+     const txHash=txInput.value.trim();
+     if(!/^0x[0-9a-f]{64}$/i.test(txHash)){const note=document.createElement("p");note.className="muted";note.textContent="Enter a valid transaction hash.";m.querySelector(".audit-payment-order")?.appendChild(note);return;}
+     verifyButton.disabled=true;verifyButton.textContent="Verifying on BNB Chain…";
+     try{
+       const verified=await c.functions.invoke("verify-audit-payment",{body:{order_id:order.id,tx_hash:txHash,guest_order_token:guestToken||undefined}});
+       if(verified.error)throw Error(verified.error.message||"Payment verification failed.");
+       const data=verified.data||{};
+       if(data.guest){clearPendingPayment();m.innerHTML="<div class='audit-payment-order'><h3>Payment verified</h3><p>Your audit is being prepared. We sent a private report-access link to <strong>"+esc(data.email||email)+"</strong>. Check your inbox and spam folder. The link expires and can be exchanged only once.</p></div>";return;}
+       if(data.audit_id){clearPendingPayment();location.replace("code-audit.html?audit_id="+encodeURIComponent(data.audit_id));return;}
+       if(data.pending){verifyButton.disabled=false;verifyButton.textContent="Verify payment and start audit";throw Error(data.error||"Payment is awaiting confirmations.");}
+       if(data.audit_started===false){verifyButton.disabled=false;verifyButton.textContent="Retry starting audit";throw Error(data.error||"Payment confirmed; audit start can be retried.");}
+       throw Error(data.error||"Payment could not be verified.");
+     }catch(error){const note=document.createElement("p");note.className="muted";note.textContent=error?.message||"Payment verification failed.";m.querySelector(".audit-payment-order")?.appendChild(note);verifyButton.disabled=false;verifyButton.textContent="Verify payment and start audit";}
+   };
+   verifyButton.addEventListener("click",window.W3MVerifyAuditPayment);
+ }
  window.W3MRunAudit=async()=>{
    const b=document.getElementById("runAudit"),m=document.getElementById("auditMsg"),input=document.getElementById("auditRepo");
    if(!b||!m||!input)return;
@@ -82,43 +112,49 @@
    try{
      const c=await ensureClient();
      const auth=await c.auth.getSession();
-     if(!auth?.data?.session?.user)throw Error("Please sign in or create a Web3Market account before running an audit. Audit history and detailed results are protected for registered members.");
+     const signedIn=!!auth?.data?.session?.user;
      const repo=input.value.trim();
      const auditType=document.getElementById("auditType")?.value||"code";
+     const guestEmail=document.getElementById("auditGuestEmail")?.value.trim().toLowerCase()||"";
+     if(!signedIn&&auditType==="code")throw Error("The one-time free audit is reserved for signed-in owners of an active listed project. Choose a paid audit to continue as a guest.");
+     if(!signedIn&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(guestEmail))throw Error("Enter a valid email address to receive your private report.");
      if(!["code","smart_contract","complete"].includes(auditType))throw Error("Choose a valid audit type.");
      if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
      b.textContent="Running Audit…";m.innerHTML="<p class='muted'>Scanning GitHub and preparing AI analysis…</p>";
      if(id&&auditType==="code"){
-      const r=await c.functions.invoke("w3m-code-audit",{body:{repo_url:repo,project_id:id,audit_type:"code"}});
-      if(r.error)throw Error(r.error.message||"Unable to start the free project audit.");
-      const aid=r.data?.audit_id||r.data?.id;if(!aid)throw Error(r.data?.error||"Audit started but no audit ID was returned.");
-      location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));return;
+       const r=await c.functions.invoke("w3m-code-audit",{body:{repo_url:repo,project_id:id,audit_type:"code"}});
+       if(r.error)throw Error(r.error.message||"Unable to start the free project audit.");
+       const aid=r.data?.audit_id||r.data?.id;if(!aid)throw Error(r.data?.error||"Audit started but no audit ID was returned.");
+       location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));return;
      }
-     const orderResponse=await c.functions.invoke("create-audit-payment-order",{body:{repo_url:repo,audit_type:auditType,project_id:id||undefined}});
+     const orderResponse=await c.functions.invoke("create-audit-payment-order",{body:{repo_url:repo,audit_type:auditType,project_id:id||undefined,email:guestEmail||undefined}});
      if(orderResponse.error)throw Error(orderResponse.error.message||"Unable to create a payment order.");
      const order=orderResponse.data?.order;if(!order?.id)throw Error(orderResponse.data?.error||"Payment order was not created.");
-     m.innerHTML="<div class='audit-payment-order'><h3>Payment order created</h3><p>Send <strong>"+esc(order.amount)+"</strong> on <strong>BNB Smart Chain</strong> to the official Web3Market receiving wallet below.</p><p><strong>Receiving wallet</strong><br><code>"+esc(order.recipient_address)+"</code></p><p><strong>Payment asset: Binance-Peg BSC-USD (not direct Tether-issued USD₮)</strong><br><strong>Approved token contract</strong><br><code>"+esc(order.token_contract)+"</code></p><p><strong>Order expires</strong><br>"+esc(new Date(order.expires_at).toLocaleString())+"</p><label for='auditPaymentTxHash'><strong>Transaction hash</strong></label><input id='auditPaymentTxHash' type='text' placeholder='0x…' autocomplete='off' style='display:block;width:100%;box-sizing:border-box;margin:8px 0;padding:12px;border:1px solid #3a3158;border-radius:9px;background:#0d0c19;color:#f5f2ff'><button id='verifyAuditPayment' class='btn btn-primary' type='button'>Verify payment and start audit</button><p class='muted'>The audit starts only after the server verifies the exact Binance-Peg BSC-USD transfer and 12 block confirmations. This is not direct Tether-issued USD₮. Confirm the network and full token contract before sending. Never send funds to an address other than the one shown in this order.</p></div>";
-     window.W3MVerifyAuditPayment=async()=>{
-      const verifyButton=document.getElementById("verifyAuditPayment"),txInput=document.getElementById("auditPaymentTxHash");
-      if(!verifyButton||!txInput)return;
-      const txHash=txInput.value.trim();if(!/^0x[0-9a-f]{64}$/i.test(txHash)){m.innerHTML+="<p class='muted'>Enter a valid transaction hash.</p>";return;}
-      verifyButton.disabled=true;verifyButton.textContent="Verifying on BNB Chain…";
-      try{
-       const verified=await c.functions.invoke("verify-audit-payment",{body:{order_id:order.id,tx_hash:txHash}});
-       if(verified.error)throw Error(verified.error.message||"Payment verification failed.");
-       const data=verified.data||{};
-       if(data.audit_id){location.replace("code-audit.html?audit_id="+encodeURIComponent(data.audit_id));return;}
-       if(data.pending){verifyButton.disabled=false;verifyButton.textContent="Verify payment and start audit";throw Error(data.error||"Payment is awaiting confirmations.");}
-       if(data.audit_started===false){verifyButton.disabled=false;verifyButton.textContent="Retry starting audit";throw Error(data.error||"Payment confirmed; audit start can be retried.");}
-       throw Error(data.error||"Payment could not be verified.");
-      }catch(error){const note=document.createElement("p");note.className="muted";note.textContent=error?.message||"Payment verification failed.";m.querySelector(".audit-payment-order")?.appendChild(note);verifyButton.disabled=false;verifyButton.textContent="Verify payment and start audit";}
-     };
-     document.getElementById("verifyAuditPayment").addEventListener("click",window.W3MVerifyAuditPayment);
+     const pending={order,guestToken:orderResponse.data?.guest_order_token||"",email:orderResponse.data?.email||guestEmail,repo,auditType};
+     if(!signedIn&&!pending.guestToken)throw Error("The guest order token was not returned; the order cannot be safely verified. Contact support before sending funds.");
+     savePendingPayment(order,pending.guestToken,pending.email,repo,auditType);
+     renderPaymentOrder(c,m,pending);
      return;
    }catch(e){console.error(e);m.innerHTML="<p class='muted'>"+esc(e?.message||"Unable to start audit.")+"</p>";b.disabled=false;b.textContent="Run W3M AI Code Audit";}
  };
- async function start(){
-   try{const c=await ensureClient();let prefill="";if(id){const p=await c.from("projects").select("github_url").eq("id",id).maybeSingle();if(!p.error&&p.data)prefill=p.data.github_url||"";}if(initialRepoInput)initialRepoInput.value=prefill;if(id){const freeOption=document.querySelector("#auditType option[value=code]");if(freeOption)freeOption.textContent="Full Repository Code Audit — Free once for this project";}}
+ function restorePendingPayment(c){
+   try{
+     const raw=localStorage.getItem(PENDING_PAYMENT_KEY)||sessionStorage.getItem(PENDING_PAYMENT_KEY);if(!raw)return false;
+     const pending=JSON.parse(raw);
+     if(!pending||!pending.order?.id||!pending.order?.recipient_address||!pending.order?.token_contract||!pending.order?.expires_at||!pending.repo||!["code","smart_contract","complete"].includes(pending.auditType)||typeof pending.guestToken!=="string")throw Error("Saved payment session is incomplete.");
+     if(Date.parse(pending.order.expires_at)<=Date.now()){clearPendingPayment();throw Error("This saved payment order has expired. Do not send funds to it; create a new order. If you already sent funds, contact support with the order ID and transaction hash.");}
+     localStorage.setItem(PENDING_PAYMENT_KEY,JSON.stringify(pending));
+     try{sessionStorage.removeItem(PENDING_PAYMENT_KEY);}catch(_){} 
+     const m=document.getElementById("auditMsg");if(!m)return false;
+     const b=document.getElementById("runAudit");if(b){b.disabled=true;b.textContent="Pending payment order restored";}
+     if(pending.guestToken&&!/^[0-9a-f]{64}$/i.test(pending.guestToken))throw Error("Saved guest access token is invalid.");
+     if(!pending.guestToken&&pending.email)throw Error("Guest access token is missing. Do not send payment to this expired browser session.");
+     renderPaymentOrder(c,m,pending);
+     return true;
+   }catch(e){clearPendingPayment();const m=document.getElementById("auditMsg");if(m)m.innerHTML="<p class='muted'>"+esc(e?.message||"Unable to restore the saved payment order.")+"</p>";return false;}
+ }
+async function start(){
+   try{const c=await ensureClient();restorePendingPayment(c);let prefill="";if(id){const p=await c.from("projects").select("github_url").eq("id",id).maybeSingle();if(!p.error&&p.data)prefill=p.data.github_url||"";}if(initialRepoInput)initialRepoInput.value=prefill;if(id){const freeOption=document.querySelector("#auditType option[value=code]");if(freeOption)freeOption.textContent="Full Repository Code Audit — Free once for this project";}}
    catch(e){console.error(e);root.innerHTML='<h1>W3M AI Code Audit</h1><p class="muted">'+esc(e?.message||"Unable to load audit.")+"</p>"}
  }
  async function resumeIfNeeded(a){
@@ -140,6 +176,89 @@
    try{
      await ensureClient().then(c=>c.functions.invoke("w3m-code-audit",{body:{audit_id:a.id}}));
    }catch(e){console.warn("W3M audit resume request failed",e);}
+ }
+ async function openGuestReport(){
+   const params=new URLSearchParams(location.search);
+   const linkToken=window.__W3MGuestReportToken||params.get("guest_report");
+   // The HTML head removes this bearer token before analytics scripts load.
+   try{delete window.__W3MGuestReportToken;}catch(_){window.__W3MGuestReportToken=null;}
+   const key="w3m_guest_audit_session:v1";
+   const legacyKey="w3m_guest_audit_session";
+   let existing="",existingLinkHash="";
+   try{
+     const saved=localStorage.getItem(key);
+     if(saved){
+       const record=JSON.parse(saved);
+       if(record&&typeof record.token==="string"&&Number(record.expiresAt)>Date.now()){existing=record.token;existingLinkHash=String(record.reportLinkHash||"");}
+       else localStorage.removeItem(key);
+     }
+     if(!existing){
+       const legacy=sessionStorage.getItem(legacyKey);
+       if(legacy){existing=legacy;existingLinkHash="";localStorage.setItem(key,JSON.stringify({token:legacy,expiresAt:Date.now()+12*60*60*1000,reportLinkHash:""}));sessionStorage.removeItem(legacyKey);}
+     }
+   }catch(_){existing="";}
+   // Reuse a saved session only when no new link was supplied or it belongs to that same link.
+   // A different email link may represent a different paid report on the same browser.
+   let suppliedLinkHash="";
+   if(linkToken){const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(linkToken));suppliedLinkHash=Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,"0")).join("");}
+   if(existing&&(!linkToken||(existingLinkHash&&existingLinkHash===suppliedLinkHash))){
+     try{await loadGuestReport(existing);return true;}
+     catch(error){
+       const message=String(error?.message||"");
+       if(/expired|revoked|valid report session/i.test(message)){try{localStorage.removeItem(key);}catch(_){}}
+       root.innerHTML='<div class="audit-status"><h2>Private report temporarily unavailable</h2><p class="audit-error">'+esc(message||"Unable to load the report.")+'</p><button id="retryGuestReport" class="btn btn-primary" type="button">Retry secure report access</button><p class="muted">Your saved session remains on this device until its 12-hour expiry unless the server reports that it is invalid.</p></div>';
+       document.getElementById("retryGuestReport")?.addEventListener("click",()=>loadGuestReport(existing).catch(e=>{const p=root.querySelector(".audit-error");if(p)p.textContent=e?.message||"Unable to load the report.";}));
+       return true;
+     }
+   }
+   if(!linkToken)return false;
+   if(linkToken){
+     root.innerHTML='<div class="audit-status"><h2>Private audit report</h2><p class="muted">This secure email link can be exchanged once for a 12-hour private report session.</p><button id="openGuestReport" class="btn btn-primary" type="button">Open my private report</button></div>';
+     document.getElementById("openGuestReport").addEventListener("click",async()=>{
+       const button=document.getElementById("openGuestReport");button.disabled=true;button.textContent="Securing report access…";
+       try{
+         const c=await ensureClient();
+         const r=await c.functions.invoke("guest-audit-access",{body:{action:"exchange",report_token:linkToken}});
+         if(r.error||!r.data?.session_token)throw Error(r.data?.error||r.error?.message||"This report link is invalid or expired.");
+         localStorage.setItem(key,JSON.stringify({token:r.data.session_token,expiresAt:Date.parse(r.data.expires_at)||Date.now()+12*60*60*1000,reportLinkHash:suppliedLinkHash}));
+         history.replaceState(null,"",location.pathname);
+         await loadGuestReport(r.data.session_token);
+       }catch(e){root.innerHTML='<div class="audit-status"><h2>Report access unavailable</h2><p class="audit-error">'+esc(e?.message||"Unable to open this report.")+'</p></div>';}
+     });
+     return true;
+   }
+   await loadGuestReport(existing);
+   return true;
+ }
+ async function loadGuestReport(sessionToken){
+   const c=await ensureClient();
+   const response=await c.functions.invoke("guest-audit-access",{body:{action:"report",session_token:sessionToken}});
+   if(response.error||!response.data?.ok)throw Error(response.data?.error||response.error?.message||"Unable to load the private report.");
+   const d=response.data;
+   if(d.pending||!d.audit){
+     root.innerHTML='<div class="audit-status"><h2>Payment confirmed — preparing your audit</h2><p class="muted">Your paid order is confirmed. The audit will begin automatically. This page will check progress every 10 seconds.</p></div>';
+     setTimeout(()=>loadGuestReport(sessionToken).catch(e=>{root.innerHTML='<p class="audit-error">'+esc(e?.message||"Unable to refresh report.")+'</p>';}),10000);
+     return;
+   }
+   const a=d.audit, fl=d.findings||[], files=d.files||[], score=a.overall_score==null?null:Number(a.overall_score);
+   if(a.status!=="completed"){
+     const progress=a.analysis_progress||{};
+     const current=Number(a.current_chunk||progress.current_chunk||0),total=Number(a.total_chunks||progress.total_chunks||0);
+     root.innerHTML='<div class="audit-status"><h2>Your W3M AI Code Audit is running…</h2><p class="muted">Status: '+esc(a.status)+'</p><p class="muted">'+(total?'AI analysis progress: '+esc(current)+' / '+esc(total)+' chunks.':'Scanning the public repository and preparing analysis…')+'</p><p class="muted">Your payment is confirmed. You can close this page; use the same email link on this device to return during this session.</p></div>';
+     setTimeout(()=>loadGuestReport(sessionToken).catch(e=>{root.innerHTML='<p class="audit-error">'+esc(e?.message||"Unable to refresh report.")+'</p>';}),10000);
+     return;
+   }
+   const cnt=counts(fl), date=a.completed_at||a.created_at||new Date().toISOString();
+   root.innerHTML='<div class="audit-head"><div><div class="audit-kicker">W3M AI CODE AUDIT — PRIVATE GUEST REPORT</div><h1>Repository Technical Due Diligence</h1><p class="muted">'+esc(a.repo_owner||"")+' / '+esc(a.repo_name||"")+' · '+esc(a.commit_sha||"snapshot")+'</p></div><div><div class="audit-score">'+(score==null?"—":esc(score)+"/100")+'</div><div class="audit-risk">'+esc(String(a.risk_level||"Pending").toUpperCase())+'</div></div></div>'+
+   '<div class="audit-actions"><button class="btn btn-primary" type="button" onclick="window.print()">Print / Save PDF</button><a class="btn btn-ghost" href="marketplace.html">Marketplace</a></div>'+
+   '<div class="audit-meta"><div><strong>Audit ID</strong><span class="audit-id">'+esc(a.id)+'</span></div><div><strong>Commit</strong><span class="audit-id">'+esc(a.commit_sha||"—")+'</span></div><div><strong>Audit Date</strong><span>'+esc(new Date(date).toLocaleString())+'</span></div><div><strong>Engine</strong><span>'+esc(a.engine_version||"W3M AI Code Audit")+'</span></div></div>'+
+   '<div class="audit-grid">'+metric("Security",a.security_score)+metric("Architecture",a.architecture_score)+metric("Code Quality",a.code_quality_score)+metric("Dependencies",a.dependency_score)+metric("Testing",a.testing_score)+metric("Documentation",a.documentation_score)+metric("Web3",a.web3_score)+metric("Scalability (static estimate)",a.scalability_score)+metric("AI Fit (evidence-based)",a.ai_fit_score)+'</div>'+
+   '<div class="audit-section"><h2>Audit Summary</h2><p class="audit-summary">'+esc(a.summary||"No summary available.")+'</p><p class="muted">Files scanned: '+esc(a.files_scanned||0)+' · Lines scanned: '+esc(a.lines_scanned||0)+' · Coverage: '+esc(a.coverage_score||0)+'% · Findings: '+esc(fl.length)+'</p></div>'+
+   '<div class="audit-section"><h2>Risk Overview</h2><div class="audit-grid">'+metric("Critical",cnt.critical,false)+metric("High",cnt.high,false)+metric("Medium",cnt.medium,false)+metric("Low",cnt.low,false)+metric("Info",cnt.info,false)+'</div></div>'+
+   '<div class="audit-section"><h2>Technical Findings</h2>'+findings(fl)+'</div>'+
+   '<div class="audit-section"><h2>Repository Snapshot</h2><div class="audit-grid">'+files.slice(0,30).map(x=>'<div class="audit-metric"><strong>'+esc(x.path)+'</strong><span class="muted">'+esc(x.language||"source")+' · '+esc(x.line_count||0)+' lines</span></div>').join("")+'</div></div>'+
+   '<div class="audit-certificate"><div class="audit-kicker">W3M AI CODE AUDIT RECORD</div><h2>Audit Analysis Record</h2><p>This report records the analysis result for the repository and commit shown above. It is not a formal penetration test, certification, guarantee, or investment advice.</p><p class="audit-id">'+esc(a.id)+'</p></div>'+
+   '<div class="audit-section"><small class="muted">Private guest report. This browser session expires automatically after 12 hours. Do not share this page or session.</small></div>';
  }
  async function openExisting(){
    if(!auditId)return false;
@@ -176,7 +295,7 @@ if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit coul
      await render(a);return true;
    }catch(e){root.innerHTML='<div class="audit-status"><h2>W3M AI Code Audit</h2><p class="audit-error">'+esc(e?.message||"Unable to load audit.")+"</p></div>";return true;}
  }
- if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>openExisting().then(x=>{if(!x)start()}),{once:true});else openExisting().then(x=>{if(!x)start()});
+ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>openGuestReport().then(x=>{if(!x)return openExisting().then(y=>{if(!y)start()});}).catch(e=>{root.innerHTML='<div class="audit-status"><h2>Private report</h2><p class="audit-error">'+esc(e?.message||"Unable to open report.")+"</p></div>";}),{once:true});else openGuestReport().then(x=>{if(!x)return openExisting().then(y=>{if(!y)start()});}).catch(e=>{root.innerHTML='<div class="audit-status"><h2>Private report</h2><p class="audit-error">'+esc(e?.message||"Unable to open report.")+"</p></div>";});
 
  async function loadAuditHistory(){
    const panel=document.getElementById("auditHistory");
