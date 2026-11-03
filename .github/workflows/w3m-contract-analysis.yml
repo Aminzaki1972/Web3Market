@@ -391,7 +391,7 @@ jobs:
           CODE=$?
           echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
           if [ ! -s ../aderyn.json ]; then
-            echo "::error::Aderyn did not produce its expected JSON report."
+            echo "::warning::Aderyn did not produce a JSON report; preserving the Slither result as a clearly partial analysis."
             echo "Aderyn exit code: $CODE"
             echo "----- Aderyn stdout -----"
             cat ../aderyn.stdout.log || true
@@ -402,9 +402,12 @@ jobs:
             echo "----- Aderyn help/version -----"
             aderyn --version || true
             aderyn --help | head -100 || true
-            exit 1
+            printf '{}\n' > ../aderyn.json
+            echo "status=unavailable" >> "$GITHUB_OUTPUT"
+          else
+            python3 -m json.tool ../aderyn.json > /dev/null
+            echo "status=completed" >> "$GITHUB_OUTPUT"
           fi
-          python3 -m json.tool ../aderyn.json > /dev/null
           exit 0
 
       - name: Set up Deno
@@ -433,9 +436,10 @@ jobs:
           AUDIT_ID: ${{ steps.target.outputs.audit_id }}
           SLITHER_EXIT: ${{ steps.slither.outputs.exit_code }}
           ADERYN_EXIT: ${{ steps.aderyn.outputs.exit_code }}
+          ADERYN_STATUS: ${{ steps.aderyn.outputs.status }}
         run: |
           set -euo pipefail
-          python3 w3m-tools/scripts/w3m-contract-analysis/normalize.py             --slither slither.json             --aderyn aderyn.json             --repository "$TARGET_REPOSITORY"             --commit "$TARGET_SHA"             --audit-id "$AUDIT_ID"             --slither-exit "$SLITHER_EXIT"             --aderyn-exit "$ADERYN_EXIT"             --output w3m-contract-analysis.json
+          python3 w3m-tools/scripts/w3m-contract-analysis/normalize.py             --slither slither.json             --aderyn aderyn.json             --repository "$TARGET_REPOSITORY"             --commit "$TARGET_SHA"             --audit-id "$AUDIT_ID"             --slither-exit "$SLITHER_EXIT"             --aderyn-exit "$ADERYN_EXIT"             --aderyn-status "$ADERYN_STATUS"             --output w3m-contract-analysis.json
           python3 -m json.tool w3m-contract-analysis.json > /dev/null
 
       - name: Upload raw and normalized reports
