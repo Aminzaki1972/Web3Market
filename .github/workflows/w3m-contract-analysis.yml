@@ -84,6 +84,7 @@ jobs:
           PY
 
       - name: Fetch public source at pinned commit (no credentials)
+        id: source
         shell: bash
         env:
           REPOSITORY_URL: ${{ steps.target.outputs.url }}
@@ -104,17 +105,21 @@ jobs:
             exit 1
           fi
           if [ "$SOL_COUNT" -eq 0 ]; then
-            echo "No Solidity files found; this workflow is for Solidity contract audits."
-            exit 1
+            echo "has_solidity=false" >> "$GITHUB_OUTPUT"
+            echo "No Solidity files in this repository snapshot; scanner execution is skipped."
+            exit 0
           fi
+          echo "has_solidity=true" >> "$GITHUB_OUTPUT"
 
       - name: Install pinned Slither
+        if: steps.source.outputs.has_solidity == 'true'
         run: |
           python3 -m pip install --user "slither-analyzer==0.11.6"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/slither" --version
 
       - name: Install pinned Aderyn with installer checksum verification
+        if: steps.source.outputs.has_solidity == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -125,6 +130,7 @@ jobs:
           "$HOME/.cyfrin/bin/aderyn" --version
 
       - name: Run Slither (finding exit codes are not tool failures)
+        if: steps.source.outputs.has_solidity == 'true'
         id: slither
         shell: bash
         run: |
@@ -141,6 +147,7 @@ jobs:
           exit 0
 
       - name: Run Aderyn (finding exit codes are not tool failures)
+        if: steps.source.outputs.has_solidity == 'true'
         id: aderyn
         shell: bash
         run: |
@@ -168,7 +175,14 @@ jobs:
           git -C w3m-tools checkout --detach FETCH_HEAD
           test "$(git -C w3m-tools rev-parse HEAD)" = "$TOOLS_SHA"
 
+      - name: Run normalizer unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s w3m-tools/tests/w3m-contract-analysis -p 'test_*.py' -v
+
       - name: Normalize independent engine outputs
+        if: steps.source.outputs.has_solidity == 'true'
         shell: bash
         env:
           TARGET_REPOSITORY: ${{ steps.target.outputs.owner }}/${{ steps.target.outputs.repo }}
@@ -181,6 +195,7 @@ jobs:
           python3 -m json.tool w3m-contract-analysis.json > /dev/null
 
       - name: Upload raw and normalized reports
+        if: steps.source.outputs.has_solidity == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: w3m-contract-analysis-${{ steps.target.outputs.repo }}-${{ steps.target.outputs.sha }}
