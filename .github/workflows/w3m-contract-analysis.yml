@@ -147,10 +147,10 @@ jobs:
         run: |
           set +e
           cd w3m-tools/tests/w3m-contract-analysis/fixtures
-          slither . --json "$GITHUB_WORKSPACE/smoke-slither.json" > "$GITHUB_WORKSPACE/smoke-slither.stdout.log" 2> "$GITHUB_WORKSPACE/smoke-slither.stderr.log"
+          slither src/VulnerableVaultFixture.sol --json "$GITHUB_WORKSPACE/smoke-slither.json" > "$GITHUB_WORKSPACE/smoke-slither.stdout.log" 2> "$GITHUB_WORKSPACE/smoke-slither.stderr.log"
           CODE=$?
           echo "Slither fixture process exit: $CODE"
-          test -s "$GITHUB_WORKSPACE/smoke-slither.json"
+          if [ ! -s "$GITHUB_WORKSPACE/smoke-slither.json" ]; then cat "$GITHUB_WORKSPACE/smoke-slither.stderr.log"; exit 1; fi
           python3 -m json.tool "$GITHUB_WORKSPACE/smoke-slither.json" > /dev/null
 
       - name: Smoke-test Aderyn on the intentionally vulnerable fixture
@@ -161,7 +161,7 @@ jobs:
           aderyn . --output "$GITHUB_WORKSPACE/smoke-aderyn.json" > "$GITHUB_WORKSPACE/smoke-aderyn.stdout.log" 2> "$GITHUB_WORKSPACE/smoke-aderyn.stderr.log"
           CODE=$?
           echo "Aderyn fixture process exit: $CODE"
-          test -s "$GITHUB_WORKSPACE/smoke-aderyn.json"
+          if [ ! -s "$GITHUB_WORKSPACE/smoke-aderyn.json" ]; then cat "$GITHUB_WORKSPACE/smoke-aderyn.stderr.log"; exit 1; fi
           python3 -m json.tool "$GITHUB_WORKSPACE/smoke-aderyn.json" > /dev/null
 
       - name: Upload isolated engine smoke-test reports
