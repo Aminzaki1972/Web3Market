@@ -66,3 +66,18 @@ export function assertCanonicalReceiptBlock(
     throw new Error("Transaction receipt block is not canonical; payment cannot be confirmed.");
   }
 }
+
+export function assertPaymentBlockBeforeExpiry(orderExpiresAt: string, canonicalBlockTimestamp: unknown): void {
+  const expiryMs = Date.parse(orderExpiresAt);
+  const timestampHex = String(canonicalBlockTimestamp || "");
+  if (!Number.isFinite(expiryMs) || !/^0x[0-9a-f]+$/i.test(timestampHex)) {
+    throw new Error("Payment order expiry or canonical block timestamp is invalid; payment cannot be confirmed.");
+  }
+  const blockTimeMs = Number(BigInt(timestampHex) * 1000n);
+  if (!Number.isSafeInteger(blockTimeMs)) {
+    throw new Error("Canonical block timestamp is outside the supported range.");
+  }
+  if (blockTimeMs > expiryMs) {
+    throw new Error("Payment transaction was included after the payment order expired.");
+  }
+}
