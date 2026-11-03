@@ -76,10 +76,10 @@ jobs:
           if not re.fullmatch(r"[0-9a-fA-F]{40}", sha):
               raise SystemExit("Could not resolve a valid immutable commit SHA.")
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"url=https://github.com/{owner}/{repo}.git\\n")
-              f.write(f"owner={owner}\\nrepo={repo}\\n")
-              f.write(f"requested_sha={sha}\\n")
-              f.write(f"sha={sha}\\n")
+              f.write(f"url=https://github.com/{owner}/{repo}.git\n")
+              f.write(f"owner={owner}\nrepo={repo}\n")
+              f.write(f"requested_sha={sha}\n")
+              f.write(f"sha={sha}\n")
           print(f"Target: {owner}/{repo} @ {sha}")
           PY
 
