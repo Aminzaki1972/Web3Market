@@ -89,6 +89,7 @@ jobs:
         env:
           REPOSITORY_URL: ${{ steps.target.outputs.url }}
           COMMIT_SHA: ${{ steps.target.outputs.sha }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
           mkdir -p target
@@ -100,6 +101,11 @@ jobs:
           COUNT="$(find target -type f -not -path 'target/.git/*' | wc -l)"
           SOL_COUNT="$(find target -type f -name '*.sol' -not -path 'target/.git/*' | wc -l)"
           echo "Repository files: $COUNT; Solidity files: $SOL_COUNT"
+          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then
+            echo "has_solidity=false" >> "$GITHUB_OUTPUT"
+            echo "Push/PR runs execute fixture smoke tests only; customer-target scans are manual-dispatch only."
+            exit 0
+          fi
           if [ "$COUNT" -gt 5000 ] || [ "$SOL_COUNT" -gt 1000 ]; then
             echo "Repository exceeds the W3M static-analysis safety limits."
             exit 1
