@@ -212,6 +212,6 @@ BEGIN
   IF NOT duplicate_rejected THEN
     RAISE EXCEPTION 'A paid order must never create more than one audit record';
   END IF;
-END $;
+END $$;
 
 ROLLBACK;
