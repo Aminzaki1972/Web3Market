@@ -74,6 +74,7 @@ async function run(sb:any,a:any,r:any){
       return;
     }
     staticAnalysisReport=result.report;
+    progressState.static_analysis={...stage,state:"completed",run_id:staticAnalysisRunId||null,completed_at:new Date().toISOString()};
   }
   // Pin the exact snapshot before any archive download, file fetch, or early batch return.
   // A resumed worker must never silently switch to a newer default-branch commit.
