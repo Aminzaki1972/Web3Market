@@ -22,3 +22,7 @@ verify_jwt = false
 
 [functions.guest-audit-access]
 verify_jwt = false
+
+# Preserve the legacy import map explicitly for compatibility with newer Supabase CLI.
+[functions.ai-review-project]
+import_map = "./functions/ai-review-project/import_map.json"
