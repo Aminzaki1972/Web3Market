@@ -95,6 +95,16 @@ BEGIN
     RAISE EXCEPTION 'Guest email claim RPC must be restricted to service_role';
   END IF;
 
+  IF EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON n.oid=p.pronamespace
+    WHERE n.nspname='public'
+      AND p.proname IN ('consume_guest_audit_order_rate_limit','claim_guest_audit_email_delivery')
+      AND p.prosecdef
+  ) THEN
+    RAISE EXCEPTION 'Guest RPCs must run as invoker, not SECURITY DEFINER';
+  END IF;
+
   INSERT INTO public.audit_payment_orders
     (user_id,audit_type,repo_url,price_usd,chain_id,token_contract,token_symbol,
      token_decimals,recipient_address,amount_atomic)
