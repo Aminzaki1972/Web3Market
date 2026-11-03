@@ -40,8 +40,8 @@ BEGIN
   IF config.token_symbol <> 'BSC-USD' OR config.enabled IS DISTINCT FROM false THEN
     RAISE EXCEPTION 'BSC-USD must be accurately labeled and disabled by default';
   END IF;
-  IF config.recipient_address IS NOT NULL THEN
-    RAISE EXCEPTION 'Audit payment recipient must remain unset until a dedicated wallet is explicitly approved';
+  IF lower(config.recipient_address) <> lower('0xEE3157C2DeC61AFA7f2fbe86CD0427BedEAcBe85') THEN
+    RAISE EXCEPTION 'Audit payment route must use the dedicated review recipient supplied by the owner';
   END IF;
   IF config.enabled IS DISTINCT FROM false THEN
     RAISE EXCEPTION 'Audit payment route must remain disabled until recipient configuration is approved';
