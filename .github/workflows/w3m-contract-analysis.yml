@@ -182,7 +182,7 @@ jobs:
           with open(sys.argv[1], "rb") as handle:
               config = tomllib.load(handle)
           version = config.get("profile", {}).get("default", {}).get("solc_version") or config.get("solc_version") or "0.8.20"
-          if not re.fullmatch(r"\\d+\\.\\d+\\.\\d+", str(version)):
+          if not re.fullmatch(r"^[0-9]+[.][0-9]+[.][0-9]+$", str(version)):
               raise SystemExit(f"Unsupported solc_version in foundry.toml: {version!r}")
           print(version)
           PY
