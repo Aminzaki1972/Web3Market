@@ -67,7 +67,7 @@ Deno.test("rejects a report from a different commit", () => {
 });
 
 Deno.test("rejects findings marked confirmed before AI triage", () => {
-  const report = validReport();
+  const report: any = validReport();
   report.findings[0].confirmed = true;
   assertThrows(() => validateStaticAnalysisReport(report, {
     repository: "owner/repo",
@@ -77,7 +77,7 @@ Deno.test("rejects findings marked confirmed before AI triage", () => {
 });
 
 Deno.test("rejects a report with a missing engine result", () => {
-  const report = validReport();
+  const report: any = validReport();
   delete report.engines.aderyn;
   assertThrows(() => validateStaticAnalysisReport(report, {
     repository: "owner/repo",
