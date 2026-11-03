@@ -163,7 +163,11 @@ jobs:
           set -euo pipefail
           if [ -f "$GITHUB_WORKSPACE/target/foundry.toml" ]; then
             echo "Foundry project detected; building pinned target to generate out/build-info."
-            forge build --root "$GITHUB_WORKSPACE/target" --skip test
+            forge build --root "$GITHUB_WORKSPACE/target" --skip test --build-info
+            if [ ! -d "$GITHUB_WORKSPACE/target/out/build-info" ]; then
+              echo "Foundry build completed without the out/build-info directory required by Slither."
+              exit 1
+            fi
           else
             echo "No foundry.toml found; skipping Foundry build."
           fi
@@ -266,13 +270,49 @@ jobs:
           solc-select use "$SOLC_VERSION"
           solc --version
 
-      - name: Run Slither across every Solidity source file
+      - name: Run Slither across configured Solidity source roots
         if: steps.source.outputs.has_solidity == 'true'
         id: slither
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -d '' SOL_FILES < <(find "$GITHUB_WORKSPACE/target" -type f -name '*.sol' -not -path '*/.git/*' -print0 | sort -z)
+          # For Foundry repositories, analyze the configured production source roots only.
+          # OpenZeppelin's fv/harnesses are Certora-specific verification harnesses, not its Foundry source tree.
+          mapfile -d '' SOL_FILES < <(python3 - "$GITHUB_WORKSPACE/target" <<'PY'
+          import os, sys, tomllib
+          root = os.path.realpath(sys.argv[1])
+          config_path = os.path.join(root, "foundry.toml")
+          if os.path.isfile(config_path):
+              with open(config_path, "rb") as handle:
+                  config = tomllib.load(handle)
+              profile = config.get("profile", {}).get("default", {})
+              source_roots = profile.get("src", config.get("src", "src"))
+              if isinstance(source_roots, str):
+                  source_roots = [source_roots]
+              if not isinstance(source_roots, list) or not source_roots:
+                  raise SystemExit("Foundry src must be a non-empty path or list of paths.")
+              roots = []
+              for item in source_roots:
+                  path = os.path.realpath(os.path.join(root, item))
+                  if os.path.commonpath([root, path]) != root:
+                      raise SystemExit(f"Foundry source path escapes repository root: {item}")
+                  if os.path.isdir(path):
+                      roots.append(path)
+              if not roots:
+                  raise SystemExit("No configured Foundry source directories were found.")
+          else:
+              roots = [root]
+          files = []
+          for source_root in roots:
+              for current, dirs, names in os.walk(source_root):
+                  dirs[:] = sorted(d for d in dirs if d != ".git")
+                  for name in names:
+                      if name.endswith(".sol"):
+                          files.append(os.path.join(current, name))
+          for path in sorted(set(files)):
+              sys.stdout.buffer.write(os.fsencode(path) + b"\0")
+          PY
+          )
           if [ "${#SOL_FILES[@]}" -eq 0 ]; then
             echo "No Solidity source files were found after checkout."
             exit 1
