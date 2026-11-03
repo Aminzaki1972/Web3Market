@@ -1,16 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { assertSupportedPaymentAsset, findExactTransferLog } from "./payment-verification.ts";
+import { decryptGuestToken, encryptGuestToken, importGuestTokenKey } from "./guest-report-token.ts";
 const allowedOrigins=new Set(["https://web3market.xyz","https://www.web3market.xyz"]);
 function cors(req:Request){const origin=req.headers.get("Origin")||"";let trusted=allowedOrigins.has(origin);if(!trusted){try{const parsed=new URL(origin);trusted=parsed.protocol==="https:"&&/^(?:[a-z0-9-]+\.)*web3market\.pages\.dev$/i.test(parsed.hostname);}catch(_){trusted=false;}}const h:Record<string,string>={"Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS","Vary":"Origin"};if(trusted)h["Access-Control-Allow-Origin"]=origin;return h;}
 function json(req:Request,data:unknown,status=200){return new Response(JSON.stringify(data),{status,headers:{...cors(req),"Content-Type":"application/json"}});}
 function randomToken(){const b=new Uint8Array(32);crypto.getRandomValues(b);return Array.from(b,x=>x.toString(16).padStart(2,"0")).join("");}
 async function sha256(v:string){const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v));return Array.from(new Uint8Array(d),x=>x.toString(16).padStart(2,"0")).join("");}
-function toBase64(bytes:Uint8Array){let binary="";for(const b of bytes)binary+=String.fromCharCode(b);return btoa(binary);}
-function fromBase64(value:string){const binary=atob(value);return Uint8Array.from(binary,c=>c.charCodeAt(0));}
-async function guestTokenKey(){const secret=Deno.env.get("GUEST_REPORT_TOKEN_ENCRYPTION_KEY")||"";if(secret.length<32)throw new Error("Guest report token encryption is not configured. Set GUEST_REPORT_TOKEN_ENCRYPTION_KEY to a random secret of at least 32 characters.");const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(secret));return crypto.subtle.importKey("raw",digest,{name:"AES-GCM"},false,["encrypt","decrypt"]);}
-async function encryptGuestToken(token:string,key:CryptoKey){const iv=crypto.getRandomValues(new Uint8Array(12));const encrypted=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(token));return {ciphertext:toBase64(new Uint8Array(encrypted)),iv:toBase64(iv)};}
-async function decryptGuestToken(ciphertext:string,iv:string,key:CryptoKey){const plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:fromBase64(iv)},key,fromBase64(ciphertext));return new TextDecoder().decode(plain);}
 async function rpc(url:string,method:string,params:unknown[]){const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method,params})});if(!r.ok)throw Error("BNB RPC request failed ("+r.status+").");const j=await r.json();if(j.error)throw Error("BNB RPC error: "+String(j.error.message||"unknown"));return j.result;}
 Deno.serve(async req=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(req)});
@@ -67,7 +63,7 @@ Deno.serve(async req=>{
    const activeSession=!!guestAccess.session_token_hash&&!!guestAccess.session_expires_at&&new Date(guestAccess.session_expires_at).getTime()>Date.now();
    if(!guestAccess.email_sent_at||(!activeReportLink&&!activeSession)){
     let encryptionKey:CryptoKey;
-    try{encryptionKey=await guestTokenKey();}catch(e){return json(req,{ok:false,paid:true,error:String((e as any)?.message||"Guest report email encryption is not configured.")},503);}
+    try{encryptionKey=await importGuestTokenKey(Deno.env.get("GUEST_REPORT_TOKEN_ENCRYPTION_KEY")||"");}catch(e){return json(req,{ok:false,paid:true,error:String((e as any)?.message||"Guest report email encryption is not configured.")},503);}
     const {data:emailClaimed,error:claimError}=await sb.rpc("claim_guest_audit_email_delivery",{p_access_id:guestAccess.id});
     if(claimError||emailClaimed!==true)return json(req,{ok:false,paid:true,pending:true,email:guestAccess.email,error:"A secure report email is already being prepared. Wait briefly and retry verification."},202);
     const {data:latestAccess,error:latestAccessError}=await sb.from("guest_audit_access").select("report_token_hash,report_token_ciphertext,report_token_iv,report_token_expires_at,report_token_used_at,session_token_hash,session_expires_at").eq("id",guestAccess.id).maybeSingle();
