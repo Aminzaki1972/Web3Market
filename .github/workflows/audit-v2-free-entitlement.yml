@@ -61,6 +61,8 @@ jobs:
           grep -q 'reportLinkHash:suppliedLinkHash' js/code-audit.js
           grep -q 'existingLinkHash===suppliedLinkHash' js/code-audit.js
           grep -q 'restorePendingPayment(c)' js/code-audit.js
+          ! grep -q 'if(!signedIn&&auditType==="code")throw Error' js/code-audit.js
+          grep -q 'Guests may purchase the base Code Audit tier' js/code-audit.js
           grep -q 'sessionStorage.removeItem(PENDING_PAYMENT_KEY)' js/code-audit.js
           grep -q 'window.__W3MGuestReportToken = token' code-audit.html
           grep -q 'history.replaceState(null, "", location.pathname' code-audit.html
