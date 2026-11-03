@@ -6,6 +6,11 @@ function cors(req:Request){const origin=req.headers.get("Origin")||"";let truste
 function json(req:Request,data:unknown,status=200){return new Response(JSON.stringify(data),{status,headers:{...cors(req),"Content-Type":"application/json"}});}
 function randomToken(){const b=new Uint8Array(32);crypto.getRandomValues(b);return Array.from(b,x=>x.toString(16).padStart(2,"0")).join("");}
 async function sha256(v:string){const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v));return Array.from(new Uint8Array(d),x=>x.toString(16).padStart(2,"0")).join("");}
+function toBase64(bytes:Uint8Array){let binary="";for(const b of bytes)binary+=String.fromCharCode(b);return btoa(binary);}
+function fromBase64(value:string){const binary=atob(value);return Uint8Array.from(binary,c=>c.charCodeAt(0));}
+async function guestTokenKey(){const secret=Deno.env.get("GUEST_REPORT_TOKEN_ENCRYPTION_KEY")||"";if(secret.length<32)throw new Error("Guest report token encryption is not configured. Set GUEST_REPORT_TOKEN_ENCRYPTION_KEY to a random secret of at least 32 characters.");const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(secret));return crypto.subtle.importKey("raw",digest,{name:"AES-GCM"},false,["encrypt","decrypt"]);}
+async function encryptGuestToken(token:string,key:CryptoKey){const iv=crypto.getRandomValues(new Uint8Array(12));const encrypted=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(token));return {ciphertext:toBase64(new Uint8Array(encrypted)),iv:toBase64(iv)};}
+async function decryptGuestToken(ciphertext:string,iv:string,key:CryptoKey){const plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:fromBase64(iv)},key,fromBase64(ciphertext));return new TextDecoder().decode(plain);}
 async function rpc(url:string,method:string,params:unknown[]){const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method,params})});if(!r.ok)throw Error("BNB RPC request failed ("+r.status+").");const j=await r.json();if(j.error)throw Error("BNB RPC error: "+String(j.error.message||"unknown"));return j.result;}
 Deno.serve(async req=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(req)});
@@ -25,7 +30,7 @@ Deno.serve(async req=>{
   if(!user){
    const guestToken=String(body.guest_order_token||"");
    if(!/^[0-9a-f]{64}$/i.test(guestToken))return json(req,{ok:false,error:"The guest order access token is missing or invalid."},401);
-   const {data:access,error:accessError}=await sb.from("guest_audit_access").select("id,email,order_token_hash,revoked_at,report_token_hash,report_token_expires_at,session_token_hash,session_expires_at,email_sent_at").eq("payment_order_id",orderId).maybeSingle();
+   const {data:access,error:accessError}=await sb.from("guest_audit_access").select("id,email,order_token_hash,revoked_at,report_token_hash,report_token_ciphertext,report_token_iv,report_token_expires_at,session_token_hash,session_expires_at,email_sent_at").eq("payment_order_id",orderId).maybeSingle();
    if(accessError||!access||access.revoked_at||access.order_token_hash!==await sha256(guestToken))return json(req,{ok:false,error:"Guest payment order not found."},404);
    guestAccess=access;
   }
@@ -61,19 +66,35 @@ Deno.serve(async req=>{
    const activeReportLink=!!guestAccess.report_token_hash&&!!guestAccess.report_token_expires_at&&new Date(guestAccess.report_token_expires_at).getTime()>Date.now();
    const activeSession=!!guestAccess.session_token_hash&&!!guestAccess.session_expires_at&&new Date(guestAccess.session_expires_at).getTime()>Date.now();
    if(!guestAccess.email_sent_at||(!activeReportLink&&!activeSession)){
+    let encryptionKey:CryptoKey;
+    try{encryptionKey=await guestTokenKey();}catch(e){return json(req,{ok:false,paid:true,error:String((e as any)?.message||"Guest report email encryption is not configured.")},503);}
     const {data:emailClaimed,error:claimError}=await sb.rpc("claim_guest_audit_email_delivery",{p_access_id:guestAccess.id});
     if(claimError||emailClaimed!==true)return json(req,{ok:false,paid:true,pending:true,email:guestAccess.email,error:"A secure report email is already being prepared. Wait briefly and retry verification."},202);
-    const reportToken=randomToken();
-    const reportExpiry=new Date(Date.now()+7*24*60*60*1000).toISOString();
-    const {error:tokenError}=await sb.from("guest_audit_access").update({report_token_hash:await sha256(reportToken),report_token_expires_at:reportExpiry,report_token_used_at:null,session_token_hash:null,session_expires_at:null,email_sent_at:null,email_last_error:null}).eq("id",guestAccess.id).is("revoked_at",null);
-    if(tokenError){await sb.from("guest_audit_access").update({email_claimed_at:null}).eq("id",guestAccess.id);return json(req,{ok:false,paid:true,error:"Payment is confirmed, but secure report-link preparation failed. Retry verification with the same order token."},503);}
-    const resendKey=Deno.env.get("RESEND_API_KEY"),fromEmail=Deno.env.get("RESEND_FROM_EMAIL");
+    const {data:latestAccess,error:latestAccessError}=await sb.from("guest_audit_access").select("report_token_hash,report_token_ciphertext,report_token_iv,report_token_expires_at,report_token_used_at,session_token_hash,session_expires_at").eq("id",guestAccess.id).maybeSingle();
+    if(latestAccessError||!latestAccess){await sb.from("guest_audit_access").update({email_claimed_at:null}).eq("id",guestAccess.id);return json(req,{ok:false,paid:true,error:"Unable to load the protected report-link state. Retry verification."},503);}
+    let reportToken="";
+    const storedToken=!!latestAccess.report_token_hash&&!!latestAccess.report_token_ciphertext&&!!latestAccess.report_token_iv;
+    const storedTokenStillUsable=storedToken&&!!latestAccess.report_token_expires_at&&new Date(latestAccess.report_token_expires_at).getTime()>Date.now()&&!latestAccess.report_token_used_at;
+    if(storedTokenStillUsable){
+     try{
+      reportToken=await decryptGuestToken(latestAccess.report_token_ciphertext,latestAccess.report_token_iv,encryptionKey);
+      if(await sha256(reportToken)!==latestAccess.report_token_hash)throw new Error("Encrypted report token integrity check failed.");
+     }catch(e){await sb.from("guest_audit_access").update({email_claimed_at:null}).eq("id",guestAccess.id);return json(req,{ok:false,paid:true,error:"The protected report link could not be recovered. The encryption key must match the key used when the link was created."},503);}
+    }else{
+     reportToken=randomToken();
+     const encrypted=await encryptGuestToken(reportToken,encryptionKey);
+     const reportExpiry=new Date(Date.now()+7*24*60*60*1000).toISOString();
+     const {data:tokenRow,error:tokenError}=await sb.from("guest_audit_access").update({report_token_hash:await sha256(reportToken),report_token_ciphertext:encrypted.ciphertext,report_token_iv:encrypted.iv,report_token_expires_at:reportExpiry,report_token_used_at:null,session_token_hash:null,session_expires_at:null,email_sent_at:null,email_last_error:null}).eq("id",guestAccess.id).is("revoked_at",null).select("id").maybeSingle();
+     if(tokenError||!tokenRow){await sb.from("guest_audit_access").update({email_claimed_at:null}).eq("id",guestAccess.id);return json(req,{ok:false,paid:true,error:"Payment is confirmed, but secure report-link preparation failed. Retry verification with the same order token."},503);}
+    }
+    const resendKey=Deno.env.get("RESEND_API_KEY),fromEmail=Deno.env.get("RESEND_FROM_EMAIL");
     if(!resendKey||!fromEmail){await sb.from("guest_audit_access").update({email_claimed_at:null}).eq("id",guestAccess.id);return json(req,{ok:false,paid:true,error:"Payment is confirmed. Report email is not configured yet; the platform administrator must configure RESEND_API_KEY and RESEND_FROM_EMAIL before delivery."},503);}
     const reportUrl="https://web3market.xyz/code-audit.html?guest_report="+encodeURIComponent(reportToken);
     const mail=await fetch("https://api.resend.com/emails",{method:"POST",headers:{"Authorization":"Bearer "+resendKey,"Content-Type":"application/json","Idempotency-Key":"w3m-guest-audit:"+order.id+":"+await sha256(reportToken)},body:JSON.stringify({from:fromEmail,to:[guestAccess.email],subject:"Your private Web3Market AI Code Audit report",html:"<div style='font-family:Arial,sans-serif;line-height:1.6;color:#172033'><h2>Your paid W3M AI Code Audit is underway</h2><p>Your payment has been verified on BNB Smart Chain. Use the private link below to view progress and access the report when complete.</p><p><a href='"+reportUrl+"'>Open your private audit report</a></p><p>This link can be exchanged once and expires in 7 days. The report session expires after 12 hours. Do not forward this email or share the link.</p><p>Repository: "+String(order.repo_url).replace(/[&<>"]/g,"")+"</p><p>Payment asset: Binance-Peg BSC-USD.</p></div>"})});
     const mailResult=await mail.json().catch(()=>({}));
-    if(!mail.ok){await sb.from("guest_audit_access").update({email_last_error:String(mailResult?.message||"Resend delivery failed").slice(0,500)}).eq("id",guestAccess.id);await sb.from("guest_audit_access").update({email_claimed_at:null}).eq("id",guestAccess.id);return json(req,{ok:false,paid:true,error:"Payment is confirmed, but the report email could not be sent. Retry verification with the same order token."},502);}
-    await sb.from("guest_audit_access").update({email_sent_at:new Date().toISOString(),email_last_error:null,email_claimed_at:null}).eq("id",guestAccess.id);
+    if(!mail.ok){await sb.from("guest_audit_access").update({email_last_error:String(mailResult?.message||"Resend delivery failed").slice(0,500),email_claimed_at:null}).eq("id",guestAccess.id);return json(req,{ok:false,paid:true,error:"Payment is confirmed, but the report email could not be sent. Retry verification with the same order token."},502);}
+    const {error:sentUpdateError}=await sb.from("guest_audit_access").update({email_sent_at:new Date().toISOString(),email_last_error:null,email_claimed_at:null}).eq("id",guestAccess.id);
+    if(sentUpdateError)return json(req,{ok:false,paid:true,pending:true,error:"The email provider accepted the report email, but delivery status could not be saved. Retry safely; the same protected link will be reused."},202);
    }
   }
   const engineAuth=guestAccess?"Bearer "+service:auth;
