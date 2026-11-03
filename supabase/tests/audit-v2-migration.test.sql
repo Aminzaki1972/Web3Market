@@ -40,8 +40,11 @@ BEGIN
   IF config.token_symbol <> 'BSC-USD' OR config.enabled IS DISTINCT FROM false THEN
     RAISE EXCEPTION 'BSC-USD must be accurately labeled and disabled by default';
   END IF;
-  IF config.recipient_address <> '0x2b15cc63ee3b833f502c065767695fa2b584f8c9' THEN
-    RAISE EXCEPTION 'Unexpected audit payment recipient';
+  IF config.recipient_address IS NOT NULL THEN
+    RAISE EXCEPTION 'Audit payment recipient must remain unset until a dedicated wallet is explicitly approved';
+  END IF;
+  IF config.enabled IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'Audit payment route must remain disabled until recipient configuration is approved';
   END IF;
 END $$;
 
@@ -118,7 +121,7 @@ BEGIN
   VALUES
     (NULL,'code','https://github.com/example/repo',9.00,56,
      '0x55d398326f99059ff775485246999027b3197955','BSC-USD',18,
-     '0x2b15cc63ee3b833f502c065767695fa2b584f8c9',9000000000000000000)
+     '0x1111111111111111111111111111111111111111',9000000000000000000)
   RETURNING id INTO test_order_id;
 
   INSERT INTO public.guest_audit_access
