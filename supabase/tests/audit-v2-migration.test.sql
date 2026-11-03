@@ -161,7 +161,7 @@ END $$;
 
 -- Verify that one on-chain transaction cannot confirm two different orders,
 -- and that one paid order cannot create two audit records under concurrency.
-DO $
+DO $audit_idempotency$
 DECLARE
   first_order uuid;
   second_order uuid;
@@ -212,6 +212,6 @@ BEGIN
   IF NOT duplicate_rejected THEN
     RAISE EXCEPTION 'A paid order must never create more than one audit record';
   END IF;
-END $$;
+END $audit_idempotency$;
 
 ROLLBACK;
