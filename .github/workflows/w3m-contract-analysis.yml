@@ -195,22 +195,75 @@ jobs:
             smoke-aderyn.stderr.log
           if-no-files-found: error
           retention-days: 14
-      - name: Run Slither (finding exit codes are not tool failures)
+      - name: Run Slither across every Solidity source file
         if: steps.source.outputs.has_solidity == 'true'
         id: slither
         shell: bash
         run: |
-          set +e
-          cd target
-          slither . --json ../slither.json > ../slither.stdout.log 2> ../slither.stderr.log
-          CODE=$?
-          echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
-          if [ ! -s ../slither.json ]; then
-            echo "Slither did not produce JSON output."
+          set -euo pipefail
+          mapfile -d '' SOL_FILES < <(find "$GITHUB_WORKSPACE/target" -type f -name '*.sol' -not -path '*/.git/*' -print0 | sort -z)
+          if [ "${#SOL_FILES[@]}" -eq 0 ]; then
+            echo "No Solidity source files were found after checkout."
             exit 1
           fi
-          python3 -m json.tool ../slither.json > /dev/null
-          exit 0
+          mkdir -p "$GITHUB_WORKSPACE/slither-individual"
+          MAX_EXIT=0
+          ANALYZED_CONTRACTS=0
+          COMPILE_ERRORS=0
+          for INDEX in "${!SOL_FILES[@]}"; do
+            FILE="${SOL_FILES[$INDEX]}"
+            REPORT="$GITHUB_WORKSPACE/slither-individual/report-$INDEX.json"
+            set +e
+            slither "$FILE" --json "$REPORT" > "$GITHUB_WORKSPACE/slither-individual/stdout-$INDEX.log" 2> "$GITHUB_WORKSPACE/slither-individual/stderr-$INDEX.log"
+            CODE=$?
+            set -e
+            if [ "$CODE" -gt "$MAX_EXIT" ]; then MAX_EXIT="$CODE"; fi
+            if [ ! -s "$REPORT" ]; then
+              echo "Slither produced no JSON report for: $FILE"
+              cat "$GITHUB_WORKSPACE/slither-individual/stderr-$INDEX.log"
+              exit 1
+            fi
+            python3 -m json.tool "$REPORT" > /dev/null
+            if grep -q "No contract was analyzed" "$GITHUB_WORKSPACE/slither-individual/stdout-$INDEX.log" "$GITHUB_WORKSPACE/slither-individual/stderr-$INDEX.log"; then
+              echo "No contracts compiled from: ${FILE#"$GITHUB_WORKSPACE/target/"}"
+              continue
+            fi
+            CONTRACTS="$(python3 - "$GITHUB_WORKSPACE/slither-individual/stdout-$INDEX.log" "$GITHUB_WORKSPACE/slither-individual/stderr-$INDEX.log" <<'PY'
+          import re, sys
+          text = "\n".join(open(path, encoding="utf-8", errors="replace").read() for path in sys.argv[1:])
+          matches = re.findall(r"analyzed \((\d+) contracts?", text)
+          print(max((int(x) for x in matches), default=0))
+          PY
+          )"
+            ANALYZED_CONTRACTS=$((ANALYZED_CONTRACTS + CONTRACTS))
+            if [ "$CODE" -ne 0 ] && [ "$CODE" -ne 255 ]; then
+              COMPILE_ERRORS=$((COMPILE_ERRORS + 1))
+            fi
+          done
+          if [ "$ANALYZED_CONTRACTS" -eq 0 ]; then
+            echo "Slither analyzed zero contracts. Refusing to publish an empty/false-clean report."
+            exit 1
+          fi
+          if [ "$COMPILE_ERRORS" -gt 0 ]; then
+            echo "Slither reported compilation/tool errors for $COMPILE_ERRORS Solidity file(s)."
+            exit 1
+          fi
+          python3 - "$GITHUB_WORKSPACE/slither-individual" "$GITHUB_WORKSPACE/slither.json" <<'PY'
+          import glob, json, os, sys
+          folder, output = sys.argv[1:]
+          detectors = []
+          for path in sorted(glob.glob(os.path.join(folder, "report-*.json"))):
+              with open(path, encoding="utf-8") as handle:
+                  report = json.load(handle)
+              results = report.get("results") if isinstance(report, dict) else {}
+              rows = results.get("detectors", []) if isinstance(results, dict) else []
+              if isinstance(rows, list):
+                  detectors.extend(rows)
+          with open(output, "w", encoding="utf-8") as handle:
+              json.dump({"success": True, "error": None, "results": {"detectors": detectors}}, handle)
+          PY
+          echo "exit_code=$MAX_EXIT" >> "$GITHUB_OUTPUT"
+          echo "Slither analyzed $ANALYZED_CONTRACTS contract(s) across ${#SOL_FILES[@]} Solidity file(s); findings: $(python3 -c 'import json; print(len(json.load(open("slither.json"))["results"]["detectors"]))')"
 
       - name: Run Aderyn (finding exit codes are not tool failures)
         if: steps.source.outputs.has_solidity == 'true'
