@@ -1,3 +1,5 @@
+project_id = "web3market-local-audit-test"
+
 # W3M Passport eligibility is enforced in the backend before identity issuance.
 [functions.external-passport-persist]
 verify_jwt = false
@@ -10,3 +12,22 @@ verify_jwt = false
 
 [functions.w3m-trust-badge-approve]
 verify_jwt = false
+
+# Guest paid-audit checkout is public; each endpoint validates high-entropy tokens server-side.
+[functions.create-audit-payment-order]
+verify_jwt = false
+
+[functions.verify-audit-payment]
+verify_jwt = false
+
+[functions.guest-audit-access]
+verify_jwt = false
+
+# Preserve the legacy import map explicitly for compatibility with newer Supabase CLI.
+[functions.ai-review-project]
+import_map = "./functions/ai-review-project/import_map.json"
+
+# The production baseline schema is not fully represented in this repository's
+# migration history. Keep local Edge Function smoke tests isolated from partial migrations.
+[db.migrations]
+enabled = false
