@@ -13,6 +13,7 @@ on:
       - "supabase/functions/create-audit-payment-order/**"
       - "supabase/tests/audit-v2-free-entitlement.test.sql"
       - "supabase/tests/audit-v2-migration.test.sql"
+      - "supabase/config.toml"
       - ".github/workflows/audit-v2-free-entitlement.yml"
 permissions:
   contents: read
@@ -85,3 +86,75 @@ jobs:
         run: deno test supabase/functions/verify-audit-payment/guest-report-token.test.ts
       - name: Simulate guest payment-to-report workflow state transitions (no external providers)
         run: deno test supabase/functions/verify-audit-payment/audit-v2-workflow-simulation.test.ts
+
+  local-supabase-edge-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v3
+
+      - name: Start isolated local Supabase stack and apply migrations
+        run: supabase start -x studio,logflare,vector,supavisor,imgproxy,postgres-meta
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Type-check all Audit V2 Edge Functions
+        run: |
+          deno check supabase/functions/create-audit-payment-order/index.ts
+          deno check supabase/functions/verify-audit-payment/index.ts
+          deno check supabase/functions/guest-audit-access/index.ts
+
+      - name: Start local Edge Functions with test-only provider settings
+        run: |
+          cat > /tmp/audit-v2-test.env <<'EOF'
+          BSC_RPC_URL=http://127.0.0.1:18545
+          RESEND_API_KEY=re_test_only_not_a_real_key
+          GUEST_REPORT_TOKEN_ENCRYPTION_KEY=local-test-only-encryption-key-32-bytes-minimum
+          EOF
+          supabase functions serve --env-file /tmp/audit-v2-test.env > /tmp/audit-v2-functions.log 2>&1 &
+          echo $! > /tmp/audit-v2-functions.pid
+
+      - name: Exercise the three real local Edge Function handlers
+        run: |
+          set -euo pipefail
+          STATUS="$(supabase status -o env)"
+          ANON_KEY="$(printf '%s\\n' "$STATUS" | sed -n 's/^ANON_KEY=//p' | head -n1 | tr -d '"')"
+          test -n "$ANON_KEY"
+          for attempt in $(seq 1 60); do
+            CODE="$(curl -sS -o /tmp/create-order.json -w '%{http_code}' \\
+              -X POST http://127.0.0.1:54321/functions/v1/create-audit-payment-order \\
+              -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' \\
+              --data '{"audit_type":"code","repo_url":"https://github.com/example/repo"}' || true)"
+            if [ "$CODE" = "400" ]; then break; fi
+            sleep 2
+          done
+          test "$CODE" = "400"
+          grep -q 'valid email address' /tmp/create-order.json
+
+          CODE="$(curl -sS -o /tmp/verify-payment.json -w '%{http_code}' \\
+            -X POST http://127.0.0.1:54321/functions/v1/verify-audit-payment \\
+            -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' \\
+            --data '{"order_id":"invalid","tx_hash":"invalid"}')"
+          test "$CODE" = "400"
+          grep -q 'valid order ID' /tmp/verify-payment.json
+
+          CODE="$(curl -sS -o /tmp/guest-access.json -w '%{http_code}' \\
+            -X POST http://127.0.0.1:54321/functions/v1/guest-audit-access \\
+            -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' \\
+            --data '{"action":"exchange","report_token":"invalid"}')"
+          test "$CODE" = "400"
+          grep -q 'Invalid or expired report link' /tmp/guest-access.json
+
+      - name: Show Edge Function logs on failure
+        if: failure()
+        run: |
+          if [ -f /tmp/audit-v2-functions.log ]; then tail -200 /tmp/audit-v2-functions.log; fi
+          docker ps -a
+
+      - name: Stop local Supabase stack
+        if: always()
+        run: supabase stop --no-backup
