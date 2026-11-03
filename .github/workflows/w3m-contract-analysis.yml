@@ -10,6 +10,7 @@ on:
       - ".github/workflows/w3m-contract-analysis.yml"
       - "scripts/w3m-contract-analysis/**"
       - "tests/w3m-contract-analysis/**"
+      - "supabase/functions/w3m-code-audit/**"
   workflow_dispatch:
     inputs:
       repository_url:
