@@ -45,7 +45,7 @@ export type StaticAnalysisReport = {
   findings: Array<Record<string, unknown>>;
 };
 
-function validateStaticAnalysisReport(
+export function validateStaticAnalysisReport(
   value: unknown,
   expected: { repository: string; commitSha: string; auditId: string },
 ): StaticAnalysisReport {
@@ -99,7 +99,7 @@ export async function retrieveStaticAnalysisReport(
     const payload = await response.json();
     const runs = Array.isArray(payload?.workflow_runs) ? payload.workflow_runs : [];
     matched = runs.find((run: any) =>
-      run?.name === `W3M Static Analysis ${target.auditId}` &&
+      run?.display_title === `W3M Static Analysis ${target.auditId}` &&
       run?.head_branch && run?.workflow_id
     ) || null;
     if (runs.length < 100) break;
