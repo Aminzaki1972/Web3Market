@@ -83,3 +83,5 @@ jobs:
         run: deno test --allow-net supabase/functions/verify-audit-payment/payment-verification.test.ts
       - name: Test encrypted guest report token retries
         run: deno test supabase/functions/verify-audit-payment/guest-report-token.test.ts
+      - name: Simulate complete guest payment-to-report workflow with mocked providers
+        run: deno test supabase/functions/verify-audit-payment/audit-v2-workflow-simulation.test.ts
