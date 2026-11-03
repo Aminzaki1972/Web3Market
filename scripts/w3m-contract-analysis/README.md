@@ -27,25 +27,17 @@ Pushes to the implementation branch and relevant pull requests also run the work
 python3 -m unittest discover -s tests/w3m-contract-analysis -p 'test_*.py' -v
 ```
 
-## Important integration boundary
+## Server-side integration (feature branch; not live)
 
-This workflow is the isolated scanner and report producer. It does **not yet dispatch automatically from the live Supabase Edge Function or write findings into production tables**. That bridge requires a narrowly scoped GitHub Actions dispatch credential and a verified artifact/result retrieval path. Keep it separate from the scanner job: never pass that credential into the job that checks out and analyzes customer-controlled source code.
-
-The next integration stage will:
-1. dispatch this workflow from the audit worker using a server-side credential;
-2. correlate the workflow run to the audit ID and pinned repository commit;
-3. retrieve and validate the normalized artifact outside the untrusted scanner process;
-4. map candidate findings into the existing audit pipeline for Gemini triage and persistence;
-5. treat unavailable/failed scanners as incomplete coverage, never as a clean result.
-
-
-## Server-side dispatch client (integration preparation)
-
-- `supabase/functions/w3m-code-audit/github-static-analysis.ts` contains a server-only GitHub Actions dispatcher. It sends the target public repository, immutable commit SHA, and W3M audit UUID as workflow inputs.
+- The branch-only audit worker dispatches the scanner for `smart_contract` and `complete` audits when the pinned repository snapshot contains Solidity files.
+- The worker persists dispatch/polling state in the existing `analysis_progress` JSON field; no database migration is required.
+- The server-only dispatcher correlates the run with the W3M audit UUID and immutable repository commit, then downloads and validates the artifact outside the scanner job.
+- Candidate findings are passed to Gemini alongside the matching source chunk and are also preserved as `needs_verification` findings. Scanner output is never automatically marked confirmed.
+- Signed-in audit pages and guest report polling resume queued scanner stages. Failed, missing, or mismatched artifacts fail the audit rather than being treated as a clean scan.
 - The GitHub token is read only from the Supabase Edge Function environment and is never included in workflow inputs, scanner environment variables, logs, or artifacts.
-- Dispatch is sent to the trusted control repository `Aminzaki1972/Web3Market`; the customer repository is only the scan target.
-- GitHub requires a `workflow_dispatch` workflow to exist on the control repository's default branch before API dispatch can succeed. This feature branch is not dispatchable until the workflow change is reviewed and merged.
-- This module is not yet called by the live audit worker. Do not deploy it or advertise the live integration as enabled until run correlation, artifact retrieval, schema validation, Gemini triage, and persistence tests are complete.
+- Dispatch targets the trusted control repository `Aminzaki1972/Web3Market`; the customer repository is only the scan target.
+- The workflow must be merged to the control repository default branch before API dispatch can work. The helper uses `main` as the fixed workflow ref.
+- This integration remains branch-only. End-to-end dispatch, artifact retrieval, Gemini triage, and persistence still require tests after the workflow is available on `main`. Do not deploy or advertise the live integration as enabled yet.
 
 ## Limitations
 
