@@ -38,6 +38,15 @@ The next integration stage will:
 4. map candidate findings into the existing audit pipeline for Gemini triage and persistence;
 5. treat unavailable/failed scanners as incomplete coverage, never as a clean result.
 
+
+## Server-side dispatch client (integration preparation)
+
+- `supabase/functions/w3m-code-audit/github-static-analysis.ts` contains a server-only GitHub Actions dispatcher. It sends the target public repository, immutable commit SHA, and W3M audit UUID as workflow inputs.
+- The GitHub token is read only from the Supabase Edge Function environment and is never included in workflow inputs, scanner environment variables, logs, or artifacts.
+- Dispatch is sent to the trusted control repository `Aminzaki1972/Web3Market`; the customer repository is only the scan target.
+- GitHub requires a `workflow_dispatch` workflow to exist on the control repository's default branch before API dispatch can succeed. This feature branch is not dispatchable until the workflow change is reviewed and merged.
+- This module is not yet called by the live audit worker. Do not deploy it or advertise the live integration as enabled until run correlation, artifact retrieval, schema validation, Gemini triage, and persistence tests are complete.
+
 ## Limitations
 
 - This is static analysis, not a complete security audit.
