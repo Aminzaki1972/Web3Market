@@ -1,0 +1,184 @@
+name: W3M Slither + Aderyn Contract Analysis
+
+on:
+  push:
+    branches:
+      - "feature/slither-aderyn-audit-layer"
+  pull_request:
+    paths:
+      - ".github/workflows/w3m-contract-analysis.yml"
+      - "scripts/w3m-contract-analysis/**"
+      - "tests/w3m-contract-analysis/**"
+  workflow_dispatch:
+    inputs:
+      repository_url:
+        description: "Public GitHub repository URL to analyze"
+        required: true
+        type: string
+        default: "https://github.com/Aminzaki1972/Web3Market"
+      commit_sha:
+        description: "Optional exact 40-character commit SHA (blank = current default branch HEAD)"
+        required: false
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: w3m-contract-analysis-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  static-analysis:
+    name: Isolated Solidity static analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions: {}
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      GIT_TERMINAL_PROMPT: "0"
+    steps:
+      - name: Validate target and resolve immutable commit
+        id: target
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_REPOSITORY: ${{ github.repository }}
+          EVENT_SHA: ${{ github.sha }}
+          INPUT_URL: ${{ inputs.repository_url }}
+          INPUT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re, urllib.parse
+          event = os.environ["EVENT_NAME"]
+          if event in ("push", "pull_request"):
+              owner, name = os.environ["EVENT_REPOSITORY"].split("/", 1)
+              url = f"https://github.com/{owner}/{name}"
+              sha = os.environ["EVENT_SHA"]
+          else:
+              url = os.environ["INPUT_URL"].strip()
+              sha = os.environ.get("INPUT_SHA", "").strip()
+          parsed = urllib.parse.urlparse(url)
+          parts = [p for p in parsed.path.split("/") if p]
+          if parsed.scheme != "https" or parsed.hostname != "github.com" or parsed.username or parsed.password or len(parts) != 2:
+              raise SystemExit("Only https://github.com/OWNER/REPO public repository URLs are accepted.")
+          owner, repo = parts
+          repo = repo.removesuffix(".git")
+          if not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", owner) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", repo):
+              raise SystemExit("Invalid GitHub owner or repository name.")
+          if sha and not re.fullmatch(r"[0-9a-fA-F]{40}", sha):
+              raise SystemExit("commit_sha must be a full 40-character Git commit SHA.")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"url=https://github.com/{owner}/{repo}.git\n")
+              f.write(f"owner={owner}\nrepo={repo}\n")
+              f.write(f"requested_sha={sha}\n")
+          PY
+          URL="${{ steps.target.outputs.url }}"
+          REQUESTED="${{ steps.target.outputs.requested_sha }}"
+          if [ -z "$REQUESTED" ]; then
+            REQUESTED="$(git ls-remote "$URL" HEAD | awk 'NR==1 {print $1}')"
+          fi
+          [[ "$REQUESTED" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "Could not resolve a valid commit SHA"; exit 1; }
+          echo "sha=$REQUESTED" >> "$GITHUB_OUTPUT"
+          echo "Target: ${{ steps.target.outputs.owner }}/${{ steps.target.outputs.repo }} @ $REQUESTED"
+
+      - name: Fetch public source at pinned commit (no credentials)
+        shell: bash
+        env:
+          REPOSITORY_URL: ${{ steps.target.outputs.url }}
+          COMMIT_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p target
+          git -C target init
+          git -C target remote add origin "$REPOSITORY_URL"
+          git -C target fetch --depth=1 --no-tags origin "$COMMIT_SHA"
+          git -C target checkout --detach FETCH_HEAD
+          test "$(git -C target rev-parse HEAD)" = "$COMMIT_SHA"
+          COUNT="$(find target -type f -not -path 'target/.git/*' | wc -l)"
+          SOL_COUNT="$(find target -type f -name '*.sol' -not -path 'target/.git/*' | wc -l)"
+          echo "Repository files: $COUNT; Solidity files: $SOL_COUNT"
+          if [ "$COUNT" -gt 5000 ] || [ "$SOL_COUNT" -gt 1000 ]; then
+            echo "Repository exceeds the W3M static-analysis safety limits."
+            exit 1
+          fi
+          if [ "$SOL_COUNT" -eq 0 ]; then
+            echo "No Solidity files found; this workflow is for Solidity contract audits."
+            exit 1
+          fi
+
+      - name: Install pinned Slither
+        run: |
+          python3 -m pip install --user "slither-analyzer==0.11.6"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/slither" --version
+
+      - name: Install pinned Aderyn with installer checksum verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -fsSL             "https://github.com/Cyfrin/aderyn/releases/download/aderyn-v0.6.8/aderyn-installer.sh"             -o /tmp/aderyn-installer.sh
+          echo "6c005c222681f1349caa31aa7c9d55b0fd0ae779c0faad65e8eaa6dc872f8faf  /tmp/aderyn-installer.sh" | sha256sum -c -
+          sh /tmp/aderyn-installer.sh
+          echo "$HOME/.cyfrin/bin" >> "$GITHUB_PATH"
+          "$HOME/.cyfrin/bin/aderyn" --version
+
+      - name: Run Slither (finding exit codes are not tool failures)
+        id: slither
+        shell: bash
+        run: |
+          set +e
+          cd target
+          slither . --json ../slither.json > ../slither.stdout.log 2> ../slither.stderr.log
+          CODE=$?
+          echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
+          if [ ! -s ../slither.json ]; then
+            echo "Slither did not produce JSON output."
+            exit 1
+          fi
+          python3 -m json.tool ../slither.json > /dev/null
+          exit 0
+
+      - name: Run Aderyn (finding exit codes are not tool failures)
+        id: aderyn
+        shell: bash
+        run: |
+          set +e
+          cd target
+          aderyn . --output ../aderyn.json > ../aderyn.stdout.log 2> ../aderyn.stderr.log
+          CODE=$?
+          echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
+          if [ ! -s ../aderyn.json ]; then
+            echo "Aderyn did not produce its expected JSON report."
+            exit 1
+          fi
+          python3 -m json.tool ../aderyn.json > /dev/null
+          exit 0
+
+      - name: Normalize independent engine outputs
+        shell: bash
+        env:
+          TARGET_REPOSITORY: ${{ steps.target.outputs.owner }}/${{ steps.target.outputs.repo }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          SLITHER_EXIT: ${{ steps.slither.outputs.exit_code }}
+          ADERYN_EXIT: ${{ steps.aderyn.outputs.exit_code }}
+        run: |
+          set -euo pipefail
+          python3 scripts/w3m-contract-analysis/normalize.py             --slither slither.json             --aderyn aderyn.json             --repository "$TARGET_REPOSITORY"             --commit "$TARGET_SHA"             --slither-exit "$SLITHER_EXIT"             --aderyn-exit "$ADERYN_EXIT"             --output w3m-contract-analysis.json
+          python3 -m json.tool w3m-contract-analysis.json > /dev/null
+
+      - name: Upload raw and normalized reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: w3m-contract-analysis-${{ steps.target.outputs.repo }}-${{ steps.target.outputs.sha }}
+          path: |
+            slither.json
+            aderyn.json
+            w3m-contract-analysis.json
+            slither.stdout.log
+            slither.stderr.log
+            aderyn.stdout.log
+            aderyn.stderr.log
+          if-no-files-found: error
+          retention-days: 14
