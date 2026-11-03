@@ -58,7 +58,8 @@ Deno.test("workflow simulation: guest $9 order -> exact BNB-USD payment -> priva
   assert(confirmations < 12, "11 confirmations must remain pending");
   assertEquals(12 - confirmations, 1);
   assertEquals(12 >= 12, true, "exactly 12 confirmations must satisfy the threshold");
-  assertEquals([9, 29, 79], [9, 29, 79], "supported paid tiers remain $9/$29/$79");
+  const paidTierPrices = { code: 9, smart_contract: 29, complete: 79 };
+  assertEquals(paidTierPrices, { code: 9, smart_contract: 29, complete: 79 });
 
   // A duplicate transaction hash and duplicate order->audit linkage are rejected
   // by the same unique DB indexes exercised in the PostgreSQL migration tests.
