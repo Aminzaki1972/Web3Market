@@ -231,7 +231,7 @@ jobs:
             CONTRACTS="$(python3 - "$GITHUB_WORKSPACE/slither-individual/stdout-$INDEX.log" <<'PY'
           import re, sys
           text = open(sys.argv[1], encoding="utf-8", errors="replace").read()
-          matches = re.findall(r"analyzed ((d+) contracts?", text)
+          matches = re.findall(r"analyzed \((\d+) contracts?", text)
           print(max((int(x) for x in matches), default=0))
           PY
           )"
