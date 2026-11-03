@@ -19,7 +19,9 @@ export function normalizeAddress(value: unknown): string {
 }
 function topicAddress(topic: unknown): string {
   const value = String(topic || "").toLowerCase();
-  if (!/^0x[0-9a-f]{64}$/.test(value)) return "";
+  // ABI-encoded address topics must have twelve zero bytes of left padding.
+  // Reject non-canonical encodings rather than silently truncating them.
+  if (!/^0x[0-9a-f]{64}$/.test(value) || !/^0{24}/.test(value.slice(2, 26))) return "";
   return "0x" + value.slice(-40);
 }
 export function findExactTransferLog(
