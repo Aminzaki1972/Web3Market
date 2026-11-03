@@ -37,7 +37,8 @@ export function findExactTransferLog(
     if (topics.length !== 3) return false;
     if (String(log.address || "").toLowerCase() !== token) return false;
     if (String(topics[0] || "").toLowerCase() !== TRANSFER_TOPIC) return false;
-    if (!topicAddress(topics[1]) || topicAddress(topics[2]) !== recipient) return false;
+    const payer = topicAddress(topics[1]);
+    if (!payer || payer === "0x0000000000000000000000000000000000000000" || topicAddress(topics[2]) !== recipient) return false;
     if (!/^0x[0-9a-f]{64}$/i.test(String(log.data || ""))) return false;
     try { return BigInt(String(log.data)) === expectedAmount; } catch { return false; }
   });
