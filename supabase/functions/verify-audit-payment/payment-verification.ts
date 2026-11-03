@@ -49,3 +49,20 @@ export function findExactTransferLog(
   if (index > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("Transfer log index is out of range.");
   return { payerAddress: topicAddress(matches[0].topics![1]), logIndex: Number(index) };
 }
+
+
+export function assertCanonicalReceiptBlock(
+  receiptBlockNumber: string,
+  receiptBlockHash: string,
+  canonicalBlock: { number?: unknown; hash?: unknown } | null,
+): void {
+  if (!canonicalBlock || typeof canonicalBlock.number !== "string" || typeof canonicalBlock.hash !== "string") {
+    throw new Error("Canonical BNB block is unavailable; payment must remain pending.");
+  }
+  if (canonicalBlock.number.toLowerCase() !== receiptBlockNumber.toLowerCase()) {
+    throw new Error("Canonical BNB block number does not match the transaction receipt.");
+  }
+  if (!/^0x[0-9a-f]{64}$/i.test(canonicalBlock.hash) || canonicalBlock.hash.toLowerCase() !== receiptBlockHash.toLowerCase()) {
+    throw new Error("Transaction receipt block is not canonical; payment cannot be confirmed.");
+  }
+}
