@@ -113,6 +113,13 @@
      const c=await ensureClient();
      const auth=await c.auth.getSession();
      const signedIn=!!auth?.data?.session?.user;
+     const currentUser=auth?.data?.session?.user||null;
+     let isAdmin=false;
+     if(currentUser){
+       const profileResult=await c.from("profiles").select("role").eq("id",currentUser.id).maybeSingle();
+       if(profileResult.error)throw Error("Could not verify your account role. No payment order was created. Please refresh and try again.");
+       isAdmin=String(profileResult.data?.role||"").trim().toLowerCase()==="admin";
+     }
      const repo=input.value.trim();
      const auditType=document.getElementById("auditType")?.value||"code";
      const guestEmail=document.getElementById("auditGuestEmail")?.value.trim().toLowerCase()||"";
@@ -121,6 +128,13 @@
      if(!["code","smart_contract","complete"].includes(auditType))throw Error("Choose a valid audit type.");
      if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
      b.textContent="Running Audit…";m.innerHTML="<p class='muted'>Scanning GitHub and preparing AI analysis…</p>";
+     // Admin entitlement is read from the protected profiles row; the Edge Function independently re-checks the role before allowing a free audit of any public repository.
+     if(isAdmin){
+       const r=await c.functions.invoke("w3m-code-audit",{body:{repo_url:repo,audit_type:auditType}});
+       if(r.error)throw Error(r.error.message||"Unable to start the free administrator audit.");
+       const aid=r.data?.audit_id||r.data?.id;if(!aid)throw Error(r.data?.error||"Audit started but no audit ID was returned.");
+       location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));return;
+     }
      if(id&&auditType==="code"){
        const r=await c.functions.invoke("w3m-code-audit",{body:{repo_url:repo,project_id:id,audit_type:"code"}});
        if(r.error)throw Error(r.error.message||"Unable to start the free project audit.");
