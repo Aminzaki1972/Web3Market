@@ -52,9 +52,12 @@ jobs:
         uses: actions/checkout@v4
       - name: Validate browser audit script syntax
         run: node --check js/code-audit.js
-      - name: Verify pending payment session restore hooks
+      - name: Verify durable guest payment and report session restore hooks
         run: |
-          grep -q 'sessionStorage.setItem(PENDING_PAYMENT_KEY' js/code-audit.js
+          grep -q 'localStorage.setItem(PENDING_PAYMENT_KEY' js/code-audit.js
+          grep -q 'localStorage.removeItem(PENDING_PAYMENT_KEY)' js/code-audit.js
+          grep -q 'localStorage.setItem(key,JSON.stringify({token:r.data.session_token' js/code-audit.js
+          grep -q 'retryGuestReport' js/code-audit.js
           grep -q 'restorePendingPayment(c)' js/code-audit.js
           grep -q 'sessionStorage.removeItem(PENDING_PAYMENT_KEY)' js/code-audit.js
           grep -q 'window.__W3MGuestReportToken = token' code-audit.html
