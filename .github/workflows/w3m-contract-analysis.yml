@@ -141,6 +141,21 @@ jobs:
           git -C w3m-tools checkout --detach FETCH_HEAD
           test "$(git -C w3m-tools rev-parse HEAD)" = "$TOOLS_SHA"
 
+      - name: Install Foundry (forge) required by Foundry-based repositories
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
+        with:
+          version: stable
+          cache: false
+
+      - name: Verify Foundry installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v forge
+          forge --version
+          cast --version
+          anvil --version
+
       - name: Install pinned Slither
         run: |
           python3 -m pip install --user "slither-analyzer==0.11.6"
