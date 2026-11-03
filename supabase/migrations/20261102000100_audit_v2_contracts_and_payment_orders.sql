@@ -20,9 +20,8 @@ END $$;
 COMMENT ON COLUMN public.platform_payment_configs.recipient_address IS
   'Platform fee/audit-payment receiving wallet; distinct from the Safe escrow address.';
 
--- Do not assume the platform funding wallet is an approved audit-payment recipient.
--- Leave recipient_address NULL until a dedicated audit-payment wallet is explicitly approved.
--- This Binance-Peg BSC-USD route is inserted DISABLED and requires admin review before activation.
+-- Dedicated audit-fee recipient supplied by the platform owner for review.
+-- Keep this Binance-Peg BSC-USD route DISABLED until independent address/network checks and explicit activation approval.
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -35,7 +34,7 @@ BEGIN
     VALUES
       (56,
        '0xe1851d2aadc3d24175acaa22298c0418c830bf3f',
-       NULL,
+       '0xEE3157C2DeC61AFA7f2fbe86CD0427BedEAcBe85',
        '0x55d398326f99059ff775485246999027b3197955',
        'BSC-USD',
        false);
