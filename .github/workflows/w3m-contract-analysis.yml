@@ -51,7 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import os, re, urllib.parse
+          import os, re, urllib.parse, subprocess
           event = os.environ["EVENT_NAME"]
           if event in ("push", "pull_request"):
               owner, name = os.environ["EVENT_REPOSITORY"].split("/", 1)
@@ -70,19 +70,18 @@ jobs:
               raise SystemExit("Invalid GitHub owner or repository name.")
           if sha and not re.fullmatch(r"[0-9a-fA-F]{40}", sha):
               raise SystemExit("commit_sha must be a full 40-character Git commit SHA.")
+          if not sha:
+              refs = subprocess.check_output(["git", "ls-remote", f"https://github.com/{owner}/{repo}.git", "HEAD"], text=True).strip().split()
+              sha = refs[0] if refs else ""
+          if not re.fullmatch(r"[0-9a-fA-F]{40}", sha):
+              raise SystemExit("Could not resolve a valid immutable commit SHA.")
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"url=https://github.com/{owner}/{repo}.git\n")
-              f.write(f"owner={owner}\nrepo={repo}\n")
-              f.write(f"requested_sha={sha}\n")
+              f.write(f"url=https://github.com/{owner}/{repo}.git\\n")
+              f.write(f"owner={owner}\\nrepo={repo}\\n")
+              f.write(f"requested_sha={sha}\\n")
+              f.write(f"sha={sha}\\n")
+          print(f"Target: {owner}/{repo} @ {sha}")
           PY
-          URL="${{ steps.target.outputs.url }}"
-          REQUESTED="${{ steps.target.outputs.requested_sha }}"
-          if [ -z "$REQUESTED" ]; then
-            REQUESTED="$(git ls-remote "$URL" HEAD | awk 'NR==1 {print $1}')"
-          fi
-          [[ "$REQUESTED" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "Could not resolve a valid commit SHA"; exit 1; }
-          echo "sha=$REQUESTED" >> "$GITHUB_OUTPUT"
-          echo "Target: ${{ steps.target.outputs.owner }}/${{ steps.target.outputs.repo }} @ $REQUESTED"
 
       - name: Fetch public source at pinned commit (no credentials)
         shell: bash
