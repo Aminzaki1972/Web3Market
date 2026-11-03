@@ -120,15 +120,55 @@ def walk_objects(value: Any):
 
 
 def normalize_aderyn(data: Any) -> list[dict[str, Any]]:
-    """Tolerate Aderyn JSON schema revisions; raw JSON is always retained separately."""
+    """Normalize current Aderyn issue buckets and tolerate older nested schemas."""
     findings: list[dict[str, Any]] = []
     seen: set[str] = set()
+
+    # Aderyn 0.6.x emits high_issues/low_issues as objects containing
+    # an "issues" array. Each issue then contains one or more source instances.
+    if isinstance(data, dict):
+        bucket_levels = (
+            ("critical_issues", "critical"),
+            ("high_issues", "high"),
+            ("medium_issues", "medium"),
+            ("low_issues", "low"),
+            ("info_issues", "info"),
+            ("informational_issues", "info"),
+        )
+        for bucket, level in bucket_levels:
+            container = data.get(bucket)
+            issues = container.get("issues") if isinstance(container, dict) else container
+            if not isinstance(issues, list):
+                continue
+            for issue in issues:
+                if not isinstance(issue, dict):
+                    continue
+                title = first_text(issue, ("title", "name", "issue", "detector_name"))
+                detector = first_text(issue, ("detector_name", "detector", "detector_id", "id", "code", "name"))
+                desc = first_text(issue, ("description", "message", "recommendation"))
+                instances = issue.get("instances")
+                if not isinstance(instances, list) or not instances:
+                    instances = [issue]
+                for instance in instances:
+                    if not isinstance(instance, dict):
+                        continue
+                    file_path = first_text(instance, ("contract_path", "file_path", "filename", "file", "path"))
+                    start = instance.get("line_no", instance.get("line_start", instance.get("line", instance.get("start_line"))))
+                    end = instance.get("line_end", instance.get("end_line", start))
+                    item = make_finding("aderyn", detector, title, desc, level,
+                                        issue.get("confidence", "unknown"), file_path, start, end)
+                    if item["fingerprint"] not in seen:
+                        seen.add(item["fingerprint"])
+                        findings.append(item)
+
+    # Compatibility path for older or alternate Aderyn JSON layouts.
+    if findings:
+        return findings
     for obj in walk_objects(data):
         title = first_text(obj, ("title", "name", "issue", "detector_name"))
         detector = first_text(obj, ("detector", "detector_id", "id", "code", "name"))
         desc = first_text(obj, ("description", "message", "recommendation"))
         level = first_text(obj, ("severity", "impact", "level", "risk"))
-        # Aderyn issue nodes commonly carry a title/name and descriptive text.
         if not title or not (desc or detector) or not level:
             continue
         location = obj.get("location")
