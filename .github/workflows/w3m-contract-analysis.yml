@@ -111,15 +111,28 @@ jobs:
           fi
           echo "has_solidity=true" >> "$GITHUB_OUTPUT"
 
+      - name: Fetch trusted W3M normalizer source at workflow commit
+        shell: bash
+        env:
+          TOOLS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          git init w3m-tools
+          git -C w3m-tools remote add origin "https://github.com/${{ github.repository }}.git"
+          git -C w3m-tools fetch --depth=1 --no-tags origin "$TOOLS_SHA"
+          git -C w3m-tools checkout --detach FETCH_HEAD
+          test "$(git -C w3m-tools rev-parse HEAD)" = "$TOOLS_SHA"
+
       - name: Install pinned Slither
-        if: steps.source.outputs.has_solidity == 'true'
         run: |
           python3 -m pip install --user "slither-analyzer==0.11.6"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/slither" --version
+          solc-select install 0.8.20
+          solc-select use 0.8.20
+          solc --version
 
       - name: Install pinned Aderyn with installer checksum verification
-        if: steps.source.outputs.has_solidity == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -129,6 +142,41 @@ jobs:
           echo "$HOME/.cyfrin/bin" >> "$GITHUB_PATH"
           "$HOME/.cyfrin/bin/aderyn" --version
 
+      - name: Smoke-test Slither on the intentionally vulnerable fixture
+        shell: bash
+        run: |
+          set +e
+          cd w3m-tools/tests/w3m-contract-analysis/fixtures
+          slither . --json "$GITHUB_WORKSPACE/smoke-slither.json" > "$GITHUB_WORKSPACE/smoke-slither.stdout.log" 2> "$GITHUB_WORKSPACE/smoke-slither.stderr.log"
+          CODE=$?
+          echo "Slither fixture process exit: $CODE"
+          test -s "$GITHUB_WORKSPACE/smoke-slither.json"
+          python3 -m json.tool "$GITHUB_WORKSPACE/smoke-slither.json" > /dev/null
+
+      - name: Smoke-test Aderyn on the intentionally vulnerable fixture
+        shell: bash
+        run: |
+          set +e
+          cd w3m-tools/tests/w3m-contract-analysis/fixtures
+          aderyn . --output "$GITHUB_WORKSPACE/smoke-aderyn.json" > "$GITHUB_WORKSPACE/smoke-aderyn.stdout.log" 2> "$GITHUB_WORKSPACE/smoke-aderyn.stderr.log"
+          CODE=$?
+          echo "Aderyn fixture process exit: $CODE"
+          test -s "$GITHUB_WORKSPACE/smoke-aderyn.json"
+          python3 -m json.tool "$GITHUB_WORKSPACE/smoke-aderyn.json" > /dev/null
+
+      - name: Upload isolated engine smoke-test reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: w3m-static-analysis-smoke-tests-${{ github.run_id }}
+          path: |
+            smoke-slither.json
+            smoke-slither.stdout.log
+            smoke-slither.stderr.log
+            smoke-aderyn.json
+            smoke-aderyn.stdout.log
+            smoke-aderyn.stderr.log
+          if-no-files-found: error
+          retention-days: 14
       - name: Run Slither (finding exit codes are not tool failures)
         if: steps.source.outputs.has_solidity == 'true'
         id: slither
@@ -162,18 +210,6 @@ jobs:
           fi
           python3 -m json.tool ../aderyn.json > /dev/null
           exit 0
-
-      - name: Fetch trusted W3M normalizer source at workflow commit
-        shell: bash
-        env:
-          TOOLS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          git init w3m-tools
-          git -C w3m-tools remote add origin "https://github.com/${{ github.repository }}.git"
-          git -C w3m-tools fetch --depth=1 --no-tags origin "$TOOLS_SHA"
-          git -C w3m-tools checkout --detach FETCH_HEAD
-          test "$(git -C w3m-tools rev-parse HEAD)" = "$TOOLS_SHA"
 
       - name: Run normalizer unit tests
         shell: bash
