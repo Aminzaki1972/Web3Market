@@ -21,6 +21,11 @@ Deno.test("rejects wrong recipient and amount", () => {
   assertThrows(() => findExactTransferLog([log()], token, "0x" + "e".repeat(40), 9000000n));
   assertThrows(() => findExactTransferLog([log()], token, recipient, 9000001n));
 });
+
+Deno.test("rejects mint events from the zero address as customer payments", () => {
+  const zeroAddressTopic = topic("0x" + "0".repeat(40));
+  assertThrows(() => findExactTransferLog([log({ topics: [TRANSFER_TOPIC, zeroAddressTopic, topic(recipient)] })], token, recipient, 9000000n));
+});
 Deno.test("rejects removed and malformed logs", () => {
   assertThrows(() => findExactTransferLog([log({ removed: true })], token, recipient, 9000000n));
   assertThrows(() => findExactTransferLog([log({ data: "0x01" })], token, recipient, 9000000n));
