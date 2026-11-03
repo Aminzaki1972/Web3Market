@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { assertCanonicalReceiptBlock, assertSupportedPaymentAsset, findExactTransferLog } from "./payment-verification.ts";
+import { assertCanonicalReceiptBlock, assertPaymentBlockBeforeExpiry, assertSupportedPaymentAsset, findExactTransferLog } from "./payment-verification.ts";
 import { decryptGuestToken, encryptGuestToken, importGuestTokenKey } from "./guest-report-token.ts";
 const allowedOrigins=new Set(["https://web3market.xyz","https://www.web3market.xyz"]);
 function cors(req:Request){const origin=req.headers.get("Origin")||"";let trusted=allowedOrigins.has(origin);if(!trusted){try{const parsed=new URL(origin);trusted=parsed.protocol==="https:"&&/^(?:[a-z0-9-]+\.)*web3market\.pages\.dev$/i.test(parsed.hostname);}catch(_){trusted=false;}}const h:Record<string,string>={"Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS","Vary":"Origin"};if(trusted)h["Access-Control-Allow-Origin"]=origin;return h;}
@@ -37,7 +37,6 @@ Deno.serve(async req=>{
   try{assertSupportedPaymentAsset(Number(order.chain_id),String(order.token_contract||""),String(order.token_symbol||""),Number(order.token_decimals));}catch(e){return json(req,{ok:false,error:String((e as any)?.message||"Unsupported payment asset.")},503);}
   if(order.status==="confirmed"&&String(order.tx_hash||"").toLowerCase()!==txHash)return json(req,{ok:false,error:"This order has already been confirmed with another transaction."},409);
   if(order.status!=="confirmed"&&order.status!=="pending")return json(req,{ok:false,error:"This payment order is no longer payable."},409);
-  if(order.status!=="confirmed"&&new Date(order.expires_at).getTime()<Date.now())return json(req,{ok:false,error:"Payment order expired. Create a new order."},410);
   const chainId=await rpc(rpcUrl,"eth_chainId",[]);
   if(BigInt(chainId)!==56n)return json(req,{ok:false,error:"Payment verifier is not connected to BNB Smart Chain mainnet."},503);
   const receipt=await rpc(rpcUrl,"eth_getTransactionReceipt",[txHash]);
@@ -53,9 +52,13 @@ Deno.serve(async req=>{
   let transfer:{payerAddress:string;logIndex:number};
   try{transfer=findExactTransferLog(receipt.logs||[],wantedToken,wantedTo,wantedAmount);}catch(e){return json(req,{ok:false,error:String((e as any)?.message||"Exact token transfer verification failed.")},400);}
   const payer=transfer.payerAddress;
-  const canonicalBlock=await rpc(rpcUrl,"eth_getBlockByNumber",[receipt.blockNumber,false]) as {number?:unknown;hash?:unknown}|null;
+  const canonicalBlock=await rpc(rpcUrl,"eth_getBlockByNumber",[receipt.blockNumber,false]) as {number?:unknown;hash?:unknown;timestamp?:unknown}|null;
   try{assertCanonicalReceiptBlock(String(receipt.blockNumber),transferBlockHash,canonicalBlock);}catch(e){
    return json(req,{ok:false,pending:true,confirmations,required_confirmations:12,error:String((e as any)?.message||"Canonical block verification is unavailable; payment remains pending.")},202);
+  }
+  if(order.status!=="confirmed"){
+   try{assertPaymentBlockBeforeExpiry(String(order.expires_at||""),canonicalBlock?.timestamp);}
+   catch(e){return json(req,{ok:false,error:String((e as any)?.message||"Payment was included after order expiry.")},410);}
   }
   if(order.status==="confirmed"&&order.transfer_block_hash&&String(order.transfer_block_hash).toLowerCase()!==transferBlockHash)return json(req,{ok:false,pending:true,error:"The transaction receipt no longer matches the block recorded at confirmation. Payment needs manual review; no new audit will be started."},409);
   if(order.status!=="confirmed"){
