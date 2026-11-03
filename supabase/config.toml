@@ -1,3 +1,5 @@
+project_id = "web3market-local-audit-test"
+
 # W3M Passport eligibility is enforced in the backend before identity issuance.
 [functions.external-passport-persist]
 verify_jwt = false
