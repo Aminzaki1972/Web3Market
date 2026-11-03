@@ -6,6 +6,7 @@ on:
       - "js/code-audit.js"
       - "code-audit.html"
       - "supabase/functions/verify-audit-payment/**"
+      - "supabase/functions/guest-audit-access/**"
       - "supabase/migrations/*audit_v2_contracts_and_payment_orders.sql"
       - "supabase/migrations/*audit_v2_guest_checkout.sql"
       - "supabase/functions/guest-audit-access/**"
@@ -73,3 +74,5 @@ jobs:
         run: deno check supabase/functions/verify-audit-payment/index.ts supabase/functions/create-audit-payment-order/index.ts supabase/functions/guest-audit-access/index.ts supabase/functions/w3m-code-audit/index.ts
       - name: Test exact token transfer matching
         run: deno test --allow-net supabase/functions/verify-audit-payment/payment-verification.test.ts
+      - name: Test encrypted guest report token retries
+        run: deno test supabase/functions/verify-audit-payment/guest-report-token.test.ts
