@@ -45,6 +45,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           EVENT_REPOSITORY: ${{ github.repository }}
           EVENT_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           INPUT_URL: ${{ inputs.repository_url }}
           INPUT_SHA: ${{ inputs.commit_sha }}
         run: |
@@ -55,7 +56,7 @@ jobs:
           if event in ("push", "pull_request"):
               owner, name = os.environ["EVENT_REPOSITORY"].split("/", 1)
               url = f"https://github.com/{owner}/{name}"
-              sha = os.environ["EVENT_SHA"]
+              sha = os.environ["PR_HEAD_SHA"] if event == "pull_request" else os.environ["EVENT_SHA"]
           else:
               url = os.environ["INPUT_URL"].strip()
               sha = os.environ.get("INPUT_SHA", "").strip()
