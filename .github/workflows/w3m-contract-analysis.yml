@@ -224,7 +224,7 @@ jobs:
               exit 1
             fi
             python3 -m json.tool "$REPORT" > /dev/null
-            if grep -q "No contract was analyzed" "$GITHUB_WORKSPACE/slither-individual/stdout-$INDEX.log"; then
+            if grep -q "No contract was analyzed" "$GITHUB_WORKSPACE/slither-individual/stdout-$INDEX.log" "$GITHUB_WORKSPACE/slither-individual/stderr-$INDEX.log"; then
               echo "No contracts compiled from: ${FILE#"$GITHUB_WORKSPACE/target/"}"
               continue
             fi
