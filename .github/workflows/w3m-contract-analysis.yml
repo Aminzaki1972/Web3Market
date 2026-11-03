@@ -243,7 +243,7 @@ jobs:
           ADERYN_EXIT: ${{ steps.aderyn.outputs.exit_code }}
         run: |
           set -euo pipefail
-          python3 w3m-tools/scripts/w3m-contract-analysis/normalize.py             --slither slither.json             --aderyn aderyn.json             --repository "$TARGET_REPOSITORY"             --commit "$TARGET_SHA"             --slither-exit "$SLITHER_EXIT"             --aderyn-exit "$ADERYN_EXIT"             --output w3m-contract-analysis.json
+          python3 w3m-tools/scripts/w3m-contract-analysis/normalize.py             --slither slither.json             --aderyn aderyn.json             --repository "$TARGET_REPOSITORY"             --commit "$TARGET_SHA"             --audit-id "$AUDIT_ID"             --slither-exit "$SLITHER_EXIT"             --aderyn-exit "$ADERYN_EXIT"             --output w3m-contract-analysis.json
           python3 -m json.tool w3m-contract-analysis.json > /dev/null
 
       - name: Upload raw and normalized reports
