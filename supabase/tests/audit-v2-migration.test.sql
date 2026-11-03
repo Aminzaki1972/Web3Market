@@ -158,4 +158,60 @@ BEGIN
   IF allowed IS DISTINCT FROM true THEN RAISE EXCEPTION 'Expired guest report link must be eligible for secure reissue'; END IF;
 END $$;
 
+
+-- Verify that one on-chain transaction cannot confirm two different orders,
+-- and that one paid order cannot create two audit records under concurrency.
+DO $
+DECLARE
+  first_order uuid;
+  second_order uuid;
+  first_audit uuid;
+  duplicate_rejected boolean := false;
+BEGIN
+  INSERT INTO public.audit_payment_orders
+    (user_id,audit_type,repo_url,price_usd,chain_id,token_contract,token_symbol,
+     token_decimals,recipient_address,amount_atomic,tx_hash)
+  VALUES
+    (NULL,'code','https://github.com/example/first',9.00,56,
+     '0x55d398326f99059ff775485246999027b3197955','BSC-USD',18,
+     '0x1111111111111111111111111111111111111111',9000000000000000000,
+     '0x' || repeat('1',64))
+  RETURNING id INTO first_order;
+
+  INSERT INTO public.audit_payment_orders
+    (user_id,audit_type,repo_url,price_usd,chain_id,token_contract,token_symbol,
+     token_decimals,recipient_address,amount_atomic)
+  VALUES
+    (NULL,'code','https://github.com/example/second',9.00,56,
+     '0x55d398326f99059ff775485246999027b3197955','BSC-USD',18,
+     '0x1111111111111111111111111111111111111111',9000000000000000000)
+  RETURNING id INTO second_order;
+
+  BEGIN
+    UPDATE public.audit_payment_orders
+       SET tx_hash='0x' || repeat('1',64)
+     WHERE id=second_order;
+  EXCEPTION WHEN unique_violation THEN
+    duplicate_rejected := true;
+  END;
+  IF NOT duplicate_rejected THEN
+    RAISE EXCEPTION 'A transaction hash must never be reusable across payment orders';
+  END IF;
+
+  INSERT INTO public.code_audits (requested_by,payment_order_id)
+  VALUES (NULL,first_order)
+  RETURNING id INTO first_audit;
+
+  duplicate_rejected := false;
+  BEGIN
+    INSERT INTO public.code_audits (requested_by,payment_order_id)
+    VALUES (NULL,first_order);
+  EXCEPTION WHEN unique_violation THEN
+    duplicate_rejected := true;
+  END;
+  IF NOT duplicate_rejected THEN
+    RAISE EXCEPTION 'A paid order must never create more than one audit record';
+  END IF;
+END $;
+
 ROLLBACK;
