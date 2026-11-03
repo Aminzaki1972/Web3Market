@@ -52,6 +52,9 @@ async function run(sb:any,a:any,r:any){
   const progressState=resumeState?.analysis_progress||{};
   const auditType=String(resumeState.audit_type||"code");
   const tree=await gh("/repos/"+r.owner+"/"+r.name+"/git/trees/"+sha+"?recursive=1");if(tree.truncated)throw Error("Repository tree is too large for GitHub's recursive tree API; no partial audit was reported.");
+  // Pin the exact snapshot before dispatching an external scanner or returning for polling.
+  const {error:pinError}=await sb.from("code_audits").update({repo_owner:r.owner,repo_name:r.name,branch,commit_sha:sha,language:m.language||null}).eq("id",a.id);
+  if(pinError)throw Error("Unable to pin the audited repository commit: "+String(pinError.message||pinError));
   let staticAnalysisReport:any=null;
   let staticAnalysisRunId:number|undefined;
   if(["smart_contract","complete"].includes(auditType)&&(tree.tree||[]).some((item:any)=>item.type==="blob"&&/\.sol$/i.test(String(item.path||"")))){
@@ -76,10 +79,7 @@ async function run(sb:any,a:any,r:any){
     staticAnalysisReport=result.report;
     progressState.static_analysis={...stage,state:"completed",run_id:staticAnalysisRunId||null,completed_at:new Date().toISOString()};
   }
-  // Pin the exact snapshot before any archive download, file fetch, or early batch return.
-  // A resumed worker must never silently switch to a newer default-branch commit.
-  const {error:pinError}=await sb.from("code_audits").update({repo_owner:r.owner,repo_name:r.name,branch,commit_sha:sha,language:m.language||null}).eq("id",a.id);
-  if(pinError)throw Error("Unable to pin the audited repository commit: "+String(pinError.message||pinError));
+  // The repository snapshot is already pinned before dispatch and polling.
   const {allCandidates,candidateCount}=selectAuditCandidates(tree.tree||[],Number.MAX_SAFE_INTEGER);
   const maxFileBytes=1000000;
   const readableCandidates=allCandidates.filter((x:any)=>(x.size||0)<=maxFileBytes);
