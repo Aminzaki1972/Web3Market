@@ -58,6 +58,8 @@ jobs:
           grep -q 'localStorage.removeItem(PENDING_PAYMENT_KEY)' js/code-audit.js
           grep -q 'localStorage.setItem(key,JSON.stringify({token:r.data.session_token' js/code-audit.js
           grep -q 'retryGuestReport' js/code-audit.js
+          grep -q 'reportLinkHash:suppliedLinkHash' js/code-audit.js
+          grep -q 'existingLinkHash===suppliedLinkHash' js/code-audit.js
           grep -q 'restorePendingPayment(c)' js/code-audit.js
           grep -q 'sessionStorage.removeItem(PENDING_PAYMENT_KEY)' js/code-audit.js
           grep -q 'window.__W3MGuestReportToken = token' code-audit.html
