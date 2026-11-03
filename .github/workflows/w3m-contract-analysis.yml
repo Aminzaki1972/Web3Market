@@ -235,7 +235,7 @@ jobs:
           deno-version: v2.1.4
 
       - name: Run dispatcher validation tests
-        run: deno test supabase/functions/w3m-code-audit/github-static-analysis.test.ts
+        run: deno test w3m-tools/supabase/functions/w3m-code-audit/github-static-analysis.test.ts
 
       - name: Run normalizer unit tests
         shell: bash
