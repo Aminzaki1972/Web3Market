@@ -1,4 +1,5 @@
 name: W3M Slither + Aderyn Contract Analysis
+run-name: W3M Static Analysis ${{ inputs.audit_id }}
 
 on:
   push:
@@ -17,8 +18,12 @@ on:
         type: string
         default: "https://github.com/Aminzaki1972/Web3Market"
       commit_sha:
-        description: "Optional exact 40-character commit SHA (blank = current default branch HEAD)"
-        required: false
+        description: "Exact 40-character commit SHA to analyze"
+        required: true
+        type: string
+      audit_id:
+        description: "W3M audit UUID for result correlation"
+        required: true
         type: string
 
 permissions: {}
@@ -48,6 +53,7 @@ jobs:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           INPUT_URL: ${{ inputs.repository_url }}
           INPUT_SHA: ${{ inputs.commit_sha }}
+          INPUT_AUDIT_ID: ${{ inputs.audit_id }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -60,6 +66,9 @@ jobs:
           else:
               url = os.environ["INPUT_URL"].strip()
               sha = os.environ.get("INPUT_SHA", "").strip()
+              audit_id = os.environ.get("INPUT_AUDIT_ID", "").strip()
+              if not re.fullmatch(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}", audit_id):
+                  raise SystemExit("audit_id must be a valid UUID.")
           parsed = urllib.parse.urlparse(url)
           parts = [p for p in parsed.path.split("/") if p]
           if parsed.scheme != "https" or parsed.hostname != "github.com" or parsed.username or parsed.password or len(parts) != 2:
@@ -229,6 +238,7 @@ jobs:
         env:
           TARGET_REPOSITORY: ${{ steps.target.outputs.owner }}/${{ steps.target.outputs.repo }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
+          AUDIT_ID: ${{ steps.target.outputs.audit_id }}
           SLITHER_EXIT: ${{ steps.slither.outputs.exit_code }}
           ADERYN_EXIT: ${{ steps.aderyn.outputs.exit_code }}
         run: |
