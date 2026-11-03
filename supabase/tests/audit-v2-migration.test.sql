@@ -159,8 +159,8 @@ BEGIN
 END $$;
 
 
--- Verify that one on-chain transaction cannot confirm two different orders,
--- and that one paid order cannot create two audit records under concurrency.
+-- Verify database uniqueness rejects reused transaction hashes and duplicate paid audits.
+-- The unique indexes also serialize competing writes at the database level.
 DO $audit_idempotency$
 DECLARE
   first_order uuid;
@@ -189,7 +189,7 @@ BEGIN
 
   BEGIN
     UPDATE public.audit_payment_orders
-       SET tx_hash='0x' || repeat('1',64)
+       SET tx_hash=upper('0x' || repeat('1',64))
      WHERE id=second_order;
   EXCEPTION WHEN unique_violation THEN
     duplicate_rejected := true;
