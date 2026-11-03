@@ -42,7 +42,7 @@ async function digest(value: string) {
 
 Deno.test("workflow simulation: guest $9 order -> exact BNB-USD payment -> private report", async () => {
   // Create-order contract: guest base tier is billable, with exact supported asset.
-  const order = { id: "order-1", user_id: null, audit_type: "code", price_usd: 9, status: "pending" };
+  const order: { id: string; user_id: null; audit_type: string; price_usd: number; status: string } = { id: "order-1", user_id: null, audit_type: "code", price_usd: 9, status: "pending" };
   assertEquals(order.price_usd, 9);
   assertEquals(order.audit_type, "code");
   assertEquals(assertSupportedPaymentAsset(chainId, BNB_PEG_BSC_USD_CONTRACT, "BSC-USD", 18), undefined);
@@ -62,7 +62,7 @@ Deno.test("workflow simulation: guest $9 order -> exact BNB-USD payment -> priva
   // by the same unique DB indexes exercised in the PostgreSQL migration tests.
   const txHashes = new Set<string>();
   txHashes.add("0x" + "1".repeat(64));
-  assert(txHashes.has(("0x" + "1".repeat(64)).toUpperCase().replace("0X", "0x")));
+  assert(txHashes.has(("0x" + "1".repeat(64)).toUpperCase().toLowerCase()));
   assertThrows(() => {
     const normalized = ("0x" + "1".repeat(64)).toLowerCase();
     if (txHashes.has(normalized)) throw new Error("duplicate transaction hash");
