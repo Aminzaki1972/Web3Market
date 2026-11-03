@@ -381,8 +381,8 @@ jobs:
         id: aderyn
         shell: bash
         env:
-          # OpenZeppelin's Math.sol uses the CLZ opcode, introduced in Osaka.
-          # Override the target's Prague setting only for Aderyn's compiler context.
+          # Keep the target EVM hint for Aderyn versions that honor it.
+          # Aderyn 0.6.8 may still compile as Prague; the report status below exposes that failure.
           FOUNDRY_EVM_VERSION: osaka
         run: |
           set +e
