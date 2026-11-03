@@ -139,8 +139,8 @@ jobs:
           curl --proto '=https' --tlsv1.2 -fsSL             "https://github.com/Cyfrin/aderyn/releases/download/aderyn-v0.6.8/aderyn-installer.sh"             -o /tmp/aderyn-installer.sh
           echo "6c005c222681f1349caa31aa7c9d55b0fd0ae779c0faad65e8eaa6dc872f8faf  /tmp/aderyn-installer.sh" | sha256sum -c -
           sh /tmp/aderyn-installer.sh
-          echo "$HOME/.cyfrin/bin" >> "$GITHUB_PATH"
-          "$HOME/.cyfrin/bin/aderyn" --version
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/aderyn" --version
 
       - name: Smoke-test Slither on the intentionally vulnerable fixture
         shell: bash
