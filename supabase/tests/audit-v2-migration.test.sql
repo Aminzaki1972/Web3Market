@@ -89,6 +89,13 @@ BEGIN
   SELECT public.consume_guest_audit_order_rate_limit(fingerprint) INTO allowed;
   IF allowed IS DISTINCT FROM false THEN RAISE EXCEPTION 'Rate limit must reject request six'; END IF;
 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='guest_audit_access' AND column_name='report_token_ciphertext')
+     OR NOT EXISTS (SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='guest_audit_access' AND column_name='report_token_iv') THEN
+    RAISE EXCEPTION 'Guest report token must be stored encrypted for safe email retries';
+  END IF;
+
   IF has_function_privilege('anon','public.claim_guest_audit_email_delivery(uuid)','EXECUTE')
      OR has_function_privilege('authenticated','public.claim_guest_audit_email_delivery(uuid)','EXECUTE')
      OR NOT has_function_privilege('service_role','public.claim_guest_audit_email_delivery(uuid)','EXECUTE') THEN
