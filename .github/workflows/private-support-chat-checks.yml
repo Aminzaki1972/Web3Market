@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "js/support-chat.js"
+      - "js/support-calls.js"
       - "support-chat.html"
       - "admin-support.html"
       - "buyer-dashboard.html"
@@ -24,7 +25,7 @@ jobs:
       - name: Check out pull request
         uses: actions/checkout@v4
       - name: Check JavaScript syntax
-        run: node --check js/support-chat.js
+        run: node --check js/support-chat.js && node --check js/support-calls.js
       - name: Check critical support-chat safeguards
         shell: bash
         run: |
