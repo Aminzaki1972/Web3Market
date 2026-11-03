@@ -29,7 +29,7 @@ UPDATE public.platform_payment_configs
  WHERE chain_id = 56
    AND lower(token_contract) = lower('0x55d398326f99059ff775485246999027b3197955');
 
-DO $
+DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.platform_payment_configs
