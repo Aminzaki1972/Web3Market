@@ -160,6 +160,7 @@ def main() -> None:
     parser.add_argument("--slither", required=True)
     parser.add_argument("--aderyn", required=True)
     parser.add_argument("--repository", required=True)
+    parser.add_argument("--audit-id", required=True)
     parser.add_argument("--commit", required=True)
     parser.add_argument("--slither-exit", type=int, default=0)
     parser.add_argument("--aderyn-exit", type=int, default=0)
@@ -186,6 +187,7 @@ def main() -> None:
     report = {
         "schema_version": "w3m.static-analysis.v1",
         "repository": args.repository,
+        "audit_id": args.audit_id,
         "commit_sha": args.commit,
         "analysis_scope": "solidity_static_analysis",
         "engines": {
