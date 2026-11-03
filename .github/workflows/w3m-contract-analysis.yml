@@ -228,9 +228,9 @@ jobs:
               echo "No contracts compiled from: ${FILE#"$GITHUB_WORKSPACE/target/"}"
               continue
             fi
-            CONTRACTS="$(python3 - "$GITHUB_WORKSPACE/slither-individual/stdout-$INDEX.log" <<'PY'
+            CONTRACTS="$(python3 - "$GITHUB_WORKSPACE/slither-individual/stdout-$INDEX.log" "$GITHUB_WORKSPACE/slither-individual/stderr-$INDEX.log" <<'PY'
           import re, sys
-          text = open(sys.argv[1], encoding="utf-8", errors="replace").read()
+          text = "\n".join(open(path, encoding="utf-8", errors="replace").read() for path in sys.argv[1:])
           matches = re.findall(r"analyzed \((\d+) contracts?", text)
           print(max((int(x) for x in matches), default=0))
           PY
