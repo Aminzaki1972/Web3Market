@@ -26,6 +26,10 @@ jobs:
       - name: Start isolated local Supabase stack and apply migrations
         run: supabase start -x studio,logflare,vector,supavisor,imgproxy,postgres-meta
 
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
       - name: Type-check all Audit V2 Edge Functions
         run: |
           deno check supabase/functions/create-audit-payment-order/index.ts
