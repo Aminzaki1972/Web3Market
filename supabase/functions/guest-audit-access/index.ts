@@ -52,6 +52,8 @@ Deno.serve(async req => {
       const { data: claimed, error: claimError } = await db.from("guest_audit_access")
         .update({
           report_token_hash: null,
+          report_token_ciphertext: null,
+          report_token_iv: null,
           report_token_expires_at: null,
           report_token_used_at: now,
           session_token_hash: await hash(sessionToken),
