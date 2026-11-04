@@ -14,7 +14,7 @@
 <main class="wrap" id="w3m-ai-preview">
   <div class="brand"><div class="mark">W3M</div><div><strong>W3M AI Assistant</strong><small>Official Web3Market bilingual assistant · Preview only</small></div></div>
   <section class="card">
-    <header class="top"><div><h1>How can I help? / كيف أستطيع مساعدتك؟</h1><p>Arabic & English · Text chat · Optional browser voice</p></div><select id="w3m-ai-language" aria-label="Reply language"><option value="en">English</option><option value="ar">العربية</option></select></header>
+    <header class="top"><div><h1>How can I help? / كيف أستطيع مساعدتك؟</h1><p>Arabic & English · Text chat · Optional browser voice</p></div><select id="w3m-ai-language" aria-label="Reply language"><option value="auto" selected>Auto / تلقائي</option><option value="en">English</option><option value="ar">العربية</option></select></header>
     <div class="messages" id="w3m-ai-messages" aria-live="polite"><article class="message assistant"><small>W3M AI</small><p>Welcome to Web3Market. Ask me about listings, buyers, sellers, AI Code Audit, AI Passport, due diligence, or deals.
 
 مرحباً بك في Web3Market. اسألني عن الإدراج والشراء والبيع وخدمات الذكاء الاصطناعي والصفقات.</p></article></div>
@@ -23,6 +23,7 @@
   <p class="note">This is an isolated development preview. It requires a signed-in Web3Market account and a separately deployed assistant Edge Function. Voice input/output depends on browser and device support. Conversation history is held only in this page session; it is not saved to the support inbox or database.</p>
   <a class="back" href="index.html">← Back to Web3Market</a>
 </main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" crossorigin="anonymous" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK"></script>
 <script src="js/supabase.js?v=20261021-support2"></script>
 <script src="js/w3m-ai-assistant-preview.js"></script>
 </body>
