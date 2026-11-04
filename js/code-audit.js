@@ -116,11 +116,27 @@
      const repo=input.value.trim();
      const auditType=document.getElementById("auditType")?.value||"code";
      const guestEmail=document.getElementById("auditGuestEmail")?.value.trim().toLowerCase()||"";
-     // Guests may purchase the base Code Audit tier; the free entitlement is enforced only by the signed-in project-owner path below.
+     // Check the caller's own protected admin_users membership. The Edge Function
+     // independently repeats this check with its service-role client before granting free access.
+     // Guests may purchase the base Code Audit tier; the free entitlement remains for listed-project owners and verified administrators.
      if(!signedIn&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(guestEmail))throw Error("Enter a valid email address to receive your private report.");
      if(!["code","smart_contract","complete"].includes(auditType))throw Error("Choose a valid audit type.");
      if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
-     b.textContent="Running Audit…";m.innerHTML="<p class='muted'>Scanning GitHub and preparing AI analysis…</p>";
+     let isAdmin=false;
+     if(signedIn){
+       const membership=await c.from("admin_users").select("user_id").eq("user_id",auth.data.session.user.id).maybeSingle();
+       if(membership.error)throw Error("Unable to verify administrator access. Please retry.");
+       isAdmin=!!membership.data;
+     }
+     b.textContent=isAdmin?"Starting free administrator audit…":"Preparing audit…";
+     m.innerHTML="<p class='muted'>"+(isAdmin?"Administrator access verified. No payment is required.":"Preparing the secure audit session…")+"</p>";
+     if(isAdmin){
+       const direct=await c.functions.invoke("w3m-code-audit",{body:{repo_url:repo,audit_type:auditType}});
+       if(direct.error)throw Error(direct.data?.error||direct.error.message||"Unable to start the administrator audit.");
+       const aid=direct.data?.audit_id||direct.data?.id;
+       if(!aid)throw Error(direct.data?.error||"Audit request returned no audit ID.");
+       location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));return;
+     }
      if(id&&auditType==="code"){
        const r=await c.functions.invoke("w3m-code-audit",{body:{repo_url:repo,project_id:id,audit_type:"code"}});
        if(r.error)throw Error(r.error.message||"Unable to start the free project audit.");
