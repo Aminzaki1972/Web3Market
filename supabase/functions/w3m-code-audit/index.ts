@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { tier, auditPriority, selectAuditCandidates, selectAuditBatch, calculateAuditCoverage, buildAuditChunks, isTransientAuditError, hasSoliditySource } from "./audit-selection.ts";
+import { tier, auditPriority, selectAuditCandidates, selectAuditBatch, calculateAuditCoverage, buildAuditChunks, isTransientAuditError, parseRetryAfterSeconds, hasSoliditySource } from "./audit-selection.ts";
 import { readResponseBytesLimited } from "./audit-download.ts";
 import { collectPages } from "./audit-pagination.ts";
 import { queuedNextBatchProgress } from "./audit-progress.ts";
@@ -33,7 +33,14 @@ const modelFallbacks=["gemini-3.8-flash","gemini-3.6-flash","gemini-3.5-flash-li
  const transient=[408,429,500,502,503,504].includes(lastStatus);
  if(!transient||attempt===maxAttempts)break;
  const retryAfterHeader=r?.headers?.get("Retry-After");
- const serverDelay=retryAfterHeader?Math.min(5000,Math.max(1000,Number(retryAfterHeader)*1000)):0;
+ const retryAfterSeconds=parseRetryAfterSeconds(retryAfterHeader);
+ // Do not hammer a quota-limited provider when it explicitly asks for a longer wait.
+ // Persist a resumable paused state instead of sleeping inside the Edge Function.
+ if(retryAfterSeconds>5){
+  await onProgress?.({status:"retrying",chunk:i+1,total_chunks:chunks.length,attempt,max_attempts:maxAttempts,error:lastDetail.slice(0,500),retry_after_seconds:retryAfterSeconds});
+  throw Error("Gemini requested retry in "+retryAfterSeconds+"s (HTTP "+lastStatus+"): "+lastDetail.slice(0,1200));
+ }
+ const serverDelay=retryAfterSeconds*1000;
  const base=Math.min(4000,1500*Math.pow(2,attempt-1));
  const delay=Math.min(5000,Math.max(serverDelay,base)+Math.floor(Math.random()*250));
  await onProgress?.({status:"retrying",chunk:i+1,total_chunks:chunks.length,attempt,max_attempts:maxAttempts,error:lastDetail.slice(0,500),retry_after_seconds:Math.ceil(delay/1000)});
