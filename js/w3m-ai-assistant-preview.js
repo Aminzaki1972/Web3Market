@@ -76,7 +76,10 @@
     if (!Recognition || busy) return;
     if (recognition) { recognition.stop(); recognition = null; }
     recognition = new Recognition();
-    recognition.lang = activeLanguage === "ar" ? "ar-EG" : "en-US";
+    const voiceLanguage = language === "auto"
+      ? ((navigator.language || "").toLowerCase().startsWith("ar") ? "ar" : activeLanguage)
+      : language;
+    recognition.lang = voiceLanguage === "ar" ? "ar-EG" : "en-US";
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     recognition.onresult = (event) => {
