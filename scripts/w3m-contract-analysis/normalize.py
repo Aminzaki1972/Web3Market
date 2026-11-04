@@ -210,6 +210,7 @@ def main() -> None:
     parser.add_argument("--audit-id", default=None)
     parser.add_argument("--slither-exit", type=int, default=0)
     parser.add_argument("--aderyn-exit", type=int, default=0)
+    parser.add_argument("--aderyn-status", choices=("completed", "unsupported_evm_target", "failed"), default="completed")
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
 
@@ -238,7 +239,7 @@ def main() -> None:
         "analysis_scope": "solidity_static_analysis",
         "engines": {
             "slither": {"version": "0.11.6", "status": "completed", "process_exit_code": args.slither_exit},
-            "aderyn": {"version": "0.6.8", "status": "completed", "process_exit_code": args.aderyn_exit},
+            "aderyn": {"version": "0.6.8", "status": args.aderyn_status, "process_exit_code": args.aderyn_exit},
         },
         "summary": {
             "finding_candidates": len(findings),
