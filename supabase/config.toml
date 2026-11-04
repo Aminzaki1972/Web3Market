@@ -35,3 +35,7 @@ enabled = false
 # The assistant must require a valid Supabase JWT at the gateway.
 [functions.w3m-ai-assistant]
 verify_jwt = true
+
+# Isolated Cloudflare Workers AI test endpoint; used only by the preview assistant page.
+[functions.w3m-ai-assistant-preview]
+verify_jwt = true
