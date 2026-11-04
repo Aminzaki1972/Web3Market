@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { tier, auditPriority, selectAuditCandidates, selectAuditBatch, calculateAuditCoverage, buildAuditChunks, isTransientAuditError } from "./audit-selection.ts";
+import { tier, auditPriority, selectAuditCandidates, selectAuditBatch, calculateAuditCoverage, buildAuditChunks, isTransientAuditError, hasSoliditySource } from "./audit-selection.ts";
 import { readResponseBytesLimited } from "./audit-download.ts";
 import { collectPages } from "./audit-pagination.ts";
 import { queuedNextBatchProgress } from "./audit-progress.ts";
@@ -81,6 +81,7 @@ async function run(sb:any,a:any,r:any){
   }
   // The repository snapshot is already pinned before dispatch and polling.
   const {allCandidates,candidateCount}=selectAuditCandidates(tree.tree||[],Number.MAX_SAFE_INTEGER);
+  if(["smart_contract","complete"].includes(auditType)&&!hasSoliditySource(allCandidates))throw Error("Smart Contract Audit requires at least one Solidity (.sol) source file in the selected public repository.");
   const maxFileBytes=1000000;
   const readableCandidates=allCandidates.filter((x:any)=>(x.size||0)<=maxFileBytes);
   const preSkippedOversized=allCandidates.length-readableCandidates.length;
@@ -131,7 +132,6 @@ async function run(sb:any,a:any,r:any){
   const {data:state}=await sb.from("code_audits").select("ai_chunk_results,current_chunk,total_chunks,retry_count").eq("id",a.id).maybeSingle();
   const savedResults=Array.isArray(state?.ai_chunk_results)?state.ai_chunk_results:[];
   const startChunk=Number(state?.current_chunk||0);
-  if(["smart_contract","complete"].includes(auditType)&&!files.some((f:any)=>/\.sol$/i.test(f.path)))throw Error("Smart Contract Audit requires at least one Solidity (.sol) source file in the selected public repository.");
   const out=await ai(files,r.owner+"/"+r.name,async(p:any)=>{
     const workerStatus="scanning"; const patch:any={status:workerStatus,analysis_progress:{...progressState,...p,file_batch_index:fileBatchIndex,total_file_batches:totalFileBatches,eligible_files:candidateCount,batch_stats:batchStats,updated_at:new Date().toISOString()},current_chunk:Number(p.current_chunk??startChunk),total_chunks:Number(p.total_chunks||0),retry_count:Number(p.attempt||0)};
     if(p.result){savedResults.push(p.result);patch.ai_chunk_results=savedResults;}
