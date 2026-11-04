@@ -47,6 +47,7 @@ create policy "Users create own W3M AI messages"
   on public.w3m_ai_messages for insert to authenticated
   with check (
     auth.uid() = user_id
+    and role = 'user'
     and exists (
       select 1 from public.w3m_ai_conversations c
       where c.id = conversation_id and c.user_id = auth.uid()
