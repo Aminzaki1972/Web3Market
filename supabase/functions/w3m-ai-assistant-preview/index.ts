@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { W3M_KNOWLEDGE } from "../w3m-ai-assistant/knowledge.ts";
+import { W3M_KNOWLEDGE } from "./knowledge.ts";
 
 const MODEL = "@cf/zai-org/glm-4.7-flash";
 const MAX_MESSAGE_CHARS = 2400;
