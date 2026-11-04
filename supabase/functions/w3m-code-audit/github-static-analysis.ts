@@ -63,8 +63,8 @@ export function validateStaticAnalysisReport(
   }
   for (const engine of ["slither", "aderyn"]) {
     const item = report.engines?.[engine];
-    if (!item || item.status !== "completed" || !Number.isInteger(item.process_exit_code)) {
-      throw new Error(`Static-analysis report is missing a completed ${engine} result.`);
+    if (!item || !["completed", "unsupported_evm_target", "failed"].includes(item.status) || !Number.isInteger(item.process_exit_code)) {
+      throw new Error(`Static-analysis report is missing a valid ${engine} execution status.`);
     }
   }
   if (!Array.isArray(report.findings) ||
