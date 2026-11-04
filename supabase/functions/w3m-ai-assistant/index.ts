@@ -125,6 +125,7 @@ Deno.serve(async (req: Request) => {
     const authResponse = await fetch(supabaseUrl.replace(/\/$/, "") + "/auth/v1/user", {
       method: "GET",
       headers: { "apikey": anonKey, "Authorization": authorization },
+      signal: AbortSignal.timeout(8_000),
     });
     if (authResponse.ok) {
       const authenticatedUser = await authResponse.json();
