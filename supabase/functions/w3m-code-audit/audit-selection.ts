@@ -21,6 +21,10 @@ export function selectAuditCandidates(tree:any[],limit=100){const allCandidates=
 export function calculateAuditCoverage(scanned:number,eligible:number){return Math.max(0,Math.min(100,Math.round(scanned/Math.max(1,eligible)*100)));}
 
 
+export function hasSoliditySource(files: Array<{ path: string }>): boolean {
+  return files.some((file) => /\.sol$/i.test(String(file.path || "")));
+}
+
 export function selectAuditBatch<T extends { path: string }>(candidates: T[], batchIndex: number, batchSize = 100) {
   const size = Math.max(1, Math.floor(Number.isFinite(batchSize) ? batchSize : 100));
   const requestedIndex = Math.max(0, Math.floor(Number.isFinite(batchIndex) ? batchIndex : 0));
