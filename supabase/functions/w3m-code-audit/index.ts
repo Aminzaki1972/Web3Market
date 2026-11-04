@@ -81,9 +81,9 @@ async function run(sb:any,a:any,r:any){
   }
   // The repository snapshot is already pinned before dispatch and polling.
   const {allCandidates,candidateCount}=selectAuditCandidates(tree.tree||[],Number.MAX_SAFE_INTEGER);
-  if(["smart_contract","complete"].includes(auditType)&&!hasSoliditySource(allCandidates))throw Error("Smart Contract Audit requires at least one Solidity (.sol) source file in the selected public repository.");
   const maxFileBytes=1000000;
   const readableCandidates=allCandidates.filter((x:any)=>(x.size||0)<=maxFileBytes);
+  if(["smart_contract","complete"].includes(auditType)&&!hasSoliditySource(readableCandidates))throw Error("Smart Contract Audit requires at least one readable Solidity (.sol) source file in the selected public repository.");
   const preSkippedOversized=allCandidates.length-readableCandidates.length;
   const fileBatchSize=100;
   const selectedBatch=selectAuditBatch(readableCandidates,Number(progressState.file_batch_index||0),fileBatchSize);
