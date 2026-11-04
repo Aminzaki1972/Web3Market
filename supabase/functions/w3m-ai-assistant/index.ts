@@ -90,7 +90,7 @@ Deno.serve(async (req: Request) => {
   // an unverified JWT payload decoded inside this function.
   let userId = "";
   try {
-    const authResponse = await fetch(supabaseUrl.replace(/\\/$/, "") + "/auth/v1/user", {
+    const authResponse = await fetch(supabaseUrl.replace(/\/$/, "") + "/auth/v1/user", {
       method: "GET",
       headers: { "apikey": anonKey, "Authorization": authorization },
     });
