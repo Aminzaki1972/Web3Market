@@ -77,6 +77,7 @@ def normalize_slither(data: Any) -> list[dict[str, Any]]:
     results = data.get("results") if isinstance(data.get("results"), dict) else {}
     detectors = results.get("detectors", [])
     findings: list[dict[str, Any]] = []
+    seen: set[str] = set()
     if not isinstance(detectors, list):
         return findings
     for detector in detectors:
@@ -104,8 +105,13 @@ def normalize_slither(data: Any) -> list[dict[str, Any]]:
         if not locations:
             locations = [("", None, None)]
         for path, start, end in locations:
-            findings.append(make_finding("slither", check, title, desc, impact,
-                                         certainty, path, start, end))
+            item = make_finding("slither", check, title, desc, impact,
+                                certainty, path, start, end)
+            # Slither can repeat the same detector/location across compilation
+            # units or overlapping source elements. Keep one candidate per fingerprint.
+            if item["fingerprint"] not in seen:
+                seen.add(item["fingerprint"])
+                findings.append(item)
     return findings
 
 
@@ -217,6 +223,18 @@ def main() -> None:
     slither_data = read_json(args.slither)
     aderyn_data = read_json(args.aderyn)
     findings = normalize_slither(slither_data) + normalize_aderyn(aderyn_data)
+    severity_rank = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+    confidence_rank = {"high": 0, "medium": 1, "low": 2, "unknown": 3}
+    # Put the most actionable candidates first so downstream AI prompts and
+    # bounded database persistence do not get crowded out by informational noise.
+    findings.sort(key=lambda item: (
+        severity_rank.get(item["severity"], 9),
+        confidence_rank.get(item["confidence"], 9),
+        item["file_path"] or "",
+        item["line_start"] or 0,
+        item["engine"],
+        item["detector"],
+    ))
     by_engine = {
         "slither": sum(1 for item in findings if item["engine"] == "slither"),
         "aderyn": sum(1 for item in findings if item["engine"] == "aderyn"),
