@@ -116,32 +116,32 @@
      const repo=input.value.trim();
      const auditType=document.getElementById("auditType")?.value||"code";
      const guestEmail=document.getElementById("auditGuestEmail")?.value.trim().toLowerCase()||"";
-     // Signed-in requests go through the authoritative audit endpoint first.
-     // The server grants the unlimited admin entitlement from profiles.role;
-     // ordinary members receive 402 when they need the existing paid checkout.
+     // Check the caller's own protected admin_users membership. The Edge Function
+     // independently repeats this check with its service-role client before granting free access.
      if(!signedIn&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(guestEmail))throw Error("Enter a valid email address to receive your private report.");
      if(!["code","smart_contract","complete"].includes(auditType))throw Error("Choose a valid audit type.");
      if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
-     b.textContent="Checking account permissions…";m.innerHTML="<p class='muted'>Verifying audit entitlement securely…</p>";
+     let isAdmin=false;
      if(signedIn){
-       const direct=await c.functions.invoke("w3m-code-audit",{body:{repo_url:repo,project_id:id||undefined,audit_type:auditType}});
-       if(!direct.error){
-         const aid=direct.data?.audit_id||direct.data?.id;
-         if(!aid)throw Error(direct.data?.error||"Audit request returned no audit ID.");
-         location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));return;
-       }
-       const status=Number(direct.error?.context?.status||direct.error?.status||0);
-       if(status!==402){
-         let detail=direct.data?.error||"";
-         if(!detail&&direct.error?.context){
-           try{const response=direct.error.context.clone?.()||direct.error.context;const payload=await response.json();if(typeof payload?.error==="string")detail=payload.error;}catch(_){}
-         }
-         throw Error(detail||direct.error.message||"Unable to verify audit entitlement.");
-       }
-       // HTTP 402 is the expected response for a signed-in non-admin without
-       // the one-free-listed-project entitlement; continue to the paid checkout.
+       const membership=await c.from("admin_users").select("user_id").eq("user_id",auth.data.session.user.id).maybeSingle();
+       if(membership.error)throw Error("Unable to verify administrator access. Please retry.");
+       isAdmin=!!membership.data;
      }
-     b.textContent="Preparing audit…";m.innerHTML="<p class='muted'>Preparing the secure audit session…</p>";
+     b.textContent=isAdmin?"Starting free administrator audit…":"Preparing audit…";
+     m.innerHTML="<p class='muted'>"+(isAdmin?"Administrator access verified. No payment is required.":"Preparing the secure audit session…")+"</p>";
+     if(isAdmin){
+       const direct=await c.functions.invoke("w3m-code-audit",{body:{repo_url:repo,audit_type:auditType}});
+       if(direct.error)throw Error(direct.data?.error||direct.error.message||"Unable to start the administrator audit.");
+       const aid=direct.data?.audit_id||direct.data?.id;
+       if(!aid)throw Error(direct.data?.error||"Audit request returned no audit ID.");
+       location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));return;
+     }
+     if(id&&auditType==="code"){
+       const r=await c.functions.invoke("w3m-code-audit",{body:{repo_url:repo,project_id:id,audit_type:"code"}});
+       if(r.error)throw Error(r.error.message||"Unable to start the free project audit.");
+       const aid=r.data?.audit_id||r.data?.id;if(!aid)throw Error(r.data?.error||"Audit started but no audit ID was returned.");
+       location.replace("code-audit.html?audit_id="+encodeURIComponent(aid));return;
+     }
      const orderResponse=await c.functions.invoke("create-audit-payment-order",{body:{repo_url:repo,audit_type:auditType,project_id:id||undefined,email:guestEmail||undefined}});
      if(orderResponse.error){
        // Supabase FunctionsHttpError stores the Edge Function JSON response in
