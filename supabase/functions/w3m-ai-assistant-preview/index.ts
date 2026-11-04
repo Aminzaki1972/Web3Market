@@ -140,7 +140,7 @@ Deno.serve(async (req: Request) => {
   const timeout = setTimeout(() => controller.abort(), 25_000);
   try {
     const response = await fetch(
-      "https://api.cloudflare.com/client/v4/accounts/" + encodeURIComponent(accountId) + "/ai/run/" + encodeURIComponent(MODEL),
+      "https://api.cloudflare.com/client/v4/accounts/" + encodeURIComponent(accountId) + "/ai/run/" + MODEL,
       {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + apiToken },
