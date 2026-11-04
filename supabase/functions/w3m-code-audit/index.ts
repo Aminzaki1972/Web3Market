@@ -33,7 +33,7 @@ const modelFallbacks=["gemini-3.8-flash","gemini-3.6-flash","gemini-3.5-flash-li
  const transient=[408,429,500,502,503,504].includes(lastStatus);
  if(!transient||attempt===maxAttempts)break;
  const retryAfterHeader=r?.headers?.get("Retry-After");
- const retryAfterSeconds=parseRetryAfterSeconds(retryAfterHeader);
+ const retryAfterSeconds=parseRetryAfterSeconds(retryAfterHeader ?? null);
  // Do not hammer a quota-limited provider when it explicitly asks for a longer wait.
  // Persist a resumable paused state instead of sleeping inside the Edge Function.
  if(retryAfterSeconds>5){
