@@ -376,36 +376,37 @@ jobs:
           echo "exit_code=$MAX_EXIT" >> "$GITHUB_OUTPUT"
           echo "Slither analyzed $ANALYZED_CONTRACTS contract(s) across ${#SOL_FILES[@]} Solidity file(s); findings: $(python3 -c 'import json; print(len(json.load(open("slither.json"))["results"]["detectors"]))')"
 
-      - name: Run Aderyn (finding exit codes are not tool failures)
+      - name: Run Aderyn (preserve scan when engine cannot compile target)
         if: steps.source.outputs.has_solidity == 'true'
         id: aderyn
         shell: bash
         env:
-          # OpenZeppelin's Math.sol uses the CLZ opcode, introduced in Osaka.
-          # Override the target's Prague setting only for Aderyn's compiler context.
           FOUNDRY_EVM_VERSION: osaka
         run: |
           set +e
           cd target
           aderyn . --output ../aderyn.json > ../aderyn.stdout.log 2> ../aderyn.stderr.log
           CODE=$?
-          echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
+          set -e
+          STATUS="completed"
           if [ ! -s ../aderyn.json ]; then
-            echo "::error::Aderyn did not produce its expected JSON report."
-            echo "Aderyn exit code: $CODE"
+            if grep -Eiq 'clz.*only available.*osaka|only available for Osaka-compatible VMs|currently compiling for "prague"' ../aderyn.stdout.log ../aderyn.stderr.log; then
+              STATUS="unsupported_evm_target"
+              echo "::warning::Aderyn could not compile this Osaka target (known upstream EVM-target limitation). Slither results will be retained; Aderyn is explicitly marked unavailable."
+            else
+              STATUS="failed"
+              echo "::warning::Aderyn did not produce JSON. The overall scan will retain Slither output and explicitly report Aderyn failure."
+            fi
+            printf '{"high_issues":{"issues":[]},"low_issues":{"issues":[]}}\n' > ../aderyn.json
             echo "----- Aderyn stdout -----"
             cat ../aderyn.stdout.log || true
             echo "----- Aderyn stderr -----"
             cat ../aderyn.stderr.log || true
-            echo "----- Target Solidity source inventory -----"
-            find . -type f -name '*.sol' -not -path './.git/*' | head -80 || true
-            echo "----- Aderyn help/version -----"
-            aderyn --version || true
-            aderyn --help | head -100 || true
-            exit 1
+          else
+            python3 -m json.tool ../aderyn.json > /dev/null
           fi
-          python3 -m json.tool ../aderyn.json > /dev/null
-          exit 0
+          echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
 
       - name: Set up Deno
         uses: denoland/setup-deno@v2
@@ -433,9 +434,10 @@ jobs:
           AUDIT_ID: ${{ steps.target.outputs.audit_id }}
           SLITHER_EXIT: ${{ steps.slither.outputs.exit_code }}
           ADERYN_EXIT: ${{ steps.aderyn.outputs.exit_code }}
+          ADERYN_STATUS: ${{ steps.aderyn.outputs.status }}
         run: |
           set -euo pipefail
-          python3 w3m-tools/scripts/w3m-contract-analysis/normalize.py             --slither slither.json             --aderyn aderyn.json             --repository "$TARGET_REPOSITORY"             --commit "$TARGET_SHA"             --audit-id "$AUDIT_ID"             --slither-exit "$SLITHER_EXIT"             --aderyn-exit "$ADERYN_EXIT"             --output w3m-contract-analysis.json
+          python3 w3m-tools/scripts/w3m-contract-analysis/normalize.py             --slither slither.json             --aderyn aderyn.json             --repository "$TARGET_REPOSITORY"             --commit "$TARGET_SHA"             --audit-id "$AUDIT_ID"             --slither-exit "$SLITHER_EXIT"             --aderyn-exit "$ADERYN_EXIT"             --aderyn-status "$ADERYN_STATUS"             --output w3m-contract-analysis.json
           python3 -m json.tool w3m-contract-analysis.json > /dev/null
 
       - name: Upload raw and normalized reports

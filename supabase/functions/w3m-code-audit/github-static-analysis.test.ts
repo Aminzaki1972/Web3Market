@@ -85,3 +85,30 @@ Deno.test("rejects a report with a missing engine result", () => {
     auditId: "123e4567-e89b-42d3-a456-426614174000",
   }));
 });
+
+Deno.test("accepts a Slither report when Aderyn explicitly cannot compile the target", () => {
+  const report: any = validReport();
+  report.engines.aderyn = {
+    version: "0.6.8",
+    status: "unsupported_evm_target",
+    process_exit_code: 1,
+  };
+  const result = validateStaticAnalysisReport(report, {
+    repository: "owner/repo",
+    commitSha: "a".repeat(40),
+    auditId: "123e4567-e89b-42d3-a456-426614174000",
+  });
+  assertEquals(result.engines.aderyn.status, "unsupported_evm_target");
+});
+
+Deno.test("accepts an explicit Aderyn execution failure without calling it completed", () => {
+  const report: any = validReport();
+  report.engines.aderyn.status = "failed";
+  report.engines.aderyn.process_exit_code = 2;
+  const result = validateStaticAnalysisReport(report, {
+    repository: "owner/repo",
+    commitSha: "a".repeat(40),
+    auditId: "123e4567-e89b-42d3-a456-426614174000",
+  });
+  assertEquals(result.engines.aderyn.status, "failed");
+});
