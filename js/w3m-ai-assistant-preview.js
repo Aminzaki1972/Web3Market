@@ -51,7 +51,7 @@
     setBusy(true);
     setStatus(activeLanguage === "ar" ? "يتم تجهيز الإجابة…" : "Preparing your answer…");
     try {
-      const { data, error } = await sb.functions.invoke("w3m-ai-assistant", {
+      const { data, error } = await sb.functions.invoke("w3m-ai-assistant-preview", {
         body: { message: text, language: activeLanguage, history: messages.slice(-8, -1) },
       });
       if (error || !data?.ok || typeof data.answer !== "string") throw new Error(data?.error || error?.message || "Assistant request failed.");
