@@ -118,6 +118,7 @@
      const guestEmail=document.getElementById("auditGuestEmail")?.value.trim().toLowerCase()||"";
      // Check the caller's own protected admin_users membership. The Edge Function
      // independently repeats this check with its service-role client before granting free access.
+     // Guests may purchase the base Code Audit tier; the free entitlement remains for listed-project owners and verified administrators.
      if(!signedIn&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(guestEmail))throw Error("Enter a valid email address to receive your private report.");
      if(!["code","smart_contract","complete"].includes(auditType))throw Error("Choose a valid audit type.");
      if(!/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/i.test(repo))throw Error("Enter a valid public GitHub repository URL.");
