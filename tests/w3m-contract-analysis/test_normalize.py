@@ -55,17 +55,7 @@ class NormalizeTests(unittest.TestCase):
                                        "High", "High", "src/Vault.sol", 10, 10)
         info = NORMALIZER.make_finding("slither", "naming-convention", "Naming", "x",
                                        "Informational", "High", "src/Vault.sol", 1, 1)
-        findings = [info, high]
-        severity_rank = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
-        confidence_rank = {"high": 0, "medium": 1, "low": 2, "unknown": 3}
-        findings.sort(key=lambda item: (
-            severity_rank.get(item["severity"], 9),
-            confidence_rank.get(item["confidence"], 9),
-            item["file_path"] or "",
-            item["line_start"] or 0,
-            item["engine"],
-            item["detector"],
-        ))
+        findings = NORMALIZER.prioritize_findings([info, high])
         self.assertEqual([row["severity"] for row in findings], ["high", "info"])
 
     def test_aderyn_tolerates_nested_issue_shape(self):
