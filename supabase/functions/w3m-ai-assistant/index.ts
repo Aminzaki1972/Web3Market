@@ -3,6 +3,7 @@ import { W3M_KNOWLEDGE } from "./knowledge.ts";
 
 const MODEL = Deno.env.get("W3M_AI_MODEL") || "gemini-3.8-flash";
 const MAX_MESSAGE_CHARS = 2400;
+const MAX_BODY_BYTES = 24 * 1024;
 const MAX_HISTORY_ITEMS = 8;
 const MAX_HISTORY_ITEM_CHARS = 1200;
 const WINDOW_MS = 60_000;
@@ -26,6 +27,34 @@ function corsHeaders(origin: string | null): HeadersInit {
 
 function json(req: Request, payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), { status, headers: corsHeaders(req.headers.get("Origin")) });
+}
+
+async function readJsonBody(req: Request): Promise<unknown> {
+  const reader = req.body?.getReader();
+  if (!reader) throw new Error("INVALID_JSON");
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_BODY_BYTES) {
+        await reader.cancel();
+        throw new Error("BODY_TOO_LARGE");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return JSON.parse(new TextDecoder().decode(bytes));
 }
 
 function cleanHistory(value: unknown): Array<{ role: "user" | "model"; text: string }> {
@@ -79,7 +108,10 @@ Deno.serve(async (req: Request) => {
     return json(req, { ok: false, error: "Content-Type must be application/json." }, 415);
   }
   let body: any;
-  try { body = await req.json(); } catch { return json(req, { ok: false, error: "A valid JSON body is required." }, 400); }
+  try { body = await readJsonBody(req); } catch (error) {
+    if (error instanceof Error && error.message === "BODY_TOO_LARGE") return json(req, { ok: false, error: "Request body is too large." }, 413);
+    return json(req, { ok: false, error: "A valid JSON body is required." }, 400);
+  }
   if (!body || typeof body.message !== "string") return json(req, { ok: false, error: "Message is required." }, 400);
   const message = body.message.trim();
   if (!message || message.length > MAX_MESSAGE_CHARS) {
