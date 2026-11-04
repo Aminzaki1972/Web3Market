@@ -64,6 +64,17 @@ export function buildAuditChunks(files: Array<{ path: string; content: string }>
 
 // Provider failures can be wrapped with different wording by the worker.
 // Recognize HTTP status codes in either provider-specific or generic error text.
+// Parse Retry-After as either delta-seconds or an HTTP date.
+export function parseRetryAfterSeconds(value: string | null, nowMs = Date.now()): number {
+  const raw = String(value || "").trim();
+  if (!raw) return 0;
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds);
+  const dateMs = Date.parse(raw);
+  if (!Number.isFinite(dateMs)) return 0;
+  return Math.max(0, Math.ceil((dateMs - nowMs) / 1000));
+}
+
 export function isTransientAuditError(message: string): boolean {
   return /\b(?:HTTP\s*)?(408|429|500|502|503|504)\b/i.test(message) || /Gemini quota exhausted|timed out|request timeout/i.test(message);
 }
