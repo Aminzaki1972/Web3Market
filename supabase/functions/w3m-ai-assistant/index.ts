@@ -75,6 +75,9 @@ Deno.serve(async (req: Request) => {
   }
   if (!apiKey) return json(req, { ok: false, error: "The AI assistant is not configured yet." }, 503);
 
+  if (!(req.headers.get("Content-Type") || "").toLowerCase().includes("application/json")) {
+    return json(req, { ok: false, error: "Content-Type must be application/json." }, 415);
+  }
   let body: any;
   try { body = await req.json(); } catch { return json(req, { ok: false, error: "A valid JSON body is required." }, 400); }
   if (!body || typeof body.message !== "string") return json(req, { ok: false, error: "Message is required." }, 400);
@@ -136,7 +139,7 @@ Deno.serve(async (req: Request) => {
     const data = await response.json();
     const answer = data?.candidates?.[0]?.content?.parts?.map((part: any) => part.text || "").join("").trim();
     if (!answer) return json(req, { ok: false, error: "The assistant returned an empty answer. Please try again." }, 502);
-    return json(req, { ok: true, answer, language: /[\u0600-\u06FF]/.test(message) ? "ar" : "en", model: MODEL });
+    return json(req, { ok: true, answer, language: requestedLanguage, model: MODEL });
   } catch (error) {
     console.error("W3M assistant request failed", error);
     return json(req, { ok: false, error: error instanceof Error && error.name === "AbortError" ? "The assistant took too long to respond. Please try again." : "The assistant is temporarily unavailable." }, 502);
