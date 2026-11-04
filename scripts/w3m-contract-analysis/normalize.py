@@ -33,6 +33,19 @@ def confidence(value: Any) -> str:
     return "unknown"
 
 
+def prioritize_findings(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    severity_rank = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+    confidence_rank = {"high": 0, "medium": 1, "low": 2, "unknown": 3}
+    return sorted(findings, key=lambda item: (
+        severity_rank.get(item["severity"], 9),
+        confidence_rank.get(item["confidence"], 9),
+        item["file_path"] or "",
+        item["line_start"] or 0,
+        item["engine"],
+        item["detector"],
+    ))
+
+
 def first_text(obj: dict[str, Any], keys: tuple[str, ...]) -> str:
     for key in keys:
         value = obj.get(key)
@@ -223,18 +236,9 @@ def main() -> None:
     slither_data = read_json(args.slither)
     aderyn_data = read_json(args.aderyn)
     findings = normalize_slither(slither_data) + normalize_aderyn(aderyn_data)
-    severity_rank = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
-    confidence_rank = {"high": 0, "medium": 1, "low": 2, "unknown": 3}
     # Put the most actionable candidates first so downstream AI prompts and
     # bounded database persistence do not get crowded out by informational noise.
-    findings.sort(key=lambda item: (
-        severity_rank.get(item["severity"], 9),
-        confidence_rank.get(item["confidence"], 9),
-        item["file_path"] or "",
-        item["line_start"] or 0,
-        item["engine"],
-        item["detector"],
-    ))
+    findings = prioritize_findings(findings)
     by_engine = {
         "slither": sum(1 for item in findings if item["engine"] == "slither"),
         "aderyn": sum(1 for item in findings if item["engine"] == "aderyn"),
