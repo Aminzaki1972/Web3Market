@@ -68,8 +68,25 @@
     const last = [...messages].reverse().find((item) => item.role === "assistant");
     if (!last || !speechSupported) return;
     window.speechSynthesis.cancel();
+    const isArabic = detectLanguage(last.text) === "ar";
     const utterance = new SpeechSynthesisUtterance(last.text);
-    utterance.lang = detectLanguage(last.text) === "ar" ? "ar-EG" : "en-US";
+    utterance.lang = isArabic ? "ar-EG" : "en-US";
+    if (isArabic) {
+      const voices = window.speechSynthesis.getVoices();
+      const arabicVoice = voices.find((voice) => /^ar-EG$/i.test(voice.lang))
+        || voices.find((voice) => /^ar([_-]|$)/i.test(voice.lang));
+      if (!arabicVoice) {
+        setStatus("لا يوجد صوت عربي مثبت على الجهاز. فعّل أو نزّل صوت العربية من إعدادات تحويل النص إلى كلام في Android ثم أعد المحاولة.", true);
+        return;
+      }
+      utterance.voice = arabicVoice;
+    } else {
+      const voices = window.speechSynthesis.getVoices();
+      const englishVoice = voices.find((voice) => /^en-US$/i.test(voice.lang))
+        || voices.find((voice) => /^en([_-]|$)/i.test(voice.lang));
+      if (englishVoice) utterance.voice = englishVoice;
+    }
+    utterance.onerror = () => setStatus(isArabic ? "تعذّر تشغيل الصوت العربي. تحقق من إعدادات تحويل النص إلى كلام." : "Speech playback failed. Check your device text-to-speech settings.", true);
     window.speechSynthesis.speak(utterance);
   }
   function startListening() {
