@@ -86,16 +86,19 @@ Deno.serve(async (req: Request) => {
     return json(req, { ok: false, error: "Message must contain between 1 and 2,400 characters." }, 413);
   }
 
-  // The Supabase gateway verifies the JWT because this function is deployed with verify_jwt=true.
-  // Decode only the subject for a per-user throttle key; never trust user-supplied IDs.
+  // Resolve the authenticated user through Supabase Auth rather than trusting
+  // an unverified JWT payload decoded inside this function.
   let userId = "";
   try {
-    const token = authorization.slice(7);
-    const payload = token.split(".")[1];
-    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
-    userId = JSON.parse(atob(padded)).sub || "";
-  } catch { /* The gateway remains the JWT authority. */ }
+    const authResponse = await fetch(supabaseUrl.replace(/\\/$/, "") + "/auth/v1/user", {
+      method: "GET",
+      headers: { "apikey": anonKey, "Authorization": authorization },
+    });
+    if (authResponse.ok) {
+      const authenticatedUser = await authResponse.json();
+      userId = typeof authenticatedUser?.id === "string" ? authenticatedUser.id : "";
+    }
+  } catch { /* Fail closed below if Auth cannot verify the session. */ }
   if (!userId) return json(req, { ok: false, error: "A valid signed-in session is required." }, 401);
   if (rateLimited(userId)) return json(req, { ok: false, error: "You have reached the short-term assistant limit. Please wait a minute and try again." }, 429);
 
@@ -119,10 +122,10 @@ Deno.serve(async (req: Request) => {
   const timeout = setTimeout(() => controller.abort(), 22_000);
   try {
     const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(MODEL) + ":generateContent?key=" + encodeURIComponent(apiKey),
+      "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(MODEL) + ":generateContent",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: { temperature: 0.25, maxOutputTokens: 650 },
