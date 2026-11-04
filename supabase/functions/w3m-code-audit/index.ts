@@ -223,10 +223,13 @@ Deno.serve(async req=>{
  const authResult=internalGuestCall?{data:{user:null},error:null}:await userClient.auth.getUser();
  const user=authResult.data.user;
  if(authResult.error||(!user&&!internalGuestCall))return failReq("Sign in with a Web3Market account or use a verified paid guest order.",401);
- // Admin entitlement is derived from the protected server-side profile role, never browser input or user-editable metadata.
- let profile:any=null;
- if(user){const {data,error:profileError}=await sb.from("profiles").select("role").eq("id",user.id).maybeSingle();if(profileError)return failReq("Unable to verify audit permissions. Please retry.",503);profile=data;}
- const isAdmin=String(profile?.role||"").toLowerCase()==="admin";
+ // Admin entitlement is derived only from the protected admin_users membership table.
+ // Never trust browser input or user-editable profile metadata for free audit authorization.
+ const {data:adminMembership,error:adminLookupError}=user
+  ?await sb.from("admin_users").select("user_id").eq("user_id",user.id).maybeSingle()
+  :{data:null,error:null};
+ if(adminLookupError)return failReq("Unable to verify administrator permissions. Please retry.",503);
+ const isAdmin=!!adminMembership;
  const ip=(req.headers.get("cf-connecting-ip")||req.headers.get("x-forwarded-for")||"unknown").split(",")[0].trim();
  const raw=ip+"|w3m-code-audit";
  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw));
