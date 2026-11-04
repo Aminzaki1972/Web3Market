@@ -137,14 +137,22 @@ Deno.serve(async (req: Request) => {
   ];
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25_000);
+  const timeout = setTimeout(() => controller.abort(), 40_000);
   try {
     const response = await fetch(
       "https://api.cloudflare.com/client/v4/accounts/" + encodeURIComponent(accountId) + "/ai/run/" + MODEL,
       {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + apiToken },
-        body: JSON.stringify({ messages, max_tokens: 650 }),
+        body: JSON.stringify({
+          messages,
+          max_completion_tokens: 320,
+          reasoning_effort: null,
+          chat_template_kwargs: {
+            enable_thinking: false,
+            clear_thinking: true,
+          },
+        }),
         signal: controller.signal,
       },
     );
