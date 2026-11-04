@@ -87,7 +87,7 @@ Deno.test("Solidity detection checks the full repository, not only the current f
   const files = Array.from({ length: 150 }, (_, i) => ({ path: "src/file" + i + ".ts" }));
   files[125] = { path: "contracts/Token.sol" };
   const firstBatch = selectAuditBatch(files, 0, 100);
-  assertEquals(firstBatch.candidates.some((file) => /\\.sol$/i.test(file.path)), false);
+  assertEquals(firstBatch.candidates.some((file) => file.path.toLowerCase().endsWith(".sol")), false);
   assertEquals(hasSoliditySource(files), true);
   assertEquals(hasSoliditySource([{ path: "README.md" }]), false);
 });
