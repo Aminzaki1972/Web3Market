@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { auditPriority, buildAuditChunks, calculateAuditCoverage, isTransientAuditError, selectAuditBatch, selectAuditCandidates } from "./audit-selection.ts";
+import { auditPriority, buildAuditChunks, calculateAuditCoverage, isTransientAuditError, hasSoliditySource, selectAuditBatch, selectAuditCandidates } from "./audit-selection.ts";
 
 Deno.test("production source is prioritized ahead of harnesses and tests", () => {
   const tree = [
@@ -82,6 +82,16 @@ Deno.test("full-repository mode returns every eligible candidate without a fixed
   assertEquals(result.candidateCount, 257);
   assertEquals(result.candidates.length, 257);
 });
+
+Deno.test("Solidity detection checks the full repository, not only the current file batch", () => {
+  const files = Array.from({ length: 150 }, (_, i) => ({ path: "src/file" + i + ".ts" }));
+  files[125] = { path: "contracts/Token.sol" };
+  const firstBatch = selectAuditBatch(files, 0, 100);
+  assertEquals(firstBatch.candidates.some((file) => /\\.sol$/i.test(file.path)), false);
+  assertEquals(hasSoliditySource(files), true);
+  assertEquals(hasSoliditySource([{ path: "README.md" }]), false);
+});
+
 
 Deno.test("file batches are deterministic, bounded, and cover each candidate exactly once", async () => {
   const files = Array.from({ length: 257 }, (_, i) => ({ path: "src/file" + i + ".ts" }));
