@@ -35,6 +35,29 @@ class NormalizeTests(unittest.TestCase):
         self.assertEqual(rows[0]["line_start"], 41)
         self.assertFalse(rows[0]["confirmed"])
 
+    def test_slither_deduplicates_repeated_detector_locations(self):
+        finding = {
+            "check": "reentrancy-eth",
+            "impact": "High",
+            "confidence": "High",
+            "description": "External call before state update.",
+            "elements": [
+                {"source_mapping": {"filename_relative": "src/Vault.sol", "lines": [41, 42]}},
+                {"source_mapping": {"filename_relative": "src/Vault.sol", "lines": [41, 42]}},
+            ],
+        }
+        rows = NORMALIZER.normalize_slither({"results": {"detectors": [finding]}})
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["severity"], "high")
+
+    def test_report_orders_high_severity_before_informational(self):
+        high = NORMALIZER.make_finding("slither", "reentrancy-eth", "Reentrancy", "x",
+                                       "High", "High", "src/Vault.sol", 10, 10)
+        info = NORMALIZER.make_finding("slither", "naming-convention", "Naming", "x",
+                                       "Informational", "High", "src/Vault.sol", 1, 1)
+        findings = NORMALIZER.prioritize_findings([info, high])
+        self.assertEqual([row["severity"] for row in findings], ["high", "info"])
+
     def test_aderyn_tolerates_nested_issue_shape(self):
         data = {
             "high_issues": [{
