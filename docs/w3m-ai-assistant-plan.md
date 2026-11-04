@@ -54,3 +54,9 @@ Build an official Web3Market assistant for marketplace participants. The first r
 - No secrets or private account/deal data are returned.
 - Browser voice controls appear only when the relevant API exists and degrade gracefully.
 - Existing support chat, translation, marketplace, and audit workflows remain unchanged.
+
+## Current branch implementation note (2026-11-04)
+- A draft conversation/message migration is present at `supabase/migrations/202611040001_w3m_ai_assistant.sql`, but it is **not applied** to any Supabase project and is not needed for the text-first prototype.
+- Keep persistent transcript storage deferred to Phase 2 until retention, deletion, and privacy requirements are agreed. Do not run this migration in production.
+- The Edge Function source validates JSON content type, requires gateway JWT verification through the explicit `verify_jwt = true` setting, and uses bounded request/history sizes. Its in-memory throttle is best-effort only and is not a durable abuse-control mechanism.
+- The assistant function is not deployed to the production Supabase project. No production secret or paid provider has been configured as part of this branch work.
