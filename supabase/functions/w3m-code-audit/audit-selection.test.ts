@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { auditPriority, buildAuditChunks, calculateAuditCoverage, isTransientAuditError, hasSoliditySource, selectAuditBatch, selectAuditCandidates } from "./audit-selection.ts";
+import { auditPriority, buildAuditChunks, calculateAuditCoverage, isTransientAuditError, parseRetryAfterSeconds, hasSoliditySource, selectAuditBatch, selectAuditCandidates } from "./audit-selection.ts";
 
 Deno.test("production source is prioritized ahead of harnesses and tests", () => {
   const tree = [
@@ -120,4 +120,12 @@ Deno.test("transient Gemini HTTP failures remain resumable and permanent failure
   assertEquals(isTransientAuditError("Gemini API 429: quota exhausted"), true);
   assertEquals(isTransientAuditError("Gemini-only audit could not complete chunk 1 (HTTP 404): model not found."), false);
   assertEquals(isTransientAuditError("Invalid JSON returned by Gemini"), false);
+});
+
+
+Deno.test("Retry-After supports delta seconds and HTTP dates", () => {
+  assertEquals(parseRetryAfterSeconds("12", 0), 12);
+  assertEquals(parseRetryAfterSeconds("invalid", 0), 0);
+  assertEquals(parseRetryAfterSeconds("Thu, 01 Jan 1970 00:00:20 GMT", 0), 20);
+  assertEquals(parseRetryAfterSeconds("Thu, 01 Jan 1970 00:00:05 GMT", 10000), 0);
 });
