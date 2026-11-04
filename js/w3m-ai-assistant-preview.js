@@ -5,7 +5,8 @@
   const client = () => window.Web3MarketSupabase?.getClient?.() || window.Web3MarketSupabase?.client || window.supabaseClient || null;
   const $ = (id) => document.getElementById(id);
   const messages = [];
-  let language = "en";
+  let language = "auto";
+  let activeLanguage = "en";
   let busy = false;
   let recognition = null;
   const speechSupported = "speechSynthesis" in window;
@@ -43,23 +44,23 @@
       setStatus("Please sign in to your Web3Market account to use the assistant.", true);
       return;
     }
-    language = detectLanguage(text);
+    activeLanguage = language === "auto" ? detectLanguage(text) : language;
     addMessage("user", text);
     messages.push({ role: "user", text });
     $("w3m-ai-input").value = "";
     setBusy(true);
-    setStatus(language === "ar" ? "يتم تجهيز الإجابة…" : "Preparing your answer…");
+    setStatus(activeLanguage === "ar" ? "يتم تجهيز الإجابة…" : "Preparing your answer…");
     try {
       const { data, error } = await sb.functions.invoke("w3m-ai-assistant", {
-        body: { message: text, history: messages.slice(-8, -1) },
+        body: { message: text, language: activeLanguage, history: messages.slice(-8, -1) },
       });
       if (error || !data?.ok || typeof data.answer !== "string") throw new Error(data?.error || error?.message || "Assistant request failed.");
       addMessage("assistant", data.answer);
       messages.push({ role: "assistant", text: data.answer });
-      setStatus(language === "ar" ? "مساعد Web3Market · العربية والإنجليزية" : "Web3Market Assistant · Arabic & English");
+      setStatus(activeLanguage === "ar" ? "مساعد Web3Market · العربية والإنجليزية" : "Web3Market Assistant · Arabic & English");
     } catch (error) {
       const message = error?.message || "The assistant is temporarily unavailable.";
-      addMessage("assistant", language === "ar" ? "عذراً، المساعد غير متاح حالياً. حاول مرة أخرى بعد قليل." : "Sorry, the assistant is temporarily unavailable. Please try again shortly.");
+      addMessage("assistant", activeLanguage === "ar" ? "عذراً، المساعد غير متاح حالياً. حاول مرة أخرى بعد قليل." : "Sorry, the assistant is temporarily unavailable. Please try again shortly.");
       setStatus(message, true);
     } finally { setBusy(false); }
   }
@@ -75,18 +76,18 @@
     if (!Recognition || busy) return;
     if (recognition) { recognition.stop(); recognition = null; }
     recognition = new Recognition();
-    recognition.lang = language === "ar" ? "ar-EG" : "en-US";
+    recognition.lang = activeLanguage === "ar" ? "ar-EG" : "en-US";
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     recognition.onresult = (event) => {
       const transcript = event.results?.[0]?.[0]?.transcript || "";
-      if (transcript) { $("w3m-ai-input").value = transcript; language = detectLanguage(transcript); }
-      setStatus(language === "ar" ? "تم التعرف على كلامك. راجع الرسالة ثم أرسلها." : "Speech recognized. Review your message and press Send.");
+      if (transcript) { $("w3m-ai-input").value = transcript; activeLanguage = language === "auto" ? detectLanguage(transcript) : language; }
+      setStatus(activeLanguage === "ar" ? "تم التعرف على كلامك. راجع الرسالة ثم أرسلها." : "Speech recognized. Review your message and press Send.");
     };
     recognition.onerror = (event) => setStatus("Voice input unavailable: " + (event.error || "unknown error"), true);
     recognition.onend = () => { $("w3m-ai-voice").classList.remove("listening"); };
     $("w3m-ai-voice").classList.add("listening");
-    setStatus(language === "ar" ? "استمع الآن… تحدث بوضوح." : "Listening… Speak clearly.");
+    setStatus(activeLanguage === "ar" ? "استمع الآن… تحدث بوضوح." : "Listening… Speak clearly.");
     recognition.start();
   }
   $("w3m-ai-send").addEventListener("click", send);
@@ -95,6 +96,7 @@
   $("w3m-ai-speak").addEventListener("click", speakLast);
   $("w3m-ai-language").addEventListener("change", (event) => {
     language = event.target.value;
+    if (language !== "auto") activeLanguage = language;
     $("w3m-ai-status").textContent = language === "ar" ? "مساعد Web3Market · العربية والإنجليزية" : "Web3Market Assistant · Arabic & English";
   });
   if (!speechInputSupported) $("w3m-ai-voice").hidden = true;
