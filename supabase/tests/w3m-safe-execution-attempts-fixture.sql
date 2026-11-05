@@ -2,6 +2,8 @@
 CREATE TABLE public.deals (
   id uuid PRIMARY KEY,
   project_id uuid NOT NULL,
+  buyer_id uuid NOT NULL,
+  seller_id uuid NOT NULL,
   payment_status text NOT NULL,
   payment_tx_hash text,
   delivery_status text NOT NULL,
