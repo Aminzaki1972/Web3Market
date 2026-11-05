@@ -160,6 +160,7 @@ Deno.test("transfer intent requires both consents and exact buyer account identi
     sellerSnapshot,
     expectation: EXPECTATION,
     buyer: { id: 200, login: "buyer", type: "User" },
+    sellerAuthenticatedAccount: SELLER_ACTOR,
     sellerConsentRecorded: true,
     buyerConsentRecorded: true,
   });
@@ -177,6 +178,7 @@ Deno.test("forked or disabled repositories cannot produce a transfer intent", ()
         sellerSnapshot: snapshot(changes),
         expectation: EXPECTATION,
         buyer: { id: 200, login: "buyer", type: "User" },
+        sellerAuthenticatedAccount: SELLER_ACTOR,
         sellerConsentRecorded: true,
         buyerConsentRecorded: true,
       });
