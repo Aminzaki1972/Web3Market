@@ -30,7 +30,7 @@ The isolated branch now includes `ethereum-signature-adapter.ts`, using pinned J
 
 ## Trusted key registry requirements
 
-An isolated migration now defines `w3m_trusted_signer_keys`, `w3m_trusted_signer_key_events`, and the service-role-only `w3m_trusted_signer_key_status` view. Registration and revocation use service-role-only security-definer RPCs; the base key and event tables are not directly writable by `service_role`, and browser roles receive no access. Registration and its ACTIVATED event are one transaction. Revocation appends a REVOKED event; it does not mutate or delete the key. The derived view resolves the latest lifecycle event. A key ID can be activated once and revoked once; rotation creates a new key ID.
+An isolated migration now defines `w3m_trusted_signer_keys`, `w3m_trusted_signer_key_events`, and the service-role-only `w3m_trusted_signer_key_status` view. `trusted-signer-registry-adapter.ts` strictly maps rows from that view into the verifier model and rejects unknown status, malformed metadata, duplicates, or inconsistent revocation timestamps. Registration and revocation use service-role-only security-definer RPCs; the base key and event tables are not directly writable by `service_role`, and browser roles receive no access. Registration and its ACTIVATED event are one transaction. Revocation appends a REVOKED event; it does not mutate or delete the key. The derived view resolves the latest lifecycle event. A key ID can be activated once and revoked once; rotation creates a new key ID.
 
 The authoritative registry must remain server-only and immutable/auditable, with at least:
 
