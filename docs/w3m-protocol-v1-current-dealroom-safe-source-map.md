@@ -124,3 +124,14 @@ The historical five-function snapshot is useful for understanding earlier implem
 GitHub code search was run for each of the six client-referenced endpoint names (create-safe, prepare-deal-release, prepare-safe-release-tx, record-safe-release-signature, execute-safe-release, finalize-safe-release) within this repository's default-branch index. Matches were limited to frontend call sites and a diagnostic JavaScript file; no backend Edge Function implementation was returned. This corroborates the current-main tree inventory but remains limited to the default-branch code-search index and does not inspect deployed Supabase functions.
 
 No backend adapter was created from guessed schemas. No historical function files were copied into the feature branch. The next implementation step is blocked until the authoritative source-only export or an explicitly isolated staging source set is available.
+
+
+## 10. Read-only deployed source retrieval — 2026-11-06
+
+A read-only Supabase Edge Function metadata/source retrieval was performed for project `web3market` (`hzhqlexnhtukfljcvnyd`). It confirmed that all six Deal Room/Safe functions are currently present and ACTIVE in the project. Exact deployed versions and source package SHA-256 identifiers are recorded in `docs/w3m-protocol-v1-source-snapshot-20261106/README.md`; the source-only files are archived in that directory as `.txt` artifacts.
+
+The captured versions are: `create-safe` 56, `prepare-deal-release` 43, `prepare-safe-release-tx` 37, `record-safe-release-signature` 24, `execute-safe-release` 28, and `finalize-safe-release` 25. This supersedes the earlier statement that deployed function versions were unverified; it does not mean any function was changed.
+
+Static review is recorded in `docs/w3m-protocol-v1-deployed-safe-functions-static-review-20261106.md`. Key result: no W3M gate is currently present in these six captured versions. Additional high-priority gaps concern execution-time ECDSA recovery, exact MultiSend semantics at execution, full state revalidation, idempotent broadcast persistence, and atomic finalization. Existing controls, including signature recovery at recording and Safe ExecutionSuccess / exact USDT transfer checks at finalization, are documented and must be preserved.
+
+Only read-only source retrieval occurred. No function invocation, migration, deployment, database write, secret-value export, wallet operation, Safe transaction, or funds movement occurred.
