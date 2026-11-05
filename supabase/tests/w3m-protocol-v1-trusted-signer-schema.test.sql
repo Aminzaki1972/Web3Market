@@ -26,6 +26,10 @@ begin
     raise exception 'Browser roles unexpectedly have trusted signer registry access';
   end if;
 
+  if not (select rolbypassrls from pg_roles where rolname = 'service_role') then
+    raise exception 'Disposable service_role must model Supabase BYPASSRLS behavior';
+  end if;
+
   if not has_table_privilege('service_role', 'public.w3m_trusted_signer_keys', 'SELECT')
      or not has_table_privilege('service_role', 'public.w3m_trusted_signer_key_events', 'SELECT')
      or not has_table_privilege('service_role', 'public.w3m_trusted_signer_key_status', 'SELECT')
