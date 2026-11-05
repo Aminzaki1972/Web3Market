@@ -8,7 +8,7 @@
 - Adapter: `supabase/functions/w3m-acquisition-verification/github-repository-adapter.ts`
 - Tests: `supabase/functions/w3m-acquisition-verification/github-repository-adapter.test.ts`
 
-The adapter performs authenticated GET-only reads against GitHub's repository endpoint. It accepts a server-side token as an input, never places it in a URL, and does not return or log the token. Provider error bodies are deliberately excluded from thrown error messages.
+The adapter performs authenticated GET-only reads against GitHub's repository endpoint and the authenticated-user endpoint. It binds the token actor's immutable user ID to the expected seller or buyer personal account ID. It accepts a server-side token as an input, never places it in a URL, and does not return or log the token. Provider error bodies are deliberately excluded from thrown error messages.
 
 ## Identity checks
 
@@ -21,16 +21,21 @@ The adapter normalizes and pins:
 - Admin permission where exposed.
 - ETag, GitHub request ID, and observation timestamp.
 
-Seller control is verified only when the exact repository ID and seller account ID match and GitHub reports `permissions.admin === true`.
+Seller control is verified only when the exact repository ID and seller account ID match, the authenticated token actor is that same seller personal account, and GitHub reports `permissions.admin === true`.
 
-Buyer ownership is verified only when the same immutable repository ID is now owned by the exact pre-verified buyer account ID. Collaborator or administrator permission is not a substitute for ownership.
+Buyer ownership is verified only when the same immutable repository ID is now owned by the exact pre-verified buyer personal account and the authenticated token actor is that buyer. Collaborator or administrator permission is not a substitute for ownership.
+
+**V1 limitation:** organization-owned repositories are intentionally returned as `REVIEW_REQUIRED`. They require a separate organization-authority adapter that verifies the seller's or buyer's authorized organization role; a personal-user token and the repository owner ID alone are not enough.
 
 ## Transfer safety
+
+The module can convert a fresh authenticated owner read into a SHA-256-bound W3M `SELLER_CONTROL_VERIFIED` or `BUYER_CONTROL_VERIFIED` event. The event validity window is five minutes and its observation time must exactly match the provider-read timestamp.
 
 The module can prepare a non-executable transfer intent after:
 - Exact seller repository ownership and admin control are verified.
 - Seller and buyer consent are recorded for the exact asset.
-- The buyer login is bound to the pre-verified immutable buyer account ID.
+- The buyer login is bound to the pre-verified immutable buyer personal-account ID.
+- The seller's authenticated GitHub token actor is bound to the seller account ID.
 - The repository is not marked as a fork or disabled.
 
 The intent is explicitly marked `executionEnabled: false`. No POST request or transfer operation exists in this adapter. A future transfer executor must be a separate server-side workflow with fresh provider reads, verified dual-party authorization, idempotency, audit logging, and handling for GitHub's asynchronous transfer/acceptance process.
@@ -50,6 +55,7 @@ The existing isolated workflow runs `deno test supabase/functions/w3m-acquisitio
 ## Not implemented
 
 - GitHub App creation or OAuth connection.
+- Organization-owned repository verification.
 - Secret storage or token provisioning.
 - Webhook endpoint or polling worker.
 - Transfer POST executor.
