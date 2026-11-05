@@ -1,0 +1,168 @@
+# W3M Protocol V1 — Integration Contract for Deal Room and Safe
+
+**Branch:** `w3m-protocol-v1-isolated-20261105`  
+**Status:** Contract specification only; no live integration or deployment  
+**Purpose:** Define the exact server-side boundary required before any Safe release can be prepared or executed.
+
+## 1. Non-negotiable architecture
+
+- Safe remains the custody and multi-signature execution layer.
+- W3M is a verification gate, not a replacement escrow contract.
+- Browser code may display a report but must never create, sign, approve, or authorize a PASS report.
+- Only a trusted server-side verifier may assemble evidence from authoritative records, evaluate it, persist it, and sign the report.
+- Every Safe release preparation and execution request must independently revalidate the latest report.
+- Missing, stale, mismatched, unsigned, expired, superseded, or unverifiable evidence must fail closed.
+- No production database, Edge Function, wallet, Safe, Cloudflare setting, or deployment is changed by this contract.
+
+## 2. Required Edge Function boundary
+
+The eventual implementation should expose one server-side function named `w3m-acquisition-verification`. It must authenticate the caller and enforce role/deal participation before processing any action.
+
+### Action: `create_report`
+
+Input (all identifiers are opaque strings; do not trust client-supplied evidence facts):
+
+- `deal_id`
+- Optional `requested_reason` for audit logging only
+
+The function must load the canonical deal and related records itself. It must not accept client-provided `status`, `evidence`, `evidence_hash`, `report_hash`, `signature`, `payment_confirmed`, `seller_control_verified`, or `delivery_accepted` as authoritative inputs.
+
+Output:
+
+- `report_id`
+- `deal_id`
+- `project_id`
+- `status`
+- `engine_version`
+- `evidence_hash`
+- `issued_at`
+- `expires_at`
+- Sanitized `issues[]`
+
+### Action: `get_report`
+
+Input: `deal_id`, `report_id`.
+
+The function must confirm that the caller is an authorized participant or administrator for that deal. Return only the sanitized report and evidence summary; never expose signing keys or internal secrets.
+
+### Action: `validate_settlement`
+
+Input:
+
+- `deal_id`
+- `report_id`
+- `settlement_stage`, restricted to `PREPARE` or `EXECUTE`
+
+The function must reload the latest report and canonical deal state, validate the signature and key status, enforce expiry and supersession, and verify the evidence hash before returning authorization. The response is an internal server-to-server decision, not a browser authorization token.
+
+## 3. Evidence adapter contract
+
+Every adapter must return a normalized evidence record matching the decision engine interface:
+
+- Unique evidence ID
+- One of the eight approved evidence categories
+- Result: `PASS`, `MISSING`, `FAILED`, `STALE`, or `REVIEW_REQUIRED`
+- Mandatory flag
+- Exact deal and project binding
+- SHA-256 hash of a canonical, minimized evidence snapshot
+- Observation timestamp and explicit expiry
+- Authoritative source record ID and source version
+- Typed metadata consumed by the deterministic decision engine
+
+The adapter must preserve provenance. A boolean copied from browser state is not authoritative evidence.
+
+### Source mapping to implement only after schema/source review
+
+| Evidence category | Candidate authoritative source | Required validation |
+|---|---|---|
+| PROJECT_IDENTITY | Accepted marketplace project record and official Passport result | Project is approved, belongs to this deal, and identity fields match |
+| CODE_AUDIT | Completed `code_audits` row | Exact repository, audit ID, completed status, and exact 40-character commit SHA |
+| OWNERSHIP_CONTROL | Asset-specific control proofs | Seller controls each agreed domain, repository, wallet, cloud account, or other asset |
+| ASSET_TRANSFER | Asset-specific transfer confirmations | Each asset has an independently verifiable transfer proof |
+| DEAL_AGREEMENT | Deal record and `deal_party_agreements` | Buyer and seller accepted the same immutable terms version |
+| PAYMENT | Existing trusted payment verification / Safe transaction records | Correct chain, Safe, token, amount, recipient, fee split, and confirmed transaction |
+| BUYER_ACCEPTANCE | Delivery evidence plus buyer acceptance record | Buyer explicitly accepted the delivered asset set |
+| DISPUTE_CHECK | Canonical dispute records | No unresolved dispute or settlement hold exists |
+
+The candidate source names above are not a declaration that the schema is fully verified. The authoritative table/column types, constraints, RLS behavior, and write paths must be inspected in the isolated staging source before implementing adapters.
+
+## 4. Safe settlement integration points
+
+The gate must be inserted into the existing authoritative backend functions, not merely into `deal-room.js`.
+
+At minimum, review and integrate the actual server-side implementations corresponding to these client-referenced operations:
+
+- `prepare-deal-release`
+- `prepare-safe-release-tx`
+- Safe release signature recording
+- Safe transaction execution
+- Safe release finalization
+
+Required order:
+
+1. Authenticate and authorize the deal participant/system caller.
+2. Load canonical deal, payment, dispute, Safe, and report state.
+3. Call the internal settlement validator for `PREPARE` before creating a release transaction.
+4. Re-check report version, expiry, evidence, dispute, payment, Safe configuration, amount, fee split, nonce, and release idempotency at `EXECUTE`.
+5. Continue the existing Safe policy and multi-signature checks unchanged.
+6. Record an immutable `SETTLEMENT_AUTHORIZED` or `SETTLEMENT_BLOCKED` event with reason codes.
+7. Finalize only after authoritative on-chain confirmation.
+
+A browser-supplied `report_id` alone must never authorize settlement. The server must resolve the latest report for the deal and reject an older report even if its signature remains cryptographically valid.
+
+## 5. Report signature and key custody
+
+- Use a dedicated server-side signing key, never a browser wallet or client bundle.
+- Keep the private key in a managed secret/KMS facility; do not store it in report rows, Git, workflow logs, or client environment variables.
+- The signature must cover a canonical envelope containing protocol version, engine version, report ID/version, deal/project IDs, buyer/seller references, audit ID and commit SHA, evidence hash, deal terms version, payment reference, status, issue time, and expiry.
+- Store signer key ID and signature with the immutable report.
+- Validate signature, signer authorization, and key revocation status at both settlement stages.
+- Define key rotation and emergency revocation before staging use.
+
+## 6. Required fail-closed cases
+
+Settlement must be denied if any of these conditions occurs:
+
+- No report exists, or report is not `PASS`.
+- Report belongs to another deal or project.
+- Report is not the latest report version.
+- Signature is absent, invalid, or signed by a revoked/unrecognized key.
+- Report is expired or has been superseded.
+- Evidence hash does not match the canonical evidence manifest.
+- Audit is not completed or its commit SHA differs from the deal's pinned commit.
+- Ownership or transfer evidence is missing, stale, or unverifiable.
+- Buyer/seller agreement does not match the current deal terms version.
+- Payment is unconfirmed or amount/asset/chain/recipient/fee split differs.
+- Buyer has not accepted delivery.
+- A dispute or settlement hold is open.
+- Safe address, chain, owners, threshold, nonce, or transaction details differ from the existing approved release policy.
+- The release has already been executed or finalized.
+
+## 7. Staging test matrix
+
+All tests must run against disposable PostgreSQL and a BNB test network with test wallets only. No production URL, key, Safe, or funds may be used.
+
+| Scenario | Expected result |
+|---|---|
+| Complete valid evidence, valid signed report | PASS report; staging release may proceed through existing Safe checks |
+| Missing ownership proof | INCOMPLETE; no release preparation |
+| Seller does not control an asset | BLOCKED; no release preparation |
+| Audit commit differs from deal-pinned commit | BLOCKED; no release preparation |
+| Buyer/seller terms version mismatch | BLOCKED; no release preparation |
+| Payment not confirmed | BLOCKED; no release preparation |
+| Buyer delivery acceptance missing | INCOMPLETE; no release preparation |
+| Open dispute | BLOCKED; no release preparation |
+| Expired or superseded report | Rejected at PREPARE and EXECUTE |
+| Invalid signature or revoked signer key | Rejected at PREPARE and EXECUTE |
+| Evidence changes after report creation | Old report rejected; new report required |
+| Safe nonce/amount/fee split changes | Rejected before execution |
+| Duplicate execution request | Idempotent rejection; no second transfer |
+| Report from another deal | Rejected |
+
+## 8. Current blocker and next implementation step
+
+The repository contains the Deal Room browser client and calls to Safe-related Edge Functions, but the authoritative server-side implementations for the release path are not present in the repository tree. Reconstructing those functions from browser calls would be unsafe and could bypass existing payment, dispute, fee-split, or multi-signature protections.
+
+Therefore the next safe implementation step is to bring the actual Safe release function source into this isolated branch (or a dedicated staging repository) without deploying it. Then the adapters and gate can be integrated against the real source and tested end-to-end.
+
+**Current state:** deterministic decision engine and isolated evidence-registry schema have passed the dedicated CI run. This integration contract does not activate the protocol, alter the live Deal Room, or authorize any real settlement.
