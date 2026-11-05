@@ -37,6 +37,17 @@ export interface GitHubRepositoryExpectation {
   buyerAccountId: number;
 }
 
+export interface GitHubAuthenticatedAccount {
+  id: number;
+  login: string;
+  type: "User";
+}
+
+export interface GitHubOwnershipSnapshot {
+  repository: GitHubRepositorySnapshot;
+  authenticatedAccount: GitHubAuthenticatedAccount;
+}
+
 export type GitHubOwnershipResult =
   | { status: "SELLER_CONTROL_VERIFIED"; snapshot: GitHubRepositorySnapshot }
   | { status: "BUYER_CONTROL_VERIFIED"; snapshot: GitHubRepositorySnapshot }
@@ -178,10 +189,60 @@ export async function fetchGitHubRepositorySnapshot(
   );
 }
 
+export async function fetchGitHubAuthenticatedAccount(
+  input: { serverToken: string; fetchImpl?: typeof fetch },
+): Promise<GitHubAuthenticatedAccount> {
+  if (!nonEmpty(input.serverToken)) {
+    throw new GitHubAdapterError("A server-side GitHub token is required.");
+  }
+  const response = await (input.fetchImpl ?? fetch)(`${API_BASE}/user`, {
+    method: "GET",
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${input.serverToken}`,
+      "X-GitHub-Api-Version": API_VERSION,
+    },
+  });
+  if (!response.ok) {
+    throw new GitHubAdapterError(
+      `GitHub authenticated-user read failed with HTTP ${response.status}.`,
+      response.status,
+      response.headers.get("x-github-request-id"),
+    );
+  }
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new GitHubAdapterError("GitHub returned an unreadable authenticated-user response.");
+  }
+  if (!isRecord(payload) || !positiveInteger(payload.id) ||
+      !nonEmpty(payload.login) || payload.type !== "User") {
+    throw new GitHubAdapterError("The GitHub token did not resolve to a verified personal user identity.");
+  }
+  return { id: payload.id, login: payload.login, type: "User" };
+}
+
+export async function fetchGitHubOwnershipSnapshot(input: {
+  ownerLogin: string;
+  repositoryName: string;
+  serverToken: string;
+  fetchImpl?: typeof fetch;
+  now?: string;
+}): Promise<GitHubOwnershipSnapshot> {
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const [repository, authenticatedAccount] = await Promise.all([
+    fetchGitHubRepositorySnapshot({ ...input, fetchImpl }),
+    fetchGitHubAuthenticatedAccount({ serverToken: input.serverToken, fetchImpl }),
+  ]);
+  return { repository, authenticatedAccount };
+}
+
 export function verifyGitHubRepositoryOwner(
   snapshot: GitHubRepositorySnapshot,
   expectation: GitHubRepositoryExpectation,
   phase: "SELLER" | "BUYER",
+  authenticatedAccount: GitHubAuthenticatedAccount,
 ): GitHubOwnershipResult {
   if (!positiveInteger(expectation.repositoryId) ||
       !positiveInteger(expectation.sellerAccountId) ||
@@ -198,9 +259,19 @@ export function verifyGitHubRepositoryOwner(
     };
   }
 
+  // V1 intentionally supports personal-user repositories only. Organization
+  // repositories need a separate verified organization-owner/member adapter.
+  if (snapshot.owner.type !== "User") {
+    return { status: "REVIEW_REQUIRED", reason: "Organization-owned repositories require a separate organization authority verification adapter." };
+  }
+
   const expectedOwner = phase === "SELLER"
     ? expectation.sellerAccountId
     : expectation.buyerAccountId;
+
+  if (authenticatedAccount.type !== "User" || authenticatedAccount.id !== expectedOwner) {
+    return { status: "REVIEW_REQUIRED", reason: "The authenticated GitHub user is not the exact expected seller or buyer account." };
+  }
 
   if (snapshot.owner.id !== expectedOwner) {
     return { status: "OWNER_MISMATCH", snapshot, expectedAccountId: expectedOwner };
@@ -226,7 +297,15 @@ export function prepareGitHubTransferIntent(input: {
   sellerConsentRecorded: boolean;
   buyerConsentRecorded: boolean;
 }): GitHubTransferIntent {
-  const sellerCheck = verifyGitHubRepositoryOwner(input.sellerSnapshot, input.expectation, "SELLER");
+  if (input.sellerSnapshot.owner.type !== "User") {
+    throw new GitHubAdapterError("Organization-owned repositories require organization authority verification before transfer.");
+  }
+  const sellerCheck = verifyGitHubRepositoryOwner(
+    input.sellerSnapshot,
+    input.expectation,
+    "SELLER",
+    { id: input.expectation.sellerAccountId, login: input.sellerSnapshot.owner.login, type: "User" },
+  );
   if (sellerCheck.status !== "SELLER_CONTROL_VERIFIED") {
     throw new GitHubAdapterError("Cannot prepare transfer: seller ownership or administrator control is not verified.");
   }
@@ -236,7 +315,7 @@ export function prepareGitHubTransferIntent(input: {
   if (!positiveInteger(input.buyer.id) ||
       input.buyer.id !== input.expectation.buyerAccountId ||
       !nonEmpty(input.buyer.login) ||
-      !["User", "Organization"].includes(input.buyer.type)) {
+      input.buyer.type !== "User") {
     throw new GitHubAdapterError("Buyer GitHub account identity does not match the deal's pre-verified account ID.");
   }
   if (input.sellerSnapshot.fork || input.sellerSnapshot.disabled) {
