@@ -198,7 +198,14 @@ export async function verifyPersistedW3MReport(
         }
         const details = raw.details;
         const sourceEvidenceId = details.evidenceId;
+        const sourceObservedAt = details.evidenceObservedAt;
+        const sourceValidUntil = details.evidenceValidUntil;
         if (!text(sourceEvidenceId) || seen.has(sourceEvidenceId) ||
+            !text(sourceObservedAt) ||
+            !(sourceValidUntil === null || text(sourceValidUntil)) ||
+            Date.parse(sourceObservedAt) !== Date.parse(String(raw.observed_at)) ||
+            (sourceValidUntil !== null &&
+              Date.parse(sourceValidUntil) !== Date.parse(String(raw.valid_until))) ||
             !EVIDENCE_TYPES.has(raw.evidence_type) ||
             !EVIDENCE_RESULTS.has(raw.result) ||
             !SHA256.test(raw.evidence_hash)) {
@@ -208,6 +215,8 @@ export async function verifyPersistedW3MReport(
         seen.add(sourceEvidenceId);
         const metadata = { ...details };
         delete metadata.evidenceId;
+        delete metadata.evidenceObservedAt;
+        delete metadata.evidenceValidUntil;
         mapped.push({
           id: sourceEvidenceId,
           type: raw.evidence_type as EvidenceType,
@@ -216,8 +225,8 @@ export async function verifyPersistedW3MReport(
           dealId: String(dealId),
           projectId: String(projectId),
           contentHash: raw.evidence_hash,
-          observedAt: raw.observed_at,
-          validUntil: raw.valid_until as string | null,
+          observedAt: sourceObservedAt,
+          validUntil: sourceValidUntil as string | null,
           sourceRecordId: raw.source_record_id,
           sourceVersion: raw.source_version,
           metadata,
