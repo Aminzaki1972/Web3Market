@@ -124,9 +124,11 @@ revoke all on table public.w3m_acquisition_reports from public, anon, authentica
 revoke all on table public.w3m_acquisition_evidence from public, anon, authenticated, service_role;
 revoke all on table public.w3m_acquisition_report_events from public, anon, authenticated, service_role;
 
-grant select, insert on table public.w3m_acquisition_reports to service_role;
-grant select, insert on table public.w3m_acquisition_evidence to service_role;
-grant select, insert on table public.w3m_acquisition_report_events to service_role;
+-- The service role may read registry state and invoke the atomic RPC, but
+-- cannot bypass the RPC with direct table inserts.
+grant select on table public.w3m_acquisition_reports to service_role;
+grant select on table public.w3m_acquisition_evidence to service_role;
+grant select on table public.w3m_acquisition_report_events to service_role;
 
 
 -- Atomic server-side append operation. A single function invocation is one
