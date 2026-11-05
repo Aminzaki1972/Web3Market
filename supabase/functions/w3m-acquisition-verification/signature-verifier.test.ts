@@ -25,6 +25,7 @@ const base = {
   signature: "0x" + "b".repeat(130),
   signerKeyId: key.keyId,
   checkedAt: "2026-11-05T12:00:00.000Z",
+  purpose: "SETTLEMENT" as const,
 };
 const accept = async (input: {
   digestHex: string;
@@ -141,6 +142,7 @@ Deno.test("trusted Ethereum verifier combines key policy with real secp256k1 rec
     signature,
     signerKeyId: "ethereum-test-key",
     checkedAt: "2026-11-05T12:00:00.000Z",
+    purpose: "SETTLEMENT",
   }, [{
     keyId: "ethereum-test-key",
     algorithm: "ECDSA_SECP256K1_KECCAK256_RAW_DIGEST",
@@ -165,4 +167,41 @@ Deno.test("fails closed for unknown key status and exact expiry boundary", async
   }, [key], accept);
   assertEquals(exactExpiry.valid, false);
   if (!exactExpiry.valid) assertEquals(exactExpiry.code, "SIGNER_KEY_EXPIRED");
+});
+
+
+Deno.test("allows historical verification only when the report predates revocation", async () => {
+  const historicalKey = {
+    ...key,
+    status: "REVOKED" as const,
+    revokedAt: "2026-11-06T00:00:00.000Z",
+  };
+  const result = await verifyTrustedReportSignature({
+    ...base, purpose: "HISTORICAL",
+  }, [historicalKey], accept);
+  assertEquals(result.valid, true);
+});
+
+Deno.test("rejects historical signature issued at or after revocation", async () => {
+  const historicalKey = {
+    ...key,
+    status: "REVOKED" as const,
+    revokedAt: "2026-11-05T12:00:00.000Z",
+  };
+  const result = await verifyTrustedReportSignature({
+    ...base, purpose: "HISTORICAL",
+  }, [historicalKey], accept);
+  assertEquals(result.valid, false);
+  if (!result.valid) assertEquals(result.code, "REVOKED_SIGNER_KEY");
+});
+
+Deno.test("revoked key never authorizes settlement even for a pre-revocation report", async () => {
+  const historicalKey = {
+    ...key,
+    status: "REVOKED" as const,
+    revokedAt: "2026-11-06T00:00:00.000Z",
+  };
+  const result = await verifyTrustedReportSignature(base, [historicalKey], accept);
+  assertEquals(result.valid, false);
+  if (!result.valid) assertEquals(result.code, "REVOKED_SIGNER_KEY");
 });
