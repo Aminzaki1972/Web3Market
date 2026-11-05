@@ -29,8 +29,8 @@ export interface ProtocolOrchestratorInput {
   expiresAt: string;
   actorType: "SYSTEM" | "VERIFIER";
   actorRef?: string | null;
-  /** Must be loaded from the authoritative server-only signer registry. */
-  trustedSignerKeys: readonly TrustedSignerKey[];
+  /** Raw rows from the service-role-only w3m_trusted_signer_key_status view. */
+  trustedSignerRegistryRows: unknown;
 }
 
 export interface ProtocolOrchestratorResult {
@@ -79,12 +79,17 @@ export async function prepareAcquisitionProtocolBatch(
     actorRef: input.actorRef ?? null,
   }, signDigest);
 
+  const signerRegistry = mapTrustedSignerRegistryRows(input.trustedSignerRegistryRows);
+  if (!signerRegistry.ok) {
+    throw new Error("Trusted signer registry is invalid: " + signerRegistry.reason);
+  }
+
   const signatureCheck = await verifyTrustedEthereumReportSignature({
     digestHex: registryBatch.digestToSign,
     signature: registryBatch.report.report_signature,
     signerKeyId: registryBatch.report.signer_key_id,
     checkedAt: aggregation.decision.checkedAt,
-  }, input.trustedSignerKeys);
+  }, signerRegistry.keys);
   if (!signatureCheck.valid) {
     throw new Error("Trusted report signature verification failed: " + signatureCheck.code);
   }
