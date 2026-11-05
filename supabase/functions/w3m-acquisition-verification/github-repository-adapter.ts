@@ -296,6 +296,7 @@ export function prepareGitHubTransferIntent(input: {
   sellerSnapshot: GitHubRepositorySnapshot;
   expectation: GitHubRepositoryExpectation;
   buyer: GitHubAccountIdentity;
+  buyerAuthenticatedAccount: GitHubAuthenticatedAccount;
   sellerAuthenticatedAccount: GitHubAuthenticatedAccount;
   sellerConsentRecorded: boolean;
   buyerConsentRecorded: boolean;
@@ -318,7 +319,10 @@ export function prepareGitHubTransferIntent(input: {
   if (!positiveInteger(input.buyer.id) ||
       input.buyer.id !== input.expectation.buyerAccountId ||
       !nonEmpty(input.buyer.login) ||
-      input.buyer.type !== "User") {
+      input.buyer.type !== "User" ||
+      input.buyerAuthenticatedAccount.type !== "User" ||
+      input.buyerAuthenticatedAccount.id !== input.buyer.id ||
+      input.buyerAuthenticatedAccount.login.toLowerCase() !== input.buyer.login.toLowerCase()) {
     throw new GitHubAdapterError("Buyer GitHub account identity does not match the deal's pre-verified account ID.");
   }
   if (input.sellerSnapshot.fork || input.sellerSnapshot.disabled) {
