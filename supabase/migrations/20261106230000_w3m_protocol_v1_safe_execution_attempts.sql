@@ -281,13 +281,30 @@ begin
    for update;
   if not found then raise exception 'Execution attempt not found' using errcode = 'P0002'; end if;
 
-  if v_attempt.state = 'BROADCAST'
+  if v_attempt.state in ('BROADCAST','RECONCILIATION_REQUIRED')
+     and v_attempt.broadcast_tx_hash is not null
      and lower(v_attempt.broadcast_tx_hash) = lower(p_broadcast_tx_hash) then
-    return jsonb_build_object('recorded', true, 'idempotent_replay', true, 'state', 'BROADCAST');
+    return jsonb_build_object(
+      'recorded', true, 'idempotent_replay', true, 'state', v_attempt.state
+    );
+  end if;
+
+  -- After an uncertain send, the executor may discover the original hash by
+  -- reconciling the nonce/events. Bind that verified hash without clearing the
+  -- blocking reconciliation state; finalization still requires receipt proof.
+  if v_attempt.state = 'RECONCILIATION_REQUIRED'
+     and v_attempt.broadcast_tx_hash is null then
+    update public.w3m_safe_execution_attempts
+       set broadcast_tx_hash = lower(p_broadcast_tx_hash),
+           broadcast_at = clock_timestamp()
+     where id = p_attempt_id;
+    return jsonb_build_object(
+      'recorded', true, 'idempotent_replay', false, 'state', 'RECONCILIATION_REQUIRED'
+    );
   end if;
 
   if v_attempt.state <> 'CLAIMED' then
-    raise exception 'Attempt is not in CLAIMED state; reconcile before retry'
+    raise exception 'Attempt is not eligible for a new broadcast hash; reconcile before retry'
       using errcode = '23514';
   end if;
 
