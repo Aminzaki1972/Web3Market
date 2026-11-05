@@ -1,5 +1,5 @@
 import { secp256k1 } from "jsr:@noble/curves@1.8.2/secp256k1";
-import { keccak_256 } from "jsr:@noble/hashes@1.8.0/sha3";
+import { keccak_256 } from "jsr:@noble/hashes@1.7.1/sha3";
 import {
   recoverEthereumAddressFromDigest,
   verifyEthereumRawDigestSignature,
@@ -20,7 +20,7 @@ function fixture() {
   const signed = secp256k1.sign(digest, privateKey, { prehash: false });
   const signature = "0x" + toHex(new Uint8Array([
     ...signed.toCompactRawBytes(),
-    signed.recovery + 27,
+    signed.recovery! + 27,
   ]));
   const publicKey = secp256k1.getPublicKey(privateKey, false);
   const address = "0x" + toHex(keccak_256(publicKey.slice(1)).slice(12));
