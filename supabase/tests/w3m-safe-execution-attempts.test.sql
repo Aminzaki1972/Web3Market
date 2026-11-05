@@ -1,5 +1,5 @@
--- Isolated PostgreSQL contract tests for W3M Safe execution attempts.
--- Run only after disposable fixtures + both W3M registry migrations + attempt migration.
+-- Isolated PostgreSQL contract tests for W3M Safe execution attempts and finalization.
+-- Run only against disposable PostgreSQL after the W3M registry and Safe-attempt migrations.
 begin;
 
 do $test$
@@ -15,63 +15,60 @@ declare
   v_result jsonb;
   v_safe_hash text := '0x' || repeat('a', 64);
   v_broadcast_hash text := '0x' || repeat('b', 64);
+  v_receipt jsonb;
 begin
+  insert into public.projects (id,status) values (v_project,'active');
+
   insert into public.w3m_trusted_signer_keys (
     key_id, algorithm, public_address, valid_from, valid_until, created_by
   ) values (
-    'attempt-test-key',
-    'ECDSA_SECP256K1_KECCAK256_RAW_DIGEST',
+    'attempt-test-key','ECDSA_SECP256K1_KECCAK256_RAW_DIGEST',
     '0x1111111111111111111111111111111111111111',
-    now() - interval '1 day',
-    now() + interval '1 day',
-    'isolated-schema-test'
+    now() - interval '1 day', now() + interval '1 day','isolated-schema-test'
   );
 
   insert into public.w3m_trusted_signer_key_events (
     key_id, event_type, actor_type, reason, event_hash
-  ) values (
-    'attempt-test-key','ACTIVATED','SYSTEM','isolated test key',repeat('a',64)
-  );
+  ) values ('attempt-test-key','ACTIVATED','SYSTEM','isolated test key',repeat('a',64));
 
   insert into public.deals (
-    id, project_id, buyer_id, seller_id, payment_status, payment_tx_hash,
-    delivery_status, buyer_approved_at, dispute_status,
-    chain_id, safe_address, token_contract
+    id, project_id, buyer_id, seller_id, amount, payment_status, payment_tx_hash,
+    delivery_status, buyer_approved_at, dispute_status, chain_id, safe_address, token_contract
   ) values (
-    v_deal, v_project, v_buyer, v_seller, 'confirmed', '0xpayment',
-    'accepted', now(), 'none',
-    56, '0x2222222222222222222222222222222222222222',
-    '0x3333333333333333333333333333333333333333'
-  );
-
-  insert into public.deal_release_policies (
-    id, deal_id, status, chain_id, safe_address, token_contract
-  ) values (
-    v_policy, v_deal, 'locked', 56,
+    v_deal,v_project,v_buyer,v_seller,100,'confirmed','0xpayment','accepted',now(),'none',56,
     '0x2222222222222222222222222222222222222222',
     '0x3333333333333333333333333333333333333333'
   );
 
-  insert into public.deal_multisig_transactions (
-    id, deal_id, action, status, safe_tx_hash, chain_id, safe_address
+  insert into public.deal_release_policies (
+    id,deal_id,status,chain_id,safe_address,token_contract,deal_amount,
+    seller_wallet,platform_wallet,seller_net_amount,fee_amount
   ) values (
-    v_tx, v_deal, 'release_to_seller', 'signed', v_safe_hash, 56,
-    '0x2222222222222222222222222222222222222222'
+    v_policy,v_deal,'locked',56,
+    '0x2222222222222222222222222222222222222222',
+    '0x3333333333333333333333333333333333333333',100,
+    '0x4444444444444444444444444444444444444444',
+    '0x2B15cC63eE3b833F502C065767695Fa2B584f8c9',92.5,7.5
+  );
+
+  insert into public.deal_multisig_transactions (
+    id,deal_id,action,status,safe_tx_hash,chain_id,safe_address,safe_nonce
+  ) values (
+    v_tx,v_deal,'release_to_seller','signed',v_safe_hash,56,
+    '0x2222222222222222222222222222222222222222',7
   );
 
   insert into public.w3m_acquisition_reports (
-    id, deal_id, project_id, report_version, supersedes_report_id, buyer_id, seller_id, status, engine_version,
-    evidence_hash, report_hash, report_payload, signer_key_id,
-    report_signature, issued_at, expires_at
+    id,deal_id,project_id,report_version,supersedes_report_id,buyer_id,seller_id,status,engine_version,
+    evidence_hash,report_hash,report_payload,signer_key_id,report_signature,issued_at,expires_at
   ) values (
-    v_report, v_deal::text, v_project::text, 1, null, v_buyer::text, v_seller::text, 'PASS', 'test-engine',
-    repeat('c',64), repeat('d',64), '{}'::jsonb, 'attempt-test-key',
-    '0x' || repeat('e',130), now() - interval '1 minute', now() + interval '1 hour'
+    v_report,v_deal::text,v_project::text,1,null,v_buyer::text,v_seller::text,'PASS','test-engine',
+    repeat('c',64),repeat('d',64),'{}'::jsonb,'attempt-test-key',
+    '0x' || repeat('e',130),now() - interval '1 minute',now() + interval '1 hour'
   );
 
   v_result := public.w3m_claim_safe_execution_attempt(
-    v_deal, v_tx, v_report, v_safe_hash,
-    'isolated-test-executor', 'attempt-idempotency-key-0001'
+    v_deal,v_tx,v_report,v_safe_hash,'isolated-test-executor','attempt-idempotency-key-0001'
   );
   if coalesce((v_result->>'claimed')::boolean,false) is not true
      or coalesce((v_result->>'idempotent_replay')::boolean,true) is not false then
@@ -80,8 +77,7 @@ begin
   v_attempt := (v_result->>'attempt_id')::uuid;
 
   v_result := public.w3m_claim_safe_execution_attempt(
-    v_deal, v_tx, v_report, v_safe_hash,
-    'isolated-test-executor', 'attempt-idempotency-key-0001'
+    v_deal,v_tx,v_report,v_safe_hash,'isolated-test-executor','attempt-idempotency-key-0001'
   );
   if coalesce((v_result->>'idempotent_replay')::boolean,false) is not true
      or (v_result->>'attempt_id')::uuid <> v_attempt then
@@ -90,33 +86,25 @@ begin
 
   begin
     perform public.w3m_claim_safe_execution_attempt(
-      v_deal, v_tx, v_report, v_safe_hash,
-      'isolated-test-executor', 'attempt-idempotency-key-0002'
+      v_deal,v_tx,v_report,v_safe_hash,'isolated-test-executor','attempt-idempotency-key-0002'
     );
     raise exception 'A second active attempt for the deal was unexpectedly accepted';
-  exception when unique_violation then
-    null;
+  exception when unique_violation then null;
   end;
 
-  v_result := public.w3m_record_safe_execution_broadcast(v_attempt, v_broadcast_hash);
+  v_result := public.w3m_record_safe_execution_broadcast(v_attempt,v_broadcast_hash);
   if coalesce((v_result->>'recorded')::boolean,false) is not true then
     raise exception 'Broadcast hash was not recorded';
   end if;
-
-  v_result := public.w3m_record_safe_execution_broadcast(v_attempt, v_broadcast_hash);
+  v_result := public.w3m_record_safe_execution_broadcast(v_attempt,v_broadcast_hash);
   if coalesce((v_result->>'idempotent_replay')::boolean,false) is not true then
     raise exception 'Same broadcast hash was not idempotent';
   end if;
 
-  -- An idempotent claim replay must remain safe even after the transaction row
-  -- advances from signed to submitted following a successful broadcast.
-  update public.deal_multisig_transactions
-     set status = 'submitted'
-   where id = v_tx;
+  update public.deal_multisig_transactions set status='submitted',tx_hash=v_broadcast_hash where id=v_tx;
 
   v_result := public.w3m_claim_safe_execution_attempt(
-    v_deal, v_tx, v_report, v_safe_hash,
-    'isolated-test-executor', 'attempt-idempotency-key-0001'
+    v_deal,v_tx,v_report,v_safe_hash,'isolated-test-executor','attempt-idempotency-key-0001'
   );
   if coalesce((v_result->>'idempotent_replay')::boolean,false) is not true
      or (v_result->>'attempt_id')::uuid <> v_attempt then
@@ -124,43 +112,71 @@ begin
   end if;
 
   begin
-    perform public.w3m_record_safe_execution_broadcast(v_attempt, '0x' || repeat('f',64));
+    perform public.w3m_record_safe_execution_broadcast(v_attempt,'0x' || repeat('f',64));
     raise exception 'A different broadcast hash was unexpectedly accepted';
-  exception when check_violation then
-    null;
+  exception when check_violation then null;
   end;
 
-  if not exists (
-    select 1 from public.w3m_safe_execution_attempts
-     where id = v_attempt
-       and state = 'BROADCAST'
-       and lower(broadcast_tx_hash) = lower(v_broadcast_hash)
-  ) then
-    raise exception 'Attempt ledger did not preserve the exact broadcast hash';
-  end if;
-
-  v_result := public.w3m_mark_safe_execution_reconciliation_required(
-    v_attempt, 'RPC_TIMEOUT_UNCERTAIN'
-  );
+  v_result := public.w3m_mark_safe_execution_reconciliation_required(v_attempt,'RPC_TIMEOUT_UNCERTAIN');
   if coalesce((v_result->>'updated')::boolean,false) is not true then
     raise exception 'Attempt did not enter reconciliation-required state';
   end if;
-
-  v_result := public.w3m_mark_safe_execution_reconciliation_required(
-    v_attempt, 'RPC_TIMEOUT_UNCERTAIN'
-  );
+  v_result := public.w3m_mark_safe_execution_reconciliation_required(v_attempt,'RPC_TIMEOUT_UNCERTAIN');
   if coalesce((v_result->>'idempotent_replay')::boolean,false) is not true then
     raise exception 'Reconciliation transition was not idempotent';
   end if;
 
-  if not exists (
-    select 1 from public.w3m_safe_execution_attempts
-     where id = v_attempt
-       and state = 'RECONCILIATION_REQUIRED'
-       and lower(broadcast_tx_hash) = lower(v_broadcast_hash)
-  ) then
-    raise exception 'Reconciliation state did not preserve the original broadcast hash';
+  v_receipt := jsonb_build_object(
+    'chain_id',56,'transaction_hash',v_broadcast_hash,'receipt_status',1,
+    'execution_success',true,'execution_failure',false,
+    'safe_address','0x2222222222222222222222222222222222222222',
+    'safe_tx_hash',v_safe_hash,
+    'token_contract','0x3333333333333333333333333333333333333333',
+    'transfers',jsonb_build_array(
+      jsonb_build_object('from_address','0x2222222222222222222222222222222222222222',
+        'to_address','0x4444444444444444444444444444444444444444','amount','92.5'),
+      jsonb_build_object('from_address','0x2222222222222222222222222222222222222222',
+        'to_address','0x2B15cC63eE3b833F502C065767695Fa2B584f8c9','amount','7.5')
+    )
+  );
+
+  -- Recipient substitution must not finalize the deal.
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,
+      jsonb_set(v_receipt,'{transfers,0,to_address}',
+        to_jsonb('0x9999999999999999999999999999999999999999'::text))
+    );
+    raise exception 'Substituted seller recipient was unexpectedly finalized';
+  exception when check_violation then null;
+  end;
+
+  v_result := public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
+  if coalesce((v_result->>'finalized')::boolean,false) is not true
+     or coalesce((v_result->>'idempotent_replay')::boolean,true) is not false
+     or v_result->>'state' <> 'CONFIRMED' then
+    raise exception 'Verified release did not finalize atomically';
   end if;
+
+  if not exists (select 1 from public.deals where id=v_deal and status='completed' and release_tx_hash=v_broadcast_hash)
+     or not exists (select 1 from public.deal_release_policies where id=v_policy and status='released' and release_tx_hash=v_broadcast_hash)
+     or not exists (select 1 from public.deal_multisig_transactions where id=v_tx and status='confirmed' and tx_hash=v_broadcast_hash)
+     or not exists (select 1 from public.projects where id=v_project and status='sold')
+     or not exists (select 1 from public.w3m_safe_execution_attempts where id=v_attempt and state='CONFIRMED' and finalized_at is not null)
+     or (select count(*) from public.deal_audit_logs where deal_id=v_deal and action='safe_release_confirmed') <> 1 then
+    raise exception 'Atomic finalization did not update every required record exactly once';
+  end if;
+
+  v_result := public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
+  if coalesce((v_result->>'idempotent_replay')::boolean,false) is not true then
+    raise exception 'Finalization replay was not idempotent';
+  end if;
+
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(v_attempt,'0x' || repeat('f',64),v_buyer,v_receipt);
+    raise exception 'Confirmed attempt was rebound to a different broadcast hash';
+  exception when check_violation then null;
+  end;
 end;
 $test$;
 
