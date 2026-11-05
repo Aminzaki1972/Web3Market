@@ -27,14 +27,14 @@ function bytesToHex(bytes: Uint8Array): string {
 const TEST_ADDRESS = "0x" + bytesToHex(
   keccak_256(secp256k1.getPublicKey(TEST_PRIVATE_KEY, false).slice(1)).slice(12),
 );
-const TEST_SIGNER_KEYS = [{
-  keyId: "test-signer-v1",
-  algorithm: "ECDSA_SECP256K1_KECCAK256_RAW_DIGEST" as const,
-  publicAddress: TEST_ADDRESS,
-  status: "ACTIVE" as const,
-  validFrom: "2026-01-01T00:00:00.000Z",
-  validUntil: "2027-01-01T00:00:00.000Z",
-  revokedAt: null,
+const TEST_SIGNER_REGISTRY_ROWS = [{
+  key_id: "test-signer-v1",
+  algorithm: "ECDSA_SECP256K1_KECCAK256_RAW_DIGEST",
+  public_address: TEST_ADDRESS,
+  status: "ACTIVE",
+  valid_from: "2026-01-01T00:00:00.000Z",
+  valid_until: "2027-01-01T00:00:00.000Z",
+  revoked_at: null,
 }];
 const signer = async (digestHex: string) => {
   const digest = Uint8Array.from(digestHex.match(/.{2}/g) ?? [], (pair) => Number.parseInt(pair, 16));
@@ -122,7 +122,7 @@ function input(overrides: Partial<ProtocolOrchestratorInput> = {}): ProtocolOrch
     expiresAt: EXPIRES,
     actorType: "VERIFIER",
     actorRef: "protocol-orchestrator-test",
-    trustedSignerKeys: TEST_SIGNER_KEYS,
+    trustedSignerRegistryRows: TEST_SIGNER_REGISTRY_ROWS,
     ...overrides,
   };
 }
@@ -237,7 +237,7 @@ Deno.test("orchestrator rejects a valid signature from a revoked registry key", 
   let rejected = false;
   try {
     await prepareAcquisitionProtocolBatch(input({
-      trustedSignerKeys: [{ ...TEST_SIGNER_KEYS[0], status: "REVOKED", revokedAt: NOW }],
+      trustedSignerRegistryRows: [{ ...TEST_SIGNER_REGISTRY_ROWS[0], status: "REVOKED", revoked_at: NOW }],
     }), signer);
   } catch (error) {
     rejected = String(error).includes("REVOKED_SIGNER_KEY");
