@@ -17,7 +17,7 @@ import {
 export interface IssueAndPersistReportResult {
   reportId: string;
   reportVersion: number;
-  decisionStatus: ProtocolOrchestratorInput["acquisition"] extends never ? never : "PASS" | "INCOMPLETE" | "BLOCKED" | "REVIEW_REQUIRED";
+  decisionStatus: "PASS" | "INCOMPLETE" | "BLOCKED" | "REVIEW_REQUIRED";
   persistence: RegistryPersistenceResult;
   settlementAuthorized: false;
   executionEnabled: false;
