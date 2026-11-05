@@ -237,7 +237,7 @@ $$;
 
 
 -- Reject an event batch whose EVIDENCE_ATTACHED metadata points at another evidence row.
-do $
+do $$
 declare
   v_report_id uuid := gen_random_uuid();
   v_evidence_id uuid := gen_random_uuid();
@@ -331,10 +331,10 @@ begin
     raise exception 'Mismatched evidence event batch left partial registry rows';
   end if;
 end;
-$;
+$$;
 
 -- Reject a count-balanced batch whose event types are composed incorrectly.
-do $
+do $$
 declare
   v_report_id uuid := gen_random_uuid();
   v_payload jsonb;
