@@ -75,6 +75,7 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/trusted-signer-registry-adapter.test.ts
           deno check supabase/functions/w3m-acquisition-verification/supabase-rpc-adapter.ts
           deno check supabase/functions/w3m-acquisition-verification/supabase-rpc-adapter.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/protocol-service.ts
       - name: Test decision engine
         run: deno test supabase/functions/w3m-acquisition-verification/decision-engine.test.ts
       - name: Test settlement gate
