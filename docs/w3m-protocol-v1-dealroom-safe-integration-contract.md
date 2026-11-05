@@ -187,3 +187,10 @@ The historical implementation does contain useful controls, but its transaction 
 ### Source-of-truth prerequisite
 
 The five historical functions are absent from the current `main` tree. Frontend references to function names do not establish deployed source. Do not copy this historical snapshot into active Edge Function paths or infer that it is the live version. Obtain an authoritative current source export or isolated staging deployment first, compare it to the historical snapshot, and only then implement adapters on this feature branch.
+
+
+## 10. Isolated payload validator helper
+
+The feature branch contains a pure validator at `supabase/functions/w3m-acquisition-verification/safe-payload-validator.ts` with Deno tests. It validates a normalized representation of the decoded Safe transaction and requires exactly two inner token `transfer` calls: the agreed seller-net transfer and platform-fee transfer. It also checks the approved chain, Safe address, MultiSendCallOnly target, DELEGATECALL outer operation, zero native value, token address, distinct recipients, and exact fee arithmetic.
+
+The helper is deliberately not wired into any Safe Edge Function. A trusted adapter must first ABI-decode the actual signed transaction payload, normalize every inner call, and invoke the helper. The same semantic payload check must run before signature acceptance and immediately before broadcast. Do not treat this helper as protection until those call sites are implemented and tested.
