@@ -187,10 +187,10 @@ export async function fetchNiceNicAccountDomainMembership(input: {
   return {
     domain,
     accountUsername: input.username,
-    accountHasDomain: membership.accountHasDomain,
-    accountListComplete: membership.accountListComplete,
-    status: membership.status,
-    hold: membership.hold,
+    accountHasDomain: accountList.found,
+    accountListComplete: accountList.complete,
+    status: accountList.status,
+    hold: accountList.hold,
     observedAt,
   };
 }
@@ -236,10 +236,10 @@ export async function fetchNiceNicDomainSnapshot(input: {
   return {
     domain,
     accountUsername: input.username,
-    accountHasDomain: accountList.found,
-    accountListComplete: accountList.complete,
-    status: accountList.status,
-    hold: accountList.hold,
+    accountHasDomain: membership.accountHasDomain,
+    accountListComplete: membership.accountListComplete,
+    status: membership.status,
+    hold: membership.hold,
     createdDate: nonEmpty(data.created_date) ? data.created_date : null,
     expiredDate: nonEmpty(data.expired_date) ? data.expired_date : null,
     nameservers,
