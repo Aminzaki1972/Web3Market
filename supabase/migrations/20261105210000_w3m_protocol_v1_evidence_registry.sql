@@ -266,6 +266,37 @@ begin
       using errcode = '23514';
   end if;
 
+  if not exists (
+    select 1
+      from public.w3m_acquisition_report_events
+     where report_id = v_report_id
+       and event_type = 'REPORT_CREATED'
+       and metadata->>'reportHash' = p_report->>'report_hash'
+       and metadata->>'reportVersion' = p_report->>'report_version'
+       and metadata->>'status' = p_report->>'status'
+  ) then
+    raise exception 'REPORT_CREATED event metadata does not match the signed report'
+      using errcode = '23514';
+  end if;
+
+  if exists (
+    select 1
+      from public.w3m_acquisition_evidence e
+     where e.report_id = v_report_id
+       and (
+         select count(*)
+           from public.w3m_acquisition_report_events ev
+          where ev.report_id = e.report_id
+            and ev.event_type = 'EVIDENCE_ATTACHED'
+            and ev.metadata->>'evidenceRowId' = e.id::text
+            and ev.metadata->>'evidenceType' = e.evidence_type
+            and ev.metadata->>'evidenceHash' = e.evidence_hash
+       ) <> 1
+  ) then
+    raise exception 'Each evidence row must have exactly one matching EVIDENCE_ATTACHED event'
+      using errcode = '23514';
+  end if;
+
   return jsonb_build_object(
     'report_id', v_report_id,
     'evidence_rows', v_evidence_count,
