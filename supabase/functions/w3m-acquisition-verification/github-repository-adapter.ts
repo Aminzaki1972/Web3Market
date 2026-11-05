@@ -271,7 +271,10 @@ export function verifyGitHubRepositoryOwner(
     ? expectation.sellerAccountId
     : expectation.buyerAccountId;
 
-  if (authenticatedAccount.type !== "User" || authenticatedAccount.id !== expectedOwner) {
+  if (authenticatedAccount.type !== "User" ||
+      !positiveInteger(authenticatedAccount.id) ||
+      !nonEmpty(authenticatedAccount.login) ||
+      authenticatedAccount.id !== expectedOwner) {
     return { status: "REVIEW_REQUIRED", reason: "The authenticated GitHub user is not the exact expected seller or buyer account." };
   }
 
@@ -321,6 +324,8 @@ export function prepareGitHubTransferIntent(input: {
       !nonEmpty(input.buyer.login) ||
       input.buyer.type !== "User" ||
       input.buyerAuthenticatedAccount.type !== "User" ||
+      !positiveInteger(input.buyerAuthenticatedAccount.id) ||
+      !nonEmpty(input.buyerAuthenticatedAccount.login) ||
       input.buyerAuthenticatedAccount.id !== input.buyer.id ||
       input.buyerAuthenticatedAccount.login.toLowerCase() !== input.buyer.login.toLowerCase()) {
     throw new GitHubAdapterError("Buyer GitHub account identity does not match the deal's pre-verified account ID.");
