@@ -260,3 +260,19 @@ The aggregator calls the deterministic decision engine and returns the decision 
 - initiate GitHub/NiceNIC transfers or blockchain transactions.
 
 The next backend adapter must load authoritative deal terms and participant identities, call the provider adapters server-side, invoke the aggregator, create a canonical report envelope, obtain a trusted server signature, and append the report/evidence/events to the registry in one controlled persistence workflow. PASS must remain impossible to persist without the configured valid signature. This remains an isolated design and does not affect live settlement.
+
+
+## 17. Signed registry batch builder — isolated persistence preparation
+
+The feature branch now contains:
+- `report-registry-batch.ts`
+- `report-registry-batch.test.ts`
+
+This pure builder converts a completed acquisition decision and its evidence into the exact row shapes expected by the draft registry migration:
+- one immutable report row;
+- one evidence row per evidence item;
+- one `REPORT_CREATED` event and one `EVIDENCE_ATTACHED` event per evidence item.
+
+It validates report/deal/project bindings, unique UUID row identifiers, report version and supersession references, evidence hashes, issue/expiry chronology, and a 65-byte ECDSA signature format. It computes a canonical report envelope hash and passes that digest to an injected signer callback. A PASS batch cannot be built unless the callback returns a signer key ID and a correctly shaped signature.
+
+**Security boundary:** the builder does not implement the signing algorithm, hold a private key, verify signature recovery, write to Supabase, or enforce signer revocation. The injected signer must be a trusted server-side component using the platform's approved signing scheme and protected key custody. Signature shape validation is not cryptographic signature verification. Before any registry write, the server must independently verify the signature against the configured signer identity and current key status, then insert report/evidence/events in a controlled append-only workflow. No database or signing key was accessed by this isolated implementation.
