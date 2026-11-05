@@ -8,6 +8,7 @@ import {
 } from "./safe-payload-validator.ts";
 
 export interface SafeReleasePolicySnapshot {
+  expectedDealId: string;
   expectedSafeAddress: string;
   expectedMultiSendCallOnly: string;
   expectedTokenAddress: string;
@@ -19,6 +20,9 @@ export interface SafeReleasePolicySnapshot {
 }
 
 export interface SafeReleaseTransactionRow {
+  deal_id: unknown;
+  action: unknown;
+  safe_tx_hash: unknown;
   safe_address: unknown;
   chain_id: unknown;
   to_address: unknown;
@@ -52,6 +56,9 @@ export function validateStoredSafeReleaseTransaction(
   policy: SafeReleasePolicySnapshot,
 ): SafeReleaseTransactionValidation {
   const issues: string[] = [];
+  const dealId = text(row.deal_id);
+  const action = text(row.action);
+  const safeTransactionHash = text(row.safe_tx_hash);
   const safeAddress = text(row.safe_address);
   const chainId = integer(row.chain_id);
   const outerTo = text(row.to_address);
@@ -62,6 +69,9 @@ export function validateStoredSafeReleaseTransaction(
       : null;
   const outerOperation = integer(row.operation);
 
+  if (!dealId || dealId !== policy.expectedDealId) issues.push("SAFE_ROW_DEAL_BINDING_MISMATCH");
+  if (action !== "release_to_seller") issues.push("SAFE_ROW_ACTION_NOT_RELEASE");
+  if (!safeTransactionHash || !/^0x[0-9a-fA-F]{64}$/.test(safeTransactionHash)) issues.push("SAFE_ROW_TX_HASH_INVALID");
   if (!safeAddress) issues.push("SAFE_ROW_ADDRESS_MISSING");
   if (chainId === null) issues.push("SAFE_ROW_CHAIN_ID_INVALID");
   if (!outerTo) issues.push("SAFE_ROW_TARGET_MISSING");
