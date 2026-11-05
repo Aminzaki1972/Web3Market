@@ -161,6 +161,7 @@ Deno.test("NiceNIC seller control can emit a W3M ownership event only after iden
     sellerIdentity: "seller-account",
     buyerIdentity: "buyer-account",
     registrantIdentityMatched: true,
+    registrantVerificationRecordId: "identity-check-seller-1",
     now: NOW,
   });
   if (event.eventType !== "SELLER_CONTROL_VERIFIED" ||
@@ -313,6 +314,7 @@ Deno.test("NiceNIC transfer evidence rejects incomplete seller account listing",
       sellerIdentity: "seller-account",
       buyerIdentity: "buyer-account",
       buyerRegistrantIdentityMatched: true,
+      buyerRegistrantVerificationRecordId: "identity-check-buyer-1",
       now: NOW,
     });
   } catch (error) {
@@ -340,6 +342,7 @@ Deno.test("NiceNIC buyer account can emit buyer control evidence after registran
     sellerIdentity: "seller-account",
     buyerIdentity: "buyer-account",
     registrantIdentityMatched: true,
+    registrantVerificationRecordId: "identity-check-buyer-1",
     now: NOW,
   });
   if (event.eventType !== "BUYER_CONTROL_VERIFIED" || event.currentOwnerIdentity !== "buyer-account") {
