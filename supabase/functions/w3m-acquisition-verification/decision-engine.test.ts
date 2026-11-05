@@ -21,6 +21,18 @@ function evidence(type: EvidenceType, index: number): AcquisitionEvidence {
     PAYMENT: { paymentConfirmed: true },
     BUYER_ACCEPTANCE: { deliveryAccepted: true },
     DISPUTE_CHECK: { openDispute: false },
+    REVENUE_VERIFICATION: {
+      revenueStatus: "PASS",
+      revenueScopeConfirmed: true,
+      actualRevenueRaw: "2500000",
+      declaredRevenueRaw: "2500000",
+      chainId: 56,
+      tokenAddress: "0x1111111111111111111111111111111111111111",
+      fromBlock: 100,
+      toBlock: 110,
+      minConfirmations: 5,
+      receiptCount: 3,
+    },
   }[type];
 
   return {
