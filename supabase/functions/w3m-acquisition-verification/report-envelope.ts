@@ -98,6 +98,9 @@ export async function buildCanonicalReportEnvelope(
   if (input.supersedesReportId === input.reportId) {
     throw new Error("A report cannot supersede itself.");
   }
+  if (input.decision.status === "PASS" && input.decision.issues.length > 0) {
+    throw new Error("A PASS decision cannot contain unresolved issues.");
+  }
   if (input.decision.status === "PASS" &&
       input.decision.passedMandatoryCount < input.decision.requiredTypeCount) {
     throw new Error("A PASS decision cannot have fewer passed mandatory records than required evidence categories.");
