@@ -216,3 +216,11 @@ The branch now includes two provider-specific read-only adapters and a provider-
 The isolated branch currently defines 97 Deno test cases across the decision engine, settlement gate, Safe decoder/validator, asset lifecycle, GitHub adapter, and BNB revenue adapter. The GitHub connector status interface did not return a check-run result for the latest push, so these newly added tests must still be treated as pending CI confirmation—not as passed.
 
 No GitHub credentials, RPC provider, registrar account, production database, Safe, wallet, or live deployment has been configured or changed by these additions.
+
+
+### NiceNIC domain ownership
+- `nicenic-domain-adapter.ts` reads NiceNIC Domain API v2 domain details and paginated account inventory.
+- It checks the exact deal-pinned domain, expected registrar account, active status, registrar hold, and a separate trusted registrant-identity verification reference.
+- It can emit seller-control, account-level transfer-confirmation, and buyer-control events from fresh registrar account reads.
+- It does not call contact-update, transfer-in, DNS, or other write endpoints.
+- Current NiceNIC API documentation describes transfer-in from another registrar, but does not document an account-to-account push or outbound ownership-transfer endpoint. W3M therefore does not claim automatic NiceNIC domain transfer; a supported provider process and post-transfer confirmation remain necessary.
