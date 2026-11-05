@@ -63,7 +63,7 @@ function safeConfigurationMatches(row: DealRoomTermsSnapshotRow, facts: DealRoom
     facts.threshold === 2 &&
     facts.version === "1.4.1" &&
     typeof facts.nonce === "string" &&
-    /^(0|[1-9]\\d*)$/.test(facts.nonce) &&
+    /^(0|[1-9]\d*)$/.test(facts.nonce) &&
     facts.nonce === String(row.policy_safe_nonce) &&
     ADDRESS.test(facts.safeAddress) &&
     facts.safeAddress.toLowerCase() === String(row.deal_safe_address).toLowerCase() &&
