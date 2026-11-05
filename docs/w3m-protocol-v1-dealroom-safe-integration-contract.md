@@ -218,3 +218,15 @@ The isolated branch now contains `bnb-revenue-adapter.ts` and a conditional `REV
 This evidence type is not globally required for every project. The server-side deal adapter must add it to `requiredEvidenceTypes` only when the accepted deal terms include an on-chain revenue claim. Both parties' accepted revenue scope must be loaded from authoritative agreement records; browser booleans are not acceptable.
 
 The initial verifier counts only configured ERC-20 Transfer receipts to the deal-pinned revenue addresses. It does not establish commercial purpose, discover undisclosed wallets, or prove off-chain income. Do not represent its result as total business revenue unless the deal's scope explicitly and accurately defines that limited metric.
+
+
+## 14. Isolated GitHub ownership adapter
+
+The isolated branch now includes a read-only GitHub repository adapter and a W3M event bridge:
+- `github-repository-adapter.ts`
+- `github-repository-adapter.test.ts`
+- `docs/w3m-protocol-v1-github-adapter.md`
+
+The adapter reads repository metadata and the authenticated personal-user identity, binds both to immutable GitHub IDs, and emits short-lived SHA-256 ownership evidence for the asset lifecycle engine. It can also emit a transfer-confirmed event only after a fresh authenticated read shows the same immutable repository ID owned by the exact buyer account.
+
+V1 deliberately returns `REVIEW_REQUIRED` for organization-owned repositories until a separate organization-authority adapter is implemented. It prepares only a non-executable transfer intent; it does not POST a transfer request, create OAuth credentials, or transfer any repository. A future executor must separately enforce dual-party consent and GitHub's asynchronous acceptance lifecycle.
