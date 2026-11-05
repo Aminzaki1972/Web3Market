@@ -32,7 +32,7 @@ Web3Market is an AI-assisted marketplace concept for discovering, reviewing, and
 
 - Project discovery and marketplace listings
 - AI-assisted project due diligence and public-repository code analysis
-- Web3-focused deal workflows and Safe multi-signature settlement interfaces
+- Web3-focused deal workflows and a Safe{Wallet}-based multi-signature escrow flow tested on BNB Smart Chain; full production rollout remains in progress
 - Trust and review features designed to make evidence easier to assess
 
-Features and availability depend on the project and transaction. AI-generated assessments are informational and do not replace independent professional security reviews.
+The Safe{Wallet} escrow integration has completed a controlled BNB Smart Chain test transaction. This does not mean that every escrow, dispute-resolution or production settlement path is fully activated. Features and availability depend on the project and transaction. AI-generated assessments are informational and do not replace independent professional security reviews.
