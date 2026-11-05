@@ -61,6 +61,13 @@ export async function evaluateSafeExecutionGuard(
       signatureHash.toLowerCase() !== input.storedSafeTransactionHash.toLowerCase()) {
     issues.push("SIGNATURES_NOT_BOUND_TO_STORED_SAFE_HASH");
   }
+  const rowHash = typeof input.transaction?.safe_tx_hash === "string"
+    ? input.transaction.safe_tx_hash
+    : "";
+  if (!HASH.test(rowHash) || !HASH.test(input.storedSafeTransactionHash || "") ||
+      rowHash.toLowerCase() !== input.storedSafeTransactionHash.toLowerCase()) {
+    issues.push("TRANSACTION_ROW_HASH_BINDING_MISMATCH");
+  }
   if (!settlement.authorized) issues.push("SETTLEMENT_GATE_BLOCKED");
   if (!payload.valid) issues.push("SAFE_RELEASE_PAYLOAD_BLOCKED");
 
