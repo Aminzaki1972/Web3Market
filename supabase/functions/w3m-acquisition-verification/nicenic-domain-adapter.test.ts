@@ -147,6 +147,7 @@ Deno.test("NiceNIC seller control can emit a W3M ownership event only after iden
   });
   const event = await createNiceNicSellerControlEvent({
     snapshot,
+    expectedSellerAccountUsername: USERNAME,
     dealId: "deal-1",
     projectId: "project-1",
     assetId: "domain-asset-1",
@@ -206,4 +207,32 @@ Deno.test("invalid API credentials are not placed in URL parameters", async () =
     now: NOW,
   });
   if (observedUrl.includes("secret-value")) throw new Error("NiceNIC secret leaked into URL.");
+});
+
+
+Deno.test("NiceNIC event cannot substitute another registrar account", async () => {
+  const snapshot = await fetchNiceNicDomainSnapshot({
+    username: USERNAME,
+    apiSecret: "server-only-secret",
+    domain: DOMAIN,
+    fetchImpl: niceNicFetch(),
+    now: NOW,
+  });
+  let rejected = false;
+  try {
+    await createNiceNicSellerControlEvent({
+      snapshot,
+      expectedSellerAccountUsername: "different-account",
+      dealId: "deal-1",
+      projectId: "project-1",
+      assetId: "domain-asset-1",
+      sellerIdentity: "seller-account",
+      buyerIdentity: "buyer-account",
+      registrantIdentityMatched: true,
+      now: NOW,
+    });
+  } catch (error) {
+    rejected = error instanceof NiceNicAdapterError;
+  }
+  if (!rejected) throw new Error("Registrar account mismatch must not produce ownership evidence.");
 });
