@@ -24,8 +24,12 @@ create table public.w3m_safe_execution_attempts (
   metadata jsonb not null default '{}'::jsonb check (jsonb_typeof(metadata) = 'object'),
   constraint w3m_attempt_broadcast_state_check check (
     (state = 'CLAIMED' and broadcast_tx_hash is null and broadcast_at is null)
-    or (state in ('BROADCAST','CONFIRMED','RECONCILIATION_REQUIRED')
+    or (state in ('BROADCAST','CONFIRMED')
         and broadcast_tx_hash is not null and broadcast_at is not null)
+    or (state = 'RECONCILIATION_REQUIRED' and (
+        (broadcast_tx_hash is null and broadcast_at is null)
+        or (broadcast_tx_hash is not null and broadcast_at is not null)
+    ))
     or state = 'FAILED'
   ),
   constraint w3m_attempt_finalized_state_check check (
@@ -213,6 +217,47 @@ begin
 end;
 $claim$;
 
+create or replace function public.w3m_mark_safe_execution_reconciliation_required(
+  p_attempt_id uuid,
+  p_error_code text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $reconcile$
+declare
+  v_attempt public.w3m_safe_execution_attempts%rowtype;
+begin
+  if p_attempt_id is null or p_error_code is null
+     or length(btrim(p_error_code)) not between 1 and 100 then
+    raise exception 'Invalid reconciliation request' using errcode = '22023';
+  end if;
+
+  select * into v_attempt
+    from public.w3m_safe_execution_attempts
+   where id = p_attempt_id
+   for update;
+  if not found then raise exception 'Execution attempt not found' using errcode = 'P0002'; end if;
+
+  if v_attempt.state = 'RECONCILIATION_REQUIRED' then
+    return jsonb_build_object('updated', true, 'idempotent_replay', true, 'state', v_attempt.state);
+  end if;
+
+  if v_attempt.state not in ('CLAIMED','BROADCAST') then
+    raise exception 'Only an active attempt can require reconciliation'
+      using errcode = '23514';
+  end if;
+
+  update public.w3m_safe_execution_attempts
+     set state = 'RECONCILIATION_REQUIRED',
+         last_error_code = p_error_code
+   where id = p_attempt_id;
+
+  return jsonb_build_object('updated', true, 'idempotent_replay', false, 'state', 'RECONCILIATION_REQUIRED');
+end;
+$reconcile$;
+
 create or replace function public.w3m_record_safe_execution_broadcast(
   p_attempt_id uuid,
   p_broadcast_tx_hash text
@@ -260,9 +305,13 @@ revoke all on function public.w3m_claim_safe_execution_attempt(uuid,uuid,uuid,te
   from public, anon, authenticated, service_role;
 revoke all on function public.w3m_record_safe_execution_broadcast(uuid,text)
   from public, anon, authenticated, service_role;
+revoke all on function public.w3m_mark_safe_execution_reconciliation_required(uuid,text)
+  from public, anon, authenticated, service_role;
 grant execute on function public.w3m_claim_safe_execution_attempt(uuid,uuid,uuid,text,text,text)
   to service_role;
 grant execute on function public.w3m_record_safe_execution_broadcast(uuid,text)
+  to service_role;
+grant execute on function public.w3m_mark_safe_execution_reconciliation_required(uuid,text)
   to service_role;
 
 commit;
