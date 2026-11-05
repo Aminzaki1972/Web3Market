@@ -152,3 +152,17 @@ Deno.test("trusted Ethereum verifier combines key policy with real secp256k1 rec
   }]);
   assertEquals(result.valid, true);
 });
+
+
+Deno.test("fails closed for unknown key status and exact expiry boundary", async () => {
+  const unknownStatus = await verifyTrustedReportSignature(base, [{
+    ...key, status: "UNKNOWN" as TrustedSignerKey["status"],
+  }], accept);
+  assertEquals(unknownStatus.valid, false);
+  if (!unknownStatus.valid) assertEquals(unknownStatus.code, "REVOKED_SIGNER_KEY");
+  const exactExpiry = await verifyTrustedReportSignature({
+    ...base, checkedAt: key.validUntil!,
+  }, [key], accept);
+  assertEquals(exactExpiry.valid, false);
+  if (!exactExpiry.valid) assertEquals(exactExpiry.code, "SIGNER_KEY_EXPIRED");
+});
