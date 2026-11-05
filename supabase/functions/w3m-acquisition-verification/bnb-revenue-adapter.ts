@@ -113,7 +113,7 @@ function parseRawAmount(value: unknown): bigint {
 
 function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-  if (!isRecord(value)) return JSON.stringify(value);
+  if (!isRecord(value)) return JSON.stringify(value) ?? "null";
   return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
 }
 
