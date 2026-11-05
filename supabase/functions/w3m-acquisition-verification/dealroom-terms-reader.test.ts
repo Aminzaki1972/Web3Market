@@ -51,7 +51,20 @@ function client(data: unknown, error: unknown = null): DealRoomTermsRpcClient & 
 Deno.test("exact snapshot loader feeds exact financial text into the W3M gate", async () => {
   const result = await checkDealRoomFromExactSnapshot({
     client: client([row]), dealId: "deal-reader-1", stage: "PREPARE",
-    now: "2026-11-06T20:00:00.000Z", safeConfigurationMatches: true,
+    now: "2026-11-06T20:00:00.000Z", safeFacts: {
+      chainId: 56,
+      safeAddress: "0x2222222222222222222222222222222222222222",
+      owners: [
+        "0x4444444444444444444444444444444444444444",
+        "0x5555555555555555555555555555555555555555",
+        "0x2B15cC63eE3b833F502C065767695Fa2B584f8c9",
+      ],
+      threshold: 2,
+      version: "1.4.1",
+      nonce: "7",
+      expectedBuyerWallet: "0x5555555555555555555555555555555555555555",
+      expectedSellerWallet: "0x4444444444444444444444444444444444444444",
+    },
   });
   assertEquals(result.authorized, false);
   assertEquals(result.dealTermsHash.length, 64);
@@ -62,18 +75,57 @@ Deno.test("exact snapshot loader rejects missing policy", async () => {
   await assertRejects(() => checkDealRoomFromExactSnapshot({
     client: client([{ ...row, policy_deal_id: null }]), dealId: "deal-reader-1",
     stage: "PREPARE", now: "2026-11-06T20:00:00.000Z",
-    safeConfigurationMatches: true,
+    safeFacts: {
+      chainId: 56,
+      safeAddress: "0x2222222222222222222222222222222222222222",
+      owners: [
+        "0x4444444444444444444444444444444444444444",
+        "0x5555555555555555555555555555555555555555",
+        "0x2B15cC63eE3b833F502C065767695Fa2B584f8c9",
+      ],
+      threshold: 2,
+      version: "1.4.1",
+      nonce: "7",
+      expectedBuyerWallet: "0x5555555555555555555555555555555555555555",
+      expectedSellerWallet: "0x4444444444444444444444444444444444444444",
+    },
   }));
 });
 
 Deno.test("exact snapshot loader rejects ambiguous rows and RPC errors", async () => {
   await assertRejects(() => checkDealRoomFromExactSnapshot({
     client: client([row, row]), dealId: "deal-reader-1", stage: "PREPARE",
-    now: "2026-11-06T20:00:00.000Z", safeConfigurationMatches: true,
+    now: "2026-11-06T20:00:00.000Z", safeFacts: {
+      chainId: 56,
+      safeAddress: "0x2222222222222222222222222222222222222222",
+      owners: [
+        "0x4444444444444444444444444444444444444444",
+        "0x5555555555555555555555555555555555555555",
+        "0x2B15cC63eE3b833F502C065767695Fa2B584f8c9",
+      ],
+      threshold: 2,
+      version: "1.4.1",
+      nonce: "7",
+      expectedBuyerWallet: "0x5555555555555555555555555555555555555555",
+      expectedSellerWallet: "0x4444444444444444444444444444444444444444",
+    },
   }));
   await assertRejects(() => checkDealRoomFromExactSnapshot({
     client: client(null, new Error("denied")), dealId: "deal-reader-1",
     stage: "PREPARE", now: "2026-11-06T20:00:00.000Z",
-    safeConfigurationMatches: true,
+    safeFacts: {
+      chainId: 56,
+      safeAddress: "0x2222222222222222222222222222222222222222",
+      owners: [
+        "0x4444444444444444444444444444444444444444",
+        "0x5555555555555555555555555555555555555555",
+        "0x2B15cC63eE3b833F502C065767695Fa2B584f8c9",
+      ],
+      threshold: 2,
+      version: "1.4.1",
+      nonce: "7",
+      expectedBuyerWallet: "0x5555555555555555555555555555555555555555",
+      expectedSellerWallet: "0x4444444444444444444444444444444444444444",
+    },
   }));
 });
