@@ -21,7 +21,11 @@ Status: isolated V1 core candidate; not production-integrated and not deployable
 | Execution claim | One active attempt per deal, idempotency, exact broadcast hash | Implemented in isolated migration; PostgreSQL-tested |
 | Lost-hash recovery | Bind the original hash after uncertain send while retaining the blocking reconciliation state | Implemented; PostgreSQL-tested |
 | Supabase RPC adapter | Server-only typed adapter for report persistence, claim, broadcast, reconciliation, and atomic finalization | Implemented; Deno-tested |
-| Report service composition | Aggregate, sign, verify trusted key, then persist the immutable report batch | Implemented as an injected server-side service; type-checked |
+| Report service composition | Aggregate, sign, verify trusted key, then persist the immutable report batch | Implemented as an injected server-side service; CI-verified |
+| Persisted report guard | Reload report/evidence/signer rows, recompute the signed evidence manifest and canonical report hash, verify current key and exact deal terms | Implemented; unit-tested |
+| Deal Room report loader | Read latest report, its evidence rows, and signer status through a server-only client | Implemented; unit-tested |
+| Deal Room gate service | Compute current exact-precision terms, load persisted report bundle, and combine report verification with PREPARE/EXECUTE settlement gate | Implemented; unit-tested; not yet called by deployed Safe functions |
+| Canonical deal terms hash | Bind exact decimal amounts, parties, project, BNB chain, Safe/token, nonce, recipients, and pinned 7.5% fee | Implemented; unit-tested |
 | Uncertain broadcast | Reconciliation-required state remains blocking | Implemented; PostgreSQL-tested |
 | Finalization | Atomic update of Safe transaction, policy, deal, project, audit row, and attempt state | Added in isolated migration; PostgreSQL-tested, including missing-address hardening |
 
@@ -56,14 +60,14 @@ The latest comprehensive code CI run `42124917367` completed successfully on `b8
 
 ## 5. Latest isolated verification
 
-GitHub Actions run `42124917367` completed with **success** on code commit `b801a30bce4a6dbfc77a5990d70af76e9484da1a`. The run passed:
-- Deno type-check for the protocol engines, report issuance service, and Supabase RPC adapter;
-- the Deno unit suites, including the expanded claim/broadcast/reconciliation/finalization RPC adapter tests;
+GitHub Actions run `42127007503` completed with **success** on code commit `dcab7165887457f7eb124e677608fc6b03cd4bbf`. The run passed:
+- Deno type-check for the protocol engines, report issuance service, persisted report guard, canonical deal terms hash, report loader, Deal Room gate service, and Supabase RPC adapters;
+- the Deno unit suites, including report signature/evidence revalidation, fail-closed Deal Room gate, exact terms hashing, and claim/broadcast/reconciliation/finalization RPC adapter tests;
 - the PostgreSQL disposable-fixture migration sequence, including atomic report registry, trusted signer registry, Safe execution attempts, atomic finalizer, and their SQL contract tests.
 
 The later commits on this branch after that run are documentation-only. The latest code tested by this successful run is therefore the code head represented by `b801a30`; no production integration is implied.
 
-**Milestone:** the isolated W3M V1 core (deterministic verification, signed report registry boundary, Safe claim/reconciliation/finalization lifecycle, and typed RPC adapters) has passed its current CI suite. The **Deal Room-integrated V1** remains incomplete until the six Safe Edge Functions are patched and a full isolated BNB testnet flow is verified.
+**Milestone:** the isolated W3M V1 core and the reusable Deal Room gate service (deterministic evidence verification, persisted report/signature revalidation, exact terms binding, Safe claim/reconciliation/finalization lifecycle, and typed server RPC/read adapters) have passed CI. The **six deployed Safe Edge Functions are still not patched to call this gate**, and a full isolated BNB testnet flow has not yet been verified.
 
 ## 6. Release boundary
 
@@ -75,7 +79,7 @@ The later commits on this branch after that run are documentation-only. The late
 
 The isolated V1 core can be called implementation-complete only after:
 - the latest CI run passes (including the lost-broadcast-hash recovery test and RPC adapter tests);
-- the report issuance composition and expanded Supabase RPC adapter contracts remain type-checked and tested in CI;
+- the report issuance composition, persisted report loader/guard, Deal Room gate service, and expanded Supabase RPC adapter contracts pass CI;
 - the six Safe integration patches are prepared against the captured versions and pass static/type checks in the isolated branch;
 - a disposable full-flow integration test covers all lifecycle transitions and replay/reconciliation behavior;
 - the conservative V1 compatibility boundary remains in force: only locked fee values accepted by both existing production checks and exact `dispute_status = 'none'` can pass; broader fee/dispute support requires a separately approved policy.
