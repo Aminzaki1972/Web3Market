@@ -125,6 +125,8 @@ begin
 
   if v_report.deal_id is distinct from p_deal_id::text
      or v_report.project_id is distinct from v_deal.project_id::text
+     or v_report.buyer_id is distinct from v_deal.buyer_id::text
+     or v_report.seller_id is distinct from v_deal.seller_id::text
      or v_report.status is distinct from 'PASS'
      or v_report.report_version is distinct from (
        select max(r.report_version)
