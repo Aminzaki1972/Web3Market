@@ -39,7 +39,7 @@ function evidence(): AcquisitionEvidence[] {
     contentHash: CONTENT_HASH,
     observedAt: "2026-11-05T20:55:00.000Z",
     validUntil: EXPIRES,
-    sourceRecordId: "source-record-" + index,
+    sourceRecordId: type === "CODE_AUDIT" ? "audit-guard-1" : "source-record-" + index,
     sourceVersion: type === "CODE_AUDIT" ? COMMIT : "v1",
     metadata: metadata[type],
   }));
@@ -114,7 +114,6 @@ Deno.test("persisted report guard rebuilds evidence and verifies canonical signa
     evidenceRows: rows.evidenceRows,
     trustedSignerRegistryRows: rows.signerRows,
   }, async () => true);
-  if (!result.authorized) throw new Error("Guard diagnostics: " + JSON.stringify(result));
   assertEquals(result.authorized, true);
   assertEquals(result.signatureValid, true);
   assertEquals(result.signerState, "ACTIVE");
