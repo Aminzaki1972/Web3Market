@@ -150,6 +150,8 @@ declare
   v_item jsonb;
   v_evidence_count integer := 0;
   v_event_count integer := 0;
+  v_report_created_count integer := 0;
+  v_evidence_attached_count integer := 0;
   v_report_payload jsonb;
 begin
   if jsonb_typeof(p_report) <> 'object'
@@ -251,8 +253,16 @@ begin
     v_event_count := v_event_count + 1;
   end loop;
 
-  if v_event_count <> v_evidence_count + 1 then
-    raise exception 'Registry batch must contain one creation event and one event per evidence row'
+  select count(*) filter (where event_type = 'REPORT_CREATED'),
+         count(*) filter (where event_type = 'EVIDENCE_ATTACHED')
+    into v_report_created_count, v_evidence_attached_count
+    from public.w3m_acquisition_report_events
+   where report_id = v_report_id;
+
+  if v_event_count <> v_evidence_count + 1
+     or v_report_created_count <> 1
+     or v_evidence_attached_count <> v_evidence_count then
+    raise exception 'Registry batch must contain exactly one REPORT_CREATED and one EVIDENCE_ATTACHED per evidence row'
       using errcode = '23514';
   end if;
 
