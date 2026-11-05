@@ -329,7 +329,7 @@ export async function createNiceNicSellerControlEvent(input: {
   };
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(proof)));
   const proofHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  const version = `${input.snapshot.accountUsername}:${input.snapshot.expiredDate ?? "unknown"}:${input.snapshot.status}`;
+  const version = `${input.snapshot.accountUsername}:${input.snapshot.expiredDate ?? "unknown"}:${input.snapshot.status}:${input.registrantVerificationRecordId}`;
   const sourceEventId = `nicenic:${input.snapshot.domain}:SELLER_CONTROL_VERIFIED:${version}`;
 
   return {
@@ -418,7 +418,7 @@ export async function createNiceNicTransferConfirmedEvent(input: {
   };
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(proof)));
   const proofHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  const version = `${seller.accountUsername}:${buyer.accountUsername}:${buyer.expiredDate ?? "unknown"}`;
+  const version = `${seller.accountUsername}:${buyer.accountUsername}:${buyer.expiredDate ?? "unknown"}:${input.buyerRegistrantVerificationRecordId}`;
   const sourceEventId = `nicenic:${buyer.domain}:TRANSFER_CONFIRMED:${version}`;
 
   return {
@@ -492,7 +492,7 @@ export async function createNiceNicBuyerControlEvent(input: {
   };
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(proof)));
   const proofHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  const version = `${snapshot.accountUsername}:${snapshot.expiredDate ?? "unknown"}:${snapshot.status}`;
+  const version = `${snapshot.accountUsername}:${snapshot.expiredDate ?? "unknown"}:${snapshot.status}:${input.registrantVerificationRecordId}`;
   const sourceEventId = `nicenic:${snapshot.domain}:BUYER_CONTROL_VERIFIED:${version}`;
 
   return {
