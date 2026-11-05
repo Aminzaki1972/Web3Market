@@ -276,3 +276,20 @@ Deno.test("unified execution guard rejects a cryptographically invalid signature
   const result = await evaluateSafeExecutionGuard(executionInput(), async () => false);
   assert(!result.authorized && result.issues.includes("SAFE_SIGNATURE_SET_BLOCKED"), JSON.stringify(result.issues));
 });
+
+
+Deno.test("unified execution guard rejects a transaction row hash not matching the signed hash", async () => {
+  const base = executionInput();
+  const transaction = { ...base.transaction, safe_tx_hash: "0x" + "f".repeat(64) };
+  const result = await evaluateSafeExecutionGuard({ ...base, transaction }, validTestVerifier);
+  assert(!result.authorized && result.issues.includes("TRANSACTION_ROW_HASH_BINDING_MISMATCH"), JSON.stringify(result.issues));
+});
+
+Deno.test("stored Safe row adapter rejects a transaction from another deal", () => {
+  const data = multisend([
+    packedCall(TOKEN, transfer(SELLER, BigInt(SELLER_NET))),
+    packedCall(TOKEN, transfer(PLATFORM, BigInt(FEE))),
+  ]);
+  const result = validateStoredSafeReleaseTransaction(storedRow(data, { deal_id: "another-deal" }), storedPolicy);
+  assert(!result.valid && result.issues.includes("SAFE_ROW_DEAL_BINDING_MISMATCH"), JSON.stringify(result.issues));
+});
