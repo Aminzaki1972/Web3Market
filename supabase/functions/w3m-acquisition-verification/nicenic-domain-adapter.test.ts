@@ -1,5 +1,8 @@
 import {
+  createNiceNicBuyerControlEvent,
   createNiceNicSellerControlEvent,
+  createNiceNicTransferConfirmedEvent,
+  fetchNiceNicAccountDomainMembership,
   fetchNiceNicDomainSnapshot,
   NiceNicAdapterError,
   verifyNiceNicSellerControl,
@@ -8,8 +11,10 @@ import {
 const NOW = "2026-11-05T20:00:00.000Z";
 const DOMAIN = "web3market.xyz";
 const USERNAME = "seller-nicenic-account";
+const BUYER_USERNAME = "buyer-nicenic-account";
 
 function niceNicFetch(options: {
+  username?: string;
   includeDomain?: boolean;
   totalPages?: number;
   status?: string;
@@ -18,8 +23,9 @@ function niceNicFetch(options: {
 } = {}): typeof fetch {
   return async (input, init) => {
     const url = new URL(String(input));
+    const expectedUsername = options.username ?? USERNAME;
     if (url.hostname !== "api.nicenic.net" || init?.method !== "GET" ||
-        new Headers(init?.headers).get("authorization") !== USERNAME + ":server-only-secret") {
+        new Headers(init?.headers).get("authorization") !== expectedUsername + ":server-only-secret") {
       throw new Error("Unexpected NiceNIC request or credential handling.");
     }
     if (url.searchParams.get("action") === "domain_list") {
