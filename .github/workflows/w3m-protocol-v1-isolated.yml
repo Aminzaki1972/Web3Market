@@ -15,6 +15,8 @@ on:
     paths:
       - "supabase/functions/w3m-acquisition-verification/**"
       - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
+      - "supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql"
+      - "supabase/tests/w3m-protocol-v1-trusted-signer-schema.test.sql"
       - "supabase/tests/w3m-protocol-v1-schema.test.sql"
       - ".github/workflows/w3m-protocol-v1-isolated.yml"
 
