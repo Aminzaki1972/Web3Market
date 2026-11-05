@@ -126,6 +126,22 @@ begin
     raise exception 'Reconciliation transition was not idempotent';
   end if;
 
+  -- Simulate a process crash after broadcast but before the hash was persisted.
+  -- A trusted reconciler can bind the discovered original hash, but the attempt
+  -- remains blocking in RECONCILIATION_REQUIRED (never reopened for rebroadcast).
+  update public.w3m_safe_execution_attempts
+     set broadcast_tx_hash = null, broadcast_at = null
+   where id = v_attempt;
+  v_result := public.w3m_record_safe_execution_broadcast(v_attempt,v_broadcast_hash);
+  if coalesce((v_result->>'recorded')::boolean,false) is not true
+     or v_result->>'state' <> 'RECONCILIATION_REQUIRED' then
+    raise exception 'Reconciled broadcast hash was not bound while preserving the blocking state';
+  end if;
+  v_result := public.w3m_record_safe_execution_broadcast(v_attempt,v_broadcast_hash);
+  if coalesce((v_result->>'idempotent_replay')::boolean,false) is not true then
+    raise exception 'Reconciled broadcast hash replay was not idempotent';
+  end if;
+
   v_receipt := jsonb_build_object(
     'chain_id',56,'transaction_hash',v_broadcast_hash,'receipt_status',1,
     'execution_success',true,'execution_failure',false,
