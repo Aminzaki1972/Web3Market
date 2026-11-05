@@ -131,8 +131,11 @@ begin
     from public.w3m_trusted_signer_key_status
    where key_id = v_report.signer_key_id;
 
-  if not found
-     or v_signer.status <> 'ACTIVE'
+  if not found then
+    raise exception 'Report signer key is not registered'
+      using errcode = '23514';
+  end if;
+  if v_signer.status <> 'ACTIVE'
      or v_report.issued_at < v_signer.valid_from
      or (v_signer.valid_until is not null and v_report.issued_at >= v_signer.valid_until) then
     raise exception 'Report signer is not trusted and valid at report issue time'
