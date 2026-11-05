@@ -192,3 +192,27 @@ This decoder is not a transaction sender and has no network/database access. It 
 The current frontend call graph and current-main Edge Function inventory are recorded in `docs/w3m-protocol-v1-current-dealroom-safe-source-map.md`. It confirms the browser calls six Safe-related Edge Functions that do not have corresponding source folders in the current `main` repository tree. This is a repository inventory finding only; it does not prove that those functions are absent from the deployed Supabase project.
 
 The exact current backend source and relevant table schema must be obtained before building authoritative evidence adapters or changing Safe execution paths.
+
+
+## 15. Isolated provider adapters added after the initial scaffold
+
+The branch now includes two provider-specific read-only adapters and a provider-neutral asset lifecycle engine.
+
+### GitHub repository ownership
+- `github-repository-adapter.ts` reads the repository and authenticated personal-user identity from GitHub REST.
+- It binds immutable repository ID, owner account ID, authenticated actor ID, and administrator permission.
+- It emits short-lived SHA-256 ownership events for seller and buyer control and a transfer-confirmed event only after a fresh read shows the exact buyer owns the same repository ID.
+- It prepares a non-executable transfer intent only; no transfer POST is sent.
+- Organization-owned repositories remain `REVIEW_REQUIRED` until a separate organization-authority adapter exists.
+
+### BNB ERC-20 revenue evidence
+- `bnb-revenue-adapter.ts` reads configured ERC-20 Transfer logs using JSON-RPC.
+- It checks chain ID, token contract, recipient allowlist, excluded senders, transaction receipts, canonical block hashes, confirmation count, duplicate log handling, and exact raw token amount.
+- `REVENUE_VERIFICATION` is a conditional evidence category. The server must require it only when the deal's accepted terms include an on-chain revenue claim.
+- This adapter does not prove commercial purpose or total business revenue, and does not cover off-chain revenue, native BNB, DEX activity, exchange balances, or arbitrary contract events.
+
+### Verification state
+
+The isolated branch currently defines 97 Deno test cases across the decision engine, settlement gate, Safe decoder/validator, asset lifecycle, GitHub adapter, and BNB revenue adapter. The GitHub connector status interface did not return a check-run result for the latest push, so these newly added tests must still be treated as pending CI confirmation—not as passed.
+
+No GitHub credentials, RPC provider, registrar account, production database, Safe, wallet, or live deployment has been configured or changed by these additions.
