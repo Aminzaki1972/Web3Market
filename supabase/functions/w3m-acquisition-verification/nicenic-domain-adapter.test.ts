@@ -229,6 +229,7 @@ Deno.test("NiceNIC event cannot substitute another registrar account", async () 
   try {
     await createNiceNicSellerControlEvent({
       snapshot,
+      expectedDomain: DOMAIN,
       expectedSellerAccountUsername: "different-account",
       dealId: "deal-1",
       projectId: "project-1",
