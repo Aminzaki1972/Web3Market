@@ -351,3 +351,51 @@ Deno.test("stale GitHub repository snapshot cannot be timestamped as a fresh own
   }
   if (!rejected) throw new Error("A stale repository read must not be repackaged as fresh evidence.");
 });
+
+
+Deno.test("repeated reads of the same GitHub repository version are idempotent", async () => {
+  const firstEvent = await createGitHubOwnershipVerifiedEvent({
+    ownership: { repository: snapshot(), authenticatedAccount: SELLER_ACTOR },
+    expectation: EXPECTATION,
+    phase: "SELLER",
+    dealId: "deal-1",
+    projectId: "project-1",
+    assetId: "github-asset-1",
+    sellerIdentity: "seller-account",
+    buyerIdentity: "buyer-account",
+    now: NOW,
+  });
+  const laterRead = normalizeGitHubRepository(
+    RAW,
+    new Headers({ etag: '"repo-etag"', "x-github-request-id": "request-456" }),
+    "2026-11-05T20:01:00.000Z",
+  );
+  const replayEvent = await createGitHubOwnershipVerifiedEvent({
+    ownership: { repository: laterRead, authenticatedAccount: SELLER_ACTOR },
+    expectation: EXPECTATION,
+    phase: "SELLER",
+    dealId: "deal-1",
+    projectId: "project-1",
+    assetId: "github-asset-1",
+    sellerIdentity: "seller-account",
+    buyerIdentity: "buyer-account",
+    now: "2026-11-05T20:01:00.000Z",
+  });
+  const state = createAssetTransferState({
+    assetId: "github-asset-1",
+    dealId: "deal-1",
+    projectId: "project-1",
+    kind: "GITHUB_REPOSITORY",
+    sourceProvider: "github",
+    sourceAssetRef: "seller/sample-project",
+    sellerIdentity: "seller-account",
+    buyerIdentity: "buyer-account",
+    mandatory: true,
+  });
+  const first = applyAssetTransferEvent(state, firstEvent, "2026-11-05T20:00:30.000Z");
+  const replay = applyAssetTransferEvent(first.state, replayEvent, "2026-11-05T20:01:30.000Z");
+  if (!first.accepted || !replay.accepted || !replay.idempotent ||
+      firstEvent.eventId !== replayEvent.eventId || firstEvent.proofHash !== replayEvent.proofHash) {
+    throw new Error("Identical GitHub source versions must replay idempotently.");
+  }
+});
