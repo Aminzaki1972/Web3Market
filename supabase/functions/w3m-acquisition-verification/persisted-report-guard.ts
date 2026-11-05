@@ -101,6 +101,7 @@ export async function verifyPersistedW3MReport(
     const buyerId = report.buyer_id;
     const sellerId = report.seller_id;
     const status = report.status;
+    const engineVersion = report.engine_version;
     const version = report.report_version;
     const issuedAt = report.issued_at;
     const expiresAt = report.expires_at;
@@ -111,7 +112,7 @@ export async function verifyPersistedW3MReport(
 
     if (!text(reportId) || !text(dealId) || !text(projectId) ||
         !nullableText(buyerId) || !nullableText(sellerId) ||
-        !text(status) || !Number.isInteger(version) || !text(issuedAt) ||
+        !text(status) || !text(engineVersion) || !Number.isInteger(version) || !text(issuedAt) ||
         !text(expiresAt) || !text(evidenceHash) || !text(reportHash) ||
         !nullableText(signerKeyId) || !nullableText(signature)) {
       invalid(issues, "REPORT_ROW_FIELDS_INVALID");
@@ -134,6 +135,13 @@ export async function verifyPersistedW3MReport(
         invalid(issues, "REPORT_PARTY_BINDING_MISMATCH");
       }
       if (status !== "PASS") invalid(issues, "REPORT_NOT_PASS");
+      const nowMs = Date.parse(input.now);
+      const issuedMs = Date.parse(issuedAt);
+      const expiresMs = Date.parse(expiresAt);
+      if (!Number.isFinite(nowMs) || !Number.isFinite(issuedMs) || !Number.isFinite(expiresMs) ||
+          issuedMs > nowMs || expiresMs <= nowMs || expiresMs <= issuedMs) {
+        invalid(issues, "REPORT_EXPIRED_OR_TIME_INVALID");
+      }
       if (input.latestReportVersion === null ||
           version !== input.latestReportVersion) {
         invalid(issues, "REPORT_NOT_LATEST");
@@ -152,7 +160,11 @@ export async function verifyPersistedW3MReport(
           payload.sellerId !== sellerId ||
           payload.reportVersion !== version ||
           payload.status !== status ||
-          payload.evidenceHash !== evidenceHash) {
+          payload.engineVersion !== engineVersion ||
+          payload.issuedAt !== issuedAt ||
+          payload.expiresAt !== expiresAt ||
+          payload.evidenceHash !== evidenceHash ||
+          payload.protocol !== "W3M Protocol V1") {
         invalid(issues, "REPORT_PAYLOAD_BINDING_MISMATCH");
       }
       if (!SHA256.test(reportDealTermsHash) ||
