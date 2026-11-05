@@ -129,3 +129,41 @@ Deno.test("exact snapshot loader rejects ambiguous rows and RPC errors", async (
     },
   }));
 });
+
+
+Deno.test("exact snapshot reader blocks live Safe chain, nonce, and owner mismatches", async () => {
+  const baseFacts = {
+    chainId: 56,
+    safeAddress: "0x2222222222222222222222222222222222222222",
+    owners: [
+      "0x4444444444444444444444444444444444444444",
+      "0x5555555555555555555555555555555555555555",
+      "0x2B15cC63eE3b833F502C065767695Fa2B584f8c9",
+    ],
+    threshold: 2,
+    version: "1.4.1",
+    nonce: "7",
+    expectedBuyerWallet: "0x5555555555555555555555555555555555555555",
+    expectedSellerWallet: "0x4444444444444444444444444444444444444444",
+  };
+  const variants = [
+    { ...baseFacts, chainId: 97 },
+    { ...baseFacts, nonce: "8" },
+    { ...baseFacts, owners: [baseFacts.owners[0], baseFacts.owners[0], baseFacts.owners[2]] },
+    { ...baseFacts, threshold: 1 },
+    { ...baseFacts, version: "1.3.0" },
+  ];
+  for (const safeFacts of variants) {
+    const result = await checkDealRoomFromExactSnapshot({
+      client: client([row]),
+      dealId: "deal-reader-1",
+      stage: "PREPARE",
+      now: "2026-11-06T20:00:00.000Z",
+      safeFacts,
+    });
+    assertEquals(
+      result.decision.issues.some((issue) => issue.code === "SAFE_CONFIGURATION_MISMATCH"),
+      true,
+    );
+  }
+});
