@@ -92,3 +92,12 @@ The feature branch now contains `safe-payload-pipeline.test.ts`, which composes 
 The pipeline test is a local pure-function test only; it does not call Safe, Supabase, or any network endpoint.
 
 **Conclusion:** The frontend call graph is now mapped. The remaining blocker is not a missing browser button or a missing UI integration: it is the authoritative backend source for the six Safe functions and the exact schema those functions trust. Until that source is available, keep W3M isolated and do not claim that it blocks live settlement.
+
+
+## 7. Additional candidate branch found during continued review
+
+A second candidate source snapshot was found on `fix/security-release-guards-20261026`. It contains `prepare-deal-release`, `prepare-safe-release-tx`, and `execute-safe-release`, but not `create-safe`, `record-safe-release-signature`, or `finalize-safe-release`.
+
+Its detailed static findings are recorded in `docs/w3m-protocol-v1-security-review-20261026-candidate.md`. It contains useful payment/dispute/participant/Safe checks, but its executor still lacks exact inner-payload semantic validation, independent signature recovery, complete release-state revalidation, matching Safe ExecutionSuccess verification, and checked/idempotent persistence after broadcast.
+
+This is another non-main source candidate only. It does not establish deployment status and must not be treated as authoritative current backend source.
