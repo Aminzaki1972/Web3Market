@@ -1,4 +1,5 @@
 import { buildSignedRegistryBatch, type RegistryBatchInput } from "./report-registry-batch.ts";
+import { buildCanonicalReportEnvelope } from "./report-envelope.ts";
 import { evaluateAcquisition, type AcquisitionEvidence, type EvidenceType } from "./decision-engine.ts";
 
 const DEAL = "deal-registry-1";
@@ -171,4 +172,25 @@ Deno.test("registry builder rejects identical buyer and seller identities", asyn
     rejected = true;
   }
   if (!rejected) throw new Error("Buyer and seller must be distinct.");
+});
+
+Deno.test("registry signature digest exactly matches the canonical report envelope", async () => {
+  const base = await input();
+  const result = await buildSignedRegistryBatch(base, mockSigner);
+  const canonical = await buildCanonicalReportEnvelope({
+    reportId: base.reportId,
+    reportVersion: base.reportVersion,
+    supersedesReportId: base.supersedesReportId ?? null,
+    buyerId: base.buyerId ?? null,
+    sellerId: base.sellerId ?? null,
+    dealTermsHash: base.dealTermsHash,
+    auditId: base.auditId,
+    expectedCommitSha: base.expectedCommitSha,
+    issuedAt: base.issuedAt,
+    expiresAt: base.expiresAt,
+    decision: base.decision,
+  });
+  if (result.digestToSign !== canonical.reportHash || result.report.report_hash !== canonical.reportHash) {
+    throw new Error("Registry batch must sign and persist the exact canonical report envelope hash.");
+  }
 });
