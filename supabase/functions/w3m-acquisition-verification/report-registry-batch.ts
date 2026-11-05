@@ -8,6 +8,7 @@ import {
   type AcquisitionDecision,
   type AcquisitionEvidence,
 } from "./decision-engine.ts";
+import { buildCanonicalReportEnvelope } from "./report-envelope.ts";
 
 export const W3M_REGISTRY_BUILDER_VERSION = "w3m-registry-batch-builder-1.0.0";
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -85,6 +86,9 @@ export interface RegistryBatchInput {
   sellerId?: string | null;
   issuedAt: string;
   expiresAt: string;
+  dealTermsHash: string;
+  auditId: string;
+  expectedCommitSha: string;
   actorType: "SYSTEM" | "VERIFIER";
   actorRef?: string | null;
 }
@@ -151,39 +155,22 @@ export async function buildSignedRegistryBatch(
     }
   }
 
-  const envelope: Record<string, unknown> = {
-    schema: "w3m-acquisition-report-v1",
-    builderVersion: W3M_REGISTRY_BUILDER_VERSION,
+  const builtEnvelope = await buildCanonicalReportEnvelope({
     reportId: input.reportId,
-    dealId: input.decision.dealId,
-    projectId: input.decision.projectId,
     reportVersion: input.reportVersion,
     supersedesReportId: input.supersedesReportId ?? null,
-    status: input.decision.status,
-    engineVersion: input.decision.engineVersion,
-    evidenceHash: input.decision.evidenceHash,
-    checkedAt: input.decision.checkedAt,
+    buyerId: input.buyerId ?? null,
+    sellerId: input.sellerId ?? null,
+    dealTermsHash: input.dealTermsHash,
+    auditId: input.auditId,
+    expectedCommitSha: input.expectedCommitSha,
     issuedAt: input.issuedAt,
     expiresAt: input.expiresAt,
-    evidenceCount: input.decision.evidenceCount,
-    passedMandatoryCount: input.decision.passedMandatoryCount,
-    requiredTypeCount: input.decision.requiredTypeCount,
-    issues: input.decision.issues,
-    evidence: [...input.evidence].sort((a, b) => a.id.localeCompare(b.id)).map((item) => ({
-      id: item.id,
-      type: item.type,
-      result: item.result,
-      mandatory: item.mandatory,
-      contentHash: item.contentHash,
-      observedAt: item.observedAt,
-      validUntil: item.validUntil,
-      sourceRecordId: item.sourceRecordId ?? null,
-      sourceVersion: item.sourceVersion ?? null,
-      metadata: item.metadata ?? {},
-    })),
-  };
+    decision: input.decision,
+  });
+  const envelope = builtEnvelope.envelope as unknown as Record<string, unknown>;
 
-  const digestToSign = await sha256Hex(canonicalJson(envelope));
+  const digestToSign = builtEnvelope.reportHash;
   const signer = await signDigest(digestToSign);
   requireText(signer.signerKeyId, "Signer key ID");
   if (!SIGNATURE_65_BYTE.test(signer.signature)) {
