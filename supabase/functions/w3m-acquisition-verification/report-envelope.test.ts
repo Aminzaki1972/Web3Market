@@ -116,3 +116,17 @@ Deno.test("rejects report superseding itself", async () => {
   }
   if (!rejected) throw new Error("Self-superseding report must be rejected.");
 });
+
+Deno.test("rejects PASS report with unresolved decision issues", async () => {
+  const decision = {
+    ...fixture().decision,
+    issues: [{ code: "UNRESOLVED", message: "Evidence is not cleared." }],
+  };
+  let rejected = false;
+  try {
+    await buildCanonicalReportEnvelope(fixture({ decision }));
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) throw new Error("PASS envelope must not contain unresolved issues.");
+});
