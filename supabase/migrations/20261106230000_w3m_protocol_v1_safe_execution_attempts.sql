@@ -139,29 +139,29 @@ begin
       using errcode = '23514';
   end if;
 
-  if v_deal.payment_status <> 'confirmed'
+  if v_deal.payment_status is distinct from 'confirmed'
      or v_deal.payment_tx_hash is null
-     or v_deal.delivery_status <> 'accepted'
+     or v_deal.delivery_status is distinct from 'accepted'
      or v_deal.buyer_approved_at is null
      or coalesce(v_deal.dispute_status, 'none') <> 'none'
-     or v_deal.chain_id <> 56
+     or v_deal.chain_id is distinct from 56
      or v_deal.safe_address is null
      or v_deal.token_contract is null
      or v_policy.safe_address is null
      or v_policy.token_contract is null
      or v_policy.status not in ('locked','ready')
-     or v_policy.chain_id <> 56
+     or v_policy.chain_id is distinct from 56
      or lower(v_policy.safe_address) <> lower(v_deal.safe_address)
      or lower(v_policy.token_contract) <> lower(v_deal.token_contract) then
     raise exception 'Deal, payment, delivery, dispute, or release policy is not execution-ready'
       using errcode = '23514';
   end if;
 
-  if v_tx.action <> 'release_to_seller'
-     or v_tx.status <> 'signed'
+  if v_tx.action is distinct from 'release_to_seller'
+     or v_tx.status is distinct from 'signed'
      or v_tx.safe_tx_hash is null
      or lower(v_tx.safe_tx_hash) <> lower(p_safe_tx_hash)
-     or v_tx.chain_id <> 56
+     or v_tx.chain_id is distinct from 56
      or lower(v_tx.safe_address) <> lower(v_policy.safe_address) then
     raise exception 'Stored Safe transaction is not the exact signed release for this deal'
       using errcode = '23514';
