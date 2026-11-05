@@ -170,7 +170,7 @@ function validateEvidenceSemantics(
       if (
         typeof metadata.actualRevenueRaw !== "string" ||
         typeof metadata.declaredRevenueRaw !== "string" ||
-        !/^\\d+$/.test(metadata.actualRevenueRaw) ||
+        !/^\d+$/.test(metadata.actualRevenueRaw) ||
         metadata.actualRevenueRaw !== metadata.declaredRevenueRaw
       ) {
         return issue("REVENUE_AMOUNT_MISMATCH", "Verified on-chain receipts do not match the seller's declared revenue amount.", evidence);
