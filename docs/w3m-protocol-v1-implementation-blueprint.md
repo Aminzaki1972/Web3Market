@@ -20,9 +20,9 @@ The protocol is not a replacement escrow. Safe remains the custody and transacti
 
 ## 3. Important integration gap
 
-The production Safe settlement Edge Function implementations are not present in this repository tree under the expected `supabase/functions/<function-name>/index.ts` paths. The browser calls functions such as `prepare-deal-release`, `prepare-safe-release-tx`, and the Safe execution/finalization functions, but their server-side source is not currently available here to patch and review.
+The production Safe settlement Edge Function implementations are not present in the current `main` tree or this isolated feature branch. I did locate a historical candidate source snapshot on branch `fix/deal-dispute-release-guard` (last commit 2026-10-22): `prepare-deal-release`, `prepare-safe-release-tx`, `record-safe-release-signature`, `execute-safe-release`, and `finalize-safe-release`, along with a dispute-guard migration. This historical snapshot includes important payment, dispute, delivery, Safe owner/threshold/nonce, fee-split, signature, and on-chain receipt checks. It is useful for review, but it is not evidence that those files match the currently deployed Edge Functions.
 
-Therefore this branch deliberately does **not** change Deal Room behavior or claim that the settlement gate is enforced. Before integration, the authoritative Edge Function source must be brought under version control or otherwise made available for a controlled staging-only change. Do not attempt to infer or replace production function code from frontend calls.
+Therefore this branch deliberately does **not** change Deal Room behavior or claim that the settlement gate is enforced. Before integration, compare the historical snapshots with the actual staging/deployed function versions, then port only the verified current source into this isolated branch. Do not infer or replace production function code from frontend calls, and do not deploy or overwrite any live function.
 
 ## 4. New isolated database scaffold
 
