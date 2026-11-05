@@ -366,7 +366,8 @@ export async function createGitHubOwnershipVerifiedEvent(input: {
     throw new GitHubAdapterError("GitHub ownership evidence cannot be emitted because the exact owner and authenticated actor were not verified.");
   }
   const observedMs = Date.parse(input.now);
-  if (!Number.isFinite(observedMs) || !nonEmpty(input.dealId) ||
+  if (!Number.isFinite(observedMs) || input.ownership.repository.fetchedAt !== input.now ||
+      !nonEmpty(input.dealId) ||
       !nonEmpty(input.projectId) || !nonEmpty(input.assetId) ||
       !nonEmpty(input.sellerIdentity) || !nonEmpty(input.buyerIdentity) ||
       input.sellerIdentity === input.buyerIdentity) {
