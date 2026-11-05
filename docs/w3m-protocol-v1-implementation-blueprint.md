@@ -178,3 +178,10 @@ The branch now includes:
 The pure validator accepts a normalized, ABI-decoded Safe transaction and checks that the outer Safe call uses the approved MultiSendCallOnly target with DELEGATECALL, the approved BNB Chain and Safe/token configuration, and exactly two inner CALLs: the exact seller-net token transfer and the exact platform-fee transfer. It rejects additional calls, unexpected methods/tokens/recipients, non-zero native value, amount mismatches, and invalid fee totals.
 
 **Important limitation:** this is a tested domain helper, not yet an ABI decoder, Edge Function adapter, or enforced call in the Safe backend. It must be called with data decoded from the actual signed Safe transaction by a trusted server-side adapter, then wired into PREPARE, signature recording, EXECUTE, and receipt reconciliation. Its existence does not change live settlement behavior.
+
+
+## 13. Strict MultiSend calldata decoder
+
+The isolated branch also includes `safe-multisend-decoder.ts` and `safe-multisend-decoder.test.ts`. The decoder strictly parses the Safe MultiSend ABI envelope and packed inner-call boundaries, extracts ERC-20 `transfer(address,uint256)` calls, and rejects malformed offsets, truncated calls, invalid padding, and malformed packed data.
+
+This decoder is not a transaction sender and has no network/database access. It must be composed with the exact payload validator and invoked against the actual signed Safe transaction fields by a trusted server-side adapter. No Safe Edge Function has been modified or wired to these helpers.
