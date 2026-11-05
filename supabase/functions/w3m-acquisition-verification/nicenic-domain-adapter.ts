@@ -225,7 +225,7 @@ export function verifyNiceNicSellerControl(
   if (snapshot.status !== "active" || snapshot.hold !== false) {
     return { status: "DOMAIN_INACTIVE", snapshot, reason: "The domain is not confirmed active and free of registrar hold." };
   }
-  if (!registrantIdentityMatched) {
+  if (!snapshot.registrantContactPresent || !registrantIdentityMatched) {
     return {
       status: "REGISTRANT_IDENTITY_UNVERIFIED",
       snapshot,
@@ -239,6 +239,7 @@ export function verifyNiceNicSellerControl(
 // verifier has matched the registrant to the seller. It does not alter the domain.
 export async function createNiceNicSellerControlEvent(input: {
   snapshot: NiceNicDomainSnapshot;
+  expectedSellerAccountUsername: string;
   dealId: string;
   projectId: string;
   assetId: string;
@@ -249,12 +250,13 @@ export async function createNiceNicSellerControlEvent(input: {
 }): Promise<AssetTransferEvent> {
   const result = verifyNiceNicSellerControl(
     input.snapshot,
-    { domain: input.snapshot.domain, sellerAccountUsername: input.snapshot.accountUsername },
+    { domain: input.snapshot.domain, sellerAccountUsername: input.expectedSellerAccountUsername },
     input.registrantIdentityMatched,
   );
   const observedMs = Date.parse(input.now);
   if (result.status !== "SELLER_CONTROL_VERIFIED" ||
       input.snapshot.observedAt !== input.now ||
+      input.snapshot.accountUsername !== input.expectedSellerAccountUsername ||
       !Number.isFinite(observedMs) || !nonEmpty(input.dealId) ||
       !nonEmpty(input.projectId) || !nonEmpty(input.assetId) ||
       !nonEmpty(input.sellerIdentity) || !nonEmpty(input.buyerIdentity) ||
@@ -266,6 +268,7 @@ export async function createNiceNicSellerControlEvent(input: {
     schema: "w3m-nicenic-domain-control-v1",
     domain: input.snapshot.domain,
     accountUsername: input.snapshot.accountUsername,
+    expectedSellerAccountUsername: input.expectedSellerAccountUsername,
     status: input.snapshot.status,
     hold: input.snapshot.hold,
     createdDate: input.snapshot.createdDate,
