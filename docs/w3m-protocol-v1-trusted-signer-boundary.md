@@ -57,8 +57,12 @@ Key rotation creates a new key ID. It must not overwrite the old public key. Rev
 - No real private key generation or storage.
 - The trusted signer registry migration and disposable PostgreSQL tests are written but not deployed; no CI success has yet been verified.
 - No CI success has yet been verified for the new secp256k1 adapter.
-- No signature verification wired into the atomic persistence RPC caller.
+- No authenticated Supabase persistence handler yet; the RPC caller must independently enforce this verifier before persistence.
 - No Supabase Edge Function authentication or persistence.
 - No Safe, wallet, production database, Cloudflare, or live-site changes.
+
+`protocol-orchestrator.ts` now requires the trusted key list and verifies the just-created signature against the canonical `digestToSign` before returning a registry batch. Its isolated tests use a deterministic test-only private key and also prove that a signature-shaped fake value and a revoked key are rejected.
+
+The SQL batch persistence RPC still does not perform cryptographic verification internally. The future authenticated server persistence handler must call the trusted verifier and check the current key lifecycle state immediately before invoking the RPC. Do not expose the RPC outside the service-role server boundary.
 
 A report signed by a mock/test signer is not a trusted report and must never be used for settlement.
