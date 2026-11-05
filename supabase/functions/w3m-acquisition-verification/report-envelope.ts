@@ -81,7 +81,7 @@ export async function buildCanonicalReportEnvelope(
   const expires = validTimestamp(input.expiresAt, "Expires-at");
   const checked = validTimestamp(input.decision.checkedAt, "Decision checked-at");
   if (issued > checked) throw new Error("Report cannot be issued before the evidence decision was checked.");
-  if (expires <= issued) throw new Error("Report expiry must be later than issue time.");
+  if (expires <= issued || expires <= checked) throw new Error("Report expiry must be later than both issue time and evidence verification time.");
   if (
     !Number.isInteger(input.decision.evidenceCount) || input.decision.evidenceCount < 0 ||
     !Number.isInteger(input.decision.passedMandatoryCount) || input.decision.passedMandatoryCount < 0 ||
