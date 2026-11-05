@@ -36,13 +36,22 @@ The line references below refer to the captured source snapshots in `docs/w3m-pr
 
 ## 4. Current blockers before writing the server integration
 
-The isolated repository does not contain authoritative DDL for `deals`, `deal_release_policies`, `deal_multisig_transactions`, or `deal_multisig_signers`, nor the definition of `validate_deal_release_policy`. A scan of the tracked SQL migrations found references/triggers for multisig transactions but no table creation or complete schema definition for these release tables.
+A read-only production schema/catalog snapshot is now recorded in `docs/w3m-protocol-v1-production-deal-schema-readonly-20261106.md`. It confirms the relevant deal, release-policy, Safe transaction/signer, agreement, dispute, and audit fields, RLS metadata, constraints, triggers, and the current `validate_deal_release_policy` definition. No business rows were read and no production object was changed.
 
-The source-derived field map is not enough to safely author transactional SQL. Still unknown: column types/nullability/defaults, unique constraints, foreign keys, RLS, triggers, RPC behavior, transaction-row cardinality, and status transition rules.
+The snapshot is metadata and source inspection, not a complete deployable DDL export. The new atomic finalizer migration was authored against the confirmed column/behavior map and is tested against disposable fixture tables. Before any production migration, the fixture must be reconciled against an exact schema export or isolated staging database, including trigger side effects and foreign-key details.
 
-**Therefore blocked:** an execution-claim RPC, atomic finalization RPC, and any Edge Function adapter that writes release state. Do not infer schema from PostgREST field names and do not query production rows to fill the gap.
+Remaining blockers:
+- The six deployed Safe Edge Functions still have no W3M integration. Captured versions remain create-safe v56, prepare-deal-release v43, prepare-safe-release-tx v37, record-safe-release-signature v24, execute-safe-release v28, and finalize-safe-release v25.
+- The report issuer and server-side provider credential loading are not deployed or staging-wired. The isolated protocol service accepts already-loaded authoritative evidence and an injected protected signer; it does not fetch all live deal/provider inputs itself.
+- The isolated RPC adapter now composes report registry persistence, claim, broadcast recording, reconciliation, and atomic finalization, but it has not been wired to the six Edge Functions.
+- Fee precision differs between production constraints, validation function, and existing triggers. V1 does not write release policies; it relies on the existing validator and fails closed when the locked policy cannot satisfy both existing checks.
+- The production dispute vocabulary and validator disagree. V1 only permits exact `dispute_status = 'none'` at claim time; all other values remain blocked.
 
 ## 5. Next safe engineering step
+
+Prepare isolated patch copies of the six exact captured Edge Function versions, preserving existing authentication, payment, delivery, Safe hash, owner-signature, receipt, and transfer checks. Integrate the W3M service/RPC adapter at the documented boundaries, add Deno type checks and mocked Supabase/BNB provider tests, and keep all six patches non-deployable on the isolated branch. Then run a full isolated flow against disposable PostgreSQL and a BNB testnet Safe before discussing staging or production.
+
+
 
 Obtain a read-only authoritative schema artifact (DDL/migration export) for the release tables, relevant indexes/constraints/triggers/RLS, and the exact `validate_deal_release_policy` function definition. Review it offline, then design isolated SQL for:
 - atomic report-to-deal binding and version checks;
