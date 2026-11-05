@@ -27,12 +27,52 @@ export interface DealRoomTermsRpcClient {
   }>;
 }
 
+export interface DealRoomLiveSafeFacts {
+  chainId: number;
+  safeAddress: string;
+  owners: readonly string[];
+  threshold: number;
+  version: string;
+  nonce: string;
+  expectedBuyerWallet: string;
+  expectedSellerWallet: string;
+}
+
 export interface CheckDealRoomFromSnapshotInput {
   client: DealRoomTermsRpcClient & Parameters<typeof evaluateDealRoomRowsWithW3M>[0]["client"];
   dealId: string;
   stage: SettlementStage;
   now: string;
-  safeConfigurationMatches: boolean;
+  safeFacts: DealRoomLiveSafeFacts;
+}
+
+const PLATFORM_WALLET = "0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
+const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+
+function sameAddressSet(actual: readonly string[], expected: readonly string[]): boolean {
+  if (actual.length !== expected.length || actual.some((value) => !ADDRESS.test(value)) ||
+      expected.some((value) => !ADDRESS.test(value))) return false;
+  const a = actual.map((value) => value.toLowerCase()).sort();
+  const e = expected.map((value) => value.toLowerCase()).sort();
+  return new Set(a).size === a.length && new Set(e).size === e.length &&
+    a.every((value, index) => value === e[index]);
+}
+
+function safeConfigurationMatches(row: DealRoomTermsSnapshotRow, facts: DealRoomLiveSafeFacts): boolean {
+  return facts.chainId === 56 &&
+    facts.threshold === 2 &&
+    facts.version === "1.4.1" &&
+    typeof facts.nonce === "string" &&
+    /^(0|[1-9]\\d*)$/.test(facts.nonce) &&
+    facts.nonce === String(row.policy_safe_nonce) &&
+    ADDRESS.test(facts.safeAddress) &&
+    facts.safeAddress.toLowerCase() === String(row.deal_safe_address).toLowerCase() &&
+    facts.safeAddress.toLowerCase() === String(row.policy_safe_address).toLowerCase() &&
+    sameAddressSet(facts.owners, [
+      facts.expectedBuyerWallet,
+      facts.expectedSellerWallet,
+      PLATFORM_WALLET,
+    ]);
 }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -78,6 +118,6 @@ export async function checkDealRoomFromExactSnapshot(
     policy,
     stage: input.stage,
     now: input.now,
-    safeConfigurationMatches: input.safeConfigurationMatches,
+    safeConfigurationMatches: safeConfigurationMatches(row, input.safeFacts),
   }, recoverAndVerify);
 }
