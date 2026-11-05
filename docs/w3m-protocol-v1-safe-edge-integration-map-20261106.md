@@ -67,7 +67,19 @@ The report loader reads only the newest report version, its evidence rows, and t
 
 **Current boundary:** this is a tested reusable service, not yet wired into any of the six deployed Edge Functions. The snapshots remain read-only references. No function was deployed or invoked.
 
-## 7. Safety record
+## 8. Exact Deal Room terms boundary and conservative fee precision
+
+The isolated branch now includes:
+- `w3m_read_dealroom_terms_snapshot(uuid)`, a read-only SECURITY DEFINER RPC returning the current deal and locked release-policy financial fields as exact PostgreSQL text, executable only by `service_role`;
+- `dealroom-terms-reader.ts`, which loads exactly one snapshot, rejects missing/ambiguous results, maps it into the W3M gate, and fails closed on RPC errors;
+- a strict row adapter that rejects financial values delivered as JavaScript numbers rather than exact decimal text;
+- a fee-precision compatibility check that independently calculates the 7.5% fee at both 8 and 18 decimal places and blocks a deal unless the existing production validator and table constraint produce the same exact fee.
+
+This deliberately narrows V1 eligibility. It does not change the production fee policy or repair the existing production trigger/function disagreement. It prevents W3M from approving a deal whose current database checks may disagree about the fee.
+
+The reader migration and SQL contract test are included in the disposable PostgreSQL workflow only. They have not been applied to production.
+
+## 9. Safety record
 
 - No production Edge Function edited, deployed or invoked.
 - No production DB schema or row changed.
