@@ -38,7 +38,7 @@ function event(
     sourceVersion: "v1",
     sourceEventId: "provider-event-" + eventType,
     proofHash: HASH,
-    observedAt: "2026-11-05T17:00:00.000Z",
+    observedAt: ({\n      SELLER_CONTROL_VERIFIED: "2026-11-05T17:00:00.000Z",\n      TRANSFER_REQUESTED: "2026-11-05T17:01:00.000Z",\n      TRANSFER_PENDING: "2026-11-05T17:02:00.000Z",\n      TRANSFER_CONFIRMED: "2026-11-05T17:03:00.000Z",\n      BUYER_CONTROL_VERIFIED: "2026-11-05T17:04:00.000Z",\n      TRANSFER_FAILED: "2026-11-05T17:02:00.000Z",\n      MANUAL_REVIEW_REQUIRED: "2026-11-05T17:00:00.000Z",\n    } as Record<AssetTransferEvent["eventType"], string>)[eventType],
     validUntil: EXPIRY,
     authoritative: true,
     ...overrides,
@@ -193,5 +193,19 @@ Deno.test("empty mandatory asset portfolio cannot pass", () => {
   const decision = evaluateAssetPortfolio([]);
   if (decision.status !== "INCOMPLETE" || decision.requiredAssetCount !== 0) {
     throw new Error("An empty asset inventory must not be treated as a completed acquisition.");
+  }
+});
+
+
+Deno.test("out-of-order provider events are rejected", () => {
+  let state = createAssetTransferState(DEFINITION);
+  state = apply(state, event("SELLER_CONTROL_VERIFIED"));
+  const delayed = applyAssetTransferEvent(
+    state,
+    event("TRANSFER_REQUESTED", { observedAt: "2026-11-05T16:59:00.000Z" }),
+    NOW,
+  );
+  if (delayed.accepted || !delayed.issues.some((item) => item.code === "EVENT_OUT_OF_ORDER")) {
+    throw new Error("A delayed provider event must not move the state machine backwards.");
   }
 });
