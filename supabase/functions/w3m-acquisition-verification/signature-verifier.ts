@@ -97,8 +97,11 @@ export async function verifyTrustedReportSignature(
   }
   const key = matching[0];
 
-  if (key.status !== "ACTIVE" || key.revokedAt !== null) {
+  if (key.status === "REVOKED" || key.revokedAt !== null) {
     return fail("REVOKED_SIGNER_KEY", "Signer key has been revoked.");
+  }
+  if (key.status !== "ACTIVE") {
+    return fail("INVALID_SIGNER_KEY", "Signer key status is unknown or invalid.");
   }
   if (key.algorithm !== "ECDSA_SECP256K1_KECCAK256_RAW_DIGEST") {
     return fail("UNSUPPORTED_SIGNER_ALGORITHM", "Signer key algorithm is not supported by this protocol version.");
