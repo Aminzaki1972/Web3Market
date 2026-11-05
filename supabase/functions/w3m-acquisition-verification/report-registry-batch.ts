@@ -208,7 +208,7 @@ export async function buildSignedRegistryBatch(
     mandatory: item.mandatory,
     observed_at: item.observedAt,
     valid_until: item.validUntil,
-    details: item.metadata ?? {},
+    details: { ...(item.metadata ?? {}), evidenceId: item.id },
   }));
 
   const eventDrafts = [
