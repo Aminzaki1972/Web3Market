@@ -48,8 +48,27 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/safe-multisend-decoder.ts
           deno check supabase/functions/w3m-acquisition-verification/asset-transfer-orchestrator.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-payload-pipeline.test.ts
-      - name: Run decision engine and settlement gate tests
-        run: deno test supabase/functions/w3m-acquisition-verification/
+          deno check supabase/functions/w3m-acquisition-verification/unified-evidence-aggregator.ts
+      - name: Test decision engine
+        run: deno test supabase/functions/w3m-acquisition-verification/decision-engine.test.ts
+      - name: Test settlement gate
+        run: deno test supabase/functions/w3m-acquisition-verification/settlement-gate.test.ts
+      - name: Test Safe payload validator
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-payload-validator.test.ts
+      - name: Test Safe MultiSend decoder
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-multisend-decoder.test.ts
+      - name: Test Safe payload pipeline
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-payload-pipeline.test.ts
+      - name: Test asset transfer orchestrator
+        run: deno test supabase/functions/w3m-acquisition-verification/asset-transfer-orchestrator.test.ts
+      - name: Test GitHub repository adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/github-repository-adapter.test.ts
+      - name: Test BNB revenue adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/bnb-revenue-adapter.test.ts
+      - name: Test NiceNIC domain adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/nicenic-domain-adapter.test.ts
+      - name: Test unified evidence aggregator
+        run: deno test supabase/functions/w3m-acquisition-verification/unified-evidence-aggregator.test.ts
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
