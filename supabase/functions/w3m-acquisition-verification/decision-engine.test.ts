@@ -156,3 +156,105 @@ Deno.test("failed optional evidence does not override complete mandatory evidenc
   const result = await evaluateAcquisition(context(items));
   if (result.status !== "PASS") throw new Error("Expected PASS, got " + result.status);
 });
+
+
+function revenueEvidence(overrides: Record<string, unknown> = {}): AcquisitionEvidence {
+  return {
+    id: "revenue-evidence-1",
+    type: "REVENUE_VERIFICATION",
+    result: "PASS",
+    mandatory: true,
+    dealId: DEAL,
+    projectId: PROJECT,
+    contentHash: HASH,
+    observedAt: "2026-11-05T17:00:00.000Z",
+    validUntil: EXPIRY,
+    sourceRecordId: "56:0x1111111111111111111111111111111111111111",
+    sourceVersion: "100-110@112",
+    metadata: {
+      revenueStatus: "PASS",
+      revenueScopeConfirmed: true,
+      actualRevenueRaw: "2500000",
+      declaredRevenueRaw: "2500000",
+      chainId: 56,
+      tokenAddress: "0x1111111111111111111111111111111111111111",
+      fromBlock: 100,
+      toBlock: 110,
+      minConfirmations: 5,
+      receiptCount: 3,
+    },
+    ...overrides,
+  };
+}
+
+Deno.test("conditional on-chain revenue evidence can be required by a deal", async () => {
+  const items = [...completeEvidence(), revenueEvidence()];
+  const required: EvidenceType[] = [
+    "PROJECT_IDENTITY",
+    "CODE_AUDIT",
+    "OWNERSHIP_CONTROL",
+    "ASSET_TRANSFER",
+    "DEAL_AGREEMENT",
+    "PAYMENT",
+    "BUYER_ACCEPTANCE",
+    "DISPUTE_CHECK",
+    "REVENUE_VERIFICATION",
+  ];
+  const result = await evaluateAcquisition({
+    ...context(items),
+    requiredEvidenceTypes: required,
+  });
+  if (result.status !== "PASS") throw new Error(JSON.stringify(result.issues));
+});
+
+Deno.test("on-chain revenue amount mismatch blocks a deal that requires revenue evidence", async () => {
+  const items = [...completeEvidence(), revenueEvidence({
+    metadata: {
+      revenueStatus: "PASS",
+      revenueScopeConfirmed: true,
+      actualRevenueRaw: "2499999",
+      declaredRevenueRaw: "2500000",
+      chainId: 56,
+      tokenAddress: "0x1111111111111111111111111111111111111111",
+      fromBlock: 100,
+      toBlock: 110,
+      minConfirmations: 5,
+      receiptCount: 3,
+    },
+  })];
+  const result = await evaluateAcquisition({
+    ...context(items),
+    requiredEvidenceTypes: [
+      "PROJECT_IDENTITY", "CODE_AUDIT", "OWNERSHIP_CONTROL", "ASSET_TRANSFER",
+      "DEAL_AGREEMENT", "PAYMENT", "BUYER_ACCEPTANCE", "DISPUTE_CHECK",
+      "REVENUE_VERIFICATION",
+    ],
+  });
+  if (result.status !== "BLOCKED") throw new Error("Revenue mismatch must block acquisition.");
+});
+
+Deno.test("unconfirmed revenue scope cannot pass when the deal requires revenue evidence", async () => {
+  const items = [...completeEvidence(), revenueEvidence({
+    metadata: {
+      revenueStatus: "PASS",
+      revenueScopeConfirmed: false,
+      actualRevenueRaw: "2500000",
+      declaredRevenueRaw: "2500000",
+      chainId: 56,
+      tokenAddress: "0x1111111111111111111111111111111111111111",
+      fromBlock: 100,
+      toBlock: 110,
+      minConfirmations: 5,
+      receiptCount: 3,
+    },
+  })];
+  const result = await evaluateAcquisition({
+    ...context(items),
+    requiredEvidenceTypes: [
+      "PROJECT_IDENTITY", "CODE_AUDIT", "OWNERSHIP_CONTROL", "ASSET_TRANSFER",
+      "DEAL_AGREEMENT", "PAYMENT", "BUYER_ACCEPTANCE", "DISPUTE_CHECK",
+      "REVENUE_VERIFICATION",
+    ],
+  });
+  if (result.status !== "INCOMPLETE") throw new Error("Unconfirmed revenue scope must remain incomplete.");
+});
