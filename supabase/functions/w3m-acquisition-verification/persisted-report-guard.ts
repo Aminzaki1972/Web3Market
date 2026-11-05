@@ -203,6 +203,7 @@ export async function verifyPersistedW3MReport(
         if (!text(sourceEvidenceId) || seen.has(sourceEvidenceId) ||
             !text(sourceObservedAt) ||
             !(sourceValidUntil === null || text(sourceValidUntil)) ||
+            (sourceValidUntil === null) !== (raw.valid_until === null) ||
             Date.parse(sourceObservedAt) !== Date.parse(String(raw.observed_at)) ||
             (sourceValidUntil !== null &&
               Date.parse(sourceValidUntil) !== Date.parse(String(raw.valid_until))) ||
