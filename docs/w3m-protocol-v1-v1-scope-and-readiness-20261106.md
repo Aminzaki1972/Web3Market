@@ -64,7 +64,7 @@ The latest pre-hardening finalizer run `42124056430` completed successfully, inc
 
 The isolated V1 core can be called implementation-complete only after:
 - the latest CI run passes (including the lost-broadcast-hash recovery test and RPC adapter tests);
-- the report issuance composition and Supabase RPC adapter contracts pass the latest Deno/CI run;
+- the report issuance composition and expanded Supabase RPC adapter contracts are implemented and the latest CI run verifies them;
 - the six Safe integration patches are prepared against the captured versions and pass static/type checks in the isolated branch;
 - a disposable full-flow integration test covers all lifecycle transitions and replay/reconciliation behavior;
 - fee precision and dispute-state policy are explicitly resolved.
