@@ -153,6 +153,10 @@ export async function verifyPersistedW3MReport(
 
     if (isRecord(payload)) {
       reportDealTermsHash = typeof payload.dealTermsHash === "string" ? payload.dealTermsHash : "";
+      const payloadIssuedAt = typeof payload.issuedAt === "string" ? payload.issuedAt : "";
+      const payloadExpiresAt = typeof payload.expiresAt === "string" ? payload.expiresAt : "";
+      const rowIssuedAt = typeof issuedAt === "string" ? issuedAt : "";
+      const rowExpiresAt = typeof expiresAt === "string" ? expiresAt : "";
       if (payload.reportId !== reportId ||
           payload.dealId !== dealId ||
           payload.projectId !== projectId ||
@@ -161,8 +165,8 @@ export async function verifyPersistedW3MReport(
           payload.reportVersion !== version ||
           payload.status !== status ||
           payload.engineVersion !== engineVersion ||
-          typeof payload.issuedAt !== "string" || Date.parse(payload.issuedAt) !== Date.parse(issuedAt) ||
-          typeof payload.expiresAt !== "string" || Date.parse(payload.expiresAt) !== Date.parse(expiresAt) ||
+          !payloadIssuedAt || Date.parse(payloadIssuedAt) !== Date.parse(rowIssuedAt) ||
+          !payloadExpiresAt || Date.parse(payloadExpiresAt) !== Date.parse(rowExpiresAt) ||
           payload.evidenceHash !== evidenceHash ||
           payload.protocol !== "W3M Protocol V1") {
         invalid(issues, "REPORT_PAYLOAD_BINDING_MISMATCH");
