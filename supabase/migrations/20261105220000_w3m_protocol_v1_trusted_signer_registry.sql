@@ -83,10 +83,8 @@ begin
   if v_key_id is null or length(v_key_id) not between 1 and 128 then
     raise exception 'Invalid signer key ID' using errcode = '23514';
   end if;
-  if p_event->>'event_type' <> 'ACTIVATED' then
-    raise exception 'Signer registration requires ACTIVATED event' using errcode = '23514';
-  end if;
-  if p_event->>'key_id' <> v_key_id then
+  if p_event->>'event_type' is distinct from 'ACTIVATED'
+     or p_event->>'key_id' is distinct from v_key_id then
     raise exception 'Signer event key ID mismatch' using errcode = '23514';
   end if;
 
@@ -129,8 +127,8 @@ declare
   v_event_id bigint;
 begin
   if p_key_id is null or length(p_key_id) not between 1 and 128
-     or p_event->>'event_type' <> 'REVOKED'
-     or p_event->>'key_id' <> p_key_id then
+     or p_event->>'event_type' is distinct from 'REVOKED'
+     or p_event->>'key_id' is distinct from p_key_id then
     raise exception 'Invalid signer revocation request' using errcode = '23514';
   end if;
 
