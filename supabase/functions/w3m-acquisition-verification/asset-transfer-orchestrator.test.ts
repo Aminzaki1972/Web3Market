@@ -187,3 +187,11 @@ Deno.test("optional assets do not block mandatory asset completion", () => {
     throw new Error("Optional assets must not gate mandatory acquisition completion.");
   }
 });
+
+
+Deno.test("empty mandatory asset portfolio cannot pass", () => {
+  const decision = evaluateAssetPortfolio([]);
+  if (decision.status !== "INCOMPLETE" || decision.requiredAssetCount !== 0) {
+    throw new Error("An empty asset inventory must not be treated as a completed acquisition.");
+  }
+});
