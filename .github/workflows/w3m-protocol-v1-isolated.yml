@@ -51,6 +51,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/unified-evidence-aggregator.ts
           deno check supabase/functions/w3m-acquisition-verification/report-envelope.ts
           deno check supabase/functions/w3m-acquisition-verification/report-registry-batch.ts
+          deno check supabase/functions/w3m-acquisition-verification/protocol-orchestrator.ts
+          deno check supabase/functions/w3m-acquisition-verification/protocol-orchestrator.test.ts
       - name: Test decision engine
         run: deno test supabase/functions/w3m-acquisition-verification/decision-engine.test.ts
       - name: Test settlement gate
@@ -75,6 +77,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/report-envelope.test.ts
       - name: Test signed report registry batch builder
         run: deno test supabase/functions/w3m-acquisition-verification/report-registry-batch.test.ts
+      - name: Test W3M Protocol V1 orchestrator
+        run: deno test supabase/functions/w3m-acquisition-verification/protocol-orchestrator.test.ts
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
