@@ -22,6 +22,16 @@ export interface NiceNicDomainSnapshot {
   observedAt: string;
 }
 
+export interface NiceNicDomainMembership {
+  domain: string;
+  accountUsername: string;
+  accountHasDomain: boolean;
+  accountListComplete: boolean;
+  status: NiceNicDomainSnapshot["status"];
+  hold: boolean | null;
+  observedAt: string;
+}
+
 export interface NiceNicDomainOwnershipResult {
   status:
     | "SELLER_CONTROL_VERIFIED"
@@ -154,6 +164,37 @@ async function fetchAccountDomainList(input: {
   return { found: false, complete: totalPages <= maxPages, status: "unknown", hold: null };
 }
 
+export async function fetchNiceNicAccountDomainMembership(input: {
+  username: string;
+  apiSecret: string;
+  domain: string;
+  fetchImpl?: typeof fetch;
+  now?: string;
+  maxPages?: number;
+}): Promise<NiceNicDomainMembership> {
+  const domain = normalizeDomain(input.domain);
+  const observedAt = input.now ?? new Date().toISOString();
+  if (!Number.isFinite(Date.parse(observedAt))) {
+    throw new NiceNicAdapterError("NiceNIC observation timestamp is invalid.");
+  }
+  const accountList = await fetchAccountDomainList({
+    username: input.username,
+    apiSecret: input.apiSecret,
+    fetchImpl: input.fetchImpl,
+    maxPages: input.maxPages,
+    targetDomain: domain,
+  });
+  return {
+    domain,
+    accountUsername: input.username,
+    accountHasDomain: membership.accountHasDomain,
+    accountListComplete: membership.accountListComplete,
+    status: membership.status,
+    hold: membership.hold,
+    observedAt,
+  };
+}
+
 export async function fetchNiceNicDomainSnapshot(input: {
   username: string;
   apiSecret: string;
@@ -168,19 +209,20 @@ export async function fetchNiceNicDomainSnapshot(input: {
     throw new NiceNicAdapterError("NiceNIC observation timestamp is invalid.");
   }
 
-  const [infoPayload, accountList] = await Promise.all([
+  const [infoPayload, membership] = await Promise.all([
     niceNicRequest({
       username: input.username,
       apiSecret: input.apiSecret,
       fetchImpl: input.fetchImpl,
       query: { category: "domain", action: "info", domain },
     }),
-    fetchAccountDomainList({
+    fetchNiceNicAccountDomainMembership({
       username: input.username,
       apiSecret: input.apiSecret,
       fetchImpl: input.fetchImpl,
       maxPages: input.maxPages,
-      targetDomain: domain,
+      domain,
+      now: observedAt,
     }),
   ]);
 
@@ -308,7 +350,7 @@ export async function createNiceNicSellerControlEvent(input: {
 // longer contains the domain and a fresh buyer-account read contains it, with a
 // separately trusted registrant identity match. It does not initiate a transfer.
 export async function createNiceNicTransferConfirmedEvent(input: {
-  sellerSnapshot: NiceNicDomainSnapshot;
+  sellerMembership: NiceNicDomainMembership;
   buyerSnapshot: NiceNicDomainSnapshot;
   expectedSellerAccountUsername: string;
   expectedBuyerAccountUsername: string;
@@ -320,7 +362,7 @@ export async function createNiceNicTransferConfirmedEvent(input: {
   buyerRegistrantIdentityMatched: boolean;
   now: string;
 }): Promise<AssetTransferEvent> {
-  const seller = input.sellerSnapshot;
+  const seller = input.sellerMembership;
   const buyer = input.buyerSnapshot;
   const observedMs = Date.parse(input.now);
   if (
