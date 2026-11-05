@@ -1,5 +1,6 @@
 import {
   createGitHubOwnershipVerifiedEvent,
+  createGitHubTransferConfirmedEvent,
   fetchGitHubAuthenticatedAccount,
   fetchGitHubRepositorySnapshot,
   GitHubAdapterError,
@@ -8,7 +9,7 @@ import {
   verifyGitHubRepositoryOwner,
   type GitHubRepositorySnapshot,
 } from "./github-repository-adapter.ts";
-import { applyAssetTransferEvent, createAssetTransferState } from "./asset-transfer-orchestrator.ts";
+import { applyAssetTransferEvent, createAssetTransferState, evaluateAssetPortfolio } from "./asset-transfer-orchestrator.ts";
 
 const NOW = "2026-11-05T20:00:00.000Z";
 const RAW = {
@@ -397,5 +398,101 @@ Deno.test("repeated reads of the same GitHub repository version are idempotent",
   if (!first.accepted || !replay.accepted || !replay.idempotent ||
       firstEvent.eventId !== replayEvent.eventId || firstEvent.proofHash !== replayEvent.proofHash) {
     throw new Error("Identical GitHub source versions must replay idempotently.");
+  }
+});
+
+
+Deno.test("GitHub seller proof, transfer confirmation, and buyer proof complete one W3M asset", async () => {
+  const definition = {
+    assetId: "github-asset-1",
+    dealId: "deal-1",
+    projectId: "project-1",
+    kind: "GITHUB_REPOSITORY" as const,
+    sourceProvider: "github",
+    sourceAssetRef: "seller/sample-project",
+    sellerIdentity: "seller-account",
+    buyerIdentity: "buyer-account",
+    mandatory: true,
+  };
+  let state = createAssetTransferState(definition);
+  const sellerProof = await createGitHubOwnershipVerifiedEvent({
+    ownership: { repository: snapshot(), authenticatedAccount: SELLER_ACTOR },
+    expectation: EXPECTATION,
+    phase: "SELLER",
+    dealId: definition.dealId,
+    projectId: definition.projectId,
+    assetId: definition.assetId,
+    sellerIdentity: definition.sellerIdentity,
+    buyerIdentity: definition.buyerIdentity,
+    now: NOW,
+  });
+  let transition = applyAssetTransferEvent(state, sellerProof, "2026-11-05T20:00:30.000Z");
+  if (!transition.accepted) throw new Error("Seller proof was rejected.");
+  state = transition.state;
+
+  const transferRequest = {
+    eventId: "github-transfer-request-1",
+    eventType: "TRANSFER_REQUESTED" as const,
+    assetId: definition.assetId,
+    dealId: definition.dealId,
+    projectId: definition.projectId,
+    sourceProvider: "github",
+    sourceRecordId: "12345",
+    sourceVersion: "transfer-request-v1",
+    sourceEventId: "github-transfer-request-1",
+    proofHash: "c".repeat(64),
+    observedAt: "2026-11-05T20:00:40.000Z",
+    validUntil: "2026-11-05T20:05:40.000Z",
+    authoritative: true,
+    fromIdentity: definition.sellerIdentity,
+    toIdentity: definition.buyerIdentity,
+  };
+  transition = applyAssetTransferEvent(state, transferRequest, "2026-11-05T20:00:50.000Z");
+  if (!transition.accepted) throw new Error("Transfer request event was rejected.");
+  state = transition.state;
+
+  const buyerRepository = normalizeGitHubRepository(
+    { ...RAW, full_name: "buyer/sample-project", owner: { id: 200, login: "buyer", type: "User" } },
+    new Headers({ etag: '"buyer-version-1"' }),
+    "2026-11-05T20:01:00.000Z",
+  );
+  const buyerOwnership = { repository: buyerRepository, authenticatedAccount: BUYER_ACTOR };
+  const confirmed = await createGitHubTransferConfirmedEvent({
+    ownership: buyerOwnership,
+    expectation: EXPECTATION,
+    dealId: definition.dealId,
+    projectId: definition.projectId,
+    assetId: definition.assetId,
+    sellerIdentity: definition.sellerIdentity,
+    buyerIdentity: definition.buyerIdentity,
+    now: "2026-11-05T20:01:00.000Z",
+  });
+  transition = applyAssetTransferEvent(state, confirmed, "2026-11-05T20:01:30.000Z");
+  if (!transition.accepted) throw new Error("Provider transfer confirmation was rejected.");
+  state = transition.state;
+
+  const finalBuyerRead = normalizeGitHubRepository(
+    { ...RAW, full_name: "buyer/sample-project", owner: { id: 200, login: "buyer", type: "User" } },
+    new Headers({ etag: '"buyer-version-2"' }),
+    "2026-11-05T20:02:00.000Z",
+  );
+  const buyerProof = await createGitHubOwnershipVerifiedEvent({
+    ownership: { repository: finalBuyerRead, authenticatedAccount: BUYER_ACTOR },
+    expectation: EXPECTATION,
+    phase: "BUYER",
+    dealId: definition.dealId,
+    projectId: definition.projectId,
+    assetId: definition.assetId,
+    sellerIdentity: definition.sellerIdentity,
+    buyerIdentity: definition.buyerIdentity,
+    now: "2026-11-05T20:02:00.000Z",
+  });
+  transition = applyAssetTransferEvent(state, buyerProof, "2026-11-05T20:02:30.000Z");
+  if (!transition.accepted) throw new Error("Final buyer ownership proof was rejected.");
+  state = transition.state;
+
+  const portfolio = evaluateAssetPortfolio([state]);
+  if (portfolio.status !== "PASS" || state.status !== "BUYER_CONTROL_VERIFIED") {
+    throw new Error("The verified GitHub ownership lifecycle did not complete.");
   }
 });
