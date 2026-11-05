@@ -217,3 +217,64 @@ begin
   end if;
 end;
 $$;
+
+
+-- Reject a count-balanced batch whose event types are composed incorrectly.
+do $$
+declare
+  v_report_id uuid := gen_random_uuid();
+  v_payload jsonb;
+begin
+  v_payload := jsonb_build_object(
+    'reportId', v_report_id::text,
+    'reportVersion', 1,
+    'dealId', 'atomic-event-type-deal',
+    'projectId', 'atomic-test-project',
+    'status', 'INCOMPLETE',
+    'evidenceHash', repeat('a', 64)
+  );
+
+  begin
+    perform public.w3m_insert_acquisition_registry_batch(
+      jsonb_build_object(
+        'id', v_report_id,
+        'deal_id', 'atomic-event-type-deal',
+        'project_id', 'atomic-test-project',
+        'report_version', 1,
+        'supersedes_report_id', null,
+        'buyer_id', 'atomic-buyer',
+        'seller_id', 'atomic-seller',
+        'status', 'INCOMPLETE',
+        'engine_version', 'test-engine',
+        'evidence_hash', repeat('a', 64),
+        'report_hash', repeat('b', 64),
+        'report_payload', v_payload,
+        'signer_key_id', null,
+        'report_signature', null,
+        'issued_at', now(),
+        'expires_at', now() + interval '1 day'
+      ),
+      '[]'::jsonb,
+      jsonb_build_array(jsonb_build_object(
+        'id', gen_random_uuid(),
+        'report_id', v_report_id,
+        'deal_id', 'atomic-event-type-deal',
+        'event_type', 'EVIDENCE_ATTACHED',
+        'actor_type', 'SYSTEM',
+        'actor_ref', null,
+        'event_hash', repeat('e', 64),
+        'metadata', '{}'::jsonb,
+        'created_at', now()
+      ))
+    );
+    raise exception 'Incorrect event composition unexpectedly passed';
+  exception
+    when check_violation then
+      null;
+  end;
+
+  if exists (select 1 from public.w3m_acquisition_reports where id = v_report_id) then
+    raise exception 'Incorrect event composition left a partial report row';
+  end if;
+end;
+$$;
