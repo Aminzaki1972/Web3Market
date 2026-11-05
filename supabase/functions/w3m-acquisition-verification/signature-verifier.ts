@@ -27,6 +27,7 @@ export interface SignatureVerificationInput {
   signature: string;
   signerKeyId: string;
   checkedAt: string;
+  purpose: "HISTORICAL" | "SETTLEMENT";
 }
 
 export type EthereumDigestRecoveryVerifier = (input: {
@@ -98,9 +99,17 @@ export async function verifyTrustedReportSignature(
   const key = matching[0];
 
   if (key.status === "REVOKED" || key.revokedAt !== null) {
-    return fail("REVOKED_SIGNER_KEY", "Signer key has been revoked.");
-  }
-  if (key.status !== "ACTIVE") {
+    if (input.purpose !== "HISTORICAL") {
+      return fail("REVOKED_SIGNER_KEY", "A revoked signer key cannot authorize a new settlement.");
+    }
+    const revokedAt = key.revokedAt === null ? null : timestamp(key.revokedAt);
+    if (revokedAt === null) {
+      return fail("INVALID_SIGNER_KEY", "Revoked signer key is missing a valid revocation timestamp.");
+    }
+    if (checkedAt >= revokedAt) {
+      return fail("REVOKED_SIGNER_KEY", "The report was issued at or after signer key revocation.");
+    }
+  } else if (key.status !== "ACTIVE") {
     return fail("INVALID_SIGNER_KEY", "Signer key status is unknown or invalid.");
   }
   if (key.algorithm !== "ECDSA_SECP256K1_KECCAK256_RAW_DIGEST") {
