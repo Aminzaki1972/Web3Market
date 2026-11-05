@@ -166,3 +166,24 @@ The active isolated branch and current main tree do not contain the Safe release
 The historical snapshot already contains checks for participant access, payment confirmation, open disputes, delivery acceptance, Safe owner/threshold/nonce, fee split, signature count, and on-chain transfer confirmation. Those controls must be preserved and revalidated when adding the W3M gate. The source is old enough that blindly copying or replacing deployed functions would be unsafe. The next safe step is to compare the historical snapshots with the actual staging/deployed function versions, then port only the verified current source into this isolated branch and add W3M checks at PREPARE and EXECUTE. Do not deploy or overwrite any live function.
 
 **Current state:** deterministic decision engine and isolated evidence-registry schema have passed the dedicated CI run. This integration contract does not activate the protocol, alter the live Deal Room, or authorize any real settlement.
+
+
+## 9. Historical Safe source review — additional mandatory controls
+
+The static review of the five historical candidate functions is recorded in `docs/w3m-protocol-v1-historical-safe-static-security-review.md`. It is a historical source review, not confirmation of deployed code.
+
+Before W3M integration is considered safe, the authoritative current backend must also satisfy all of the following:
+
+1. **Exact transaction payload:** Decode the full Safe/MultiSend payload server-side. Require exactly the configured token transfer to the verified seller for the exact seller-net amount and exactly the configured platform-fee transfer to the approved platform wallet. Reject additional calls, approvals, unexpected recipients, unexpected token contracts, non-zero unexpected values, and amount mismatches before any broadcast.
+2. **Signature re-verification:** At execution, recompute the Safe transaction hash and recover each stored EIP-712 signature against that exact digest. Require distinct current Safe owners and a valid threshold. Do not trust a database count or signature status alone.
+3. **State revalidation:** Recheck the current W3M report, report version/signature/key status/expiry, payment, buyer acceptance, terms hash, dispute state, policy status, Safe/token/chain configuration, nonce, and finalization state immediately before execution.
+4. **Concurrency-safe idempotency:** Atomically claim one execution attempt for the deal + Safe transaction hash. Reconcile uncertain broadcasts from chain state before retrying. Prevent concurrent requests from rebuilding or submitting competing releases.
+5. **Atomic persistence:** Use narrowly scoped database transactions/RPCs for coupled preparation state changes and post-receipt finalization. Check every database write result. Keep chain receipt verification outside the DB transaction, then persist its verified facts atomically.
+6. **Receipt semantics:** Require the matching Safe `ExecutionSuccess` event for the exact Safe transaction hash, plus exact token Transfer logs from the configured Safe to the exact recipients and amounts, before finalization.
+7. **Configuration allowlists:** Reconcile chain ID, token address, token decimals, Safe version, platform wallet, MultiSendCallOnly address, and executor configuration against the authoritative approved configuration. Never accept these from browser input.
+
+The historical implementation does contain useful controls, but its transaction builder's structural MultiSend check is not a semantic proof of the inner transfer instructions. Its execution path does not independently recover every stored signature or prove the exact intended transfer payload before broadcasting. Its multi-step database writes also need atomic/idempotent handling.
+
+### Source-of-truth prerequisite
+
+The five historical functions are absent from the current `main` tree. Frontend references to function names do not establish deployed source. Do not copy this historical snapshot into active Edge Function paths or infer that it is the live version. Obtain an authoritative current source export or isolated staging deployment first, compare it to the historical snapshot, and only then implement adapters on this feature branch.
