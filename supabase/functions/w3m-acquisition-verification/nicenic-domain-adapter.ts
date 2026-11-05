@@ -302,3 +302,156 @@ export async function createNiceNicSellerControlEvent(input: {
     currentOwnerIdentity: input.sellerIdentity,
   };
 }
+
+
+// Confirms account-level transfer only when a complete seller-account listing no
+// longer contains the domain and a fresh buyer-account read contains it, with a
+// separately trusted registrant identity match. It does not initiate a transfer.
+export async function createNiceNicTransferConfirmedEvent(input: {
+  sellerSnapshot: NiceNicDomainSnapshot;
+  buyerSnapshot: NiceNicDomainSnapshot;
+  expectedSellerAccountUsername: string;
+  expectedBuyerAccountUsername: string;
+  dealId: string;
+  projectId: string;
+  assetId: string;
+  sellerIdentity: string;
+  buyerIdentity: string;
+  buyerRegistrantIdentityMatched: boolean;
+  now: string;
+}): Promise<AssetTransferEvent> {
+  const seller = input.sellerSnapshot;
+  const buyer = input.buyerSnapshot;
+  const observedMs = Date.parse(input.now);
+  if (
+    seller.domain !== buyer.domain ||
+    seller.accountUsername !== input.expectedSellerAccountUsername ||
+    buyer.accountUsername !== input.expectedBuyerAccountUsername ||
+    seller.accountHasDomain ||
+    !seller.accountListComplete ||
+    !buyer.accountHasDomain ||
+    buyer.status !== "active" ||
+    buyer.hold !== false ||
+    !buyer.registrantContactPresent ||
+    !input.buyerRegistrantIdentityMatched ||
+    seller.observedAt !== input.now ||
+    buyer.observedAt !== input.now ||
+    !Number.isFinite(observedMs) ||
+    !nonEmpty(input.dealId) ||
+    !nonEmpty(input.projectId) ||
+    !nonEmpty(input.assetId) ||
+    !nonEmpty(input.sellerIdentity) ||
+    !nonEmpty(input.buyerIdentity) ||
+    input.sellerIdentity === input.buyerIdentity
+  ) {
+    throw new NiceNicAdapterError("NiceNIC transfer confirmation requires complete seller-account absence and fresh buyer-account plus registrant verification.");
+  }
+
+  const proof = {
+    schema: "w3m-nicenic-account-transfer-confirmation-v1",
+    domain: buyer.domain,
+    sellerAccountUsername: seller.accountUsername,
+    sellerAccountHasDomain: seller.accountHasDomain,
+    sellerAccountListComplete: seller.accountListComplete,
+    buyerAccountUsername: buyer.accountUsername,
+    buyerAccountHasDomain: buyer.accountHasDomain,
+    buyerStatus: buyer.status,
+    buyerHold: buyer.hold,
+    buyerExpiredDate: buyer.expiredDate,
+    buyerNameservers: buyer.nameservers,
+    buyerRegistrantIdentityMatched: true,
+    dealId: input.dealId,
+    projectId: input.projectId,
+    assetId: input.assetId,
+  };
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(proof)));
+  const proofHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const version = `${seller.accountUsername}:${buyer.accountUsername}:${buyer.expiredDate ?? "unknown"}`;
+  const sourceEventId = `nicenic:${buyer.domain}:TRANSFER_CONFIRMED:${version}`;
+
+  return {
+    eventId: sourceEventId,
+    eventType: "TRANSFER_CONFIRMED",
+    assetId: input.assetId,
+    dealId: input.dealId,
+    projectId: input.projectId,
+    sourceProvider: "nicenic",
+    sourceRecordId: buyer.domain,
+    sourceVersion: version,
+    sourceEventId,
+    proofHash,
+    observedAt: input.now,
+    validUntil: new Date(observedMs + 5 * 60 * 1000).toISOString(),
+    authoritative: true,
+    fromIdentity: input.sellerIdentity,
+    toIdentity: input.buyerIdentity,
+  };
+}
+
+export async function createNiceNicBuyerControlEvent(input: {
+  snapshot: NiceNicDomainSnapshot;
+  expectedBuyerAccountUsername: string;
+  dealId: string;
+  projectId: string;
+  assetId: string;
+  sellerIdentity: string;
+  buyerIdentity: string;
+  registrantIdentityMatched: boolean;
+  now: string;
+}): Promise<AssetTransferEvent> {
+  const snapshot = input.snapshot;
+  const observedMs = Date.parse(input.now);
+  if (
+    snapshot.accountUsername !== input.expectedBuyerAccountUsername ||
+    !snapshot.accountHasDomain ||
+    snapshot.status !== "active" ||
+    snapshot.hold !== false ||
+    !snapshot.registrantContactPresent ||
+    !input.registrantIdentityMatched ||
+    snapshot.observedAt !== input.now ||
+    !Number.isFinite(observedMs) ||
+    !nonEmpty(input.dealId) ||
+    !nonEmpty(input.projectId) ||
+    !nonEmpty(input.assetId) ||
+    !nonEmpty(input.sellerIdentity) ||
+    !nonEmpty(input.buyerIdentity) ||
+    input.sellerIdentity === input.buyerIdentity
+  ) {
+    throw new NiceNicAdapterError("NiceNIC buyer-control evidence requires a fresh active buyer-account read and registrant identity match.");
+  }
+
+  const proof = {
+    schema: "w3m-nicenic-buyer-control-v1",
+    domain: snapshot.domain,
+    buyerAccountUsername: snapshot.accountUsername,
+    status: snapshot.status,
+    hold: snapshot.hold,
+    expiredDate: snapshot.expiredDate,
+    nameservers: snapshot.nameservers,
+    registrantIdentityMatched: true,
+    dealId: input.dealId,
+    projectId: input.projectId,
+    assetId: input.assetId,
+  };
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(proof)));
+  const proofHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const version = `${snapshot.accountUsername}:${snapshot.expiredDate ?? "unknown"}:${snapshot.status}`;
+  const sourceEventId = `nicenic:${snapshot.domain}:BUYER_CONTROL_VERIFIED:${version}`;
+
+  return {
+    eventId: sourceEventId,
+    eventType: "BUYER_CONTROL_VERIFIED",
+    assetId: input.assetId,
+    dealId: input.dealId,
+    projectId: input.projectId,
+    sourceProvider: "nicenic",
+    sourceRecordId: snapshot.domain,
+    sourceVersion: version,
+    sourceEventId,
+    proofHash,
+    observedAt: input.now,
+    validUntil: new Date(observedMs + 5 * 60 * 1000).toISOString(),
+    authoritative: true,
+    currentOwnerIdentity: input.buyerIdentity,
+  };
+}
