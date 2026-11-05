@@ -117,3 +117,10 @@ The following repository refs were checked by reading their Git trees (not by qu
 The historical five-function snapshot is useful for understanding earlier implementation intent, but it is not a complete six-function source set and does not prove that it matches the deployed version. The testnet branch is not evidence of an integrated Deal Room Safe backend.
 
 **Updated conclusion:** Repository branch review has not located a complete, authoritative source set for all six current Safe endpoints. Do not combine files from different historical branches to manufacture a presumed deployed implementation. The next safe step remains obtaining a source-only export tied to the currently deployed function versions, or an explicitly isolated staging source set.
+
+
+## 9. Default-branch code-search cross-check — 2026-11-05
+
+GitHub code search was run for each of the six client-referenced endpoint names (create-safe, prepare-deal-release, prepare-safe-release-tx, record-safe-release-signature, execute-safe-release, finalize-safe-release) within this repository's default-branch index. Matches were limited to frontend call sites and a diagnostic JavaScript file; no backend Edge Function implementation was returned. This corroborates the current-main tree inventory but remains limited to the default-branch code-search index and does not inspect deployed Supabase functions.
+
+No backend adapter was created from guessed schemas. No historical function files were copied into the feature branch. The next implementation step is blocked until the authoritative source-only export or an explicitly isolated staging source set is available.
