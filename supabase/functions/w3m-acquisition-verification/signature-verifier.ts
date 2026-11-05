@@ -97,7 +97,7 @@ export async function verifyTrustedReportSignature(
   }
   const key = matching[0];
 
-  if (key.status === "REVOKED" || key.revokedAt !== null) {
+  if (key.status !== "ACTIVE" || key.revokedAt !== null) {
     return fail("REVOKED_SIGNER_KEY", "Signer key has been revoked.");
   }
   if (key.algorithm !== "ECDSA_SECP256K1_KECCAK256_RAW_DIGEST") {
@@ -115,7 +115,7 @@ export async function verifyTrustedReportSignature(
   if (checkedAt < validFrom) {
     return fail("SIGNER_KEY_NOT_YET_VALID", "Signer key was not valid at the verification time.");
   }
-  if (validUntil !== null && checkedAt > validUntil) {
+  if (validUntil !== null && checkedAt >= validUntil) {
     return fail("SIGNER_KEY_EXPIRED", "Signer key validity period has ended.");
   }
 
