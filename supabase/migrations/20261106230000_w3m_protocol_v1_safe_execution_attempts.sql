@@ -91,6 +91,25 @@ begin
   -- Serialize claims for the same deal before inspecting the active-attempt state.
   perform pg_advisory_xact_lock(hashtextextended(p_deal_id::text, 0));
 
+  select * into v_existing
+    from public.w3m_safe_execution_attempts
+   where idempotency_key = p_idempotency_key;
+  if found then
+    if v_existing.deal_id = p_deal_id
+       and v_existing.transaction_id = p_transaction_id
+       and v_existing.report_id = p_report_id
+       and lower(v_existing.safe_tx_hash) = lower(p_safe_tx_hash) then
+      return jsonb_build_object(
+        'claimed', v_existing.state in ('CLAIMED','BROADCAST','RECONCILIATION_REQUIRED'),
+        'idempotent_replay', true,
+        'attempt_id', v_existing.id,
+        'state', v_existing.state
+      );
+    end if;
+    raise exception 'Idempotency key was already used for a different execution attempt'
+      using errcode = '23505';
+  end if;
+
   select * into v_deal from public.deals where id = p_deal_id for update;
   if not found then raise exception 'Deal not found' using errcode = 'P0002'; end if;
 
@@ -175,25 +194,6 @@ begin
   if coalesce((v_validation->>'valid')::boolean, false) is not true then
     raise exception 'Existing release policy validator rejected the deal'
       using errcode = '23514';
-  end if;
-
-  select * into v_existing
-    from public.w3m_safe_execution_attempts
-   where idempotency_key = p_idempotency_key;
-  if found then
-    if v_existing.deal_id = p_deal_id
-       and v_existing.transaction_id = p_transaction_id
-       and v_existing.report_id = p_report_id
-       and lower(v_existing.safe_tx_hash) = lower(p_safe_tx_hash) then
-      return jsonb_build_object(
-        'claimed', v_existing.state in ('CLAIMED','BROADCAST','RECONCILIATION_REQUIRED'),
-        'idempotent_replay', true,
-        'attempt_id', v_existing.id,
-        'state', v_existing.state
-      );
-    end if;
-    raise exception 'Idempotency key was already used for a different execution attempt'
-      using errcode = '23505';
   end if;
 
   if exists (
