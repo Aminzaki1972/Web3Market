@@ -84,6 +84,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/dealroom-w3m-gate.test.ts
           deno check supabase/functions/w3m-acquisition-verification/persisted-report-loader.ts
           deno check supabase/functions/w3m-acquisition-verification/persisted-report-loader.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/dealroom-w3m-service.ts
+          deno check supabase/functions/w3m-acquisition-verification/dealroom-w3m-service.test.ts
       - name: Test decision engine
         run: deno test supabase/functions/w3m-acquisition-verification/decision-engine.test.ts
       - name: Test settlement gate
@@ -128,6 +130,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/dealroom-w3m-gate.test.ts
       - name: Test server-side persisted report loader
         run: deno test supabase/functions/w3m-acquisition-verification/persisted-report-loader.test.ts
+      - name: Test unified Deal Room W3M service
+        run: deno test supabase/functions/w3m-acquisition-verification/dealroom-w3m-service.test.ts
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
