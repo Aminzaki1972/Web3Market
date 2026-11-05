@@ -128,4 +128,146 @@ grant select, insert on table public.w3m_acquisition_reports to service_role;
 grant select, insert on table public.w3m_acquisition_evidence to service_role;
 grant select, insert on table public.w3m_acquisition_report_events to service_role;
 
+
+-- Atomic server-side append operation. A single function invocation is one
+-- PostgreSQL transaction: any invalid row rolls back the report, evidence,
+-- and event inserts together. The caller must verify the report signature
+-- and signer-key status before invoking this function.
+create or replace function public.w3m_insert_acquisition_registry_batch(
+  p_report jsonb,
+  p_evidence jsonb,
+  p_events jsonb
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $function$
+declare
+  v_report_id uuid;
+  v_deal_id text;
+  v_project_id text;
+  v_item jsonb;
+  v_evidence_count integer := 0;
+  v_event_count integer := 0;
+  v_report_payload jsonb;
+begin
+  if jsonb_typeof(p_report) <> 'object'
+     or jsonb_typeof(p_evidence) <> 'array'
+     or jsonb_typeof(p_events) <> 'array' then
+    raise exception 'Registry batch must contain one report object and evidence/event arrays'
+      using errcode = '22023';
+  end if;
+
+  v_report_id := (p_report->>'id')::uuid;
+  v_deal_id := p_report->>'deal_id';
+  v_project_id := p_report->>'project_id';
+  v_report_payload := p_report->'report_payload';
+
+  if v_deal_id is null or length(btrim(v_deal_id)) = 0
+     or v_project_id is null or length(btrim(v_project_id)) = 0
+     or v_report_payload is null or jsonb_typeof(v_report_payload) <> 'object' then
+    raise exception 'Registry report binding or canonical payload is missing'
+      using errcode = '22023';
+  end if;
+
+  if v_report_payload->>'reportId' is distinct from v_report_id::text
+     or v_report_payload->>'dealId' is distinct from v_deal_id
+     or v_report_payload->>'projectId' is distinct from v_project_id
+     or v_report_payload->>'reportVersion' is distinct from p_report->>'report_version'
+     or v_report_payload->>'status' is distinct from p_report->>'status'
+     or v_report_payload->>'evidenceHash' is distinct from p_report->>'evidence_hash' then
+    raise exception 'Canonical report payload does not match registry columns'
+      using errcode = '22023';
+  end if;
+
+  insert into public.w3m_acquisition_reports (
+    id, deal_id, project_id, report_version, supersedes_report_id,
+    buyer_id, seller_id, status, engine_version, evidence_hash, report_hash,
+    report_payload, signer_key_id, report_signature, issued_at, expires_at
+  ) values (
+    v_report_id, v_deal_id, v_project_id,
+    (p_report->>'report_version')::integer,
+    nullif(p_report->>'supersedes_report_id', '')::uuid,
+    p_report->>'buyer_id', p_report->>'seller_id',
+    p_report->>'status', p_report->>'engine_version',
+    p_report->>'evidence_hash', p_report->>'report_hash',
+    v_report_payload, p_report->>'signer_key_id',
+    p_report->>'report_signature',
+    (p_report->>'issued_at')::timestamptz,
+    (p_report->>'expires_at')::timestamptz
+  );
+
+  for v_item in select value from jsonb_array_elements(p_evidence)
+  loop
+    if v_item->>'report_id' is distinct from v_report_id::text then
+      raise exception 'Evidence row references a different report'
+        using errcode = '23514';
+    end if;
+
+    insert into public.w3m_acquisition_evidence (
+      id, report_id, evidence_type, source_table, source_record_id,
+      source_version, evidence_hash, result, mandatory, observed_at,
+      valid_until, details
+    ) values (
+      (v_item->>'id')::uuid,
+      v_report_id,
+      v_item->>'evidence_type',
+      v_item->>'source_table',
+      v_item->>'source_record_id',
+      v_item->>'source_version',
+      v_item->>'evidence_hash',
+      v_item->>'result',
+      coalesce((v_item->>'mandatory')::boolean, true),
+      (v_item->>'observed_at')::timestamptz,
+      nullif(v_item->>'valid_until', '')::timestamptz,
+      coalesce(v_item->'details', '{}'::jsonb)
+    );
+    v_evidence_count := v_evidence_count + 1;
+  end loop;
+
+  for v_item in select value from jsonb_array_elements(p_events)
+  loop
+    if v_item->>'report_id' is distinct from v_report_id::text
+       or v_item->>'deal_id' is distinct from v_deal_id then
+      raise exception 'Event row references a different report or deal'
+        using errcode = '23514';
+    end if;
+
+    insert into public.w3m_acquisition_report_events (
+      id, report_id, deal_id, event_type, actor_type, actor_ref,
+      event_hash, metadata, created_at
+    ) values (
+      (v_item->>'id')::uuid,
+      v_report_id,
+      v_deal_id,
+      v_item->>'event_type',
+      v_item->>'actor_type',
+      v_item->>'actor_ref',
+      v_item->>'event_hash',
+      coalesce(v_item->'metadata', '{}'::jsonb),
+      (v_item->>'created_at')::timestamptz
+    );
+    v_event_count := v_event_count + 1;
+  end loop;
+
+  if v_event_count <> v_evidence_count + 1 then
+    raise exception 'Registry batch must contain one creation event and one event per evidence row'
+      using errcode = '23514';
+  end if;
+
+  return jsonb_build_object(
+    'report_id', v_report_id,
+    'evidence_rows', v_evidence_count,
+    'event_rows', v_event_count,
+    'atomic', true
+  );
+end;
+$function$;
+
+revoke all on function public.w3m_insert_acquisition_registry_batch(jsonb, jsonb, jsonb)
+  from public, anon, authenticated, service_role;
+grant execute on function public.w3m_insert_acquisition_registry_batch(jsonb, jsonb, jsonb)
+  to service_role;
+
 commit;
