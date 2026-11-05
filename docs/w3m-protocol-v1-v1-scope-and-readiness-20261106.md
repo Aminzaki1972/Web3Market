@@ -60,6 +60,9 @@ The latest comprehensive code CI run `42124917367` completed successfully on `b8
 
 ## 5. Latest isolated verification
 
+GitHub Actions run `42130922902` completed with **success** on commit `69cb2f2ff827b5d201c7d05ca40f1e3c4fe9b532`. In addition to the previously listed Deno and disposable PostgreSQL suites, this run includes negative Safe-facts cases proving the Deal Room gate rejects a wrong chain ID, wrong nonce, duplicate owner, wrong threshold, and wrong Safe version. This is isolated CI evidence only; no deployed function or live Safe was exercised.
+
+
 GitHub Actions run `42127007503` completed with **success** on code commit `dcab7165887457f7eb124e677608fc6b03cd4bbf`. The run passed:
 - Deno type-check for the protocol engines, report issuance service, persisted report guard, canonical deal terms hash, report loader, Deal Room gate service, and Supabase RPC adapters;
 - the Deno unit suites, including report signature/evidence revalidation, fail-closed Deal Room gate, exact terms hashing, and claim/broadcast/reconciliation/finalization RPC adapter tests;
