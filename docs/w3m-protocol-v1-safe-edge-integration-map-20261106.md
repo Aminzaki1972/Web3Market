@@ -6,6 +6,9 @@
 
 ## 1. Verified isolated CI result
 
+The latest Safe-facts negative-test run `42130922902` completed with **success** on commit `69cb2f2ff827b5d201c7d05ca40f1e3c4fe9b532`. The run passed the Deno type-check/unit-test sequence and disposable PostgreSQL migration/contract tests. Added negative cases reject a mismatched BNB chain ID, Safe nonce, duplicate owner, threshold, or Safe version. This does not imply that the six deployed functions are integrated.
+
+
 GitHub Actions run `42121162098`, commit `66d38c61da01b9ce5edf9544ab2f233c0b0b3071`, completed with **success**. The type-check, all listed Deno suites, both registry migrations, and both PostgreSQL schema-test scripts passed against the workflow's disposable PostgreSQL service.
 
 This proves the isolated code and the two W3M registry migrations pass the current workflow. It does not prove production integration, live BNB behavior, or end-to-end settlement.
