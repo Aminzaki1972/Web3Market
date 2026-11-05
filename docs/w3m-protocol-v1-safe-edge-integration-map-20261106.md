@@ -53,13 +53,6 @@ Prepare isolated patch copies of the six exact captured Edge Function versions, 
 
 
 
-Obtain a read-only authoritative schema artifact (DDL/migration export) for the release tables, relevant indexes/constraints/triggers/RLS, and the exact `validate_deal_release_policy` function definition. Review it offline, then design isolated SQL for:
-- atomic report-to-deal binding and version checks;
-- one active execution attempt per exact deal + Safe transaction hash;
-- persisted broadcast hash and retry reconciliation;
-- one atomic finalization transition with receipt identity and audit event.
-
-Only after the isolated SQL and adapter pass CI should a separate integration proposal be prepared. Production deployment remains a distinct approval step.
 
 ## 6. Safety record
 
