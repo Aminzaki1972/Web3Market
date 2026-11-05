@@ -257,3 +257,19 @@ Deno.test("orchestrator rejects malformed authoritative signer registry rows", a
   }
   if (!rejected) throw new Error("Malformed signer registry data must fail closed.");
 });
+
+
+Deno.test("orchestrator evaluates signer validity at report issue time", async () => {
+  let rejected = false;
+  try {
+    await prepareAcquisitionProtocolBatch(input({
+      trustedSignerRegistryRows: [{
+        ...TEST_SIGNER_REGISTRY_ROWS[0],
+        valid_until: NOW,
+      }],
+    }), signer);
+  } catch (error) {
+    rejected = String(error).includes("SIGNER_KEY_EXPIRED");
+  }
+  if (!rejected) throw new Error("Signer expired at report issue time must not sign the report.");
+});
