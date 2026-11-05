@@ -65,10 +65,15 @@ function idText(value: unknown, field: string): string {
 }
 
 function chainId(value: unknown, field: string): number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
-    throw new Error("W3M requires an integer " + field + ".");
+  const parsed = typeof value === "number"
+    ? value
+    : typeof value === "string" && /^(0|[1-9]\\d*)$/.test(value)
+    ? Number(value)
+    : Number.NaN;
+  if (!Number.isSafeInteger(parsed)) {
+    throw new Error("W3M requires an exact integer " + field + ".");
   }
-  return value;
+  return parsed;
 }
 
 export async function evaluateDealRoomRowsWithW3M(
