@@ -110,3 +110,11 @@ Added `safe-edge-w3m-boundary.ts` and `safe-edge-w3m-phase-boundary.ts` under th
 The generic boundary and its test suite passed CI in run `42131914382` (success), including Deno type-checks, the boundary test, and disposable PostgreSQL migration/contract tests. The phase-aware module and its five tests are in commits `3baa2ba740c223af5d8327aa549f81b1aa6ab6f0` and `98e0df219f48e13c7f0a5a944ace8af0eb3ada8f`; its CI run `42132090107` was still in progress at the time of this note.
 
 **Integration limitation:** these are tested boundary contracts, not yet inserted into the five deployed Safe handlers or deployable copies of those handlers. Each handler still needs a separately reviewed isolated copy and a concrete fresh-state authorizer wired to its existing database/RPC/chain reads. Do not deploy or connect this helper to production until those adapters and end-to-end tests are complete.
+
+## 8. Fresh handler authorization composition (isolated)
+
+Added `safe-handler-w3m-authorizer.ts`. For PREPARE and SIGN it maps to the PREPARE gate; for EXECUTE it maps to the EXECUTE gate. On every invocation it calls an injected server-side loader for fresh Deal Room RPC input and live Safe facts, then calls `checkDealRoomFromExactSnapshot`, which reads the exact terms snapshot and current persisted W3M report/evidence/trusted signer rows. A cryptographic digest-recovery verifier is mandatory; the authorizer never accepts a browser-provided "verified" boolean. Any read, parsing, or verification error returns a denial.
+
+FINALIZE is intentionally denied by this pre-execution authorizer with `W3M_FINALIZATION_REQUIRES_VERIFIED_RECEIPT`. It must use the separate chain receipt/log verifier and atomic `w3m_finalize_safe_execution_attempt` RPC path; passing a pre-execution gate alone is not sufficient proof that a Safe transaction succeeded.
+
+Tests were added for fresh-read failure, phase binding, finalization denial, and missing deal context. CI runs `42132486155` (authorizer implementation) and `42132507852` (tests + workflow inclusion) were pending when this note was written. No deployed Safe handler source has been modified, and no production database/function/site was changed.
