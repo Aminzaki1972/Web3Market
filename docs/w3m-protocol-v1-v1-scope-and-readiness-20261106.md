@@ -19,6 +19,9 @@ Status: isolated V1 core candidate; not production-integrated and not deployable
 | Trusted signer | Registry migration, status view, row adapter and signature policy | Implemented in isolated migrations; unit-tested |
 | Registry persistence | Atomic report + evidence + event insert RPC | Implemented in isolated migration; PostgreSQL-tested |
 | Execution claim | One active attempt per deal, idempotency, exact broadcast hash | Implemented in isolated migration; PostgreSQL-tested |
+| Lost-hash recovery | Bind the original hash after uncertain send while retaining the blocking reconciliation state | Implemented; PostgreSQL-tested |
+| Supabase RPC adapter | Server-only typed adapter for report persistence, claim, broadcast, reconciliation, and atomic finalization | Implemented; Deno-tested |
+| Report service composition | Aggregate, sign, verify trusted key, then persist the immutable report batch | Implemented as an injected server-side service; type-checked |
 | Uncertain broadcast | Reconciliation-required state remains blocking | Implemented; PostgreSQL-tested |
 | Finalization | Atomic update of Safe transaction, policy, deal, project, audit row, and attempt state | Added in isolated migration; PostgreSQL-tested on the initial finalizer commit; latest hardening CI run pending |
 
@@ -36,8 +39,8 @@ Status: isolated V1 core candidate; not production-integrated and not deployable
 2. **Report issuer runtime:** there is no deployed or staging Edge Function that authenticates the caller, loads authoritative deal/project/agreement/payment/delivery/dispute state, runs the provider adapters, signs with a protected W3M private key, verifies key status, and persists the signed report.
 3. **Server adapter calls:** the pure orchestrator and SQL RPCs are not yet connected through a tested Supabase server adapter.
 4. **Full end-to-end:** no isolated BNB testnet end-to-end test has yet exercised report issue → Deal Room prepare → signature recording → execution claim → broadcast → receipt verification → atomic finalization.
-5. **Fee precision:** production schema checks fee math at 18 decimals, while the existing validator computes at 8 decimals and overlapping deal triggers use 6 and 8 decimals. W3M claim retains the existing validator and fails closed; a canonical precision decision is still needed before authoring any release-policy writer.
-6. **Dispute vocabulary:** production CHECK values are `none, open, under_review, resolved_buyer, resolved_seller, closed`, while the validator/protection logic also tests literal `resolved`. V1 currently accepts only exact `none` at claim time; resolved cases remain blocked pending an explicit policy decision.
+5. **Fee precision compatibility:** production schema checks fee math at 18 decimals, while the existing validator computes at 8 decimals and overlapping deal triggers use 6 and 8 decimals. V1 does not create or rewrite release policies. It relies on the existing locked policy plus the existing validator; therefore only deals whose stored fee values satisfy both the table constraint and validator can pass. Any incompatible precision fails closed. A canonical precision decision is still needed before a future W3M policy writer is added.
+6. **Dispute policy:** V1 explicitly accepts only `deals.dispute_status = 'none'` at execution claim. All open, under-review, and terminal/resolved values remain blocked. This conservative scope avoids silently interpreting the production vocabulary mismatch; broadening terminal states requires a separately approved policy and database correction.
 
 ## 4. CI interpretation
 
@@ -60,8 +63,8 @@ The latest pre-hardening finalizer run `42124056430` completed successfully, inc
 ## 6. Definition of V1 completion
 
 The isolated V1 core can be called implementation-complete only after:
-- the latest CI run passes;
-- the server-side report-issuer and Supabase RPC adapter contracts are implemented and tested;
+- the latest CI run passes (including the lost-broadcast-hash recovery test and RPC adapter tests);
+- the report issuance composition and Supabase RPC adapter contracts pass the latest Deno/CI run;
 - the six Safe integration patches are prepared against the captured versions and pass static/type checks in the isolated branch;
 - a disposable full-flow integration test covers all lifecycle transitions and replay/reconciliation behavior;
 - fee precision and dispute-state policy are explicitly resolved.
