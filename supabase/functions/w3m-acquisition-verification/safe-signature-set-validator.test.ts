@@ -125,3 +125,21 @@ Deno.test("recovers actual Safe EIP-712 transaction digest signatures at executi
     throw new Error("Real Safe digest signatures failed recovery: " + JSON.stringify(result));
   }
 });
+
+
+Deno.test("fails closed when trusted Safe owner rows are not an array", async () => {
+  const malformed = input() as unknown as { safeTransactionHash: string; currentOwners: unknown; threshold: number; storedSignatures: unknown };
+  malformed.currentOwners = null;
+  const result = await validateSafeSignatureSet(malformed as SafeSignatureSetInput, verifier);
+  if (result.valid || !result.issues.includes("SAFE_OWNERS_INVALID")) {
+    throw new Error("Malformed owner rows were not rejected");
+  }
+});
+Deno.test("fails closed when stored signer rows are not an array", async () => {
+  const malformed = input() as unknown as { safeTransactionHash: string; currentOwners: unknown; threshold: number; storedSignatures: unknown };
+  malformed.storedSignatures = null;
+  const result = await validateSafeSignatureSet(malformed as SafeSignatureSetInput, verifier);
+  if (result.valid || !result.issues.includes("STORED_SIGNATURE_ROWS_INVALID")) {
+    throw new Error("Malformed signature rows were not rejected");
+  }
+});
