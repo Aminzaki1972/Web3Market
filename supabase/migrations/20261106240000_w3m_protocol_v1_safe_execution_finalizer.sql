@@ -99,6 +99,9 @@ begin
      or (v_tx.tx_hash is not null and lower(v_tx.tx_hash) <> lower(p_broadcast_tx_hash))
      or v_deal.chain_id is distinct from 56
      or v_policy.chain_id is distinct from 56
+     or v_policy.safe_address is null
+     or v_tx.safe_address is null
+     or v_policy.token_contract is null
      or lower(coalesce(v_deal.safe_address,'')) <> lower(v_policy.safe_address)
      or lower(coalesce(v_policy.safe_address,'')) <> lower(v_tx.safe_address)
      or lower(coalesce(p_receipt_evidence->>'safe_address','')) <> lower(v_policy.safe_address)
