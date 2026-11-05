@@ -42,13 +42,13 @@ The authoritative registry must remain server-only and immutable/auditable, with
 - `revoked_at`, revocation reason and actor;
 - creation timestamp and append-only key lifecycle events.
 
-Key rotation creates a new key ID. It must not overwrite the old public key. Revocation takes effect immediately for new PREPARE and EXECUTE checks. Historical reports remain verifiable as historical artifacts, but a revoked key must not authorize a new settlement.
+Key rotation creates a new key ID. It must not overwrite the old public key. Revocation takes effect immediately for new PREPARE and EXECUTE checks. The verifier has explicit `SETTLEMENT` and `HISTORICAL` purposes: a revoked key is always rejected for settlement, while a historical report can be cryptographically verified only when its authoritative issue time is strictly before the recorded revocation time.
 
 ## Required call order
 
 1. Load the canonical immutable report and verify its stored report hash against canonical report payload.
 2. Load the signer key from the authoritative server-side registry (never accept a caller-supplied public key or key status).
-3. Run this policy module with the registered key and reviewed cryptographic adapter.
+3. Run this policy module with the registered key and reviewed cryptographic adapter. New report creation uses `purpose: SETTLEMENT` and the server-issued report issue time; historical inspection uses `purpose: HISTORICAL` and the immutable report issue time.
 4. Only if verification returns `valid: true`, continue to settlement-gate checks.
 5. Repeat the complete check at both PREPARE and EXECUTE; do not cache a previous authorization as final.
 
