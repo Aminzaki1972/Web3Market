@@ -144,3 +144,15 @@ Deno.test("audit source version must match the exact commit", async () => {
   const result = await evaluateAcquisition(context(items));
   if (result.status !== "BLOCKED") throw new Error("Expected BLOCKED, got " + result.status);
 });
+
+Deno.test("failed optional evidence does not override complete mandatory evidence", async () => {
+  const items = completeEvidence();
+  items.push({
+    ...evidence("OWNERSHIP_CONTROL", 99),
+    id: "optional-extra-evidence",
+    mandatory: false,
+    result: "FAILED",
+  });
+  const result = await evaluateAcquisition(context(items));
+  if (result.status !== "PASS") throw new Error("Expected PASS, got " + result.status);
+});
