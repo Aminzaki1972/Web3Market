@@ -88,7 +88,8 @@ export async function prepareAcquisitionProtocolBatch(
     digestHex: registryBatch.digestToSign,
     signature: registryBatch.report.report_signature,
     signerKeyId: registryBatch.report.signer_key_id,
-    checkedAt: aggregation.decision.checkedAt,
+    checkedAt: input.issuedAt,
+    purpose: "SETTLEMENT",
   }, signerRegistry.keys);
   if (!signatureCheck.valid) {
     throw new Error("Trusted report signature verification failed: " + signatureCheck.code);
