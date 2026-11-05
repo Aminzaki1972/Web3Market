@@ -135,3 +135,12 @@ Deno.test("missing or malformed commit cannot pass", async () => {
   });
   if (result.status !== "BLOCKED") throw new Error("Expected BLOCKED, got " + result.status);
 });
+
+Deno.test("audit source version must match the exact commit", async () => {
+  const items = completeEvidence();
+  const audit = items.find((item) => item.type === "CODE_AUDIT")!;
+  audit.sourceVersion = "f".repeat(40);
+  audit.metadata = { auditStatus: "completed", commitSha: COMMIT };
+  const result = await evaluateAcquisition(context(items));
+  if (result.status !== "BLOCKED") throw new Error("Expected BLOCKED, got " + result.status);
+});
