@@ -40,10 +40,12 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Type-check isolated decision engine
-        run: deno check supabase/functions/w3m-acquisition-verification/decision-engine.ts
-      - name: Run decision engine tests
-        run: deno test supabase/functions/w3m-acquisition-verification/decision-engine.test.ts
+      - name: Type-check isolated decision and settlement gate engines
+        run: |
+          deno check supabase/functions/w3m-acquisition-verification/decision-engine.ts
+          deno check supabase/functions/w3m-acquisition-verification/settlement-gate.ts
+      - name: Run decision engine and settlement gate tests
+        run: deno test supabase/functions/w3m-acquisition-verification/
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
