@@ -124,6 +124,7 @@ Any missing, stale, mismatched, expired, or unverifiable condition must fail clo
 - Verifier key management and report signing.
 - Passport/Audit/ownership/delivery evidence adapters.
 - Safe settlement gate integration.
+- ABI decoding adapter and call-site enforcement for the new pure Safe payload validator.
 - Deal Room report panel.
 - End-to-end staging verification.
 
@@ -166,3 +167,14 @@ Key conclusions:
 - Treat hard-coded chain/token/decimals/platform-wallet assumptions as configuration that must be reconciled with the authoritative current environment.
 
 The reviewed historical files are absent from the current `main` tree. The frontend references release operations, but that does not prove which Edge Function versions are deployed. The actual current server-side source remains a prerequisite for safe adapter implementation. No historical code was copied into executable function paths.
+
+
+## 12. Isolated exact Safe payload validator
+
+The branch now includes:
+- `supabase/functions/w3m-acquisition-verification/safe-payload-validator.ts`
+- `supabase/functions/w3m-acquisition-verification/safe-payload-validator.test.ts`
+
+The pure validator accepts a normalized, ABI-decoded Safe transaction and checks that the outer Safe call uses the approved MultiSendCallOnly target with DELEGATECALL, the approved BNB Chain and Safe/token configuration, and exactly two inner CALLs: the exact seller-net token transfer and the exact platform-fee transfer. It rejects additional calls, unexpected methods/tokens/recipients, non-zero native value, amount mismatches, and invalid fee totals.
+
+**Important limitation:** this is a tested domain helper, not yet an ABI decoder, Edge Function adapter, or enforced call in the Safe backend. It must be called with data decoded from the actual signed Safe transaction by a trusted server-side adapter, then wired into PREPARE, signature recording, EXECUTE, and receipt reconciliation. Its existence does not change live settlement behavior.
