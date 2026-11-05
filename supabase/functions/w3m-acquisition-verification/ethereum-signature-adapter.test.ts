@@ -29,6 +29,9 @@ function fixture() {
 
 Deno.test("recovers the Ethereum address from a real secp256k1 signature over raw digest", () => {
   const f = fixture();
+  if (f.address !== "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf") {
+    throw new Error("Keccak/address derivation did not match the canonical private-key-1 vector");
+  }
   if (recoverEthereumAddressFromDigest(f.digestHex, f.signature) !== f.address) {
     throw new Error("Recovered address did not match the known test signer");
   }
