@@ -102,3 +102,11 @@ GitHub Actions run [42130649959](https://github.com/Aminzaki1972/Web3Market/acti
 - evidence registry, trusted signer registry, execution-attempt lifecycle, atomic finalizer, and exact Deal Room reader SQL contract tests passed.
 
 This is the first green CI run after the live Safe facts interface change. It verifies the isolated branch's automated checks only. It does not change the integration boundary stated above: none of the six deployed Safe Edge Functions has been modified or wired to W3M, and no migration or function has been deployed to production.
+
+## 7. Phase-aware integration boundary (isolated)
+
+Added `safe-edge-w3m-boundary.ts` and `safe-edge-w3m-phase-boundary.ts` under the W3M verification function directory. The generic boundary denies protected actions when fresh authorization fails, is malformed, or reports any issue. The phase-aware wrapper additionally binds each call to one of `PREPARE`, `SIGN`, `EXECUTE`, or `FINALIZE`, requires a nonblank deal ID, and for EXECUTE/FINALIZE requires a 32-byte Safe transaction hash.
+
+The generic boundary and its test suite passed CI in run `42131914382` (success), including Deno type-checks, the boundary test, and disposable PostgreSQL migration/contract tests. The phase-aware module and its five tests are in commits `3baa2ba740c223af5d8327aa549f81b1aa6ab6f0` and `98e0df219f48e13c7f0a5a944ace8af0eb3ada8f`; its CI run `42132090107` was still in progress at the time of this note.
+
+**Integration limitation:** these are tested boundary contracts, not yet inserted into the five deployed Safe handlers or deployable copies of those handlers. Each handler still needs a separately reviewed isolated copy and a concrete fresh-state authorizer wired to its existing database/RPC/chain reads. Do not deploy or connect this helper to production until those adapters and end-to-end tests are complete.
