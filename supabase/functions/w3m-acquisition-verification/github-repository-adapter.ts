@@ -403,7 +403,6 @@ export async function createGitHubOwnershipVerifiedEvent(input: {
     defaultBranch: repository.defaultBranch,
     updatedAt: repository.updatedAt,
     etag: repository.etag,
-    requestId: repository.requestId,
   };
   const digest = await crypto.subtle.digest(
     "SHA-256",
