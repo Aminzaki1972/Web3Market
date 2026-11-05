@@ -237,6 +237,7 @@ Deno.test("NiceNIC event cannot substitute another registrar account", async () 
       sellerIdentity: "seller-account",
       buyerIdentity: "buyer-account",
       registrantIdentityMatched: true,
+      registrantVerificationRecordId: "identity-check-seller-1",
       now: NOW,
     });
   } catch (error) {
@@ -273,6 +274,7 @@ Deno.test("NiceNIC account transfer evidence requires complete seller absence an
     sellerIdentity: "seller-account",
     buyerIdentity: "buyer-account",
     buyerRegistrantIdentityMatched: true,
+    buyerRegistrantVerificationRecordId: "identity-check-buyer-1",
     now: NOW,
   });
   if (event.eventType !== "TRANSFER_CONFIRMED" || event.sourceProvider !== "nicenic") {
