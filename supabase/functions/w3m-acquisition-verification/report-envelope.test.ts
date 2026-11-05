@@ -73,6 +73,19 @@ Deno.test("rejects expired report window", async () => {
   if (!rejected) throw new Error("Expired report window must be rejected.");
 });
 
+Deno.test("rejects report that expires before evidence verification time", async () => {
+  let rejected = false;
+  try {
+    await buildCanonicalReportEnvelope(fixture({
+      issuedAt: "2026-11-05T19:59:00.000Z",
+      expiresAt: "2026-11-05T19:59:30.000Z",
+    }));
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) throw new Error("Report must remain valid after evidence verification time.");
+});
+
 Deno.test("rejects PASS report with incomplete mandatory evidence counters", async () => {
   const decision = { ...fixture().decision, passedMandatoryCount: 7 };
   let rejected = false;
