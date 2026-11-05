@@ -123,7 +123,8 @@ function validateEvidenceSemantics(
       if (
         !expectedCommitSha ||
         !COMMIT_SHA.test(expectedCommitSha) ||
-        String(metadata.commitSha || "").toLowerCase() !== expectedCommitSha.toLowerCase()
+        (String(metadata.commitSha || "").toLowerCase() !== expectedCommitSha.toLowerCase() ||
+        String(evidence.sourceVersion || "").toLowerCase() !== expectedCommitSha.toLowerCase())
       ) {
         return issue("CODE_COMMIT_MISMATCH", "The audit does not match the exact commit selected for this deal.", evidence);
       }
@@ -258,6 +259,7 @@ export async function evaluateAcquisition(
     dealId: context.dealId,
     projectId: context.projectId,
     expectedCommitSha: String(context.expectedCommitSha || "").toLowerCase(),
+    requiredEvidenceTypes: [...requiredTypes].sort(),
     evidence: evidence.map((item) => ({
       id: item.id,
       type: item.type,
