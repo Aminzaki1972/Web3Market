@@ -31,6 +31,8 @@ Buyer ownership is verified only when the same immutable repository ID is now ow
 
 The module can convert a fresh authenticated owner read into a SHA-256-bound W3M `SELLER_CONTROL_VERIFIED` or `BUYER_CONTROL_VERIFIED` event. The event validity window is five minutes and its observation time must exactly match the provider-read timestamp.
 
+The module can emit a `TRANSFER_CONFIRMED` event only after a fresh authenticated read shows that the same immutable repository ID is now owned by the exact buyer personal account. A separate buyer ownership read can then emit `BUYER_CONTROL_VERIFIED`.
+
 The module can prepare a non-executable transfer intent after:
 - Exact seller repository ownership and admin control are verified.
 - Seller and buyer consent are recorded for the exact asset.
