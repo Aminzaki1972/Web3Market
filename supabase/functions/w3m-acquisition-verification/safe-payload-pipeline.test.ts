@@ -1,7 +1,7 @@
 import { decodeSafeMultiSendCalldata } from "./safe-multisend-decoder.ts";
 import { validateSafeReleasePayload } from "./safe-payload-validator.ts";
 import { validateStoredSafeReleaseTransaction } from "./safe-release-transaction-adapter.ts";
-import { evaluateSafeExecutionGuard } from "./safe-execution-guard.ts";
+import { evaluateSafeExecutionGuard, type SafeExecutionGuardInput } from "./safe-execution-guard.ts";
 
 const SAFE = "0x1111111111111111111111111111111111111111";
 const MULTISEND = "0x2222222222222222222222222222222222222222";
@@ -161,7 +161,7 @@ const OWNER_B = "0x7777777777777777777777777777777777777777";
 const REPORT_HASH = "a".repeat(64);
 const EVIDENCE_HASH = "b".repeat(64);
 const TERMS_HASH = "c".repeat(64);
-function executionInput(overrides: Record<string, unknown> = {}) {
+function executionInput(overrides: Partial<SafeExecutionGuardInput> = {}) {
   const data = multisend([
     packedCall(TOKEN, transfer(SELLER, BigInt(SELLER_NET))),
     packedCall(TOKEN, transfer(PLATFORM, BigInt(FEE))),
