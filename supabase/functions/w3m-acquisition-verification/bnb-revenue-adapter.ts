@@ -7,6 +7,7 @@ const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const HASH32 = /^0x[0-9a-fA-F]{64}$/;
 const HEX_QUANTITY = /^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$/;
+const HARD_MAX_BLOCK_SPAN = 10000;
 
 export interface JsonRpcClient {
   request<T>(method: string, params: unknown[]): Promise<T>;
@@ -177,6 +178,7 @@ export async function verifyErc20Revenue(
       config.fromBlock < 0 || config.toBlock < config.fromBlock ||
       !Number.isSafeInteger(config.minConfirmations) || config.minConfirmations < 1 ||
       !Number.isSafeInteger(config.maxBlockSpan) || config.maxBlockSpan < 1 ||
+      config.maxBlockSpan > HARD_MAX_BLOCK_SPAN ||
       config.toBlock - config.fromBlock + 1 > config.maxBlockSpan ||
       !/^\d+$/.test(config.declaredRevenueRaw)) {
     throw new BnbRevenueAdapterError("Revenue verification configuration is invalid or exceeds the configured block window.");
@@ -255,7 +257,10 @@ export async function verifyErc20Revenue(
       transactionReceipts.set(txHash, receipt);
     }
     if (receipt.status !== "0x1" || typeof receipt.blockHash !== "string" ||
-        receipt.blockHash.toLowerCase() !== candidate.blockHash.toLowerCase()) {
+        receipt.blockHash.toLowerCase() !== candidate.blockHash.toLowerCase() ||
+        typeof receipt.transactionHash !== "string" ||
+        receipt.transactionHash.toLowerCase() !== txHash ||
+        parseQuantity(receipt.blockNumber, "receipt block number") !== blockNumber) {
       reasons.add("TRANSACTION_OR_RECEIPT_INVALID");
       continue;
     }
