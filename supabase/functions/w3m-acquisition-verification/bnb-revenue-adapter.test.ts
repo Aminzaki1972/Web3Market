@@ -1,4 +1,4 @@
-import { BnbRevenueAdapterError, verifyErc20Revenue, type JsonRpcClient } from "./bnb-revenue-adapter.ts";
+import { BnbRevenueAdapterError, toAcquisitionRevenueEvidence, verifyErc20Revenue, type JsonRpcClient } from "./bnb-revenue-adapter.ts";
 
 const token = "0x1111111111111111111111111111111111111111";
 const recipient = "0x2222222222222222222222222222222222222222";
@@ -128,4 +128,37 @@ Deno.test("malformed transfer logs are rejected", async () => {
     rejected = error instanceof BnbRevenueAdapterError;
   }
   if (!rejected) throw new Error("Malformed logs must be rejected.");
+});
+
+
+Deno.test("maps verified BNB receipts into deal-bound conditional W3M evidence", async () => {
+  const decision = await verifyErc20Revenue(mock(), config, "2026-11-05T20:00:00.000Z");
+  const evidence = toAcquisitionRevenueEvidence({
+    evidenceId: "revenue-evidence-1",
+    dealId: "deal-1",
+    projectId: "project-1",
+    mandatory: true,
+    scopeConfirmed: true,
+    decision,
+  });
+  if (evidence.type !== "REVENUE_VERIFICATION" || evidence.result !== "PASS" ||
+      evidence.contentHash !== decision.proofHash ||
+      evidence.metadata?.revenueScopeConfirmed !== true) {
+    throw new Error("Revenue verifier result was not mapped into W3M evidence correctly.");
+  }
+});
+
+Deno.test("revenue evidence cannot claim a client-unconfirmed scope", async () => {
+  const decision = await verifyErc20Revenue(mock(), config, "2026-11-05T20:00:00.000Z");
+  const evidence = toAcquisitionRevenueEvidence({
+    evidenceId: "revenue-evidence-2",
+    dealId: "deal-1",
+    projectId: "project-1",
+    mandatory: true,
+    scopeConfirmed: false,
+    decision,
+  });
+  if (evidence.metadata?.revenueScopeConfirmed !== false) {
+    throw new Error("Revenue scope acceptance must be explicit and supplied by a trusted agreement adapter.");
+  }
 });
