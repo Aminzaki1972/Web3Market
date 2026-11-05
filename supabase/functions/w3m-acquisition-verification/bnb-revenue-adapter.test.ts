@@ -64,7 +64,7 @@ Deno.test("declared revenue mismatch blocks evidence", async () => {
 });
 
 Deno.test("unconfirmed receipt remains incomplete", async () => {
-  const result = await verifyErc20Revenue(mock({ head: "0x65" }), config);
+  const result = await verifyErc20Revenue(mock({ head: "0x65" }), { ...config, toBlock: 100 });
   if (result.status !== "INCOMPLETE" || result.pendingConfirmationCount !== 1) {
     throw new Error("Pending confirmations must remain incomplete.");
   }
