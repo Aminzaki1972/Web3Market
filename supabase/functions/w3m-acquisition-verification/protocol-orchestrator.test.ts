@@ -153,7 +153,7 @@ Deno.test("orchestrator rejects duplicate Code Audit evidence", async () => {
       ...base,
       acquisition: { ...base.acquisition, baseEvidence: [...base.acquisition.baseEvidence, duplicate] },
       evidenceRowIds: [...base.evidenceRowIds, UUIDS[17]],
-      eventRowIds: [...base.eventRowIds, "00000000-0000-4000-8000-000000000019"],
+      eventRowIds: [...base.eventRowIds, "00000000-0000-4000-8000-000000000020"],
     }, signer);
   } catch {
     rejected = true;
