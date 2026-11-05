@@ -230,3 +230,12 @@ The isolated branch now includes a read-only GitHub repository adapter and a W3M
 The adapter reads repository metadata and the authenticated personal-user identity, binds both to immutable GitHub IDs, and emits short-lived SHA-256 ownership evidence for the asset lifecycle engine. It can also emit a transfer-confirmed event only after a fresh authenticated read shows the same immutable repository ID owned by the exact buyer account.
 
 V1 deliberately returns `REVIEW_REQUIRED` for organization-owned repositories until a separate organization-authority adapter is implemented. It prepares only a non-executable transfer intent; it does not POST a transfer request, create OAuth credentials, or transfer any repository. A future executor must separately enforce dual-party consent and GitHub's asynchronous acceptance lifecycle.
+
+
+## 15. Isolated NiceNIC registrar adapter
+
+The branch now contains `nicenic-domain-adapter.ts`, its tests, and `docs/w3m-protocol-v1-nicenic-domain-adapter.md`.
+
+The adapter uses only NiceNIC API v2 read operations: domain details and paginated account-domain inventory. It binds the exact deal-pinned domain to the expected seller or buyer registrar account, checks active/hold state, and requires a separate trusted registrant-identity verification record before emitting seller/buyer control evidence.
+
+NiceNIC's published API currently documents transfer-in from another registrar and contact updates, but the documented contact update is not treated as ownership transfer and no account-to-account push/outbound transfer endpoint has been established. The adapter therefore does not issue any domain write request. It can confirm account-level control transition only after the seller's complete account listing no longer contains the domain and the buyer's fresh listing does, with registrant identity separately verified. Legal registrant transfer still requires the registrar's supported process and independent confirmation.
