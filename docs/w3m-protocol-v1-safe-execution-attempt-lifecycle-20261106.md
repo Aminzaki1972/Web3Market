@@ -56,3 +56,11 @@ The new disposable PostgreSQL contract test is designed to cover:
 - replay after the Safe transaction row advances to submitted.
 
 CI must pass against the disposable PostgreSQL service before this draft is considered verified. A CI pass is not production approval.
+
+
+## Atomic finalization RPC (isolated draft)
+A follow-on migration adds `w3m_finalize_safe_execution_attempt(uuid,text,uuid,jsonb)`. It is service_role-only and finalizes a previously recorded BROADCAST or RECONCILIATION_REQUIRED attempt only when the server supplies a receipt-verification object bound to the exact BNB transaction hash, chain 56, Safe address, Safe transaction hash, token contract, successful receipt, Safe ExecutionSuccess (and no ExecutionFailure), and exactly two Safe-originating token transfers matching the locked seller-net and platform-fee recipients/amounts.
+
+Within one PostgreSQL transaction it locks the attempt/deal/transaction/policy, verifies participant actor and immutable bindings, updates the multisig transaction to confirmed, policy to released, deal to completed, project to sold, inserts one deal audit row, and marks the attempt CONFIRMED. Any error rolls the whole operation back. Repeating the same finalization returns an idempotent result; rebinding the attempt to another transaction hash is rejected.
+
+**Trust boundary:** PostgreSQL does not independently query BNB or parse a raw receipt. The server must independently verify the receipt and construct the evidence object from chain data immediately before calling this RPC. The RPC validates the evidence structure and exact binding against database state. This migration and fixture are CI-only drafts, not deployed.
