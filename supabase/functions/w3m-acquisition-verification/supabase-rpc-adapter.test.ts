@@ -4,6 +4,7 @@ import {
   persistAcquisitionRegistryBatch,
   type W3MRpcClient,
 } from "./supabase-rpc-adapter.ts";
+import type { RegistryBatch } from "./report-registry-batch.ts";
 
 Deno.test("registry persistence sends the signed batch to the atomic RPC", async () => {
   const captured: { name: string; args: Record<string, unknown> }[] = [];
@@ -20,7 +21,7 @@ Deno.test("registry persistence sends the signed batch to the atomic RPC", async
     report: { id: "report-1" },
     evidence: [{ id: "e1" }, { id: "e2" }],
     events: [{ id: "v1" }, { id: "v2" }, { id: "v3" }],
-  } as never;
+  } as unknown as RegistryBatch;
   const result = await persistAcquisitionRegistryBatch(client, batch);
   assertEquals(result, { reportId: "report-1", evidenceRows: 2, eventRows: 3, atomic: true });
   assertEquals(captured[0]?.name, "w3m_insert_acquisition_registry_batch");
@@ -40,10 +41,10 @@ Deno.test("registry persistence rejects a non-matching RPC response", async () =
 });
 
 Deno.test("finalization RPC binds the result to the exact attempt and broadcast hash", async () => {
-  let captured: { name: string; args: Record<string, unknown> } | null = null;
+  const captured: { name: string; args: Record<string, unknown> }[] = [];
   const client: W3MRpcClient = {
     async rpc(name, args) {
-      captured = { name, args };
+      captured.push({ name, args });
       return {
         data: {
           finalized: true, idempotent_replay: false, attempt_id: "attempt-1",
@@ -64,8 +65,8 @@ Deno.test("finalization RPC binds the result to the exact attempt and broadcast 
     attemptId: "attempt-1", broadcastTxHash: input.broadcastTxHash,
     state: "CONFIRMED", idempotentReplay: false,
   });
-  assertEquals(captured?.name, "w3m_finalize_safe_execution_attempt");
-  assertEquals(captured?.args.p_attempt_id, "attempt-1");
+  assertEquals(captured[0]?.name, "w3m_finalize_safe_execution_attempt");
+  assertEquals(captured[0]?.args.p_attempt_id, "attempt-1");
 });
 
 Deno.test("finalization RPC rejects malformed hashes and mismatched attempt responses", async () => {
