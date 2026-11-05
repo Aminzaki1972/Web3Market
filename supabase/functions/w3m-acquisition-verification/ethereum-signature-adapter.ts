@@ -2,7 +2,7 @@
 // Dependency versions are pinned. This verifies the raw 32-byte report digest;
 // it does not apply EIP-191 personal_sign prefixing.
 import { secp256k1 } from "jsr:@noble/curves@1.8.2/secp256k1";
-import { keccak_256 } from "jsr:@noble/hashes@1.8.0/sha3";
+import { keccak_256 } from "jsr:@noble/hashes@1.7.1/sha3";
 
 const HEX_32 = /^[0-9a-f]{64}$/i;
 const HEX_SIGNATURE = /^0x[0-9a-f]{130}$/i;
