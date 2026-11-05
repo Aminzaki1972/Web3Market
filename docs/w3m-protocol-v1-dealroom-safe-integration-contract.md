@@ -276,3 +276,23 @@ This pure builder converts a completed acquisition decision and its evidence int
 It validates report/deal/project bindings, unique UUID row identifiers, report version and supersession references, evidence hashes, issue/expiry chronology, and a 65-byte ECDSA signature format. It computes a canonical report envelope hash and passes that digest to an injected signer callback. A PASS batch cannot be built unless the callback returns a signer key ID and a correctly shaped signature.
 
 **Security boundary:** the builder does not implement the signing algorithm, hold a private key, verify signature recovery, write to Supabase, or enforce signer revocation. The injected signer must be a trusted server-side component using the platform's approved signing scheme and protected key custody. Signature shape validation is not cryptographic signature verification. Before any registry write, the server must independently verify the signature against the configured signer identity and current key status, then insert report/evidence/events in a controlled append-only workflow. No database or signing key was accessed by this isolated implementation.
+
+
+## 18. Pure protocol orchestrator — isolated composition milestone
+
+The feature branch now contains:
+- `supabase/functions/w3m-acquisition-verification/protocol-orchestrator.ts`
+- `supabase/functions/w3m-acquisition-verification/protocol-orchestrator.test.ts`
+
+The orchestrator composes the existing trusted-evidence aggregator and signed registry batch builder in one deterministic server-side preparation flow. It:
+1. Aggregates the deal/project-bound evidence and provider ownership/transfer events.
+2. Requires exactly one Code Audit evidence record.
+3. Binds that record to the exact report `auditId` and expected immutable commit SHA.
+4. Builds the canonical report envelope and asks an injected signer interface to sign its canonical digest.
+5. Returns the report, evidence, and append-only event row batch in a single prepared object.
+
+The orchestrator deliberately returns `persistenceRequired: true`, `settlementAuthorized: false`, and `executionEnabled: false`. It does not authenticate callers, load authoritative deal state, read provider credentials, sign with a real key, persist rows, verify signer revocation, or authorize either PREPARE or EXECUTE. The injected signer used in tests is a shape-only mock and is not a production signer.
+
+The canonical envelope now also independently rejects a `PASS` decision containing unresolved issues. This supplements the registry builder's existing PASS guard.
+
+**Next safe implementation step:** define and test the atomic registry persistence boundary (one transaction for report + evidence + events) without wiring production Supabase. The actual database writer must not be implemented until the authoritative schema, service-role execution boundary, signature-verification/key-status adapter, and current Safe backend sources are available. No live systems have been changed.
