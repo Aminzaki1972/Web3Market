@@ -314,3 +314,28 @@ Deno.test("NiceNIC transfer evidence rejects incomplete seller account listing",
   }
   if (!rejected) throw new Error("Incomplete seller account listing must not prove transfer.");
 });
+
+
+Deno.test("NiceNIC buyer account can emit buyer control evidence after registrant match", async () => {
+  const buyerSnapshot = await fetchNiceNicDomainSnapshot({
+    username: BUYER_USERNAME,
+    apiSecret: "server-only-secret",
+    domain: DOMAIN,
+    fetchImpl: niceNicFetch({ username: BUYER_USERNAME }),
+    now: NOW,
+  });
+  const event = await createNiceNicBuyerControlEvent({
+    snapshot: buyerSnapshot,
+    expectedBuyerAccountUsername: BUYER_USERNAME,
+    dealId: "deal-1",
+    projectId: "project-1",
+    assetId: "domain-asset-1",
+    sellerIdentity: "seller-account",
+    buyerIdentity: "buyer-account",
+    registrantIdentityMatched: true,
+    now: NOW,
+  });
+  if (event.eventType !== "BUYER_CONTROL_VERIFIED" || event.currentOwnerIdentity !== "buyer-account") {
+    throw new Error("NiceNIC buyer control evidence was not produced.");
+  }
+});
