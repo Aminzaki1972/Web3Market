@@ -159,7 +159,7 @@ Deno.test("fails closed for unknown key status and exact expiry boundary", async
     ...key, status: "UNKNOWN" as TrustedSignerKey["status"],
   }], accept);
   assertEquals(unknownStatus.valid, false);
-  if (!unknownStatus.valid) assertEquals(unknownStatus.code, "REVOKED_SIGNER_KEY");
+  if (!unknownStatus.valid) assertEquals(unknownStatus.code, "INVALID_SIGNER_KEY");
   const exactExpiry = await verifyTrustedReportSignature({
     ...base, checkedAt: key.validUntil!,
   }, [key], accept);
