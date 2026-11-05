@@ -22,7 +22,7 @@ create table if not exists public.w3m_acquisition_reports (
   report_payload jsonb not null default '{}'::jsonb
     check (jsonb_typeof(report_payload) = 'object'),
   signer_key_id text null check (signer_key_id is null or length(btrim(signer_key_id)) <= 120),
-  report_signature text null check (report_signature is null or report_signature ~ '^0x[0-9a-fA-F]{130}
+  report_signature text null check (report_signature is null or report_signature ~ '^0x[0-9a-fA-F]{130}$'),
   issued_at timestamptz not null default now(),
   expires_at timestamptz not null,
   created_at timestamptz not null default now(),
