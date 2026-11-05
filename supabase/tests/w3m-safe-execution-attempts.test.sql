@@ -106,6 +106,21 @@ begin
     raise exception 'Same broadcast hash was not idempotent';
   end if;
 
+  -- An idempotent claim replay must remain safe even after the transaction row
+  -- advances from signed to submitted following a successful broadcast.
+  update public.deal_multisig_transactions
+     set status = 'submitted'
+   where id = v_tx;
+
+  v_result := public.w3m_claim_safe_execution_attempt(
+    v_deal, v_tx, v_report, v_safe_hash,
+    'isolated-test-executor', 'attempt-idempotency-key-0001'
+  );
+  if coalesce((v_result->>'idempotent_replay')::boolean,false) is not true
+     or (v_result->>'attempt_id')::uuid <> v_attempt then
+    raise exception 'Claim replay failed after transaction status advanced';
+  end if;
+
   begin
     perform public.w3m_record_safe_execution_broadcast(v_attempt, '0x' || repeat('f',64));
     raise exception 'A different broadcast hash was unexpectedly accepted';
