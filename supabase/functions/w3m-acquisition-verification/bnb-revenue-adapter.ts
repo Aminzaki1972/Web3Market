@@ -332,6 +332,9 @@ export async function verifyErc20Revenue(
         minConfirmations: config.minConfirmations,
         declaredRevenueRaw: declared.toString(),
         receipts,
+        checkedAt: now,
+        status: "BLOCKED",
+        reasonCodes: [...reasons],
       })),
       checkedAt: now,
       reasonCodes: [...reasons],
@@ -350,6 +353,7 @@ export async function verifyErc20Revenue(
     chainId,
     tokenAddress,
     revenueRecipients: recipients,
+    excludedSenders: [...excludedSenders].sort(),
     fromBlock: config.fromBlock,
     toBlock: config.toBlock,
     observedHeadBlock: headBlock,
@@ -357,6 +361,9 @@ export async function verifyErc20Revenue(
     actualRevenueRaw: actualRevenue.toString(),
     declaredRevenueRaw: declared.toString(),
     receipts,
+    checkedAt: now,
+    status,
+    reasonCodes: [...reasons],
   };
 
   return {
