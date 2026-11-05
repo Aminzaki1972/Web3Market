@@ -24,9 +24,9 @@ V1 reserves the algorithm identifier:
 
 `ECDSA_SECP256K1_KECCAK256_RAW_DIGEST`
 
-The cryptographic adapter must recover the signer address from the raw 32-byte report hash (no EIP-191 personal-message prefix), enforce canonical signature encoding and low-s values, normalize the recovery identifier safely, and compare the recovered address to the trusted key registry address.
+The cryptographic adapter recovers the signer address from the raw 32-byte report hash (no EIP-191 personal-message prefix), enforces canonical low-s encoding, accepts only Ethereum parity recovery values 0/1 or 27/28, and compares the recovered address to the trusted key registry address. EIP-191 `personal_sign`, EIP-155 transaction v values, and Safe `eth_sign` v=31/32 are deliberately unsupported by this report-signature format; do not pass those signatures as if they were raw-digest signatures.
 
-The current module deliberately injects this cryptographic adapter. It does **not** claim that WebCrypto verifies secp256k1, and it does not provide a fake cryptographic implementation. Before production use, select and review a pinned, already-approved secp256k1 recovery implementation, then add known-good and known-bad signature vectors. No remote dependency or paid signing service is introduced here.
+The isolated branch now includes `ethereum-signature-adapter.ts`, using pinned JSR releases `@noble/curves@1.8.2` and `@noble/hashes@1.7.1`. It recovers the public key from the raw 32-byte digest, derives the Ethereum address with Keccak-256, rejects high-S signatures, and accepts only recovery values 0/1 or 27/28. Tests create a deterministic signature with a test-only private key and verify both the recovered signer and rejection cases. These are source-level tests; they still require a successful isolated CI run before being called passed.
 
 ## Trusted key registry requirements
 
@@ -54,7 +54,7 @@ Key rotation creates a new key ID. It must not overwrite the old public key. Rev
 
 - No real private key generation or storage.
 - No key registry migration/table yet.
-- No cryptographic secp256k1 adapter implementation yet.
+- No CI success has yet been verified for the new secp256k1 adapter.
 - No signature verification wired into the atomic persistence RPC caller.
 - No Supabase Edge Function authentication or persistence.
 - No Safe, wallet, production database, Cloudflare, or live-site changes.
