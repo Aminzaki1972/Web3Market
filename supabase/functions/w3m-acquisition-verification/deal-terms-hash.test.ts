@@ -69,3 +69,18 @@ Deno.test("deal terms hash rejects unsafe numeric input and mismatched policy am
     policy: { ...snapshot().policy, dealAmount: "99" },
   }));
 });
+
+Deno.test("deal terms hash blocks amounts where production fee precision rules disagree", async () => {
+  const base = snapshot();
+  await assertRejects(() => computeDealTermsHash({
+    ...base,
+    amount: "0.00000001",
+    expectedAmount: "0.00000001",
+    policy: {
+      ...base.policy,
+      dealAmount: "0.00000001",
+      feeAmount: "0",
+      sellerNetAmount: "0.00000001",
+    },
+  }));
+});
