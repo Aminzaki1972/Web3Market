@@ -289,6 +289,7 @@ export async function createNiceNicSellerControlEvent(input: {
   sellerIdentity: string;
   buyerIdentity: string;
   registrantIdentityMatched: boolean;
+  registrantVerificationRecordId: string;
   now: string;
 }): Promise<AssetTransferEvent> {
   const result = verifyNiceNicSellerControl(
@@ -304,6 +305,7 @@ export async function createNiceNicSellerControlEvent(input: {
       !Number.isFinite(observedMs) || !nonEmpty(input.dealId) ||
       !nonEmpty(input.projectId) || !nonEmpty(input.assetId) ||
       !nonEmpty(input.sellerIdentity) || !nonEmpty(input.buyerIdentity) ||
+      !nonEmpty(input.registrantVerificationRecordId) ||
       input.sellerIdentity === input.buyerIdentity) {
     throw new NiceNicAdapterError("NiceNIC seller-control event requires a fresh account read and verified registrant identity.");
   }
@@ -320,6 +322,7 @@ export async function createNiceNicSellerControlEvent(input: {
     nameservers: input.snapshot.nameservers,
     accountHasDomain: input.snapshot.accountHasDomain,
     registrantIdentityMatched: true,
+    registrantVerificationRecordId: input.registrantVerificationRecordId,
     dealId: input.dealId,
     projectId: input.projectId,
     assetId: input.assetId,
@@ -363,6 +366,7 @@ export async function createNiceNicTransferConfirmedEvent(input: {
   sellerIdentity: string;
   buyerIdentity: string;
   buyerRegistrantIdentityMatched: boolean;
+  buyerRegistrantVerificationRecordId: string;
   now: string;
 }): Promise<AssetTransferEvent> {
   const seller = input.sellerMembership;
@@ -380,6 +384,7 @@ export async function createNiceNicTransferConfirmedEvent(input: {
     buyer.hold !== false ||
     !buyer.registrantContactPresent ||
     !input.buyerRegistrantIdentityMatched ||
+    !nonEmpty(input.buyerRegistrantVerificationRecordId) ||
     seller.observedAt !== input.now ||
     buyer.observedAt !== input.now ||
     !Number.isFinite(observedMs) ||
@@ -406,6 +411,7 @@ export async function createNiceNicTransferConfirmedEvent(input: {
     buyerExpiredDate: buyer.expiredDate,
     buyerNameservers: buyer.nameservers,
     buyerRegistrantIdentityMatched: true,
+    buyerRegistrantVerificationRecordId: input.buyerRegistrantVerificationRecordId,
     dealId: input.dealId,
     projectId: input.projectId,
     assetId: input.assetId,
@@ -444,6 +450,7 @@ export async function createNiceNicBuyerControlEvent(input: {
   sellerIdentity: string;
   buyerIdentity: string;
   registrantIdentityMatched: boolean;
+  registrantVerificationRecordId: string;
   now: string;
 }): Promise<AssetTransferEvent> {
   const snapshot = input.snapshot;
@@ -456,6 +463,7 @@ export async function createNiceNicBuyerControlEvent(input: {
     snapshot.hold !== false ||
     !snapshot.registrantContactPresent ||
     !input.registrantIdentityMatched ||
+    !nonEmpty(input.registrantVerificationRecordId) ||
     snapshot.observedAt !== input.now ||
     !Number.isFinite(observedMs) ||
     !nonEmpty(input.dealId) ||
@@ -477,6 +485,7 @@ export async function createNiceNicBuyerControlEvent(input: {
     expiredDate: snapshot.expiredDate,
     nameservers: snapshot.nameservers,
     registrantIdentityMatched: true,
+    registrantVerificationRecordId: input.registrantVerificationRecordId,
     dealId: input.dealId,
     projectId: input.projectId,
     assetId: input.assetId,
