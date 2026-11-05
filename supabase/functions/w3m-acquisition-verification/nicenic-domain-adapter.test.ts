@@ -275,6 +275,7 @@ Deno.test("NiceNIC account transfer evidence requires complete seller absence an
     sellerIdentity: "seller-account",
     buyerIdentity: "buyer-account",
     buyerRegistrantIdentityMatched: true,
+    sellerRegistrantVerificationRecordId: "identity-check-seller-1",
     buyerRegistrantVerificationRecordId: "identity-check-buyer-1",
     now: NOW,
   });
