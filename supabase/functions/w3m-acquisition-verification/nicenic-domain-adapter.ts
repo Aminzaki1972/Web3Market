@@ -100,14 +100,14 @@ async function fetchAccountDomainList(input: {
   fetchImpl?: typeof fetch;
   maxPages?: number;
   targetDomain: string;
-}): Promise<{ found: boolean; complete: boolean }> {
+}): Promise<{ found: boolean; complete: boolean; status: NiceNicDomainSnapshot["status"]; hold: boolean | null }> {
   const maxPages = input.maxPages ?? DEFAULT_MAX_PAGES;
   if (!Number.isSafeInteger(maxPages) || maxPages < 1 || maxPages > 100) {
     throw new NiceNicAdapterError("NiceNIC domain-list page limit is invalid.");
   }
 
   let totalPages = 1;
-  let found = false;
+  let matched: Record<string, unknown> | null = null;
   for (let page = 1; page <= Math.min(totalPages, maxPages); page += 1) {
     const payload = await niceNicRequest({
       username: input.username,
@@ -135,11 +135,23 @@ async function fetchAccountDomainList(input: {
       if (!isRecord(item) || !nonEmpty(item.domain)) {
         throw new NiceNicAdapterError("NiceNIC domain-list entry is malformed.");
       }
-      if (normalizeDomain(item.domain) === input.targetDomain) found = true;
+      if (normalizeDomain(item.domain) === input.targetDomain) matched = item;
     }
-    if (found) return { found: true, complete: true };
+    if (matched) {
+      const rawStatus = typeof matched.status === "string" ? matched.status.toLowerCase() : "unknown";
+      const status: NiceNicDomainSnapshot["status"] =
+        rawStatus === "active" || rawStatus === "expired" || rawStatus === "stop"
+          ? rawStatus
+          : "unknown";
+      const hold = typeof matched.hold === "number"
+        ? matched.hold === 1
+        : typeof matched.hold === "string" && ["0", "1"].includes(matched.hold)
+          ? matched.hold === "1"
+          : null;
+      return { found: true, complete: true, status, hold };
+    }
   }
-  return { found, complete: totalPages <= maxPages };
+  return { found: false, complete: totalPages <= maxPages, status: "unknown", hold: null };
 }
 
 export async function fetchNiceNicDomainSnapshot(input: {
@@ -179,24 +191,13 @@ export async function fetchNiceNicDomainSnapshot(input: {
   const nameservers = Array.isArray(data.nameservers)
     ? data.nameservers.filter((item): item is string => nonEmpty(item)).map((item) => item.toLowerCase())
     : [];
-  const rawStatus = typeof data.status === "string" ? data.status.toLowerCase() : "unknown";
-  const status: NiceNicDomainSnapshot["status"] =
-    rawStatus === "active" || rawStatus === "expired" || rawStatus === "stop"
-      ? rawStatus
-      : "unknown";
-  const hold = typeof data.hold === "number"
-    ? data.hold === 1
-    : typeof data.hold === "string" && ["0", "1"].includes(data.hold)
-      ? data.hold === "1"
-      : null;
-
   return {
     domain,
     accountUsername: input.username,
     accountHasDomain: accountList.found,
     accountListComplete: accountList.complete,
-    status,
-    hold,
+    status: accountList.status,
+    hold: accountList.hold,
     createdDate: nonEmpty(data.created_date) ? data.created_date : null,
     expiredDate: nonEmpty(data.expired_date) ? data.expired_date : null,
     nameservers,
