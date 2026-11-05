@@ -114,6 +114,7 @@ Deno.test("persisted report guard rebuilds evidence and verifies canonical signa
     evidenceRows: rows.evidenceRows,
     trustedSignerRegistryRows: rows.signerRows,
   }, async () => true);
+  if (!result.authorized) throw new Error("Guard diagnostics: " + JSON.stringify(result));
   assertEquals(result.authorized, true);
   assertEquals(result.signatureValid, true);
   assertEquals(result.signerState, "ACTIVE");
