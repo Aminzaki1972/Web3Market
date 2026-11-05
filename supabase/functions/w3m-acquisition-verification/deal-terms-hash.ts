@@ -48,6 +48,24 @@ function decimal(value: unknown, label: string): string {
   return normalizedFraction ? normalizedWhole + "." + normalizedFraction : normalizedWhole;
 }
 
+
+function roundPercent(amount: string, precision: number): string {
+  const [whole, fraction = ""] = amount.split(".");
+  if (fraction.length > 18) throw new Error("Deal amount precision above 18 decimals is unsupported in W3M V1.");
+  const sourceScale = fraction.length;
+  const units = BigInt(whole) * (10n ** BigInt(sourceScale)) +
+    BigInt(fraction || "0");
+  let numerator = units * 75n;
+  let denominator = 1000n;
+  if (precision >= sourceScale) numerator *= 10n ** BigInt(precision - sourceScale);
+  else denominator *= 10n ** BigInt(sourceScale - precision);
+  const rounded = (numerator + denominator / 2n) / denominator;
+  const base = 10n ** BigInt(precision);
+  const integer = (rounded / base).toString();
+  const decimals = (rounded % base).toString().padStart(precision, "0").replace(/0+$/, "");
+  return decimals ? integer + "." + decimals : integer;
+}
+
 function address(value: unknown, label: string): string {
   requiredText(value, label);
   if (!ADDRESS.test(value)) throw new Error(label + " must be a valid EVM address.");
@@ -128,6 +146,12 @@ export async function computeDealTermsHash(snapshot: DealTermsSnapshot): Promise
   if (toUnits(canonicalTerms.releasePolicy.feeAmount) +
       toUnits(canonicalTerms.releasePolicy.sellerNetAmount) !== toUnits(canonicalTerms.amount)) {
     throw new Error("Seller net amount plus platform fee must equal the exact deal amount.");
+  }
+  const feeAtEight = roundPercent(canonicalTerms.amount, 8);
+  const feeAtEighteen = roundPercent(canonicalTerms.amount, 18);
+  if (decimal(canonicalTerms.releasePolicy.feeAmount, "Policy fee amount") !== feeAtEight ||
+      feeAtEight !== feeAtEighteen) {
+    throw new Error("Deal fee precision is incompatible with both existing production validators; W3M V1 blocks this deal.");
   }
   return {
     dealTermsHash: await sha256Hex(canonicalJson(canonicalTerms)),
