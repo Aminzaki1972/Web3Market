@@ -65,7 +65,7 @@ GitHub Actions run `42127007503` completed with **success** on code commit `dcab
 - the Deno unit suites, including report signature/evidence revalidation, fail-closed Deal Room gate, exact terms hashing, and claim/broadcast/reconciliation/finalization RPC adapter tests;
 - the PostgreSQL disposable-fixture migration sequence, including atomic report registry, trusted signer registry, Safe execution attempts, atomic finalizer, and their SQL contract tests.
 
-The later commits on this branch after that run are documentation-only. The latest code tested by this successful run is therefore the code head represented by `b801a30`; no production integration is implied.
+The later commits on this branch after that run are documentation-only. The latest code tested by this successful run is therefore the code head represented by `dcab716`; the later branch commits only update documentation. No production integration is implied.
 
 **Milestone:** the isolated W3M V1 core and the reusable Deal Room gate service (deterministic evidence verification, persisted report/signature revalidation, exact terms binding, Safe claim/reconciliation/finalization lifecycle, and typed server RPC/read adapters) have passed CI. The **six deployed Safe Edge Functions are still not patched to call this gate**, and a full isolated BNB testnet flow has not yet been verified.
 
