@@ -10,6 +10,7 @@ const TOKEN = "0x3333333333333333333333333333333333333333";
 const SELLER = "0x4444444444444444444444444444444444444444";
 const PLATFORM = "0x5555555555555555555555555555555555555555";
 const policy: SafeReleasePolicySnapshot = {
+  expectedDealId: "deal-guard-001",
   expectedSafeAddress: SAFE, expectedMultiSendCallOnly: MULTISEND,
   expectedTokenAddress: TOKEN, sellerWallet: SELLER, platformWallet: PLATFORM,
   sellerNetAmount: "9250000000000000000",
@@ -37,6 +38,7 @@ function calldata(seller = SELLER, sellerAmount = 9250000000000000000n): string 
 }
 function row(overrides: Partial<SafeReleaseTransactionRow> = {}): SafeReleaseTransactionRow {
   return {
+    deal_id: "deal-guard-001", action: "release_to_seller", safe_tx_hash: "0x" + "a".repeat(64),
     safe_address: SAFE, chain_id: 56, to_address: MULTISEND,
     data: calldata(), value_wei: "0", operation: 1, ...overrides,
   };
