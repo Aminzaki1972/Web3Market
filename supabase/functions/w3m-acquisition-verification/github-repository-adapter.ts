@@ -279,7 +279,7 @@ export function verifyGitHubRepositoryOwner(
     return { status: "OWNER_MISMATCH", snapshot, expectedAccountId: expectedOwner };
   }
 
-  if (phase === "SELLER" && snapshot.admin !== true) {
+  if (snapshot.admin !== true) {
     return { status: "ADMIN_CONTROL_UNVERIFIED", snapshot };
   }
 
