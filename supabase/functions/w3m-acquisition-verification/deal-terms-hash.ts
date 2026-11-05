@@ -7,6 +7,8 @@ import { canonicalJson, sha256Hex } from "./decision-engine.ts";
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const DECIMAL = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
+const PLATFORM_WALLET = "0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
+
 export interface DealTermsSnapshot {
   dealId: string;
   projectId: string;
