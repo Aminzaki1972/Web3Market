@@ -88,3 +88,44 @@ Deno.test("duplicate logs are counted once", async () => {
     throw new Error("Duplicate logs must not double count.");
   }
 });
+
+
+Deno.test("excluded sender is not counted as project revenue", async () => {
+  const result = await verifyErc20Revenue(
+    mock(),
+    { ...config, excludedSenders: ["0x3333333333333333333333333333333333333333"], declaredRevenueRaw: "0" },
+  );
+  if (result.status !== "PASS" || result.receiptCount !== 0 || result.actualRevenueRaw !== "0") {
+    throw new Error("Excluded internal sender must not be counted.");
+  }
+});
+
+Deno.test("removed logs block revenue evidence", async () => {
+  const result = await verifyErc20Revenue(mock({ logs: [{ ...log, removed: true }] }), {
+    ...config,
+    declaredRevenueRaw: "0",
+  });
+  if (result.status !== "BLOCKED" || !result.reasonCodes.includes("REMOVED_LOG_REQUIRES_REVIEW")) {
+    throw new Error("Removed logs must block evidence.");
+  }
+});
+
+Deno.test("oversized block ranges are rejected", async () => {
+  let rejected = false;
+  try {
+    await verifyErc20Revenue(mock(), { ...config, toBlock: 20000, maxBlockSpan: 20000 });
+  } catch (error) {
+    rejected = error instanceof BnbRevenueAdapterError;
+  }
+  if (!rejected) throw new Error("Oversized scans must be rejected.");
+});
+
+Deno.test("malformed transfer logs are rejected", async () => {
+  let rejected = false;
+  try {
+    await verifyErc20Revenue(mock({ logs: [{ ...log, topics: [] }] }), config);
+  } catch (error) {
+    rejected = error instanceof BnbRevenueAdapterError;
+  }
+  if (!rejected) throw new Error("Malformed logs must be rejected.");
+});
