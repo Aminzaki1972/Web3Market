@@ -213,7 +213,7 @@ The branch now includes two provider-specific read-only adapters and a provider-
 
 ### Verification state
 
-The isolated branch currently defines 97 Deno test cases across the decision engine, settlement gate, Safe decoder/validator, asset lifecycle, GitHub adapter, and BNB revenue adapter. The GitHub connector status interface did not return a check-run result for the latest push, so these newly added tests must still be treated as pending CI confirmation—not as passed.
+The isolated branch currently defines 109 Deno test cases across the decision engine, settlement gate, Safe decoder/validator, asset lifecycle, GitHub adapter, BNB revenue adapter, and NiceNIC domain adapter. The GitHub connector status interface did not return a check-run result for the latest push, so these newly added tests must still be treated as pending CI confirmation—not as passed.
 
 No GitHub credentials, RPC provider, registrar account, production database, Safe, wallet, or live deployment has been configured or changed by these additions.
 
