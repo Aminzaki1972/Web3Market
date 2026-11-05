@@ -153,6 +153,7 @@ Deno.test("NiceNIC seller control can emit a W3M ownership event only after iden
   });
   const event = await createNiceNicSellerControlEvent({
     snapshot,
+    expectedDomain: DOMAIN,
     expectedSellerAccountUsername: USERNAME,
     dealId: "deal-1",
     projectId: "project-1",
@@ -262,6 +263,7 @@ Deno.test("NiceNIC account transfer evidence requires complete seller absence an
   const event = await createNiceNicTransferConfirmedEvent({
     sellerMembership,
     buyerSnapshot,
+    expectedDomain: DOMAIN,
     expectedSellerAccountUsername: USERNAME,
     expectedBuyerAccountUsername: BUYER_USERNAME,
     dealId: "deal-1",
@@ -299,6 +301,7 @@ Deno.test("NiceNIC transfer evidence rejects incomplete seller account listing",
     await createNiceNicTransferConfirmedEvent({
       sellerMembership,
       buyerSnapshot,
+      expectedDomain: DOMAIN,
       expectedSellerAccountUsername: USERNAME,
       expectedBuyerAccountUsername: BUYER_USERNAME,
       dealId: "deal-1",
@@ -326,6 +329,7 @@ Deno.test("NiceNIC buyer account can emit buyer control evidence after registran
   });
   const event = await createNiceNicBuyerControlEvent({
     snapshot: buyerSnapshot,
+    expectedDomain: DOMAIN,
     expectedBuyerAccountUsername: BUYER_USERNAME,
     dealId: "deal-1",
     projectId: "project-1",
