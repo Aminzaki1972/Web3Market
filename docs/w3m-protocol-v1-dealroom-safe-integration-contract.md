@@ -194,3 +194,10 @@ The five historical functions are absent from the current `main` tree. Frontend 
 The feature branch contains a pure validator at `supabase/functions/w3m-acquisition-verification/safe-payload-validator.ts` with Deno tests. It validates a normalized representation of the decoded Safe transaction and requires exactly two inner token `transfer` calls: the agreed seller-net transfer and platform-fee transfer. It also checks the approved chain, Safe address, MultiSendCallOnly target, DELEGATECALL outer operation, zero native value, token address, distinct recipients, and exact fee arithmetic.
 
 The helper is deliberately not wired into any Safe Edge Function. A trusted adapter must first ABI-decode the actual signed transaction payload, normalize every inner call, and invoke the helper. The same semantic payload check must run before signature acceptance and immediately before broadcast. Do not treat this helper as protection until those call sites are implemented and tested.
+
+
+## 11. Strict ABI decoder requirement
+
+An isolated `safe-multisend-decoder.ts` helper and Deno tests now parse the actual `multiSend(bytes)` calldata envelope and packed inner calls, including operation, recipient, native value, and call-data boundaries. It rejects malformed offsets, truncated payloads, bad ABI padding, and empty batches. ERC-20 transfer calldata is decoded to exact recipient and amount values.
+
+The decoder and `safe-payload-validator.ts` are pure helpers only. A trusted server-side adapter must compose them using the exact signed Safe transaction fields; until that adapter is integrated into the authoritative backend call sites, they do not protect any live transaction.
