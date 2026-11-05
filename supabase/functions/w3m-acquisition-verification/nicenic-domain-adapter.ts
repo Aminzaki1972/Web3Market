@@ -366,6 +366,7 @@ export async function createNiceNicTransferConfirmedEvent(input: {
   sellerIdentity: string;
   buyerIdentity: string;
   buyerRegistrantIdentityMatched: boolean;
+  sellerRegistrantVerificationRecordId: string;
   buyerRegistrantVerificationRecordId: string;
   now: string;
 }): Promise<AssetTransferEvent> {
@@ -384,6 +385,7 @@ export async function createNiceNicTransferConfirmedEvent(input: {
     buyer.hold !== false ||
     !buyer.registrantContactPresent ||
     !input.buyerRegistrantIdentityMatched ||
+    !nonEmpty(input.sellerRegistrantVerificationRecordId) ||
     !nonEmpty(input.buyerRegistrantVerificationRecordId) ||
     seller.observedAt !== input.now ||
     buyer.observedAt !== input.now ||
@@ -404,6 +406,7 @@ export async function createNiceNicTransferConfirmedEvent(input: {
     sellerAccountUsername: seller.accountUsername,
     sellerAccountHasDomain: seller.accountHasDomain,
     sellerAccountListComplete: seller.accountListComplete,
+    sellerRegistrantVerificationRecordId: input.sellerRegistrantVerificationRecordId,
     buyerAccountUsername: buyer.accountUsername,
     buyerAccountHasDomain: buyer.accountHasDomain,
     buyerStatus: buyer.status,
@@ -418,7 +421,7 @@ export async function createNiceNicTransferConfirmedEvent(input: {
   };
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(proof)));
   const proofHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  const version = `${seller.accountUsername}:${buyer.accountUsername}:${buyer.expiredDate ?? "unknown"}:${input.buyerRegistrantVerificationRecordId}`;
+  const version = `${seller.accountUsername}:${buyer.accountUsername}:${buyer.expiredDate ?? "unknown"}:${input.sellerRegistrantVerificationRecordId}:${input.buyerRegistrantVerificationRecordId}`;
   const sourceEventId = `nicenic:${buyer.domain}:TRANSFER_CONFIRMED:${version}`;
 
   return {
