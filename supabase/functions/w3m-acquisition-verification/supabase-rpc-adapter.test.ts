@@ -1,7 +1,10 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1";
 import {
+  claimSafeExecutionAttempt,
   finalizeSafeExecutionAttempt,
+  markSafeExecutionReconciliationRequired,
   persistAcquisitionRegistryBatch,
+  recordSafeExecutionBroadcast,
   type W3MRpcClient,
 } from "./supabase-rpc-adapter.ts";
 import type { RegistryBatch } from "./report-registry-batch.ts";
@@ -91,4 +94,66 @@ Deno.test("finalization RPC rejects malformed hashes and mismatched attempt resp
     attemptId: "attempt-1", broadcastTxHash: "0x" + "b".repeat(64),
     actorId: "buyer-1", receiptEvidence: {},
   }));
+});
+
+
+Deno.test("execution claim, broadcast recording, and reconciliation use their server-only RPCs", async () => {
+  const calls: { name: string; args: Record<string, unknown> }[] = [];
+  const client: W3MRpcClient = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "w3m_claim_safe_execution_attempt") {
+        return { data: {
+          attempt_id: "attempt-2", state: "CLAIMED", claimed: true, idempotent_replay: false,
+        }, error: null };
+      }
+      if (name === "w3m_record_safe_execution_broadcast") {
+        return { data: {
+          recorded: true, idempotent_replay: false, state: "RECONCILIATION_REQUIRED",
+        }, error: null };
+      }
+      return { data: {
+        updated: true, idempotent_replay: false, state: "RECONCILIATION_REQUIRED",
+      }, error: null };
+    },
+  };
+  const hash = "0x" + "c".repeat(64);
+  const claim = await claimSafeExecutionAttempt(client, {
+    dealId: "deal-2", transactionId: "tx-2", reportId: "report-2",
+    safeTxHash: hash, executorRef: "isolated-executor",
+    idempotencyKey: "idempotency-key-for-test-0002",
+  });
+  assertEquals(claim, {
+    attemptId: "attempt-2", state: "CLAIMED", claimed: true, idempotentReplay: false,
+  });
+  const broadcast = await recordSafeExecutionBroadcast(client, "attempt-2", hash);
+  assertEquals(broadcast, {
+    recorded: true, idempotentReplay: false, state: "RECONCILIATION_REQUIRED",
+  });
+  const reconciliation = await markSafeExecutionReconciliationRequired(
+    client, "attempt-2", "RPC_TIMEOUT_UNCERTAIN",
+  );
+  assertEquals(reconciliation, {
+    updated: true, idempotentReplay: false, state: "RECONCILIATION_REQUIRED",
+  });
+  assertEquals(calls.map((call) => call.name), [
+    "w3m_claim_safe_execution_attempt",
+    "w3m_record_safe_execution_broadcast",
+    "w3m_mark_safe_execution_reconciliation_required",
+  ]);
+  assertEquals(calls[0].args.p_deal_id, "deal-2");
+  assertEquals(calls[1].args.p_broadcast_tx_hash, hash);
+});
+
+Deno.test("execution claim rejects malformed Safe transaction hashes before RPC", async () => {
+  let calls = 0;
+  const client: W3MRpcClient = {
+    async rpc() { calls++; return { data: null, error: null }; },
+  };
+  await assertRejects(() => claimSafeExecutionAttempt(client, {
+    dealId: "deal-2", transactionId: "tx-2", reportId: "report-2",
+    safeTxHash: "bad", executorRef: "isolated-executor",
+    idempotencyKey: "idempotency-key-for-test-0002",
+  }));
+  assertEquals(calls, 0);
 });
