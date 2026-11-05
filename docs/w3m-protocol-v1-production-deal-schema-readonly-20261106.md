@@ -138,3 +138,37 @@ The production migration history currently lists migrations through `20261103065
 
 ## Explicit non-actions
 No production schema changes, no production function changes, no production data reads, no Edge Function deployments, no Safe calls, no wallet signatures, no blockchain transactions, and no funds movement.
+
+
+## Additional trigger/function review (read-only)
+
+The following non-internal triggers were confirmed on the reviewed tables:
+- `deals`: `deals_financials_on_insert`, `trg_sync_deal_fee_amount`, `trg_web3market_deal_fee`, `deals_fee_lock`, `trg_protect_deal_sensitive_fields`, `trg_enforce_deal_state_transition`, plus audit and market-statistics triggers.
+- `deal_release_policies`: `trg_deal_release_policy_immutable`.
+- `deal_party_agreements`: `trg_prevent_deal_agreement_tampering` plus audit trigger.
+- `deal_multisig_transactions` and `deal_disputes`: audit triggers.
+
+### D6 — multiple deal fee triggers require one canonical source of truth
+The production database currently has overlapping BEFORE triggers:
+- `enforce_deal_financials_on_write()` calculates fee at 6 decimal places and seller net at 6.
+- `set_web3market_deal_fee()` calculates fee and seller net at 8 decimal places on INSERT; on UPDATE it restores the old locked values.
+- `sync_deal_fee_amount()` copies `platform_fee` into `platform_fee_amount`.
+
+PostgreSQL fires same-kind triggers alphabetically by trigger name. The observed INSERT trigger names put `deals_financials_on_insert` before `trg_sync_deal_fee_amount` before `trg_web3market_deal_fee`. This means the alias copy can occur before the later trigger overwrites `platform_fee` at 8 decimals, potentially leaving `platform_fee_amount` reflecting the earlier 6-decimal value. This is a trigger-order inference from catalog definitions, not a claim about any existing deal row. The isolated protocol must not rely on `platform_fee_amount` as canonical until the production design is deliberately reconciled.
+
+### D7 — locked policy and agreement identity are protected by triggers
+- `deal_release_policy_immutable_guard()` rejects changes to deal binding, amount, fee, wallet routing, Safe, token, chain, and Safe nonce once policy status is locked/ready/released. This is a useful invariant to preserve.
+- `prevent_deal_agreement_tampering()` prevents changing deal/party identity and prevents clearing or changing an existing `agreed_at` timestamp. Protocol evidence should reference the immutable agreement identity and timestamp rather than treating the agreement row as freely editable.
+- `protect_deal_sensitive_fields()` protects financial/payment/Safe fields from authenticated user updates, prevents confirmed payment rollback, buyer approval removal, and accepted delivery rollback.
+
+### D8 — dispute vocabulary mismatch also appears in a protection trigger
+`protect_deal_sensitive_fields()` contains a check for `old.dispute_status = 'resolved'` before preventing reopening. The declared CHECK constraint for `deals.dispute_status` does not include `resolved`; it includes `resolved_buyer`, `resolved_seller`, and `closed`. This confirms the vocabulary drift is not isolated to `validate_deal_release_policy()`. The exact intended terminal-dispute behavior remains a product/security decision.
+
+### D9 — audit side effects are trigger-driven
+Deal lifecycle and subworkflow triggers write to `admin_audit_log` for selected changes. Any future atomic finalization RPC must account for these trigger side effects and avoid duplicating equivalent audit events. The trigger payloads intentionally omit sensitive financial values, transaction hashes, wallet addresses, and delivery payloads in the lifecycle audit path.
+
+## Revised integration cautions
+- Do not design a W3M adapter around `platform_fee_amount` or a precision assumption until the fee trigger chain and release-policy CHECK are reconciled.
+- Do not infer that a resolved dispute is release-eligible from the word "resolved"; the current enum/check vocabulary and existing function/trigger checks disagree.
+- Preserve release-policy immutability and agreement timestamp protections.
+- Include database audit-trigger effects in idempotency and finalization tests.
