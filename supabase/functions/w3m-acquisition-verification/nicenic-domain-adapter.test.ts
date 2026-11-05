@@ -276,3 +276,41 @@ Deno.test("NiceNIC account transfer evidence requires complete seller absence an
     throw new Error("NiceNIC account-level transfer was not confirmed.");
   }
 });
+
+
+Deno.test("NiceNIC transfer evidence rejects incomplete seller account listing", async () => {
+  const sellerMembership = await fetchNiceNicAccountDomainMembership({
+    username: USERNAME,
+    apiSecret: "server-only-secret",
+    domain: DOMAIN,
+    fetchImpl: niceNicFetch({ includeDomain: false, totalPages: 25 }),
+    maxPages: 2,
+    now: NOW,
+  });
+  const buyerSnapshot = await fetchNiceNicDomainSnapshot({
+    username: BUYER_USERNAME,
+    apiSecret: "server-only-secret",
+    domain: DOMAIN,
+    fetchImpl: niceNicFetch({ username: BUYER_USERNAME }),
+    now: NOW,
+  });
+  let rejected = false;
+  try {
+    await createNiceNicTransferConfirmedEvent({
+      sellerMembership,
+      buyerSnapshot,
+      expectedSellerAccountUsername: USERNAME,
+      expectedBuyerAccountUsername: BUYER_USERNAME,
+      dealId: "deal-1",
+      projectId: "project-1",
+      assetId: "domain-asset-1",
+      sellerIdentity: "seller-account",
+      buyerIdentity: "buyer-account",
+      buyerRegistrantIdentityMatched: true,
+      now: NOW,
+    });
+  } catch (error) {
+    rejected = error instanceof NiceNicAdapterError;
+  }
+  if (!rejected) throw new Error("Incomplete seller account listing must not prove transfer.");
+});
