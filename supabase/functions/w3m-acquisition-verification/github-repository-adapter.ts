@@ -294,6 +294,7 @@ export function prepareGitHubTransferIntent(input: {
   sellerSnapshot: GitHubRepositorySnapshot;
   expectation: GitHubRepositoryExpectation;
   buyer: GitHubAccountIdentity;
+  sellerAuthenticatedAccount: GitHubAuthenticatedAccount;
   sellerConsentRecorded: boolean;
   buyerConsentRecorded: boolean;
 }): GitHubTransferIntent {
@@ -304,7 +305,7 @@ export function prepareGitHubTransferIntent(input: {
     input.sellerSnapshot,
     input.expectation,
     "SELLER",
-    { id: input.expectation.sellerAccountId, login: input.sellerSnapshot.owner.login, type: "User" },
+    input.sellerAuthenticatedAccount,
   );
   if (sellerCheck.status !== "SELLER_CONTROL_VERIFIED") {
     throw new GitHubAdapterError("Cannot prepare transfer: seller ownership or administrator control is not verified.");
