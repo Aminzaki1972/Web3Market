@@ -61,7 +61,8 @@ create table if not exists public.w3m_acquisition_evidence (
     'DEAL_AGREEMENT',
     'PAYMENT',
     'BUYER_ACCEPTANCE',
-    'DISPUTE_CHECK'
+    'DISPUTE_CHECK',
+    'REVENUE_VERIFICATION'
   )),
   source_table text null check (source_table is null or length(btrim(source_table)) <= 120),
   source_record_id text null check (source_record_id is null or length(btrim(source_record_id)) <= 200),
