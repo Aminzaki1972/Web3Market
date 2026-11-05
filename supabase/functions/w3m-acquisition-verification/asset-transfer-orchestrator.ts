@@ -182,6 +182,15 @@ function validateTransition(
   const status = state.status;
   const definition = state.definition;
 
+  if (state.lastEventAt !== null) {
+    const previousEventMs = timestamp(state.lastEventAt);
+    const incomingEventMs = timestamp(event.observedAt);
+    if (previousEventMs !== null && incomingEventMs !== null && incomingEventMs <= previousEventMs) {
+      issues.push(issue("EVENT_OUT_OF_ORDER", "Provider events must be applied in strictly increasing observation-time order.", event));
+      return issues;
+    }
+  }
+
   if (status === "FAILED" || status === "REVIEW_REQUIRED") {
     return [issue("ASSET_STATE_TERMINAL", "A failed or review-required asset needs an authorized new workflow; it cannot silently continue.", event)];
   }
