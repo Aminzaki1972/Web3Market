@@ -244,3 +244,16 @@ Deno.test("orchestrator rejects a valid signature from a revoked registry key", 
   }
   if (!rejected) throw new Error("Revoked signer key must not create a trusted report batch.");
 });
+
+
+Deno.test("orchestrator rejects malformed authoritative signer registry rows", async () => {
+  let rejected = false;
+  try {
+    await prepareAcquisitionProtocolBatch(input({
+      trustedSignerRegistryRows: [{ key_id: "missing-crypto-fields" }],
+    }), signer);
+  } catch (error) {
+    rejected = String(error).includes("Trusted signer registry is invalid");
+  }
+  if (!rejected) throw new Error("Malformed signer registry data must fail closed.");
+});
