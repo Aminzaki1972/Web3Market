@@ -62,9 +62,9 @@ function eventToEvidence(
     throw new Error(expected.phase + " provider control event is required.");
   }
 
-  const expectedEventType = expected.phase === "SELLER"
-    ? "SELLER_CONTROL_VERIFIED"
-    : ["BUYER_CONTROL_VERIFIED", "TRANSFER_CONFIRMED"].includes(event.eventType);
+  const expectedEventTypeValid = expected.phase === "SELLER"
+    ? event.eventType === "SELLER_CONTROL_VERIFIED"
+    : event.eventType === "BUYER_CONTROL_VERIFIED" || event.eventType === "TRANSFER_CONFIRMED";
 
   if (
     event.dealId !== expected.dealId ||
@@ -82,8 +82,7 @@ function eventToEvidence(
     Date.parse(event.observedAt) > Date.parse(expected.now) ||
     Date.parse(event.validUntil) <= Date.parse(expected.now) ||
     Date.parse(event.validUntil) <= Date.parse(event.observedAt) ||
-    (expected.phase === "SELLER" && event.eventType !== expectedEventType) ||
-    (expected.phase === "BUYER" && expectedEventType !== true)
+    !expectedEventTypeValid
   ) {
     throw new Error(expected.phase + " provider event is invalid, stale, or bound to another deal/project/asset.");
   }
