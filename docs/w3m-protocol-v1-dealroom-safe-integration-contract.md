@@ -239,3 +239,24 @@ The branch now contains `nicenic-domain-adapter.ts`, its tests, and `docs/w3m-pr
 The adapter uses only NiceNIC API v2 read operations: domain details and paginated account-domain inventory. It binds the exact deal-pinned domain to the expected seller or buyer registrar account, checks active/hold state, and requires a separate trusted registrant-identity verification record before emitting seller/buyer control evidence.
 
 NiceNIC's published API currently documents transfer-in from another registrar and contact updates, but the documented contact update is not treated as ownership transfer and no account-to-account push/outbound transfer endpoint has been established. The adapter therefore does not issue any domain write request. It can confirm account-level control transition only after the seller's complete account listing no longer contains the domain and the buyer's fresh listing does, with registrant identity separately verified. Legal registrant transfer still requires the registrar's supported process and independent confirmation.
+
+
+## 16. Unified evidence aggregator — isolated composition layer
+
+The feature branch now contains:
+- `supabase/functions/w3m-acquisition-verification/unified-evidence-aggregator.ts`
+- `supabase/functions/w3m-acquisition-verification/unified-evidence-aggregator.test.ts`
+
+The aggregator accepts already-verified server-side adapter outputs and composes them with the base project, exact-commit audit, agreement, payment, buyer-acceptance, and dispute evidence. It enforces exact deal/project/asset bindings, expected seller and buyer identities, authoritative provider events, SHA-256 proof hashes, observation timestamps, and short evidence validity windows.
+
+It supports GitHub repository and NiceNIC registrar ownership events. A transfer-confirmed event must bind to the buyer identity; the aggregator does not treat a GitHub collaborator/admin permission as ownership. Revenue evidence is added to the required evidence policy only when the accepted deal scope requires it.
+
+The aggregator calls the deterministic decision engine and returns the decision plus the composed evidence list. It does **not**:
+- authenticate provider credentials or fetch provider data itself;
+- decide whether a revenue scope was accepted by both parties;
+- persist reports/evidence into Supabase;
+- sign reports or verify signer-key revocation;
+- call Deal Room or Safe endpoints;
+- initiate GitHub/NiceNIC transfers or blockchain transactions.
+
+The next backend adapter must load authoritative deal terms and participant identities, call the provider adapters server-side, invoke the aggregator, create a canonical report envelope, obtain a trusted server signature, and append the report/evidence/events to the registry in one controlled persistence workflow. PASS must remain impossible to persist without the configured valid signature. This remains an isolated design and does not affect live settlement.
