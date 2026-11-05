@@ -1,3 +1,5 @@
+import type { AcquisitionEvidence } from "./decision-engine.ts";
+
 // W3M Protocol V1 — read-only BNB/EVM ERC-20 receipt verifier.
 // Scope: configured ERC-20 Transfer logs to deal-pinned revenue addresses.
 // It does not prove off-chain revenue or commercial purpose and never submits transactions.
@@ -376,5 +378,58 @@ export async function verifyErc20Revenue(
     proofHash: await sha256Hex(stableJson(proof)),
     checkedAt: now,
     reasonCodes: [...reasons],
+  };
+}
+
+
+// Converts the verifier result into the W3M decision-engine evidence contract.
+// scopeConfirmed must come from the server-side deal-agreement verifier, never the browser.
+export function toAcquisitionRevenueEvidence(input: {
+  evidenceId: string;
+  dealId: string;
+  projectId: string;
+  mandatory: boolean;
+  scopeConfirmed: boolean;
+  decision: BnbRevenueDecision;
+}): AcquisitionEvidence {
+  if (!input.evidenceId.trim() || !input.dealId.trim() || !input.projectId.trim()) {
+    throw new BnbRevenueAdapterError("Revenue evidence requires exact evidence, deal, and project IDs.");
+  }
+  const observedMs = Date.parse(input.decision.checkedAt);
+  if (!Number.isFinite(observedMs) || !/^[0-9a-f]{64}$/.test(input.decision.proofHash)) {
+    throw new BnbRevenueAdapterError("Revenue verifier output has an invalid timestamp or proof hash.");
+  }
+
+  return {
+    id: input.evidenceId,
+    type: "REVENUE_VERIFICATION",
+    result: input.decision.status === "PASS"
+      ? "PASS"
+      : input.decision.status === "BLOCKED" ? "FAILED" : "MISSING",
+    mandatory: input.mandatory,
+    dealId: input.dealId,
+    projectId: input.projectId,
+    contentHash: input.decision.proofHash,
+    observedAt: input.decision.checkedAt,
+    validUntil: new Date(observedMs + 5 * 60 * 1000).toISOString(),
+    sourceRecordId: `${input.decision.chainId}:${input.decision.tokenAddress}`,
+    sourceVersion: `${input.decision.fromBlock}-${input.decision.toBlock}@${input.decision.observedHeadBlock}`,
+    metadata: {
+      revenueStatus: input.decision.status,
+      revenueScopeConfirmed: input.scopeConfirmed,
+      actualRevenueRaw: input.decision.actualRevenueRaw,
+      declaredRevenueRaw: input.decision.declaredRevenueRaw,
+      chainId: input.decision.chainId,
+      tokenAddress: input.decision.tokenAddress,
+      revenueRecipients: input.decision.revenueRecipients,
+      excludedSenders: input.decision.excludedSenders,
+      fromBlock: input.decision.fromBlock,
+      toBlock: input.decision.toBlock,
+      observedHeadBlock: input.decision.observedHeadBlock,
+      minConfirmations: input.decision.minConfirmations,
+      receiptCount: input.decision.receiptCount,
+      adapterVersion: input.decision.adapterVersion,
+      reasonCodes: input.decision.reasonCodes,
+    },
   };
 }
