@@ -1,3 +1,5 @@
+import { secp256k1 } from "jsr:@noble/curves@1.8.2/secp256k1";
+import { keccak_256 } from "jsr:@noble/hashes@1.7.1/sha3";
 import { prepareAcquisitionProtocolBatch } from "./protocol-orchestrator.ts";
 import type { ProtocolOrchestratorInput } from "./protocol-orchestrator.ts";
 import type { AcquisitionEvidence, EvidenceType } from "./decision-engine.ts";
@@ -17,10 +19,34 @@ const UUIDS = Array.from({ length: 18 }, (_, i) =>
   "00000000-0000-4000-8000-" + String(i + 1).padStart(12, "0")
 );
 
-const signer = async () => ({
-  signerKeyId: "test-signer-v1",
-  signature: "0x" + "1".repeat(130),
-});
+const TEST_PRIVATE_KEY = new Uint8Array(32);
+TEST_PRIVATE_KEY[31] = 1;
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+const TEST_ADDRESS = "0x" + bytesToHex(
+  keccak_256(secp256k1.getPublicKey(TEST_PRIVATE_KEY, false).slice(1)).slice(12),
+);
+const TEST_SIGNER_KEYS = [{
+  keyId: "test-signer-v1",
+  algorithm: "ECDSA_SECP256K1_KECCAK256_RAW_DIGEST" as const,
+  publicAddress: TEST_ADDRESS,
+  status: "ACTIVE" as const,
+  validFrom: "2026-01-01T00:00:00.000Z",
+  validUntil: "2027-01-01T00:00:00.000Z",
+  revokedAt: null,
+}];
+const signer = async (digestHex: string) => {
+  const digest = Uint8Array.from(digestHex.match(/.{2}/g) ?? [], (pair) => Number.parseInt(pair, 16));
+  const signature = secp256k1.sign(digest, TEST_PRIVATE_KEY, { prehash: false });
+  return {
+    signerKeyId: "test-signer-v1",
+    signature: "0x" + bytesToHex(new Uint8Array([
+      ...signature.toCompactRawBytes(),
+      signature.recovery! + 27,
+    ])),
+  };
+};
 
 function evidence(): AcquisitionEvidence[] {
   const meta: Record<string, Record<string, unknown>> = {
@@ -96,6 +122,7 @@ function input(overrides: Partial<ProtocolOrchestratorInput> = {}): ProtocolOrch
     expiresAt: EXPIRES,
     actorType: "VERIFIER",
     actorRef: "protocol-orchestrator-test",
+    trustedSignerKeys: TEST_SIGNER_KEYS,
     ...overrides,
   };
 }
@@ -190,4 +217,30 @@ Deno.test("orchestrator rejects provider event from a different project", async 
     rejected = true;
   }
   if (!rejected) throw new Error("Cross-project provider evidence must be rejected.");
+});
+
+
+Deno.test("orchestrator rejects a signature-shaped but cryptographically invalid signature", async () => {
+  let rejected = false;
+  try {
+    await prepareAcquisitionProtocolBatch(input(), async () => ({
+      signerKeyId: "test-signer-v1",
+      signature: "0x" + "1".repeat(130),
+    }));
+  } catch (error) {
+    rejected = String(error).includes("Trusted report signature verification failed");
+  }
+  if (!rejected) throw new Error("Signature-shaped bytes must not create a trusted report batch.");
+});
+
+Deno.test("orchestrator rejects a valid signature from a revoked registry key", async () => {
+  let rejected = false;
+  try {
+    await prepareAcquisitionProtocolBatch(input({
+      trustedSignerKeys: [{ ...TEST_SIGNER_KEYS[0], status: "REVOKED", revokedAt: NOW }],
+    }), signer);
+  } catch (error) {
+    rejected = String(error).includes("REVOKED_SIGNER_KEY");
+  }
+  if (!rejected) throw new Error("Revoked signer key must not create a trusted report batch.");
 });
