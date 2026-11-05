@@ -72,12 +72,12 @@ export function validateVerifiedSafeReceipt(
       const seller = transfers.filter((t) =>
         sameAddress(t?.from_address, expected.safeAddress) &&
         sameAddress(t?.to_address, expected.sellerWallet) &&
-        normalizeDecimal(t?.amount) === normalizeDecimal(expected.sellerAmount)
+        normalizeDecimal(expected.sellerAmount) !== null &&\n        normalizeDecimal(t?.amount) !== null &&\n        normalizeDecimal(t?.amount) === normalizeDecimal(expected.sellerAmount)
       );
       const platform = transfers.filter((t) =>
         sameAddress(t?.from_address, expected.safeAddress) &&
         sameAddress(t?.to_address, expected.platformWallet) &&
-        normalizeDecimal(t?.amount) === normalizeDecimal(expected.platformFee)
+        normalizeDecimal(expected.platformFee) !== null &&\n        normalizeDecimal(t?.amount) !== null &&\n        normalizeDecimal(t?.amount) === normalizeDecimal(expected.platformFee)
       );
       if (seller.length !== 1) issues.push("SELLER_TRANSFER_MISMATCH");
       if (platform.length !== 1) issues.push("PLATFORM_FEE_TRANSFER_MISMATCH");
