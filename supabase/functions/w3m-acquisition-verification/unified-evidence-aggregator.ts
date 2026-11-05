@@ -88,7 +88,8 @@ function eventToEvidence(
     throw new Error(expected.phase + " provider event is invalid, stale, or bound to another deal/project/asset.");
   }
 
-  if (event.currentOwnerIdentity !== expected.identity) {
+  const verifiedOwnerIdentity = event.currentOwnerIdentity ?? event.toIdentity;
+  if (verifiedOwnerIdentity !== expected.identity) {
     throw new Error(expected.phase + " provider event does not prove the expected account identity.");
   }
 
