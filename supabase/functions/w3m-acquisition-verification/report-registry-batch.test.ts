@@ -97,8 +97,12 @@ Deno.test("builds a signed report and append-only evidence/event rows", async ()
       result.events.some((row) => row.report_id !== REPORT_ID)) {
     throw new Error("All rows must bind to the same immutable report ID.");
   }
-  if (result.evidence.some((row, index) => row.details.evidenceId !== "evidence-" + index)) {
-    throw new Error("Persisted evidence details must preserve the source evidence ID for manifest recomputation.");
+  if (result.evidence.some((row, index) =>
+    row.details.evidenceId !== "evidence-" + index ||
+    row.details.evidenceObservedAt !== "2026-11-05T20:55:00.000Z" ||
+    row.details.evidenceValidUntil !== EXPIRES
+  )) {
+    throw new Error("Persisted evidence details must preserve source IDs and exact timestamps for manifest recomputation.");
   }
 });
 
