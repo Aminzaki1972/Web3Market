@@ -55,7 +55,9 @@ export async function validateSafeSignatureSet(
 
   if (!digest) issues.push("SAFE_TX_HASH_INVALID");
 
-  const owners = input.currentOwners.map(normalizedAddress);
+  const ownerValues = Array.isArray(input.currentOwners) ? input.currentOwners : [];
+  if (!Array.isArray(input.currentOwners)) issues.push("SAFE_OWNERS_INVALID");
+  const owners = ownerValues.map(normalizedAddress);
   if (owners.some((owner) => owner === null) || owners.length === 0) {
     issues.push("SAFE_OWNERS_INVALID");
   }
@@ -66,13 +68,14 @@ export async function validateSafeSignatureSet(
       input.threshold > ownerSet.size) {
     issues.push("SAFE_THRESHOLD_INVALID");
   }
-  if (!Array.isArray(input.storedSignatures) ||
-      input.storedSignatures.length < (Number.isInteger(input.threshold) ? input.threshold : 1)) {
+  const signatureRows = Array.isArray(input.storedSignatures) ? input.storedSignatures : [];
+  if (!Array.isArray(input.storedSignatures)) issues.push("STORED_SIGNATURE_ROWS_INVALID");
+  if (signatureRows.length < (Number.isInteger(input.threshold) ? input.threshold : 1)) {
     issues.push("SAFE_SIGNATURES_BELOW_THRESHOLD");
   }
 
   const seen = new Set<string>();
-  for (const row of input.storedSignatures) {
+  for (const row of signatureRows) {
     const wallet = normalizedAddress(row.walletAddress);
     if (!wallet) {
       issues.push("STORED_SIGNER_ADDRESS_INVALID");
