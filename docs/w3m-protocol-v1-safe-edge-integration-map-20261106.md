@@ -86,3 +86,16 @@ The reader migration and SQL contract test are included in the disposable Postgr
 - No Safe, wallet, key, balance or transaction touched.
 - No merge to `main`.
 - All implementation remains on the isolated branch.
+
+
+## 10. Latest isolated CI verification — 2026-11-06
+
+The Safe live-facts test interface mismatch was corrected in commit `0e242f8f3e7f69eed9d416786e0d09449966abdb` by updating `dealroom-terms-reader.test.ts` to supply a complete `safeFacts` object (BNB Chain 56, exact Safe address, three expected owners, threshold 2, Safe version 1.4.1, and exact nonce).
+
+GitHub Actions run [42130649959](https://github.com/Aminzaki1972/Web3Market/actions/runs/42130649959) completed with **success** on that commit. Verified in this run:
+- Deno type-check across the isolated W3M modules and Deal Room reader;
+- all listed Deno test suites, including Safe payload validation/decoding, cryptographic signature recovery, trusted signer checks, persisted report verification, exact Deal Room snapshot loading, and the Supabase RPC adapter;
+- all four W3M SQL migrations applied to the workflow's disposable PostgreSQL database;
+- evidence registry, trusted signer registry, execution-attempt lifecycle, atomic finalizer, and exact Deal Room reader SQL contract tests passed.
+
+This is the first green CI run after the live Safe facts interface change. It verifies the isolated branch's automated checks only. It does not change the integration boundary stated above: none of the six deployed Safe Edge Functions has been modified or wired to W3M, and no migration or function has been deployed to production.
