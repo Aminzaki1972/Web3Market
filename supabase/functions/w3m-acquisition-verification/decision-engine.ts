@@ -14,7 +14,11 @@ export const REQUIRED_EVIDENCE_TYPES = [
   "DISPUTE_CHECK",
 ] as const;
 
-export type EvidenceType = typeof REQUIRED_EVIDENCE_TYPES[number];
+export const CONDITIONAL_EVIDENCE_TYPES = ["REVENUE_VERIFICATION"] as const;
+
+export type EvidenceType =
+  | typeof REQUIRED_EVIDENCE_TYPES[number]
+  | typeof CONDITIONAL_EVIDENCE_TYPES[number];
 export type EvidenceResult = "PASS" | "MISSING" | "FAILED" | "STALE" | "REVIEW_REQUIRED";
 export type ReportStatus = "PASS" | "INCOMPLETE" | "BLOCKED" | "REVIEW_REQUIRED";
 
@@ -157,6 +161,32 @@ function validateEvidenceSemantics(
     case "DISPUTE_CHECK":
       if (metadata.openDispute !== false) {
         return issue("DISPUTE_NOT_CLEARED", "The deal is not confirmed to be free of an open dispute.", evidence);
+      }
+      break;
+    case "REVENUE_VERIFICATION":
+      if (metadata.revenueStatus !== "PASS" || metadata.revenueScopeConfirmed !== true) {
+        return issue("REVENUE_SCOPE_OR_VERIFICATION_MISSING", "On-chain revenue evidence is not verified against the deal-approved revenue scope.", evidence);
+      }
+      if (
+        typeof metadata.actualRevenueRaw !== "string" ||
+        typeof metadata.declaredRevenueRaw !== "string" ||
+        !/^\\d+$/.test(metadata.actualRevenueRaw) ||
+        metadata.actualRevenueRaw !== metadata.declaredRevenueRaw
+      ) {
+        return issue("REVENUE_AMOUNT_MISMATCH", "Verified on-chain receipts do not match the seller's declared revenue amount.", evidence);
+      }
+      if (
+        !Number.isSafeInteger(metadata.chainId) || Number(metadata.chainId) <= 0 ||
+        typeof metadata.tokenAddress !== "string" ||
+        !/^0x[0-9a-fA-F]{40}$/.test(metadata.tokenAddress) ||
+        !Number.isSafeInteger(metadata.fromBlock) ||
+        !Number.isSafeInteger(metadata.toBlock) ||
+        Number(metadata.fromBlock) < 0 ||
+        Number(metadata.toBlock) < Number(metadata.fromBlock) ||
+        !Number.isSafeInteger(metadata.minConfirmations) ||
+        Number(metadata.minConfirmations) < 1
+      ) {
+        return issue("REVENUE_PROOF_SCOPE_INVALID", "Revenue evidence is missing its chain, token, block range, or confirmation policy.", evidence);
       }
       break;
   }
