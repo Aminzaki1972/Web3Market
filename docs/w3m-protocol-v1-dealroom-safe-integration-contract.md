@@ -201,3 +201,10 @@ The helper is deliberately not wired into any Safe Edge Function. A trusted adap
 An isolated `safe-multisend-decoder.ts` helper and Deno tests now parse the actual `multiSend(bytes)` calldata envelope and packed inner calls, including operation, recipient, native value, and call-data boundaries. It rejects malformed offsets, truncated payloads, bad ABI padding, and empty batches. ERC-20 transfer calldata is decoded to exact recipient and amount values.
 
 The decoder and `safe-payload-validator.ts` are pure helpers only. A trusted server-side adapter must compose them using the exact signed Safe transaction fields; until that adapter is integrated into the authoritative backend call sites, they do not protect any live transaction.
+
+
+## 12. Current source map and backend source prerequisite
+
+See `docs/w3m-protocol-v1-current-dealroom-safe-source-map.md` for the frontend call graph and current-main Edge Function inventory. The browser references six Safe-related endpoints whose source folders are absent from the current-main repository tree. This does not establish whether the functions exist in the deployed Supabase project.
+
+Do not implement a guessed replacement based on UI calls or an old branch snapshot. Obtain the exact current source for all six endpoints and the associated deal/multisig/payment/delivery/agreement/dispute schemas first.
