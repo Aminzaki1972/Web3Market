@@ -54,13 +54,24 @@ A successful isolated CI run verifies only the files and disposable PostgreSQL f
 
 The latest pre-hardening finalizer run `42124056430` completed successfully, including Deno type-checks and the disposable PostgreSQL migration/contract-test step. A subsequent commit added explicit missing-address fail-closed checks and updated push triggers; its CI run must complete before the latest branch head is considered verified.
 
-## 5. Release boundary
+## 5. Latest isolated verification
+
+GitHub Actions run `42124917367` completed with **success** on code commit `b801a30bce4a6dbfc77a5990d70af76e9484da1a`. The run passed:
+- Deno type-check for the protocol engines, report issuance service, and Supabase RPC adapter;
+- the Deno unit suites, including the expanded claim/broadcast/reconciliation/finalization RPC adapter tests;
+- the PostgreSQL disposable-fixture migration sequence, including atomic report registry, trusted signer registry, Safe execution attempts, atomic finalizer, and their SQL contract tests.
+
+The later commits on this branch after that run are documentation-only. The latest code tested by this successful run is therefore the code head represented by `b801a30`; no production integration is implied.
+
+**Milestone:** the isolated W3M V1 core (deterministic verification, signed report registry boundary, Safe claim/reconciliation/finalization lifecycle, and typed RPC adapters) has passed its current CI suite. The **Deal Room-integrated V1** remains incomplete until the six Safe Edge Functions are patched and a full isolated BNB testnet flow is verified.
+
+## 6. Release boundary
 
 **Safe to continue:** isolated code, docs, unit tests, disposable PostgreSQL fixtures, and source-derived integration design.
 
 **Not authorized / not done:** merge to `main`, deploy migrations or Edge Functions, change production schema or secrets, invoke Safe, sign with a real wallet, broadcast a transaction, or move funds.
 
-## 6. Definition of V1 completion
+## 7. Definition of integrated V1 completion
 
 The isolated V1 core can be called implementation-complete only after:
 - the latest CI run passes (including the lost-broadcast-hash recovery test and RPC adapter tests);
