@@ -1,3 +1,5 @@
+import type { AssetTransferEvent } from "./asset-transfer-orchestrator.ts";
+
 // W3M Protocol V1 — read-only GitHub repository adapter.
 // This adapter never initiates a transfer. It fetches authoritative repository
 // metadata and evaluates exact immutable repository/account identities.
@@ -333,5 +335,96 @@ export function prepareGitHubTransferIntent(input: {
     requiresSellerApproval: true,
     requiresBuyerAcceptance: true,
     executionEnabled: false,
+  };
+}
+
+
+// Converts a freshly fetched and authenticated GitHub ownership read into the
+// normalized W3M event consumed by the asset-transfer orchestrator.
+// The caller must persist the event server-side; never accept it from a browser.
+export async function createGitHubOwnershipVerifiedEvent(input: {
+  ownership: GitHubOwnershipSnapshot;
+  expectation: GitHubRepositoryExpectation;
+  phase: "SELLER" | "BUYER";
+  dealId: string;
+  projectId: string;
+  assetId: string;
+  sellerIdentity: string;
+  buyerIdentity: string;
+  now: string;
+}): Promise<AssetTransferEvent> {
+  const verification = verifyGitHubRepositoryOwner(
+    input.ownership.repository,
+    input.expectation,
+    input.phase,
+    input.ownership.authenticatedAccount,
+  );
+  const expectedStatus = input.phase === "SELLER"
+    ? "SELLER_CONTROL_VERIFIED"
+    : "BUYER_CONTROL_VERIFIED";
+  if (verification.status !== expectedStatus) {
+    throw new GitHubAdapterError("GitHub ownership evidence cannot be emitted because the exact owner and authenticated actor were not verified.");
+  }
+  const observedMs = Date.parse(input.now);
+  if (!Number.isFinite(observedMs) || !nonEmpty(input.dealId) ||
+      !nonEmpty(input.projectId) || !nonEmpty(input.assetId) ||
+      !nonEmpty(input.sellerIdentity) || !nonEmpty(input.buyerIdentity) ||
+      input.sellerIdentity === input.buyerIdentity) {
+    throw new GitHubAdapterError("Deal binding, identities, or observation time are invalid.");
+  }
+
+  const repository = input.ownership.repository;
+  const proof = {
+    schema: "w3m-github-ownership-proof-v1",
+    phase: input.phase,
+    dealId: input.dealId,
+    projectId: input.projectId,
+    assetId: input.assetId,
+    repositoryId: repository.id,
+    ownerId: repository.owner.id,
+    ownerLogin: repository.owner.login,
+    authenticatedActorId: input.ownership.authenticatedAccount.id,
+    authenticatedActorLogin: input.ownership.authenticatedAccount.login,
+    admin: repository.admin,
+    visibility: repository.visibility,
+    fork: repository.fork,
+    archived: repository.archived,
+    disabled: repository.disabled,
+    defaultBranch: repository.defaultBranch,
+    updatedAt: repository.updatedAt,
+    etag: repository.etag,
+    requestId: repository.requestId,
+    observedAt: input.now,
+  };
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(JSON.stringify(proof)),
+  );
+  const proofHash = Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  const version = repository.etag ?? repository.updatedAt;
+  const sourceEventId = `github:${repository.id}:${input.phase}:${version}`;
+  const eventType = input.phase === "SELLER"
+    ? "SELLER_CONTROL_VERIFIED"
+    : "BUYER_CONTROL_VERIFIED";
+
+  return {
+    eventId: sourceEventId,
+    eventType,
+    assetId: input.assetId,
+    dealId: input.dealId,
+    projectId: input.projectId,
+    sourceProvider: "github",
+    sourceRecordId: String(repository.id),
+    sourceVersion: version,
+    sourceEventId,
+    proofHash,
+    observedAt: input.now,
+    validUntil: new Date(observedMs + 5 * 60 * 1000).toISOString(),
+    authoritative: true,
+    currentOwnerIdentity: input.phase === "SELLER"
+      ? input.sellerIdentity
+      : input.buyerIdentity,
   };
 }
