@@ -1,0 +1,257 @@
+// W3M Protocol V1 — read-only GitHub repository adapter.
+// This adapter never initiates a transfer. It fetches authoritative repository
+// metadata and evaluates exact immutable repository/account identities.
+// Credentials must be supplied server-side and must never come from browser input.
+
+export const GITHUB_ADAPTER_VERSION = "w3m-github-adapter-1.0.0";
+const API_BASE = "https://api.github.com";
+const API_VERSION = "2022-11-28";
+
+export interface GitHubAccountIdentity {
+  id: number;
+  login: string;
+  type: "User" | "Organization";
+}
+
+export interface GitHubRepositorySnapshot {
+  id: number;
+  name: string;
+  fullName: string;
+  owner: GitHubAccountIdentity;
+  private: boolean;
+  fork: boolean;
+  archived: boolean;
+  disabled: boolean;
+  visibility: string;
+  defaultBranch: string;
+  updatedAt: string;
+  admin: boolean | null;
+  etag: string | null;
+  requestId: string | null;
+  fetchedAt: string;
+}
+
+export interface GitHubRepositoryExpectation {
+  repositoryId: number;
+  sellerAccountId: number;
+  buyerAccountId: number;
+}
+
+export type GitHubOwnershipResult =
+  | { status: "SELLER_CONTROL_VERIFIED"; snapshot: GitHubRepositorySnapshot }
+  | { status: "BUYER_CONTROL_VERIFIED"; snapshot: GitHubRepositorySnapshot }
+  | { status: "OWNER_MISMATCH"; snapshot: GitHubRepositorySnapshot; expectedAccountId: number }
+  | { status: "REPOSITORY_MISMATCH"; snapshot: GitHubRepositorySnapshot; expectedRepositoryId: number }
+  | { status: "ADMIN_CONTROL_UNVERIFIED"; snapshot: GitHubRepositorySnapshot }
+  | { status: "REVIEW_REQUIRED"; reason: string };
+
+export interface GitHubTransferIntent {
+  repositoryId: number;
+  fromAccountId: number;
+  toAccountId: number;
+  fromLogin: string;
+  toLogin: string;
+  requestBody: { new_owner: string };
+  requiresSellerApproval: true;
+  requiresBuyerAcceptance: true;
+  executionEnabled: false;
+}
+
+export class GitHubAdapterError extends Error {
+  constructor(
+    message: string,
+    readonly status: number | null = null,
+    readonly requestId: string | null = null,
+  ) {
+    super(message);
+    this.name = "GitHubAdapterError";
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function positiveInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) > 0;
+}
+
+function nonEmpty(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+export function normalizeGitHubRepository(
+  raw: unknown,
+  headers: Headers,
+  fetchedAt: string,
+): GitHubRepositorySnapshot {
+  if (!isRecord(raw) || !isRecord(raw.owner) || !isRecord(raw.permissions)) {
+    throw new GitHubAdapterError("GitHub repository response is missing required owner or permission fields.");
+  }
+
+  const owner = raw.owner;
+  if (!positiveInteger(raw.id) || !positiveInteger(owner.id) ||
+      !nonEmpty(owner.login) || !["User", "Organization"].includes(String(owner.type)) ||
+      !nonEmpty(raw.name) || !nonEmpty(raw.full_name) || !nonEmpty(raw.default_branch) ||
+      !nonEmpty(raw.updated_at) || typeof raw.private !== "boolean" ||
+      typeof raw.fork !== "boolean" || typeof raw.archived !== "boolean" ||
+      typeof raw.disabled !== "boolean" || !nonEmpty(raw.visibility)) {
+    throw new GitHubAdapterError("GitHub repository response contains invalid or incomplete identity metadata.");
+  }
+
+  const fetchedMs = Date.parse(fetchedAt);
+  const updatedMs = Date.parse(raw.updated_at);
+  if (!Number.isFinite(fetchedMs) || !Number.isFinite(updatedMs) || updatedMs > fetchedMs) {
+    throw new GitHubAdapterError("GitHub repository timestamps are invalid or future-dated.");
+  }
+
+  const admin = typeof raw.permissions.admin === "boolean" ? raw.permissions.admin : null;
+  return {
+    id: raw.id,
+    name: raw.name,
+    fullName: raw.full_name,
+    owner: {
+      id: owner.id,
+      login: owner.login,
+      type: owner.type as GitHubAccountIdentity["type"],
+    },
+    private: raw.private,
+    fork: raw.fork,
+    archived: raw.archived,
+    disabled: raw.disabled,
+    visibility: raw.visibility,
+    defaultBranch: raw.default_branch,
+    updatedAt: raw.updated_at,
+    admin,
+    etag: headers.get("etag"),
+    requestId: headers.get("x-github-request-id"),
+    fetchedAt,
+  };
+}
+
+export async function fetchGitHubRepositorySnapshot(
+  input: {
+    ownerLogin: string;
+    repositoryName: string;
+    serverToken: string;
+    fetchImpl?: typeof fetch;
+    now?: string;
+  },
+): Promise<GitHubRepositorySnapshot> {
+  if (!nonEmpty(input.ownerLogin) || !nonEmpty(input.repositoryName) ||
+      !nonEmpty(input.serverToken)) {
+    throw new GitHubAdapterError("Owner, repository name, and server-side token are required.");
+  }
+
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const url = `${API_BASE}/repos/${encodeURIComponent(input.ownerLogin)}/${encodeURIComponent(input.repositoryName)}`;
+  const response = await fetchImpl(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${input.serverToken}`,
+      "X-GitHub-Api-Version": API_VERSION,
+    },
+  });
+
+  const requestId = response.headers.get("x-github-request-id");
+  if (!response.ok) {
+    // Do not include response bodies: provider error bodies can contain user-controlled data.
+    throw new GitHubAdapterError(
+      `GitHub repository read failed with HTTP ${response.status}.`,
+      response.status,
+      requestId,
+    );
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new GitHubAdapterError("GitHub returned an unreadable repository response.", response.status, requestId);
+  }
+
+  return normalizeGitHubRepository(
+    payload,
+    response.headers,
+    input.now ?? new Date().toISOString(),
+  );
+}
+
+export function verifyGitHubRepositoryOwner(
+  snapshot: GitHubRepositorySnapshot,
+  expectation: GitHubRepositoryExpectation,
+  phase: "SELLER" | "BUYER",
+): GitHubOwnershipResult {
+  if (!positiveInteger(expectation.repositoryId) ||
+      !positiveInteger(expectation.sellerAccountId) ||
+      !positiveInteger(expectation.buyerAccountId) ||
+      expectation.sellerAccountId === expectation.buyerAccountId) {
+    return { status: "REVIEW_REQUIRED", reason: "The deal's immutable GitHub identity bindings are invalid." };
+  }
+
+  if (snapshot.id !== expectation.repositoryId) {
+    return {
+      status: "REPOSITORY_MISMATCH",
+      snapshot,
+      expectedRepositoryId: expectation.repositoryId,
+    };
+  }
+
+  const expectedOwner = phase === "SELLER"
+    ? expectation.sellerAccountId
+    : expectation.buyerAccountId;
+
+  if (snapshot.owner.id !== expectedOwner) {
+    return { status: "OWNER_MISMATCH", snapshot, expectedAccountId: expectedOwner };
+  }
+
+  if (phase === "SELLER" && snapshot.admin !== true) {
+    return { status: "ADMIN_CONTROL_UNVERIFIED", snapshot };
+  }
+
+  return {
+    status: phase === "SELLER" ? "SELLER_CONTROL_VERIFIED" : "BUYER_CONTROL_VERIFIED",
+    snapshot,
+  };
+}
+
+// This produces a reviewable intent only. It deliberately does not POST to GitHub.
+// A separate, explicitly authorized server workflow must re-read the repository,
+// verify both parties' consent and then decide whether to call the transfer endpoint.
+export function prepareGitHubTransferIntent(input: {
+  sellerSnapshot: GitHubRepositorySnapshot;
+  expectation: GitHubRepositoryExpectation;
+  buyer: GitHubAccountIdentity;
+  sellerConsentRecorded: boolean;
+  buyerConsentRecorded: boolean;
+}): GitHubTransferIntent {
+  const sellerCheck = verifyGitHubRepositoryOwner(input.sellerSnapshot, input.expectation, "SELLER");
+  if (sellerCheck.status !== "SELLER_CONTROL_VERIFIED") {
+    throw new GitHubAdapterError("Cannot prepare transfer: seller ownership or administrator control is not verified.");
+  }
+  if (!input.sellerConsentRecorded || !input.buyerConsentRecorded) {
+    throw new GitHubAdapterError("Both seller and buyer must consent to the exact repository transfer.");
+  }
+  if (!positiveInteger(input.buyer.id) ||
+      input.buyer.id !== input.expectation.buyerAccountId ||
+      !nonEmpty(input.buyer.login) ||
+      !["User", "Organization"].includes(input.buyer.type)) {
+    throw new GitHubAdapterError("Buyer GitHub account identity does not match the deal's pre-verified account ID.");
+  }
+  if (input.sellerSnapshot.fork || input.sellerSnapshot.disabled) {
+    throw new GitHubAdapterError("Forked or disabled repositories require provider-specific review before transfer.");
+  }
+
+  return {
+    repositoryId: input.sellerSnapshot.id,
+    fromAccountId: input.sellerSnapshot.owner.id,
+    toAccountId: input.buyer.id,
+    fromLogin: input.sellerSnapshot.owner.login,
+    toLogin: input.buyer.login,
+    requestBody: { new_owner: input.buyer.login },
+    requiresSellerApproval: true,
+    requiresBuyerAcceptance: true,
+    executionEnabled: false,
+  };
+}
