@@ -118,3 +118,11 @@ Added `safe-handler-w3m-authorizer.ts`. For PREPARE and SIGN it maps to the PREP
 FINALIZE is intentionally denied by this pre-execution authorizer with `W3M_FINALIZATION_REQUIRES_VERIFIED_RECEIPT`. It must use the separate chain receipt/log verifier and atomic `w3m_finalize_safe_execution_attempt` RPC path; passing a pre-execution gate alone is not sufficient proof that a Safe transaction succeeded.
 
 Tests were added for fresh-read failure, phase binding, finalization denial, and missing deal context. CI runs `42132486155` (authorizer implementation) and `42132507852` (tests + workflow inclusion) were pending when this note was written. No deployed Safe handler source has been modified, and no production database/function/site was changed.
+
+## 9. Verified-receipt finalization boundary (isolated)
+
+Added `safe-finalization-guard.ts` and its test suite. This boundary requires a fresh receipt-verifier callback, then independently checks the normalized attestation fields against the locked attempt/policy values supplied by the server: BNB chain 56, exact broadcast transaction hash, successful receipt, Safe ExecutionSuccess with no ExecutionFailure, exact Safe address and Safe transaction hash, exact token contract, and exactly two Safe-originating transfers with exact seller-net and platform-fee recipients/amounts. Only after these checks does it call the service-role finalization RPC adapter. A verifier read failure or any mismatch blocks the RPC call.
+
+The injected receipt verifier remains a critical trust boundary: its implementation must independently fetch the BNB receipt and logs, verify the Safe event emitter/topics and ERC-20 Transfer log contract/topics/data, and construct the normalized evidence. The guard does not itself connect to BNB RPC and does not claim that the verifier implementation is complete.
+
+CI run `42132507852` passed the fresh Safe handler authorizer tests and type checks. Receipt guard runs `42132648424`, `42132662152`, and `42132686955` were pending when this note was recorded. No live function, production database, Safe, wallet, or funds were accessed or modified.
