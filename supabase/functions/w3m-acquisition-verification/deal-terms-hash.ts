@@ -66,9 +66,12 @@ export async function computeDealTermsHash(snapshot: DealTermsSnapshot): Promise
   if (snapshot.policy.status !== "locked" && snapshot.policy.status !== "ready") {
     throw new Error("Release policy must be locked or ready.");
   }
-  if (snapshot.policy.safeNonce !== null &&
-      !/^(0|[1-9]\d*)$/.test(snapshot.policy.safeNonce)) {
+  if (snapshot.policy.chainId !== 56) throw new Error("Release policy must be pinned to BNB Chain 56.");
+  if (!/^(0|[1-9]\d*)$/.test(snapshot.policy.safeNonce)) {
     throw new Error("Safe nonce must be an exact non-negative integer string.");
+  }
+  if (decimal(snapshot.policy.feePercent, "Policy fee percent") !== "7.5") {
+    throw new Error("W3M V1 requires the platform's locked 7.5% success fee.");
   }
 
   const canonicalTerms = {
