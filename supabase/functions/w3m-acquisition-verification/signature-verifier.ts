@@ -2,6 +2,7 @@
 // This module enforces key policy and delegates secp256k1 recovery to a
 // separately reviewed cryptographic adapter. It never treats a signature's
 // shape or presence as proof of validity.
+import { verifyEthereumRawDigestSignature } from "./ethereum-signature-adapter.ts";
 
 export const W3M_SIGNER_VERIFIER_VERSION = "w3m-signer-verifier-1.0.0";
 const SHA256 = /^[0-9a-f]{64}$/i;
@@ -136,4 +137,17 @@ export async function verifyTrustedReportSignature(
   } catch {
     return fail("CRYPTO_VERIFIER_ERROR", "Cryptographic verifier failed; report must remain untrusted.");
   }
+}
+
+
+/**
+ * Production-shaped verifier: applies the signer registry policy and the
+ * pinned Ethereum secp256k1 raw-digest recovery adapter. Callers must supply
+ * keys loaded from the authoritative server-only registry, never from a client.
+ */
+export function verifyTrustedEthereumReportSignature(
+  input: SignatureVerificationInput,
+  keys: readonly TrustedSignerKey[],
+): Promise<SignatureVerificationResult> {
+  return verifyTrustedReportSignature(input, keys, verifyEthereumRawDigestSignature);
 }
