@@ -395,7 +395,6 @@ export async function createGitHubOwnershipVerifiedEvent(input: {
     updatedAt: repository.updatedAt,
     etag: repository.etag,
     requestId: repository.requestId,
-    observedAt: input.now,
   };
   const digest = await crypto.subtle.digest(
     "SHA-256",
