@@ -101,6 +101,9 @@ Deno.test("full calldata pipeline rejects malformed calldata before semantic val
 
 function storedRow(data: string, overrides: Record<string, unknown> = {}) {
   return {
+    deal_id: "deal-guard-001",
+    action: "release_to_seller",
+    safe_tx_hash: "0x" + "a".repeat(64),
     safe_address: SAFE,
     chain_id: 56,
     to_address: MULTISEND,
@@ -111,6 +114,7 @@ function storedRow(data: string, overrides: Record<string, unknown> = {}) {
   };
 }
 const storedPolicy = {
+  expectedDealId: "deal-guard-001",
   expectedSafeAddress: SAFE,
   expectedMultiSendCallOnly: MULTISEND,
   expectedTokenAddress: TOKEN,
