@@ -185,3 +185,10 @@ The pure validator accepts a normalized, ABI-decoded Safe transaction and checks
 The isolated branch also includes `safe-multisend-decoder.ts` and `safe-multisend-decoder.test.ts`. The decoder strictly parses the Safe MultiSend ABI envelope and packed inner-call boundaries, extracts ERC-20 `transfer(address,uint256)` calls, and rejects malformed offsets, truncated calls, invalid padding, and malformed packed data.
 
 This decoder is not a transaction sender and has no network/database access. It must be composed with the exact payload validator and invoked against the actual signed Safe transaction fields by a trusted server-side adapter. No Safe Edge Function has been modified or wired to these helpers.
+
+
+## 14. Current Deal Room source inventory
+
+The current frontend call graph and current-main Edge Function inventory are recorded in `docs/w3m-protocol-v1-current-dealroom-safe-source-map.md`. It confirms the browser calls six Safe-related Edge Functions that do not have corresponding source folders in the current `main` repository tree. This is a repository inventory finding only; it does not prove that those functions are absent from the deployed Supabase project.
+
+The exact current backend source and relevant table schema must be obtained before building authoritative evidence adapters or changing Safe execution paths.
