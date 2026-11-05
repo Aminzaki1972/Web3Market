@@ -199,6 +199,8 @@ export async function evaluateAcquisition(
       issues.push(issue("EVIDENCE_HASH_INVALID", "Evidence must include a valid SHA-256 content hash.", item));
       continue;
     }
+    // Optional evidence is included in the signed manifest but does not gate settlement.
+    if (!item.mandatory) continue;
     if (item.result === "FAILED") {
       issues.push(issue("MANDATORY_EVIDENCE_FAILED", "Evidence verification failed.", item));
       continue;
