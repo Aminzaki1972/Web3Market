@@ -41,6 +41,9 @@ export interface BnbRevenueDecision {
   adapterVersion: string;
   chainId: number;
   tokenAddress: string;
+  revenueRecipients: string[];
+  excludedSenders: string[];
+  minConfirmations: number;
   fromBlock: number;
   toBlock: number;
   observedHeadBlock: number;
@@ -306,6 +309,9 @@ export async function verifyErc20Revenue(
       adapterVersion: BNB_REVENUE_ADAPTER_VERSION,
       chainId,
       tokenAddress,
+      revenueRecipients: recipients,
+      excludedSenders: [...excludedSenders].sort(),
+      minConfirmations: config.minConfirmations,
       fromBlock: config.fromBlock,
       toBlock: config.toBlock,
       observedHeadBlock: headBlock,
@@ -314,7 +320,17 @@ export async function verifyErc20Revenue(
       receiptCount: receipts.length,
       pendingConfirmationCount: pendingCount,
       receipts,
-      proofHash: await sha256Hex(stableJson({ chainId, tokenAddress, fromBlock: config.fromBlock, toBlock: config.toBlock, receipts })),
+      proofHash: await sha256Hex(stableJson({
+        chainId,
+        tokenAddress,
+        revenueRecipients: recipients,
+        excludedSenders: [...excludedSenders].sort(),
+        fromBlock: config.fromBlock,
+        toBlock: config.toBlock,
+        minConfirmations: config.minConfirmations,
+        declaredRevenueRaw: declared.toString(),
+        receipts,
+      })),
       checkedAt: now,
       reasonCodes: [...reasons],
     };
@@ -346,6 +362,9 @@ export async function verifyErc20Revenue(
     adapterVersion: BNB_REVENUE_ADAPTER_VERSION,
     chainId,
     tokenAddress,
+    revenueRecipients: recipients,
+    excludedSenders: [...excludedSenders].sort(),
+    minConfirmations: config.minConfirmations,
     fromBlock: config.fromBlock,
     toBlock: config.toBlock,
     observedHeadBlock: headBlock,
