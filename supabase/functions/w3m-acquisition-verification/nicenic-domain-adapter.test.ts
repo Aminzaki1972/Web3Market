@@ -242,3 +242,37 @@ Deno.test("NiceNIC event cannot substitute another registrar account", async () 
   }
   if (!rejected) throw new Error("Registrar account mismatch must not produce ownership evidence.");
 });
+
+
+Deno.test("NiceNIC account transfer evidence requires complete seller absence and buyer presence", async () => {
+  const sellerMembership = await fetchNiceNicAccountDomainMembership({
+    username: USERNAME,
+    apiSecret: "server-only-secret",
+    domain: DOMAIN,
+    fetchImpl: niceNicFetch({ includeDomain: false }),
+    now: NOW,
+  });
+  const buyerSnapshot = await fetchNiceNicDomainSnapshot({
+    username: BUYER_USERNAME,
+    apiSecret: "server-only-secret",
+    domain: DOMAIN,
+    fetchImpl: niceNicFetch({ username: BUYER_USERNAME }),
+    now: NOW,
+  });
+  const event = await createNiceNicTransferConfirmedEvent({
+    sellerMembership,
+    buyerSnapshot,
+    expectedSellerAccountUsername: USERNAME,
+    expectedBuyerAccountUsername: BUYER_USERNAME,
+    dealId: "deal-1",
+    projectId: "project-1",
+    assetId: "domain-asset-1",
+    sellerIdentity: "seller-account",
+    buyerIdentity: "buyer-account",
+    buyerRegistrantIdentityMatched: true,
+    now: NOW,
+  });
+  if (event.eventType !== "TRANSFER_CONFIRMED" || event.sourceProvider !== "nicenic") {
+    throw new Error("NiceNIC account-level transfer was not confirmed.");
+  }
+});
