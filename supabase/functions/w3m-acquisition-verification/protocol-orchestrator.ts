@@ -29,6 +29,8 @@ export interface ProtocolOrchestratorInput {
   expiresAt: string;
   actorType: "SYSTEM" | "VERIFIER";
   actorRef?: string | null;
+  /** Must be loaded from the authoritative server-only signer registry. */
+  trustedSignerKeys: readonly TrustedSignerKey[];
 }
 
 export interface ProtocolOrchestratorResult {
@@ -76,6 +78,16 @@ export async function prepareAcquisitionProtocolBatch(
     actorType: input.actorType,
     actorRef: input.actorRef ?? null,
   }, signDigest);
+
+  const signatureCheck = await verifyTrustedEthereumReportSignature({
+    digestHex: registryBatch.digestToSign,
+    signature: registryBatch.report.report_signature,
+    signerKeyId: registryBatch.report.signer_key_id,
+    checkedAt: aggregation.decision.checkedAt,
+  }, input.trustedSignerKeys);
+  if (!signatureCheck.valid) {
+    throw new Error("Trusted report signature verification failed: " + signatureCheck.code);
+  }
 
   return {
     orchestratorVersion: W3M_PROTOCOL_ORCHESTRATOR_VERSION,
