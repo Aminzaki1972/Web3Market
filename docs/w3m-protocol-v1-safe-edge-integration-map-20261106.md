@@ -54,7 +54,20 @@ Prepare isolated patch copies of the six exact captured Edge Function versions, 
 
 
 
-## 6. Safety record
+## 6. Reusable gate service now available in the isolated branch
+
+The isolated branch now provides `dealroom-w3m-service.ts` as the single server-side entry point. A Safe Edge Function should:
+1. Load the latest authoritative deal, parties, locked release policy, and current Safe facts.
+2. Build a `DealTermsSnapshot` using exact numeric text values and call `checkDealRoomWithW3M`.
+3. Stop immediately unless the returned `authorized` value is exactly true.
+4. Call it at PREPARE before creating/rebuilding a Safe release transaction, and again at EXECUTE immediately before broadcast using freshly loaded rows and Safe owner/threshold/nonce/hash data.
+5. After broadcast, reconcile the exact transaction hash. Once the server verifies receipt success, Safe ExecutionSuccess, and the two exact USDT Transfer events, call the atomic finalization RPC.
+
+The report loader reads only the newest report version, its evidence rows, and the signer-status view through a server-only client. The persisted-report guard rebuilds the original evidence manifest using preserved source evidence IDs and original timestamps, recomputes the canonical report hash, checks current terms, and verifies the report signature against the trusted signer registry.
+
+**Current boundary:** this is a tested reusable service, not yet wired into any of the six deployed Edge Functions. The snapshots remain read-only references. No function was deployed or invoked.
+
+## 7. Safety record
 
 - No production Edge Function edited, deployed or invoked.
 - No production DB schema or row changed.
