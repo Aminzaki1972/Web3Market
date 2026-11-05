@@ -30,7 +30,9 @@ The isolated branch now includes `ethereum-signature-adapter.ts`, using pinned J
 
 ## Trusted key registry requirements
 
-The authoritative registry must be server-only and immutable/auditable, with at least:
+An isolated migration now defines `w3m_trusted_signer_keys`, `w3m_trusted_signer_key_events`, and the service-role-only `w3m_trusted_signer_key_status` view. Registration and revocation use service-role-only security-definer RPCs; the base key and event tables are not directly writable by `service_role`, and browser roles receive no access. Registration and its ACTIVATED event are one transaction. Revocation appends a REVOKED event; it does not mutate or delete the key. The derived view resolves the latest lifecycle event. A key ID can be activated once and revoked once; rotation creates a new key ID.
+
+The authoritative registry must remain server-only and immutable/auditable, with at least:
 
 - `key_id` (unique, immutable);
 - `algorithm`;
@@ -53,7 +55,7 @@ Key rotation creates a new key ID. It must not overwrite the old public key. Rev
 ## Not implemented / not authorized
 
 - No real private key generation or storage.
-- No key registry migration/table yet.
+- The trusted signer registry migration and disposable PostgreSQL tests are written but not deployed; no CI success has yet been verified.
 - No CI success has yet been verified for the new secp256k1 adapter.
 - No signature verification wired into the atomic persistence RPC caller.
 - No Supabase Edge Function authentication or persistence.
