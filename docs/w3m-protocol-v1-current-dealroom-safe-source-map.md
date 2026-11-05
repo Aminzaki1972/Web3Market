@@ -101,3 +101,19 @@ A second candidate source snapshot was found on `fix/security-release-guards-202
 Its detailed static findings are recorded in `docs/w3m-protocol-v1-security-review-20261026-candidate.md`. It contains useful payment/dispute/participant/Safe checks, but its executor still lacks exact inner-payload semantic validation, independent signature recovery, complete release-state revalidation, matching Safe ExecutionSuccess verification, and checked/idempotent persistence after broadcast.
 
 This is another non-main source candidate only. It does not establish deployment status and must not be treated as authoritative current backend source.
+
+
+## 8. Additional branch inventory checked on 2026-11-05
+
+The following repository refs were checked by reading their Git trees (not by querying Supabase or deployed infrastructure):
+
+| Ref | Commit | Relevant Safe backend source found |
+|---|---|---|
+| `roadmap-safe-escrow-status-20261105` | `829660ae343b197bbd8e2160e09514d2ec5c91fd` | None; contains Deal Room frontend files only |
+| `w3m-testnet` | `18e240e8f5d083851d05ac59401213b46d5dc1f5` | None of the six Deal Room Safe Edge Functions |
+| `fix/deal-dispute-release-guard` | `12e4d38267b504e670d3f59011ae9107bde74e38` | Five historical functions: prepare, prepare-tx, record-signature, execute, finalize; no `create-safe` |
+| `fix/security-release-guards-20261026` | `2267b13a024421c08a59f5957dc1aadbaf887894` | Three candidate functions: prepare, prepare-tx, execute |
+
+The historical five-function snapshot is useful for understanding earlier implementation intent, but it is not a complete six-function source set and does not prove that it matches the deployed version. The testnet branch is not evidence of an integrated Deal Room Safe backend.
+
+**Updated conclusion:** Repository branch review has not located a complete, authoritative source set for all six current Safe endpoints. Do not combine files from different historical branches to manufacture a presumed deployed implementation. The next safe step remains obtaining a source-only export tied to the currently deployed function versions, or an explicitly isolated staging source set.
