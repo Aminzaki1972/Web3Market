@@ -149,3 +149,20 @@ V1 is not complete until staging evidence demonstrates that:
 9. The test environment is demonstrably isolated from production.
 
 **Current conclusion:** The repository contains useful source components and an isolated evidence-registry scaffold has now been started. The protocol is not yet integrated or active. The main blocker for safe settlement integration is obtaining the authoritative server-side Safe Edge Function source in the repository/staging workflow.
+
+
+## 11. Historical Safe source — static review outcome
+
+A dedicated static security review of all five historical candidate functions has been added:
+`docs/w3m-protocol-v1-historical-safe-static-security-review.md`.
+
+Key conclusions:
+- Preserve the existing participant, payment, dispute, delivery, Safe owner/threshold/nonce, fee-split, typed-data signature, and on-chain receipt checks.
+- Do not treat structural MultiSend validation as proof that the transaction contains only the exact seller and platform transfers. Validate decoded inner calls and exact amounts/recipients before broadcast.
+- Re-recover every stored Safe signature at execution; a stored count/status is not sufficient.
+- Revalidate payment, delivery, deal/policy configuration, W3M report, dispute state, and release state at the relevant boundaries.
+- Add concurrency-safe idempotency and atomic database state transitions for preparation and finalization.
+- Verify matching Safe `ExecutionSuccess` before marking execution successful.
+- Treat hard-coded chain/token/decimals/platform-wallet assumptions as configuration that must be reconciled with the authoritative current environment.
+
+The reviewed historical files are absent from the current `main` tree. The frontend references release operations, but that does not prove which Edge Function versions are deployed. The actual current server-side source remains a prerequisite for safe adapter implementation. No historical code was copied into executable function paths.
