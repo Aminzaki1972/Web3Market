@@ -4,6 +4,7 @@ import {
   recoverEthereumAddressFromDigest,
   verifyEthereumRawDigestSignature,
 } from "./ethereum-signature-adapter.ts";
+import { validateSafeSignatureSet } from "./safe-signature-set-validator.ts";
 
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -87,4 +88,32 @@ Deno.test("rejects high-S malleable signatures", async () => {
     digestHex: f.digestHex, signature: "0x" + toHex(malleable), expectedAddress: f.address,
   });
   if (accepted) throw new Error("High-S signature was accepted");
+});
+
+
+Deno.test("Safe execution validator recovers two real EIP-712 digest signatures", async () => {
+  const digest = new Uint8Array(32);
+  digest[31] = 42;
+  const makeOwner = (keyByte: number) => {
+    const privateKey = new Uint8Array(32);
+    privateKey[31] = keyByte;
+    const signed = secp256k1.sign(digest, privateKey, { prehash: false });
+    const address = "0x" + toHex(keccak_256(secp256k1.getPublicKey(privateKey, false).slice(1)).slice(12));
+    return {
+      walletAddress: address,
+      signature: "0x" + toHex(new Uint8Array([...signed.toCompactRawBytes(), signed.recovery! + 27])),
+      signatureStatus: "signed",
+    };
+  };
+  const first = makeOwner(1);
+  const second = makeOwner(2);
+  const result = await validateSafeSignatureSet({
+    safeTransactionHash: "0x" + toHex(digest),
+    currentOwners: [first.walletAddress, second.walletAddress],
+    threshold: 2,
+    storedSignatures: [first, second],
+  });
+  if (!result.valid || result.validSignatures !== 2) {
+    throw new Error("Actual Safe digest signatures did not satisfy threshold: " + JSON.stringify(result));
+  }
 });
