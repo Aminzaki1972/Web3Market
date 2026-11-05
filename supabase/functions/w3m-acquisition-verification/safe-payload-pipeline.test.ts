@@ -1,5 +1,6 @@
 import { decodeSafeMultiSendCalldata } from "./safe-multisend-decoder.ts";
 import { validateSafeReleasePayload } from "./safe-payload-validator.ts";
+import { validateStoredSafeReleaseTransaction } from "./safe-release-transaction-adapter.ts";
 
 const SAFE = "0x1111111111111111111111111111111111111111";
 const MULTISEND = "0x2222222222222222222222222222222222222222";
@@ -94,4 +95,60 @@ Deno.test("full calldata pipeline rejects unexpected inner delegatecall", () => 
 Deno.test("full calldata pipeline rejects malformed calldata before semantic validation", () => {
   const result = runPipeline("0x8d80ff0a" + word(64n) + word(0n));
   assert(!result.valid && result.issues.includes("ABI_OFFSET_INVALID"), JSON.stringify(result.issues));
+});
+
+
+function storedRow(data: string, overrides: Record<string, unknown> = {}) {
+  return {
+    safe_address: SAFE,
+    chain_id: 56,
+    to_address: MULTISEND,
+    data,
+    value_wei: "0",
+    operation: 1,
+    ...overrides,
+  };
+}
+const storedPolicy = {
+  expectedSafeAddress: SAFE,
+  expectedMultiSendCallOnly: MULTISEND,
+  expectedTokenAddress: TOKEN,
+  sellerWallet: SELLER,
+  platformWallet: PLATFORM,
+  sellerNetAmount: SELLER_NET,
+  platformFeeAmount: FEE,
+  dealAmount: TOTAL,
+};
+
+Deno.test("stored Safe row adapter validates exact calldata, chain and release policy", () => {
+  const data = multisend([
+    packedCall(TOKEN, transfer(SELLER, BigInt(SELLER_NET))),
+    packedCall(TOKEN, transfer(PLATFORM, BigInt(FEE))),
+  ]);
+  const result = validateStoredSafeReleaseTransaction(storedRow(data), storedPolicy);
+  assert(result.valid && result.decodedCallCount === 2, JSON.stringify(result));
+});
+
+Deno.test("stored Safe row adapter rejects altered seller recipient in persisted calldata", () => {
+  const attacker = "0x6666666666666666666666666666666666666666";
+  const data = multisend([
+    packedCall(TOKEN, transfer(attacker, BigInt(SELLER_NET))),
+    packedCall(TOKEN, transfer(PLATFORM, BigInt(FEE))),
+  ]);
+  const result = validateStoredSafeReleaseTransaction(storedRow(data), storedPolicy);
+  assert(!result.valid && result.issues.includes("EXACT_SELLER_TRANSFER_MISSING_OR_DUPLICATED"), JSON.stringify(result));
+});
+
+Deno.test("stored Safe row adapter rejects wrong chain before execution", () => {
+  const data = multisend([
+    packedCall(TOKEN, transfer(SELLER, BigInt(SELLER_NET))),
+    packedCall(TOKEN, transfer(PLATFORM, BigInt(FEE))),
+  ]);
+  const result = validateStoredSafeReleaseTransaction(storedRow(data, { chain_id: 97 }), storedPolicy);
+  assert(!result.valid && result.issues.includes("CHAIN_NOT_APPROVED"), JSON.stringify(result));
+});
+
+Deno.test("stored Safe row adapter rejects malformed MultiSend selector", () => {
+  const result = validateStoredSafeReleaseTransaction(storedRow("0x12345678"), storedPolicy);
+  assert(!result.valid && result.issues.includes("MULTISEND_DECODE_CALLDATA_TOO_SHORT_OR_UNALIGNED"), JSON.stringify(result));
 });
