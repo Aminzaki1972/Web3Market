@@ -314,6 +314,7 @@ Deno.test("NiceNIC transfer evidence rejects incomplete seller account listing",
       sellerIdentity: "seller-account",
       buyerIdentity: "buyer-account",
       buyerRegistrantIdentityMatched: true,
+      sellerRegistrantVerificationRecordId: "identity-check-seller-1",
       buyerRegistrantVerificationRecordId: "identity-check-buyer-1",
       now: NOW,
     });
