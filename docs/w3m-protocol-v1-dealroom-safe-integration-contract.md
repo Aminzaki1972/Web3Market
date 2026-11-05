@@ -83,6 +83,7 @@ The adapter must preserve provenance. A boolean copied from browser state is not
 | PAYMENT | Existing trusted payment verification / Safe transaction records | Correct chain, Safe, token, amount, recipient, fee split, and confirmed transaction |
 | BUYER_ACCEPTANCE | Delivery evidence plus buyer acceptance record | Buyer explicitly accepted the delivered asset set |
 | DISPUTE_CHECK | Canonical dispute records | No unresolved dispute or settlement hold exists |
+| REVENUE_VERIFICATION (conditional) | Deal-pinned token contracts, revenue recipients, and canonical chain logs | When the deal includes on-chain revenue claims, verify the agreed chain/token/address/block scope, successful receipts, canonical block hashes, confirmation policy, and exact raw amount; off-chain revenue is outside this adapter's scope |
 
 The candidate source names above are not a declaration that the schema is fully verified. The authoritative table/column types, constraints, RLS behavior, and write paths must be inspected in the isolated staging source before implementing adapters.
 
@@ -208,3 +209,12 @@ The decoder and `safe-payload-validator.ts` are pure helpers only. A trusted ser
 See `docs/w3m-protocol-v1-current-dealroom-safe-source-map.md` for the frontend call graph and current-main Edge Function inventory. The browser references six Safe-related endpoints whose source folders are absent from the current-main repository tree. This does not establish whether the functions exist in the deployed Supabase project.
 
 Do not implement a guessed replacement based on UI calls or an old branch snapshot. Obtain the exact current source for all six endpoints and the associated deal/multisig/payment/delivery/agreement/dispute schemas first.
+
+
+## 13. Conditional on-chain revenue evidence
+
+The isolated branch now contains `bnb-revenue-adapter.ts` and a conditional `REVENUE_VERIFICATION` evidence type in the deterministic decision engine. See `docs/w3m-protocol-v1-bnb-revenue-adapter.md` for the exact scope and limitations.
+
+This evidence type is not globally required for every project. The server-side deal adapter must add it to `requiredEvidenceTypes` only when the accepted deal terms include an on-chain revenue claim. Both parties' accepted revenue scope must be loaded from authoritative agreement records; browser booleans are not acceptable.
+
+The initial verifier counts only configured ERC-20 Transfer receipts to the deal-pinned revenue addresses. It does not establish commercial purpose, discover undisclosed wallets, or prove off-chain income. Do not represent its result as total business revenue unless the deal's scope explicitly and accurately defines that limited metric.
