@@ -161,8 +161,8 @@ export async function verifyPersistedW3MReport(
           payload.reportVersion !== version ||
           payload.status !== status ||
           payload.engineVersion !== engineVersion ||
-          payload.issuedAt !== issuedAt ||
-          payload.expiresAt !== expiresAt ||
+          typeof payload.issuedAt !== "string" || Date.parse(payload.issuedAt) !== Date.parse(issuedAt) ||
+          typeof payload.expiresAt !== "string" || Date.parse(payload.expiresAt) !== Date.parse(expiresAt) ||
           payload.evidenceHash !== evidenceHash ||
           payload.protocol !== "W3M Protocol V1") {
         invalid(issues, "REPORT_PAYLOAD_BINDING_MISMATCH");
