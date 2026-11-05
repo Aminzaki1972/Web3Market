@@ -13,6 +13,8 @@ import {
   type RegistryBatch,
   type RegistrySigner,
 } from "./report-registry-batch.ts";
+import { mapTrustedSignerRegistryRows } from "./trusted-signer-registry-adapter.ts";
+import { verifyTrustedEthereumReportSignature } from "./signature-verifier.ts";
 
 export const W3M_PROTOCOL_ORCHESTRATOR_VERSION = "w3m-protocol-orchestrator-1.0.0";
 
