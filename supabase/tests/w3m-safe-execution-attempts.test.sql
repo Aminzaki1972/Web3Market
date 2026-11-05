@@ -138,6 +138,29 @@ begin
   ) then
     raise exception 'Attempt ledger did not preserve the exact broadcast hash';
   end if;
+
+  v_result := public.w3m_mark_safe_execution_reconciliation_required(
+    v_attempt, 'RPC_TIMEOUT_UNCERTAIN'
+  );
+  if coalesce((v_result->>'updated')::boolean,false) is not true then
+    raise exception 'Attempt did not enter reconciliation-required state';
+  end if;
+
+  v_result := public.w3m_mark_safe_execution_reconciliation_required(
+    v_attempt, 'RPC_TIMEOUT_UNCERTAIN'
+  );
+  if coalesce((v_result->>'idempotent_replay')::boolean,false) is not true then
+    raise exception 'Reconciliation transition was not idempotent';
+  end if;
+
+  if not exists (
+    select 1 from public.w3m_safe_execution_attempts
+     where id = v_attempt
+       and state = 'RECONCILIATION_REQUIRED'
+       and lower(broadcast_tx_hash) = lower(v_broadcast_hash)
+  ) then
+    raise exception 'Reconciliation state did not preserve the original broadcast hash';
+  end if;
 end;
 $test$;
 
