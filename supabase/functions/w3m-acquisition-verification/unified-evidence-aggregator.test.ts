@@ -1,5 +1,6 @@
 import { aggregateAcquisitionEvidence } from "./unified-evidence-aggregator.ts";
 import type { AcquisitionEvidence, EvidenceType } from "./decision-engine.ts";
+import type { UnifiedEvidenceInput } from "./unified-evidence-aggregator.ts";
 import type { AssetTransferEvent } from "./asset-transfer-orchestrator.ts";
 
 const DEAL = "deal-agg-1";
@@ -66,7 +67,7 @@ function providerEvent(
   };
 }
 
-function input(overrides: Record<string, unknown> = {}) {
+function input(overrides: Partial<UnifiedEvidenceInput> = {}): UnifiedEvidenceInput {
   return {
     dealId: DEAL,
     projectId: PROJECT,
