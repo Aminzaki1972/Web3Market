@@ -6,6 +6,8 @@ do $test$
 declare
   v_deal uuid := '10000000-0000-4000-8000-000000000001';
   v_project uuid := '20000000-0000-4000-8000-000000000002';
+  v_buyer uuid := '21000000-0000-4000-8000-000000000002';
+  v_seller uuid := '22000000-0000-4000-8000-000000000002';
   v_tx uuid := '30000000-0000-4000-8000-000000000003';
   v_report uuid := '40000000-0000-4000-8000-000000000004';
   v_policy uuid := '50000000-0000-4000-8000-000000000005';
@@ -32,11 +34,11 @@ begin
   );
 
   insert into public.deals (
-    id, project_id, payment_status, payment_tx_hash,
+    id, project_id, buyer_id, seller_id, payment_status, payment_tx_hash,
     delivery_status, buyer_approved_at, dispute_status,
     chain_id, safe_address, token_contract
   ) values (
-    v_deal, v_project, 'confirmed', '0xpayment',
+    v_deal, v_project, v_buyer, v_seller, 'confirmed', '0xpayment',
     'accepted', now(), 'none',
     56, '0x2222222222222222222222222222222222222222',
     '0x3333333333333333333333333333333333333333'
@@ -58,11 +60,11 @@ begin
   );
 
   insert into public.w3m_acquisition_reports (
-    id, deal_id, project_id, report_version, status, engine_version,
+    id, deal_id, project_id, report_version, supersedes_report_id, buyer_id, seller_id, status, engine_version,
     evidence_hash, report_hash, report_payload, signer_key_id,
     report_signature, issued_at, expires_at
   ) values (
-    v_report, v_deal::text, v_project::text, 1, 'PASS', 'test-engine',
+    v_report, v_deal::text, v_project::text, 1, null, v_buyer::text, v_seller::text, 'PASS', 'test-engine',
     repeat('c',64), repeat('d',64), '{}'::jsonb, 'attempt-test-key',
     '0x' || repeat('e',130), now() - interval '1 minute', now() + interval '1 hour'
   );
