@@ -1,4 +1,5 @@
 import {
+  fetchGitHubAuthenticatedAccount,
   fetchGitHubRepositorySnapshot,
   GitHubAdapterError,
   normalizeGitHubRepository,
@@ -36,6 +37,8 @@ const EXPECTATION = {
   sellerAccountId: 100,
   buyerAccountId: 200,
 };
+const SELLER_ACTOR = { id: 100, login: "seller", type: "User" as const };
+const BUYER_ACTOR = { id: 200, login: "buyer", type: "User" as const };
 
 Deno.test("normalizes immutable repository and owner IDs with provider metadata", () => {
   const result = snapshot();
@@ -57,13 +60,14 @@ Deno.test("rejects incomplete repository owner identity", () => {
 });
 
 Deno.test("seller control requires exact repository ID, owner ID and admin permission", () => {
-  const verified = verifyGitHubRepositoryOwner(snapshot(), EXPECTATION, "SELLER");
+  const verified = verifyGitHubRepositoryOwner(snapshot(), EXPECTATION, "SELLER", SELLER_ACTOR);
   if (verified.status !== "SELLER_CONTROL_VERIFIED") throw new Error("Expected seller ownership verification.");
 
   const noAdmin = verifyGitHubRepositoryOwner(
     snapshot({ permissions: { admin: false } }),
     EXPECTATION,
     "SELLER",
+    SELLER_ACTOR,
   );
   if (noAdmin.status !== "ADMIN_CONTROL_UNVERIFIED") throw new Error("Admin control must be required.");
 
@@ -71,8 +75,33 @@ Deno.test("seller control requires exact repository ID, owner ID and admin permi
     snapshot({ id: 99999 }),
     EXPECTATION,
     "SELLER",
+    SELLER_ACTOR,
   );
   if (wrongRepo.status !== "REPOSITORY_MISMATCH") throw new Error("Repository substitution must be rejected.");
+});
+
+Deno.test("authenticated GitHub actor must match the expected seller or buyer", () => {
+  const wrongActor = verifyGitHubRepositoryOwner(
+    snapshot(),
+    EXPECTATION,
+    "SELLER",
+    { id: 999, login: "other-user", type: "User" },
+  );
+  if (wrongActor.status !== "REVIEW_REQUIRED") {
+    throw new Error("A token belonging to another GitHub user must not prove seller control.");
+  }
+});
+
+Deno.test("organization-owned repositories require a dedicated organization authority adapter", () => {
+  const result = verifyGitHubRepositoryOwner(
+    snapshot({ owner: { id: 300, login: "seller-org", type: "Organization" } }),
+    EXPECTATION,
+    "SELLER",
+    SELLER_ACTOR,
+  );
+  if (result.status !== "REVIEW_REQUIRED") {
+    throw new Error("Organization ownership must not be inferred from a personal-user token.");
+  }
 });
 
 Deno.test("buyer ownership is not verified from collaborator or admin permission alone", () => {
@@ -80,6 +109,7 @@ Deno.test("buyer ownership is not verified from collaborator or admin permission
     snapshot({ owner: { id: 100, login: "seller", type: "User" }, permissions: { admin: true } }),
     EXPECTATION,
     "BUYER",
+    BUYER_ACTOR,
   );
   if (collaborator.status !== "OWNER_MISMATCH") {
     throw new Error("Buyer must be the actual repository owner, not merely an administrator.");
@@ -89,6 +119,7 @@ Deno.test("buyer ownership is not verified from collaborator or admin permission
     snapshot({ owner: { id: 200, login: "buyer", type: "User" }, permissions: { admin: true } }),
     EXPECTATION,
     "BUYER",
+    BUYER_ACTOR,
   );
   if (buyerOwner.status !== "BUYER_CONTROL_VERIFIED") throw new Error("Expected buyer owner verification.");
 });
@@ -101,6 +132,7 @@ Deno.test("transfer intent requires both consents and exact buyer account identi
       sellerSnapshot,
       expectation: EXPECTATION,
       buyer: { id: 200, login: "buyer", type: "User" },
+      sellerAuthenticatedAccount: SELLER_ACTOR,
       sellerConsentRecorded: true,
       buyerConsentRecorded: false,
     });
@@ -115,6 +147,7 @@ Deno.test("transfer intent requires both consents and exact buyer account identi
       sellerSnapshot,
       expectation: EXPECTATION,
       buyer: { id: 201, login: "buyer", type: "User" },
+      sellerAuthenticatedAccount: SELLER_ACTOR,
       sellerConsentRecorded: true,
       buyerConsentRecorded: true,
     });
@@ -216,4 +249,22 @@ Deno.test("future-dated provider metadata is rejected", () => {
     rejected = error instanceof GitHubAdapterError;
   }
   if (!rejected) throw new Error("Future-dated provider metadata must be rejected.");
+});
+
+
+Deno.test("authenticated-user endpoint resolves the token actor identity", async () => {
+  const fetchImpl: typeof fetch = async (input, init) => {
+    if (String(input) !== "https://api.github.com/user" ||
+        new Headers(init?.headers).get("authorization") !== "Bearer server-only-token") {
+      throw new Error("Unexpected authenticated-user request.");
+    }
+    return new Response(JSON.stringify({ id: 100, login: "seller", type: "User" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  const account = await fetchGitHubAuthenticatedAccount({ serverToken: "server-only-token", fetchImpl });
+  if (account.id !== 100 || account.login !== "seller") {
+    throw new Error("GitHub authenticated actor identity was not normalized.");
+  }
 });
