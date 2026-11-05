@@ -1,4 +1,5 @@
 import {
+  createGitHubOwnershipVerifiedEvent,
   fetchGitHubAuthenticatedAccount,
   fetchGitHubRepositorySnapshot,
   GitHubAdapterError,
@@ -7,6 +8,7 @@ import {
   verifyGitHubRepositoryOwner,
   type GitHubRepositorySnapshot,
 } from "./github-repository-adapter.ts";
+import { applyAssetTransferEvent, createAssetTransferState } from "./asset-transfer-orchestrator.ts";
 
 const NOW = "2026-11-05T20:00:00.000Z";
 const RAW = {
@@ -269,4 +271,83 @@ Deno.test("authenticated-user endpoint resolves the token actor identity", async
   if (account.id !== 100 || account.login !== "seller") {
     throw new Error("GitHub authenticated actor identity was not normalized.");
   }
+});
+
+
+Deno.test("verified GitHub seller read becomes a hashed W3M ownership event", async () => {
+  const ownership = { repository: snapshot(), authenticatedAccount: SELLER_ACTOR };
+  const event = await createGitHubOwnershipVerifiedEvent({
+    ownership,
+    expectation: EXPECTATION,
+    phase: "SELLER",
+    dealId: "deal-1",
+    projectId: "project-1",
+    assetId: "github-asset-1",
+    sellerIdentity: "seller-account",
+    buyerIdentity: "buyer-account",
+    now: NOW,
+  });
+  const state = createAssetTransferState({
+    assetId: "github-asset-1",
+    dealId: "deal-1",
+    projectId: "project-1",
+    kind: "GITHUB_REPOSITORY",
+    sourceProvider: "github",
+    sourceAssetRef: "seller/sample-project",
+    sellerIdentity: "seller-account",
+    buyerIdentity: "buyer-account",
+    mandatory: true,
+  });
+  const applied = applyAssetTransferEvent(state, event, "2026-11-05T20:00:30.000Z");
+  if (!applied.accepted || applied.state.status !== "SELLER_CONTROL_VERIFIED" ||
+      !/^[0-9a-f]{64}$/.test(event.proofHash) || event.authoritative !== true) {
+    throw new Error("Verified GitHub ownership proof did not advance the W3M asset lifecycle.");
+  }
+});
+
+Deno.test("GitHub buyer evidence requires a fresh provider read of the exact buyer owner", async () => {
+  const buyerRepository = normalizeGitHubRepository(
+    {
+      ...RAW,
+      full_name: "buyer/sample-project",
+      owner: { id: 200, login: "buyer", type: "User" },
+    },
+    new Headers({ etag: '"buyer-repo-etag"' }),
+    NOW,
+  );
+  const event = await createGitHubOwnershipVerifiedEvent({
+    ownership: { repository: buyerRepository, authenticatedAccount: BUYER_ACTOR },
+    expectation: EXPECTATION,
+    phase: "BUYER",
+    dealId: "deal-1",
+    projectId: "project-1",
+    assetId: "github-asset-1",
+    sellerIdentity: "seller-account",
+    buyerIdentity: "buyer-account",
+    now: NOW,
+  });
+  if (event.eventType !== "BUYER_CONTROL_VERIFIED" ||
+      event.currentOwnerIdentity !== "buyer-account") {
+    throw new Error("Buyer ownership proof did not bind to the new owner.");
+  }
+});
+
+Deno.test("stale GitHub repository snapshot cannot be timestamped as a fresh ownership proof", async () => {
+  let rejected = false;
+  try {
+    await createGitHubOwnershipVerifiedEvent({
+      ownership: { repository: snapshot(), authenticatedAccount: SELLER_ACTOR },
+      expectation: EXPECTATION,
+      phase: "SELLER",
+      dealId: "deal-1",
+      projectId: "project-1",
+      assetId: "github-asset-1",
+      sellerIdentity: "seller-account",
+      buyerIdentity: "buyer-account",
+      now: "2026-11-05T20:01:00.000Z",
+    });
+  } catch (error) {
+    rejected = error instanceof GitHubAdapterError;
+  }
+  if (!rejected) throw new Error("A stale repository read must not be repackaged as fresh evidence.");
 });
