@@ -298,7 +298,7 @@ export function evaluateAssetPortfolio(states: AssetTransferState[]): AssetPortf
     .map((state) => state.definition.assetId);
   const buyerVerifiedAssetCount = required.filter((state) => state.status === "BUYER_CONTROL_VERIFIED").length;
 
-  let status: AssetPortfolioDecision["status"] = "PASS";
+  let status: AssetPortfolioDecision["status"] = required.length === 0 ? "INCOMPLETE" : "PASS";
   if (failedAssetIds.length > 0) status = "BLOCKED";
   else if (reviewAssetIds.length > 0) status = "REVIEW_REQUIRED";
   else if (pendingAssetIds.length > 0) status = "INCOMPLETE";
