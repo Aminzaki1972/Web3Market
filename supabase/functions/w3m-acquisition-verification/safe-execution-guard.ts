@@ -54,8 +54,11 @@ export async function evaluateSafeExecutionGuard(
       input.recomputedSafeTransactionHash.toLowerCase()) {
     issues.push("SAFE_TRANSACTION_HASH_MISMATCH");
   }
-  if (input.signatures.safeTransactionHash.toLowerCase() !==
-      input.storedSafeTransactionHash.toLowerCase()) {
+  const signatureHash = typeof input.signatures?.safeTransactionHash === "string"
+    ? input.signatures.safeTransactionHash
+    : "";
+  if (!HASH.test(signatureHash) || !HASH.test(input.storedSafeTransactionHash || "") ||
+      signatureHash.toLowerCase() !== input.storedSafeTransactionHash.toLowerCase()) {
     issues.push("SIGNATURES_NOT_BOUND_TO_STORED_SAFE_HASH");
   }
   if (!settlement.authorized) issues.push("SETTLEMENT_GATE_BLOCKED");
