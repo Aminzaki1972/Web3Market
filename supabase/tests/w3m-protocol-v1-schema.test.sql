@@ -32,10 +32,18 @@ begin
   end if;
 
   if not has_table_privilege('service_role', 'public.w3m_acquisition_reports', 'SELECT')
-     or not has_table_privilege('service_role', 'public.w3m_acquisition_reports', 'INSERT')
+     or has_table_privilege('service_role', 'public.w3m_acquisition_reports', 'INSERT')
      or has_table_privilege('service_role', 'public.w3m_acquisition_reports', 'UPDATE')
-     or has_table_privilege('service_role', 'public.w3m_acquisition_reports', 'DELETE') then
-    raise exception 'Service role report privileges are not least-privilege';
+     or has_table_privilege('service_role', 'public.w3m_acquisition_reports', 'DELETE')
+     or not has_table_privilege('service_role', 'public.w3m_acquisition_evidence', 'SELECT')
+     or has_table_privilege('service_role', 'public.w3m_acquisition_evidence', 'INSERT')
+     or has_table_privilege('service_role', 'public.w3m_acquisition_evidence', 'UPDATE')
+     or has_table_privilege('service_role', 'public.w3m_acquisition_evidence', 'DELETE')
+     or not has_table_privilege('service_role', 'public.w3m_acquisition_report_events', 'SELECT')
+     or has_table_privilege('service_role', 'public.w3m_acquisition_report_events', 'INSERT')
+     or has_table_privilege('service_role', 'public.w3m_acquisition_report_events', 'UPDATE')
+     or has_table_privilege('service_role', 'public.w3m_acquisition_report_events', 'DELETE') then
+    raise exception 'Service role must have read-only table access and write only through the atomic RPC';
   end if;
 
   insert into public.w3m_acquisition_reports (
