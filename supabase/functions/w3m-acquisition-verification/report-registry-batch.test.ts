@@ -51,8 +51,9 @@ async function decision() {
 }
 
 function ids(prefix: string, count: number): string[] {
+  const namespace = prefix === "e" ? "20000000" : "30000000";
   return Array.from({ length: count }, (_, i) =>
-    `20000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`
+    `${namespace}-0000-4000-8000-${String(i + 1).padStart(12, "0")}`
   );
 }
 
