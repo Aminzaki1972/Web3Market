@@ -67,7 +67,7 @@ function idText(value: unknown, field: string): string {
 function chainId(value: unknown, field: string): number {
   const parsed = typeof value === "number"
     ? value
-    : typeof value === "string" && /^(0|[1-9]\\d*)$/.test(value)
+    : typeof value === "string" && /^(0|[1-9]\d*)$/.test(value)
     ? Number(value)
     : Number.NaN;
   if (!Number.isSafeInteger(parsed)) {
