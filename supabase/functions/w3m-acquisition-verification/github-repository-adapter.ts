@@ -428,3 +428,74 @@ export async function createGitHubOwnershipVerifiedEvent(input: {
       : input.buyerIdentity,
   };
 }
+
+
+// Emits TRANSFER_CONFIRMED only after a fresh authenticated GitHub read proves
+// the same immutable repository ID is now owned by the exact buyer account.
+export async function createGitHubTransferConfirmedEvent(input: {
+  ownership: GitHubOwnershipSnapshot;
+  expectation: GitHubRepositoryExpectation;
+  dealId: string;
+  projectId: string;
+  assetId: string;
+  sellerIdentity: string;
+  buyerIdentity: string;
+  now: string;
+}): Promise<AssetTransferEvent> {
+  const verification = verifyGitHubRepositoryOwner(
+    input.ownership.repository,
+    input.expectation,
+    "BUYER",
+    input.ownership.authenticatedAccount,
+  );
+  const observedMs = Date.parse(input.now);
+  if (verification.status !== "BUYER_CONTROL_VERIFIED" ||
+      input.ownership.repository.fetchedAt !== input.now ||
+      !Number.isFinite(observedMs) || !nonEmpty(input.dealId) ||
+      !nonEmpty(input.projectId) || !nonEmpty(input.assetId) ||
+      !nonEmpty(input.sellerIdentity) || !nonEmpty(input.buyerIdentity) ||
+      input.sellerIdentity === input.buyerIdentity) {
+    throw new GitHubAdapterError("GitHub transfer cannot be confirmed without a fresh read proving the exact buyer owns the exact repository.");
+  }
+  const repository = input.ownership.repository;
+  const proof = {
+    schema: "w3m-github-transfer-confirmation-v1",
+    dealId: input.dealId,
+    projectId: input.projectId,
+    assetId: input.assetId,
+    repositoryId: repository.id,
+    fromAccountId: input.expectation.sellerAccountId,
+    toAccountId: repository.owner.id,
+    ownerLogin: repository.owner.login,
+    authenticatedActorId: input.ownership.authenticatedAccount.id,
+    etag: repository.etag,
+    updatedAt: repository.updatedAt,
+  };
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(JSON.stringify(proof)),
+  );
+  const proofHash = Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  const version = repository.etag ?? repository.updatedAt;
+  const sourceEventId = `github:${repository.id}:TRANSFER_CONFIRMED:${version}`;
+
+  return {
+    eventId: sourceEventId,
+    eventType: "TRANSFER_CONFIRMED",
+    assetId: input.assetId,
+    dealId: input.dealId,
+    projectId: input.projectId,
+    sourceProvider: "github",
+    sourceRecordId: String(repository.id),
+    sourceVersion: version,
+    sourceEventId,
+    proofHash,
+    observedAt: input.now,
+    validUntil: new Date(observedMs + 5 * 60 * 1000).toISOString(),
+    authoritative: true,
+    fromIdentity: input.sellerIdentity,
+    toIdentity: input.buyerIdentity,
+  };
+}
