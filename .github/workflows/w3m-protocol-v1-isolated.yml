@@ -1,0 +1,59 @@
+name: W3M Protocol V1 isolated checks
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
+      - "supabase/tests/w3m-protocol-v1-schema.test.sql"
+      - ".github/workflows/w3m-protocol-v1-isolated.yml"
+  push:
+    branches:
+      - w3m-protocol-v1-isolated-20261105
+    paths:
+      - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
+      - "supabase/tests/w3m-protocol-v1-schema.test.sql"
+      - ".github/workflows/w3m-protocol-v1-isolated.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  decision-engine-and-schema:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check isolated decision engine
+        run: deno check supabase/functions/w3m-acquisition-verification/decision-engine.ts
+      - name: Run decision engine tests
+        run: deno test supabase/functions/w3m-acquisition-verification/decision-engine.test.ts
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Apply migration to disposable PostgreSQL only
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE anon;"
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE authenticated;"
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE service_role;"
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-schema.test.sql
