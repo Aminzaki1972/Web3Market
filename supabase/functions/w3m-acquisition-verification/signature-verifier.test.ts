@@ -1,5 +1,5 @@
 import { secp256k1 } from "jsr:@noble/curves@1.8.2/secp256k1";
-import { keccak_256 } from "jsr:@noble/hashes@1.8.0/sha3";
+import { keccak_256 } from "jsr:@noble/hashes@1.7.1/sha3";
 import {
   verifyTrustedEthereumReportSignature,
   verifyTrustedReportSignature,
@@ -129,7 +129,7 @@ Deno.test("trusted Ethereum verifier combines key policy with real secp256k1 rec
   digest[31] = 9;
   const signed = secp256k1.sign(digest, privateKey, { prehash: false });
   const signature = "0x" + Array.from(
-    new Uint8Array([...signed.toCompactRawBytes(), signed.recovery + 27]),
+    new Uint8Array([...signed.toCompactRawBytes(), signed.recovery! + 27]),
     (byte) => byte.toString(16).padStart(2, "0"),
   ).join("");
   const address = "0x" + Array.from(
