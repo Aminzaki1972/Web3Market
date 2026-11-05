@@ -23,9 +23,12 @@ export interface DealTermsSnapshot {
     feePercent: string;
     feeAmount: string;
     sellerNetAmount: string;
+    chainId: number;
+    safeAddress: string;
+    tokenContract: string;
     sellerWallet: string;
     platformWallet: string;
-    safeNonce: string | null;
+    safeNonce: string;
     status: "locked" | "ready";
   };
 }
@@ -87,6 +90,9 @@ export async function computeDealTermsHash(snapshot: DealTermsSnapshot): Promise
       feePercent: decimal(snapshot.policy.feePercent, "Policy fee percent"),
       feeAmount: decimal(snapshot.policy.feeAmount, "Policy fee amount"),
       sellerNetAmount: decimal(snapshot.policy.sellerNetAmount, "Seller net amount"),
+      chainId: snapshot.policy.chainId,
+      safeAddress: address(snapshot.policy.safeAddress, "Policy Safe address"),
+      tokenContract: address(snapshot.policy.tokenContract, "Policy token contract"),
       sellerWallet: address(snapshot.policy.sellerWallet, "Seller wallet"),
       platformWallet: address(snapshot.policy.platformWallet, "Platform wallet"),
       safeNonce: snapshot.policy.safeNonce,
@@ -96,9 +102,27 @@ export async function computeDealTermsHash(snapshot: DealTermsSnapshot): Promise
   if (canonicalTerms.releasePolicy.dealAmount !== canonicalTerms.amount) {
     throw new Error("Deal amount and locked release-policy amount do not match.");
   }
-  if (canonicalTerms.safeAddress !== canonicalTerms.releasePolicy.sellerWallet &&
-      canonicalTerms.releasePolicy.sellerWallet === canonicalTerms.releasePolicy.platformWallet) {
+  if (canonicalTerms.releasePolicy.safeAddress !== canonicalTerms.safeAddress ||
+      canonicalTerms.releasePolicy.tokenContract !== canonicalTerms.tokenContract) {
+    throw new Error("Deal and release-policy Safe/token configuration do not match.");
+  }
+  if (canonicalTerms.releasePolicy.platformWallet !== PLATFORM_WALLET) {
+    throw new Error("Platform wallet does not match the pinned Web3Market fee recipient.");
+  }
+  if (canonicalTerms.releasePolicy.sellerWallet === canonicalTerms.releasePolicy.platformWallet) {
     throw new Error("Seller and platform recipients must be distinct.");
+  }
+  const feeParts = canonicalTerms.releasePolicy.feeAmount.split(".");
+  const netParts = canonicalTerms.releasePolicy.sellerNetAmount.split(".");
+  const amountParts = canonicalTerms.amount.split(".");
+  const scale = Math.max(feeParts[1]?.length ?? 0, netParts[1]?.length ?? 0, amountParts[1]?.length ?? 0);
+  const toUnits = (value: string) => {
+    const [whole, fraction = ""] = value.split(".");
+    return BigInt(whole) * (10n ** BigInt(scale)) + BigInt((fraction + "0".repeat(scale)).slice(0, scale) || "0");
+  };
+  if (toUnits(canonicalTerms.releasePolicy.feeAmount) +
+      toUnits(canonicalTerms.releasePolicy.sellerNetAmount) !== toUnits(canonicalTerms.amount)) {
+    throw new Error("Seller net amount plus platform fee must equal the exact deal amount.");
   }
   return {
     dealTermsHash: await sha256Hex(canonicalJson(canonicalTerms)),
