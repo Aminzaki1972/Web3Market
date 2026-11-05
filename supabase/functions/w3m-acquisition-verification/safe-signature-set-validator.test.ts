@@ -88,3 +88,40 @@ Deno.test("rejects an exception from cryptographic recovery fail-closed", async 
     throw new Error("Cryptographic exception was not rejected");
   }
 });
+
+
+import { secp256k1 } from "jsr:@noble/curves@1.8.2/secp256k1";
+import { keccak_256 } from "jsr:@noble/hashes@1.7.1/sha3";
+
+function hex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+function realSigner(privateKeyByte: number, digest: Uint8Array) {
+  const privateKey = new Uint8Array(32);
+  privateKey[31] = privateKeyByte;
+  const signature = secp256k1.sign(digest, privateKey, { prehash: false });
+  const address = "0x" + hex(keccak_256(secp256k1.getPublicKey(privateKey, false).slice(1)).slice(12));
+  return {
+    walletAddress: address,
+    signature: "0x" + hex(new Uint8Array([...signature.toCompactRawBytes(), signature.recovery! + 27])),
+    signatureStatus: "signed",
+  };
+}
+
+Deno.test("recovers actual Safe EIP-712 transaction digest signatures at execution gate", async () => {
+  // Safe's TypedDataEncoder.hash is the 32-byte safe_tx_hash. EIP-712 signatures
+  // are recovered from that digest directly; no personal_sign prefix is applied.
+  const digest = new Uint8Array(32);
+  digest[31] = 42;
+  const a = realSigner(1, digest);
+  const b = realSigner(2, digest);
+  const result = await validateSafeSignatureSet({
+    safeTransactionHash: "0x" + hex(digest),
+    currentOwners: [a.walletAddress, b.walletAddress],
+    threshold: 2,
+    storedSignatures: [a, b],
+  });
+  if (!result.valid || result.validSignatures !== 2) {
+    throw new Error("Real Safe digest signatures failed recovery: " + JSON.stringify(result));
+  }
+});
