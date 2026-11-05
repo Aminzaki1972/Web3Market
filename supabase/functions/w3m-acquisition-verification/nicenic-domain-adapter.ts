@@ -281,6 +281,7 @@ export function verifyNiceNicSellerControl(
 // verifier has matched the registrant to the seller. It does not alter the domain.
 export async function createNiceNicSellerControlEvent(input: {
   snapshot: NiceNicDomainSnapshot;
+  expectedDomain: string;
   expectedSellerAccountUsername: string;
   dealId: string;
   projectId: string;
@@ -292,12 +293,13 @@ export async function createNiceNicSellerControlEvent(input: {
 }): Promise<AssetTransferEvent> {
   const result = verifyNiceNicSellerControl(
     input.snapshot,
-    { domain: input.snapshot.domain, sellerAccountUsername: input.expectedSellerAccountUsername },
+    { domain: input.expectedDomain, sellerAccountUsername: input.expectedSellerAccountUsername },
     input.registrantIdentityMatched,
   );
   const observedMs = Date.parse(input.now);
   if (result.status !== "SELLER_CONTROL_VERIFIED" ||
       input.snapshot.observedAt !== input.now ||
+      input.snapshot.domain !== normalizeDomain(input.expectedDomain) ||
       input.snapshot.accountUsername !== input.expectedSellerAccountUsername ||
       !Number.isFinite(observedMs) || !nonEmpty(input.dealId) ||
       !nonEmpty(input.projectId) || !nonEmpty(input.assetId) ||
@@ -352,6 +354,7 @@ export async function createNiceNicSellerControlEvent(input: {
 export async function createNiceNicTransferConfirmedEvent(input: {
   sellerMembership: NiceNicDomainMembership;
   buyerSnapshot: NiceNicDomainSnapshot;
+  expectedDomain: string;
   expectedSellerAccountUsername: string;
   expectedBuyerAccountUsername: string;
   dealId: string;
@@ -367,6 +370,7 @@ export async function createNiceNicTransferConfirmedEvent(input: {
   const observedMs = Date.parse(input.now);
   if (
     seller.domain !== buyer.domain ||
+    seller.domain !== normalizeDomain(input.expectedDomain) ||
     seller.accountUsername !== input.expectedSellerAccountUsername ||
     buyer.accountUsername !== input.expectedBuyerAccountUsername ||
     seller.accountHasDomain ||
@@ -432,6 +436,7 @@ export async function createNiceNicTransferConfirmedEvent(input: {
 
 export async function createNiceNicBuyerControlEvent(input: {
   snapshot: NiceNicDomainSnapshot;
+  expectedDomain: string;
   expectedBuyerAccountUsername: string;
   dealId: string;
   projectId: string;
@@ -444,6 +449,7 @@ export async function createNiceNicBuyerControlEvent(input: {
   const snapshot = input.snapshot;
   const observedMs = Date.parse(input.now);
   if (
+    snapshot.domain !== normalizeDomain(input.expectedDomain) ||
     snapshot.accountUsername !== input.expectedBuyerAccountUsername ||
     !snapshot.accountHasDomain ||
     snapshot.status !== "active" ||
