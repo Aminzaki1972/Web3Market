@@ -2,7 +2,11 @@ import {
   verifyTrustedReportSignature,
   type TrustedSignerKey,
 } from "./signature-verifier.ts";
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+function assertEquals(actual: unknown, expected: unknown): void {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`Assertion failed: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+}
 
 const key: TrustedSignerKey = {
   keyId: "w3m-test-key-01",
