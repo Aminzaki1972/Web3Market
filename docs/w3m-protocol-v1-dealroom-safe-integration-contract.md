@@ -296,3 +296,12 @@ The orchestrator deliberately returns `persistenceRequired: true`, `settlementAu
 The canonical envelope now also independently rejects a `PASS` decision containing unresolved issues. This supplements the registry builder's existing PASS guard.
 
 **Next safe implementation step:** define and test the atomic registry persistence boundary (one transaction for report + evidence + events) without wiring production Supabase. The actual database writer must not be implemented until the authoritative schema, service-role execution boundary, signature-verification/key-status adapter, and current Safe backend sources are available. No live systems have been changed.
+
+
+## 19. Atomic registry persistence boundary — isolated SQL RPC
+
+The isolated evidence-registry migration now defines `w3m_insert_acquisition_registry_batch(jsonb,jsonb,jsonb)`. It accepts one report object plus evidence and event arrays and inserts all three sets in a single PostgreSQL function transaction. Any constraint failure rolls back the entire invocation, preventing a report from being left without its evidence or lifecycle events.
+
+The function checks that report payload identity/status/hash fields match the registry columns and that every evidence/event row is bound to the same report and deal. Execution permission is revoked from browser roles and granted only to `service_role`; the underlying tables remain append-only for that role (SELECT/INSERT only).
+
+This function does **not** verify ECDSA signatures or signer-key revocation. The trusted server must cryptographically verify the signer and key status before calling the RPC. The migration and SQL regression test run only in disposable PostgreSQL CI; neither has been deployed to Supabase production.
