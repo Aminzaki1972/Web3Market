@@ -9,9 +9,12 @@ export type TrustedSignerRegistryMapResult =
 const ADDRESS = /^0x[0-9a-f]{40}$/i;
 const ALGORITHM = "ECDSA_SECP256K1_KECCAK256_RAW_DIGEST";
 
-function validTimestamp(value: unknown, nullable: boolean): value is string | null {
-  if (nullable && value === null) return true;
+function isTimestamp(value: unknown): value is string {
   return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+function isNullableTimestamp(value: unknown): value is string | null {
+  return value === null || isTimestamp(value);
 }
 
 function invalid(reason: string): TrustedSignerRegistryMapResult {
@@ -50,9 +53,9 @@ export function mapTrustedSignerRegistryRows(rows: unknown): TrustedSignerRegist
     if (status !== "ACTIVE" && status !== "REVOKED") {
       return invalid("Signer registry row " + index + " has an unknown status.");
     }
-    if (!validTimestamp(validFrom, false) ||
-        !validTimestamp(validUntil, true) ||
-        !validTimestamp(revokedAt, true)) {
+    if (!isTimestamp(validFrom) ||
+        !isNullableTimestamp(validUntil) ||
+        !isNullableTimestamp(revokedAt)) {
       return invalid("Signer registry row " + index + " has invalid validity timestamps.");
     }
     if ((status === "ACTIVE" && revokedAt !== null) ||
