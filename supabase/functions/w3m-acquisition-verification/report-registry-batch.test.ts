@@ -69,6 +69,9 @@ async function input(): Promise<RegistryBatchInput> {
     sellerId: "seller-1",
     issuedAt: NOW,
     expiresAt: EXPIRES,
+    dealTermsHash: "b".repeat(64),
+    auditId: "audit-registry-1",
+    expectedCommitSha: COMMIT,
     actorType: "VERIFIER",
     actorRef: "w3m-verifier-v1",
   };
@@ -83,7 +86,10 @@ Deno.test("builds a signed report and append-only evidence/event rows", async ()
   const result = await buildSignedRegistryBatch(await input(), mockSigner);
   if (result.report.status !== "PASS" || result.report.report_hash !== result.digestToSign ||
       result.report.report_signature.length !== 132 || result.evidence.length !== 8 ||
-      result.events.length !== 9 || result.events[0].event_type !== "REPORT_CREATED") {
+      result.events.length !== 9 || result.events[0].event_type !== "REPORT_CREATED" ||
+      result.report.report_payload.protocol !== "W3M Protocol V1" ||
+      result.report.report_payload.auditId !== "audit-registry-1" ||
+      result.report.report_payload.dealTermsHash !== "b".repeat(64)) {
     throw new Error("Registry batch does not match the signed PASS report contract.");
   }
   if (result.evidence.some((row) => row.report_id !== REPORT_ID) ||
@@ -142,4 +148,27 @@ Deno.test("duplicate or invalid registry row IDs are rejected", async () => {
     await buildSignedRegistryBatch({ ...base, eventRowIds: [base.evidenceRowIds[0], ...base.eventRowIds.slice(1)] }, mockSigner);
   } catch { rejected = true; }
   if (!rejected) throw new Error("Registry row ID collisions must be rejected.");
+});
+
+Deno.test("registry builder rejects expiry before evidence verification time", async () => {
+  const base = await input();
+  const staleDecision = { ...base.decision, checkedAt: "2026-11-05T21:05:00.000Z" };
+  let rejected = false;
+  try {
+    await buildSignedRegistryBatch({ ...base, decision: staleDecision }, mockSigner);
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) throw new Error("Registry report must not expire before its evidence check time.");
+});
+
+Deno.test("registry builder rejects identical buyer and seller identities", async () => {
+  const base = await input();
+  let rejected = false;
+  try {
+    await buildSignedRegistryBatch({ ...base, buyerId: "same-party", sellerId: "same-party" }, mockSigner);
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) throw new Error("Buyer and seller must be distinct.");
 });
