@@ -170,3 +170,40 @@ The Supabase skill requires a new migration to be created with `supabase migrati
 - Existing report versioning, append-only registry, completed-audit immutability, Safe preparation/signing, and settlement-disabled assertions remain green.
 
 This contract is a design refinement only. It is not an implemented migration or a passing regression test.
+
+
+## Existing manifest implementation verified — reuse rather than duplicate
+
+A further repository-tree review found that the core deterministic manifest machinery already exists in the isolated branch. The next implementation must reuse it; creating a second serializer or a parallel manifest format would create avoidable integrity risk.
+
+### Existing reusable modules
+
+- `audit-manifest.ts`: `computeAuditManifest` implements `w3m-audit-manifest-v1`, validates completed audit provenance and structured completeness evidence, sorts file/finding rows by deterministic natural keys, rejects duplicate keys and cross-audit rows, checks persisted file and severity totals, and hashes canonical JSON through the existing `canonicalJson` / `sha256Hex` implementation.
+- `audit-manifest-loader.ts`: `loadAuditManifest` reads the exact audit and exhausts file/finding pages with bounded page sizes; it fails closed on read errors, wrong audit identity, incomplete counts, and safety-limit overflow.
+- `audit-manifest-supabase-adapter.ts`: `createSupabaseAuditManifestSource` uses a trusted read client, selects complete persisted rows, and scopes every file/finding page to the exact audit ID.
+- `audit-manifest-binding.ts`: `verifyCurrentAuditManifest` recomputes the persisted source manifest and compares its digest to a signed binding.
+- `deal-code-audit-binding.ts`: strict parsing/building of the compact signed binding and comparison against the authoritative project repository URL.
+- Existing unit tests cover deterministic order, row mutations, duplicate natural keys, cross-audit rows, incomplete pagination, and malformed evidence.
+
+### Exact remaining gap
+
+The SQL agreement reader `w3m_current_deal_code_audit_json` in `20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql` still obtains the Code Audit tuple by selecting the latest `w3m_acquisition_reports` row and its mandatory report-scoped `CODE_AUDIT` evidence. The report-scoped evidence is therefore still a prerequisite for signing.
+
+The migration `20261107065000_w3m_protocol_v1_dealroom_code_audit_snapshot.sql` only adds a Deal Room reader column that calls that same SQL selector; it does not persist an independent audit manifest snapshot and does not remove the report dependency.
+
+The completed-audit immutability migration `20261107066000_w3m_protocol_v1_completed_audit_immutability.sql` freezes the audit row and all file/finding rows after completion. The independent snapshot must consequently be created by reading those immutable source rows after completion; it must never mutate or repair them.
+
+### Minimal integration plan
+
+1. Keep the current manifest serializer, loader, adapter, and verifier unchanged unless new regression tests prove a defect.
+2. Add a distinct immutable per-deal audit-snapshot registry with a narrow service-only creation path. Persist only values derived from the completed source audit and recomputed manifest, including the deal/project/audit binding, repository identity, commit, type, completion time, manifest version/digest, and exact counts.
+3. Add a trusted server operation that resolves the selected audit ID from authoritative deal/project state, invokes `loadAuditManifest`, validates `deal-code-audit-binding.ts` against the authoritative `projects.github_url`, and writes the snapshot through the narrow RPC. The browser must not supply a trusted digest or commit.
+4. Change the SQL agreement selector to read exactly one valid independent snapshot for the deal/project, not the latest acquisition report. Keep all existing agreement-version and bilateral-acceptance checks.
+5. During report issuance, reuse `verifyCurrentAuditManifest` to recompute the source manifest and compare it to the accepted snapshot. Only then write the report-scoped `CODE_AUDIT` evidence and `DEAL_AGREEMENT` evidence in the final report transaction.
+6. Add an integration test starting with completed source audit rows and zero acquisition reports. It must prove that terms can be registered and both parties can accept, while report issuance remains blocked until both acceptances exist.
+
+### Additional implementation review note
+
+The Supabase adapter currently orders file pages by `path` and finding pages by `created_at`, while the pure manifest function independently sorts the loaded rows by natural keys before hashing. Before relying on offset pagination under concurrent readers, the adapter's finding ordering should be verified against the exact finding-table key/DDL and made total (stable tie-breaker) if the schema supports it. Do not guess a column name: verify the actual migration/schema contract first. The immutable completed-audit guard prevents legitimate post-completion inserts/updates/deletes, but deterministic page ordering is still required to make the loader's completeness guarantee robust.
+
+This section is source review and integration planning only. It does not claim that the independent snapshot registry, RPC, SQL selector change, or first-deal integration test has been implemented.
