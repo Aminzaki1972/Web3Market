@@ -788,3 +788,25 @@ Added `safe-execute-request-handler.ts` and its tests. The request is POST-only,
 **Critical transport boundary:** the request handler is not yet a complete executor and does not broadcast. The coordinator's broadcast callback still requires a concrete approved transport. The server must not be given an unapproved private key or assume a public JSON-RPC endpoint can sign an outer BNB transaction. The new architecture decision in `docs/w3m-protocol-v1-execute-transport-architecture-20261106.md` recommends a non-custodial connected-owner-wallet submission flow, with server-side preflight authorization and independent receipt-based FINALIZE. It records the one-use attempt, cancellation/timeout reconciliation, and exact-payload requirements that must be implemented before wallet submission is enabled.
 
 **Status:** authenticated EXECUTE request boundary = CI verified; wallet execution-package endpoint = not implemented; Deal Room wallet submission UI = not implemented; no server broadcast transport approved; FINALIZE remains a separate isolated endpoint/RPC draft. No production function or migration was deployed, no wallet was prompted, no Safe transaction was broadcast, and no funds were moved.
+
+
+## 43. Execution-claim fee precision correction — isolated draft — 2026-11-06
+
+Static review found that `w3m_claim_safe_execution_attempt` still called the legacy `validate_deal_release_policy` function. That validator uses 8-decimal fee rounding, while the W3M locked policy and PREPARE gate use exact 18-decimal arithmetic. The claim path could therefore reject a valid locked policy after the Safe signatures were collected.
+
+The isolated claim RPC was corrected to independently rebind:
+- confirmed payment with a 32-byte transaction hash;
+- accepted delivery and buyer approval;
+- clear dispute state;
+- BNB Chain 56 and the exact BNB USDT contract;
+- exact Safe/policy address binding;
+- exact platform wallet and USDT denomination;
+- deal amount and 7.5% platform fee against the locked policy;
+- fee amount = `round(deal_amount * 7.5 / 100, 18)`;
+- seller net = deal amount minus fee.
+
+The legacy validator call was removed from the execution-claim path. The disposable SQL fixture deliberately defines the legacy validator to return `valid=false`; the claim test is expected to succeed only when the new W3M exact checks pass. The fixture uses a valid BNB USDT token address and a syntactically valid 32-byte payment hash.
+
+**Verification:** latest workflow run [42184955398](https://github.com/Aminzaki1972/Web3Market/actions/runs/42184955398), commit `7c0ee6e5ad18010b29b32ba48581910905b7d063`, is still running. Do not treat the SQL correction as CI-verified until this run completes successfully. Earlier queued runs for intermediate commits do not verify the final corrected SQL/test fixture.
+
+No production migration or function was deployed, and no production data, Safe, wallet, or funds were touched.
