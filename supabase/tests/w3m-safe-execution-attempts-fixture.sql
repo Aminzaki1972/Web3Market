@@ -91,7 +91,7 @@ CREATE TABLE public.deal_audit_logs (
 );
 CREATE FUNCTION public.validate_deal_release_policy(p_deal_id uuid)
 RETURNS jsonb LANGUAGE sql STABLE
-AS $fixture$ SELECT jsonb_build_object('valid', true) $fixture$;
+AS $fixture$ SELECT jsonb_build_object('valid', false) $fixture$;
 
 
 CREATE TABLE public.profiles (
