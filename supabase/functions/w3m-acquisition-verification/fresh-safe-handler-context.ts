@@ -100,7 +100,7 @@ export async function loadFreshSafeHandlerContext(
   dependencies: FreshSafeHandlerContextDependencies,
   dealId: string,
   now: string,
-): Promise<Omit<CheckDealRoomFromSnapshotInput, "stage">> {
+): Promise<Omit<CheckDealRoomFromSnapshotInput, "stage"> & { safeTransactionHash: string }> {
   if (!Number.isFinite(Date.parse(now))) throw new Error("W3M fresh context time is invalid.");
   const snapshot = await loadSafeExecutionDatabaseSnapshot(dependencies.database, dealId);
   if (snapshot.blockers.length > 0) {
