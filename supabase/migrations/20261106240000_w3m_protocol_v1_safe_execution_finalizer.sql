@@ -42,6 +42,7 @@ begin
      or (p_receipt_evidence->>'receipt_status')::integer is distinct from 1
      or (p_receipt_evidence->>'execution_success')::boolean is distinct from true
      or coalesce((p_receipt_evidence->>'execution_failure')::boolean, true) is not false
+     or p_receipt_evidence->>'block_timestamp' is null
      or jsonb_typeof(p_receipt_evidence->'transfers') is distinct from 'array'
      or jsonb_array_length(p_receipt_evidence->'transfers') <> 2 then
     raise exception 'Receipt evidence is incomplete or unsuccessful' using errcode = '23514';
