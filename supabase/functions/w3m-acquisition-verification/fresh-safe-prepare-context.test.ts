@@ -32,7 +32,7 @@ function row(overrides:Record<string,unknown>={}) {
  return {deal_id:DEAL,deal_status:"funded",deal_chain_id:"56",policy_deal_id:DEAL,buyer_id:"buyer",seller_id:"seller",
   project_owner_id:"seller",project_status:"active",buyer_wallet:BUYER,buyer_wallet_verified:"true",
   buyer_wallet_verified_at:"2026-11-05T00:00:00Z",seller_wallet:SELLER,seller_wallet_verified:"true",
-  seller_wallet_verified_at:"2026-11-05T00:00:00Z",policy_seller_wallet:SELLER,policy_platform_wallet:PLATFORM,deal_safe_address:SAFE,
+  seller_wallet_verified_at:"2026-11-05T00:00:00Z",code_audit:codeAudit,policy_seller_wallet:SELLER,policy_platform_wallet:PLATFORM,deal_safe_address:SAFE,
   policy_safe_address:SAFE,policy_safe_nonce:"7",...overrides};
 }
 function deps(snapshot:unknown, factsOverrides:Record<string,unknown>={}):FreshSafePrepareDependencies {
