@@ -1,7 +1,9 @@
-// W3M Protocol V1 — PREPARE gate using a pre-transaction snapshot.
-// This deliberately does not use the stricter EXECUTE snapshot, which requires
-// an already-signed Safe transaction. The caller must inject canonical-block
-// BNB facts from readCanonicalBnbSafeConfigurationFacts; no browser facts pass.
+// W3M Protocol V1 — PREPARE gate before Safe transaction construction/rebuild.
+// This expects the release policy and its pending release row to have been
+// created by the earlier prepare-deal-release phase. It is not the pre-lock
+// gate for that earlier phase. It deliberately avoids the stricter EXECUTE
+// snapshot, which requires an already-signed Safe transaction. The caller must
+// inject canonical-block BNB facts from readCanonicalBnbSafeConfigurationFacts.
 import type { JsonRpcClient } from "./bnb-revenue-adapter.ts";
 import type { W3MRegistryReadClient } from "./persisted-report-loader.ts";
 import {
