@@ -18,6 +18,8 @@ const expected: SafeFinalizationExpectation = {
   platformWallet: "0x" + "6".repeat(40),
   platformFee: "7.5",
   minConfirmations: 6,
+  packageIssuedAt: "2026-11-06T12:00:00.000Z",
+  packageExpiresAt: "2026-11-06T12:02:00.000Z",
 };
 const evidence: VerifiedSafeReceiptEvidence = {
   chain_id: 56,
@@ -29,6 +31,7 @@ const evidence: VerifiedSafeReceiptEvidence = {
   safe_tx_hash: expected.safeTxHash,
   token_contract: expected.tokenContract,
   confirmations: 13,
+  block_timestamp: "2026-11-06T12:01:00.000Z",
   transfers: [
     { from_address: expected.safeAddress, to_address: expected.sellerWallet, amount: "92.5000" },
     { from_address: expected.safeAddress, to_address: expected.platformWallet, amount: "7.500" },
@@ -124,4 +127,18 @@ Deno.test("insufficient BNB confirmations block finalization evidence", () => {
   const result = validateVerifiedSafeReceipt(expected, { ...evidence, confirmations: 1 });
   assertEquals(result.valid, false);
   if (!result.valid) assertEquals(result.issues.includes("CONFIRMATIONS_INSUFFICIENT"), true);
+});
+
+
+Deno.test("receipt block timestamp must fall within the exact issued wallet package window", () => {
+  const before = validateVerifiedSafeReceipt(expected, {
+    ...evidence, block_timestamp: "2026-11-06T11:59:59.000Z",
+  });
+  const after = validateVerifiedSafeReceipt(expected, {
+    ...evidence, block_timestamp: "2026-11-06T12:02:01.000Z",
+  });
+  assertEquals(before.valid, false);
+  assertEquals(after.valid, false);
+  if (!before.valid) assertEquals(before.issues.includes("RECEIPT_OUTSIDE_WALLET_PACKAGE_VALIDITY_WINDOW"), true);
+  if (!after.valid) assertEquals(after.issues.includes("RECEIPT_OUTSIDE_WALLET_PACKAGE_VALIDITY_WINDOW"), true);
 });
