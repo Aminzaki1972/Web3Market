@@ -212,3 +212,53 @@ export async function markSafeExecutionReconciliationRequired(
     state: "RECONCILIATION_REQUIRED",
   };
 }
+
+
+export interface SafeWalletPackageIssuanceResult {
+  attemptId: string;
+  packageHash: string;
+  expiresAt: string;
+  idempotentReplay: boolean;
+}
+
+export async function issueSafeWalletExecutionPackage(
+  client: W3MRpcClient,
+  input: {
+    attemptId: string;
+    actorId: string;
+    packageHash: string;
+    expiresAt: string;
+  },
+): Promise<SafeWalletPackageIssuanceResult> {
+  requireText(input.attemptId, "Execution attempt ID");
+  requireText(input.actorId, "Package actor ID");
+  requireText(input.expiresAt, "Package expiry");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.actorId) ||
+      !/^[0-9a-f]{64}$/i.test(input.packageHash) ||
+      !Number.isFinite(Date.parse(input.expiresAt))) {
+    throw new Error("Safe wallet package issuance fields are malformed.");
+  }
+  const { data, error } = await client.rpc("w3m_issue_safe_execution_package", {
+    p_attempt_id: input.attemptId,
+    p_actor_id: input.actorId,
+    p_package_hash: input.packageHash.toLowerCase(),
+    p_expires_at: input.expiresAt,
+  });
+  if (error) throw new Error("W3M Safe wallet package issuance failed.");
+  const result = asObject(data, "Safe wallet package issuance");
+  if (result.issued !== true ||
+      result.attempt_id !== input.attemptId ||
+      typeof result.idempotent_replay !== "boolean" ||
+      typeof result.package_hash !== "string" ||
+      result.package_hash.toLowerCase() !== input.packageHash.toLowerCase() ||
+      typeof result.expires_at !== "string" ||
+      !Number.isFinite(Date.parse(result.expires_at))) {
+    throw new Error("W3M Safe wallet package issuance response does not match the request.");
+  }
+  return {
+    attemptId: input.attemptId,
+    packageHash: input.packageHash.toLowerCase(),
+    expiresAt: result.expires_at,
+    idempotentReplay: result.idempotent_replay,
+  };
+}
