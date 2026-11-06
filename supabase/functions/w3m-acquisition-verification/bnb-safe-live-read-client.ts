@@ -129,6 +129,24 @@ export interface BnbSafeLiveReadClient extends SafeLiveReadClient {
   readonly blockTag: string;
 }
 
+/** Captures one current BNB mainnet block number for all subsequent Safe reads. */
+export async function getBnbSafeReadBlockTag(rpc: JsonRpcClient): Promise<string> {
+  const chainId = parseUint(await rpc.request<unknown>("eth_chainId", []), "chain ID");
+  if (chainId !== 56n) throw new BnbSafeLiveReadError("Read client is not connected to BNB mainnet (56).");
+  const blockTag = await rpc.request<unknown>("eth_blockNumber", []);
+  if (typeof blockTag !== "string" || !HEX_QUANTITY.test(blockTag)) {
+    throw new BnbSafeLiveReadError("BNB RPC returned an invalid block number.");
+  }
+  return blockTag;
+}
+
+export async function createBnbSafeLiveReadClientAtCurrentBlock(
+  rpc: JsonRpcClient,
+): Promise<BnbSafeLiveReadClient> {
+  const blockTag = await getBnbSafeReadBlockTag(rpc);
+  return createBnbSafeLiveReadClient(rpc, blockTag);
+}
+
 export function createBnbSafeLiveReadClient(
   rpc: JsonRpcClient,
   blockTag: string,
