@@ -305,3 +305,14 @@ The wrapper accepts an injected `JsonRpcClient`; it does not choose or contact a
 CI run `42138975440` was created for commit `958f94e8b69155b80ee3875ec25052b42f9607bd`; its initial state was queued. The new helper and tests are included in the workflow's type-check and test steps. Final CI result will be recorded after completion.
 
 The next unresolved execution prerequisites remain unchanged: immutable buyer/seller agreement signatures bound to the canonical deal-terms hash; loading and cryptographically verifying the latest persisted W3M report/evidence/trusted signer bundle; and composing those with the live Safe facts and coordinator in a dedicated isolated EXECUTE handler. No existing production Safe handler is wired to W3M.
+
+
+## 18. Immutable Deal Agreement signature scheme — proposal only — 2026-11-06
+
+Added design proposal `docs/w3m-protocol-v1-deal-agreement-eip712-proposal-20261106.md`.
+
+The proposal specifies EIP-712 typed-data acceptance by each verified buyer/seller wallet, domain-bound to BNB chain 56 and the deal's locked Safe address. The signed message binds deal, project, buyer, seller, canonical SHA-256 terms hash, monotonically increasing terms version, and party role. Server-side recovery must match the verified profile wallet; both parties must sign the exact same terms hash/version. The proposal explicitly separates agreement signatures from Safe owner transaction signatures.
+
+This remains **design only**. No agreement table, RPC, browser wallet-signing flow, or production schema change has been created. The current W3M snapshot continues to block EXECUTE because timestamp-only legacy agreement rows cannot prove immutable terms acceptance. Implementation awaits approval of the exact EIP-712 payload and wallet-signing flow.
+
+The canonical-block BNB Safe facts reader CI run `42138975440` is currently in progress; its final outcome is not yet claimed.
