@@ -79,19 +79,13 @@ function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export async function checkDealRoomFromExactSnapshot(
+export async function evaluateDealRoomTermsSnapshotRow(
   input: CheckDealRoomFromSnapshotInput,
+  row: DealRoomTermsSnapshotRow,
   recoverAndVerify?: EthereumDigestRecoveryVerifier,
 ): Promise<DealRoomW3MServiceResult> {
   if (!input.dealId.trim()) throw new Error("Deal ID is required.");
-  const result = await input.client.rpc("w3m_read_dealroom_terms_snapshot", {
-    p_deal_id: input.dealId,
-  });
-  if (result.error) throw new Error("W3M exact Deal Room snapshot read failed.");
-  if (!Array.isArray(result.data) || result.data.length !== 1 || !record(result.data[0])) {
-    throw new Error("W3M exact Deal Room snapshot is missing or ambiguous.");
-  }
-  const row = result.data[0] as unknown as DealRoomTermsSnapshotRow;
+  if (row.deal_id !== input.dealId) throw new Error("Deal Room snapshot deal binding mismatch.");
   if (row.policy_deal_id === null || row.policy_deal_id === undefined) {
     throw new Error("W3M release policy is missing; settlement is blocked.");
   }
@@ -120,4 +114,23 @@ export async function checkDealRoomFromExactSnapshot(
     now: input.now,
     safeConfigurationMatches: safeConfigurationMatches(row, input.safeFacts),
   }, recoverAndVerify);
+}
+
+export async function checkDealRoomFromExactSnapshot(
+  input: CheckDealRoomFromSnapshotInput,
+  recoverAndVerify?: EthereumDigestRecoveryVerifier,
+): Promise<DealRoomW3MServiceResult> {
+  if (!input.dealId.trim()) throw new Error("Deal ID is required.");
+  const result = await input.client.rpc("w3m_read_dealroom_terms_snapshot", {
+    p_deal_id: input.dealId,
+  });
+  if (result.error) throw new Error("W3M exact Deal Room snapshot read failed.");
+  if (!Array.isArray(result.data) || result.data.length !== 1 || !record(result.data[0])) {
+    throw new Error("W3M exact Deal Room snapshot is missing or ambiguous.");
+  }
+  return await evaluateDealRoomTermsSnapshotRow(
+    input,
+    result.data[0] as unknown as DealRoomTermsSnapshotRow,
+    recoverAndVerify,
+  );
 }
