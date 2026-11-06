@@ -26,6 +26,7 @@ import {
 } from "../w3m-acquisition-verification/ethereum-signature-adapter.ts";
 import type { SafeExecutionFreshSnapshot } from "../w3m-acquisition-verification/safe-execution-coordinator.ts";
 import type { CanonicalBnbSafeExecutionFacts } from "../w3m-acquisition-verification/bnb-safe-execution-facts-reader.ts";
+import { extractW3MBearerToken } from "../w3m-acquisition-verification/bearer-token.ts";
 
 const ALLOWED_ORIGINS = new Set([
   "https://web3market.xyz",
@@ -84,9 +85,9 @@ Deno.serve(async (request) => {
 
   const handler = createW3MSafeWalletPackageRequestHandler({
     authenticate: async (incoming) => {
-      const match = /^Bearer\s+(.+)$/i.exec(incoming.headers.get("authorization") ?? "");
-      if (!match?.[1]?.trim()) return null;
-      const { data, error } = await supabase.auth.getUser(match[1].trim());
+      const token = extractW3MBearerToken(incoming.headers.get("authorization"));
+      if (!token) return null;
+      const { data, error } = await supabase.auth.getUser(token);
       if (error || !data.user?.id) return null;
       return { userId: data.user.id };
     },
