@@ -46,32 +46,33 @@ begin
     92.5,7.5,7.5,7,'USDT'
   );
 
-  -- The immutable W3M report registry supplies exactly one current, passing
-  -- CODE_AUDIT record whose evidence hash is the full Audit Manifest V1 digest.
-  insert into public.w3m_acquisition_reports(
-    id,deal_id,project_id,report_version,status,engine_version,evidence_hash,
-    report_hash,report_payload,signer_key_id,report_signature,issued_at,expires_at
+  -- The first deal starts with no acquisition report. Its completed source
+  -- audit is snapshotted independently before agreement terms are registered.
+  insert into public.code_audits(
+    id,project_id,repo_url,repo_owner,repo_name,commit_sha,status,completed_at,
+    engine_version,analysis_progress,files_scanned,
+    critical_count,high_count,medium_count,low_count,info_count
   ) values (
-    '86000000-0000-4000-8000-000000000006',v_deal::text,v_project::text,1,'PASS',
-    'w3m-acquisition-verification-1.0.0',repeat('a',64),repeat('b',64),
-    jsonb_build_object('reportId','86000000-0000-4000-8000-000000000006'),
-    'test-signer-v1','0x' || repeat('d',130),now()-interval '5 minutes',now()+interval '1 day'
+    '87000000-0000-4000-8000-000000000007',v_project,
+    'https://github.com/Aminzaki1972/Web3Market','Aminzaki1972','Web3Market',
+    repeat('a',40),'completed','2026-11-01T10:00:00Z',
+    'w3m-code-audit-1.0',
+    '{"evidence_version":"w3m-audit-evidence-v1","tree_truncated":false,"persisted_file_count":1}'::jsonb,
+    1,0,0,0,0,0
   );
-  insert into public.w3m_acquisition_evidence(
-    report_id,evidence_type,source_table,source_record_id,source_version,evidence_hash,
-    result,mandatory,observed_at,valid_until,details
-  ) values (
-    '86000000-0000-4000-8000-000000000006','CODE_AUDIT','code_audits',
-    '87000000-0000-4000-8000-000000000007',repeat('a',40),repeat('c',64),
-    'PASS',true,now()-interval '5 minutes',now()+interval '1 day',
-    jsonb_build_object(
-      'auditStatus','completed','auditType','code','commitSha',repeat('a',40),
-      'repositoryOwner','Aminzaki1972','repositoryName','Web3Market',
-      'completedAt','2026-11-01T10:00:00.000Z',
-      'auditManifestVersion','w3m-audit-manifest-v1','auditManifestHash',repeat('c',64),
-      'auditFileCount',190,'auditFindingCount',25
-    )
+  insert into public.code_audit_files(id,audit_id,path)
+    values ('87100000-0000-4000-8000-000000000007','87000000-0000-4000-8000-000000000007','README.md');
+  v_audit_snapshot := public.w3m_create_deal_code_audit_snapshot(
+    v_deal,'87000000-0000-4000-8000-000000000007',
+    'w3m-audit-manifest-v1',repeat('c',64),1,0
   );
+  if v_audit_snapshot->>'audit_id' <> '87000000-0000-4000-8000-000000000007'
+     or coalesce((v_audit_snapshot->>'idempotent_replay')::boolean,true) then
+    raise exception 'Independent first-deal Code Audit snapshot was not created';
+  end if;
+  if (select count(*) from public.w3m_acquisition_reports where deal_id=v_deal::text) <> 0 then
+    raise exception 'First-deal test must begin without an acquisition report';
+  end if;
 
   -- One wallet cannot represent both buyer and seller consent.
   update public.profiles
@@ -185,33 +186,30 @@ begin
     raise exception 'Safe execution snapshot did not expose both immutable agreement signatures';
   end if;
 
-  -- A newer signed acquisition report with a different Audit Manifest
-  -- must change the canonical agreement terms and invalidate old signatures.
-  insert into public.w3m_acquisition_reports(
-    id,deal_id,project_id,report_version,supersedes_report_id,status,engine_version,evidence_hash,
-    report_hash,report_payload,signer_key_id,report_signature,issued_at,expires_at
+  -- A newer completed source audit and independent snapshot change the
+  -- agreement terms. No report exists yet; old signatures must still be stale.
+  insert into public.code_audits(
+    id,project_id,repo_url,repo_owner,repo_name,commit_sha,status,completed_at,
+    engine_version,analysis_progress,files_scanned,
+    critical_count,high_count,medium_count,low_count,info_count
   ) values (
-    '89000000-0000-4000-8000-000000000009',v_deal::text,v_project::text,2,
-    '86000000-0000-4000-8000-000000000006','PASS',
-    'w3m-acquisition-verification-1.0.0',repeat('3',64),repeat('4',64),
-    jsonb_build_object('reportId','89000000-0000-4000-8000-000000000009'),
-    'test-signer-v1','0x' || repeat('f',130),now(),now()+interval '1 day'
+    '89100000-0000-4000-8000-000000000009',v_project,
+    'https://github.com/Aminzaki1972/Web3Market','Aminzaki1972','Web3Market',
+    repeat('f',40),'completed','2026-11-06T18:00:00Z',
+    'w3m-code-audit-1.0',
+    '{"evidence_version":"w3m-audit-evidence-v1","tree_truncated":false,"persisted_file_count":1}'::jsonb,
+    1,0,0,0,0,0
   );
-  insert into public.w3m_acquisition_evidence(
-    report_id,evidence_type,source_table,source_record_id,source_version,evidence_hash,
-    result,mandatory,observed_at,valid_until,details
-  ) values (
-    '89000000-0000-4000-8000-000000000009','CODE_AUDIT','code_audits',
-    '89100000-0000-4000-8000-000000000009',repeat('a',40),repeat('f',64),
-    'PASS',true,now(),now()+interval '1 day',
-    jsonb_build_object(
-      'auditStatus','completed','auditType','code','commitSha',repeat('a',40),
-      'repositoryOwner','Aminzaki1972','repositoryName','Web3Market',
-      'completedAt','2026-11-06T18:00:00.000Z',
-      'auditManifestVersion','w3m-audit-manifest-v1','auditManifestHash',repeat('f',64),
-      'auditFileCount',190,'auditFindingCount',26
-    )
+  insert into public.code_audit_files(id,audit_id,path)
+    values ('89200000-0000-4000-8000-000000000009','89100000-0000-4000-8000-000000000009','README.md');
+  v_audit_snapshot := public.w3m_create_deal_code_audit_snapshot(
+    v_deal,'89100000-0000-4000-8000-000000000009',
+    'w3m-audit-manifest-v1',repeat('f',64),1,0
   );
+  if v_audit_snapshot->>'audit_id' <> '89100000-0000-4000-8000-000000000009'
+     or coalesce((v_audit_snapshot->>'idempotent_replay')::boolean,true) then
+    raise exception 'Updated source audit snapshot was not created';
+  end if;
   begin
     perform public.w3m_insert_deal_agreement_acceptance(
       v_deal,1,'buyer',v_buyer,'0x5555555555555555555555555555555555555555',
@@ -305,20 +303,11 @@ begin
   exception when check_violation then null;
   end;
 
-  -- A newer non-PASS report must invalidate the old passing audit binding;
-  -- the signing path must never fall back to an older PASS report.
-  insert into public.w3m_acquisition_reports(
-    id,deal_id,project_id,report_version,supersedes_report_id,status,engine_version,evidence_hash,
-    report_hash,report_payload,issued_at,expires_at
-  ) values (
-    '89200000-0000-4000-8000-000000000009',v_deal::text,v_project::text,3,
-    '89000000-0000-4000-8000-000000000009','BLOCKED',
-    'w3m-acquisition-verification-1.0.0',repeat('1',64),repeat('2',64),
-    jsonb_build_object('reportId','89200000-0000-4000-8000-000000000009'),
-    now(),now()+interval '1 day'
-  );
-  if public.w3m_current_deal_code_audit_json(v_deal) is not null then
-    raise exception 'A superseded PASS Code Audit was incorrectly reused after a newer BLOCKED report';
+  -- The current binding is independent of report issuance: a first-deal
+  -- agreement can be signed against its persisted snapshot before any report.
+  if (select count(*) from public.w3m_acquisition_reports where deal_id=v_deal::text) <> 0
+     or public.w3m_current_deal_code_audit_json(v_deal) is null then
+    raise exception 'Pre-agreement Code Audit snapshot unexpectedly depends on an acquisition report';
   end if;
 
   if has_function_privilege('anon','public.w3m_register_deal_terms_version(uuid,text,jsonb)','EXECUTE')
