@@ -79,8 +79,7 @@ export async function loadSafeFinalizationExpectation(
       (packageActorId !== buyerId && packageActorId !== sellerId) ||
       !Number.isFinite(Date.parse(packageIssuedAt)) ||
       !Number.isFinite(Date.parse(packageExpiresAt)) ||
-      Date.parse(packageExpiresAt) <= Date.parse(packageIssuedAt) ||
-      Date.parse(packageExpiresAt) <= Date.now()) {
+      Date.parse(packageExpiresAt) <= Date.parse(packageIssuedAt)) {
     throw new Error("W3M wallet package issuance binding is missing, expired, or invalid.");
   }
   const sellerWallet = addressField(row, "seller_wallet");
