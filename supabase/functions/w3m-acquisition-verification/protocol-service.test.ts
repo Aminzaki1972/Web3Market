@@ -15,7 +15,13 @@ function clientForReport(row: Record<string, unknown>) {
       reads.push(table);
       return {
         select() {
-          const result: W3MRegistryReadResult = { data: row, error: null };
+          // The loader reads the report row first, then its evidence collection.
+          // Return the correct shape for each table so sequence tests reach the
+          // sequence validator rather than failing on a malformed evidence mock.
+          const result: W3MRegistryReadResult = {
+            data: table === "w3m_acquisition_reports" ? row : [],
+            error: null,
+          };
           const query = {
             eq() { return query; },
             order() { return query; },
@@ -63,7 +69,7 @@ Deno.test("protocol service rejects a latest report belonging to another deal be
     },
     mock.client,
   ));
-  assertEquals(mock.reads, ["w3m_acquisition_reports"]);
+  assertEquals(mock.reads, ["w3m_acquisition_reports", "w3m_acquisition_evidence"]);
   assertEquals(mock.writes, []);
   assertEquals(signerCalls, 0);
 });
@@ -83,7 +89,7 @@ Deno.test("protocol service rejects a malformed latest report identity before si
     },
     mock.client,
   ));
-  assertEquals(mock.reads, ["w3m_acquisition_reports"]);
+  assertEquals(mock.reads, ["w3m_acquisition_reports", "w3m_acquisition_evidence"]);
   assertEquals(mock.writes, []);
   assertEquals(signerCalls, 0);
 });
@@ -103,7 +109,7 @@ Deno.test("protocol service rejects an exhausted latest report version before si
     },
     mock.client,
   ));
-  assertEquals(mock.reads, ["w3m_acquisition_reports"]);
+  assertEquals(mock.reads, ["w3m_acquisition_reports", "w3m_acquisition_evidence"]);
   assertEquals(mock.writes, []);
   assertEquals(signerCalls, 0);
 });
