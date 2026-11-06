@@ -17,6 +17,7 @@ declare
   tx public.deal_multisig_transactions%rowtype;
   n_policy integer;
   n_tx integer;
+  n_audit integer;
   buyer_wallet text;
   seller_wallet text;
   platform_wallet constant text := '0x2B15cC63eE3b833F502C065767695Fa2B584f8c9';
@@ -141,9 +142,13 @@ begin
          and lower(pol.safe_address)=safe_addr and lower(pol.token_contract)=token_addr
          and pol.token_symbol='USDT' and pol.chain_id=56 and pol.safe_nonce=nonce_value
          and n_tx=1 then
+        select count(*) into n_audit from public.deal_audit_logs
+         where deal_id=p_deal_id and action='release_policy_locked';
+        if n_audit <> 1 then
+          raise exception 'Locked policy audit binding is missing or duplicated' using errcode='23514';
+        end if;
         select metadata into existing_audit from public.deal_audit_logs
-         where deal_id=p_deal_id and action='release_policy_locked'
-         order by created_at desc limit 1;
+         where deal_id=p_deal_id and action='release_policy_locked';
         if existing_audit->>'w3m_report_id' is distinct from p_w3m_authorization->>'report_id'
            or existing_audit->>'w3m_report_version' is distinct from p_w3m_authorization->>'report_version'
            or existing_audit->>'w3m_report_hash' is distinct from p_w3m_authorization->>'report_hash'
