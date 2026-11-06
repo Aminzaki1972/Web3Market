@@ -106,7 +106,12 @@ export function createW3MSafeWalletPackageRequestHandler(
             fresh.reportVersion !== first.reportVersion ||
             fresh.idempotencyKey !== first.idempotencyKey ||
             fresh.agreementBinding?.termsVersionId !== first.agreementBinding?.termsVersionId ||
-            fresh.agreementBinding?.termsHash !== first.agreementBinding?.termsHash) {
+            fresh.agreementBinding?.termsVersion !== first.agreementBinding?.termsVersion ||
+            fresh.agreementBinding?.termsHash?.toLowerCase() !== first.agreementBinding?.termsHash?.toLowerCase() ||
+            fresh.agreementBinding?.buyerAcceptanceId !== first.agreementBinding?.buyerAcceptanceId ||
+            fresh.agreementBinding?.sellerAcceptanceId !== first.agreementBinding?.sellerAcceptanceId ||
+            fresh.agreementBinding?.buyerDigest?.toLowerCase() !== first.agreementBinding?.buyerDigest?.toLowerCase() ||
+            fresh.agreementBinding?.sellerDigest?.toLowerCase() !== first.agreementBinding?.sellerDigest?.toLowerCase()) {
           throw new Error("PRE_ISSUANCE_BINDING_CHANGED");
         }
         const freshFacts = await deps.loadLiveFacts(fresh);
