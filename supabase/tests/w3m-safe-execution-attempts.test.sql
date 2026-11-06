@@ -73,37 +73,30 @@ begin
     '0x2222222222222222222222222222222222222222',7
   );
 
-  insert into public.w3m_acquisition_reports (
-    id,deal_id,project_id,report_version,supersedes_report_id,buyer_id,seller_id,status,engine_version,
-    evidence_hash,report_hash,report_payload,signer_key_id,report_signature,issued_at,expires_at
+  -- The deal terms now bind to a pre-agreement immutable Code Audit manifest.
+  insert into public.code_audits (
+    id,project_id,repo_url,repo_owner,repo_name,audit_type,overall_score,risk_level,
+    analysis_method,commit_sha,status,completed_at,engine_version,analysis_progress,
+    files_scanned,critical_count,high_count,medium_count,low_count,info_count
   ) values (
-    v_report,v_deal::text,v_project::text,1,null,v_buyer::text,v_seller::text,'PASS','test-engine',
-    repeat('c',64),repeat('d',64),jsonb_build_object('dealTermsHash',v_terms_hash,'evidenceCount',2),'attempt-test-key',
-    '0x' || repeat('e',130),now() - interval '1 minute',now() + interval '1 hour'
+    '75000000-0000-4000-8000-000000000001',v_project,
+    'https://github.com/aminzaki1972/Web3Market','aminzaki1972','Web3Market',
+    'code',90,'low','gemini',repeat('1',40),'running',null,'w3m-code-audit-1.0',
+    jsonb_build_object('evidence_version','w3m-audit-evidence-v1','tree_truncated',false,'persisted_file_count',1),
+    1,0,0,0,0,0
   );
-
-  insert into public.w3m_acquisition_evidence (
-    report_id,evidence_type,source_table,source_record_id,source_version,
-    evidence_hash,result,mandatory,observed_at,valid_until,details
-  ) values (
-    v_report,'PROJECT_IDENTITY',null,null,null,repeat('c',64),'PASS',true,now(),now() + interval '1 hour',
-    jsonb_build_object('evidenceId','attempt-test-project-identity','evidenceObservedAt',now(),'evidenceValidUntil',now() + interval '1 hour')
-  ), (
-    v_report,'CODE_AUDIT','code_audits','75000000-0000-4000-8000-000000000001',repeat('1',40),
-    repeat('a',64),'PASS',true,now(),now() + interval '1 hour',
-    jsonb_build_object(
-      'auditStatus','completed',
-      'auditManifestVersion','w3m-audit-manifest-v1',
-      'auditManifestHash',repeat('a',64),
-      'commitSha',repeat('1',40),
-      'auditType','code',
-      'completedAt',now()::text,
-      'repositoryOwner','aminzaki1972',
-      'repositoryName','Web3Market',
-      'auditFileCount','1',
-      'auditFindingCount','0'
-    )
+  insert into public.code_audit_files(id,audit_id,path)
+    values ('75100000-0000-4000-8000-000000000001','75000000-0000-4000-8000-000000000001','README.md');
+  update public.code_audits
+     set status='completed',completed_at='2026-11-01T10:00:00Z'
+   where id='75000000-0000-4000-8000-000000000001';
+  v_snapshot := public.w3m_create_deal_code_audit_snapshot(
+    v_deal,'75000000-0000-4000-8000-000000000001',
+    'w3m-audit-manifest-v1',repeat('a',64),1,0
   );
+  if v_snapshot->>'audit_id' <> '75000000-0000-4000-8000-000000000001' then
+    raise exception 'Safe-attempt fixture failed to create its independent audit snapshot';
+  end if;
 
   -- Pin a real immutable terms version and both party acceptances for the attempt.
   v_terms := public.w3m_current_deal_terms_json(v_deal);
@@ -125,6 +118,39 @@ begin
   if coalesce((v_acceptance->>'accepted')::boolean,false) is not true then
     raise exception 'Attempt fixture seller acceptance failed';
   end if;
+
+  insert into public.w3m_acquisition_reports (
+    id,deal_id,project_id,report_version,supersedes_report_id,buyer_id,seller_id,status,engine_version,
+    evidence_hash,report_hash,report_payload,signer_key_id,report_signature,issued_at,expires_at
+  ) values (
+    v_report,v_deal::text,v_project::text,1,null,v_buyer::text,v_seller::text,'PASS','test-engine',
+    repeat('c',64),repeat('d',64),jsonb_build_object('dealTermsHash',v_terms_hash,'evidenceCount',2,'auditId','75000000-0000-4000-8000-000000000001','expectedCommitSha',repeat('1',40)),'attempt-test-key',
+    '0x' || repeat('e',130),now() - interval '1 minute',now() + interval '1 hour'
+  );
+
+  insert into public.w3m_acquisition_evidence (
+    report_id,evidence_type,source_table,source_record_id,source_version,
+    evidence_hash,result,mandatory,observed_at,valid_until,details
+  ) values (
+    v_report,'PROJECT_IDENTITY',null,null,null,repeat('c',64),'PASS',true,now(),now() + interval '1 hour',
+    jsonb_build_object('evidenceId','attempt-test-project-identity','evidenceObservedAt',now(),'evidenceValidUntil',now() + interval '1 hour')
+  ), (
+    v_report,'CODE_AUDIT','code_audits','75000000-0000-4000-8000-000000000001',repeat('1',40),
+    repeat('a',64),'PASS',true,now(),now() + interval '1 hour',
+    jsonb_build_object(
+      'auditStatus','completed',
+      'auditManifestVersion','w3m-audit-manifest-v1',
+      'auditManifestHash',repeat('a',64),
+      'commitSha',repeat('1',40),
+      'auditType','code',
+      'overallScore',90,'riskLevel','low','analysisMethod','gemini',
+      'completedAt','2026-11-01T10:00:00.000Z',
+      'repositoryOwner','aminzaki1972',
+      'repositoryName','Web3Market',
+      'auditFileCount','1',
+      'auditFindingCount','0'
+    )
+  );
 
   v_result := public.w3m_claim_safe_execution_attempt(
     v_deal,v_tx,v_report,v_safe_hash,v_actor::text,'attempt-idempotency-key-0001'
