@@ -212,3 +212,41 @@ CI run `42136570158` (commit `19cb779300d5bbddecd82b64e1045130dbe90bcd`) complet
 ### Next integration gate — authoritative EXECUTE snapshot
 
 The next implementation must not guess the production schema. The checked-in migration history on this isolated branch contains the W3M-owned registry, signer, execution-attempt, finalizer, Deal Room terms-reader and Safe-finalization snapshot migrations, but it does not contain authoritative CREATE TABLE definitions for the existing `deals`, `deal_release_policies`, `deal_multisig_transactions`, or `deal_multisig_signers` tables. The source-derived field map is therefore not sufficient to safely author a new EXECUTE snapshot RPC or claim adapter. Before that adapter is written, obtain and inspect the authoritative schema/migration definitions and the exact `validate_deal_release_policy` function definition in an approved read-only schema-only export. Until then, the isolated coordinator remains injectable and is not connected to any production `execute-safe-release` handler. No production rows, secrets, migrations, or functions were accessed or changed for this step.
+
+
+## 14. Authoritative production schema metadata review — read-only — 2026-11-06
+
+A schema-only inspection was performed against the existing Web3Market Supabase project using catalog/information-schema metadata. The queries selected column definitions, nullability/defaults, constraints and the definition of `public.validate_deal_release_policy(uuid)`; no deal rows, user records, secrets, or transaction data were queried. No database writes, migrations, deployments, or function changes were made.
+
+### Confirmed structure relevant to W3M EXECUTE
+
+- `deals`: `id/project_id/buyer_id/seller_id` are UUID; `amount/expected_amount/platform_fee/platform_fee_percent/seller_net_amount/platform_fee_amount` are numeric; payment/delivery/dispute statuses and hashes are text; buyer/seller agreement timestamps exist on the deal row; `delivery_data` is JSONB.
+- `deal_release_policies`: one row per deal is enforced by unique `deal_id`; financial fields are PostgreSQL numeric; `safe_nonce` and `chain_id` are bigint; policy status allows pending/locked/ready/blocked/released. The `release_policy_math` check computes fee amount rounded to 18 decimal places.
+- `deal_multisig_transactions`: transaction rows include all Safe EIP-712 fields used by the source functions. `action` allows deposit/release_to_seller/refund_to_buyer; status allows awaiting_signatures/signed/submitted/confirmed/cancelled; required signatures is constrained to 2. There is no unique constraint on `(deal_id, action)` or `safe_tx_hash` in the inspected constraints.
+- `deal_multisig_signers`: unique `(deal_id, signer_role)`; roles are buyer/seller/platform; signature status is pending/signed/rejected. Signer rows hold wallet, Safe hash and signature.
+- `deal_party_agreements`: unique `(deal_id, party_role)`; roles buyer/seller; stores `party_id` and `agreed_at`, but the inspected table has no terms hash, terms version, or signed document digest.
+- `deal_disputes`: at most one row per deal; statuses open/under_review/resolved/cancelled. The deal-level `dispute_status` check instead allows none/open/under_review/resolved_buyer/resolved_seller/closed. The status vocabularies are not identical.
+
+### Exact existing policy validator behavior
+
+The live function `public.validate_deal_release_policy(p_deal_id uuid)`:
+- accepts deal-level dispute status only in `none` or `resolved`;
+- requires `payment_status='confirmed'` and a non-null `payment_tx_hash`;
+- requires `delivery_status='accepted'` and non-null `buyer_approved_at`;
+- requires chain 56 and non-null Safe/token addresses;
+- computes the 7.5% fee rounded to 8 decimal places;
+- if a policy exists in locked/ready/released state, checks its amount, fee, seller net, Safe, token, chain and nonce.
+
+**Compatibility issue:** the deal table's checked dispute values include `resolved_buyer`, `resolved_seller`, and `closed`, while the validator accepts `resolved` (which is not in the inspected deal-level check constraint). The W3M adapter currently accepts only exact `none`, which is intentionally more restrictive. This discrepancy must be resolved explicitly in a future protocol policy; do not silently map one vocabulary to another.
+
+**Critical agreement gap:** the existing party-agreement table cannot prove that buyer and seller accepted the exact same immutable terms version/hash. A timestamp alone is not sufficient evidence for the W3M `DEAL_AGREEMENT` evidence type. Until a versioned agreement record or equivalent independently verifiable signed digest exists, the acquisition report must keep agreement evidence INCOMPLETE/BLOCKED and must not return settlement PASS.
+
+**Fee precision gap:** the production policy constraint uses 18-decimal arithmetic while the existing validator uses 8-decimal rounding. The isolated W3M deal-terms adapter already fails closed when these results differ; this avoids silently accepting a policy that does not match both calculations. This is not a production fee calculation fix.
+
+**Concurrency gap:** because the inspected Safe transaction table has no unique `(deal_id, action)` or `safe_tx_hash` constraint, an EXECUTE snapshot must reject zero or multiple candidate release rows and bind one exact transaction ID/hash. It must not use `maybeSingle` semantics or assume a unique row without a database-enforced invariant. The W3M execution-attempt table's own per-deal active-attempt uniqueness remains a separate guard and does not repair ambiguity in the legacy transaction table.
+
+### Implementation consequence
+
+The next isolated change should extend the exact Deal Room snapshot reader to expose agreement rows and complete dispute state as read-only evidence, but it must represent missing immutable agreement binding as an explicit blocker. Do not invent a terms hash from current row values and call it proof of prior consent. No schema change is authorized or implied by this metadata review. Any future agreement-schema enhancement must be proposed separately and remain isolated until explicit approval.
+
+This review only inspected schema metadata and the validator definition. It did not query production deal/user rows, and it did not change production schema, data, functions, environment variables, or Safe state.
