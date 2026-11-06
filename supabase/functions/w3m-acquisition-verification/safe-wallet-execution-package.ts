@@ -42,6 +42,10 @@ export interface SafeWalletExecutionPackage {
   reportVersion: number;
   agreementTermsVersionId: string;
   agreementTermsHash: string;
+  buyerAcceptanceId: string;
+  sellerAcceptanceId: string;
+  buyerAcceptanceDigest: string;
+  sellerAcceptanceDigest: string;
   safeAddress: string;
   executorWallet: string;
   safeOwners: string[];
@@ -187,6 +191,10 @@ export async function buildSafeWalletExecutionPackage(
     reportVersion: snapshot.reportVersion,
     agreementTermsVersionId: agreement.termsVersionId,
     agreementTermsHash: agreement.termsHash,
+    buyerAcceptanceId: agreement.buyerAcceptanceId,
+    sellerAcceptanceId: agreement.sellerAcceptanceId,
+    buyerAcceptanceDigest: agreement.buyerDigest,
+    sellerAcceptanceDigest: agreement.sellerDigest,
     safeAddress,
     executorWallet: executorWallet.toLowerCase(),
     safeOwners: facts.owners.map((owner) => owner.toLowerCase()).sort(),
