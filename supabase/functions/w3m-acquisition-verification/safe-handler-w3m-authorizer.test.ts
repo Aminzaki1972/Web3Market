@@ -76,3 +76,44 @@ Deno.test("missing deal context denies without calling the protected action", as
   assertEquals(result.allowed, false);
   assertEquals(actionCount, 0);
 });
+
+
+Deno.test("SIGN refuses a Safe hash that differs from the fresh database transaction row", async () => {
+  const databaseHash = "0x" + "a".repeat(64);
+  const requestedHash = "0x" + "b".repeat(64);
+  const authorization = await authorizeSafeHandlerPhase(
+    "SIGN",
+    async () => ({
+      client: {} as never,
+      dealId: "deal-1",
+      now: "2026-11-06T00:00:00.000Z",
+      safeFacts: {} as never,
+      safeTransactionHash: databaseHash,
+    }),
+    verifier,
+    requestedHash,
+  );
+  assertEquals(authorization.authorized, false);
+  assertEquals(authorization.issues, ["W3M_SAFE_TRANSACTION_HASH_BINDING_MISMATCH"]);
+  assertEquals(authorization.safeTransactionHash, databaseHash);
+});
+
+Deno.test("EXECUTE refuses a Safe hash that differs from the fresh database transaction row", async () => {
+  const databaseHash = "0x" + "c".repeat(64);
+  const requestedHash = "0x" + "d".repeat(64);
+  const authorization = await authorizeSafeHandlerPhase(
+    "EXECUTE",
+    async () => ({
+      client: {} as never,
+      dealId: "deal-1",
+      now: "2026-11-06T00:00:00.000Z",
+      safeFacts: {} as never,
+      safeTransactionHash: databaseHash,
+    }),
+    verifier,
+    requestedHash,
+  );
+  assertEquals(authorization.authorized, false);
+  assertEquals(authorization.issues, ["W3M_SAFE_TRANSACTION_HASH_BINDING_MISMATCH"]);
+  assertEquals(authorization.safeTransactionHash, databaseHash);
+});
