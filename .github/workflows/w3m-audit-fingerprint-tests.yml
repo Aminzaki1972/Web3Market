@@ -5,6 +5,8 @@ on:
     paths:
       - "supabase/functions/w3m-acquisition-verification/audit-fingerprint.ts"
       - "supabase/functions/w3m-acquisition-verification/audit-fingerprint.test.ts"
+      - "supabase/functions/w3m-acquisition-verification/audit-manifest.ts"
+      - "supabase/functions/w3m-acquisition-verification/audit-manifest.test.ts"
       - ".github/workflows/w3m-audit-fingerprint-tests.yml"
   push:
     branches:
@@ -28,6 +30,6 @@ jobs:
         with:
           deno-version: v2.x
       - name: Run isolated fingerprint tests
-        run: deno test supabase/functions/w3m-acquisition-verification/audit-fingerprint.test.ts
-      - name: Type-check fingerprint module
-        run: deno check supabase/functions/w3m-acquisition-verification/audit-fingerprint.ts
+        run: deno test supabase/functions/w3m-acquisition-verification/audit-fingerprint.test.ts supabase/functions/w3m-acquisition-verification/audit-manifest.test.ts
+      - name: Type-check fingerprint and manifest modules
+        run: deno check supabase/functions/w3m-acquisition-verification/audit-fingerprint.ts supabase/functions/w3m-acquisition-verification/audit-manifest.ts
