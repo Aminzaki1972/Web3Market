@@ -202,3 +202,12 @@ Deno.test("blocks failed signature recovery and changed Safe transaction hash", 
   try { await buildSafeWalletExecutionPackage(changedHash); } catch { hashBlocked = true; }
   assert(hashBlocked, "changed Safe hash must block package");
 });
+
+
+Deno.test("blocks a package when the authenticated participant wallet is not a current Safe owner", async () => {
+  const value = input();
+  value.snapshot.executorWallet = SELLER;
+  let blocked = false;
+  try { await buildSafeWalletExecutionPackage(value); } catch { blocked = true; }
+  assert(blocked, "non-owner authenticated wallet must not receive a package");
+});
