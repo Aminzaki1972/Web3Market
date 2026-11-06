@@ -70,6 +70,20 @@ begin
      or coalesce((v_audit_snapshot->>'idempotent_replay')::boolean,true) then
     raise exception 'Independent first-deal Code Audit snapshot was not created';
   end if;
+  v_audit_snapshot := public.w3m_create_deal_code_audit_snapshot(
+    v_deal,'87000000-0000-4000-8000-000000000007',
+    'w3m-audit-manifest-v1',repeat('c',64),1,0
+  );
+  if coalesce((v_audit_snapshot->>'idempotent_replay')::boolean,false) is not true then
+    raise exception 'Exact duplicate snapshot request was not idempotent';
+  end if;
+  begin
+    update public.w3m_deal_code_audit_snapshots
+       set manifest_hash=repeat('d',64)
+     where id=(v_audit_snapshot->>'id')::uuid;
+    raise exception 'Immutable Deal Code Audit snapshot accepted an update';
+  exception when sqlstate '55000' then null;
+  end;
   if (select count(*) from public.w3m_acquisition_reports where deal_id=v_deal::text) <> 0 then
     raise exception 'First-deal test must begin without an acquisition report';
   end if;
