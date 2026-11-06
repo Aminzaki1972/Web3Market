@@ -109,8 +109,22 @@ begin
 
   if position('V_DEAL.DISPUTE_STATUS IS DISTINCT FROM ''NONE''' in upper(v_finalizer)) = 0
      or position('V_DEAL.DISPUTE_STATUS IS DISTINCT FROM ''NONE''' in upper(v_finalizer)) >
-        position('UPDATE PUBLIC.DEAL_MULTISIG_TRANSACTIONS' in upper(v_finalizer)) then
+        position('UPDATE PUBLIC.DEAL_MULTISIG_TRANSACTIONS' in upper(v_finalizer))
+     or position('PUBLIC.DEAL_DISPUTES' in upper(v_finalizer)) = 0
+     or position('W3M_LOCK_DEAL_DISPUTE_MUTATION' in upper(v_finalizer)) > 0 then
     raise exception 'W3M finalizer must reject active or unresolved disputes before settlement';
+  end if;
+
+  if to_regprocedure('public.w3m_lock_deal_dispute_mutation()') is null
+     or not exists (
+       select 1 from pg_trigger t
+       join pg_class c on c.oid=t.tgrelid
+       join pg_namespace n on n.oid=c.relnamespace
+       where n.nspname='public' and c.relname='deal_disputes'
+         and t.tgname='w3m_deal_disputes_lock_parent_deal'
+         and not t.tgisinternal
+     ) then
+    raise exception 'Dispute writes must serialize against the parent deal settlement lock';
   end if;
 end;
 $test$;
