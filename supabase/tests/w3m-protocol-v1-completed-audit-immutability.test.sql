@@ -23,7 +23,8 @@ INSERT INTO public.code_audits(id,status) VALUES
 INSERT INTO public.code_audit_files(id,audit_id,path) VALUES
  ('76000000-0000-4000-8000-000000000001','75000000-0000-4000-8000-000000000001','src/a.ts');
 INSERT INTO public.code_audit_findings(id,audit_id,title) VALUES
- ('77000000-0000-4000-8000-000000000001','75000000-0000-4000-8000-000000000001','finding');
+ ('77000000-0000-4000-8000-000000000001','75000000-0000-4000-8000-000000000001','finding'),
+ ('77000000-0000-4000-8000-000000000002','75000000-0000-4000-8000-000000000002','open finding');
 
 -- The final transition to completed is allowed; subsequent source mutation is not.
 UPDATE public.code_audits SET status='completed'
@@ -79,8 +80,11 @@ BEGIN
   VALUES ('76000000-0000-4000-8000-000000000003',
     '75000000-0000-4000-8000-000000000002','src/open.ts');
   UPDATE public.code_audit_findings SET title='updated'
-   WHERE id='77000000-0000-4000-8000-000000000001';
-  -- The previous UPDATE is expected to be blocked, so this line is not reached.
+   WHERE id='77000000-0000-4000-8000-000000000002';
+  IF NOT EXISTS (SELECT 1 FROM public.code_audit_findings
+    WHERE id='77000000-0000-4000-8000-000000000002' AND title='updated') THEN
+    RAISE EXCEPTION 'In-progress audit findings must remain writable';
+  END IF;
 END $$;
 
 ROLLBACK;
