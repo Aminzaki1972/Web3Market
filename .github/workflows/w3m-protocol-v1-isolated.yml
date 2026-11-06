@@ -43,6 +43,7 @@ on:
       - w3m-protocol-v1-isolated-20261105
     paths:
       - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/functions/w3m-protocol-v1-finalize-safe-release/**"
       - "supabase/functions/w3m-protocol-v1-deal-agreement/**"
       - "supabase/functions/w3m-protocol-v1-prepare-deal-release/**"
       - "supabase/functions/w3m-protocol-v1-safe-sign/**"
