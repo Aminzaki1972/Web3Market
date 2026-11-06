@@ -36,6 +36,7 @@ export interface SafeFinalizationExpectation {
   minConfirmations: number;
   packageIssuedAt: string;
   packageExpiresAt: string;
+  acquisitionAttestation?: Record<string, unknown>;
 }
 export type FreshReceiptVerifier = () => Promise<VerifiedSafeReceiptEvidence>;
 
@@ -122,10 +123,17 @@ export async function finalizeOnlyAfterVerifiedSafeReceipt(
   if (!validation.valid) {
     throw new Error("W3M receipt verification failed: " + validation.issues.join(","));
   }
+  if (!expected.acquisitionAttestation || expected.acquisitionAttestation.authorized !== true ||
+      expected.acquisitionAttestation.signature_valid !== true) {
+    throw new Error("W3M persisted acquisition report has not been cryptographically revalidated.");
+  }
   return await finalizeSafeExecutionAttempt(client, {
     attemptId: expected.attemptId,
     broadcastTxHash: expected.broadcastTxHash,
     actorId: expected.actorId,
-    receiptEvidence: evidence as unknown as Record<string, unknown>,
+    receiptEvidence: {
+      ...(evidence as unknown as Record<string, unknown>),
+      acquisition_attestation: expected.acquisitionAttestation,
+    },
   });
 }
