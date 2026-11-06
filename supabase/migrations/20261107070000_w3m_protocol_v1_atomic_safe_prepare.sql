@@ -195,10 +195,10 @@ begin
 
   if n_policy=0 then
     insert into public.deal_release_policies(
-      deal_id,deal_amount,fee_percent,fee_amount,seller_net_amount,seller_wallet,
+      id,deal_id,deal_amount,fee_percent,fee_amount,seller_net_amount,seller_wallet,
       platform_wallet,safe_address,token_contract,token_symbol,chain_id,safe_nonce,
       status,locked_at,updated_at
-    ) values(p_deal_id,amount_value,fee_percent_value,fee_value,seller_net_value,
+    ) values(gen_random_uuid(),p_deal_id,amount_value,fee_percent_value,fee_value,seller_net_value,
       seller_wallet,lower(platform_wallet),safe_addr,token_addr,'USDT',56,nonce_value,
       'locked',now_value,now_value) returning * into pol;
   else
@@ -212,8 +212,8 @@ begin
 
   if n_tx=0 then
     insert into public.deal_multisig_transactions(
-      deal_id,action,amount,token_symbol,chain_id,safe_address,required_signatures,status,safe_nonce
-    ) values(p_deal_id,'release_to_seller',seller_net_value,'USDT',56,safe_addr,2,
+      id,deal_id,action,amount,token_symbol,chain_id,safe_address,required_signatures,status,safe_nonce
+    ) values(gen_random_uuid(),p_deal_id,'release_to_seller',seller_net_value,'USDT',56,safe_addr,2,
       'awaiting_signatures',nonce_value) returning * into tx;
   else
     update public.deal_multisig_transactions set amount=seller_net_value,token_symbol='USDT',
