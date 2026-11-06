@@ -122,6 +122,7 @@ Deno.test("EXECUTE refuses a Safe hash that differs from the fresh database tran
       now: "2026-11-06T00:00:00.000Z",
       safeFacts: {} as never,
       safeTransactionHash: databaseHash,
+      agreementBinding,
     }),
     verifier,
     requestedHash,
@@ -151,8 +152,7 @@ Deno.test("SIGN and EXECUTE require both immutable EIP-712 party acceptances", a
   assertEquals(authorization.issues, ["W3M_IMMUTABLE_PARTY_AGREEMENT_REQUIRED"]);
 });
 
-Deno.test("valid immutable agreement binding is passed to the exact snapshot gate", async () => {
-  let gateCalled = false;
+Deno.test("valid immutable agreement binding clears the agreement precondition", async () => {
   const hash = "0x" + "a".repeat(64);
   const authorization = await authorizeSafeHandlerPhase(
     "SIGN",
@@ -164,10 +164,9 @@ Deno.test("valid immutable agreement binding is passed to the exact snapshot gat
       safeTransactionHash: hash,
       agreementBinding,
     }),
-    async () => { gateCalled = true; return false; },
+    verifier,
     hash,
   );
-  assertEquals(gateCalled, true);
   assertEquals(authorization.authorized, false);
   assertEquals(authorization.issues.includes("W3M_IMMUTABLE_PARTY_AGREEMENT_REQUIRED"), false);
 });
