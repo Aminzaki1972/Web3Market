@@ -73,8 +73,8 @@ begin
   if v_attempt.package_hash is not null then
     if v_attempt.package_actor_id = p_actor_id
        and v_attempt.package_expires_at > v_now
-       and (v_attempt.package_payload - 'issuedAt' - 'expiresAt')
-           = (p_package - 'issuedAt' - 'expiresAt') then
+       and (v_attempt.package_payload - 'issuedAt' - 'expiresAt' - 'readBlockNumber' - 'readBlockHash')
+           = (p_package - 'issuedAt' - 'expiresAt' - 'readBlockNumber' - 'readBlockHash') then
       return jsonb_build_object(
         'issued', true,
         'idempotent_replay', true,
