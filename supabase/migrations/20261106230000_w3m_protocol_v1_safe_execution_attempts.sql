@@ -100,6 +100,10 @@ begin
        and v_existing.transaction_id = p_transaction_id
        and v_existing.report_id = p_report_id
        and lower(v_existing.safe_tx_hash) = lower(p_safe_tx_hash) then
+      if v_existing.executor_ref is distinct from p_executor_ref then
+        raise exception 'Execution attempt idempotency key belongs to another actor'
+          using errcode = '42501';
+      end if;
       return jsonb_build_object(
         'claimed', v_existing.state in ('CLAIMED','BROADCAST','RECONCILIATION_REQUIRED'),
         'idempotent_replay', true,
@@ -113,6 +117,11 @@ begin
 
   select * into v_deal from public.deals where id = p_deal_id for update;
   if not found then raise exception 'Deal not found' using errcode = 'P0002'; end if;
+
+  if p_executor_ref not in (v_deal.buyer_id::text, v_deal.seller_id::text) then
+    raise exception 'Safe execution claim actor is not a deal participant'
+      using errcode = '42501';
+  end if;
 
   select * into v_tx
     from public.deal_multisig_transactions
