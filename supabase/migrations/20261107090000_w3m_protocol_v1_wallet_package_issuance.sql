@@ -161,6 +161,15 @@ begin
 
   -- Exact retries are idempotent even after expiry; they cannot replace the
   -- already-recorded outer transaction hash.
+  -- A fresh submission from CLAIMED must happen before package expiry.
+  -- RECONCILIATION_REQUIRED may still record a possibly earlier broadcast;
+  -- the finalizer independently checks the canonical receipt block timestamp.
+  if v_attempt.state = 'CLAIMED'
+     and v_attempt.package_expires_at <= clock_timestamp() then
+    raise exception 'Connected-wallet package has expired'
+      using errcode = '23514';
+  end if;
+
   if v_attempt.state = 'BROADCAST'
      and lower(coalesce(v_attempt.broadcast_tx_hash,'')) = lower(p_broadcast_tx_hash) then
     return jsonb_build_object(
