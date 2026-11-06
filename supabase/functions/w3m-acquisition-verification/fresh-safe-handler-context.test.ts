@@ -89,7 +89,7 @@ Deno.test("phase authorizer blocks when fresh database context is unavailable", 
     async () => true,
   );
   if (result.authorized !== false ||
-      !result.issues.includes("W3M_FRESH_AUTHORIZATION_READ_FAILED")) {
+      !result.issues.includes("W3M_PREPARE_REQUIRES_PREPARE_SNAPSHOT_PATH")) {
     throw new Error("Missing fresh database context must block PREPARE.");
   }
   if (h.reads.includes("safe-facts")) throw new Error("Safe facts must not be read without a database snapshot.");
