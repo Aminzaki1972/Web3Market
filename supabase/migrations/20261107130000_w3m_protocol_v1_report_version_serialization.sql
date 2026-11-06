@@ -8,11 +8,38 @@ language plpgsql
 security definer
 set search_path = pg_catalog, public
 as $lock$
+declare
+  v_latest_report_id uuid;
+  v_latest_report_version integer;
 begin
   if new.deal_id is null or length(btrim(new.deal_id)) = 0 then
     raise exception 'W3M report deal binding is required' using errcode = '23514';
   end if;
+
+  -- Serialize every report append for this deal before reading its latest version.
   perform pg_advisory_xact_lock(hashtextextended(new.deal_id, 0));
+
+  select id, report_version
+    into v_latest_report_id, v_latest_report_version
+    from public.w3m_acquisition_reports
+   where deal_id = new.deal_id
+   order by report_version desc, issued_at desc
+   limit 1;
+
+  if not found then
+    if new.report_version is distinct from 1
+       or new.supersedes_report_id is not null then
+      raise exception 'First W3M report must be version 1 and cannot supersede another report'
+        using errcode = '23514';
+    end if;
+  else
+    if new.report_version is distinct from v_latest_report_version + 1
+       or new.supersedes_report_id is distinct from v_latest_report_id then
+      raise exception 'W3M report version must increment by one and supersede the latest report for this deal'
+        using errcode = '23514';
+    end if;
+  end if;
+
   return new;
 end;
 $lock$;
