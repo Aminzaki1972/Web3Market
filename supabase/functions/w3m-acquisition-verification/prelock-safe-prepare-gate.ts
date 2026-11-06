@@ -29,6 +29,7 @@ export interface PrelockSafePrepareResult {
   readBlockHash?: string;
 }
 const PLATFORM_WALLET = "0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
+const BNB_USDT = "0x55d398326f99059ff775485246999027b3197955";
 const ADDRESS = /^0x[0-9a-f]{40}$/i;
 const HASH = /^0x[0-9a-f]{64}$/i;
 const DECIMAL = /^(0|[1-9][0-9]*)(\.[0-9]+)?$/;
@@ -98,6 +99,7 @@ export async function authorizePrelockSafePrepare(
         !ADDRESS.test(buyerWallet) || !ADDRESS.test(sellerWallet) ||
         buyerWallet.toLowerCase() === sellerWallet.toLowerCase() ||
         !ADDRESS.test(safeAddress) || !ADDRESS.test(tokenContract) ||
+        tokenContract.toLowerCase() !== BNB_USDT ||
         !DECIMAL.test(policyDealAmount) || !DECIMAL.test(feePercent) ||
         !DECIMAL.test(feeAmount) || !DECIMAL.test(sellerNetAmount)) {
       return { authorized: false, issues: ["W3M_PRELOCK_PARTY_OR_TERMS_INVALID"], phase: "PREPARE", dealId };
