@@ -214,14 +214,9 @@ begin
       using errcode = '42501';
   end if;
 
-  -- A fresh submission from CLAIMED must happen before package expiry.
-  -- RECONCILIATION_REQUIRED may still record a possibly earlier broadcast;
-  -- the finalizer independently checks the canonical receipt block timestamp.
-  if v_attempt.state = 'CLAIMED'
-     and v_attempt.package_expires_at <= clock_timestamp() then
-    raise exception 'Connected-wallet package has expired'
-      using errcode = '23514';
-  end if;
+  -- The hash is an untrusted report, not settlement proof. It may arrive
+  -- after expiry if the wallet broadcast happened earlier; FINALIZE alone
+  -- checks the canonical receipt block timestamp against the package window.
 
   if v_attempt.state = 'RECONCILIATION_REQUIRED'
      and v_attempt.broadcast_tx_hash is null then
