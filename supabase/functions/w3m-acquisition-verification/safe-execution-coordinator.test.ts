@@ -109,6 +109,15 @@ function snapshot(overrides: Partial<SafeExecutionFreshSnapshot> = {}): SafeExec
     reportVersion: 1,
     executorRef: "w3m-executor-v1",
     idempotencyKey: "w3m-deal-001-execute-v1",
+    agreementBinding: {
+      termsVersionId: "81000000-0000-4000-8000-000000000001",
+      termsVersion: "3",
+      termsHash: "f".repeat(64),
+      buyerAcceptanceId: "82000000-0000-4000-8000-000000000002",
+      sellerAcceptanceId: "83000000-0000-4000-8000-000000000003",
+      buyerDigest: "0x" + "4".repeat(64),
+      sellerDigest: "0x" + "5".repeat(64),
+    },
     guardInput,
     ...overrides,
   };
@@ -301,4 +310,34 @@ Deno.test("malformed pre-broadcast snapshot enters reconciliation without broadc
   assert(result.state === "RECONCILIATION_REQUIRED", JSON.stringify(result));
   assert(!h.calls.includes("broadcast"), h.calls.join(","));
   assert(h.calls.includes("reconcile"), h.calls.join(","));
+});
+
+
+Deno.test("changed EIP-712 agreement version or either party acceptance after claim blocks broadcast", async () => {
+  let loads = 0;
+  const h = deps({
+    loadFresh: async () => {
+      loads++;
+      const value = snapshot();
+      if (loads === 2) {
+        value.agreementBinding.sellerAcceptanceId = "84000000-0000-4000-8000-000000000004";
+      }
+      return value;
+    },
+  });
+  const result = await executeW3MSafeRelease(h.dependencies);
+  assert(result.state === "RECONCILIATION_REQUIRED", JSON.stringify(result));
+  assert(!h.calls.includes("broadcast"), h.calls.join(","));
+  assert(h.calls.includes("reconcile"), h.calls.join(","));
+});
+
+Deno.test("missing or malformed immutable agreement binding blocks before execution claim", async () => {
+  const h = deps({
+    loadFresh: async () => snapshot({
+      agreementBinding: undefined as unknown as SafeExecutionFreshSnapshot["agreementBinding"],
+    }),
+  });
+  const result = await executeW3MSafeRelease(h.dependencies);
+  assert(result.state === "BLOCKED", JSON.stringify(result));
+  assert(!h.calls.includes("claim") && !h.calls.includes("broadcast"), h.calls.join(","));
 });
