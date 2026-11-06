@@ -4,6 +4,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import type { W3MRpcClient } from "../w3m-acquisition-verification/supabase-rpc-adapter.ts";
+import { extractW3MBearerToken } from "../w3m-acquisition-verification/bearer-token.ts";
 import {
   createW3MSafeWalletSubmissionRequestHandler,
 } from "../w3m-acquisition-verification/safe-wallet-submission-request-handler.ts";
