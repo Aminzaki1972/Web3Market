@@ -156,7 +156,7 @@ begin
 
   begin
     perform public.w3m_claim_safe_execution_attempt(
-      v_deal,v_tx,v_report,v_safe_hash,'isolated-test-executor','attempt-idempotency-key-0002'
+      v_deal,v_tx,v_report,v_safe_hash,v_seller::text,'attempt-idempotency-key-0002'
     );
     raise exception 'A second active attempt for the deal was unexpectedly accepted';
   exception when unique_violation then null;
