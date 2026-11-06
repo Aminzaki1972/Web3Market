@@ -19,7 +19,9 @@ on:
       - "supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql"
       - "supabase/migrations/20261107120000_w3m_protocol_v1_immutable_agreements.sql"
       - "supabase/migrations/20261107130000_w3m_protocol_v1_report_version_serialization.sql"
+      - "supabase/migrations/20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql"
       - "supabase/tests/w3m-protocol-v1-report-version-serialization.test.sql"
+      - "supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql"
       - "supabase/tests/w3m-protocol-v1-immutable-agreements.test.sql"
       - "supabase/tests/w3m-protocol-v1-append-only-registry.test.sql"
       - "supabase/migrations/20261106230000_w3m_protocol_v1_safe_execution_attempts.sql"
@@ -66,7 +68,9 @@ on:
       - "supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql"
       - "supabase/migrations/20261107120000_w3m_protocol_v1_immutable_agreements.sql"
       - "supabase/migrations/20261107130000_w3m_protocol_v1_report_version_serialization.sql"
+      - "supabase/migrations/20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql"
       - "supabase/tests/w3m-protocol-v1-report-version-serialization.test.sql"
+      - "supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql"
       - "supabase/tests/w3m-protocol-v1-immutable-agreements.test.sql"
       - "supabase/tests/w3m-protocol-v1-append-only-registry.test.sql"
       - "supabase/migrations/20261106230000_w3m_protocol_v1_safe_execution_attempts.sql"
@@ -369,6 +373,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107120000_w3m_protocol_v1_immutable_agreements.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_w3m_protocol_v1_report_version_serialization.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107070000_w3m_protocol_v1_atomic_safe_prepare.sql
@@ -385,3 +390,4 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-deal-agreement-acceptances.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-immutable-agreements.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-report-version-serialization.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql
