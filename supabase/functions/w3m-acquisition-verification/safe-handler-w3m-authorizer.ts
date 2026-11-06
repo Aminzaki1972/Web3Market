@@ -39,6 +39,16 @@ export async function authorizeSafeHandlerPhase(
     };
   }
 
+  if (phase === "PREPARE") {
+    return {
+      authorized: false,
+      issues: ["W3M_PREPARE_REQUIRES_PREPARE_SNAPSHOT_PATH"],
+      phase,
+      dealId: "",
+      safeTransactionHash: safeTransactionHash ?? null,
+    };
+  }
+
   try {
     const fresh = await loadFreshContext();
     if (!fresh || typeof fresh.dealId !== "string" || !fresh.dealId.trim()) {
