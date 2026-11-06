@@ -18,6 +18,7 @@ declare
   v_accept jsonb;
   v_version_id uuid;
   v_snapshot jsonb;
+  v_context jsonb;
 begin
   insert into public.projects(id,owner_id,status,github_url)
     values (v_project,v_seller,'active','https://github.com/Aminzaki1972/Web3Market');
@@ -69,6 +70,12 @@ begin
   if v_audit_snapshot->>'audit_id' <> '87000000-0000-4000-8000-000000000007'
      or coalesce((v_audit_snapshot->>'idempotent_replay')::boolean,true) then
     raise exception 'Independent first-deal Code Audit snapshot was not created';
+  end if;
+  v_context := public.w3m_read_deal_audit_snapshot_context(v_deal);
+  if v_context->>'deal_id' <> v_deal::text
+     or v_context->>'project_id' <> v_project::text
+     or v_context->>'audit_id' <> '87000000-0000-4000-8000-000000000007' then
+    raise exception 'Pre-agreement audit context did not select the exact project audit';
   end if;
   v_audit_snapshot := public.w3m_create_deal_code_audit_snapshot(
     v_deal,'87000000-0000-4000-8000-000000000007',
