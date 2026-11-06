@@ -1,6 +1,8 @@
 // Authenticated HTTP boundary for buyer/seller EIP-712 agreement acceptance.
 // Party identity and role come only from the verified session plus the current
 // server-side deal snapshot; browser-supplied wallet/party/terms fields are ignored.
+import { extractW3MBearerToken } from "./bearer-token.ts";
+
 export interface W3MDealAgreementRequestDependencies {
   authenticate(token: string): Promise<string | null>;
   prepare(input: { dealId: string; actorId: string }): Promise<unknown>;
@@ -23,7 +25,7 @@ export async function handleW3MDealAgreementRequest(
   const match = /^Bearer\s+(.+)$/i.exec(authorization);
   if (!match?.[1]?.trim()) return json(401, { ok: false, error: "AUTHENTICATION_REQUIRED" });
   let actorId: string | null;
-  try { actorId = await dependencies.authenticate(match[1].trim()); }
+  try { actorId = await dependencies.authenticate(token); }
   catch { return json(401, { ok: false, error: "AUTHENTICATION_FAILED" }); }
   if (typeof actorId !== "string" || !actorId.trim()) {
     return json(401, { ok: false, error: "AUTHENTICATION_FAILED" });
