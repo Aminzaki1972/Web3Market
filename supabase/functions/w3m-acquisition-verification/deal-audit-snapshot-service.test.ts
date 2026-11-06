@@ -8,7 +8,7 @@ const dealId = "71000000-0000-4000-8000-000000000001";
 const projectId = "72000000-0000-4000-8000-000000000002";
 const auditId = "73000000-0000-4000-8000-000000000003";
 const audit = {
-  id: auditId, project_id: projectId, status: "completed",
+  id: auditId, project_id: projectId, status: "completed", audit_type:"code",
   repo_owner: "owner", repo_name: "repo", repo_url: "https://github.com/owner/repo",
   commit_sha: "a".repeat(40), completed_at: "2026-11-07T10:00:00.000Z",
   engine_version: "w3m-code-audit-1.0", files_scanned: 1,
