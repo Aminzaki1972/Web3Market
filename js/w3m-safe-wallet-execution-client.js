@@ -150,3 +150,110 @@ export async function submitSafeWalletExecutionPackage({
     state: "SUBMITTED_UNVERIFIED",
   };
 }
+
+
+/**
+ * Complete browser handoff: request a one-use package, ask the connected owner
+ * wallet to submit Safe.execTransaction, then persist the returned outer hash.
+ * Must be called from an explicit user gesture. A returned hash is never proof
+ * of execution; server receipt verification and FINALIZE remain separate.
+ *
+ * @param {{provider:object, dealId:string, accessToken:string, supabaseUrl:string,
+ *   fetchImpl?:typeof fetch, now?:()=>number}} options
+ */
+export async function executeW3MDealReleaseFromWallet({
+  provider,
+  dealId,
+  accessToken,
+  supabaseUrl,
+  fetchImpl = fetch,
+  now = () => Date.now(),
+}) {
+  assert(typeof dealId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(dealId),
+    "A valid deal ID is required.");
+  assert(typeof accessToken === "string" && accessToken.trim().length > 0,
+    "An authenticated Supabase access token is required.");
+  let base;
+  try {
+    base = new URL(supabaseUrl);
+  } catch {
+    throw new Error("Supabase URL is invalid.");
+  }
+  assert(base.protocol === "https:" && !base.username && !base.password && !base.search && !base.hash,
+    "Supabase endpoint must be a clean HTTPS URL.");
+  const headers = {
+    "Authorization": "Bearer " + accessToken,
+    "Content-Type": "application/json",
+  };
+  const packageResponse = await fetchImpl(
+    new URL("/functions/v1/w3m-protocol-v1-safe-wallet-package", base.origin),
+    { method: "POST", headers, body: JSON.stringify({ deal_id: dealId }) },
+  );
+  let packageBody;
+  try { packageBody = await packageResponse.json(); } catch {
+    throw new Error("W3M package endpoint returned invalid JSON.");
+  }
+  assert(packageResponse.ok && packageBody?.ok === true &&
+    packageBody.state === "PACKAGE_ISSUED" &&
+    typeof packageBody.attempt_id === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(packageBody.attempt_id) &&
+    typeof packageBody.package_hash === "string" &&
+    /^[0-9a-f]{64}$/i.test(packageBody.package_hash) &&
+    packageBody.package?.dealId === dealId,
+  packageBody?.error || "W3M did not issue a valid execution package.");
+
+  const submitted = await submitSafeWalletExecutionPackage({
+    provider,
+    package: packageBody.package,
+    expectedPackageHash: packageBody.package_hash,
+    now,
+  });
+
+  let persistenceResponse;
+  let persistenceBody;
+  try {
+    persistenceResponse = await fetchImpl(
+      new URL("/functions/v1/w3m-protocol-v1-safe-wallet-submit", base.origin),
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          attempt_id: packageBody.attempt_id,
+          package_hash: packageBody.package_hash,
+          transaction_hash: submitted.transactionHash,
+        }),
+      },
+    );
+    persistenceBody = await persistenceResponse.json();
+  } catch {
+    return {
+      state: "SUBMITTED_UNRECORDED",
+      attemptId: packageBody.attempt_id,
+      packageHash: packageBody.package_hash,
+      transactionHash: submitted.transactionHash,
+      receiptVerified: false,
+      finalized: false,
+    };
+  }
+
+  if (!persistenceResponse.ok || persistenceBody?.ok !== true ||
+      !["BROADCAST_UNVERIFIED", "RECONCILIATION_REQUIRED"].includes(persistenceBody.state) ||
+      persistenceBody.transaction_hash?.toLowerCase() !== submitted.transactionHash.toLowerCase()) {
+    return {
+      state: "SUBMITTED_UNRECORDED",
+      attemptId: packageBody.attempt_id,
+      packageHash: packageBody.package_hash,
+      transactionHash: submitted.transactionHash,
+      receiptVerified: false,
+      finalized: false,
+    };
+  }
+  return {
+    state: persistenceBody.state,
+    attemptId: packageBody.attempt_id,
+    packageHash: packageBody.package_hash,
+    transactionHash: submitted.transactionHash,
+    receiptVerified: false,
+    finalized: false,
+  };
+}
