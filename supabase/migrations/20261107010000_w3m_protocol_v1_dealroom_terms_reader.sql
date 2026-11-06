@@ -50,7 +50,7 @@ as $$
     d.buyer_id::text,
     d.seller_id::text,
     project.owner_id::text,
-    project.status,
+    project.status::text,
     buyer_profile.wallet_address,
     buyer_profile.wallet_verified::text,
     buyer_profile.wallet_verified_at::text,
