@@ -14,6 +14,8 @@ import {
 } from "./dealroom-terms-reader.ts";
 import type { EthereumDigestRecoveryVerifier } from "./signature-verifier.ts";
 import type { SafeConfigurationExpectation, SafeConfigurationFacts } from "./safe-live-configuration-facts.ts";
+import { parseDealCodeAuditBinding } from "./deal-code-audit-binding.ts";
+import { verifyCurrentAuditManifest } from "./audit-manifest-binding.ts";
 
 export type SafePrepareDatabase =
   DealRoomTermsRpcClient & W3MRegistryReadClient & JsonRpcClient;
@@ -80,6 +82,8 @@ export async function authorizeSafePrepareFromFreshSources(
     if (row.deal_id !== dealId || row.policy_deal_id !== dealId) {
       return { authorized: false, issues: ["W3M_PREPARE_DEAL_POLICY_BINDING_MISMATCH"], phase: "PREPARE", dealId };
     }
+    const codeAudit = parseDealCodeAuditBinding(row.code_audit);
+    await verifyCurrentAuditManifest(dependencies.database, codeAudit);
     const buyerWallet = required(row.buyer_wallet, "verified buyer wallet");
     const sellerWallet = required(row.seller_wallet, "verified seller wallet");
     const buyerVerifiedAt = required(row.buyer_wallet_verified_at, "buyer wallet verification time");
@@ -147,6 +151,7 @@ export async function authorizeSafePrepareFromFreshSources(
       dealId,
       stage: "PREPARE",
       now,
+      codeAudit,
       safeFacts,
     }, row, recoverAndVerify);
     const issues = [
