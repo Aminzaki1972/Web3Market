@@ -63,6 +63,9 @@ const snapshot = {
       wallet_address: "0x4444444444444444444444444444444444444444",
       signature_status: "signed", signed_at: "2026-11-06T18:00:00Z",
       safe_tx_hash: safeHash, signature: "0x" + "d".repeat(130) },
+    { deal_id: dealId, signer_role: "platform", signer_id: null,
+      wallet_address: "0x2B15cC63eE3b833F502C065767695Fa2B584f8c9",
+      signature_status: "pending", signed_at: null, safe_tx_hash: safeHash, signature: null },
   ],
   party_agreements: [
     { party_role: "buyer", party_id: buyerId, agreed_at: "2026-11-06T18:00:00Z" },
