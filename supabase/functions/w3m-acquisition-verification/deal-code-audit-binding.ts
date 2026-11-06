@@ -29,6 +29,36 @@ function requiredText(value: unknown, label: string): string {
   return value.trim();
 }
 
+/** Strictly parse the compact Code Audit binding returned by a trusted SQL snapshot. */
+export function parseDealCodeAuditBinding(value: unknown): DealCodeAuditBinding {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Current mandatory Code Audit binding is missing.");
+  }
+  const row = value as Record<string, unknown>;
+  const auditId = requiredText(row.auditId, "Audit record ID");
+  const repositoryOwner = requiredText(row.repositoryOwner, "Repository owner");
+  const repositoryName = requiredText(row.repositoryName, "Repository name");
+  const repositoryUrl = requiredText(row.repositoryUrl, "Repository URL");
+  const commitSha = requiredText(row.commitSha, "Audit commit SHA").toLowerCase();
+  const auditType = requiredText(row.auditType, "Audit type");
+  const completedAt = requiredText(row.completedAt, "Audit completion time");
+  const auditEvidenceHash = requiredText(row.auditEvidenceHash, "Audit manifest hash").toLowerCase();
+  const completedMs = Date.parse(completedAt);
+  if (!UUID.test(auditId) || !GITHUB_OWNER.test(repositoryOwner) ||
+      !GITHUB_REPO.test(repositoryName) || repositoryName === "." || repositoryName === ".." ||
+      repositoryUrl !== "https://github.com/" + repositoryOwner + "/" + repositoryName ||
+      !SHA1.test(commitSha) || !["code", "smart_contract", "complete"].includes(auditType) ||
+      !Number.isFinite(completedMs) || !SHA256.test(auditEvidenceHash)) {
+    throw new Error("Current mandatory Code Audit binding is malformed.");
+  }
+  return {
+    auditId, repositoryOwner, repositoryName, repositoryUrl, commitSha,
+    auditType: auditType as DealCodeAuditBinding["auditType"],
+    completedAt: new Date(completedMs).toISOString(),
+    auditEvidenceHash,
+  };
+}
+
 /**
  * Build the immutable Code Audit term only from the output of the strict
  * selector. The caller must separately compare repository identity against
