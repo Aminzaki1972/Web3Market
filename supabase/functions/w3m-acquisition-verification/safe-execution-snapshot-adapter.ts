@@ -237,29 +237,21 @@ export async function loadSafeExecutionDatabaseSnapshot(
     throw new Error("Duplicate stored Safe signer wallets are not allowed.");
   }
 
-  const agreementRows = array(root.party_agreements, "party agreements");
-  const agreements: SafeExecutionSnapshotPartyAgreement[] = agreementRows.map((value, index) => {
-    const row = object(value, "party agreement " + index);
-    if (row.party_role !== "buyer" && row.party_role !== "seller") {
-      throw new Error("Party agreement role is invalid.");
-    }
-    return {
+  // Legacy timestamp-only acknowledgements are retained for audit context only.
+  // They are never used as authorization; immutable EIP-712 rows below are authoritative.
+  const legacyAgreementRows = Array.isArray(root.party_agreements) ? root.party_agreements : [];
+  const agreements: SafeExecutionSnapshotPartyAgreement[] = legacyAgreementRows.flatMap((value, index) => {
+    const row = object(value, "legacy party agreement " + index);
+    if (row.party_role !== "buyer" && row.party_role !== "seller") return [];
+    return [{
       partyRole: row.party_role,
-      partyId: text(row.party_id, "agreement party ID"),
+      partyId: text(row.party_id, "legacy agreement party ID"),
       agreedAt: timestamp(row.agreed_at),
-      // The deployed agreement table stores only party identity and a timestamp.
-      // No historical terms hash/version or wallet signature exists to verify.
       termsHash: null,
       termsVersion: null,
       signature: null,
-    };
+    }];
   });
-  const roles = agreements.map((row) => row.partyRole);
-  if (agreements.length !== 2 || new Set(roles).size !== 2 ||
-      !agreements.some((row) => row.partyRole === "buyer" && row.partyId === deal.buyer_id && row.agreedAt) ||
-      !agreements.some((row) => row.partyRole === "seller" && row.partyId === deal.seller_id && row.agreedAt)) {
-    throw new Error("Buyer and seller agreement acknowledgement rows are missing, duplicated, or misbound.");
-  }
 
   let termsVersion: SafeExecutionSnapshotTermsVersion | null = null;
   const agreementAcceptances: SafeExecutionSnapshotAgreementAcceptance[] = [];
