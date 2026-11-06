@@ -41,6 +41,7 @@ export interface SafeWalletExecutionPackage {
   reportId: string;
   reportVersion: number;
   agreementTermsVersionId: string;
+  agreementTermsVersion: string;
   agreementTermsHash: string;
   buyerAcceptanceId: string;
   sellerAcceptanceId: string;
@@ -190,6 +191,7 @@ export async function buildSafeWalletExecutionPackage(
     reportId: snapshot.reportId,
     reportVersion: snapshot.reportVersion,
     agreementTermsVersionId: agreement.termsVersionId,
+    agreementTermsVersion: agreement.termsVersion,
     agreementTermsHash: agreement.termsHash,
     buyerAcceptanceId: agreement.buyerAcceptanceId,
     sellerAcceptanceId: agreement.sellerAcceptanceId,
