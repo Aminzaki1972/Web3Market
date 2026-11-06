@@ -14,7 +14,7 @@ const PLATFORM="0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
 const HASH="0x"+"a".repeat(64);
 
 function row(overrides:Record<string,unknown>={}) {
- return {deal_id:DEAL,policy_deal_id:DEAL,buyer_id:"buyer",seller_id:"seller",
+ return {deal_id:DEAL,deal_status:"funded",deal_chain_id:"56",policy_deal_id:DEAL,buyer_id:"buyer",seller_id:"seller",
   project_owner_id:"seller",project_status:"active",buyer_wallet:BUYER,buyer_wallet_verified:"true",
   buyer_wallet_verified_at:"2026-11-05T00:00:00Z",seller_wallet:SELLER,seller_wallet_verified:"true",
   seller_wallet_verified_at:"2026-11-05T00:00:00Z",policy_seller_wallet:SELLER,policy_platform_wallet:PLATFORM,deal_safe_address:SAFE,
