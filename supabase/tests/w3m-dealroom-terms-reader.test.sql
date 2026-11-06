@@ -13,6 +13,10 @@ begin
   end if;
 
   insert into public.projects(id) values ('10000000-0000-0000-0000-000000000001');
+  insert into public.profiles(id,wallet_address,wallet_verified,wallet_verified_at)
+  values
+    ('30000000-0000-0000-0000-000000000001','0x5555555555555555555555555555555555555555',true,now()),
+    ('40000000-0000-0000-0000-000000000001','0x4444444444444444444444444444444444444444',true,now());
   insert into public.deals(
     id, project_id, buyer_id, seller_id, amount, currency, expected_amount,
     payment_status, payment_tx_hash, delivery_status, buyer_approved_at,
@@ -49,7 +53,9 @@ begin
      or v.policy_fee_amount <> '7.500000000000000000'
      or v.policy_seller_net_amount <> '92.500000000000000001'
      or v.deal_chain_id <> '56'
-     or v.policy_safe_nonce <> '7' then
+     or v.policy_safe_nonce <> '7'
+     or v.buyer_wallet <> '0x5555555555555555555555555555555555555555'
+     or v.seller_wallet <> '0x4444444444444444444444444444444444444444' then
     raise exception 'Exact-text Deal Room snapshot did not preserve canonical values';
   end if;
 end;
