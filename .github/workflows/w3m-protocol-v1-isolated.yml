@@ -2,11 +2,7 @@ name: W3M Protocol V1 isolated checks
 # Includes fail-closed Safe SIGN and atomic signature persistence checks.
 
 on:
-  # Run directly on the isolated work branch so validation does not depend on
-  # opening a pull request. This branch-only trigger does not deploy anything.
-  push:
-    branches:
-      - w3m-protocol-v1-isolated-20261105
+  # Validate changes on the isolated branch without deploying production.
   pull_request:
     paths:
       - "supabase/functions/w3m-acquisition-verification/**"
