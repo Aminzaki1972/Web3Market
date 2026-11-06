@@ -188,10 +188,11 @@ begin
   -- A newer signed acquisition report with a different Audit Manifest
   -- must change the canonical agreement terms and invalidate old signatures.
   insert into public.w3m_acquisition_reports(
-    id,deal_id,project_id,report_version,status,engine_version,evidence_hash,
+    id,deal_id,project_id,report_version,supersedes_report_id,status,engine_version,evidence_hash,
     report_hash,report_payload,signer_key_id,report_signature,issued_at,expires_at
   ) values (
-    '89000000-0000-4000-8000-000000000009',v_deal::text,v_project::text,2,'PASS',
+    '89000000-0000-4000-8000-000000000009',v_deal::text,v_project::text,2,
+    '86000000-0000-4000-8000-000000000006','PASS',
     'w3m-acquisition-verification-1.0.0',repeat('3',64),repeat('4',64),
     jsonb_build_object('reportId','89000000-0000-4000-8000-000000000009'),
     'test-signer-v1','0x' || repeat('f',130),now(),now()+interval '1 day'
@@ -307,10 +308,11 @@ begin
   -- A newer non-PASS report must invalidate the old passing audit binding;
   -- the signing path must never fall back to an older PASS report.
   insert into public.w3m_acquisition_reports(
-    id,deal_id,project_id,report_version,status,engine_version,evidence_hash,
+    id,deal_id,project_id,report_version,supersedes_report_id,status,engine_version,evidence_hash,
     report_hash,report_payload,issued_at,expires_at
   ) values (
-    '89200000-0000-4000-8000-000000000009',v_deal::text,v_project::text,3,'BLOCKED',
+    '89200000-0000-4000-8000-000000000009',v_deal::text,v_project::text,3,
+    '89000000-0000-4000-8000-000000000009','BLOCKED',
     'w3m-acquisition-verification-1.0.0',repeat('1',64),repeat('2',64),
     jsonb_build_object('reportId','89200000-0000-4000-8000-000000000009'),
     now(),now()+interval '1 day'
