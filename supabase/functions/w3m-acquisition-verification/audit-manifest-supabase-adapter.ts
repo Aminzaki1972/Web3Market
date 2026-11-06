@@ -29,8 +29,17 @@ export function createSupabaseAuditManifestSource(
       return pageResult(result.data, result.error, "Audit files");
     },
     async loadFindingsPage(auditId, from, to) {
+      // Order by the exact manifest natural-key tuple before offset pagination.
+      // This makes page boundaries stable even when created_at timestamps tie.
+      // computeAuditManifest rejects duplicate tuples, so valid rows have a total order.
       const result = await client.from("code_audit_findings").select("*")
-        .eq("audit_id", auditId).order("created_at", { ascending: true }).range(from, to);
+        .eq("audit_id", auditId)
+        .order("file_path", { ascending: true })
+        .order("line_start", { ascending: true })
+        .order("severity", { ascending: true })
+        .order("category", { ascending: true })
+        .order("title", { ascending: true })
+        .range(from, to);
       return pageResult(result.data, result.error, "Audit findings");
     },
   };
