@@ -114,11 +114,6 @@ export async function selectCodeAuditEvidence(
     auditFileCount: manifest.fileCount,
     auditFindingCount: manifest.findingCount,
   };
-  const canonical = JSON.stringify(Object.fromEntries(
-    Object.entries(snapshot).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0),
-  ));
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
-  const contentHash = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
   const evidence: AcquisitionEvidence = {
     id: "code-audit:" + snapshot.auditId,
     type: "CODE_AUDIT",
@@ -126,7 +121,7 @@ export async function selectCodeAuditEvidence(
     mandatory: true,
     dealId: expected.dealId,
     projectId: expected.projectId,
-    contentHash,
+    contentHash: manifest.digest,
     observedAt: expected.now,
     validUntil: new Date(completedMs + expected.maxAgeMs).toISOString(),
     sourceRecordId: snapshot.auditId,
