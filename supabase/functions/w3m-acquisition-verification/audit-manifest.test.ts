@@ -2,24 +2,39 @@ import { assertEquals, assertNotEquals, assertRejects } from "jsr:@std/assert@1"
 import { computeAuditManifest } from "./audit-manifest.ts";
 
 function fixture() {
+  const auditId = "audit-001";
   return {
     audit: {
-      id: "audit-001",
+      id: auditId,
       project_id: "project-001",
       repo_url: "https://github.com/example/project",
+      repo_owner: "example",
+      repo_name: "project",
+      branch: "main",
       commit_sha: "a".repeat(40),
       status: "completed",
+      completed_at: "2026-11-06T18:00:00.000Z",
       engine_version: "w3m-code-audit-2.0",
       overall_score: 87.5,
-      analysis_progress: { evidence_version: "w3m-audit-evidence-v1", tree_truncated: false },
+      files_scanned: 2,
+      critical_count: 0,
+      high_count: 1,
+      medium_count: 1,
+      low_count: 0,
+      info_count: 0,
+      analysis_progress: {
+        evidence_version: "w3m-audit-evidence-v1",
+        tree_truncated: false,
+        persisted_file_count: 2,
+      },
     },
     files: [
-      { id: "file-2", path: "src/b.ts", content_hash: "b".repeat(64), lines_scanned: 20 },
-      { id: "file-1", path: "src/a.ts", content_hash: "a".repeat(64), lines_scanned: 10 },
+      { audit_id: auditId, path: "src/b.ts", line_count: 20, size_bytes: 500, selected_tier: "core" },
+      { audit_id: auditId, path: "src/a.ts", line_count: 10, size_bytes: 300, selected_tier: "core" },
     ],
     findings: [
-      { id: "finding-2", file_id: "file-2", severity: "medium", rule_id: "M-2", line: 9 },
-      { id: "finding-1", file_id: "file-1", severity: "high", rule_id: "H-1", line: 4 },
+      { audit_id: auditId, file_path: "src/b.ts", line_start: 9, severity: "medium", category: "quality", title: "Finding B" },
+      { audit_id: auditId, file_path: "src/a.ts", line_start: 4, severity: "high", category: "security", title: "Finding A" },
     ],
   };
 }
@@ -48,28 +63,53 @@ Deno.test("audit manifest changes when any audit, file, or finding evidence chan
   });
   const changedFile = await computeAuditManifest({
     ...input,
-    files: input.files.map((row) => row.id === "file-1" ? { ...row, content_hash: "c".repeat(64) } : row),
+    files: input.files.map((row) => row.path === "src/a.ts" ? { ...row, size_bytes: 301 } : row),
   });
   const changedFinding = await computeAuditManifest({
     ...input,
-    findings: input.findings.map((row) => row.id === "finding-1" ? { ...row, severity: "critical" } : row),
+    findings: input.findings.map((row) => row.title === "Finding A" ? { ...row, severity: "critical" } : row),
+    audit: { ...input.audit, high_count: 0, critical_count: 1 },
   });
   assertNotEquals(base.digest, changedAudit.digest);
   assertNotEquals(base.digest, changedFile.digest);
   assertNotEquals(base.digest, changedFinding.digest);
 });
 
-Deno.test("audit manifest rejects missing IDs and duplicate row IDs", async () => {
+Deno.test("audit manifest rejects missing or duplicate natural keys", async () => {
   const input = fixture();
   await assertRejects(() => computeAuditManifest({ ...input, audit: { ...input.audit, id: "" } }));
-  await assertRejects(() => computeAuditManifest({ ...input, files: [{ path: "missing-id.ts" }] }));
+  await assertRejects(() => computeAuditManifest({ ...input, files: [{ audit_id: "audit-001" }] }));
+  await assertRejects(() => computeAuditManifest({
+    ...input,
+    files: [input.files[0], input.files[0]],
+  }));
   await assertRejects(() => computeAuditManifest({
     ...input,
     findings: [input.findings[0], input.findings[0]],
   }));
 });
 
-Deno.test("audit manifest rejects non-JSON and non-finite evidence", async () => {
+Deno.test("audit manifest rejects incomplete, cross-audit, or mismatched evidence", async () => {
+  const input = fixture();
+  await assertRejects(() => computeAuditManifest({
+    ...input,
+    audit: { ...input.audit, status: "queued" },
+  }));
+  await assertRejects(() => computeAuditManifest({
+    ...input,
+    files: input.files.slice(0, 1),
+  }));
+  await assertRejects(() => computeAuditManifest({
+    ...input,
+    findings: input.findings.slice(0, 1),
+  }));
+  await assertRejects(() => computeAuditManifest({
+    ...input,
+    files: input.files.map((row) => ({ ...row, audit_id: "other-audit" })),
+  }));
+});
+
+Deno.test("audit manifest rejects non-JSON, non-finite, and unsupported finding data", async () => {
   const input = fixture();
   await assertRejects(() => computeAuditManifest({
     ...input,
@@ -77,6 +117,10 @@ Deno.test("audit manifest rejects non-JSON and non-finite evidence", async () =>
   }));
   await assertRejects(() => computeAuditManifest({
     ...input,
-    files: [{ id: "bad", unsupported: BigInt(1) as unknown as number }],
+    files: [{ audit_id: "audit-001", path: "bad", unsupported: BigInt(1) as unknown as number }],
+  }));
+  await assertRejects(() => computeAuditManifest({
+    ...input,
+    findings: input.findings.map((row) => row.title === "Finding A" ? { ...row, severity: "urgent" } : row),
   }));
 });
