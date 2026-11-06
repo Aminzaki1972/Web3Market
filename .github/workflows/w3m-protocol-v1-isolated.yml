@@ -5,6 +5,7 @@ on:
     paths:
       - "supabase/functions/w3m-acquisition-verification/**"
       - "supabase/functions/w3m-protocol-v1-finalize-safe-release/**"
+      - "supabase/functions/w3m-protocol-v1-deal-agreement/**"
       - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
       - "supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql"
       - "supabase/migrations/20261106230000_w3m_protocol_v1_safe_execution_attempts.sql"
@@ -29,6 +30,7 @@ on:
       - w3m-protocol-v1-isolated-20261105
     paths:
       - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/functions/w3m-protocol-v1-deal-agreement/**"
       - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
       - "supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql"
       - "supabase/migrations/20261106230000_w3m_protocol_v1_safe_execution_attempts.sql"
@@ -85,6 +87,11 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.ts
           deno check supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.ts
           deno check supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-service.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-service.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-request-handler.test.ts
+          deno check supabase/functions/w3m-protocol-v1-deal-agreement/index.ts
           deno check supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-signature-set-validator.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-signature-set-validator.test.ts
@@ -166,6 +173,10 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.test.ts
       - name: Test EIP-712 buyer and seller deal agreement signatures
         run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.test.ts
+      - name: Test server-side deal agreement signing service
+        run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-service.test.ts
+      - name: Test authenticated deal agreement request boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-request-handler.test.ts
       - name: Test Safe execution-time signature set
         run: deno test supabase/functions/w3m-acquisition-verification/safe-signature-set-validator.test.ts
       - name: Test trusted signer registry row mapping
