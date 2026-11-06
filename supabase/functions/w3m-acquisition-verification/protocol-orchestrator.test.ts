@@ -13,6 +13,7 @@ const BUYER = "buyer-orch-1";
 const AUDIT = "audit-orch-1";
 const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 const HASH = "a".repeat(64);
+const AUDIT_MANIFEST_HASH = "c".repeat(64);
 const NOW = "2026-11-05T20:00:00.000Z";
 const EXPIRES = "2026-11-05T20:10:00.000Z";
 const UUIDS = Array.from({ length: 18 }, (_, i) =>
@@ -51,7 +52,12 @@ const signer = async (digestHex: string) => {
 function evidence(): AcquisitionEvidence[] {
   const meta: Record<string, Record<string, unknown>> = {
     PROJECT_IDENTITY: { projectApproved: true, identityMatched: true },
-    CODE_AUDIT: { auditStatus: "completed", commitSha: COMMIT },
+    CODE_AUDIT: {
+      auditStatus: "completed", commitSha: COMMIT,
+      auditManifestVersion: "w3m-audit-manifest-v1",
+      auditManifestHash: AUDIT_MANIFEST_HASH,
+      auditFileCount: 190, auditFindingCount: 25,
+    },
     DEAL_AGREEMENT: { buyerAcceptedTerms: true, sellerAcceptedTerms: true },
     PAYMENT: { paymentConfirmed: true },
     BUYER_ACCEPTANCE: { deliveryAccepted: true },
@@ -68,7 +74,7 @@ function evidence(): AcquisitionEvidence[] {
     mandatory: true,
     dealId: DEAL,
     projectId: PROJECT,
-    contentHash: HASH,
+    contentHash: type === "CODE_AUDIT" ? AUDIT_MANIFEST_HASH : HASH,
     observedAt: "2026-11-05T19:00:00.000Z",
     validUntil: EXPIRES,
     sourceRecordId: type === "CODE_AUDIT" ? AUDIT : "source-orch-" + i,
