@@ -44,6 +44,16 @@ Deno.test("Deal Room W3M service computes terms and blocks when no report exists
       chainId: 56,
       safeAddress: "0x2222222222222222222222222222222222222222",
       tokenContract: "0x3333333333333333333333333333333333333333",
+      codeAudit: {
+        auditId: "75000000-0000-4000-8000-000000000005",
+        repositoryOwner: "Aminzaki1972",
+        repositoryName: "Web3Market",
+        repositoryUrl: "https://github.com/Aminzaki1972/Web3Market",
+        commitSha: "c".repeat(40),
+        auditType: "complete",
+        completedAt: "2026-11-05T00:00:00.000Z",
+        auditEvidenceHash: "d".repeat(64),
+      },
       policy: {
         dealAmount: "100",
         feePercent: "7.5",
