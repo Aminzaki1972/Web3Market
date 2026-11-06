@@ -250,3 +250,10 @@ The live function `public.validate_deal_release_policy(p_deal_id uuid)`:
 The next isolated change should extend the exact Deal Room snapshot reader to expose agreement rows and complete dispute state as read-only evidence, but it must represent missing immutable agreement binding as an explicit blocker. Do not invent a terms hash from current row values and call it proof of prior consent. No schema change is authorized or implied by this metadata review. Any future agreement-schema enhancement must be proposed separately and remain isolated until explicit approval.
 
 This review only inspected schema metadata and the validator definition. It did not query production deal/user rows, and it did not change production schema, data, functions, environment variables, or Safe state.
+
+
+### Front-end acceptance path cross-check
+
+A read-only source inspection of the isolated branch's current `js/deal-room.js` confirms that the “I Agree to Deal Terms” button currently upserts only `deal_id`, `party_role`, `party_id`, and a client-generated `agreed_at` timestamp into `deal_party_agreements`. The read path selects only `party_role,party_id,agreed_at`. No wallet signature, canonical terms digest, terms version, or signed payload is created or verified in this flow.
+
+This means the current UI action is a recorded acknowledgement, not cryptographic proof of acceptance of an immutable agreement. The W3M Protocol must not elevate that timestamp to verified `DEAL_AGREEMENT` evidence. A future agreement upgrade needs a separately reviewed flow that binds both parties to one canonical terms digest/version and verifies each party's signature against the wallet associated with that party. The signature scheme and canonical typed payload must be specified before implementation; do not assume `personal_sign` or raw-digest signing without an explicit protocol decision.
