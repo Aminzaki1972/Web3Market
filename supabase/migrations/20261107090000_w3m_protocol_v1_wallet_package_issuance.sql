@@ -38,6 +38,8 @@ set search_path = pg_catalog, public
 as $issue$
 declare
   v_attempt public.w3m_safe_execution_attempts%rowtype;
+  v_profile_wallet text;
+  v_profile_verified boolean;
   v_now timestamptz := clock_timestamp();
   v_package_issued_at timestamptz;
   v_package_expires_at timestamptz;
@@ -81,6 +83,54 @@ begin
   if v_attempt.state is distinct from 'CLAIMED' then
     raise exception 'Only a still-claimed attempt may issue a wallet package'
       using errcode = '23514';
+  end if;
+
+  select wallet_address, wallet_verified
+    into v_profile_wallet, v_profile_verified
+    from public.profiles
+   where id = p_actor_id
+   for share;
+  if not found or v_profile_verified is distinct from true
+     or v_profile_wallet is null
+     or v_profile_wallet !~ '^0x[0-9a-fA-F]{40}
+    if v_attempt.package_actor_id = p_actor_id
+       and v_attempt.package_expires_at > v_now
+       and (v_attempt.package_payload - 'issuedAt' - 'expiresAt' - 'readBlockNumber' - 'readBlockHash')
+           = (p_package - 'issuedAt' - 'expiresAt' - 'readBlockNumber' - 'readBlockHash') then
+      return jsonb_build_object(
+        'issued', true,
+        'idempotent_replay', true,
+        'attempt_id', v_attempt.id,
+        'package_hash', lower(v_attempt.package_hash),
+        'expires_at', v_attempt.package_expires_at,
+        'package', v_attempt.package_payload
+      );
+    end if;
+    raise exception 'Execution package is immutable, expired, or bound to another actor'
+      using errcode = '23505';
+  end if;
+
+  update public.w3m_safe_execution_attempts
+     set package_actor_id = p_actor_id,
+         package_hash = lower(p_package_hash),
+         package_payload = p_package,
+         package_issued_at = v_now,
+         package_expires_at = p_expires_at
+   where id = p_attempt_id;
+
+  return jsonb_build_object(
+    'issued', true,
+    'idempotent_replay', false,
+    'attempt_id', p_attempt_id,
+    'package_hash', lower(p_package_hash),
+    'expires_at', p_expires_at,
+    'package', p_package
+  );
+end;
+$issue$;
+     or lower(v_profile_wallet) <> lower(p_package->>'executorWallet') then
+    raise exception 'Authenticated participant wallet is not currently verified for package issuance'
+      using errcode = '42501';
   end if;
 
   if v_attempt.package_hash is not null then
