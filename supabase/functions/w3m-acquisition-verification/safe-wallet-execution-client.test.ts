@@ -76,7 +76,7 @@ Deno.test("encodes exact Safe execTransaction calldata with dynamic offsets and 
   const data = encodeSafeExecTransactionCalldata(pkg());
   assertEquals(data.slice(0, 10), "0x6a761202");
   assertEquals(data.length > 10 + 640, true);
-  assertEquals(data.slice(10 + 64 * 2 * 2, 10 + 64 * 3), "0".repeat(56) + "0140");
+  assertEquals(data.slice(10 + 64 * 2, 10 + 64 * 3), "0".repeat(61) + "140");
 });
 
 Deno.test("submits only after package hash, BNB chain, verified signer, and Safe nonce checks", async () => {
@@ -116,9 +116,10 @@ Deno.test("blocks wrong chain, wrong signer, changed nonce, expired package, and
     assertEquals(wallet.calls.some((call) => call.method === "eth_sendTransaction"), false);
   }
   const expired = { ...value, expiresAt: new Date(Date.now() - 1_000).toISOString() };
+  const expiredHash = await hash(expired);
   const expiredWallet = provider();
   await assertRejects(() => submitSafeWalletExecutionPackage({
-    provider: expiredWallet, package: expired, expectedPackageHash: await hash(expired),
+    provider: expiredWallet, package: expired, expectedPackageHash: expiredHash,
   }));
   assertEquals(expiredWallet.calls.some((call) => call.method === "eth_sendTransaction"), false);
 
