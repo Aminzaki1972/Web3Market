@@ -92,6 +92,31 @@ Deno.test("pre-lock PREPARE refuses a failed database release-policy validation"
  assertEquals(result.issues,["W3M_RELEASE_POLICY_VALIDATION_FAILED"]);
 });
 
+
+Deno.test("pre-lock PREPARE rejects non-USDT deals and malformed payment transaction hashes",async()=>{
+ const denomination=await authorizePrelockSafePrepare(
+  deps({snapshot:[snapshot({currency:"BUSD"})]}),DEAL,"2026-11-06T00:00:00Z",verifier,
+ );
+ assertEquals(denomination.authorized,false);
+ assertEquals(denomination.issues,["W3M_PRELOCK_PARTY_OR_TERMS_INVALID"]);
+ const base=deps();
+ const database={...base.database,from(_table:string){
+  return {select(_columns:string){
+   const query={eq(){return query;},order(){return query;},limit(){return query;},
+    maybeSingle(){return Promise.resolve({data:null,error:null});},
+    then(onfulfilled?:((value:{data:unknown;error:unknown})=>unknown)|null,onrejected?:((reason:unknown)=>unknown)|null){
+     return Promise.resolve({data:null,error:null}).then(onfulfilled??undefined,onrejected??undefined);
+    }};
+   return query as never;
+  }};
+ }} as unknown as PrelockPrepareDatabase;
+ const payment=await authorizePrelockSafePrepare(
+  {...base,database},DEAL,"2026-11-06T00:00:00Z",verifier,
+ );
+ assertEquals(payment.authorized,false);
+ assertEquals(payment.issues.includes("PAYMENT_NOT_CONFIRMED"),true);
+});
+
 Deno.test("pre-lock PREPARE rejects seller ownership, wallet verification and distinct-party drift",async()=>{
  const owner=await authorizePrelockSafePrepare(deps({snapshot:[snapshot({project_owner_id:"another"})]}),DEAL,"2026-11-06T00:00:00Z",verifier);
  assertEquals(owner.authorized,false);
