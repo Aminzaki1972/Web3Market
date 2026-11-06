@@ -112,11 +112,17 @@ export async function persistDealCodeAuditSnapshot(
     completedAt: requiredText(result.completed_at, "Snapshot completion time"),
     auditEvidenceHash: manifestHash,
   };
-  if (JSON.stringify(returnedBinding) !== JSON.stringify({
-    ...input.binding,
-    commitSha: input.binding.commitSha.toLowerCase(),
-    auditEvidenceHash: input.binding.auditEvidenceHash.toLowerCase(),
-  })) {
+  const returnedCompletedAt = Date.parse(returnedBinding.completedAt);
+  const expectedCompletedAt = Date.parse(input.binding.completedAt);
+  if (!Number.isFinite(returnedCompletedAt) ||
+      returnedCompletedAt !== expectedCompletedAt ||
+      returnedBinding.auditId !== input.binding.auditId ||
+      returnedBinding.repositoryOwner !== input.binding.repositoryOwner ||
+      returnedBinding.repositoryName !== input.binding.repositoryName ||
+      returnedBinding.repositoryUrl !== input.binding.repositoryUrl ||
+      returnedBinding.commitSha !== input.binding.commitSha.toLowerCase() ||
+      returnedBinding.auditType !== input.binding.auditType ||
+      returnedBinding.auditEvidenceHash !== input.binding.auditEvidenceHash.toLowerCase()) {
     throw new Error("Persisted snapshot repository or commit identity differs from the verified audit.");
   }
 
