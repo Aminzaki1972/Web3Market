@@ -274,3 +274,51 @@ export async function issueSafeWalletExecutionPackage(
     idempotentReplay: result.idempotent_replay,
   };
 }
+
+
+export interface SafeWalletSubmissionPersistenceResult {
+  attemptId: string;
+  broadcastTxHash: string;
+  state: "BROADCAST" | "RECONCILIATION_REQUIRED";
+  idempotentReplay: boolean;
+}
+
+export async function recordSafeWalletSubmission(
+  client: W3MRpcClient,
+  input: {
+    attemptId: string;
+    actorId: string;
+    packageHash: string;
+    broadcastTxHash: string;
+  },
+): Promise<SafeWalletSubmissionPersistenceResult> {
+  requireText(input.attemptId, "Execution attempt ID");
+  requireText(input.actorId, "Wallet submission actor ID");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.actorId) ||
+      !/^[0-9a-f]{64}$/i.test(input.packageHash) ||
+      !/^0x[0-9a-f]{64}$/i.test(input.broadcastTxHash)) {
+    throw new Error("Safe wallet submission bindings are malformed.");
+  }
+  const { data, error } = await client.rpc("w3m_record_safe_wallet_submission", {
+    p_attempt_id: input.attemptId,
+    p_actor_id: input.actorId,
+    p_package_hash: input.packageHash.toLowerCase(),
+    p_broadcast_tx_hash: input.broadcastTxHash.toLowerCase(),
+  });
+  if (error) throw new Error("W3M Safe wallet submission persistence failed.");
+  const result = asObject(data, "Safe wallet submission");
+  if (result.recorded !== true ||
+      result.attempt_id !== input.attemptId ||
+      typeof result.idempotent_replay !== "boolean" ||
+      (result.state !== "BROADCAST" && result.state !== "RECONCILIATION_REQUIRED") ||
+      typeof result.broadcast_tx_hash !== "string" ||
+      result.broadcast_tx_hash.toLowerCase() !== input.broadcastTxHash.toLowerCase()) {
+    throw new Error("W3M Safe wallet submission response does not match the exact attempt and transaction.");
+  }
+  return {
+    attemptId: input.attemptId,
+    broadcastTxHash: input.broadcastTxHash.toLowerCase(),
+    state: result.state,
+    idempotentReplay: result.idempotent_replay,
+  };
+}
