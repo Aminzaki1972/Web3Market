@@ -26,6 +26,9 @@ export async function executeSafePhaseOnlyAfterW3M<T>(
 ): Promise<W3MBoundaryResult<T>> {
   return await executeOnlyAfterW3M(
     async () => {
+      if (expectedPhase === "FINALIZE") {
+        return { authorized: false, issues: ["W3M_FINALIZE_REQUIRES_VERIFIED_RECEIPT_PATH"] };
+      }
       if (typeof expected?.dealId !== "string" || !expected.dealId.trim()) {
         return { authorized: false, issues: ["W3M_EXPECTED_DEAL_BINDING_MISSING"] };
       }
