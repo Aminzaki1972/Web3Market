@@ -2,7 +2,7 @@
 -- The workflow applies only to its ephemeral PostgreSQL service.
 do $test$
 declare
-  deal_id constant uuid := '82000000-0000-4000-8000-000000000001';
+  v_deal_id constant uuid := '82000000-0000-4000-8000-000000000001';
   buyer_id constant uuid := '82000000-0000-4000-8000-000000000002';
   seller_id constant uuid := '82000000-0000-4000-8000-000000000003';
   actor_id constant uuid := '82000000-0000-4000-8000-000000000002';
@@ -51,42 +51,42 @@ begin
     '0x5555555555555555555555555555555555555555','USDT',now()
   );
 
-  result := public.w3m_commit_safe_prepare(deal_id,actor_id,policy,safe_facts,auth);
+  result := public.w3m_commit_safe_prepare(v_deal_id,actor_id,policy,safe_facts,auth);
   if result->>'committed' <> 'true' or result->>'idempotent_replay' <> 'false' then
     raise exception 'First PREPARE call did not commit exactly once: %',result;
   end if;
-  select count(*) into policy_count from public.deal_release_policies where deal_id=deal_id;
+  select count(*) into policy_count from public.deal_release_policies where deal_id=v_deal_id;
   select count(*) into tx_count from public.deal_multisig_transactions
-    where deal_id=deal_id and action='release_to_seller';
+    where deal_id=v_deal_id and action='release_to_seller';
   select count(*) into audit_count from public.deal_audit_logs
-    where deal_id=deal_id and action='release_policy_locked';
+    where deal_id=v_deal_id and action='release_policy_locked';
   if policy_count<>1 or tx_count<>1 or audit_count<>1 then
     raise exception 'Atomic PREPARE did not write exactly one policy/transaction/audit row';
   end if;
 
-  result := public.w3m_commit_safe_prepare(deal_id,actor_id,policy,safe_facts,auth);
+  result := public.w3m_commit_safe_prepare(v_deal_id,actor_id,policy,safe_facts,auth);
   if result->>'idempotent_replay' <> 'true' then
     raise exception 'Identical retry must be idempotent: %',result;
   end if;
   select count(*) into audit_count from public.deal_audit_logs
-    where deal_id=deal_id and action='release_policy_locked';
+    where deal_id=v_deal_id and action='release_policy_locked';
   if audit_count<>1 then raise exception 'Idempotent retry duplicated audit record'; end if;
 
   update public.deal_multisig_transactions set status='signed'
-   where deal_id=deal_id and action='release_to_seller';
-  result := public.w3m_commit_safe_prepare(deal_id,actor_id,policy,safe_facts,auth);
+   where deal_id=v_deal_id and action='release_to_seller';
+  result := public.w3m_commit_safe_prepare(v_deal_id,actor_id,policy,safe_facts,auth);
   if result->>'idempotent_replay' <> 'true' or result->>'status' <> 'signed' then
     raise exception 'Signed transaction must be preserved on identical retry';
   end if;
 
   safe_facts := jsonb_set(safe_facts,'{nonce}','"8"'::jsonb);
   begin
-    perform public.w3m_commit_safe_prepare(deal_id,actor_id,policy,safe_facts,auth);
+    perform public.w3m_commit_safe_prepare(v_deal_id,actor_id,policy,safe_facts,auth);
     raise exception 'Changed Safe nonce unexpectedly accepted';
   exception when check_violation then null;
   end;
   if (select status from public.deal_multisig_transactions
-       where deal_id=deal_id and action='release_to_seller') <> 'signed' then
+       where deal_id=v_deal_id and action='release_to_seller') <> 'signed' then
     raise exception 'Changed nonce altered a signed transaction';
   end if;
 
@@ -117,7 +117,7 @@ for each row execute function public.w3m_test_reject_prepare_audit();
 
 do $rollback_test$
 declare
-  deal_id constant uuid := '82000000-0000-4000-8000-000000000011';
+  v_deal_id constant uuid := '82000000-0000-4000-8000-000000000011';
   buyer_id constant uuid := '82000000-0000-4000-8000-000000000012';
   seller_id constant uuid := '82000000-0000-4000-8000-000000000013';
   policy jsonb := jsonb_build_object(
@@ -134,7 +134,7 @@ declare
     'owners',jsonb_build_array('0x1111111111111111111111111111111111111111',
       '0x2222222222222222222222222222222222222222',
       '0x2b15cc63ee3b833f502c065767695fa2b584f8c9'));
-  auth jsonb := jsonb_build_object('decision','PASS','deal_id',deal_id::text,
+  auth jsonb := jsonb_build_object('decision','PASS','deal_id',v_deal_id::text,
     'report_id','w3m-test-report-rollback','report_version','1',
     'report_hash',repeat('e',64),'deal_terms_hash',repeat('f',64),
     'expires_at','2099-01-01T00:00:00Z');
@@ -154,14 +154,14 @@ begin
     '0x5555555555555555555555555555555555555555','USDT',now());
 
   begin
-    perform public.w3m_commit_safe_prepare(deal_id,buyer_id,policy,facts,auth);
+    perform public.w3m_commit_safe_prepare(v_deal_id,buyer_id,policy,facts,auth);
     raise exception 'Injected audit failure did not abort PREPARE';
   exception when others then
     if sqlerrm='Injected audit failure did not abort PREPARE' then raise; end if;
   end;
-  if exists(select 1 from public.deal_release_policies where deal_id=deal_id)
-     or exists(select 1 from public.deal_multisig_transactions where deal_id=deal_id and action='release_to_seller')
-     or exists(select 1 from public.deal_audit_logs where deal_id=deal_id and action='release_policy_locked') then
+  if exists(select 1 from public.deal_release_policies where deal_id=v_deal_id)
+     or exists(select 1 from public.deal_multisig_transactions where deal_id=v_deal_id and action='release_to_seller')
+     or exists(select 1 from public.deal_audit_logs where deal_id=v_deal_id and action='release_policy_locked') then
     raise exception 'Partial PREPARE writes survived audit failure';
   end if;
 end;
