@@ -1,11 +1,10 @@
 import { assertEquals } from "jsr:@std/assert@1";
 import { createSupabaseAuditManifestSource } from "./audit-manifest-supabase-adapter.ts";
-import type { W3MRegistryReadClient, W3MRegistrySelectQuery } from "./persisted-report-loader.ts";
+import type { W3MRegistryReadClient } from "./persisted-report-loader.ts";
 
 Deno.test("finding pages use the manifest natural-key tuple before offset pagination", async () => {
   const calls: Array<Record<string, unknown>> = [];
-  const query: Record<string, unknown> = {};
-  const chain = {
+  const chain: any = {
     eq(column: string, value: unknown) {
       calls.push({ method: "eq", column, value });
       return chain;
