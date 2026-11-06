@@ -172,7 +172,8 @@ begin
   exception when check_violation then null;
   end;
   update public.w3m_safe_execution_attempts
-     set package_expires_at = v_package_expiry
+     set package_issued_at = clock_timestamp() - interval '1 second',
+         package_expires_at = v_package_expiry
    where id = v_attempt;
 
   if has_function_privilege('anon','public.w3m_record_safe_wallet_submission(uuid,uuid,text,text)','EXECUTE')
