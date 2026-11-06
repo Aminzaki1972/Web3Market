@@ -177,6 +177,10 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/deal-terms-hash.test.ts
           deno check supabase/functions/w3m-acquisition-verification/deal-code-audit-binding.ts
           deno check supabase/functions/w3m-acquisition-verification/deal-code-audit-binding.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/audit-manifest.ts
+          deno check supabase/functions/w3m-acquisition-verification/audit-manifest.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/audit-manifest-loader.ts
+          deno check supabase/functions/w3m-acquisition-verification/audit-manifest-loader.test.ts
           deno check supabase/functions/w3m-acquisition-verification/dealroom-w3m-gate.ts
           deno check supabase/functions/w3m-acquisition-verification/dealroom-w3m-gate.test.ts
           deno check supabase/functions/w3m-acquisition-verification/persisted-report-loader.ts
@@ -303,6 +307,10 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/deal-terms-hash.test.ts
       - name: Test immutable deal Code Audit binding boundary
         run: deno test supabase/functions/w3m-acquisition-verification/deal-code-audit-binding.test.ts
+      - name: Test deterministic Code Audit manifest
+        run: deno test supabase/functions/w3m-acquisition-verification/audit-manifest.test.ts
+      - name: Test complete paginated Code Audit manifest loader
+        run: deno test supabase/functions/w3m-acquisition-verification/audit-manifest-loader.test.ts
       - name: Test combined Deal Room W3M settlement gate
         run: deno test supabase/functions/w3m-acquisition-verification/dealroom-w3m-gate.test.ts
       - name: Test server-side persisted report loader
