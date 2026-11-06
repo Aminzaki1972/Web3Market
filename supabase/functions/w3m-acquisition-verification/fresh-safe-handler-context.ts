@@ -43,6 +43,50 @@ function unsigned(value: unknown, label: string): string {
   return result;
 }
 
+export interface FreshImmutableAgreementBinding {
+  termsVersionId: string;
+  termsVersion: string;
+  termsHash: string;
+  buyerAcceptanceId: string;
+  sellerAcceptanceId: string;
+  buyerDigest: string;
+  sellerDigest: string;
+}
+
+/** Derive the coordinator binding only from the strict snapshot adapter.
+ * That adapter has already recomputed current canonical terms and recovered
+ * each EIP-712 signature against the currently verified party wallet.
+ */
+export function immutableAgreementBindingFromSnapshot(
+  snapshot: SafeExecutionDatabaseSnapshot,
+): FreshImmutableAgreementBinding {
+  if (!snapshot || snapshot.blockers.length !== 0 || !snapshot.termsVersion ||
+      snapshot.agreementAcceptances.length !== 2) {
+    throw new Error("Fresh immutable buyer/seller agreement evidence is incomplete.");
+  }
+  const terms = snapshot.termsVersion;
+  const buyer = snapshot.agreementAcceptances.find((row) => row.partyRole === "buyer");
+  const seller = snapshot.agreementAcceptances.find((row) => row.partyRole === "seller");
+  if (!buyer || !seller || buyer.id === seller.id ||
+      buyer.termsVersionId !== terms.id || seller.termsVersionId !== terms.id ||
+      buyer.dealId !== terms.dealId || seller.dealId !== terms.dealId ||
+      buyer.termsVersion !== terms.termsVersion || seller.termsVersion !== terms.termsVersion ||
+      buyer.termsHash.toLowerCase() !== terms.termsHash.toLowerCase() ||
+      seller.termsHash.toLowerCase() !== terms.termsHash.toLowerCase() ||
+      buyer.typedDataDigest.toLowerCase() === seller.typedDataDigest.toLowerCase()) {
+    throw new Error("Fresh immutable agreement records are not bound to one matching terms version.");
+  }
+  return {
+    termsVersionId: terms.id,
+    termsVersion: terms.termsVersion,
+    termsHash: terms.termsHash,
+    buyerAcceptanceId: buyer.id,
+    sellerAcceptanceId: seller.id,
+    buyerDigest: buyer.typedDataDigest,
+    sellerDigest: seller.typedDataDigest,
+  };
+}
+
 function transactionExpectation(snapshot: SafeExecutionDatabaseSnapshot): SafeLiveExecutionExpectation {
   const tx = snapshot.releaseTransaction;
   const safeAddress = requiredText(snapshot.deal.safe_address, "deal Safe address");
@@ -100,7 +144,7 @@ export async function loadFreshSafeHandlerContext(
   dependencies: FreshSafeHandlerContextDependencies,
   dealId: string,
   now: string,
-): Promise<Omit<CheckDealRoomFromSnapshotInput, "stage"> & { safeTransactionHash: string }> {
+): Promise<Omit<CheckDealRoomFromSnapshotInput, "stage"> & { safeTransactionHash: string; agreementBinding: FreshImmutableAgreementBinding }> {
   if (!Number.isFinite(Date.parse(now))) throw new Error("W3M fresh context time is invalid.");
   const snapshot = await loadSafeExecutionDatabaseSnapshot(dependencies.database, dealId);
   if (snapshot.blockers.length > 0) {
@@ -121,6 +165,7 @@ export async function loadFreshSafeHandlerContext(
     now,
     safeFacts,
     safeTransactionHash: requiredText(snapshot.releaseTransaction.safe_tx_hash, "fresh Safe transaction hash"),
+    agreementBinding: immutableAgreementBindingFromSnapshot(snapshot),
   };
 }
 
