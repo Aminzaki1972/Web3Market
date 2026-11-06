@@ -1,4 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
+import { computeAuditManifest } from "./audit-manifest.ts";
 import {
   authorizeSafePrepareFromFreshSources,
   type FreshSafePrepareDependencies,
@@ -13,6 +14,20 @@ const SELLER="0x3333333333333333333333333333333333333333";
 const PLATFORM="0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
 const HASH="0x"+"a".repeat(64);
 
+const AUDIT="75000000-0000-4000-8000-000000000005";
+const COMMIT="c".repeat(40);
+const auditRow={
+ id:AUDIT,status:"completed",commit_sha:COMMIT,repo_owner:"example",repo_name:"project",
+ completed_at:"2026-11-05T00:00:00.000Z",engine_version:"w3m-code-audit-2.0",
+ files_scanned:1,critical_count:0,high_count:0,medium_count:0,low_count:0,info_count:0,
+ analysis_progress:{evidence_version:"w3m-audit-evidence-v1",tree_truncated:false,persisted_file_count:1},
+};
+const auditFile={audit_id:AUDIT,path:"README.md",language:"markdown",line_count:1,selected_tier:"core"};
+const auditManifest=await computeAuditManifest({audit:auditRow,files:[auditFile],findings:[]});
+const codeAudit={auditId:AUDIT,repositoryOwner:"example",repositoryName:"project",
+ repositoryUrl:"https://github.com/example/project",commitSha:COMMIT,auditType:"complete",
+ completedAt:"2026-11-05T00:00:00.000Z",auditEvidenceHash:auditManifest.digest};
+
 function row(overrides:Record<string,unknown>={}) {
  return {deal_id:DEAL,deal_status:"funded",deal_chain_id:"56",policy_deal_id:DEAL,buyer_id:"buyer",seller_id:"seller",
   project_owner_id:"seller",project_status:"active",buyer_wallet:BUYER,buyer_wallet_verified:"true",
@@ -21,7 +36,18 @@ function row(overrides:Record<string,unknown>={}) {
   policy_safe_address:SAFE,policy_safe_nonce:"7",...overrides};
 }
 function deps(snapshot:unknown, factsOverrides:Record<string,unknown>={}):FreshSafePrepareDependencies {
- const database={rpc:async()=>({data:snapshot,error:null})} as unknown as SafePrepareDatabase;
+ const database={
+  rpc:async()=>({data:snapshot,error:null}),
+  from:(table:string)=>{
+   const rows=table==="code_audits"?[auditRow]:table==="code_audit_files"?[auditFile]:[];
+   const query:any={
+    select:()=>query,eq:()=>query,order:()=>query,range:(from:number,to:number)=>{query.page=rows.slice(from,to+1);return query;},
+    maybeSingle:async()=>({data:auditRow,error:null}),
+    then:(resolve:any,reject:any)=>Promise.resolve({data:query.page??rows,error:null}).then(resolve,reject),
+   };
+   return query;
+  },
+ } as unknown as SafePrepareDatabase;
  return {database,readSafeConfiguration:async(expected:SafeConfigurationExpectation)=>{
   assertEquals(expected.expectedOwners,[BUYER,SELLER,PLATFORM]);
   return {valid:true,chainId:56,safeAddress:SAFE,owners:[BUYER,SELLER,PLATFORM],
