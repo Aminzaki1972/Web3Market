@@ -266,6 +266,21 @@ begin
   exception when check_violation then null;
   end;
 
+  -- A newer non-PASS report must invalidate the old passing audit binding;
+  -- the signing path must never fall back to an older PASS report.
+  insert into public.w3m_acquisition_reports(
+    id,deal_id,project_id,report_version,status,engine_version,evidence_hash,
+    report_hash,report_payload,issued_at,expires_at
+  ) values (
+    '88000000-0000-4000-8000-000000000008',v_deal::text,v_project::text,2,'BLOCKED',
+    'w3m-acquisition-verification-1.0.0',repeat('1',64),repeat('2',64),
+    jsonb_build_object('reportId','88000000-0000-4000-8000-000000000008'),
+    now(),now()+interval '1 day'
+  );
+  if public.w3m_current_deal_code_audit_json(v_deal) is not null then
+    raise exception 'A superseded PASS Code Audit was incorrectly reused after a newer BLOCKED report';
+  end if;
+
   if has_function_privilege('anon','public.w3m_register_deal_terms_version(uuid,text,jsonb)','EXECUTE')
      or has_function_privilege('authenticated','public.w3m_register_deal_terms_version(uuid,text,jsonb)','EXECUTE')
      or not has_function_privilege('service_role','public.w3m_register_deal_terms_version(uuid,text,jsonb)','EXECUTE') then
