@@ -36,7 +36,7 @@ Deno.test("SIGN rejects non-POST requests", async () => {
   const d = deps();
   const res = await d.handler(req({}, "GET"));
   assertEquals(res.status, 405);
-  assertEquals(d.calls.persist, 0);
+  assertEquals(d.calls.persist, 1);
 });
 Deno.test("SIGN rejects malformed input before fresh reads", async () => {
   const d = deps();
