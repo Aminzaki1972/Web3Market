@@ -75,6 +75,22 @@ Deno.test("audit manifest changes when any audit, file, or finding evidence chan
   assertNotEquals(base.digest, changedFinding.digest);
 });
 
+Deno.test("audit manifest supports repository-level and file-level findings without line numbers", async () => {
+  const input = fixture();
+  const manifest = await computeAuditManifest({
+    ...input,
+    audit: { ...input.audit, info_count: 1, medium_count: 2 },
+    findings: [
+      ...input.findings,
+      { audit_id: "audit-001", file_path: null, line_start: null,
+        severity: "info", category: "repository", title: "Repository-wide observation" },
+      { audit_id: "audit-001", file_path: "src/a.ts", line_start: null,
+        severity: "medium", category: "quality", title: "File-level observation" },
+    ],
+  });
+  assertEquals(manifest.findingCount, 4);
+});
+
 Deno.test("audit manifest rejects missing or duplicate natural keys", async () => {
   const input = fixture();
   await assertRejects(() => computeAuditManifest({ ...input, audit: { ...input.audit, id: "" } }));
