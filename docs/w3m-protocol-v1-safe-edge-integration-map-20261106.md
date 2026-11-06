@@ -302,7 +302,7 @@ This wrapper composes the existing read-only BNB Safe client with the Safe facts
 
 The wrapper accepts an injected `JsonRpcClient`; it does not choose or contact a live RPC endpoint itself. The future Edge handler must construct that client with the existing HTTPS hostname allowlist. Tests use mocked JSON-RPC responses only; no live BNB endpoint, wallet, Safe transaction, or funds are touched.
 
-CI run `42138975440` was created for commit `958f94e8b69155b80ee3875ec25052b42f9607bd`; its initial state was queued. The new helper and tests are included in the workflow's type-check and test steps. Final CI result will be recorded after completion.
+CI run `42138975440` on commit `958f94e8b69155b80ee3875ec25052b42f9607bd` completed successfully: all 46 job steps completed with zero failures, including the new canonical-block reader type-check and three mocked tests, all existing Deno suites, and disposable PostgreSQL migration/contract checks.
 
 The next unresolved execution prerequisites remain unchanged: immutable buyer/seller agreement signatures bound to the canonical deal-terms hash; loading and cryptographically verifying the latest persisted W3M report/evidence/trusted signer bundle; and composing those with the live Safe facts and coordinator in a dedicated isolated EXECUTE handler. No existing production Safe handler is wired to W3M.
 
