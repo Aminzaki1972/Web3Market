@@ -841,3 +841,16 @@ The package builder now includes a strict expiry. No browser wallet signs or sub
 **CI:** new type checks, handler tests, RPC adapter tests, migration, and disposable PostgreSQL contract tests are included in the isolated workflow. Latest run: https://github.com/Aminzaki1972/Web3Market/actions/runs/42187339703 — pending at the time of this update. Earlier failures were type-check failures in the package-builder/test fixture and are superseded by the current run; do not mark this stage verified until the current workflow passes.
 
 No production migration or function was deployed. No live Deal Room, Safe, wallet, funds, Supabase production database, or Cloudflare configuration was changed.
+
+
+## 46. Connected-wallet submission and receipt-window enforcement — isolated draft — 2026-11-06
+
+Added js/w3m-safe-wallet-execution-client.js. It verifies the canonical package SHA-256, package expiry, BNB Chain 56, connected account membership in the verified Safe signer set, and the live Safe nonce before constructing the exact execTransaction ABI call and asking the EIP-1193 wallet to submit it. It does not sign in JavaScript, hold keys, or treat the returned transaction hash as a completed deal. Its result is explicitly SUBMITTED_UNVERIFIED.
+
+Added safe-wallet-submission-request-handler.ts and the service-role-only w3m_record_safe_wallet_submission RPC. The authenticated request accepts only attempt ID, package hash, and outer BNB transaction hash; actor identity comes from the verified session. SQL binds the caller to the package actor and exact stored package hash, records the outer hash idempotently, and preserves RECONCILIATION_REQUIRED when applicable. The response explicitly says receipt_verified=false and finalized=false.
+
+The receipt/finalization path now also reads the canonical BNB receipt block timestamp. The server verifier, finalization guard, and atomic SQL finalizer require that block timestamp to fall within the exact stored package issue/expiry window. This closes the gap where a cached wallet package could otherwise be submitted after its short validity window while still matching an unchanged Safe nonce.
+
+**CI:** the isolated workflow now includes the wallet ABI client, package request handler, submission-hash boundary, RPC adapters, receipt-time checks, and disposable PostgreSQL tests. Latest workflow run at this documentation update: https://github.com/Aminzaki1972/Web3Market/actions/runs/42188374442 — pending. Do not mark these changes CI-verified until a current run succeeds.
+
+**Still outstanding:** a concrete isolated Supabase Edge Function composition for package issuance and submission, the Deal Room wallet UI, and end-to-end server composition wiring to the existing FINALIZE endpoint. No production migration/function was deployed, no wallet was prompted by this work, and no transaction was broadcast by ChatGPT.
