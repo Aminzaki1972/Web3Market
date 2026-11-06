@@ -19,7 +19,7 @@ function snapshot(overrides:Record<string,unknown>={}) {
   buyer_wallet:BUYER,buyer_wallet_verified:"true",buyer_wallet_verified_at:"2026-11-05T00:00:00Z",
   seller_wallet:SELLER,seller_wallet_verified:"true",seller_wallet_verified_at:"2026-11-05T00:00:00Z",
   deal_amount:"100.000000000000000001",currency:"USDT",expected_amount:"100.000000000000000001",
-  deal_chain_id:"56",deal_safe_address:SAFE,deal_token_contract:"0x55d398326f99059ff775485246999027b3197955",
+  deal_safe_address:SAFE,deal_token_contract:"0x55d398326f99059ff775485246999027b3197955",
   payment_status:"confirmed",payment_tx_hash:"0x"+"b".repeat(64),delivery_status:"accepted",
   buyer_approved_at:"2026-11-05T00:00:00Z",dispute_status:"none",release_tx_hash:null,
   ...overrides};
