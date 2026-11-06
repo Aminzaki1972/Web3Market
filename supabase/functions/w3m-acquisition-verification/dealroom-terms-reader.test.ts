@@ -8,6 +8,11 @@ import type { W3MRegistryReadClient, W3MRegistryReadResult, W3MRegistrySelectQue
 
 const row: DealRoomTermsSnapshotRow = {
   deal_id: "deal-reader-1", project_id: "project-1", buyer_id: "buyer-1", seller_id: "seller-1",
+  project_owner_id: "seller-1", project_status: "active",
+  buyer_wallet: "0x5555555555555555555555555555555555555555",
+  buyer_wallet_verified: "true", buyer_wallet_verified_at: "2026-11-05T00:00:00Z",
+  seller_wallet: "0x4444444444444444444444444444444444444444",
+  seller_wallet_verified: "true", seller_wallet_verified_at: "2026-11-05T00:00:00Z",
   deal_amount: "100.00000000", currency: "USDT", expected_amount: "100.00000000",
   deal_chain_id: "56", deal_safe_address: "0x2222222222222222222222222222222222222222",
   deal_token_contract: "0x3333333333333333333333333333333333333333",
