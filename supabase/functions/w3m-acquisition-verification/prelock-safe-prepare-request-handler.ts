@@ -28,8 +28,8 @@ export async function handleW3MPrelockPrepareRequest(
   dependencies: W3MPrelockPrepareRequestDependencies,
 ): Promise<Response> {
   if (request.method !== "POST") return json(405, { ok: false, error: "POST_REQUIRED" });
-  const match = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") ?? "");
-  if (!match?.[1]?.trim()) return json(401, { ok: false, error: "AUTHENTICATION_REQUIRED" });
+  const token = extractW3MBearerToken(request.headers.get("authorization"));
+  if (!token) return json(401, { ok: false, error: "AUTHENTICATION_REQUIRED" });
   let actorId: string | null;
   try { actorId = await dependencies.authenticate(token); }
   catch { return json(401, { ok: false, error: "AUTHENTICATION_FAILED" }); }
