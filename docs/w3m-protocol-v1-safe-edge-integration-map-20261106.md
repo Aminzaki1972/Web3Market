@@ -637,3 +637,31 @@ A second read-only catalog inspection checked the actual production constraints 
 **Atomic PREPARE RPC design gate:** the function must lock the deal row; verify the deal is still eligible and bound to the exact W3M-authorized deal/terms; validate the policy math and BNB/USDT/Safe bindings; update or insert exactly one intended `release_to_seller` transaction without overwriting a submitted/confirmed/cancelled record; and write the audit row in the same PostgreSQL transaction. Any failed condition must raise and roll back all writes. The service-role-only grant must be explicit, with execute revoked from PUBLIC, anon, and authenticated.
 
 This is a schema discovery and design constraint only. No production DDL, data changes, or migrations were executed. The isolated atomic RPC is not yet authored; it will be added only with a disposable PostgreSQL test covering concurrency, rollback, existing transaction state, and exact field validation.
+
+
+## 33. PREPARE write-path and trigger semantics — read-only production source review — 2026-11-06
+
+The complete live `prepare-deal-release` v43 source was fetched again and compared with the exact production table definitions and trigger/function catalog. This is still read-only.
+
+**Exact legacy PREPARE behavior**
+- It authenticates a deal participant, checks the dispute table, accepts deal status `funded` or `in_progress`, requires confirmed payment and a non-empty payment hash, BNB chain 56, configured Safe/token, verified distinct buyer/seller wallets, and an on-chain 2-of-3 Safe owner/threshold/nonce snapshot.
+- It calls `validate_deal_release_policy`, then looks up the `release_to_seller` transaction using `maybeSingle()`. Since the database has no uniqueness constraint on `(deal_id, action)`, duplicate legacy rows can make this lookup fail rather than being silently resolved.
+- The existing-transaction fast path returns without writes if a Safe hash, transaction hash, or signed/submitted/confirmed status exists.
+- Otherwise it performs three separate REST writes: policy upsert to `locked`, release multisig transaction insert/update, then `deal_audit_logs` insert. Each failure can occur after earlier writes have committed.
+
+**Additional database trigger constraints**
+- `deal_release_policies` has a BEFORE UPDATE immutability trigger. Once status is `locked`, `ready`, or `released`, deal amount, fee values, seller/platform wallets, Safe, token, chain, and Safe nonce cannot change. A retry that observes a different on-chain Safe nonce cannot simply overwrite the locked policy; it must fail closed and require an explicit recovery path.
+- `deals` has BEFORE UPDATE fee-lock, state-transition, and sensitive-field protection triggers, plus fee synchronization/consistency triggers. The PREPARE atomic RPC should avoid changing the parent deal row beyond using `SELECT ... FOR UPDATE` as its concurrency lock.
+- `deal_multisig_transactions` has an AFTER INSERT/UPDATE/DELETE audit trigger which writes to `admin_audit_log` when relevant transaction lifecycle fields change. This trigger side effect participates in the same PostgreSQL transaction as the multisig row write.
+- `deals` lifecycle audit triggers also write to `admin_audit_log` for selected lifecycle changes. `deal_release_policies` has no trigger in the inspected catalog other than its immutability guard.
+- The existing validator `validate_deal_release_policy(uuid)` returns JSONB. It checks payment confirmation/hash presence, accepted delivery and buyer approval, chain/Safe/token configuration, dispute status, and locked-policy consistency. Its fee computation is rounded to 8 decimals, while the release-policy table constraint requires fee amount rounded to 18 decimals. W3M's stricter canonical fee agreement must remain authoritative; a `valid=true` response from this legacy function is not by itself sufficient.
+
+**Atomic RPC requirements refined**
+1. Lock the parent deal row with `FOR UPDATE`, then re-read the relevant deal and release-policy values under that lock. Do not update the deal row merely to obtain a lock, because its triggers have unrelated business/audit effects.
+2. Reject duplicate `release_to_seller` rows explicitly; do not use `maybeSingle()` semantics as a substitute for a uniqueness guarantee.
+3. Preserve the legacy fast-path invariant: never rewrite rows with a Safe transaction hash, transaction hash, or status `signed`, `submitted`, or `confirmed`; preserve `cancelled` as terminal too. A locked policy with changed nonce or changed immutable binding must be rejected, not silently replaced.
+4. Insert/update the release policy, exactly one release transaction, and explicit `deal_audit_logs` entry in one transaction. Any trigger or constraint failure must roll back all three writes and the multisig audit-trigger side effect.
+5. Keep RPC execution restricted to `service_role`; validate actor is one of the deal participants and bind every supplied field to the exact W3M-authorized snapshot rather than trusting arbitrary client JSON.
+6. Do not treat the legacy 8-decimal validator as the W3M canonical fee proof. Validate exact decimal text, 18-decimal policy constraint, BNB chain 56, the configured USDT denomination/token address, Safe address, verified party wallets, payment hash, and current Safe nonce/block facts before persistence.
+
+**Important correction to earlier design notes:** the release-policy immutability trigger makes a naive `upsert(... onConflict: deal_id)` unsafe for a locked policy if the nonce or any immutable routing/financial field changes. The atomic RPC must explicitly distinguish an idempotent identical retry from a changed binding that requires a hard denial. No SQL migration has been authored or deployed yet; no production object or data was changed.
