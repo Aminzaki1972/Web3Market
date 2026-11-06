@@ -30,8 +30,10 @@ function hashField(row: Record<string, unknown>, key: string): string {
   return value.toLowerCase();
 }
 function decimalField(row: Record<string, unknown>, key: string): string {
-  const value = textField(row, key);
-  if (!DECIMAL.test(value)) throw new Error("W3M finalization snapshot decimal is invalid: " + key);
+  const value = row[key];
+  if (typeof value !== "string" || !value.trim() || !DECIMAL.test(value)) {
+    throw new Error("W3M finalization snapshot decimal is invalid: " + key);
+  }
   return value;
 }
 
