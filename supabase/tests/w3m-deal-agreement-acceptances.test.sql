@@ -198,7 +198,7 @@ begin
       repeat('b',64),v_canonical,'0x' || repeat('a',64),'0x' || repeat('d',130)
     );
     raise exception 'Agreement acceptance was allowed with shared buyer and seller wallet';
-  exception when check_violation then null;
+  exception when insufficient_privilege then null;
   end;
   update public.profiles
      set wallet_address='0x4444444444444444444444444444444444444444'
