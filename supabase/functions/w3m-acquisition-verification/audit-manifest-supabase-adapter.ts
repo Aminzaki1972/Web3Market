@@ -25,7 +25,10 @@ export function createSupabaseAuditManifestSource(
     },
     async loadFilesPage(auditId, from, to) {
       const result = await client.from("code_audit_files").select("*")
-        .eq("audit_id", auditId).order("path", { ascending: true }).range(from, to);
+        .eq("audit_id", auditId)
+        .order("path", { ascending: true })
+        .order("id", { ascending: true }) // unique final tie-breaker for deterministic offset pages
+        .range(from, to);
       return pageResult(result.data, result.error, "Audit files");
     },
     async loadFindingsPage(auditId, from, to) {
