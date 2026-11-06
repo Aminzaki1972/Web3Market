@@ -11,6 +11,8 @@ on:
       - "supabase/migrations/20261106240000_w3m_protocol_v1_safe_execution_finalizer.sql"
       - "supabase/migrations/20261107010000_w3m_protocol_v1_dealroom_terms_reader.sql"
       - "supabase/migrations/20261107020000_w3m_protocol_v1_safe_finalization_snapshot_reader.sql"
+      - "supabase/migrations/20261107030000_w3m_protocol_v1_safe_execution_snapshot_reader.sql"
+      - "supabase/tests/w3m-safe-execution-snapshot-reader.test.sql"
       - "supabase/tests/w3m-safe-execution-attempts-fixture.sql"
       - "supabase/tests/w3m-safe-execution-attempts.test.sql"
       - "supabase/tests/w3m-protocol-v1-schema.test.sql"
@@ -206,7 +208,9 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107020000_w3m_protocol_v1_safe_finalization_snapshot_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107010000_w3m_protocol_v1_dealroom_terms_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107020000_w3m_protocol_v1_safe_finalization_snapshot_reader.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107030000_w3m_protocol_v1_safe_execution_snapshot_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-schema.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-trusted-signer-schema.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-attempts.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-terms-reader.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-snapshot-reader.test.sql
