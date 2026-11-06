@@ -167,9 +167,20 @@ begin
      or not has_function_privilege('service_role','public.w3m_register_deal_terms_version(uuid,text,jsonb)','EXECUTE') then
     raise exception 'Terms-version RPC is not service-role-only';
   end if;
+  if has_function_privilege('anon','public.w3m_insert_deal_agreement_acceptance(uuid,bigint,text,uuid,text,text,jsonb,text,text)','EXECUTE')
+     or has_function_privilege('authenticated','public.w3m_insert_deal_agreement_acceptance(uuid,bigint,text,uuid,text,text,jsonb,text,text)','EXECUTE')
+     or not has_function_privilege('service_role','public.w3m_insert_deal_agreement_acceptance(uuid,bigint,text,uuid,text,text,jsonb,text,text)','EXECUTE') then
+    raise exception 'Agreement acceptance RPC is not service-role-only';
+  end if;
+  if has_function_privilege('anon','public.w3m_read_deal_agreement_signing_snapshot(uuid)','EXECUTE')
+     or has_function_privilege('authenticated','public.w3m_read_deal_agreement_signing_snapshot(uuid)','EXECUTE')
+     or not has_function_privilege('service_role','public.w3m_read_deal_agreement_signing_snapshot(uuid)','EXECUTE') then
+    raise exception 'Private signing snapshot RPC is not service-role-only';
+  end if;
   if has_table_privilege('authenticated','public.w3m_deal_agreement_acceptances','SELECT')
-     or has_table_privilege('authenticated','public.w3m_deal_agreement_acceptances','INSERT') then
-    raise exception 'Authenticated users can directly access agreement acceptance rows';
+     or has_table_privilege('authenticated','public.w3m_deal_agreement_acceptances','INSERT')
+     or has_table_privilege('service_role','public.w3m_deal_agreement_acceptances','INSERT') then
+    raise exception 'Direct table access bypasses the restricted agreement RPC';
   end if;
 end;
 $test$;
