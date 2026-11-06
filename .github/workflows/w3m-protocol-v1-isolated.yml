@@ -432,6 +432,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107030000_w3m_protocol_v1_safe_execution_snapshot_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107065000_w3m_protocol_v1_dealroom_code_audit_snapshot.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107066000_w3m_protocol_v1_completed_audit_immutability.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107120000_w3m_protocol_v1_immutable_agreements.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_w3m_protocol_v1_report_version_serialization.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql
