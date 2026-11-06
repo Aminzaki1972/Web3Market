@@ -117,6 +117,7 @@ declare
   v_evidence_count integer;
   v_invalid_evidence_count integer;
   v_acceptance_count integer;
+  v_signer public.w3m_trusted_signer_keys%rowtype;
   v_signer_event text;
   v_now timestamptz := clock_timestamp();
   v_transfer_count integer;
