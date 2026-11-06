@@ -323,3 +323,15 @@ The canonical-block BNB Safe facts reader CI run `42138975440` is currently in p
 The shared HTTPS/hostname-allowlisted BNB JSON-RPC client now sets Fetch `redirect: "error"`. This prevents an allowlisted endpoint from returning an HTTP redirect that causes the runtime to follow a different hostname and bypass the original hostname allowlist. HTTPS, no embedded URL credentials, and explicit hostname allowlisting remain required.
 
 Added tests for redirect rejection mode and rejection of non-HTTPS/non-allowlisted endpoints. CI runs `42164163576` (implementation) and `42164173993` (tests) were started for these commits; final outcomes are pending in this document's current revision. No live RPC endpoint was contacted by the tests.
+
+
+## 20. EXECUTE coordinator persistence-acknowledgement hardening — 2026-11-06
+
+The isolated safe-execution-coordinator.ts now validates adapter acknowledgements instead of treating any resolved Promise as proof that a state transition was persisted:
+
+- A claim response must contain a non-empty attempt ID, recognized state, boolean claimed and idempotentReplay; only a new CLAIMED attempt with claimed=true and idempotentReplay=false may proceed.
+- After broadcast, the coordinator requires the hash-recording adapter to confirm recorded=true, a boolean replay marker, and state BROADCAST. A malformed, negative, or reconciliation-state response does not return BROADCAST_RECORDED; it enters reconciliation handling.
+- Reconciliation is reported as persisted only when the adapter confirms updated=true, state RECONCILIATION_REQUIRED, and a boolean replay marker. A resolved-but-malformed response is not treated as success.
+- Added regression tests for malformed claim acknowledgements, negative broadcast persistence acknowledgements, and malformed reconciliation acknowledgements.
+
+The implementation and tests are on the isolated branch only. CI verification for these latest commits is pending/not yet confirmed. No broadcast, BNB RPC, database write, production function, migration deployment, or real fund movement was performed by this change.
