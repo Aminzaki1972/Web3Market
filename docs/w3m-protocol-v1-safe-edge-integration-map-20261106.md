@@ -700,3 +700,14 @@ The disposable fixture was aligned with production columns used by the RPC (`dea
 **Boundary limitation:** this is a persistence adapter, not the cryptographic W3M gate. Its typed input is trusted server context and must be created only after the persisted evidence/report signatures, exact current Deal Room terms, verified buyer/seller agreement, and canonical Safe configuration have independently passed. Do not expose this adapter to browser code or allow request JSON to populate its authorization object. The SQL RPC independently rebinds live database fields but cannot itself prove the report signature or query BNB.
 
 **Status:** adapter and tests are committed on the isolated branch. CI must still complete before treating the adapter, SQL migration, fixture, or SQL tests as verified. Nothing has been wired into the deployed PREPARE Edge Functions, and no production migration/function/deal/Safe was changed.
+
+
+## 36. PREPARE gate-to-atomic-persistence composition — isolated — 2026-11-06
+
+The PREPARE path now has a server-side composition helper, `prelock-safe-prepare-commit.ts`. It first calls the existing read-only pre-lock gate. If the phase, deal binding, decision, issue list, or atomic payload is missing/invalid, it returns a denial and makes no persistence RPC call. Only a successful fresh gate result is passed to `commitAtomicSafePrepare`, together with the authenticated actor ID supplied by the server handler.
+
+To prevent callers from inventing report bindings after a PASS, `dealroom-w3m-service.ts` now exposes a `verifiedReportAuthorization` only after the persisted report/evidence/trusted-signer gate authorizes. It carries the exact report ID, version, canonical report hash, current deal-terms hash, and report expiry. The pre-lock gate then combines this verified report binding with its exact server-loaded policy and canonical-block Safe facts into the narrowly typed atomic commit payload. Missing report binding denies PREPARE.
+
+The isolated workflow now type-checks and tests the composition helper. The focused composition test confirms that a missing deal snapshot cannot reach the atomic persistence RPC. Full positive-path composition still depends on a valid signed report bundle and live Safe configuration; it is not simulated by weakening the signature verifier.
+
+**Status:** the isolated PREPARE path now has a concrete gate → verified report binding → allowlisted atomic RPC composition. It has not been connected to either deployed PREPARE Edge Function. The legacy live multi-write path remains unchanged until a separately reviewed integration plan and explicit deployment approval. CI for the new composition and SQL migration must complete before this draft is marked verified.
