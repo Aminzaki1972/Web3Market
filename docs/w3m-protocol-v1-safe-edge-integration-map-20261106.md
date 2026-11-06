@@ -335,3 +335,32 @@ The isolated safe-execution-coordinator.ts now validates adapter acknowledgement
 - Added regression tests for malformed claim acknowledgements, negative broadcast persistence acknowledgements, and malformed reconciliation acknowledgements.
 
 The implementation and tests are on the isolated branch only. CI verification for these latest commits is pending/not yet confirmed. No broadcast, BNB RPC, database write, production function, migration deployment, or real fund movement was performed by this change.
+
+
+## 21. EXECUTE coordinator acknowledgements — CI outcome — 2026-11-06
+
+The coordinator hardening from section 20 has been verified by the later isolated workflow runs:
+
+- Run 42164763940 — success; includes the malformed initial and pre-broadcast snapshot regressions.
+- Run 42164755524 — success; includes fail-closed handling for malformed fresh snapshots.
+- Run 42164703006 — success; includes corrected reconciliation acknowledgement coverage.
+- Run 42164692543 — success; includes claim and broadcast persistence acknowledgement tests.
+
+An earlier run, 42164680320, failed because its test file still used the pre-hardening adapter response shape. The subsequent test correction and later workflow runs above passed; the earlier run is superseded, not silently counted as passing.
+
+## 22. Fresh Safe handler context composer — 2026-11-06
+
+Added `fresh-safe-handler-context.ts` as the read-only composition boundary between the strict Safe database snapshot and the existing phase-aware W3M authorizer:
+
+1. Loads one fresh service-role database snapshot for the exact deal.
+2. Rejects every database blocker before making a BNB read, including missing immutable agreement-term binding.
+3. Constructs the expected Safe transaction fields from stored server-side rows only.
+4. Requires a supplied read function backed by `readCanonicalBnbSafeExecutionFacts`, so Safe facts are read at one BNB block and that block hash is rechecked after reads.
+5. Rejects invalid chain, Safe address, owner set, threshold, version, nonce, or recomputed Safe transaction hash.
+6. Returns only the fresh exact Deal Room reader context for the existing authorizer; it does not sign, claim, broadcast, or write.
+
+Added tests for missing/malformed DB snapshots and invalid time. The workflow now type-checks and runs this composer test. CI outcome for the new composer commit is pending until its run completes.
+
+The current isolated SQL snapshot deliberately returns `agreement_binding_supported=false`; therefore this composer blocks before chain reads for current schema snapshots. This is intentional until the buyer/seller same-terms consent mechanism is explicitly approved and implemented. The EIP-712 agreement flow remains proposal-only.
+
+No production migration, deployed function, live website, live BNB call, or funds were changed by this work.
