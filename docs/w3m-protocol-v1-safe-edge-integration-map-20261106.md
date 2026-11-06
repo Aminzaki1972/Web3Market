@@ -892,3 +892,12 @@ Extended `js/w3m-safe-wallet-execution-client.js` with a complete browser handof
 Added `verifyW3MDealReleaseFromServer`. It sends only the execution attempt ID to the isolated finalization endpoint. The browser cannot submit receipt logs, transfer amounts, recipient addresses, or a client-declared success. A 409 response remains `VERIFICATION_PENDING_OR_BLOCKED`; only the server's exact `CONFIRMED` result is surfaced as finalized.
 
 **Important:** this is the browser orchestration helper, not yet the Deal Room visual integration. No button has been enabled on the live Deal Room, no production endpoint has been changed, and no wallet transaction has been sent by this work. Automated CI is being rerun after the latest test and helper changes.
+
+
+## 48. Explicit server-side finalization client and authenticated executor binding — isolated draft — 2026-11-06
+
+The wallet package now carries the authenticated participant's verified profile wallet and the full live Safe owner set. The browser helper requires the connected account to equal that authenticated executor wallet and verifies it is still in the packaged Safe owner set before requesting `eth_sendTransaction`. This avoids allowing a different co-owner's wallet to submit under the wrong logged-in participant. The executor wallet is server-derived from the fresh authenticated buyer/seller context; it is never accepted from browser input.
+
+Added `finalizeW3MSafeDealRelease`, a separate explicit browser action that sends only the attempt ID to the isolated finalization endpoint. The server reloads the exact stored broadcast hash and package window, fetches the canonical BNB receipt, verifies confirmation count, Safe execution event, and the exact two USDT transfers, then calls the atomic finalization RPC. If confirmations or evidence are not yet sufficient, the helper reports `FINALIZATION_PENDING`; it does not mark the deal complete.
+
+The browser flow is now represented in isolated modules as: authenticated package request → connected owner wallet `execTransaction` → authenticated transaction-hash handoff → separate server receipt verification/finalization. The existing production Deal Room page and legacy Safe execute flow have deliberately not been modified or wired to these draft endpoints.
