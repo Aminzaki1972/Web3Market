@@ -48,21 +48,29 @@ export async function prepareDealAuditSnapshot(
   client: W3MRpcClient,
   source: AuditManifestSource,
   dealId: string,
+  actorId: string,
 ): Promise<PreparedDealAuditSnapshot> {
-  if (!UUID.test(dealId)) throw new Error("A valid deal UUID is required.");
+  if (!UUID.test(dealId) || !UUID.test(actorId)) {
+    throw new Error("Valid deal and authenticated actor UUIDs are required.");
+  }
 
   const { data, error } = await client.rpc("w3m_read_deal_audit_snapshot_context", {
     p_deal_id: dealId,
+    p_actor_id: actorId,
   });
   if (error) throw new Error("The trusted Deal Code Audit context could not be loaded.");
 
   const context = object(data, "Deal Code Audit context");
   const contextDealId = text(context.deal_id, "Context deal ID");
   const projectId = text(context.project_id, "Context project ID");
+  const buyerId = text(context.buyer_id, "Deal buyer ID");
+  const sellerId = text(context.seller_id, "Deal seller ID");
   const auditId = text(context.audit_id, "Selected audit ID");
   const projectRepositoryUrl = text(context.project_github_url, "Project GitHub URL");
-  if (contextDealId !== dealId || !UUID.test(projectId) || !UUID.test(auditId)) {
-    throw new Error("The selected audit is not bound to the exact deal and project.");
+  if (contextDealId !== dealId || !UUID.test(projectId) || !UUID.test(auditId) ||
+      !UUID.test(buyerId) || !UUID.test(sellerId) ||
+      (actorId !== buyerId && actorId !== sellerId)) {
+    throw new Error("The selected audit is not bound to this deal and authenticated buyer or seller.");
   }
 
   const loaded = await loadAuditManifestSnapshot({ auditId, source });
