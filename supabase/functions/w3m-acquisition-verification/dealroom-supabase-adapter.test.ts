@@ -40,6 +40,16 @@ const deal: DealRoomDealRow = {
   delivery_status: "accepted", buyer_approved_at: "2026-11-06T19:00:00.000Z",
   dispute_status: "none", release_tx_hash: null,
 };
+const codeAudit = {
+  auditId: "87000000-0000-4000-8000-000000000007",
+  repositoryOwner: "Aminzaki1972",
+  repositoryName: "Web3Market",
+  repositoryUrl: "https://github.com/Aminzaki1972/Web3Market",
+  commitSha: "a".repeat(40),
+  auditType: "code" as const,
+  completedAt: "2026-11-01T10:00:00.000Z",
+  auditEvidenceHash: "c".repeat(64),
+};
 const policy: DealRoomPolicyRow = {
   deal_id: "deal-1", deal_amount: "100", fee_percent: "7.5", fee_amount: "7.5",
   seller_net_amount: "92.5", chain_id: 56,
@@ -52,7 +62,7 @@ const policy: DealRoomPolicyRow = {
 
 Deno.test("strict Deal Room adapter passes exact text rows to the W3M gate and fails closed without report", async () => {
   const result = await evaluateDealRoomRowsWithW3M({
-    client: client(), deal, policy, stage: "PREPARE",
+    client: client(), deal, policy, codeAudit, stage: "PREPARE",
     now: "2026-11-06T20:00:00.000Z", safeConfigurationMatches: true,
   });
   assertEquals(result.authorized, false);
@@ -62,21 +72,21 @@ Deno.test("strict Deal Room adapter passes exact text rows to the W3M gate and f
 
 Deno.test("strict Deal Room adapter rejects floating-point financial fields", async () => {
   await assertRejects(() => evaluateDealRoomRowsWithW3M({
-    client: client(), deal: { ...deal, amount: 100 }, policy, stage: "PREPARE",
+    client: client(), deal: { ...deal, amount: 100 }, policy, codeAudit, stage: "PREPARE",
     now: "2026-11-06T20:00:00.000Z", safeConfigurationMatches: true,
   }));
 });
 
 Deno.test("strict Deal Room adapter rejects non-none dispute states", async () => {
   await assertRejects(() => evaluateDealRoomRowsWithW3M({
-    client: client(), deal: { ...deal, dispute_status: "resolved" }, policy, stage: "PREPARE",
+    client: client(), deal: { ...deal, dispute_status: "resolved" }, policy, codeAudit, stage: "PREPARE",
     now: "2026-11-06T20:00:00.000Z", safeConfigurationMatches: true,
   }));
 });
 
 Deno.test("strict Deal Room adapter rejects policy rows belonging to another deal", async () => {
   await assertRejects(() => evaluateDealRoomRowsWithW3M({
-    client: client(), deal, policy: { ...policy, deal_id: "deal-2" }, stage: "PREPARE",
+    client: client(), deal, policy: { ...policy, deal_id: "deal-2" }, codeAudit, stage: "PREPARE",
     now: "2026-11-06T20:00:00.000Z", safeConfigurationMatches: true,
   }));
 });
