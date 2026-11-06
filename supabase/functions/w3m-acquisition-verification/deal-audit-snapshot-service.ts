@@ -81,13 +81,20 @@ export async function prepareDealAuditSnapshot(
 
   const repositoryOwner = text(audit.repo_owner, "Audit repository owner");
   const repositoryName = text(audit.repo_name, "Audit repository name");
+  const auditType = text(audit.audit_type, "Audit type");
+  const overallScore = Number(audit.overall_score);
+  if (!Number.isFinite(overallScore) ||
+      !text(audit.risk_level, "Audit risk level") ||
+      !text(audit.analysis_method, "Audit analysis method")) {
+    throw new Error("The selected audit lacks the score, risk or analysis metadata required for report evidence.");
+  }
   const binding = parseDealCodeAuditBinding({
     auditId,
     repositoryOwner,
     repositoryName,
     repositoryUrl: "https://github.com/" + repositoryOwner + "/" + repositoryName,
     commitSha: text(audit.commit_sha, "Audit commit SHA"),
-    auditType: text(audit.audit_type, "Audit type"),
+    auditType,
     completedAt: text(audit.completed_at, "Audit completion time"),
     auditEvidenceHash: loaded.manifest.digest,
   });
