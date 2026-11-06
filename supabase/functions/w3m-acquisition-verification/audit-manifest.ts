@@ -113,17 +113,22 @@ export async function computeAuditManifest(input: AuditManifestInput): Promise<A
   const files = stableRows(input.files, (row) =>
     requiredString(row.path, "Audit file path"), "Audit files");
   const findings = stableRows(input.findings, (row) => {
-    const path = requiredString(row.file_path, "Finding file path");
+    const rawPath = row.file_path;
+    const path = rawPath === null ? null : requiredString(rawPath, "Finding file path");
     const severity = requiredString(row.severity, "Finding severity").toLowerCase();
     const category = requiredString(row.category, "Finding category");
     const title = requiredString(row.title, "Finding title");
-    if (!Number.isInteger(row.line_start) || Number(row.line_start) < 0) {
-      throw new Error("Finding line_start must be a non-negative integer.");
+    const lineStart = row.line_start;
+    if (lineStart !== null && lineStart !== undefined &&
+        (!Number.isInteger(lineStart) || Number(lineStart) < 0)) {
+      throw new Error("Finding line_start must be null or a non-negative integer.");
     }
     if (!["critical", "high", "medium", "low", "info"].includes(severity)) {
       throw new Error("Finding severity is unsupported.");
     }
-    return [path, String(row.line_start), severity, category, title].join("\u0000");
+    // Repository-level findings legitimately have null file_path/line_start.
+    // JSON tuple encoding distinguishes those from file-scoped findings.
+    return JSON.stringify([path, lineStart ?? null, severity, category, title]);
   }, "Audit findings");
 
   for (const row of [...files, ...findings]) {
