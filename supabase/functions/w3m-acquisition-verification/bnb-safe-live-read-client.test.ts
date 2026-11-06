@@ -101,7 +101,7 @@ Deno.test("Safe getTransactionHash call uses canonical ABI head and dynamic byte
 
 Deno.test("Safe live reader rejects invalid block tags and malformed ABI results", async () => {
   await assertRejects(
-    () => Promise.resolve(createBnbSafeLiveReadClient(mockRpc().rpc, "latest")),
+    async () => { createBnbSafeLiveReadClient(mockRpc().rpc, "latest"); },
     BnbSafeLiveReadError,
   );
   const malformed = mockRpc({ eth_call: "0x01" });
