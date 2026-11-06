@@ -72,6 +72,14 @@ begin
     where deal_id=v_deal_id and action='release_policy_locked';
   if audit_count<>1 then raise exception 'Idempotent retry duplicated audit record'; end if;
 
+  auth := jsonb_set(auth,'{report_hash}',to_jsonb(repeat('9',64)));
+  begin
+    perform public.w3m_commit_safe_prepare(v_deal_id,actor_id,policy,safe_facts,auth);
+    raise exception 'Changed W3M report binding unexpectedly accepted on replay';
+  exception when check_violation then null;
+  end;
+  auth := jsonb_set(auth,'{report_hash}',to_jsonb(repeat('b',64)));
+
   policy := jsonb_set(policy,'{token_contract}','"0x5555555555555555555555555555555555555555"'::jsonb);
   begin
     perform public.w3m_commit_safe_prepare(v_deal_id,actor_id,policy,safe_facts,auth);
