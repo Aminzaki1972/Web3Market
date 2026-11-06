@@ -163,3 +163,13 @@ This change is isolated code/docs only. No production database, Edge Function, d
 
 
 A detailed design for the missing bilateral audit pinning is now recorded in [Deal Agreement Code Audit Binding Design](w3m-protocol-v1-deal-agreement-code-audit-binding-design-20261106.md). It defines the server-owned exact audit selection, canonical terms fields, re-signing behavior after a selection change, report-to-terms matching, permissions, and required negative tests. It is a design artifact only; no selection table or migration has been created.
+
+
+## 14. Code Audit agreement-binding boundary — 2026-11-06
+
+- Added pure helper `deal-code-audit-binding.ts` and focused tests. It converts only mandatory, passing, exact deal/project-bound Code Audit evidence into a canonical audit identity object (audit ID, repository identity/URL, commit SHA, scope, completion time, evidence hash).
+- Hardened GitHub owner/repository validation and requires valid completion, observation, and evidence-expiry timestamps.
+- Added the helper and its tests to the isolated workflow's explicit Deno type-check and test steps. This was necessary because the workflow enumerates individual files/tests rather than discovering new tests automatically.
+- Status: pre-integration boundary only. It is not yet included in `computeDealTermsHash`, SQL `w3m_current_deal_terms_json`, or the agreement-signing runtime. The server-owned audit-selection loader and authoritative project repository comparison remain open.
+- CI run for workflow inclusion: `42249892753` (pending at documentation time). Earlier selector expiry/binding test run `42248602261` completed successfully. Do not infer the new helper has passed until its own workflow run completes.
+- No database migration was applied and no Edge Function was deployed.
