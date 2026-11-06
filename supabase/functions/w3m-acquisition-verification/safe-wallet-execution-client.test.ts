@@ -5,7 +5,6 @@ import {
   executeW3MDealReleaseFromWallet,
   recordW3MSafeWalletSubmission,
   verifyW3MDealReleaseFromServer,
-  verifyW3MDealReleaseFromServer,
 } from "../../../js/w3m-safe-wallet-execution-client.js";
 
 const SAFE = "0x1111111111111111111111111111111111111111";
