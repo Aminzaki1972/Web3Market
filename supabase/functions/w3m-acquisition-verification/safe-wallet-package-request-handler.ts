@@ -89,7 +89,7 @@ export function createW3MSafeWalletPackageRequestHandler(
         idempotencyKey: first.idempotencyKey,
       });
       attemptId = claim.attemptId;
-      if (!claim.claimed || claim.state !== "CLAIMED") {
+      if (claim.state !== "CLAIMED" || (!claim.claimed && !claim.idempotentReplay)) {
         return json(409, {
           ok: false, state: claim.state, attempt_id: claim.attemptId,
           error: "EXECUTION_ATTEMPT_NOT_AVAILABLE_FOR_PACKAGE",
