@@ -144,14 +144,43 @@ export async function loadFreshSafeHandlerContext(
   dependencies: FreshSafeHandlerContextDependencies,
   dealId: string,
   now: string,
-): Promise<Omit<CheckDealRoomFromSnapshotInput, "stage"> & { safeTransactionHash: string; agreementBinding: FreshImmutableAgreementBinding }> {
+  phase: "SIGN" | "EXECUTE" = "EXECUTE",
+  actorId?: string,
+): Promise<Omit<CheckDealRoomFromSnapshotInput, "stage"> & {
+  safeTransactionHash: string;
+  agreementBinding: FreshImmutableAgreementBinding;
+  verifiedWallet?: string;
+  signerRole?: "buyer" | "seller";
+  transactionStatus: "awaiting_signatures" | "signed";
+}> {
   if (!Number.isFinite(Date.parse(now))) throw new Error("W3M fresh context time is invalid.");
-  const snapshot = await loadSafeExecutionDatabaseSnapshot(dependencies.database, dealId);
+  const snapshot = await loadSafeExecutionDatabaseSnapshot(dependencies.database, dealId, phase);
   if (snapshot.blockers.length > 0) {
     throw new Error("W3M Safe execution is blocked: " + snapshot.blockers.join(","));
   }
 
   const expected = transactionExpectation(snapshot);
+  const transactionStatus = snapshot.releaseTransaction.status;
+  if (transactionStatus !== "awaiting_signatures" && transactionStatus !== "signed") {
+    throw new Error("Safe release transaction is not in a signable status.");
+  }
+  let verifiedWallet: string | undefined;
+  let signerRole: "buyer" | "seller" | undefined;
+  if (actorId !== undefined) {
+    const isBuyer = actorId === snapshot.deal.buyer_id;
+    const isSeller = actorId === snapshot.deal.seller_id;
+    if (isBuyer === isSeller) throw new Error("Authenticated actor is not exactly one deal participant.");
+    const profile = isBuyer ? snapshot.buyerProfile : snapshot.sellerProfile;
+    const wallet = profile.wallet_address;
+    const verifiedAt = typeof profile.wallet_verified_at === "string" ? Date.parse(profile.wallet_verified_at) : Number.NaN;
+    if (profile.wallet_verified !== true || typeof wallet !== "string" ||
+        !/^0x[0-9a-fA-F]{40}$/.test(wallet) || !Number.isFinite(verifiedAt) ||
+        verifiedAt > Date.parse(now)) {
+      throw new Error("Authenticated participant wallet is not currently verified.");
+    }
+    verifiedWallet = wallet;
+    signerRole = isBuyer ? "buyer" : "seller";
+  }
   const facts = await dependencies.readSafeFacts(expected);
   const safeFacts = dealRoomSafeFacts(
     facts,
@@ -166,6 +195,9 @@ export async function loadFreshSafeHandlerContext(
     safeFacts,
     safeTransactionHash: requiredText(snapshot.releaseTransaction.safe_tx_hash, "fresh Safe transaction hash"),
     agreementBinding: immutableAgreementBindingFromSnapshot(snapshot),
+    verifiedWallet,
+    signerRole,
+    transactionStatus,
   };
 }
 
@@ -181,7 +213,7 @@ export async function authorizeSafeHandlerPhaseFromFreshSources(
 ): Promise<W3MPhaseAuthorization> {
   return await authorizeSafeHandlerPhase(
     phase,
-    () => loadFreshSafeHandlerContext(dependencies, dealId, now),
+    () => loadFreshSafeHandlerContext(dependencies, dealId, now, phase),
     recoverAndVerify,
     safeTransactionHash,
   );
