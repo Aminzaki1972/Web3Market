@@ -126,3 +126,19 @@ Added `safe-finalization-guard.ts` and its test suite. This boundary requires a 
 The injected receipt verifier remains a critical trust boundary: its implementation must independently fetch the BNB receipt and logs, verify the Safe event emitter/topics and ERC-20 Transfer log contract/topics/data, and construct the normalized evidence. The guard does not itself connect to BNB RPC and does not claim that the verifier implementation is complete.
 
 CI run `42132507852` passed the fresh Safe handler authorizer tests and type checks. Receipt guard runs `42132648424`, `42132662152`, and `42132686955` were pending when this note was recorded. No live function, production database, Safe, wallet, or funds were accessed or modified.
+
+## 10. Raw BNB receipt reader and finalizer composition (isolated)
+
+Added `bnb-safe-receipt-verifier.ts`. Unlike the earlier injectable-attestation boundary, this module reads raw JSON-RPC data itself through the injected read-only `JsonRpcClient` and performs these checks before producing the normalized receipt evidence:
+
+- exact BNB mainnet chain ID 56;
+- receipt exists, status is successful, transaction hash matches, and receipt block hash matches the canonical block returned by `eth_getBlockByNumber`;
+- configured minimum confirmations are reached;
+- token `decimals()` is read at the receipt block using `eth_call`, rather than trusted from a browser or caller-supplied decimal setting;
+- Safe 1.4.1 `ExecutionSuccess(bytes32,uint256)` event is emitted by the expected Safe and indexed transaction hash matches the exact W3M attempt's Safe transaction hash; any matching `ExecutionFailure`, missing/duplicate success, or malformed event blocks;
+- all Safe-originating ERC-20 Transfer logs in the receipt are collected, and a Safe-originating transfer from any token other than the pinned token blocks;
+- exactly two Safe-originating token transfers are required; the existing finalization guard then compares their exact sender, recipients, and normalized decimal amounts to the locked seller-net and platform-fee amounts.
+
+Added `finalizeBnbSafeReleaseAfterRpcVerification(...)` to compose the raw BNB reader, the fail-closed finalization guard, and the service-role atomic finalization RPC adapter. Tests use a mocked JSON-RPC client only; they do not connect to BNB mainnet, send transactions, or touch funds.
+
+**Important limits:** the caller must still construct `expected` exclusively from a freshly loaded and locked execution-attempt/deal/policy snapshot, use an HTTPS allowlisted BNB RPC endpoint, and supply a server-only Supabase service-role client. This module is not wired into the live `finalize-safe-release` handler. The earlier syntax defect in the guard was caught by CI and corrected in commit `48d3818354a4e5ace219cd7c82728ff499340df0`; the CI run for that corrected tree is pending.
