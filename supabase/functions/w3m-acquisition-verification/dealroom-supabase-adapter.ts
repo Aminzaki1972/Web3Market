@@ -9,6 +9,7 @@ import {
 import type { W3MRegistryReadClient } from "./persisted-report-loader.ts";
 import type { SettlementStage } from "./settlement-gate.ts";
 import type { EthereumDigestRecoveryVerifier } from "./signature-verifier.ts";
+import type { DealCodeAuditBinding } from "./deal-code-audit-binding.ts";
 
 export interface DealRoomDealRow {
   id: unknown;
@@ -51,6 +52,7 @@ export interface DealRoomW3MAdapterInput {
   stage: SettlementStage;
   now: string;
   safeConfigurationMatches: boolean;
+  codeAudit: DealCodeAuditBinding;
 }
 
 function exactText(value: unknown, field: string): string {
@@ -108,6 +110,7 @@ export async function evaluateDealRoomRowsWithW3M(
       chainId: chainId(d.chain_id, "deal chain ID"),
       safeAddress: exactText(d.safe_address, "deal Safe address"),
       tokenContract: exactText(d.token_contract, "deal token contract"),
+      codeAudit: input.codeAudit,
       policy: {
         dealAmount: exactText(p.deal_amount, "policy deal amount"),
         feePercent: exactText(p.fee_percent, "policy fee percent"),
