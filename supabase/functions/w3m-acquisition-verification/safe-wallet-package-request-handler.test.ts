@@ -83,7 +83,7 @@ Deno.test("wallet package endpoint accepts only authenticated deal requests and 
       if (name === "w3m_issue_safe_execution_package") return {
         data: {
           issued: true, idempotent_replay: false, attempt_id: ATTEMPT,
-          package_hash: "b".repeat(64), expires_at: EXPIRY, package: pkg,
+          package_hash: String(args.p_package_hash), expires_at: EXPIRY, package: pkg,
         }, error: null,
       };
       return { data: { updated: true, idempotent_replay: false, state: "RECONCILIATION_REQUIRED" }, error: null };
