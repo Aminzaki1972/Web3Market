@@ -71,6 +71,18 @@ export async function loadSafeFinalizationExpectation(
   if (input.actorId !== buyerId && input.actorId !== sellerId) {
     throw new Error("W3M finalization actor is not a deal participant.");
   }
+  const packageActorId = textField(row, "package_actor_id");
+  const packageHash = hashField(row, "package_hash");
+  const packageIssuedAt = textField(row, "package_issued_at");
+  const packageExpiresAt = textField(row, "package_expires_at");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(packageActorId) ||
+      (packageActorId !== buyerId && packageActorId !== sellerId) ||
+      !Number.isFinite(Date.parse(packageIssuedAt)) ||
+      !Number.isFinite(Date.parse(packageExpiresAt)) ||
+      Date.parse(packageExpiresAt) <= Date.parse(packageIssuedAt) ||
+      Date.parse(packageExpiresAt) <= Date.now()) {
+    throw new Error("W3M wallet package issuance binding is missing, expired, or invalid.");
+  }
   const sellerWallet = addressField(row, "seller_wallet");
   const platformWallet = addressField(row, "platform_wallet");
   if (sellerWallet === platformWallet) {
@@ -90,5 +102,7 @@ export async function loadSafeFinalizationExpectation(
     platformWallet,
     platformFee: decimalField(row, "platform_fee"),
     minConfirmations: input.minConfirmations,
+    packageIssuedAt,
+    packageExpiresAt,
   };
 }
