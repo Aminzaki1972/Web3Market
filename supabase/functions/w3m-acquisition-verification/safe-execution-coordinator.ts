@@ -55,7 +55,7 @@ export type SafeExecutionCoordinatorResult =
 const HASH = /^0x[0-9a-fA-F]{64}$/i;
 
 function safeHash(snapshot: SafeExecutionFreshSnapshot): string {
-  return snapshot.guardInput.recomputedSafeTransactionHash;
+  return snapshot?.guardInput?.recomputedSafeTransactionHash ?? "";
 }
 
 function snapshotIssues(snapshot: SafeExecutionFreshSnapshot): string[] {
@@ -88,8 +88,15 @@ function snapshotIssues(snapshot: SafeExecutionFreshSnapshot): string[] {
 async function authorize(snapshot: SafeExecutionFreshSnapshot, verify?: SafeDigestSignatureVerifier) {
   const shapeIssues = snapshotIssues(snapshot);
   if (shapeIssues.length) return { authorized: false, issues: shapeIssues };
-  const decision = await evaluateSafeExecutionGuard(snapshot.guardInput, verify);
-  return { authorized: decision.authorized === true, issues: decision.issues };
+  try {
+    if (!snapshot.guardInput || typeof snapshot.guardInput !== "object") {
+      return { authorized: false, issues: ["FRESH_EXECUTION_GUARD_INPUT_MISSING"] };
+    }
+    const decision = await evaluateSafeExecutionGuard(snapshot.guardInput, verify);
+    return { authorized: decision.authorized === true, issues: decision.issues };
+  } catch {
+    return { authorized: false, issues: ["W3M_AUTHORIZATION_EVALUATION_FAILED"] };
+  }
 }
 
 async function requireReconciliation(
