@@ -35,8 +35,7 @@ export async function executeSafePhaseOnlyAfterW3M<T>(
       if (typeof expected?.dealId !== "string" || !expected.dealId.trim()) {
         return { authorized: false, issues: ["W3M_EXPECTED_DEAL_BINDING_MISSING"] };
       }
-      const requiresHash = expectedPhase === "SIGN" || expectedPhase === "EXECUTE" ||
-        expectedPhase === "FINALIZE";
+      const requiresHash = expectedPhase === "SIGN" || expectedPhase === "EXECUTE";
       if (requiresHash && (typeof expected.safeTransactionHash !== "string" ||
           !HASH.test(expected.safeTransactionHash))) {
         return { authorized: false, issues: ["W3M_EXPECTED_SAFE_HASH_MISSING"] };
