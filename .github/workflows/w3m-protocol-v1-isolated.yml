@@ -121,6 +121,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/safe-live-execution-facts.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-live-read-client.ts
+          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-live-read-client.test.ts
           deno check supabase/functions/w3m-protocol-v1-finalize-safe-release/index.ts
       - name: Test decision engine
         run: deno test supabase/functions/w3m-acquisition-verification/decision-engine.test.ts
@@ -180,6 +182,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/safe-live-execution-facts.test.ts
       - name: Test strict Safe execution database snapshot adapter
         run: deno test supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.test.ts
+      - name: Test block-pinned read-only BNB Safe RPC client
+        run: deno test supabase/functions/w3m-acquisition-verification/bnb-safe-live-read-client.test.ts
       - name: Test raw BNB Safe receipt verifier
         run: deno test supabase/functions/w3m-acquisition-verification/bnb-safe-receipt-verifier.test.ts
       - name: Test Safe finalization receipt guard
