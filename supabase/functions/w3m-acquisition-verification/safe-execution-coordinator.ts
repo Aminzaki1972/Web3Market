@@ -16,6 +16,8 @@ export interface SafeExecutionFreshSnapshot {
   reportId: string;
   reportVersion: number;
   executorRef: string;
+  /** Current verified buyer/seller wallet allowed to submit the package. */
+  executorWallet?: string;
   idempotencyKey: string;
   /** Immutable, signature-verified EIP-712 consent for the exact current terms.
    * The loader must populate this only from loadSafeExecutionDatabaseSnapshot,
