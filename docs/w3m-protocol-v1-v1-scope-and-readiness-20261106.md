@@ -88,3 +88,11 @@ The isolated V1 core can be called implementation-complete only after:
 - the conservative V1 compatibility boundary remains in force: only locked fee values accepted by both existing production checks and exact `dispute_status = 'none'` can pass; broader fee/dispute support requires a separately approved policy.
 
 Even then, that milestone means **staging-ready candidate**, not production activation. Production activation requires a separate review and explicit approval.
+
+
+## 8. Verification update — 2026-11-06 17:30 UTC
+
+The branch head is `9bbe764b6bbd0dd41a8eec31a7ed3bd3178b3f29`.
+GitHub Actions run [42241803541](https://github.com/Aminzaki1972/Web3Market/actions/runs/42241803541) completed with **success** on that exact commit. Its `decision-engine-and-schema` job completed successfully. The run includes the raw BNB Safe receipt verifier suite, Safe finalization receipt guard, authenticated request-boundary suites, Deal Room W3M gate/service suites, typed RPC adapter suites, and disposable PostgreSQL migration/contract tests. The latest commit specifically adds four receipt-tampering regressions: mismatched transaction hash/failed receipt, malformed token decimals, duplicate Transfer log index, and removed receipt log.
+
+This is stronger CI evidence for the isolated components. It does not close the integration blockers in sections 3 and 7: no report-issuer runtime composition loads authoritative deal/provider evidence and uses a protected production signer; the six isolated entrypoints are not replacements for the six deployed Safe functions; and no complete BNB testnet lifecycle has been executed. The protocol therefore remains an isolated candidate, not staging-ready or production-ready.
