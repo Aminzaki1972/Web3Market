@@ -158,13 +158,14 @@ export async function submitSafeWalletExecutionPackage({
  * Must be called from an explicit user gesture. A returned hash is never proof
  * of execution; server receipt verification and FINALIZE remain separate.
  *
- * @param {{provider:object, dealId:string, accessToken:string, supabaseUrl:string,
+ * @param {{provider:object, dealId:string, accessToken:string, apiKey:string, supabaseUrl:string,
  *   fetchImpl?:typeof fetch, now?:()=>number}} options
  */
 export async function executeW3MDealReleaseFromWallet({
   provider,
   dealId,
   accessToken,
+  apiKey,
   supabaseUrl,
   fetchImpl = fetch,
   now = () => Date.now(),
@@ -173,6 +174,8 @@ export async function executeW3MDealReleaseFromWallet({
     "A valid deal ID is required.");
   assert(typeof accessToken === "string" && accessToken.trim().length > 0,
     "An authenticated Supabase access token is required.");
+  assert(typeof apiKey === "string" && apiKey.trim().length > 0,
+    "A Supabase publishable API key is required.");
   let base;
   try {
     base = new URL(supabaseUrl);
@@ -183,6 +186,7 @@ export async function executeW3MDealReleaseFromWallet({
     "Supabase endpoint must be a clean HTTPS URL.");
   const headers = {
     "Authorization": "Bearer " + accessToken,
+    "apikey": apiKey,
     "Content-Type": "application/json",
   };
   const packageResponse = await fetchImpl(
