@@ -434,3 +434,38 @@ The latest isolated changes close the agreement-data path from the database snap
 CI run [42170223076](https://github.com/Aminzaki1972/Web3Market/actions/runs/42170223076) completed successfully: **53/53 workflow steps passed** on commit `8dc386f1650dfbba639e722d9797adc33fd10395`. This includes the full Deno suite and disposable PostgreSQL migration/contract checks. The earlier failed authorizer runs were superseded by this successful run.
 
 **Boundary remains explicit:** this verifies the isolated W3M phase-authorizer and execution-coordinator components. It does not mean the existing deployed Safe Edge handlers have been wired to call them. The old handlers remain unchanged; the production Deal Room UI and production database/functions remain unmodified. No wallet signing, live BNB RPC request, Safe broadcast, deployment, or fund movement occurred.
+
+
+## 27. Safe handler integration readiness matrix — 2026-11-06
+
+This section distinguishes isolated authorization components from the still-unmodified Safe handlers. It is a wiring contract, not a claim of live integration.
+
+| Existing handler | Required W3M boundary | Side effect that must remain behind the boundary | Current state |
+| --- | --- | --- | --- |
+| `prepare-deal-release` | Fresh PREPARE authorization before locking/upserting release policy | Policy lock and release preparation writes | Source reviewed; not wired |
+| `prepare-safe-release-tx` | Fresh PREPARE authorization before transaction reuse/rebuild; validate the exact proposed MultiSend payload before storing it | Clearing old hash/signatures, deleting signer rows, storing a replacement Safe transaction, updating policy nonce | Payload validators exist; not wired |
+| `record-safe-release-signature` | Fresh SIGN authorization bound to the exact current `safe_tx_hash`, plus current verified buyer/seller EIP-712 agreement pair | Signer-row upsert and transaction confirmation update | Phase authorizer and exact-hash boundary exist; not wired |
+| `execute-safe-release` | Full EXECUTE coordinator: fresh report/evidence/signature checks, atomic attempt claim, fresh recheck, current Safe owner/threshold/nonce/hash and stored signature recovery, then one broadcast and hash persistence | `execTransaction` broadcast | Coordinator and adapters exist; not wired |
+| `finalize-safe-release` | Dedicated raw BNB receipt verifier and atomic finalization endpoint | Confirm transaction, release policy, deal/project state and audit event | Isolated finalizer endpoint exists; old handler unchanged |
+
+### PREPARE has a separate snapshot requirement
+
+The strict Safe execution snapshot adapter intentionally requires exactly one already-signed release transaction, a valid stored Safe transaction hash, and matching transaction/policy nonce. That is correct for SIGN/EXECUTE authorization but is too strict to serve as the only data source before `prepare-safe-release-tx` creates or rebuilds the Safe transaction.
+
+The exact Deal Room terms reader (`w3m_read_dealroom_terms_snapshot`) already supplies the locked deal/policy values and exact decimal strings needed for the pre-transaction gate. The remaining PREPARE-specific adapter must pair that snapshot with a read-only, canonical-block Safe configuration snapshot (chain, deployed code, owners, threshold, version and nonce) without requiring a pre-existing Safe transaction hash. It must also verify that the existing transaction row is the unique expected release row and is not submitted/confirmed before allowing any rebuild. The W3M gate must run before the old handler clears signatures or signer rows.
+
+This distinction prevents an unsafe shortcut: the EXECUTE snapshot must not be weakened merely to make PREPARE fit. PREPARE and EXECUTE need separate strict snapshot contracts.
+
+### Integration acceptance criteria
+
+1. Each handler loads authoritative state server-side; no browser-supplied report status, wallet, Safe facts, nonce, amount, recipient or transaction hash is trusted.
+2. The W3M gate runs before the first write or chain side effect in that handler.
+3. The exact deal ID and, for SIGN/EXECUTE, exact Safe transaction hash are bound through the entire request.
+4. PREPARE validates the final proposed MultiSend payload before storing it; SIGN validates the same stored payload and exact Safe hash; EXECUTE independently repeats both validations immediately before broadcast.
+5. SIGN and EXECUTE require two distinct immutable EIP-712 acceptances over the same current canonical terms version/hash, recovered against currently verified buyer/seller wallets.
+6. EXECUTE uses the idempotent attempt lifecycle and never automatically rebroadcasts after an uncertain result.
+7. FINALIZE uses only independently verified BNB receipt/log evidence and one atomic database finalization RPC.
+8. Any failed authorization, stale snapshot, mismatch, unavailable dependency, malformed acknowledgement or uncertain state fails closed.
+9. Integration tests must run against isolated handler copies/adapters and disposable PostgreSQL. The existing deployed handlers and production environment remain untouched until a separately approved deployment plan exists.
+
+**Current readiness:** the reusable SIGN/EXECUTE authorization and execution components are CI-verified, and the finalization endpoint is CI-verified. The PREPARE-specific pre-transaction snapshot is the next implementation item. None of the five existing deployed Safe handlers is currently wired to W3M.
