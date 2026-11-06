@@ -7,6 +7,12 @@ declare
   v_bad_key_id text := 'w3m-ci-signer-key-rollback';
   v_result jsonb;
 begin
+  if position('FOR UPDATE' in upper(pg_get_functiondef(
+       'public.w3m_revoke_trusted_signer_key(text,jsonb)'::regprocedure
+     ))) = 0 then
+    raise exception 'Signer revocation does not lock the signer key row';
+  end if;
+
   if not exists (
     select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'public' and c.relname = 'w3m_trusted_signer_keys' and c.relrowsecurity
