@@ -61,7 +61,7 @@ function client(calls: unknown[] = [], contextData: unknown = context): W3MRpcCl
 
 Deno.test("prepares an independent audit snapshot without reading any acquisition report", async () => {
   const calls: unknown[] = [];
-  const result = await prepareDealAuditSnapshot(client(calls), source(), dealId);
+  const result = await prepareDealAuditSnapshot(client(calls), source(), dealId, "83000000-0000-4000-8000-000000000003");
   assertEquals(result.snapshot.dealId, dealId);
   assertEquals(result.snapshot.projectId, projectId);
   assertEquals(result.snapshot.binding.auditId, auditId);
