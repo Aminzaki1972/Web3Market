@@ -62,9 +62,9 @@ begin
      or p_package->>'executorWallet' !~ '^0x[0-9a-fA-F]{40}
      or p_expires_at is null
      or v_package_expires_at is distinct from p_expires_at
-     or v_package_issued_at > v_now
+     or v_package_issued_at > v_now + interval '30 seconds'
      or v_package_issued_at < v_now - interval '1 minute'
-     or p_expires_at <= v_now
+     or p_expires_at <= greatest(v_now,v_package_issued_at)
      or p_expires_at > v_now + interval '2 minutes' then
     raise exception 'Invalid or excessive Safe package issuance window'
       using errcode = '22023';
@@ -122,7 +122,7 @@ begin
      set package_actor_id = p_actor_id,
          package_hash = lower(p_package_hash),
          package_payload = p_package,
-         package_issued_at = v_now,
+         package_issued_at = greatest(v_now,v_package_issued_at),
          package_expires_at = p_expires_at
    where id = p_attempt_id;
 
