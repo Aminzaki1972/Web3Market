@@ -111,6 +111,14 @@ begin
     'dealId',v_deal::text,
     'executorWallet','0x3333333333333333333333333333333333333333'
   );
+  begin
+    perform public.w3m_issue_safe_execution_package(
+      v_attempt,v_actor,v_package_hash,v_package - 'executorWallet',v_package_expiry
+    );
+    raise exception 'Package without authenticated executor wallet was unexpectedly issued';
+  exception when invalid_parameter_value then null;
+  end;
+
   v_result := public.w3m_issue_safe_execution_package(
     v_attempt,v_actor,v_package_hash,v_package,v_package_expiry
   );
