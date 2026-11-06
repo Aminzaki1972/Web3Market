@@ -14,8 +14,10 @@ const PLATFORM="0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
 const HASH="0x"+"a".repeat(64);
 
 function row(overrides:Record<string,unknown>={}) {
- return {deal_id:DEAL,policy_deal_id:DEAL,buyer_wallet:BUYER,seller_wallet:SELLER,
-  policy_seller_wallet:SELLER,policy_platform_wallet:PLATFORM,deal_safe_address:SAFE,
+ return {deal_id:DEAL,policy_deal_id:DEAL,buyer_id:"buyer",seller_id:"seller",
+  project_owner_id:"seller",project_status:"active",buyer_wallet:BUYER,buyer_wallet_verified:"true",
+  buyer_wallet_verified_at:"2026-11-05T00:00:00Z",seller_wallet:SELLER,seller_wallet_verified:"true",
+  seller_wallet_verified_at:"2026-11-05T00:00:00Z",policy_seller_wallet:SELLER,policy_platform_wallet:PLATFORM,deal_safe_address:SAFE,
   policy_safe_address:SAFE,policy_safe_nonce:"7",...overrides};
 }
 function deps(snapshot:unknown, factsOverrides:Record<string,unknown>={}):FreshSafePrepareDependencies {
@@ -64,6 +66,22 @@ Deno.test("PREPARE rejects a malformed canonical block binding",async()=>{
  );
  assertEquals(result.authorized,false);
  assertEquals(result.issues.includes("W3M_PREPARE_SAFE_CONFIGURATION_INVALID"),true);
+});
+
+
+Deno.test("PREPARE rejects unverified wallets, future verification time and seller ownership drift",async()=>{
+ const unverified=await authorizeSafePrepareFromFreshSources(
+  deps([row({buyer_wallet_verified:"false"})]),DEAL,"2026-11-06T00:00:00Z",verifier);
+ assertEquals(unverified.authorized,false);
+ assertEquals(unverified.issues,["W3M_PREPARE_PROJECT_OR_WALLET_VERIFICATION_INVALID"]);
+ const future=await authorizeSafePrepareFromFreshSources(
+  deps([row({seller_wallet_verified_at:"2026-11-07T00:00:00Z"})]),DEAL,"2026-11-06T00:00:00Z",verifier);
+ assertEquals(future.authorized,false);
+ assertEquals(future.issues,["W3M_PREPARE_PROJECT_OR_WALLET_VERIFICATION_INVALID"]);
+ const owner=await authorizeSafePrepareFromFreshSources(
+  deps([row({project_owner_id:"different-seller"})]),DEAL,"2026-11-06T00:00:00Z",verifier);
+ assertEquals(owner.authorized,false);
+ assertEquals(owner.issues,["W3M_PREPARE_PROJECT_OR_WALLET_VERIFICATION_INVALID"]);
 });
 
 Deno.test("PREPARE rejects invalid deal identifiers and timestamps before database reads",async()=>{
