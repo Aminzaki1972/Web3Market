@@ -16,6 +16,7 @@ declare
   v_package_hash text := repeat('c',64);
   v_package jsonb;
   v_package_expiry timestamptz;
+  v_package_issue_at timestamptz;
   v_result jsonb;
   v_safe_hash text := '0x' || repeat('a', 64);
   v_broadcast_hash text := '0x' || repeat('b', 64);
@@ -211,12 +212,20 @@ begin
      or v_snapshot->>'seller_net_amount' <> '92.5'
      or v_snapshot->>'platform_fee' <> '7.5'
      or v_snapshot->>'policy_status' <> 'locked'
-     or v_snapshot->>'attempt_state' <> 'RECONCILIATION_REQUIRED' then
+     or v_snapshot->>'attempt_state' <> 'RECONCILIATION_REQUIRED'
+     or v_snapshot->>'package_actor_id' <> v_actor::text
+     or v_snapshot->>'package_hash' <> v_package_hash
+     or v_snapshot->>'package_issued_at' is null
+     or v_snapshot->>'package_expires_at' is null then
     raise exception 'Safe finalization snapshot did not preserve exact bindings and numeric text';
   end if;
 
+  select package_issued_at into v_package_issue_at
+    from public.w3m_safe_execution_attempts where id = v_attempt;
+
   v_receipt := jsonb_build_object(
     'chain_id',56,'transaction_hash',v_broadcast_hash,'receipt_status',1,
+    'block_timestamp',v_package_issue_at + interval '30 seconds',
     'execution_success',true,'execution_failure',false,
     'safe_address','0x2222222222222222222222222222222222222222',
     'safe_tx_hash',v_safe_hash,
