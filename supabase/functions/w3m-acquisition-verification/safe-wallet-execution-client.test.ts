@@ -6,6 +6,7 @@ import {
   recordW3MSafeWalletSubmission,
   verifyW3MDealReleaseFromServer,
   signW3MSafeRelease,
+  prepareW3MSafeRelease,
 } from "../../../js/w3m-safe-wallet-execution-client.js";
 
 const SAFE = "0x1111111111111111111111111111111111111111";
@@ -432,4 +433,36 @@ Deno.test("blocks Safe signing before wallet prompt when typed-data digest or ac
   }));
   assertEquals(signCalls, 0);
   assertEquals(fetchCalls, 0);
+});
+
+
+Deno.test("browser PREPARE sends only deal ID and accepts the atomic server result", async () => {
+  let requestBody: Record<string, unknown> | null = null;
+  const result = await prepareW3MSafeRelease({
+    dealId: "81000000-0000-4000-8000-000000000001",
+    accessToken: "test-access-token",
+    apiKey: "test-publishable-key",
+    supabaseUrl: "https://project.supabase.co",
+    fetchImpl: async (input, init) => {
+      assertEquals(String(input), "https://project.supabase.co/functions/v1/w3m-protocol-v1-prepare-deal-release");
+      requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(JSON.stringify({
+        ok: true,
+        result: {
+          policyId: "82000000-0000-4000-8000-000000000002",
+          transactionId: "83000000-0000-4000-8000-000000000003",
+          status: "awaiting_signatures",
+          idempotentReplay: false,
+        },
+      }), { status: 200 });
+    },
+  });
+  assertEquals(result, {
+    dealId: "81000000-0000-4000-8000-000000000001",
+    policyId: "82000000-0000-4000-8000-000000000002",
+    transactionId: "83000000-0000-4000-8000-000000000003",
+    status: "awaiting_signatures",
+    idempotentReplay: false,
+  });
+  assertEquals(requestBody, { deal_id: "81000000-0000-4000-8000-000000000001" });
 });
