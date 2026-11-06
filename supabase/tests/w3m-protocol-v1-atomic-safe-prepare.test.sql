@@ -11,7 +11,7 @@ declare
     'seller_net_amount','92.5','seller_wallet','0x2222222222222222222222222222222222222222',
     'platform_wallet','0x2b15cc63ee3b833f502c065767695fa2b584f8c9',
     'safe_address','0x4444444444444444444444444444444444444444',
-    'token_contract','0x5555555555555555555555555555555555555555',
+    'token_contract','0x55d398326f99059ff775485246999027b3197955',
     'token_symbol','USDT','chain_id','56','status','locked'
   );
   safe_facts jsonb := jsonb_build_object(
@@ -48,7 +48,7 @@ begin
     v_deal_id,'82000000-0000-4000-8000-000000000004',buyer_id,seller_id,100,'USDT',
     'funded','confirmed','0x' || repeat('d',64),'accepted',now(),'none',56,
     '0x4444444444444444444444444444444444444444',
-    '0x5555555555555555555555555555555555555555','USDT',now()
+    '0x55d398326f99059ff775485246999027b3197955','USDT',now()
   );
 
   result := public.w3m_commit_safe_prepare(v_deal_id,actor_id,policy,safe_facts,auth);
@@ -125,7 +125,7 @@ declare
     'seller_wallet','0x2222222222222222222222222222222222222222',
     'platform_wallet','0x2b15cc63ee3b833f502c065767695fa2b584f8c9',
     'safe_address','0x4444444444444444444444444444444444444444',
-    'token_contract','0x5555555555555555555555555555555555555555',
+    'token_contract','0x55d398326f99059ff775485246999027b3197955',
     'token_symbol','USDT','chain_id','56','status','locked');
   facts jsonb := jsonb_build_object(
     'chain_id','56','threshold','2','nonce','9','block_number','90000001',
@@ -151,7 +151,7 @@ begin
   ) values(v_deal_id,'82000000-0000-4000-8000-000000000014',buyer_id,seller_id,100,'USDT',
     'funded','confirmed','0x' || repeat('d',64),'accepted',now(),'none',56,
     '0x4444444444444444444444444444444444444444',
-    '0x5555555555555555555555555555555555555555','USDT',now());
+    '0x55d398326f99059ff775485246999027b3197955','USDT',now());
 
   begin
     perform public.w3m_commit_safe_prepare(v_deal_id,buyer_id,policy,facts,auth);
