@@ -14,6 +14,7 @@ import {
 import type { SafeExecutionFreshSnapshot } from "./safe-execution-coordinator.ts";
 import type { CanonicalBnbSafeExecutionFacts } from "./bnb-safe-execution-facts-reader.ts";
 import type { SafeDigestSignatureVerifier } from "./safe-signature-set-validator.ts";
+import { canonicalJson, sha256Hex } from "./decision-engine.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function json(status: number, body: unknown): Response {
@@ -28,11 +29,7 @@ function stablePackage(value: SafeWalletExecutionPackage): string {
   delete copy.expiresAt;
   delete copy.readBlockNumber;
   delete copy.readBlockHash;
-  return JSON.stringify(copy);
-}
-async function sha256Hex(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(digest), (v) => v.toString(16).padStart(2, "0")).join("");
+  return canonicalJson(copy);
 }
 
 export interface W3MSafeWalletPackageRequestDependencies {
@@ -130,7 +127,7 @@ export function createW3MSafeWalletPackageRequestHandler(
         });
       }
 
-      const packageHash = await sha256Hex(JSON.stringify(freshPackage));
+      const packageHash = await sha256Hex(canonicalJson(freshPackage));
       const issued = await issueSafeWalletExecutionPackage(deps.rpc, {
         attemptId: claim.attemptId,
         actorId: actor.userId,
