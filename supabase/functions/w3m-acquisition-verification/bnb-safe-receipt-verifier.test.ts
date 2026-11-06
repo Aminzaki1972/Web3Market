@@ -221,6 +221,10 @@ Deno.test("fresh DB snapshot is loaded before BNB verification and atomic finali
     policy_status: "locked",
     transaction_status: "submitted",
     attempt_state: "BROADCAST",
+    package_actor_id: expected.actorId,
+    package_hash: "c".repeat(64),
+    package_issued_at: expected.packageIssuedAt,
+    package_expires_at: expected.packageExpiresAt,
   };
   const calls: string[] = [];
   const database = {
