@@ -154,6 +154,7 @@ as $finalize$
 declare
   v_attempt public.w3m_safe_execution_attempts%rowtype;
   v_deal public.deals%rowtype;
+  v_project public.projects%rowtype;
   v_tx public.deal_multisig_transactions%rowtype;
   v_policy public.deal_release_policies%rowtype;
   v_report public.w3m_acquisition_reports%rowtype;
@@ -233,6 +234,18 @@ begin
    where id = v_attempt.deal_id
    for update;
   if not found then raise exception 'Deal not found' using errcode = 'P0002'; end if;
+
+  -- Revalidate project ownership under a row lock. The seller binding must
+  -- still match the project owner at the exact moment settlement is committed.
+  select * into v_project from public.projects
+   where id = v_deal.project_id
+   for update;
+  if not found then raise exception 'Project not found' using errcode = 'P0002'; end if;
+  if v_deal.buyer_id = v_deal.seller_id
+     or v_project.owner_id is distinct from v_deal.seller_id then
+    raise exception 'Deal buyer/seller or current project ownership binding is invalid'
+      using errcode = '23514';
+  end if;
 
   -- Lock the release policy before rebuilding canonical terms. The canonical
   -- terms function reads this row, so locking it first prevents a policy
