@@ -2,7 +2,7 @@
 // pre-agreement Deal Code Audit snapshot. The manifest must be recomputed from
 // complete trusted database pages before this function is called.
 import type { AuditManifest } from "./audit-manifest.ts";
-import type { DealCodeAuditBinding } from "./deal-code-audit-binding.ts";
+import { parseDealCodeAuditBinding, type DealCodeAuditBinding } from "./deal-code-audit-binding.ts";
 import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -60,10 +60,11 @@ export async function persistDealCodeAuditSnapshot(
   if (!UUID.test(input.dealId) || !UUID.test(input.projectId)) {
     throw new Error("Deal and project IDs must be valid UUIDs.");
   }
+  const binding = parseDealCodeAuditBinding(input.binding);
   if (input.manifest.version !== "w3m-audit-manifest-v1" ||
-      input.manifest.auditId !== input.binding.auditId ||
+      input.manifest.auditId !== binding.auditId ||
       !SHA256.test(input.manifest.digest) ||
-      input.binding.auditEvidenceHash !== input.manifest.digest ||
+      binding.auditEvidenceHash !== input.manifest.digest ||
       input.manifest.fileCount <= 0 ||
       !Number.isSafeInteger(input.manifest.fileCount) ||
       input.manifest.findingCount < 0 ||
@@ -73,7 +74,7 @@ export async function persistDealCodeAuditSnapshot(
 
   const { data, error } = await client.rpc("w3m_create_deal_code_audit_snapshot", {
     p_deal_id: input.dealId,
-    p_audit_id: input.binding.auditId,
+    p_audit_id: binding.auditId,
     p_manifest_version: input.manifest.version,
     p_manifest_hash: input.manifest.digest,
     p_file_count: input.manifest.fileCount,
@@ -93,7 +94,7 @@ export async function persistDealCodeAuditSnapshot(
 
   if (!UUID.test(snapshotId) || !/^[1-9][0-9]*$/.test(snapshotVersion) ||
       dealId !== input.dealId || projectId !== input.projectId ||
-      requiredText(result.audit_id, "Snapshot audit ID") !== input.binding.auditId ||
+      requiredText(result.audit_id, "Snapshot audit ID") !== binding.auditId ||
       manifestVersion !== input.manifest.version ||
       manifestHash !== input.manifest.digest ||
       fileCount !== input.manifest.fileCount ||
@@ -113,16 +114,16 @@ export async function persistDealCodeAuditSnapshot(
     auditEvidenceHash: manifestHash,
   };
   const returnedCompletedAt = Date.parse(returnedBinding.completedAt);
-  const expectedCompletedAt = Date.parse(input.binding.completedAt);
+  const expectedCompletedAt = Date.parse(binding.completedAt);
   if (!Number.isFinite(returnedCompletedAt) ||
       returnedCompletedAt !== expectedCompletedAt ||
-      returnedBinding.auditId !== input.binding.auditId ||
-      returnedBinding.repositoryOwner !== input.binding.repositoryOwner ||
-      returnedBinding.repositoryName !== input.binding.repositoryName ||
-      returnedBinding.repositoryUrl !== input.binding.repositoryUrl ||
-      returnedBinding.commitSha !== input.binding.commitSha.toLowerCase() ||
-      returnedBinding.auditType !== input.binding.auditType ||
-      returnedBinding.auditEvidenceHash !== input.binding.auditEvidenceHash.toLowerCase()) {
+      returnedBinding.auditId !== binding.auditId ||
+      returnedBinding.repositoryOwner !== binding.repositoryOwner ||
+      returnedBinding.repositoryName !== binding.repositoryName ||
+      returnedBinding.repositoryUrl !== binding.repositoryUrl ||
+      returnedBinding.commitSha !== binding.commitSha.toLowerCase() ||
+      returnedBinding.auditType !== binding.auditType ||
+      returnedBinding.auditEvidenceHash !== binding.auditEvidenceHash.toLowerCase()) {
     throw new Error("Persisted snapshot repository or commit identity differs from the verified audit.");
   }
 
