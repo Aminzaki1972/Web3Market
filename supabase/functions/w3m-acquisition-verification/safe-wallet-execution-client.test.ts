@@ -97,6 +97,8 @@ Deno.test("submits only after package hash, BNB chain, verified signer, and Safe
     transactionHash: OUTER_HASH,
     from: OWNER,
     safeAddress: SAFE,
+    executorWallet: OWNER,
+    safeOwners: [OWNER, "0x4444444444444444444444444444444444444444"],
     safeTransactionHash: HASH,
     state: "SUBMITTED_UNVERIFIED",
   });
