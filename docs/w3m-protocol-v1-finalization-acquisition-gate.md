@@ -49,3 +49,29 @@ The report/evidence registry is intended to be append-only. Enforce that invaria
 ## Release gate
 
 This item remains open until the atomic SQL enforcement, service composition, append-only protections, and disposable-PostgreSQL regression tests are implemented and pass. The current isolated CI run is not a release approval. Do not deploy any migration or Edge Function and do not use real funds or a live Safe while this item is open.
+
+
+## Source-level audit — 2026-11-06
+
+The current branch was re-read at commit `3678edd16801ff3f1563b4f12ed3b652c4600466`. The isolated workflow run `42193650935` completed successfully, including its `decision-engine-and-schema` job and disposable PostgreSQL migration/test steps. This is a CI result, not a release approval.
+
+The source review confirms the blocker is still present:
+
+- `safe-finalization-snapshot-adapter.ts` reads only `w3m_read_safe_finalization_snapshot`; its returned expectation contains no report version, report hash, evidence manifest, signer key, or terms version.
+- `bnb-safe-receipt-verifier.ts` composes fresh Safe snapshot -> BNB receipt verification -> atomic finalizer. It does not call `loadCurrentW3MReportBundle` or `evaluatePersistedW3MReport`.
+- `persisted-report-loader.ts` and `persisted-report-guard.ts` do exist. The guard checks latest report version, expiry, party/project binding, canonical report hash, evidence manifest recomputation, current terms hash, and EIP-712 trusted signer verification. Their existence does not protect finalization until this guard is wired into the finalization flow and its result is bound to the SQL transaction.
+- `w3m_finalize_safe_execution_attempt` locks the attempt, deal, Safe transaction, and release policy. It does not select or lock `w3m_acquisition_reports`, `w3m_acquisition_evidence`, signer status/events, or immutable terms rows. It currently trusts the earlier claim-time report check and records only the pinned `report_id` in the audit log.
+- `w3m_read_safe_finalization_snapshot` also omits report/evidence/signer/terms data. Its current role is a Safe execution snapshot, not an acquisition revalidation snapshot.
+- The evidence-registry migration revokes direct table writes and exposes a SECURITY DEFINER batch-insert RPC, but it does not install UPDATE/DELETE rejection triggers on the report or evidence tables. Add database-level immutability protections and test privileged mutation paths before treating those rows as immutable.
+- The trusted signer registry derives status from append-only activation/revocation events, but the finalizer does not lock/re-read the signer key and latest event in its transaction. Revocation-after-claim therefore remains a release-blocking race.
+- The current runtime report loader correctly targets `w3m_acquisition_reports` and `w3m_acquisition_evidence`. A separate older migration also defines `acquisition_reports` / `acquisition_evidence`; do not mix those legacy tables into the W3M finalization path.
+
+### Safe next implementation sequence
+
+1. Define a versioned finalization attestation containing report ID/version/hash, evidence manifest hash/count, signer key ID and verified signer identity, deal-terms version/hash, and exact deal/project/party bindings.
+2. Wire the persisted report loader and cryptographic guard into the isolated finalization service. Fail closed if any row is missing, duplicated, malformed, stale, superseded, expired, or mismatched.
+3. Extend the atomic SQL finalizer to lock the exact report, all evidence rows, signer key plus latest revocation event, deal-terms version, and dispute state. Compare every attested identifier/hash/version/count with the locked database rows before any settlement update.
+4. Add append-only triggers for report/evidence rows and verify that ordinary roles, service_role, and SECURITY DEFINER paths cannot mutate or delete issued records.
+5. Add the listed race/regression cases to disposable PostgreSQL CI, including a revocation or evidence mutation racing the finalizer.
+
+No SQL or runtime code was changed as part of this audit because the present interfaces do not yet carry a complete report attestation into the atomic RPC. Guessing at that contract would risk creating a false security boundary.
