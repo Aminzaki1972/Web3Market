@@ -33,6 +33,15 @@ Deno.test("report issue requires authentication", async () => {
   const response = await handleW3MReportIssueRequest(request({ deal_id: DEAL }, "POST", ""), d.value);
   if (response.status !== 401 || d.calls.length !== 0) throw new Error("auth boundary failed");
 });
+Deno.test("report issue rejects malformed and multi-part bearer credentials", async () => {
+  for (const authorization of ["Basic valid", "Bearer valid extra", "Bearer"]) {
+    const d = deps();
+    const response = await handleW3MReportIssueRequest(request({ deal_id: DEAL }, "POST", authorization), d.value);
+    if (response.status !== 401 || d.calls.length !== 0) {
+      throw new Error(`malformed authorization accepted: ${authorization}`);
+    }
+  }
+});
 Deno.test("report issue rejects caller-supplied evidence and signer fields", async () => {
   const d = deps();
   const response = await handleW3MReportIssueRequest(request({ deal_id: DEAL, status: "PASS", signature: "0x123" }), d.value);
@@ -50,7 +59,6 @@ Deno.test("report issue denies unauthorized actors", async () => {
   const response = await handleW3MReportIssueRequest(request({ deal_id: DEAL }), d.value);
   if (response.status !== 403 || d.calls.includes("issue")) throw new Error("authorization bypass");
 });
-
 Deno.test("report issue rejects malformed service output", async () => {
   const d = deps({
     issue: async () => ({
