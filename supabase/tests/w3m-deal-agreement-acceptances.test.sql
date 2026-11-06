@@ -162,6 +162,43 @@ begin
     raise exception 'Prior signed version was not preserved as immutable history';
   end if;
 
+  -- The second version cannot be accepted if project ownership drifts after
+  -- its canonical terms were registered.
+  update public.projects set owner_id=v_buyer where id=v_project;
+  begin
+    perform public.w3m_insert_deal_agreement_acceptance(
+      v_deal,2,'buyer',v_buyer,'0x5555555555555555555555555555555555555555',
+      repeat('b',64),v_canonical,'0x' || repeat('a',64),'0x' || repeat('d',130)
+    );
+    raise exception 'Agreement acceptance was allowed after project ownership changed';
+  exception when check_violation then null;
+  end;
+  update public.projects set owner_id=v_seller where id=v_project;
+
+  -- A chain or Safe policy change after version creation must also veto acceptance.
+  update public.deals set chain_id=97 where id=v_deal;
+  begin
+    perform public.w3m_insert_deal_agreement_acceptance(
+      v_deal,2,'buyer',v_buyer,'0x5555555555555555555555555555555555555555',
+      repeat('b',64),v_canonical,'0x' || repeat('a',64),'0x' || repeat('d',130)
+    );
+    raise exception 'Agreement acceptance was allowed after chain changed';
+  exception when check_violation then null;
+  end;
+  update public.deals set chain_id=56 where id=v_deal;
+
+  update public.deal_release_policies
+     set safe_address='0x9999999999999999999999999999999999999999'
+   where deal_id=v_deal;
+  begin
+    perform public.w3m_insert_deal_agreement_acceptance(
+      v_deal,2,'buyer',v_buyer,'0x5555555555555555555555555555555555555555',
+      repeat('b',64),v_canonical,'0x' || repeat('a',64),'0x' || repeat('d',130)
+    );
+    raise exception 'Agreement acceptance was allowed after Safe policy changed';
+  exception when check_violation then null;
+  end;
+
   if has_function_privilege('anon','public.w3m_register_deal_terms_version(uuid,text,jsonb)','EXECUTE')
      or has_function_privilege('authenticated','public.w3m_register_deal_terms_version(uuid,text,jsonb)','EXECUTE')
      or not has_function_privilege('service_role','public.w3m_register_deal_terms_version(uuid,text,jsonb)','EXECUTE') then
