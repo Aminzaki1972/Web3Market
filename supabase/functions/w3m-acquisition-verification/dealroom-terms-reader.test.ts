@@ -6,6 +6,17 @@ import {
 } from "./dealroom-terms-reader.ts";
 import type { W3MRegistryReadClient, W3MRegistryReadResult, W3MRegistrySelectQuery } from "./persisted-report-loader.ts";
 
+const auditFixture = {
+  auditId: "87000000-0000-4000-8000-000000000007",
+  repositoryOwner: "Aminzaki1972",
+  repositoryName: "Web3Market",
+  repositoryUrl: "https://github.com/Aminzaki1972/Web3Market",
+  commitSha: "a".repeat(40),
+  auditType: "code" as const,
+  completedAt: "2026-11-01T10:00:00.000Z",
+  auditEvidenceHash: "c".repeat(64),
+};
+
 const row: DealRoomTermsSnapshotRow = {
   deal_id: "deal-reader-1", deal_status: "funded", project_id: "project-1", buyer_id: "buyer-1", seller_id: "seller-1",
   project_owner_id: "seller-1", project_status: "active",
@@ -56,7 +67,8 @@ function client(data: unknown, error: unknown = null): DealRoomTermsRpcClient & 
 Deno.test("exact snapshot loader feeds exact financial text into the W3M gate", async () => {
   const result = await checkDealRoomFromExactSnapshot({
     client: client([row]), dealId: "deal-reader-1", stage: "PREPARE",
-    now: "2026-11-06T20:00:00.000Z", safeFacts: {
+    now: "2026-11-06T20:00:00.000Z", codeAudit: auditFixture,
+    safeFacts: {
       chainId: 56,
       safeAddress: "0x2222222222222222222222222222222222222222",
       owners: [
