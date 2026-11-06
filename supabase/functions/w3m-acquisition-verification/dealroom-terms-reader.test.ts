@@ -148,6 +148,16 @@ Deno.test("exact snapshot gate blocks non-releasable deals and non-approved toke
    expectedSellerWallet:"0x4444444444444444444444444444444444444444",
   },
  }));
+ await assertRejects(()=>checkDealRoomFromExactSnapshot({
+  client:client([{...row,currency:"BUSD"}]),dealId:"deal-reader-1",stage:"PREPARE",
+  now:"2026-11-06T20:00:00.000Z",safeFacts:{
+   chainId:56,safeAddress:"0x2222222222222222222222222222222222222222",
+   owners:["0x4444444444444444444444444444444444444444","0x5555555555555555555555555555555555555555","0x2B15cC63eE3b833F502C065767695Fa2B584f8c9"],
+   threshold:2,version:"1.4.1",nonce:"7",
+   expectedBuyerWallet:"0x5555555555555555555555555555555555555555",
+   expectedSellerWallet:"0x4444444444444444444444444444444444444444",
+  },
+ }));
  const result=await checkDealRoomFromExactSnapshot({
   client:client([{...row,
    deal_token_contract:"0x3333333333333333333333333333333333333333",
