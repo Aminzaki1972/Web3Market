@@ -99,7 +99,6 @@ begin
     from public.w3m_acquisition_evidence e
    where e.report_id = v_report_id
      and e.evidence_type = 'CODE_AUDIT'
-     and e.result = 'PASS'
      and e.mandatory is true;
   if v_count <> 1 then return null; end if;
 
@@ -107,11 +106,14 @@ begin
     from public.w3m_acquisition_evidence e
    where e.report_id = v_report_id
      and e.evidence_type = 'CODE_AUDIT'
-     and e.result = 'PASS'
      and e.mandatory is true
    limit 1;
 
-  if v_evidence.source_record_id is null
+  if v_evidence.result <> 'PASS'
+     or v_evidence.valid_until is null
+     or v_evidence.valid_until <= now()
+     or v_evidence.observed_at > now()
+     or v_evidence.source_record_id is null
      or v_evidence.source_record_id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
      or v_evidence.source_version is null
      or v_evidence.source_version !~* '^[0-9a-f]{40}$'
