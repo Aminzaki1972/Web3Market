@@ -90,7 +90,8 @@ export async function authorizePrelockSafePrepare(
     const feePercent = required(validated.fee_percent, "validated fee percent");
     const feeAmount = required(validated.fee_amount, "validated fee amount");
     const sellerNetAmount = required(validated.seller_net_amount, "validated seller net amount");
-    if (row.project_owner_id !== row.seller_id ||
+    if (!["funded", "in_progress"].includes(String(row.deal_status ?? "").toLowerCase()) ||
+        row.deal_chain_id !== "56" || row.project_owner_id !== row.seller_id ||
         row.buyer_wallet_verified !== "true" || row.seller_wallet_verified !== "true" ||
         !Number.isFinite(buyerVerifiedAt) || !Number.isFinite(sellerVerifiedAt) ||
         buyerVerifiedAt > nowTime || sellerVerifiedAt > nowTime ||
