@@ -150,3 +150,19 @@ Added migration `20261107020000_w3m_protocol_v1_safe_finalization_snapshot_reade
 Added `safe-finalization-snapshot-adapter.ts`, which rejects malformed RPC rows, nonparticipant actors, invalid addresses/hashes, numeric financial values, unexpected states, and non-BNB chain. It preserves the seller-net and platform-fee decimal strings exactly. The raw receipt module now also exposes `finalizeBnbSafeReleaseFromFreshSnapshot(...)`: fresh service-role snapshot -> read-only BNB receipt verifier -> exact receipt guard -> atomic finalization RPC. The finalizer still locks and rechecks current persisted rows, so a change between snapshot and finalization causes rejection.
 
 The disposable SQL contract test now checks snapshot access is service-role-only and that exact identifiers, hashes, and numeric text survive the RPC. Deno adapter tests cover malformed snapshots, actor mismatch, state/chain mismatch, and numeric coercion rejection. CI for the corrected and extended tree is pending; earlier receipt-reader run `42134019528` correctly exposed a bad test fixture amount (0.75 vs 7.5) and an assertion expecting the inner verifier error rather than the fail-closed wrapper. Both test issues were corrected; no claim of a passing CI run is made yet.
+
+
+## 11. Isolated finalization request endpoint — 2026-11-06
+
+Added a separate, non-deployed function directory at `supabase/functions/w3m-protocol-v1-finalize-safe-release/`. It is intentionally distinct from the captured production `finalize-safe-release` handler and does not replace it.
+
+The request boundary:
+- accepts POST only and restricts browser origins to the two Web3Market HTTPS origins;
+- derives the actor ID from a verified Supabase bearer session, never from request JSON;
+- accepts only a W3M execution-attempt UUID from the request body;
+- loads the fresh finalization snapshot server-side, verifies the BNB receipt/logs through the allowlisted read-only RPC client, applies the W3M receipt guard, and calls the atomic finalization RPC;
+- does not accept a caller-supplied transaction hash, receipt, transfer list, wallet, amount, or authorization boolean.
+
+A first CI run, `42135224575`, correctly exposed a bearer-header regular-expression escaping defect in the new request boundary: 2 of 5 tests passed and 3 failed because valid `Bearer <token>` headers were rejected. The defect was corrected in commit `9bdc80544dac579950df5b233b0bab56732b5daf`. The follow-up CI run `42135541989` was queued at the time of this update; do not treat the new endpoint as verified until that run completes successfully.
+
+This is still an isolated endpoint only. It has not been deployed, has no production secrets configured, and has not been wired into the existing production `finalize-safe-release` function. No database migration was deployed and no live Safe transaction was touched.
