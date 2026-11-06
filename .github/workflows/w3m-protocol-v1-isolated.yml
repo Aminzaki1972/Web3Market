@@ -158,6 +158,10 @@ jobs:
           deno check supabase/functions/w3m-protocol-v1-safe-sign/index.ts
           deno check supabase/functions/w3m-acquisition-verification/bearer-token.ts
           deno check supabase/functions/w3m-acquisition-verification/bearer-token.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.test.ts
           deno check supabase/functions/w3m-acquisition-verification/fresh-safe-handler-context.ts
           deno check supabase/functions/w3m-acquisition-verification/trusted-signer-registry-adapter.ts
           deno check supabase/functions/w3m-acquisition-verification/trusted-signer-registry-adapter.test.ts
