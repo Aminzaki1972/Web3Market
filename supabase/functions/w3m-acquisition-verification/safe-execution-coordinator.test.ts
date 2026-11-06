@@ -125,8 +125,8 @@ function deps(overrides: Partial<SafeExecutionCoordinatorDependencies> = {}) {
       return { attemptId: "attempt-001", state: "CLAIMED", claimed: true, idempotentReplay: false };
     },
     broadcast: async () => { calls.push("broadcast"); return { transactionHash: "0x" + "e".repeat(64) }; },
-    recordBroadcast: async () => { calls.push("record"); return { recorded: true }; },
-    markReconciliationRequired: async () => { calls.push("reconcile"); return { updated: true }; },
+    recordBroadcast: async () => { calls.push("record"); return { recorded: true, idempotentReplay: false, state: "BROADCAST" as const }; },
+    markReconciliationRequired: async () => { calls.push("reconcile"); return { updated: true, idempotentReplay: false, state: "RECONCILIATION_REQUIRED" as const }; },
     verifySignature: async () => true,
   };
   return { dependencies: { ...base, ...overrides }, calls, fresh, getLoads: () => loads };
@@ -223,4 +223,50 @@ Deno.test("broadcast hash persistence failure leaves attempt in reconciliation",
   const result = await executeW3MSafeRelease(h.dependencies);
   assert(result.state === "RECONCILIATION_REQUIRED", JSON.stringify(result));
   assert(h.calls.includes("reconcile"), h.calls.join(","));
+});
+
+
+Deno.test("malformed execution claim response is rejected before broadcast", async () => {
+  const h = deps({
+    claim: async () => ({
+      attemptId: "attempt-001",
+      state: "CLAIMED",
+      claimed: true,
+      idempotentReplay: undefined as unknown as boolean,
+    }),
+  });
+  const result = await executeW3MSafeRelease(h.dependencies);
+  assert(result.state === "BLOCKED", JSON.stringify(result));
+  assert(!h.calls.includes("broadcast"), h.calls.join(","));
+});
+
+Deno.test("broadcast is not reported recorded when persistence RPC response is malformed", async () => {
+  const h = deps({
+    recordBroadcast: async () => ({
+      recorded: false,
+      idempotentReplay: false,
+      state: "BROADCAST" as const,
+    }),
+  });
+  const result = await executeW3MSafeRelease(h.dependencies);
+  assert(result.state === "RECONCILIATION_REQUIRED", JSON.stringify(result));
+  assert(h.calls.includes("reconcile"), h.calls.join(","));
+});
+
+Deno.test("reconciliation is not reported persisted when its RPC response is malformed", async () => {
+  const h = deps({
+    loadFresh: async () => {
+      const value = snapshot();
+      value.guardInput.settlement.paymentConfirmed = false;
+      return value;
+    },
+    markReconciliationRequired: async () => ({
+      updated: false,
+      idempotentReplay: false,
+      state: "RECONCILIATION_REQUIRED" as const,
+    }),
+  });
+  const result = await executeW3MSafeRelease(h.dependencies);
+  assert(result.state === "BLOCKED", JSON.stringify(result));
+  if (result.state === "BLOCKED") return;
 });
