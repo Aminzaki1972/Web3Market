@@ -9,6 +9,13 @@ const expected = {
   commitSha: "a".repeat(40),
   now: "2026-11-06T18:00:00.000Z",
   maxAgeMs: 30 * 24 * 60 * 60 * 1000,
+  manifest: {
+    version: "w3m-audit-manifest-v1",
+    auditId: "22222222-2222-4222-8222-222222222222",
+    fileCount: 190,
+    findingCount: 25,
+    digest: "c".repeat(64),
+  },
 };
 const row: CodeAuditSourceRow = {
   id: "22222222-2222-4222-8222-222222222222",
@@ -32,6 +39,8 @@ Deno.test("selects a completed audit only for exact project, repo and commit", a
   assertEquals(result.evidence.sourceRecordId, row.id);
   assertEquals(result.evidence.sourceVersion, expected.commitSha);
   assertEquals(result.evidence.metadata?.auditStatus, "completed");
+  assertEquals(result.evidence.metadata?.auditManifestVersion, "w3m-audit-manifest-v1");
+  assertEquals(result.evidence.metadata?.auditManifestHash, expected.manifest.digest);
   assertEquals(result.evidence.validUntil, "2026-12-01T10:00:00.000Z");
 });
 
@@ -59,10 +68,18 @@ Deno.test("rejects missing analysis provenance, risk level, invalid score and in
   assertEquals((await selectCodeAuditEvidence(row, { ...expected, dealId: "not-a-uuid" })).result, "REVIEW_REQUIRED");
 });
 
-Deno.test("hashes the normalized audit snapshot and binds evidence to deal", async () => {
+Deno.test("binds the complete manifest digest into deal-specific Code Audit evidence", async () => {
   const result = await selectCodeAuditEvidence(row, expected);
   assert(result.result === "PASS");
   assertEquals(result.evidence.dealId, expected.dealId);
   assertEquals(result.evidence.projectId, expected.projectId);
   assertEquals(result.evidence.contentHash.length, 64);
+  assertEquals(result.evidence.metadata?.auditManifestHash, expected.manifest.digest);
+});
+
+Deno.test("rejects a missing, stale-version, wrong-audit, or malformed manifest", async () => {
+  assertEquals((await selectCodeAuditEvidence(row, { ...expected, manifest: null as never })).result, "REVIEW_REQUIRED");
+  assertEquals((await selectCodeAuditEvidence(row, { ...expected, manifest: { ...expected.manifest, version: "old" as never } })).result, "REVIEW_REQUIRED");
+  assertEquals((await selectCodeAuditEvidence(row, { ...expected, manifest: { ...expected.manifest, auditId: "33333333-3333-4333-8333-333333333333" } })).result, "REVIEW_REQUIRED");
+  assertEquals((await selectCodeAuditEvidence(row, { ...expected, manifest: { ...expected.manifest, digest: "bad" } })).result, "REVIEW_REQUIRED");
 });
