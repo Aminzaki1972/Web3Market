@@ -96,7 +96,7 @@ function snapshot(): SafeExecutionFreshSnapshot {
         gas_token: "0x0000000000000000000000000000000000000000",
         refund_receiver: "0x0000000000000000000000000000000000000000",
         safe_nonce: "7",
-      },
+      } as unknown as SafeExecutionFreshSnapshot["guardInput"]["transaction"],
       releasePolicy: {
         expectedDealId: "81000000-0000-4000-8000-000000000001",
         expectedSafeAddress: SAFE,
