@@ -937,3 +937,8 @@ The connected-wallet package now includes the exact buyer and seller acceptance 
 ## 50. Verified participant wallet revalidation at package issue and hash handoff — isolated draft — 2026-11-06
 
 The atomic package-issuance RPC now locks and rechecks the participant's current `profiles.wallet_verified` and `wallet_address` against the server-composed `executorWallet` inside the same transaction that stores the one-use package. The wallet-submission RPC performs the same current-profile check before accepting a new or recovered transaction hash. Exact same-hash idempotent retries remain readable after the original submission, while a changed/revoked profile wallet cannot initiate a new hash handoff. The RPC records a late hash without treating it as settlement proof; the finalizer independently checks that the canonical receipt timestamp falls inside the stored package window.
+
+
+## 51. Connected-wallet Safe EIP-712 signing client — isolated draft — 2026-11-06
+
+Added `signW3MSafeRelease` to the browser helper. It requires BNB Chain 56, the active signer to match the verified participant wallet, and the ethers-computed Safe EIP-712 digest to equal the exact prepared `safe_tx_hash` before it opens the wallet signature prompt. It then posts only `deal_id`, `safe_tx_hash`, and the signature to the authenticated isolated W3M SIGN endpoint. The server independently reloads the current W3M PASS and immutable agreement context, recovers the signature against the verified profile wallet, and atomically persists it. No transaction is sent during signing.
