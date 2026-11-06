@@ -166,3 +166,29 @@ The request boundary:
 A first CI run, `42135224575`, correctly exposed a bearer-header regular-expression escaping defect in the new request boundary: 2 of 5 tests passed and 3 failed because valid `Bearer <token>` headers were rejected. The defect was corrected in commit `9bdc80544dac579950df5b233b0bab56732b5daf`. The follow-up CI run `42135541989` was queued at the time of this update; do not treat the new endpoint as verified until that run completes successfully.
 
 This is still an isolated endpoint only. It has not been deployed, has no production secrets configured, and has not been wired into the existing production `finalize-safe-release` function. No database migration was deployed and no live Safe transaction was touched.
+
+
+## 12. Isolated EXECUTE coordinator — 2026-11-06
+
+Added:
+- `supabase/functions/w3m-acquisition-verification/safe-execution-coordinator.ts`
+- `supabase/functions/w3m-acquisition-verification/safe-execution-coordinator.test.ts`
+
+The coordinator is a pure orchestration boundary, not a deployable replacement for `execute-safe-release`. It composes the existing full `evaluateSafeExecutionGuard` with injected server-side adapters and enforces this sequence:
+
+1. Load a fresh execution snapshot and validate deal, transaction, report ID/version, executor and idempotency bindings.
+2. Run the complete W3M settlement + stored MultiSend payload + independently recomputed Safe hash + execution-time Safe signature-set guard.
+3. Acquire the server-only atomic execution claim for the exact deal, transaction, report and Safe hash.
+4. Load a second fresh snapshot after the claim and repeat the full guard immediately before the protected broadcast callback.
+5. Require the second snapshot to retain the exact deal, transaction, report ID/version, Safe hash and idempotency key.
+6. Call the protected broadcast callback once, validate the returned 32-byte transaction hash, then persist that exact hash through the broadcast RPC adapter.
+
+Fail-closed behavior:
+- initial gate failure does not claim or broadcast;
+- any idempotent claim replay or already-advanced attempt is sent to reconciliation and is never rebroadcast;
+- inability to reload state, changed bindings, failed second authorization, uncertain broadcast result, malformed hash, or failed hash persistence transitions the attempt to reconciliation-required (best effort) and never retries the broadcast;
+- if the reconciliation transition itself fails, the active CLAIMED attempt remains blocking under the unique active-attempt constraint.
+
+The coordinator deliberately does not load database rows, call BNB, derive transaction calldata, sign, or broadcast by itself. The eventual isolated `execute-safe-release` adapter must supply a fresh authoritative snapshot, the actual Safe transaction submission callback, and the RPC methods; it must not treat the coordinator's injected callback as permission to skip the existing Safe checks.
+
+CI verification for this new coordinator is pending in run `42136163614` (commit `45d86ece4a2bb269070da8ae8f7a42b7dbfdd851`) at the time of this documentation update. Do not mark it verified until the run completes successfully. All changes remain on the isolated branch; no production function or environment was changed.
