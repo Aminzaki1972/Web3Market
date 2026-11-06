@@ -1,6 +1,8 @@
 // W3M Protocol V1 — authenticated report-issuance HTTP boundary.
 // All evidence loading, signer selection, trusted-key verification and persistence
 // remain behind server-injected dependencies. The browser may submit only deal_id.
+import { extractW3MBearerToken } from "./bearer-token.ts";
+
 export interface W3MReportIssueRequestDependencies {
   authenticate(token: string): Promise<string | null>;
   authorize(input: { actorId: string; dealId: string }): Promise<boolean>;
@@ -23,10 +25,10 @@ export async function handleW3MReportIssueRequest(
   dependencies: W3MReportIssueRequestDependencies,
 ): Promise<Response> {
   if (request.method !== "POST") return json(405, { ok: false, error: "POST_REQUIRED" });
-  const match = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") ?? "");
-  if (!match?.[1]?.trim()) return json(401, { ok: false, error: "AUTHENTICATION_REQUIRED" });
+  const token = extractW3MBearerToken(request.headers.get("authorization"));
+  if (!token) return json(401, { ok: false, error: "AUTHENTICATION_REQUIRED" });
   let actorId: string | null;
-  try { actorId = await dependencies.authenticate(match[1].trim()); }
+  try { actorId = await dependencies.authenticate(token); }
   catch { return json(401, { ok: false, error: "AUTHENTICATION_FAILED" }); }
   if (typeof actorId !== "string" || !actorId.trim()) {
     return json(401, { ok: false, error: "AUTHENTICATION_FAILED" });
