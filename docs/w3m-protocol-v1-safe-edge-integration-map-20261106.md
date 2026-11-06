@@ -731,3 +731,19 @@ The atomic SQL migration received a source-integrity repair after inspection fou
 Added HTTP-boundary tests for authentication, malformed deal IDs, POST-only behavior, and ignoring browser-supplied authority fields. Workflow now includes type checks and tests for the handler.
 
 **Important integration status:** this is still a dependency-injected request handler, not a deployed or fully wired Supabase Edge Function. The actual service-role context factory and canonical BNB RPC implementation must be assembled in a dedicated isolated Edge Function entrypoint before replacing either live PREPARE handler. The SQL migration, HTTP handler and tests have not yet received CI confirmation. No live handler, production migration, database, Safe, or funds were changed.
+
+
+## 39. Isolated PREPARE server entrypoint and CI repair — 2026-11-06
+
+A separate Edge Function entrypoint now exists at `supabase/functions/w3m-protocol-v1-prepare-deal-release/index.ts`. It is **not deployed** and does not replace the live `prepare-deal-release` function.
+
+- Accepts only the authenticated user's `deal_id`; actor identity is obtained from Supabase Auth.
+- Creates a server-only service-role client for exact Deal Room/policy and W3M registry reads plus the atomic PREPARE RPC. No service-role credential is returned to the browser.
+- Uses the allowlisted free BNB PublicNode endpoint, captures one block tag, reads Safe owners/threshold/version/nonce at that block, and compares the block header hash before and after the Safe reads. A changed block header fails closed.
+- Performs raw-digest secp256k1 signature recovery through the existing cryptographic adapter.
+- Delegates all eligibility, report/evidence, terms, Safe, and atomic persistence checks to the existing isolated gate and RPC adapter.
+- Restricts browser origins to the two Web3Market production origins. This is CORS policy, not authentication; the bearer token is independently validated.
+
+The preceding CI failures were inspected from GitHub job logs. They exposed three compile-time defects in the atomic PREPARE adapter test: an undefined `call` variable, and a literal threshold type mismatch. Both are repaired. The adapter's decimal regex was also corrected: its prior escaping rejected legitimate fractional strings such as `7.5`, so the original 7.5% fee path would not have reached the RPC. The test now reads the recorded RPC call and exercises fractional policy values.
+
+The workflow now includes the new isolated Edge Function directory and type-checks its entrypoint. The workflow triggered for the fixes must complete before these changes are considered CI-verified. Until then, status is **pending verification**. No production function, migration, database row, wallet, Safe, transaction, or deployment was changed.
