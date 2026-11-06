@@ -372,7 +372,7 @@ begin
     return new;
   end if;
   v_deal_id := new.deal_id::uuid;
-  select * into v_deal from public.deals where id = v_deal_id;
+  select * into v_deal from public.deals where id = v_deal_id for update;
   if not found or new.project_id is distinct from v_deal.project_id::text
      or new.buyer_id is distinct from v_deal.buyer_id::text
      or new.seller_id is distinct from v_deal.seller_id::text then
