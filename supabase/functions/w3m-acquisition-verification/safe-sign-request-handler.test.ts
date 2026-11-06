@@ -100,8 +100,14 @@ Deno.test("SIGN persists only after fresh authorization and signature verificati
   assertEquals(body.confirmations_count, 1);
 });
 Deno.test("SIGN fails closed on persistence adapter failure", async () => {
-  const d = deps({ persistSignatureAtomically: async () => { throw new Error("database unavailable"); } });
+  let persistCalls = 0;
+  const d = deps({
+    persistSignatureAtomically: async () => {
+      persistCalls++;
+      throw new Error("database unavailable");
+    },
+  });
   const res = await d.handler(req({ deal_id: deal, safe_tx_hash: hash, signature }));
   assertEquals(res.status, 409);
-  assertEquals(d.calls.persist, 1);
+  assertEquals(persistCalls, 1);
 });
