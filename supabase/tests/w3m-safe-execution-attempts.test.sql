@@ -351,6 +351,15 @@ begin
   exception when check_violation then null;
   end;
 
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,
+      jsonb_set(v_receipt,'{block_timestamp}',to_jsonb(v_package_issue_at + interval '3 minutes'))
+    );
+    raise exception 'Receipt after the wallet package expiry was unexpectedly finalized';
+  exception when check_violation then null;
+  end;
+
   v_result := public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
   if coalesce((v_result->>'finalized')::boolean,false) is not true
      or coalesce((v_result->>'idempotent_replay')::boolean,true) is not false
