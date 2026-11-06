@@ -254,10 +254,12 @@ Deno.test("broadcast is not reported recorded when persistence RPC response is m
 });
 
 Deno.test("reconciliation is not reported persisted when its RPC response is malformed", async () => {
+  let loads = 0;
   const h = deps({
     loadFresh: async () => {
+      loads++;
       const value = snapshot();
-      value.guardInput.settlement.paymentConfirmed = false;
+      if (loads === 2) value.guardInput.settlement.paymentConfirmed = false;
       return value;
     },
     markReconciliationRequired: async () => ({
@@ -267,6 +269,9 @@ Deno.test("reconciliation is not reported persisted when its RPC response is mal
     }),
   });
   const result = await executeW3MSafeRelease(h.dependencies);
-  assert(result.state === "BLOCKED", JSON.stringify(result));
-  if (result.state === "BLOCKED") return;
+  assert(result.state === "RECONCILIATION_REQUIRED", JSON.stringify(result));
+  if (result.state === "RECONCILIATION_REQUIRED") {
+    assert(result.reconciliationRecorded === false, JSON.stringify(result));
+  }
+  assert(!h.calls.includes("broadcast"), h.calls.join(","));
 });
