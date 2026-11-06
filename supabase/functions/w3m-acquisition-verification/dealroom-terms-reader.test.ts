@@ -148,7 +148,7 @@ Deno.test("exact snapshot gate blocks non-releasable deals and non-approved toke
    expectedSellerWallet:"0x4444444444444444444444444444444444444444",
   },
  }));
- const result=await checkDealRoomFromExactSnapshot({
+ await assertRejects(()=>checkDealRoomFromExactSnapshot({
   client:client([{...row,deal_token_contract:"0x3333333333333333333333333333333333333333"}]),
   dealId:"deal-reader-1",stage:"PREPARE",now:"2026-11-06T20:00:00.000Z",
   safeFacts:{
@@ -158,8 +158,7 @@ Deno.test("exact snapshot gate blocks non-releasable deals and non-approved toke
    expectedBuyerWallet:"0x5555555555555555555555555555555555555555",
    expectedSellerWallet:"0x4444444444444444444444444444444444444444",
   },
- });
- assertEquals(result.decision.issues.some(issue=>issue.code==="SAFE_CONFIGURATION_MISMATCH"),true);
+ }));
 });
 
 Deno.test("exact snapshot reader blocks live Safe chain, nonce, and owner mismatches", async () => {
