@@ -16,6 +16,7 @@ declare
   v_deal public.deals%rowtype;
   v_policy public.deal_release_policies%rowtype;
   v_project jsonb;
+  v_code_audit jsonb;
   v_buyer_profile jsonb;
   v_seller_profile jsonb;
   v_transactions jsonb;
@@ -42,10 +43,13 @@ begin
     'id', p.id::text,
     'owner_id', p.owner_id::text,
     'status', p.status,
+    'github_url', p.github_url,
     'updated_at', p.updated_at::text
   ) into v_project
   from public.projects p
   where p.id = v_deal.project_id;
+
+  v_code_audit := public.w3m_current_deal_code_audit_json(v_deal.id);
 
   select jsonb_build_object(
     'id', p.id::text,
@@ -178,6 +182,7 @@ begin
       'release_tx_hash', v_policy.release_tx_hash
     ) end,
     'project', v_project,
+    'code_audit', v_code_audit,
     'buyer_profile', v_buyer_profile,
     'seller_profile', v_seller_profile,
     'release_transactions', v_transactions,
