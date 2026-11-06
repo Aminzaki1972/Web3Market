@@ -154,6 +154,8 @@ export async function submitSafeWalletExecutionPackage({
     transactionHash,
     from,
     safeAddress: pkg.safeAddress,
+    executorWallet: pkg.executorWallet,
+    safeOwners: pkg.safeOwners,
     safeTransactionHash: pkg.safeTransactionHash,
     state: "SUBMITTED_UNVERIFIED",
   };
