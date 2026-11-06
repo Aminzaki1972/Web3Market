@@ -76,3 +76,14 @@ Deno.test("unknown modes and non-POST methods are rejected", async () => {
   assertEquals(badMode.status, 400);
   assertEquals(badMethod.status, 405);
 });
+
+Deno.test("agreement boundary rejects multi-part bearer credentials before authentication", async () => {
+  let authenticated = false;
+  const response = await handleW3MDealAgreementRequest(request({ mode: "prepare", deal_id: dealId }, "valid extra"), {
+    authenticate: async () => { authenticated = true; return buyerId; },
+    prepare: async () => ({}),
+    accept: async () => ({}),
+  });
+  assertEquals(response.status, 401);
+  assertEquals(authenticated, false);
+});
