@@ -6,8 +6,14 @@ returns table (
   project_id text,
   buyer_id text,
   seller_id text,
+  project_owner_id text,
+  project_status text,
   buyer_wallet text,
+  buyer_wallet_verified text,
+  buyer_wallet_verified_at text,
   seller_wallet text,
+  seller_wallet_verified text,
+  seller_wallet_verified_at text,
   deal_amount text,
   currency text,
   expected_amount text,
@@ -43,8 +49,14 @@ as $$
     d.project_id::text,
     d.buyer_id::text,
     d.seller_id::text,
+    project.owner_id::text,
+    project.status,
     buyer_profile.wallet_address,
+    buyer_profile.wallet_verified::text,
+    buyer_profile.wallet_verified_at::text,
     seller_profile.wallet_address,
+    seller_profile.wallet_verified::text,
+    seller_profile.wallet_verified_at::text,
     d.amount::text,
     d.currency,
     d.expected_amount::text,
@@ -71,6 +83,7 @@ as $$
     p.status
   from public.deals d
   left join public.deal_release_policies p on p.deal_id = d.id
+  left join public.projects project on project.id = d.project_id
   left join public.profiles buyer_profile on buyer_profile.id = d.buyer_id
   left join public.profiles seller_profile on seller_profile.id = d.seller_id
   where d.id = p_deal_id;
