@@ -125,7 +125,10 @@ begin
      or v_evidence.details->>'commitSha' is distinct from lower(v_evidence.source_version)
      or coalesce(v_evidence.details->>'auditType','') not in ('code','smart_contract','complete')
      or coalesce(v_evidence.details->>'completedAt','') = ''
-     or coalesce(v_evidence.details->>'repositoryOwner','') !~ '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?
+     or coalesce(v_evidence.details->>'repositoryOwner','') !~ '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$'
+     or coalesce(v_evidence.details->>'repositoryName','') !~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$'
+     or coalesce(v_evidence.details->>'repositoryName','') in ('.','..')
+     or coalesce(v_evidence.details->>'auditFileCount','') !~ '^[1-9][0-9]*$'
      or coalesce(v_evidence.details->>'auditFindingCount','') !~ '^(0|[1-9][0-9]*)$' then
     return null;
   end if;
