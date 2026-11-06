@@ -69,7 +69,14 @@ begin
 
   if v_attempt.state not in ('BROADCAST','RECONCILIATION_REQUIRED')
      or v_attempt.broadcast_tx_hash is null
-     or lower(v_attempt.broadcast_tx_hash) <> lower(p_broadcast_tx_hash) then
+     or lower(v_attempt.broadcast_tx_hash) <> lower(p_broadcast_tx_hash)
+     or v_attempt.package_actor_id is null
+     or v_attempt.package_hash is null
+     or v_attempt.package_payload is null
+     or v_attempt.package_issued_at is null
+     or v_attempt.package_expires_at is null
+     or (p_receipt_evidence->>'block_timestamp')::timestamptz < v_attempt.package_issued_at
+     or (p_receipt_evidence->>'block_timestamp')::timestamptz > v_attempt.package_expires_at then
     raise exception 'Attempt is not bound to this recorded broadcast'
       using errcode = '23514';
   end if;
@@ -91,6 +98,9 @@ begin
 
   if p_actor_id not in (v_deal.buyer_id, v_deal.seller_id) then
     raise exception 'Finalization actor is not a deal participant' using errcode = '42501';
+  end if;
+  if v_attempt.package_actor_id not in (v_deal.buyer_id, v_deal.seller_id) then
+    raise exception 'Wallet package actor is not a deal participant' using errcode = '42501';
   end if;
 
   if v_tx.action is distinct from 'release_to_seller'
