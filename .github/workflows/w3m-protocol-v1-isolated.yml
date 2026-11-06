@@ -20,6 +20,9 @@ on:
       - "supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql"
       - "supabase/tests/w3m-dealroom-prepare-policy-reader-fixture.sql"
       - "supabase/tests/w3m-dealroom-prepare-policy-reader.test.sql"
+      - "supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql"
+      - "supabase/tests/w3m-dealroom-prepare-policy-reader-fixture.sql"
+      - "supabase/tests/w3m-dealroom-prepare-policy-reader.test.sql"
       - "supabase/tests/w3m-deal-agreement-acceptances.test.sql"
       - "supabase/migrations/20261107030000_w3m_protocol_v1_safe_execution_snapshot_reader.sql"
       - "supabase/tests/w3m-safe-execution-snapshot-reader.test.sql"
@@ -150,6 +153,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/bnb-safe-configuration-facts-reader.test.ts
           deno check supabase/functions/w3m-acquisition-verification/fresh-safe-prepare-context.ts
           deno check supabase/functions/w3m-acquisition-verification/fresh-safe-prepare-context.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-gate.ts
+          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-gate.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.test.ts
           deno check supabase/functions/w3m-acquisition-verification/bnb-safe-live-read-client.ts
@@ -229,6 +234,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/bnb-safe-configuration-facts-reader.test.ts
       - name: Test fresh pre-transaction W3M PREPARE context
         run: deno test supabase/functions/w3m-acquisition-verification/fresh-safe-prepare-context.test.ts
+      - name: Test pre-lock W3M PREPARE gate
+        run: deno test supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-gate.test.ts
       - name: Test strict Safe execution database snapshot adapter
         run: deno test supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.test.ts
       - name: Test block-pinned read-only BNB Safe RPC client
@@ -273,6 +280,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107030000_w3m_protocol_v1_safe_execution_snapshot_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-schema.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-trusted-signer-schema.test.sql
