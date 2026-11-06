@@ -32,7 +32,7 @@ export interface FreshSafePrepareAuthorization {
   phase: "PREPARE";
   dealId: string;
   reportId?: string | null;
-  reportVersion?: string | null;
+  reportVersion?: number | null;
   readBlockNumber?: string;
   readBlockHash?: string;
 }
