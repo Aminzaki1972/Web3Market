@@ -6,6 +6,7 @@ on:
       - "supabase/functions/w3m-acquisition-verification/**"
       - "supabase/functions/w3m-protocol-v1-finalize-safe-release/**"
       - "supabase/functions/w3m-protocol-v1-deal-agreement/**"
+      - "supabase/functions/w3m-protocol-v1-prepare-deal-release/**"
       - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
       - "supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql"
       - "supabase/migrations/20261106230000_w3m_protocol_v1_safe_execution_attempts.sql"
@@ -35,6 +36,7 @@ on:
     paths:
       - "supabase/functions/w3m-acquisition-verification/**"
       - "supabase/functions/w3m-protocol-v1-deal-agreement/**"
+      - "supabase/functions/w3m-protocol-v1-prepare-deal-release/**"
       - "js/w3m-deal-agreement-client.js"
       - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
       - "supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql"
@@ -165,6 +167,7 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-commit.test.ts
           deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.ts
           deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.test.ts
+          deno check supabase/functions/w3m-protocol-v1-prepare-deal-release/index.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.test.ts
           deno check supabase/functions/w3m-acquisition-verification/bnb-safe-live-read-client.ts
