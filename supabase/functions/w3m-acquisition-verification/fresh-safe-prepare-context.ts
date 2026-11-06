@@ -49,6 +49,13 @@ function required(value: unknown, label: string): string {
   if (typeof value !== "string" || !value.trim()) throw new Error("PREPARE snapshot " + label + " is missing.");
   return value;
 }
+function sameAddressSet(actual: readonly string[], expected: readonly string[]): boolean {
+  if (!Array.isArray(actual) || actual.length !== expected.length ||
+      actual.some((value) => typeof value !== "string" || !ADDRESS.test(value))) return false;
+  const a = actual.map((value) => value.toLowerCase()).sort();
+  const e = expected.map((value) => value.toLowerCase()).sort();
+  return new Set(a).size === a.length && a.every((value, index) => value === e[index]);
+}
 
 export async function authorizeSafePrepareFromFreshSources(
   dependencies: FreshSafePrepareDependencies,
@@ -108,8 +115,9 @@ export async function authorizeSafePrepareFromFreshSources(
       expectedNonce: nonce,
     };
     const facts = await dependencies.readSafeConfiguration(expected);
-    if (!facts || facts.valid !== true || facts.chainId !== 56 ||
-        facts.safeAddress?.toLowerCase() !== safeAddress.toLowerCase() ||
+    if (!facts || facts.valid !== true || !Array.isArray(facts.issues) || facts.issues.length !== 0 ||
+        facts.chainId !== 56 || facts.safeAddress?.toLowerCase() !== safeAddress.toLowerCase() ||
+        !sameAddressSet(facts.owners, [buyerWallet, sellerWallet, PLATFORM_WALLET]) ||
         facts.threshold !== 2 || facts.version !== "1.4.1" || facts.nonce !== nonce ||
         !/^0x[0-9a-f]{64}$/i.test(facts.readBlockHash) ||
         !/^0x(?:0|[1-9a-f][0-9a-f]*)$/i.test(facts.readBlockNumber)) {
