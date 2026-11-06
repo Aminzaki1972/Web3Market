@@ -104,12 +104,14 @@ begin
   );
 
   insert into public.w3m_acquisition_evidence (
-    report_id,evidence_type,evidence_hash,result,mandatory,observed_at,valid_until,details
+    report_id,evidence_type,source_table,source_record_id,source_version,
+    evidence_hash,result,mandatory,observed_at,valid_until,details
   ) values (
-    v_report,'PROJECT_IDENTITY',repeat('c',64),'PASS',true,now(),now() + interval '1 hour',
+    v_report,'PROJECT_IDENTITY',null,null,null,repeat('c',64),'PASS',true,now(),now() + interval '1 hour',
     jsonb_build_object('evidenceId','attempt-test-project-identity','evidenceObservedAt',now(),'evidenceValidUntil',now() + interval '1 hour')
   ), (
-    v_report,'CODE_AUDIT',repeat('a',64),'PASS',true,now(),now() + interval '1 hour',
+    v_report,'CODE_AUDIT','code_audits','75000000-0000-4000-8000-000000000001',repeat('1',40),
+    repeat('a',64),'PASS',true,now(),now() + interval '1 hour',
     jsonb_build_object(
       'auditStatus','completed',
       'auditManifestVersion','w3m-audit-manifest-v1',
@@ -123,11 +125,6 @@ begin
       'auditFindingCount','0'
     )
   );
-  update public.w3m_acquisition_evidence
-     set source_table='code_audits',
-         source_record_id='75000000-0000-4000-8000-000000000001',
-         source_version=repeat('1',40)
-   where report_id=v_report and evidence_type='CODE_AUDIT';
 
   v_result := public.w3m_claim_safe_execution_attempt(
     v_deal,v_tx,v_report,v_safe_hash,v_actor::text,'attempt-idempotency-key-0001'
