@@ -73,10 +73,6 @@ Deno.test("prepare derives the seller role only from the authenticated seller id
   assertEquals(prepared.typedData.message.partyRole,2);
 });
 Deno.test("accept verifies the current verified wallet and persists only the recovered signature", async () => {
-  const acceptance = {
-    dealId,projectId,buyerId,sellerId,safeAddress,
-    termsHash: (await import("./deal-terms-hash.ts")).computeDealTermsHash,
-  };
   const prepared = await prepareDealAgreementAcceptance(mockClient(), {dealId,actorId:buyerId});
   const digest = computeDealTermsAcceptanceDigest({
     dealId,projectId,buyerId,sellerId,safeAddress,
