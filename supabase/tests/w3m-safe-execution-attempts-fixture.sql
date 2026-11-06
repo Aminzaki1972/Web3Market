@@ -90,6 +90,42 @@ CREATE TABLE public.deal_audit_logs (
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE public.code_audits (
+  id uuid PRIMARY KEY,
+  project_id uuid NOT NULL REFERENCES public.projects(id) ON DELETE RESTRICT,
+  repo_url text NOT NULL,
+  repo_owner text NOT NULL,
+  repo_name text NOT NULL,
+  commit_sha text NOT NULL,
+  status text NOT NULL,
+  completed_at timestamptz,
+  engine_version text NOT NULL,
+  analysis_progress jsonb NOT NULL DEFAULT '{}'::jsonb,
+  files_scanned integer NOT NULL DEFAULT 0,
+  critical_count integer NOT NULL DEFAULT 0,
+  high_count integer NOT NULL DEFAULT 0,
+  medium_count integer NOT NULL DEFAULT 0,
+  low_count integer NOT NULL DEFAULT 0,
+  info_count integer NOT NULL DEFAULT 0
+);
+CREATE TABLE public.code_audit_files (
+  id uuid PRIMARY KEY,
+  audit_id uuid NOT NULL REFERENCES public.code_audits(id) ON DELETE CASCADE,
+  path text NOT NULL
+);
+CREATE TABLE public.code_audit_findings (
+  id uuid PRIMARY KEY,
+  audit_id uuid NOT NULL REFERENCES public.code_audits(id) ON DELETE CASCADE,
+  severity text NOT NULL,
+  category text NOT NULL,
+  title text NOT NULL,
+  file_path text,
+  line_start integer,
+  line_end integer,
+  status text NOT NULL DEFAULT 'open',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE FUNCTION public.validate_deal_release_policy(p_deal_id uuid)
 RETURNS jsonb LANGUAGE sql STABLE
 AS $fixture$ SELECT jsonb_build_object('valid', false) $fixture$;
