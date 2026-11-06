@@ -85,7 +85,7 @@ An isolated migration and regression test were added:
 
 The migration installs statement-level UPDATE/DELETE/TRUNCATE rejection triggers on the W3M acquisition report, evidence, report-event, trusted-signer-key, and trusted-signer-event registries. It does not grant additional write privileges; the service role remains read-only on these tables and writes continue through the existing SECURITY DEFINER registry RPCs. The SQL regression test checks the triggers and verifies that report/evidence/event/signer mutation attempts are rejected.
 
-The isolated CI workflow was updated to apply this migration only to its disposable PostgreSQL service and execute the new test. Run `42197764274` on commit `7650efd` was queued and then entered `in_progress` at the time of this note; its result is not yet known.
+The isolated CI workflow was updated to apply this migration only to its disposable PostgreSQL service and execute the new test. Run `42197764274` on commit `7650efd` subsequently completed successfully. Its disposable PostgreSQL migration/test step passed, validating the five acquisition/signer registry triggers. This run predates the agreement-history migration and signer-revocation lock added below.
 
 This closes the direct row-mutation gap for these five registries only if CI passes and the database owner does not disable triggers. It does **not** close the finalization-time revalidation gap. Deal-terms version/acceptance immutability and signer-revocation serialization with finalization still require explicit handling, and the atomic finalizer still does not lock/revalidate the acquisition report/evidence/signer/terms bundle.
 
@@ -107,3 +107,8 @@ This protects the immutable terms and signed-consent history from ordinary row m
 The isolated trusted-signer revocation RPC now obtains `SELECT ... FOR UPDATE` on the signer-key row before appending the REVOKED event. Its SQL regression test asserts that the function definition contains this row lock, and the existing lifecycle test still verifies that revocation changes the derived signer status.
 
 This establishes a shared serialization point for the next finalizer change: finalization must lock the same signer-key row and re-read the latest event in its own transaction. The lock added to revocation alone does not close the race until the atomic finalizer takes the matching lock and validates the signer status before committing.
+
+
+### CI follow-up — 2026-11-06
+
+The follow-on changes for immutable agreement history and signer-revocation row locking are included in isolated run `42198188037` (head commit `fca96858a257d88b22122d9fe94b96bd95ff791e`). At the latest check this run was still `in_progress`; its SQL migration and regression results are not yet validated. The later documentation-only commit does not change the code tested by that run.
