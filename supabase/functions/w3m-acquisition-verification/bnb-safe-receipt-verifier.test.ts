@@ -104,8 +104,8 @@ Deno.test("wrong chain is rejected before receipt lookup", async () => {
   const { rpc, calls } = mockRpc({ chainId: "0x1" });
   await assertRejects(
     () => verifyBnbSafeReleaseReceipt(rpc, expected),
-    Error,
-    "receipt verification unavailable",
+    BnbSafeReceiptVerificationError,
+    "not BNB Chain mainnet",
   );
   assertEquals(calls, ["eth_chainId"]);
 });
@@ -189,8 +189,8 @@ Deno.test("wrong BNB chain blocks atomic finalization RPC", async () => {
   };
   await assertRejects(
     () => finalizeBnbSafeReleaseAfterRpcVerification(database, rpc, expected),
-    BnbSafeReceiptVerificationError,
-    "not BNB Chain",
+    Error,
+    "receipt verification unavailable",
   );
   assertEquals(calls, 0);
 });
