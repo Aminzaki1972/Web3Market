@@ -364,3 +364,6 @@ Added tests for missing/malformed DB snapshots and invalid time. The workflow no
 The current isolated SQL snapshot deliberately returns `agreement_binding_supported=false`; therefore this composer blocks before chain reads for current schema snapshots. This is intentional until the buyer/seller same-terms consent mechanism is explicitly approved and implemented. The EIP-712 agreement flow remains proposal-only.
 
 No production migration, deployed function, live website, live BNB call, or funds were changed by this work.
+
+
+The composer now also exposes `authorizeSafeHandlerPhaseFromFreshSources(...)`, which feeds the fresh context into the existing phase-aware Safe authorizer. For PREPARE, SIGN, and EXECUTE, this creates one server-side entry point that reloads the database snapshot, validates canonical BNB Safe facts, and then invokes the persisted W3M report/evidence/signature gate. FINALIZE remains separately denied by this authorizer and must use the raw-receipt finalization path. A regression test confirms missing fresh database state blocks PREPARE before any Safe-facts read. The final wrapper/test commit is covered by workflow run 42165304790; outcome pending at documentation time.
