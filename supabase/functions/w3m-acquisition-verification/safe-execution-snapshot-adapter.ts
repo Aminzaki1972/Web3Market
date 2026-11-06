@@ -150,6 +150,11 @@ export async function loadSafeExecutionDatabaseSnapshot(
   }
 
   const safeHash = String(releaseTransaction.safe_tx_hash).toLowerCase();
+  const tokenSymbol = text(deal.token_symbol, "deal token symbol");
+  if (text(policy.token_symbol, "policy token symbol") !== tokenSymbol ||
+      text(releaseTransaction.token_symbol, "transaction token symbol") !== tokenSymbol) {
+    throw new Error("Deal, policy, and stored Safe transaction token symbols do not match.");
+  }
   const allSignerRows = array(root.signers, "signer list").map((value, index) =>
     object(value, "signer row " + index));
   const signers = allSignerRows.filter((row) => row.signature_status === "signed").map((row, index) => {
@@ -170,6 +175,26 @@ export async function loadSafeExecutionDatabaseSnapshot(
       signature,
     };
   });
+  for (const signer of signers) {
+    const wallet = signer.walletAddress.toLowerCase();
+    if (signer.signerRole === "buyer") {
+      if (signer.signerId !== deal.buyer_id ||
+          wallet !== String(buyerProfile.wallet_address).toLowerCase()) {
+        throw new Error("Stored buyer signature is not bound to the deal buyer and verified wallet.");
+      }
+    } else if (signer.signerRole === "seller") {
+      if (signer.signerId !== deal.seller_id ||
+          wallet !== String(sellerProfile.wallet_address).toLowerCase()) {
+        throw new Error("Stored seller signature is not bound to the deal seller and verified wallet.");
+      }
+    } else if (signer.signerRole === "platform") {
+      if (wallet !== PLATFORM_WALLET) {
+        throw new Error("Stored platform signature is not bound to the configured platform wallet.");
+      }
+    } else {
+      throw new Error("Stored Safe signer role is not recognized.");
+    }
+  }
   const signerWallets = signers.map((row) => row.walletAddress.toLowerCase());
   if (new Set(signerWallets).size !== signerWallets.length) {
     throw new Error("Duplicate stored Safe signer wallets are not allowed.");
