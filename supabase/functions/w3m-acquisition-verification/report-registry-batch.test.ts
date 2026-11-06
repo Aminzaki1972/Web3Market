@@ -93,6 +93,9 @@ Deno.test("builds a signed report and append-only evidence/event rows", async ()
       result.report.report_payload.dealTermsHash !== "b".repeat(64)) {
     throw new Error("Registry batch does not match the signed PASS report contract.");
   }
+  if (result.evidence.find((row) => row.evidence_type === "CODE_AUDIT")?.source_table !== "code_audits") {
+    throw new Error("Code Audit evidence must preserve its canonical source table.");
+  }
   if (result.evidence.some((row) => row.report_id !== REPORT_ID) ||
       result.events.some((row) => row.report_id !== REPORT_ID)) {
     throw new Error("All rows must bind to the same immutable report ID.");
