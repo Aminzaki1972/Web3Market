@@ -144,3 +144,19 @@ Added an isolated pure selector/normalizer and Deno tests:
 The selector accepts only an explicitly selected completed audit row and requires exact project UUID, repository owner/name, immutable 40-character commit SHA, supported audit type, non-future/fresh completion time, bounded score, and persisted analysis method. It emits a mandatory `CODE_AUDIT` evidence item whose source version is the exact commit and whose content hash covers the normalized audit snapshot. It deliberately does not query the database or choose a “latest” audit; the future trusted loader must select the audit ID from authoritative project/deal linkage using a service-role client.
 
 Negative tests cover wrong project, wrong repository, wrong commit, incomplete/unsupported/stale/future audit, missing analysis provenance, and invalid score. The tests were added to the branch but have **not yet been executed by CI**. No runtime loader was wired and no production schema was inspected or changed. This is not a live evidence source until the authoritative audit-ID selection and server-side read are implemented.
+
+
+
+## 14. Code Audit evidence hardening and binding review — 2026-11-06
+
+The pure Code Audit evidence selector was hardened after review:
+- The expected deal ID must be a valid UUID, and expected repository owner/name cannot be blank.
+- The selected audit must carry a non-empty persisted risk level in addition to its analysis-method provenance.
+- Evidence expiry is now anchored to `completed_at + maxAgeMs`, not `now + maxAgeMs`. Rechecking an old audit therefore cannot extend its validity.
+- Tests now assert the exact expiry timestamp and reject missing risk level or invalid deal ID.
+
+The code and tests are committed on the isolated branch. GitHub Actions run [42248602261](https://github.com/Aminzaki1972/Web3Market/actions/runs/42248602261) was started for code commit `bb79a1f1993b03f752f3cc3ce99d4492b79a8dc3`; its result is **pending** at this documentation update. The earlier run [42248199639](https://github.com/Aminzaki1972/Web3Market/actions/runs/42248199639) passed on the preceding selector commit `efbfe4497f849301e3101b4f4659d93d8ec3c91c`, but does not verify these later hardening changes.
+
+**Important source-binding gap found:** the current immutable Deal Room terms object records project, parties, financial terms, BNB chain, Safe, and token, but it does not record an agreed GitHub repository URL, commit SHA, or selected Code Audit ID. The existing project row has `github_url`, and `code_audits` has `project_id`, `repo_owner`, `repo_name`, `commit_sha`, `completed_at`, `overall_score`, `risk_level`, and `analysis_method`; however, project association alone does not prove which immutable commit and audit the buyer and seller agreed to acquire. Therefore no trusted runtime loader is being added yet. The next correct design step is to extend the versioned agreement terms with an explicit repository/commit/audit reference, ensure both parties sign those exact terms, and only then load the referenced audit row by ID and validate it through this selector.
+
+This change is isolated code/docs only. No production database, Edge Function, deployment, key, or wallet was accessed or changed.
