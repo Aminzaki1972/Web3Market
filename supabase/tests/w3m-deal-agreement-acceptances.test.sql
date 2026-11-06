@@ -421,8 +421,8 @@ begin
      or has_function_privilege('authenticated','public.w3m_create_deal_code_audit_snapshot(uuid,uuid,text,text,integer,integer)','EXECUTE')
      or not has_function_privilege('service_role','public.w3m_create_deal_code_audit_snapshot(uuid,uuid,text,text,integer,integer)','EXECUTE')
      or has_function_privilege('anon','public.w3m_read_deal_audit_snapshot_context(uuid,uuid)','EXECUTE')
-     or has_function_privilege('authenticated','public.w3m_read_deal_audit_snapshot_context(uuid)','EXECUTE')
-     or not has_function_privilege('service_role','public.w3m_read_deal_audit_snapshot_context(uuid)','EXECUTE') then
+     or has_function_privilege('authenticated','public.w3m_read_deal_audit_snapshot_context(uuid,uuid)','EXECUTE')
+     or not has_function_privilege('service_role','public.w3m_read_deal_audit_snapshot_context(uuid,uuid)','EXECUTE') then
     raise exception 'Independent Deal Code Audit snapshot RPCs are not service-role-only';
   end if;
   if has_table_privilege('authenticated','public.w3m_deal_code_audit_snapshots','SELECT')
