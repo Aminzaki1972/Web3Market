@@ -92,6 +92,9 @@ export async function evaluateDealRoomTermsSnapshotRow(
 ): Promise<DealRoomW3MServiceResult> {
   if (!input.dealId.trim()) throw new Error("Deal ID is required.");
   if (row.deal_id !== input.dealId) throw new Error("Deal Room snapshot deal binding mismatch.");
+  if (String(row.currency ?? "").toUpperCase() !== "USDT") {
+    throw new Error("W3M V1 settlement requires USDT denomination.");
+  }
   if (!["funded", "in_progress"].includes(String(row.deal_status ?? "").toLowerCase())) {
     throw new Error("Deal is not in a releasable state; W3M settlement is blocked.");
   }
