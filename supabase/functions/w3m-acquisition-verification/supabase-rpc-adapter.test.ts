@@ -6,6 +6,7 @@ import {
   markSafeExecutionReconciliationRequired,
   persistAcquisitionRegistryBatch,
   recordSafeExecutionBroadcast,
+  recordSafeWalletSubmission,
   type W3MRpcClient,
 } from "./supabase-rpc-adapter.ts";
 import type { RegistryBatch } from "./report-registry-batch.ts";
@@ -198,6 +199,45 @@ Deno.test("wallet package issuance rejects mismatched or malformed values before
   await assertRejects(() => issueSafeWalletExecutionPackage(client, {
     attemptId: "attempt-1", actorId: "not-a-uuid", packageHash: "x".repeat(64),
     package: { protocol: "W3M_PROTOCOL_V1" }, expiresAt: "not-a-date",
+  }));
+  assertEquals(calls, 0);
+});
+
+
+Deno.test("wallet submission persists only the exact authenticated actor, package, and outer tx hash", async () => {
+  const actorId = "23000000-0000-4000-8000-000000000003";
+  const attemptId = "24000000-0000-4000-8000-000000000004";
+  const packageHash = "c".repeat(64);
+  const broadcastTxHash = "0x" + "d".repeat(64);
+  const calls: { name: string; args: Record<string, unknown> }[] = [];
+  const client: W3MRpcClient = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      return { data: {
+        recorded: true, idempotent_replay: false, attempt_id: attemptId,
+        state: "BROADCAST", broadcast_tx_hash: broadcastTxHash,
+      }, error: null };
+    },
+  };
+  const result = await recordSafeWalletSubmission(client, {
+    attemptId, actorId, packageHash, broadcastTxHash,
+  });
+  assertEquals(result, {
+    attemptId, broadcastTxHash, state: "BROADCAST", idempotentReplay: false,
+  });
+  assertEquals(calls[0]?.name, "w3m_record_safe_wallet_submission");
+  assertEquals(calls[0]?.args.p_actor_id, actorId);
+  assertEquals(calls[0]?.args.p_package_hash, packageHash);
+  assertEquals(calls[0]?.args.p_broadcast_tx_hash, broadcastTxHash);
+});
+
+Deno.test("wallet submission rejects malformed actor, package hash, or transaction hash before RPC", async () => {
+  let calls = 0;
+  const client: W3MRpcClient = {
+    async rpc() { calls++; return { data: null, error: null }; },
+  };
+  await assertRejects(() => recordSafeWalletSubmission(client, {
+    attemptId: "attempt-1", actorId: "bad", packageHash: "bad", broadcastTxHash: "bad",
   }));
   assertEquals(calls, 0);
 });
