@@ -192,3 +192,19 @@ Fail-closed behavior:
 The coordinator deliberately does not load database rows, call BNB, derive transaction calldata, sign, or broadcast by itself. The eventual isolated `execute-safe-release` adapter must supply a fresh authoritative snapshot, the actual Safe transaction submission callback, and the RPC methods; it must not treat the coordinator's injected callback as permission to skip the existing Safe checks.
 
 CI verification for this coordinator completed successfully in run `42136163614` on commit `45d86ece4a2bb269070da8ae8f7a42b7dbfdd851`: all 44 reported steps completed successfully, including the coordinator type-check, all eight coordinator behavior tests, the other Deno suites, and disposable PostgreSQL migration/contract checks. This verifies the isolated implementation and its mocked/injected boundary behavior only; it does not exercise a live Safe broadcast or prove production integration. All changes remain on the isolated branch; no production function or environment was changed.
+
+
+## 13. Read-only live Safe execution facts adapter — 2026-11-06
+
+Added `safe-live-execution-facts.ts` and its Deno tests. It defines a read-only provider contract and validates, on every fresh execution snapshot:
+- BNB mainnet chain ID 56;
+- exact expected Safe address and deployed bytecode;
+- exact unique owner set (buyer, seller and platform wallets supplied by the trusted caller);
+- threshold 2;
+- Safe version 1.4.1 using the source-confirmed `VERSION()` contract read;
+- exact current Safe nonce;
+- recomputed Safe EIP-712 transaction hash against the persisted signed hash.
+
+Malformed transaction fields, duplicate/changed owners, wrong chain/version/threshold/nonce, missing bytecode, provider errors and hash mismatch fail closed. This module has no built-in RPC URL or live provider connection; the eventual isolated execute handler must inject a read-only, allowlisted BNB client and must not use browser-supplied facts.
+
+CI run `42136570158` (commit `19cb779300d5bbddecd82b64e1045130dbe90bcd`) was started with explicit type-check and test steps for the new adapter. Its result is pending at this documentation update. No live BNB RPC call or Safe transaction was performed.
