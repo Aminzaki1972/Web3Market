@@ -95,6 +95,51 @@ create trigger w3m_acquisition_evidence_serialize_append
 before insert on public.w3m_acquisition_evidence
 for each row execute function public.w3m_lock_evidence_append();
 
+create or replace function public.w3m_read_safe_finalization_acquisition_bundle(p_attempt_id uuid)
+returns jsonb language plpgsql stable security definer set search_path = pg_catalog, public
+as $bundle$
+declare
+  v_attempt public.w3m_safe_execution_attempts%rowtype;
+  v_deal public.deals%rowtype;
+  v_report public.w3m_acquisition_reports%rowtype;
+  v_terms public.w3m_deal_terms_versions%rowtype;
+  v_evidence jsonb;
+  v_signers jsonb;
+  v_latest_version integer;
+begin
+  if p_attempt_id is null then raise exception 'Attempt ID is required' using errcode = '22023'; end if;
+  select * into v_attempt from public.w3m_safe_execution_attempts where id = p_attempt_id;
+  if not found then raise exception 'Execution attempt not found' using errcode = 'P0002'; end if;
+  select * into v_deal from public.deals where id = v_attempt.deal_id;
+  if not found then raise exception 'Deal not found' using errcode = 'P0002'; end if;
+  select * into v_report from public.w3m_acquisition_reports where id = v_attempt.report_id;
+  if not found then raise exception 'Pinned acquisition report not found' using errcode = 'P0002'; end if;
+  select * into v_terms from public.w3m_deal_terms_versions where id = v_attempt.pinned_terms_version_id;
+  if not found then raise exception 'Pinned deal terms not found' using errcode = 'P0002'; end if;
+  select max(report_version) into v_latest_version
+    from public.w3m_acquisition_reports where deal_id = v_attempt.deal_id::text;
+  select coalesce(jsonb_agg(to_jsonb(e) order by e.id), '[]'::jsonb)
+    into v_evidence from public.w3m_acquisition_evidence e where e.report_id = v_report.id;
+  select coalesce(jsonb_agg(to_jsonb(k)), '[]'::jsonb)
+    into v_signers from public.w3m_trusted_signer_key_status k
+   where k.key_id = v_report.signer_key_id;
+  return jsonb_build_object(
+    'attempt',to_jsonb(v_attempt),
+    'deal',jsonb_build_object('id',v_deal.id::text,'project_id',v_deal.project_id::text,
+      'buyer_id',v_deal.buyer_id::text,'seller_id',v_deal.seller_id::text),
+    'report_row',to_jsonb(v_report),
+    'evidence_rows',v_evidence,
+    'trusted_signer_registry_rows',v_signers,
+    'latest_report_version',v_latest_version,
+    'current_deal_terms_hash',v_terms.terms_hash
+  );
+end;
+$bundle$;
+revoke all on function public.w3m_read_safe_finalization_acquisition_bundle(uuid)
+  from public, anon, authenticated, service_role;
+grant execute on function public.w3m_read_safe_finalization_acquisition_bundle(uuid)
+  to service_role;
+
 create or replace function public.w3m_finalize_safe_execution_attempt(
   p_attempt_id uuid,
   p_broadcast_tx_hash text,
