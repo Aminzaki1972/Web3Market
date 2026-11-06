@@ -87,7 +87,12 @@ declare
   v_next_version bigint;
   v_version public.w3m_deal_terms_versions%rowtype;
 begin
-  if p_deal_id is null or p_terms_hash is null or p_terms_hash !~ '^[0-9a-f]{64}
+  if p_deal_id is null
+     or p_terms_hash is null
+     or length(p_terms_hash) <> 64
+     or p_terms_hash !~ '^[0-9a-f]+$'
+     or p_canonical_terms is null
+     or jsonb_typeof(p_canonical_terms) <> 'object' then
     raise exception 'Invalid deal terms registration request' using errcode = '22023';
   end if;
 
