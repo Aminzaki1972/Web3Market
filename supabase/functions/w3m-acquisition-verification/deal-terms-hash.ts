@@ -3,6 +3,7 @@
 // so JavaScript floating-point conversion can never alter signed financial terms.
 
 import { canonicalJson, sha256Hex } from "./decision-engine.ts";
+import type { DealCodeAuditBinding } from "./deal-code-audit-binding.ts";
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const DECIMAL = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
@@ -20,6 +21,7 @@ export interface DealTermsSnapshot {
   chainId: number;
   safeAddress: string;
   tokenContract: string;
+  codeAudit: DealCodeAuditBinding;
   policy: {
     dealAmount: string;
     feePercent: string;
@@ -94,6 +96,29 @@ export async function computeDealTermsHash(snapshot: DealTermsSnapshot): Promise
     throw new Error("W3M V1 requires the platform's locked 7.5% success fee.");
   }
 
+  const audit = snapshot.codeAudit;
+  requiredText(audit.auditId, "Code Audit ID");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(audit.auditId)) {
+    throw new Error("Code Audit ID must be a UUID.");
+  }
+  requiredText(audit.repositoryOwner, "Code Audit repository owner");
+  requiredText(audit.repositoryName, "Code Audit repository name");
+  if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(audit.repositoryOwner) ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(audit.repositoryName) ||
+      audit.repositoryName === "." || audit.repositoryName === "..") {
+    throw new Error("Code Audit repository identity is malformed.");
+  }
+  const expectedRepoUrl = "https://github.com/" + audit.repositoryOwner + "/" + audit.repositoryName;
+  if (audit.repositoryUrl.replace(/\/$/, "").replace(/\.git$/i, "").toLowerCase() !== expectedRepoUrl.toLowerCase()) {
+    throw new Error("Code Audit repository URL does not match its owner/name.");
+  }
+  if (!/^[0-9a-f]{40}$/i.test(audit.commitSha)) throw new Error("Code Audit commit SHA is invalid.");
+  if (!["code", "smart_contract", "complete"].includes(audit.auditType)) {
+    throw new Error("Code Audit type is unsupported.");
+  }
+  if (!Number.isFinite(Date.parse(audit.completedAt))) throw new Error("Code Audit completion timestamp is invalid.");
+  if (!/^[0-9a-f]{64}$/.test(audit.auditEvidenceHash)) throw new Error("Code Audit manifest digest is invalid.");
+
   const canonicalTerms = {
     protocol: "W3M Protocol V1",
     dealId: snapshot.dealId,
@@ -108,6 +133,16 @@ export async function computeDealTermsHash(snapshot: DealTermsSnapshot): Promise
     chainId: snapshot.chainId,
     safeAddress: address(snapshot.safeAddress, "Safe address"),
     tokenContract: address(snapshot.tokenContract, "Token contract"),
+    codeAudit: {
+      auditId: audit.auditId,
+      repositoryOwner: audit.repositoryOwner,
+      repositoryName: audit.repositoryName,
+      repositoryUrl: expectedRepoUrl,
+      commitSha: audit.commitSha.toLowerCase(),
+      auditType: audit.auditType,
+      completedAt: new Date(Date.parse(audit.completedAt)).toISOString(),
+      auditEvidenceHash: audit.auditEvidenceHash,
+    },
     releasePolicy: {
       dealAmount: decimal(snapshot.policy.dealAmount, "Policy deal amount"),
       feePercent: decimal(snapshot.policy.feePercent, "Policy fee percent"),
