@@ -50,13 +50,13 @@ begin
   -- The first deal starts with no acquisition report. Its completed source
   -- audit is snapshotted independently before agreement terms are registered.
   insert into public.code_audits(
-    id,project_id,repo_url,repo_owner,repo_name,commit_sha,status,completed_at,
+    id,project_id,repo_url,repo_owner,repo_name,audit_type,overall_score,risk_level,analysis_method,commit_sha,status,completed_at,
     engine_version,analysis_progress,files_scanned,
     critical_count,high_count,medium_count,low_count,info_count
   ) values (
     '87000000-0000-4000-8000-000000000007',v_project,
     'https://github.com/Aminzaki1972/Web3Market','Aminzaki1972','Web3Market',
-    repeat('a',40),'running',null,
+    'code',90,'low','gemini',repeat('a',40),'running',null,
     'w3m-code-audit-1.0',
     '{"evidence_version":"w3m-audit-evidence-v1","tree_truncated":false,"persisted_file_count":1}'::jsonb,
     1,0,0,0,0,0
@@ -234,6 +234,7 @@ begin
     'PASS',true,now(),now()+interval '1 day',
     jsonb_build_object(
       'auditStatus','completed','auditType','code','commitSha',repeat('a',40),
+      'overallScore',90,'riskLevel','low','analysisMethod','gemini',
       'repositoryOwner','Aminzaki1972','repositoryName','Web3Market',
       'completedAt','2026-11-01T10:00:00.000Z',
       'auditManifestVersion','w3m-audit-manifest-v1','auditManifestHash',repeat('c',64),
@@ -284,7 +285,7 @@ begin
   ) values (
     '89100000-0000-4000-8000-000000000009',v_project,
     'https://github.com/Aminzaki1972/Web3Market','Aminzaki1972','Web3Market',
-    repeat('f',40),'running',null,
+    'code',90,'low','gemini',repeat('f',40),'running',null,
     'w3m-code-audit-1.0',
     '{"evidence_version":"w3m-audit-evidence-v1","tree_truncated":false,"persisted_file_count":1}'::jsonb,
     1,0,0,0,0,0
