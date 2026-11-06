@@ -45,6 +45,29 @@ export async function authorizeSafeHandlerPhase(
       throw new Error("Fresh deal context is missing.");
     }
     const requiresStoredHash = phase === "SIGN" || phase === "EXECUTE";
+    if (requiresStoredHash) {
+      const agreement = fresh.agreementBinding;
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const hash = /^[0-9a-f]{64}$/i;
+      const digest = /^0x[0-9a-f]{64}$/i;
+      if (!agreement || !uuid.test(agreement.termsVersionId) ||
+          !/^[1-9][0-9]*$/.test(agreement.termsVersion) ||
+          !hash.test(agreement.termsHash) ||
+          !uuid.test(agreement.buyerAcceptanceId) ||
+          !uuid.test(agreement.sellerAcceptanceId) ||
+          agreement.buyerAcceptanceId === agreement.sellerAcceptanceId ||
+          !digest.test(agreement.buyerDigest) ||
+          !digest.test(agreement.sellerDigest) ||
+          agreement.buyerDigest.toLowerCase() === agreement.sellerDigest.toLowerCase()) {
+        return {
+          authorized: false,
+          issues: ["W3M_IMMUTABLE_PARTY_AGREEMENT_REQUIRED"],
+          phase,
+          dealId: fresh.dealId,
+          safeTransactionHash: fresh.safeTransactionHash ?? null,
+        };
+      }
+    }
     if (requiresStoredHash && (
       typeof safeTransactionHash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(safeTransactionHash) ||
       typeof fresh.safeTransactionHash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(fresh.safeTransactionHash) ||
