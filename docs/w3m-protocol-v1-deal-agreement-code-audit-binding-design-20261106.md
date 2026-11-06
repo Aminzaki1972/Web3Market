@@ -193,3 +193,25 @@ Added `audit-manifest-loader.ts` and tests. The loader accepts a trusted source 
 The existing pure `selectCodeAuditEvidence` selector now requires a freshly computed `AuditManifest` whose version and audit ID match the selected audit. It uses the manifest digest itself as `AcquisitionEvidence.contentHash`, and carries the manifest version, digest, file count, and finding count in metadata. The immutable deal binding helper now rejects CODE_AUDIT evidence unless the metadata digest equals the evidence content hash and the manifest version/counts are valid. This removes the previous summary-only audit snapshot hash as a substitute for complete persisted evidence.
 
 The protocol CI workflow now type-checks and runs the manifest helper, paginated loader, selector, and binding tests. The latest workflow run must complete successfully before this stage is considered verified. No live function, database, agreement signing, or settlement integration has been changed.
+
+
+## 12. Runtime binding, live manifest revalidation, and immutability (2026-11-06)
+
+The isolated implementation has progressed beyond the original pure-boundary proposal:
+
+- Report orchestration now rejects caller-supplied CODE_AUDIT evidence and requires the trusted selector output built from the exact audit row, expected deal/project/repository/commit, and a complete manifest.
+- The manifest loader reads the complete audit row plus every paginated code_audit_files and code_audit_findings row. Its digest is deterministic and binds the exact persisted source snapshots and completion evidence.
+- The Deal Room terms snapshot now exposes the current mandatory audit binding only when the latest acquisition report is passing, unexpired, and contains exactly one mandatory Code Audit evidence row. The audit ID, repository, commit, scope, completion time, and manifest digest are included in the canonical terms hash.
+- The pre-lock PREPARE gate, fresh PREPARE context, fresh Safe SIGN/EXECUTE context, and finalization acquisition verifier re-read persisted audit source rows and recompute the manifest. A changed or incomplete manifest blocks the relevant phase.
+- A separate isolated migration freezes completed code_audits, code_audit_files, and code_audit_findings rows. Child writes lock the parent audit row before checking completion, preventing concurrent file/finding mutation from racing audit completion or manifest verification.
+- Repository-level findings with null file path/line location are supported in the deterministic manifest; they are valid findings and are not silently discarded.
+
+### Current verification boundary
+
+All changes remain on w3m-protocol-v1-isolated-20261105. GitHub Actions runs are being used for TypeScript checks, Deno tests, and disposable PostgreSQL migration/contract tests. A run must complete successfully before this section can be marked verified. No production migration has been applied, no Edge Function has been deployed, and no production data, secrets, DNS, or funds have been changed.
+
+### Remaining implementation checks
+
+1. Confirm the latest isolated TypeScript/Deno and disposable PostgreSQL workflow is green.
+2. Review finalization's report/evidence/terms binding as one end-to-end invariant, including the race boundary protected by completed-audit immutability.
+3. Perform an independent security review of the full protocol and migration order before any deployment decision.
