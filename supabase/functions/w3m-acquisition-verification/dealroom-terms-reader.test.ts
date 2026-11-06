@@ -7,7 +7,7 @@ import {
 import type { W3MRegistryReadClient, W3MRegistryReadResult, W3MRegistrySelectQuery } from "./persisted-report-loader.ts";
 
 const row: DealRoomTermsSnapshotRow = {
-  deal_id: "deal-reader-1", project_id: "project-1", buyer_id: "buyer-1", seller_id: "seller-1",
+  deal_id: "deal-reader-1", deal_status: "funded", project_id: "project-1", buyer_id: "buyer-1", seller_id: "seller-1",
   project_owner_id: "seller-1", project_status: "active",
   buyer_wallet: "0x5555555555555555555555555555555555555555",
   buyer_wallet_verified: "true", buyer_wallet_verified_at: "2026-11-05T00:00:00Z",
