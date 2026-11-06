@@ -79,6 +79,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/signature-verifier.ts
           deno check supabase/functions/w3m-acquisition-verification/signature-verifier.test.ts
           deno check supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.test.ts
           deno check supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-signature-set-validator.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-signature-set-validator.test.ts
@@ -158,6 +160,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/signature-verifier.test.ts
       - name: Test Ethereum secp256k1 signature recovery
         run: deno test supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.test.ts
+      - name: Test EIP-712 buyer and seller deal agreement signatures
+        run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.test.ts
       - name: Test Safe execution-time signature set
         run: deno test supabase/functions/w3m-acquisition-verification/safe-signature-set-validator.test.ts
       - name: Test trusted signer registry row mapping
