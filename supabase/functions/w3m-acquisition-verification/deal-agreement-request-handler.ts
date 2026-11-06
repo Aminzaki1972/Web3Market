@@ -21,9 +21,8 @@ export async function handleW3MDealAgreementRequest(
   dependencies: W3MDealAgreementRequestDependencies,
 ): Promise<Response> {
   if (request.method !== "POST") return json(405, { ok: false, error: "POST_REQUIRED" });
-  const authorization = request.headers.get("authorization") ?? "";
-  const match = /^Bearer\s+(.+)$/i.exec(authorization);
-  if (!match?.[1]?.trim()) return json(401, { ok: false, error: "AUTHENTICATION_REQUIRED" });
+  const token = extractW3MBearerToken(request.headers.get("authorization"));
+  if (!token) return json(401, { ok: false, error: "AUTHENTICATION_REQUIRED" });
   let actorId: string | null;
   try { actorId = await dependencies.authenticate(token); }
   catch { return json(401, { ok: false, error: "AUTHENTICATION_FAILED" }); }
