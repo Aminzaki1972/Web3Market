@@ -13,6 +13,12 @@ The read-only production review confirmed:
 - The child tables have no unique natural-key constraints. Their primary-key `id` is the correct final pagination tie-breaker.
 - Production currently has no immutability triggers on these three tables and grants service_role UPDATE/DELETE. The isolated completed-audit immutability migration is therefore a required prerequisite, not a currently active production guarantee.
 
+## Current implementation boundary (2026-11-07)
+
+The existing migration `20261107065000_w3m_protocol_v1_dealroom_code_audit_snapshot.sql` does **not** create the independent per-deal snapshot registry described below. It only adds the current report-backed Code Audit selector to the Deal Room terms reader. The agreement migration still reads `w3m_acquisition_reports` and its `CODE_AUDIT` evidence through `w3m_current_deal_code_audit_json`, so the first-deal dependency cycle remains.
+
+A server-only TypeScript persistence boundary has now been added at `deal-audit-snapshot-persistence.ts`. It accepts a previously recomputed Manifest V1 and strict audit binding, calls the planned `w3m_create_deal_code_audit_snapshot` RPC with only deal/audit identity and computed manifest facts, and validates the exact persisted response. Its unit tests and workflow checks are included. The SQL table/RPC, signing-reader integration, and zero-prior-report regression test are still pending; this adapter is not production-usable until those pieces exist.
+
 ## Registry model
 
 Introduce one server-only append-only registry, provisionally named `w3m_deal_code_audit_snapshots`, with:
