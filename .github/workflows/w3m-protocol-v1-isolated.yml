@@ -143,6 +143,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/deal-agreement-service.test.ts
           deno check supabase/functions/w3m-acquisition-verification/deal-agreement-request-handler.ts
           deno check supabase/functions/w3m-acquisition-verification/deal-agreement-request-handler.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/report-issue-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/report-issue-request-handler.test.ts
           deno check supabase/functions/w3m-protocol-v1-deal-agreement/index.ts
           deno check supabase/functions/w3m-acquisition-verification/deal-agreement-client.test.ts
           deno check supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.test.ts
@@ -269,6 +271,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-service.test.ts
       - name: Test authenticated deal agreement request boundary
         run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-request-handler.test.ts
+      - name: Test authenticated W3M report issuance request boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/report-issue-request-handler.test.ts
       - name: Test isolated browser EIP-712 signing client
         run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-client.test.ts
       - name: Test atomic W3M Safe SIGN persistence adapter
