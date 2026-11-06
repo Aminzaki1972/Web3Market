@@ -177,3 +177,46 @@ Deno.test("changed Safe package between claim and issuance enters reconciliation
     "w3m_mark_safe_execution_reconciliation_required",
   ]);
 });
+
+
+Deno.test("changed immutable party acceptance digest after claim enters reconciliation and returns no package", async () => {
+  const calls: string[] = [];
+  let loads = 0;
+  const pkg = packageValue();
+  const rpc: W3MRpcClient = {
+    async rpc(name) {
+      calls.push(name);
+      if (name === "w3m_claim_safe_execution_attempt") return {
+        data: { attempt_id: ATTEMPT, state: "CLAIMED", claimed: true, idempotent_replay: false },
+        error: null,
+      };
+      return { data: { updated: true, idempotent_replay: false, state: "RECONCILIATION_REQUIRED" }, error: null };
+    },
+  };
+  const handler = createW3MSafeWalletPackageRequestHandler({
+    authenticate: async () => ({ userId: ACTOR }),
+    loadFresh: async () => {
+      loads++;
+      const current = snapshot();
+      if (loads === 2 && current.agreementBinding) {
+        current.agreementBinding = {
+          ...current.agreementBinding,
+          buyerDigest: "0x" + "3".repeat(64),
+        };
+      }
+      return current;
+    },
+    loadLiveFacts: async () => ({} as never),
+    rpc,
+    now: () => Date.parse("2026-11-06T12:00:00.000Z"),
+    buildPackage: async () => pkg,
+  });
+  const response = await handler(req({ deal_id: DEAL }));
+  const body = await response.json();
+  assertEquals(response.status, 409);
+  assertEquals(body.state, "RECONCILIATION_REQUIRED");
+  assertEquals(calls, [
+    "w3m_claim_safe_execution_attempt",
+    "w3m_mark_safe_execution_reconciliation_required",
+  ]);
+});
