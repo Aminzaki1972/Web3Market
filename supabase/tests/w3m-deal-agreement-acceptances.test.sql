@@ -82,6 +82,13 @@ begin
      or v_context->>'audit_id' <> '87000000-0000-4000-8000-000000000007' then
     raise exception 'Pre-agreement audit context did not select the exact project audit';
   end if;
+  begin
+    perform public.w3m_read_deal_audit_snapshot_context(
+      v_deal,'75000000-0000-4000-8000-000000000005'
+    );
+    raise exception 'Non-party actor was allowed to read the deal audit snapshot context';
+  exception when insufficient_privilege then null;
+  end;
   v_audit_snapshot := public.w3m_create_deal_code_audit_snapshot(
     v_deal,'87000000-0000-4000-8000-000000000007',
     'w3m-audit-manifest-v1',repeat('c',64),1,0
