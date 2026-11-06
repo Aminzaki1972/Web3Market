@@ -164,6 +164,7 @@ declare
   v_acceptance_count integer;
   v_signer public.w3m_trusted_signer_keys%rowtype;
   v_signer_event text;
+  v_acquisition_attestation jsonb;
   v_now timestamptz := clock_timestamp();
   v_transfer_count integer;
   v_seller_count integer;
@@ -249,6 +250,22 @@ begin
      or v_report.signer_key_id is distinct from v_attempt.pinned_signer_key_id
      or v_report.report_signature is null then
     raise exception 'Pinned acquisition report is stale, superseded, expired, or misbound' using errcode = '23514';
+  end if;
+
+  v_acquisition_attestation := p_receipt_evidence->'acquisition_attestation';
+  if jsonb_typeof(v_acquisition_attestation) is distinct from 'object'
+     or v_acquisition_attestation->>'authorized' is distinct from 'true'
+     or v_acquisition_attestation->>'signature_valid' is distinct from 'true'
+     or v_acquisition_attestation->>'report_id' is distinct from v_attempt.report_id::text
+     or v_acquisition_attestation->>'report_version' is distinct from v_attempt.report_version::text
+     or v_acquisition_attestation->>'report_hash' is distinct from v_attempt.pinned_report_hash
+     or v_acquisition_attestation->>'evidence_hash' is distinct from v_attempt.pinned_evidence_hash
+     or v_acquisition_attestation->>'signer_key_id' is distinct from v_attempt.pinned_signer_key_id
+     or v_acquisition_attestation->>'terms_version_id' is distinct from v_attempt.pinned_terms_version_id::text
+     or v_acquisition_attestation->>'terms_version' is distinct from v_attempt.pinned_terms_version::text
+     or v_acquisition_attestation->>'terms_hash' is distinct from v_attempt.pinned_terms_hash
+     or v_acquisition_attestation->>'recomputed_evidence_hash' is distinct from v_attempt.pinned_evidence_hash then
+    raise exception 'Cryptographic acquisition attestation does not match the pinned report and agreement' using errcode = '23514';
   end if;
 
   -- Evidence rows are append-only; serialize inserts with the same deal lock,
