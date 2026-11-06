@@ -43,6 +43,12 @@ function packageValue(dealId = DEAL): SafeWalletExecutionPackage {
     agreementTermsVersionId: "84000000-0000-4000-8000-000000000004",
     agreementTermsHash: "f".repeat(64),
     safeAddress: "0x1111111111111111111111111111111111111111",
+    executorWallet: "0x2222222222222222222222222222222222222222",
+    safeOwners: [
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333",
+      "0x4444444444444444444444444444444444444444",
+    ],
     safeTransactionHash: HASH,
     safeVersion: "1.3.0",
     readBlockNumber: "90000000",
