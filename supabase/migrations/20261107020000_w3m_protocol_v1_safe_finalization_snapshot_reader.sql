@@ -47,6 +47,11 @@ begin
   if v_attempt.state not in ('BROADCAST','RECONCILIATION_REQUIRED')
      or v_attempt.broadcast_tx_hash is null
      or v_attempt.safe_tx_hash is null
+     or v_attempt.package_actor_id is null
+     or v_attempt.package_hash is null
+     or v_attempt.package_payload is null
+     or v_attempt.package_issued_at is null
+     or v_attempt.package_expires_at is null
      or v_tx.action is distinct from 'release_to_seller'
      or v_tx.status not in ('signed','submitted')
      or lower(coalesce(v_tx.safe_tx_hash,'')) <> lower(v_attempt.safe_tx_hash)
@@ -91,7 +96,11 @@ begin
     'deal_status', v_deal.status,
     'policy_status', v_policy.status,
     'transaction_status', v_tx.status,
-    'attempt_state', v_attempt.state
+    'attempt_state', v_attempt.state,
+    'package_actor_id', v_attempt.package_actor_id::text,
+    'package_hash', lower(v_attempt.package_hash),
+    'package_issued_at', v_attempt.package_issued_at,
+    'package_expires_at', v_attempt.package_expires_at
   );
 end;
 $snapshot$;
