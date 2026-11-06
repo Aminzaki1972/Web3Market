@@ -279,7 +279,7 @@ begin
   -- A newer completed source audit and independent snapshot change the
   -- agreement terms. No report exists yet; old signatures must still be stale.
   insert into public.code_audits(
-    id,project_id,repo_url,repo_owner,repo_name,commit_sha,status,completed_at,
+    id,project_id,repo_url,repo_owner,repo_name,audit_type,overall_score,risk_level,analysis_method,commit_sha,status,completed_at,
     engine_version,analysis_progress,files_scanned,
     critical_count,high_count,medium_count,low_count,info_count
   ) values (
