@@ -747,3 +747,16 @@ A separate Edge Function entrypoint now exists at `supabase/functions/w3m-protoc
 The preceding CI failures were inspected from GitHub job logs. They exposed three compile-time defects in the atomic PREPARE adapter test: an undefined `call` variable, and a literal threshold type mismatch. Both are repaired. The adapter's decimal regex was also corrected: its prior escaping rejected legitimate fractional strings such as `7.5`, so the original 7.5% fee path would not have reached the RPC. The test now reads the recorded RPC call and exercises fractional policy values.
 
 The workflow now includes the new isolated Edge Function directory and type-checks its entrypoint. The workflow triggered for the fixes must complete before these changes are considered CI-verified. Until then, status is **pending verification**. No production function, migration, database row, wallet, Safe, transaction, or deployment was changed.
+
+
+## 40. Isolated Safe SIGN boundary and atomic persistence — 2026-11-06
+
+The isolated branch now contains the next SIGN-layer pieces:
+
+- `safe-sign-request-handler.ts`: POST-only authenticated request boundary. The browser supplies only deal ID, exact Safe transaction hash, and signature; actor identity comes from authentication. The handler reloads fresh context, requires phase SIGN authorization for the exact deal/hash, verifies the submitted EIP-712 signature against the server-derived verified wallet and buyer/seller role, then calls persistence.
+- `safe-signature-set-validator.ts` remains the execution-time verifier for every stored signature against the current Safe owners, threshold, and exact transaction digest.
+- `20261107080000_w3m_protocol_v1_atomic_safe_sign.sql`: service-role-only RPC `w3m_record_safe_release_signature`. It locks the deal and release transaction, rebinds actor/role/current verified wallet/hash and current payment/delivery/dispute fields, enforces the W3M authorization envelope, stores the signer row, updates the signature array/count/status, and writes the audit event in one SQL transaction. Exact replay is idempotent; conflicting signature replacement is rejected.
+- `safe-signature-persistence-adapter.ts`: strict TypeScript RPC adapter requiring the fresh SIGN PASS, exact deal/hash, report ID/version, verified wallet and role.
+- SQL and Deno tests were added for authorization denial, participant binding, exact replay, threshold completion, response validation and failure behavior.
+
+**Verification status:** PREPARE CI run `42178914223` completed successfully, including its disposable PostgreSQL migration/test path. The first SIGN-boundary CI exposed one test expectation error (the persistence adapter is invoked and then throws, so its invocation count is one); the assertion was corrected. The atomic SIGN migration and adapter CI runs are pending and must finish before SIGN can be marked verified. No production migration, live Safe handler, wallet, transaction, or deployment was changed. This SIGN implementation is still an isolated dependency-injected boundary; a dedicated authenticated Edge Function entrypoint and full integration with live Safe handler flow remain outstanding.
