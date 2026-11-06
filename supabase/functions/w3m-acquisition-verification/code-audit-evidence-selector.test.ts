@@ -2,7 +2,7 @@ import { assert, assertEquals } from "jsr:@std/assert@1";
 import { selectCodeAuditEvidence, type CodeAuditSourceRow } from "./code-audit-evidence-selector.ts";
 
 const expected = {
-  dealId: "deal-1",
+  dealId: "44444444-4444-4444-8444-444444444444",
   projectId: "11111111-1111-4111-8111-111111111111",
   repositoryOwner: "Aminzaki1972",
   repositoryName: "Web3Market",
@@ -32,6 +32,7 @@ Deno.test("selects a completed audit only for exact project, repo and commit", a
   assertEquals(result.evidence.sourceRecordId, row.id);
   assertEquals(result.evidence.sourceVersion, expected.commitSha);
   assertEquals(result.evidence.metadata?.auditStatus, "completed");
+  assertEquals(result.evidence.validUntil, "2026-12-01T10:00:00.000Z");
 });
 
 Deno.test("rejects an audit belonging to another project", async () => {
@@ -51,9 +52,11 @@ Deno.test("rejects incomplete, unsupported, stale and future-dated audits", asyn
   assertEquals((await selectCodeAuditEvidence({ ...row, completed_at: "2026-11-07T00:00:00.000Z" }, expected)).result, "REVIEW_REQUIRED");
 });
 
-Deno.test("rejects missing analysis provenance and invalid score", async () => {
+Deno.test("rejects missing analysis provenance, risk level, invalid score and invalid deal binding", async () => {
   assertEquals((await selectCodeAuditEvidence({ ...row, analysis_method: null }, expected)).result, "REVIEW_REQUIRED");
   assertEquals((await selectCodeAuditEvidence({ ...row, overall_score: 101 }, expected)).result, "REVIEW_REQUIRED");
+  assertEquals((await selectCodeAuditEvidence({ ...row, risk_level: null }, expected)).result, "REVIEW_REQUIRED");
+  assertEquals((await selectCodeAuditEvidence(row, { ...expected, dealId: "not-a-uuid" })).result, "REVIEW_REQUIRED");
 });
 
 Deno.test("hashes the normalized audit snapshot and binds evidence to deal", async () => {
