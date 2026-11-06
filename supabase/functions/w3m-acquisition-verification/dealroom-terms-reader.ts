@@ -22,6 +22,7 @@ export interface DealRoomTermsSnapshotRow {
   policy_fee_amount: unknown; policy_seller_net_amount: unknown; policy_chain_id: unknown;
   policy_safe_address: unknown; policy_token_contract: unknown; policy_seller_wallet: unknown;
   policy_platform_wallet: unknown; policy_safe_nonce: unknown; policy_status: unknown;
+  code_audit: unknown;
 }
 
 export interface DealRoomTermsRpcClient {
