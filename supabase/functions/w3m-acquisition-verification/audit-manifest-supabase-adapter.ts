@@ -39,6 +39,7 @@ export function createSupabaseAuditManifestSource(
         .order("severity", { ascending: true })
         .order("category", { ascending: true })
         .order("title", { ascending: true })
+        .order("id", { ascending: true }) // unique final tie-breaker for deterministic offset pages
         .range(from, to);
       return pageResult(result.data, result.error, "Audit findings");
     },
