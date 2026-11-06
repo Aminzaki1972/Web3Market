@@ -908,3 +908,15 @@ The browser flow is now represented in isolated modules as: authenticated packag
 Hardened package issuance so the executor is not merely any address that appears among the Safe signatures. The fresh server context now carries the exact wallet verified for the authenticated buyer/seller account. The package builder requires that wallet to be a current live Safe owner and includes `executorWallet` plus the canonical live `safeOwners` set in the package. The browser refuses submission unless the connected account exactly equals `executorWallet`; a different Safe owner cannot use another participant's authenticated package. Tests cover a non-owner being denied package issuance and a different-but-valid Safe owner being denied wallet submission.
 
 CI is running for this additional binding. This remains isolated and undeployed.
+
+
+
+## 49. Recovery path for an already-submitted wallet hash — isolated — 2026-11-06
+
+A narrow recovery helper was added to `js/w3m-safe-wallet-execution-client.js`: `recordW3MSafeWalletSubmission(...)`. It is intended only for the `SUBMITTED_UNRECORDED` outcome, where the connected wallet has already returned an outer BNB transaction hash but the first persistence request failed or timed out.
+
+The helper retries only the authenticated `w3m-protocol-v1-safe-wallet-submit` endpoint using the original attempt ID, package hash, and transaction hash. It does not request wallet access, call `eth_sendTransaction`, issue a new package, or broadcast again. The server remains responsible for exact actor/package binding; the returned state remains explicitly unverified until the independent receipt verifier and atomic finalizer confirm it.
+
+Added client tests for successful hash-persistence recovery and a still-unavailable endpoint. These tests are included in the existing isolated workflow's `safe-wallet-execution-client.test.ts` suite. The new commits are `ea5c36ebb5cb7340b861c80d79ce701f665a6e6b` and `3d0c67d819e34b83ebf84ef932b0d755f8e6b835`.
+
+**Verification:** the latest commit has no reported combined-status checks yet; do not mark the new tests green until the corresponding GitHub Actions run completes. No wallet was prompted, no transaction was sent, no production function or migration was deployed, and no live Deal Room was modified.
