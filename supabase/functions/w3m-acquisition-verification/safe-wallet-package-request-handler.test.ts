@@ -81,7 +81,7 @@ function req(body: unknown, method = "POST") {
   });
 }
 
-Deno.test("wallet package endpoint accepts only authenticated deal requests and ignores client actor fields", async () => {
+Deno.test("wallet package endpoint accepts the exact authenticated deal request", async () => {
   const calls: string[] = [];
   let loads = 0;
   const pkg = packageValue();
@@ -114,7 +114,7 @@ Deno.test("wallet package endpoint accepts only authenticated deal requests and 
     now: () => Date.parse("2026-11-06T12:00:00.000Z"),
     buildPackage: async () => pkg,
   });
-  const response = await handler(req({ deal_id: DEAL, actor_id: "attacker-controlled" }));
+  const response = await handler(req({ deal_id: DEAL }));
   const body = await response.json();
   assertEquals(response.status, 200);
   assertEquals(body.state, "PACKAGE_ISSUED");
@@ -265,4 +265,20 @@ Deno.test("retries a still-claimed package request idempotently after a lost res
     "w3m_claim_safe_execution_attempt",
     "w3m_issue_safe_execution_package",
   ]);
+});
+
+
+Deno.test("wallet package endpoint rejects caller-supplied authority fields before loading state", async () => {
+  let loads = 0;
+  const rpc: W3MRpcClient = { async rpc() { throw new Error("RPC must not run"); } };
+  const handler = createW3MSafeWalletPackageRequestHandler({
+    authenticate: async () => ({ userId: ACTOR }),
+    loadFresh: async () => { loads++; return snapshot(); },
+    loadLiveFacts: async () => ({} as never),
+    rpc,
+    buildPackage: async () => packageValue(),
+  });
+  const response = await handler(req({ deal_id: DEAL, actor_id: "attacker", safe_tx_hash: HASH }));
+  assertEquals(response.status, 400);
+  assertEquals(loads, 0);
 });
