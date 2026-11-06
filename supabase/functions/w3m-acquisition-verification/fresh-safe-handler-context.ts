@@ -12,6 +12,9 @@ import type { W3MRegistryReadClient } from "./persisted-report-loader.ts";
 import type { JsonRpcClient } from "./bnb-revenue-adapter.ts";
 import type { SafeLiveExecutionExpectation, SafeLiveExecutionFacts } from "./safe-live-execution-facts.ts";
 import type { CheckDealRoomFromSnapshotInput, DealRoomLiveSafeFacts } from "./dealroom-terms-reader.ts";
+import { authorizeSafeHandlerPhase } from "./safe-handler-w3m-authorizer.ts";
+import type { EthereumDigestRecoveryVerifier } from "./signature-verifier.ts";
+import type { W3MSafePhase, W3MPhaseAuthorization } from "./safe-edge-w3m-phase-boundary.ts";
 
 export type SafeExecutionContextDatabase =
   W3MRpcClient & W3MRegistryReadClient & JsonRpcClient;
@@ -118,4 +121,22 @@ export async function loadFreshSafeHandlerContext(
     now,
     safeFacts,
   };
+}
+
+
+/** Full phase-aware composition: fresh DB + canonical BNB facts + persisted report gate. */
+export async function authorizeSafeHandlerPhaseFromFreshSources(
+  phase: W3MSafePhase,
+  dependencies: FreshSafeHandlerContextDependencies,
+  dealId: string,
+  now: string,
+  recoverAndVerify: EthereumDigestRecoveryVerifier,
+  safeTransactionHash?: string | null,
+): Promise<W3MPhaseAuthorization> {
+  return await authorizeSafeHandlerPhase(
+    phase,
+    () => loadFreshSafeHandlerContext(dependencies, dealId, now),
+    recoverAndVerify,
+    safeTransactionHash,
+  );
 }
