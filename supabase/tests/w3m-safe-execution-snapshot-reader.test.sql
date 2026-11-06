@@ -119,6 +119,41 @@ begin
     raise exception 'Legacy timestamp-only agreement records were misrepresented as immutable terms evidence';
   end if;
 
+  -- A current immutable EIP-712 terms version and both party acceptances
+  -- must be exposed by the upgraded reader; legacy timestamps remain separate.
+  insert into public.w3m_deal_terms_versions(
+    id,deal_id,terms_version,project_id,buyer_id,seller_id,chain_id,
+    safe_address,terms_hash,canonical_terms
+  ) values (
+    '79000000-0000-4000-8000-000000000009',v_deal,1,v_project,v_buyer,v_seller,56,
+    '0x2222222222222222222222222222222222222222',repeat('a',64),
+    jsonb_build_object('dealId',v_deal::text,'termsHash',repeat('a',64))
+  );
+  insert into public.w3m_deal_agreement_acceptances(
+    id,terms_version_id,deal_id,terms_version,party_role,party_id,wallet_address,
+    chain_id,safe_address,terms_hash,typed_data_digest,signature
+  ) values
+    ('79100000-0000-4000-8000-000000000001',
+     '79000000-0000-4000-8000-000000000009',v_deal,1,'buyer',v_buyer,
+     '0x5555555555555555555555555555555555555555',56,
+     '0x2222222222222222222222222222222222222222',repeat('a',64),
+     '0x' || repeat('b',64),'0x' || repeat('c',130)),
+    ('79200000-0000-4000-8000-000000000002',
+     '79000000-0000-4000-8000-000000000009',v_deal,1,'seller',v_seller,
+     '0x4444444444444444444444444444444444444444',56,
+     '0x2222222222222222222222222222222222222222',repeat('a',64),
+     '0x' || repeat('d',64),'0x' || repeat('e',130));
+
+  v_snapshot := public.w3m_read_safe_execution_snapshot(v_deal);
+  if v_snapshot->>'agreement_binding_supported' <> 'true'
+     or v_snapshot->'terms_version'->>'id' <> '79000000-0000-4000-8000-000000000009'
+     or v_snapshot->'terms_version'->>'terms_version' <> '1'
+     or jsonb_array_length(v_snapshot->'agreement_acceptances') <> 2
+     or v_snapshot->'agreement_acceptances'->0->>'terms_hash' <> repeat('a',64)
+     or v_snapshot->'agreement_acceptances'->1->>'chain_id' <> '56' then
+    raise exception 'Safe execution snapshot did not expose exact immutable EIP-712 agreement records';
+  end if;
+
   -- The legacy transaction table permits multiple release rows. The reader
   -- must return both; the trusted adapter must reject the ambiguous snapshot.
   insert into public.deal_multisig_transactions(
