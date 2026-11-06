@@ -1,6 +1,9 @@
 // W3M Protocol V1 — cryptographic persisted-report revalidation immediately before Safe finalization.
 import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
 import { verifyPersistedW3MReport } from "./persisted-report-guard.ts";
+import type { W3MRegistryReadClient } from "./persisted-report-loader.ts";
+import { loadAuditManifest } from "./audit-manifest-loader.ts";
+import { createSupabaseAuditManifestSource } from "./audit-manifest-supabase-adapter.ts";
 
 type Row = Record<string, unknown>;
 function object(value: unknown, label: string): Row {
@@ -37,7 +40,7 @@ export interface W3MAcquisitionFinalizationAttestation extends Record<string, un
 }
 
 export async function verifySafeFinalizationAcquisitionBundle(
-  client: W3MRpcClient,
+  client: W3MRpcClient & W3MRegistryReadClient,
   attemptId: string,
   now = new Date().toISOString(),
 ): Promise<W3MAcquisitionFinalizationAttestation> {
@@ -75,6 +78,43 @@ export async function verifySafeFinalizationAcquisitionBundle(
   const signerKeyId = requiredText(reportRow.signer_key_id, "signer key ID");
   if (!Array.isArray(bundle.evidence_rows) || !Array.isArray(bundle.trusted_signer_registry_rows)) {
     throw new Error("W3M persisted evidence or signer rows are malformed.");
+  }
+
+  const mandatoryAuditRows = bundle.evidence_rows
+    .filter((value) => {
+      if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+      const row = value as Record<string, unknown>;
+      return row.evidence_type === "CODE_AUDIT" && row.mandatory === true;
+    });
+  if (mandatoryAuditRows.length !== 1) {
+    throw new Error("Finalization requires exactly one mandatory Code Audit evidence row.");
+  }
+  const auditEvidence = object(mandatoryAuditRows[0], "Code Audit evidence");
+  const auditId = requiredText(auditEvidence.source_record_id, "Code Audit record ID");
+  const auditCommit = requiredText(auditEvidence.source_version, "Code Audit commit SHA").toLowerCase();
+  const auditHash = requiredText(auditEvidence.evidence_hash, "Code Audit manifest hash").toLowerCase();
+  const auditDetails = object(auditEvidence.details, "Code Audit details");
+  if (auditEvidence.source_table !== "code_audits" ||
+      auditEvidence.result !== "PASS" ||
+      typeof auditEvidence.valid_until !== "string" ||
+      !Number.isFinite(Date.parse(auditEvidence.valid_until)) ||
+      Date.parse(auditEvidence.valid_until) <= Date.parse(now) ||
+      typeof auditEvidence.observed_at !== "string" ||
+      !Number.isFinite(Date.parse(auditEvidence.observed_at)) ||
+      Date.parse(auditEvidence.observed_at) > Date.parse(now) ||
+      auditDetails.auditManifestVersion !== "w3m-audit-manifest-v1" ||
+      auditDetails.auditManifestHash !== auditHash ||
+      auditDetails.commitSha !== auditCommit) {
+    throw new Error("Persisted Code Audit evidence is stale or malformed.");
+  }
+  const manifest = await loadAuditManifest({
+    auditId,
+    source: createSupabaseAuditManifestSource(client),
+    pageSize: 500,
+  });
+  if (manifest.auditId !== auditId || manifest.digest !== auditHash ||
+      manifest.version !== auditDetails.auditManifestVersion) {
+    throw new Error("Current Code Audit source rows no longer match the signed manifest at finalization.");
   }
 
   const result = await verifyPersistedW3MReport({
