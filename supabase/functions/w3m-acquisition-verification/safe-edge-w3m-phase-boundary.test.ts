@@ -106,14 +106,15 @@ Deno.test("unknown phase values are rejected before fresh authorization", async 
   let authorizationCalls = 0;
   let actionCalls = 0;
   const result = await executeSafePhaseOnlyAfterW3M(
-    "EXECUTE" as never, { dealId: deal, safeTransactionHash: hash },
+    "UNKNOWN" as never, { dealId: deal, safeTransactionHash: hash },
     async () => {
       authorizationCalls += 1;
       return { authorized: true, issues: [], phase: "EXECUTE", dealId: deal, safeTransactionHash: hash };
     },
     async () => { actionCalls += 1; },
   );
-  assertEquals(result.allowed, true);
-  assertEquals(authorizationCalls, 1);
-  assertEquals(actionCalls, 1);
+  assertEquals(result.allowed, false);
+  assertEquals(result.authorization.issues, ["W3M_PHASE_INVALID"]);
+  assertEquals(authorizationCalls, 0);
+  assertEquals(actionCalls, 0);
 });
