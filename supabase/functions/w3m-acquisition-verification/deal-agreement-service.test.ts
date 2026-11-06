@@ -82,10 +82,14 @@ function snapshotAwareClient(calls: Array<{name:string,args:Record<string,unknow
   let manifestHash = "";
   return { async rpc(name,args) {
     calls.push({name,args});
-    if (name === "w3m_read_deal_audit_snapshot_context") return {data:{
-      deal_id:dealId,project_id:projectId,audit_id:sourceAudit.id,
-      project_github_url:"https://github.com/Aminzaki1972/Web3Market",
-    },error:null};
+    if (name === "w3m_read_deal_audit_snapshot_context") {
+      const actorId = args.p_actor_id;
+      if (actorId !== buyerId && actorId !== sellerId) throw new Error("Not a deal party");
+      return {data:{
+        deal_id:dealId,project_id:projectId,buyer_id:buyerId,seller_id:sellerId,
+        audit_id:sourceAudit.id,project_github_url:"https://github.com/Aminzaki1972/Web3Market",
+      },error:null};
+    }
     if (name === "w3m_create_deal_code_audit_snapshot") {
       manifestHash = String(args.p_manifest_hash);
       return {data:{
