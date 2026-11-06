@@ -2,7 +2,7 @@
 do $test$
 declare
   v_table text;
-  v_op text;
+  v_update_column text;
   v_blocked boolean;
 begin
   foreach v_table in array array[
@@ -34,9 +34,11 @@ begin
       raise exception 'Unexpected direct table privileges on %',v_table;
     end if;
 
+    v_update_column := case when v_table = 'w3m_deal_agreement_acceptances'
+      then 'accepted_at' else 'created_at' end;
     v_blocked := false;
     begin
-      execute format('update public.%I set created_at=created_at where false',v_table);
+      execute format('update public.%I set %I=%I where false',v_table,v_update_column,v_update_column);
     exception when sqlstate '55000' then v_blocked := true;
     end;
     if not v_blocked then raise exception 'UPDATE was not blocked on %',v_table; end if;
