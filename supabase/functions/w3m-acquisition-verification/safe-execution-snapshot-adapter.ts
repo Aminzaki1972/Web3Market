@@ -1,6 +1,12 @@
 // W3M Protocol V1 — strict server-only adapter for the exact Safe EXECUTE snapshot RPC.
 // This adapter does not authorize, sign, broadcast, or finalize a Safe transaction.
 import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
+import { canonicalJson } from "./decision-engine.ts";
+import { computeDealTermsHash } from "./deal-terms-hash.ts";
+import {
+  verifyDealTermsAcceptanceSignature,
+  type DealAgreementPartyRole,
+} from "./deal-agreement-eip712.ts";
 
 export interface SafeExecutionSnapshotPartyAgreement {
   partyRole: "buyer" | "seller";
@@ -9,6 +15,35 @@ export interface SafeExecutionSnapshotPartyAgreement {
   termsHash: null;
   termsVersion: null;
   signature: null;
+}
+
+export interface SafeExecutionSnapshotTermsVersion {
+  id: string;
+  dealId: string;
+  termsVersion: string;
+  projectId: string;
+  buyerId: string;
+  sellerId: string;
+  chainId: string;
+  safeAddress: string;
+  termsHash: string;
+  canonicalTerms: Record<string, unknown>;
+}
+
+export interface SafeExecutionSnapshotAgreementAcceptance {
+  id: string;
+  termsVersionId: string;
+  dealId: string;
+  termsVersion: string;
+  partyRole: DealAgreementPartyRole;
+  partyId: string;
+  walletAddress: string;
+  chainId: string;
+  safeAddress: string;
+  termsHash: string;
+  typedDataDigest: string;
+  signature: string;
+  acceptedAt: string | null;
 }
 
 export interface SafeExecutionSnapshotSigner {
@@ -30,6 +65,8 @@ export interface SafeExecutionDatabaseSnapshot {
   releaseTransaction: Record<string, unknown>;
   signers: SafeExecutionSnapshotSigner[];
   partyAgreements: SafeExecutionSnapshotPartyAgreement[];
+  termsVersion: SafeExecutionSnapshotTermsVersion | null;
+  agreementAcceptances: SafeExecutionSnapshotAgreementAcceptance[];
   dispute: Record<string, unknown> | null;
   blockers: string[];
 }
@@ -224,9 +261,138 @@ export async function loadSafeExecutionDatabaseSnapshot(
     throw new Error("Buyer and seller agreement acknowledgement rows are missing, duplicated, or misbound.");
   }
 
+  let termsVersion: SafeExecutionSnapshotTermsVersion | null = null;
+  const agreementAcceptances: SafeExecutionSnapshotAgreementAcceptance[] = [];
+  const rawVersion = root.terms_version;
+  if (rawVersion !== null && rawVersion !== undefined) {
+    const row = object(rawVersion, "canonical terms version");
+    const termsVersionText = text(row.terms_version, "terms version");
+    if (!UINT.test(termsVersionText) || termsVersionText === "0") {
+      throw new Error("Safe execution snapshot terms version is not a positive integer.");
+    }
+    const canonicalTerms = object(row.canonical_terms, "canonical terms");
+    const termsHash = text(row.terms_hash, "canonical terms hash");
+    if (!/^[0-9a-f]{64}$/.test(termsHash)) {
+      throw new Error("Safe execution snapshot terms hash is malformed.");
+    }
+    termsVersion = {
+      id: text(row.id, "terms version ID"),
+      dealId: text(row.deal_id, "terms version deal ID"),
+      termsVersion: termsVersionText,
+      projectId: text(row.project_id, "terms version project ID"),
+      buyerId: text(row.buyer_id, "terms version buyer ID"),
+      sellerId: text(row.seller_id, "terms version seller ID"),
+      chainId: text(row.chain_id, "terms version chain ID"),
+      safeAddress: text(row.safe_address, "terms version Safe address"),
+      termsHash,
+      canonicalTerms,
+    };
+    if (termsVersion.dealId !== dealId ||
+        termsVersion.projectId !== deal.project_id ||
+        termsVersion.buyerId !== deal.buyer_id ||
+        termsVersion.sellerId !== deal.seller_id ||
+        termsVersion.chainId !== "56" ||
+        termsVersion.safeAddress.toLowerCase() !== String(policy.safe_address).toLowerCase()) {
+      throw new Error("Canonical terms version is bound to another deal, project, party, chain, or Safe.");
+    }
+
+    const currentTerms = await computeDealTermsHash({
+      dealId,
+      projectId: text(deal.project_id, "deal project ID"),
+      buyerId: text(deal.buyer_id, "buyer ID"),
+      sellerId: text(deal.seller_id, "seller ID"),
+      amount: exactDecimal(deal.amount, "deal amount"),
+      currency: text(deal.currency, "deal currency"),
+      expectedAmount: deal.expected_amount === null ? null : exactDecimal(deal.expected_amount, "expected amount"),
+      chainId: Number(deal.chain_id),
+      safeAddress: text(deal.safe_address, "deal Safe address"),
+      tokenContract: text(deal.token_contract, "deal token contract"),
+      policy: {
+        dealAmount: exactDecimal(policy.deal_amount, "policy deal amount"),
+        feePercent: exactDecimal(policy.fee_percent, "policy fee percent"),
+        feeAmount: exactDecimal(policy.fee_amount, "policy fee amount"),
+        sellerNetAmount: exactDecimal(policy.seller_net_amount, "policy seller net amount"),
+        chainId: Number(policy.chain_id),
+        safeAddress: text(policy.safe_address, "policy Safe address"),
+        tokenContract: text(policy.token_contract, "policy token contract"),
+        sellerWallet: text(policy.seller_wallet, "policy seller wallet"),
+        platformWallet: text(policy.platform_wallet, "policy platform wallet"),
+        safeNonce: policyNonce,
+        status: text(policy.status, "policy status") as "locked" | "ready",
+      },
+    });
+    if (currentTerms.dealTermsHash !== termsVersion.termsHash ||
+        canonicalJson(currentTerms.canonicalTerms) !== canonicalJson(termsVersion.canonicalTerms)) {
+      throw new Error("Persisted agreement terms version does not match the current canonical deal terms.");
+    }
+
+    const rawAcceptances = array(root.agreement_acceptances, "immutable agreement acceptances");
+    for (const [index, value] of rawAcceptances.entries()) {
+      const acceptance = object(value, "agreement acceptance " + index);
+      if (acceptance.party_role !== "buyer" && acceptance.party_role !== "seller") {
+        throw new Error("Immutable agreement acceptance role is invalid.");
+      }
+      const accepted: SafeExecutionSnapshotAgreementAcceptance = {
+        id: text(acceptance.id, "acceptance ID"),
+        termsVersionId: text(acceptance.terms_version_id, "acceptance terms version ID"),
+        dealId: text(acceptance.deal_id, "acceptance deal ID"),
+        termsVersion: text(acceptance.terms_version, "acceptance terms version"),
+        partyRole: acceptance.party_role,
+        partyId: text(acceptance.party_id, "acceptance party ID"),
+        walletAddress: text(acceptance.wallet_address, "acceptance wallet"),
+        chainId: text(acceptance.chain_id, "acceptance chain"),
+        safeAddress: text(acceptance.safe_address, "acceptance Safe address"),
+        termsHash: text(acceptance.terms_hash, "acceptance terms hash"),
+        typedDataDigest: text(acceptance.typed_data_digest, "acceptance typed-data digest"),
+        signature: text(acceptance.signature, "acceptance signature"),
+        acceptedAt: timestamp(acceptance.accepted_at),
+      };
+      const expectedPartyId = accepted.partyRole === "buyer" ? text(deal.buyer_id, "buyer ID") : text(deal.seller_id, "seller ID");
+      const expectedWallet = accepted.partyRole === "buyer"
+        ? text(buyerProfile.wallet_address, "verified buyer wallet")
+        : text(sellerProfile.wallet_address, "verified seller wallet");
+      if (accepted.dealId !== dealId ||
+          accepted.termsVersionId !== termsVersion.id ||
+          accepted.termsVersion !== termsVersion.termsVersion ||
+          accepted.partyId !== expectedPartyId ||
+          accepted.walletAddress.toLowerCase() !== expectedWallet.toLowerCase() ||
+          accepted.chainId !== "56" ||
+          accepted.safeAddress.toLowerCase() !== termsVersion.safeAddress.toLowerCase() ||
+          accepted.termsHash !== termsVersion.termsHash ||
+          !HASH.test(accepted.typedDataDigest) ||
+          !SIGNATURE.test(accepted.signature) ||
+          !accepted.acceptedAt) {
+        throw new Error("Immutable agreement acceptance is malformed or bound to different signed terms.");
+      }
+      const verification = verifyDealTermsAcceptanceSignature({
+        acceptance: {
+          dealId, projectId: termsVersion.projectId, buyerId: termsVersion.buyerId,
+          sellerId: termsVersion.sellerId, safeAddress: termsVersion.safeAddress,
+          termsHash: termsVersion.termsHash, termsVersion: termsVersion.termsVersion,
+          partyRole: accepted.partyRole,
+        },
+        signature: accepted.signature,
+        expectedWallet,
+      });
+      if (!verification.valid || verification.digest.toLowerCase() !== accepted.typedDataDigest.toLowerCase()) {
+        throw new Error("Immutable agreement EIP-712 signature recovery failed.");
+      }
+      agreementAcceptances.push(accepted);
+    }
+  } else if (root.agreement_acceptances !== undefined &&
+      array(root.agreement_acceptances, "immutable agreement acceptances").length > 0) {
+    throw new Error("Agreement acceptances exist without a canonical terms version.");
+  }
+
   const blockers: string[] = [];
-  if (root.agreement_binding_supported !== true) {
+  if (root.agreement_binding_supported !== true || !termsVersion) {
     blockers.push("IMMUTABLE_AGREEMENT_TERMS_BINDING_UNSUPPORTED");
+  }
+  const acceptedRoles = agreementAcceptances.map((row) => row.partyRole);
+  if (agreementAcceptances.length !== 2 || new Set(acceptedRoles).size !== 2 ||
+      !agreementAcceptances.some((row) => row.partyRole === "buyer") ||
+      !agreementAcceptances.some((row) => row.partyRole === "seller")) {
+    blockers.push("IMMUTABLE_AGREEMENT_ACCEPTANCES_INCOMPLETE");
   }
   if (deal.dispute_status !== "none" || root.dispute !== null) {
     blockers.push("DEAL_DISPUTE_STATE_NOT_CLEAR");
@@ -264,6 +430,8 @@ export async function loadSafeExecutionDatabaseSnapshot(
     releaseTransaction,
     signers,
     partyAgreements: agreements,
+    termsVersion,
+    agreementAcceptances,
     dispute: root.dispute === null ? null : object(root.dispute, "dispute"),
     blockers: [...new Set(blockers)],
   };
