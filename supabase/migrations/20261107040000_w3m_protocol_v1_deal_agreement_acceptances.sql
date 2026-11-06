@@ -2138,4 +2138,68 @@ revoke all on function public.w3m_read_safe_execution_snapshot(uuid)
 grant execute on function public.w3m_read_safe_execution_snapshot(uuid)
   to service_role;
 
+
+create or replace function public.w3m_read_deal_agreement_signing_snapshot(p_deal_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $read$
+declare
+  v_deal public.deals%rowtype;
+  v_policy public.deal_release_policies%rowtype;
+  v_project jsonb;
+  v_buyer_profile jsonb;
+  v_seller_profile jsonb;
+begin
+  if p_deal_id is null then
+    raise exception 'Deal ID is required' using errcode = '22023';
+  end if;
+  select * into v_deal from public.deals where id = p_deal_id;
+  if not found then return null; end if;
+  select * into v_policy from public.deal_release_policies where deal_id = p_deal_id;
+  if not found then return null; end if;
+  select jsonb_build_object(
+    'id', p.id::text, 'owner_id', p.owner_id::text, 'status', p.status
+  ) into v_project from public.projects p where p.id = v_deal.project_id;
+  select jsonb_build_object(
+    'id', p.id::text, 'wallet_address', p.wallet_address,
+    'wallet_verified', p.wallet_verified, 'wallet_verified_at', p.wallet_verified_at::text
+  ) into v_buyer_profile from public.profiles p where p.id = v_deal.buyer_id;
+  select jsonb_build_object(
+    'id', p.id::text, 'wallet_address', p.wallet_address,
+    'wallet_verified', p.wallet_verified, 'wallet_verified_at', p.wallet_verified_at::text
+  ) into v_seller_profile from public.profiles p where p.id = v_deal.seller_id;
+
+  return jsonb_build_object(
+    'deal', jsonb_build_object(
+      'id', v_deal.id::text, 'project_id', v_deal.project_id::text,
+      'buyer_id', v_deal.buyer_id::text, 'seller_id', v_deal.seller_id::text,
+      'amount', v_deal.amount::text, 'currency', v_deal.currency,
+      'expected_amount', v_deal.expected_amount::text, 'chain_id', v_deal.chain_id::text,
+      'safe_address', v_deal.safe_address, 'token_contract', v_deal.token_contract,
+      'updated_at', v_deal.updated_at::text
+    ),
+    'policy', jsonb_build_object(
+      'deal_id', v_policy.deal_id::text, 'deal_amount', v_policy.deal_amount::text,
+      'fee_percent', v_policy.fee_percent::text, 'fee_amount', v_policy.fee_amount::text,
+      'seller_net_amount', v_policy.seller_net_amount::text,
+      'chain_id', v_policy.chain_id::text, 'safe_address', v_policy.safe_address,
+      'token_contract', v_policy.token_contract, 'seller_wallet', v_policy.seller_wallet,
+      'platform_wallet', v_policy.platform_wallet, 'safe_nonce', v_policy.safe_nonce::text,
+      'status', v_policy.status, 'updated_at', v_policy.updated_at::text
+    ),
+    'project', v_project,
+    'buyer_profile', v_buyer_profile,
+    'seller_profile', v_seller_profile
+  );
+end;
+$read$;
+
+revoke all on function public.w3m_read_deal_agreement_signing_snapshot(uuid)
+  from public, anon, authenticated;
+grant execute on function public.w3m_read_deal_agreement_signing_snapshot(uuid)
+  to service_role;
+
 commit;
