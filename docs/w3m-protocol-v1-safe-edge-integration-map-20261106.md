@@ -622,3 +622,18 @@ Additional live Edge Functions were fetched directly from the production Supabas
 5. Convert PREPARE's policy/transaction/audit writes into one database RPC, then wire the pre-lock boundary before the existing fast path and before any mutation.
 
 No live function was modified. The six previously captured source snapshots remain historical snapshots; these version/hash identities above are the latest read-only production fetches from this review.
+
+
+## 32. Atomic PREPARE persistence schema findings — 2026-11-06
+
+A second read-only catalog inspection checked the actual production constraints and indexes.
+
+- `deal_release_policies.deal_id` has a unique constraint; an atomic policy upsert can target this key.
+- `deal_multisig_signers` has unique `(deal_id, signer_role)` and a partial unique `(deal_id, wallet_address, safe_tx_hash)`.
+- `deal_multisig_transactions` has **no unique constraint on (deal_id, action)**. It has a unique partial index on `safe_tx_hash`, and a non-unique deal index. Therefore an RPC must not assume `ON CONFLICT (deal_id, action)` is available. It must lock the parent deal row (or use a per-deal/action advisory transaction lock), select the exact release row, and apply a deterministic insert/update policy under that lock.
+- The live constraints require action in `deposit | release_to_seller | refund_to_buyer`, status in `awaiting_signatures | signed | submitted | confirmed | cancelled`, and exactly two required signatures. Release policy enforces the platform wallet, fee math rounded to 18 decimals, valid fee range, and permitted policy status.
+- Existing Safe transaction signer and release records are distinct tables and must not be conflated.
+
+**Atomic PREPARE RPC design gate:** the function must lock the deal row; verify the deal is still eligible and bound to the exact W3M-authorized deal/terms; validate the policy math and BNB/USDT/Safe bindings; update or insert exactly one intended `release_to_seller` transaction without overwriting a submitted/confirmed/cancelled record; and write the audit row in the same PostgreSQL transaction. Any failed condition must raise and roll back all writes. The service-role-only grant must be explicit, with execute revoked from PUBLIC, anon, and authenticated.
+
+This is a schema discovery and design constraint only. No production DDL, data changes, or migrations were executed. The isolated atomic RPC is not yet authored; it will be added only with a disposable PostgreSQL test covering concurrency, rollback, existing transaction state, and exact field validation.
