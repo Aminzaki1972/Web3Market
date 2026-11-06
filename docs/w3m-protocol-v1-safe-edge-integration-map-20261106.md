@@ -511,3 +511,18 @@ The exact Deal Room reader also now blocks deal statuses outside `funded`/`in_pr
 CI run [42172206694](https://github.com/Aminzaki1972/Web3Market/actions/runs/42172206694) completed successfully: **57/57 steps passed**. The final follow-up run [42172312612](https://github.com/Aminzaki1972/Web3Market/actions/runs/42172312612) also completed successfully: **57/57 steps passed**, including the final token-mismatch regression, full Deno suite and disposable PostgreSQL checks.
 
 No old Safe handler is wired or changed. The dedicated PREPARE paths are still isolated integration components; deployment remains out of scope.
+
+
+## 29. PREPARE write boundary wrapper — isolated implementation — 2026-11-06
+
+Added `prelock-safe-prepare-boundary.ts` as the mandatory composition point for the pre-lock stage:
+
+- It invokes the fresh pre-lock gate first.
+- It refuses to invoke the caller's policy/pending-transaction write callback unless the gate returns `authorized=true`, a 32-byte terms hash, a canonical decimal Safe nonce, and a canonical BNB block number/hash.
+- On denial or malformed authorization output, it returns the exact gate denial and performs no callback/write.
+- The callback receives only the server-derived deal ID, terms hash, Safe nonce and canonical block binding; no browser-provided terms, nonce, or authorization booleans are accepted.
+- A focused test asserts that a database/snapshot failure produces a denial and the write callback count remains zero.
+
+CI run [42172312612](https://github.com/Aminzaki1972/Web3Market/actions/runs/42172312612) completed successfully after the latest token/status refinements. The new boundary wrapper and its test are in the current isolated CI queue (latest relevant runs: [42172893422](https://github.com/Aminzaki1972/Web3Market/actions/runs/42172893422), [42172888436](https://github.com/Aminzaki1972/Web3Market/actions/runs/42172888436)); their outcome is not yet known.
+
+**Important:** this wrapper is not yet called by the legacy `prepare-deal-release` handler. It establishes and tests the safe side-effect boundary, but does not itself protect the live endpoint until a separately reviewed handler integration uses it. No deployed function, production database, wallet, Safe, or funds were changed.
