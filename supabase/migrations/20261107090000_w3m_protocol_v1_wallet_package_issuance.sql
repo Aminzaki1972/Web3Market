@@ -62,7 +62,7 @@ begin
      or p_package->>'protocol' is distinct from 'W3M_PROTOCOL_V1'
      or p_package->>'executorWallet' is null
      or char_length(p_package->>'executorWallet') <> 42
-     or p_package->>'executorWallet' !~ '^0x[0-9a-fA-F]{40}
+     or p_package->>'executorWallet' !~ '^0x[0-9a-fA-F]{40}$'
      or p_expires_at is null
      or v_package_expires_at is distinct from p_expires_at
      or v_package_issued_at > v_now + interval '30 seconds'
@@ -98,7 +98,7 @@ begin
   if not found or v_profile_verified is distinct from true
      or v_profile_wallet is null
      or char_length(v_profile_wallet) <> 42
-     or v_profile_wallet !~ '^0x[0-9a-fA-F]{40}'
+     or v_profile_wallet !~ '^0x[0-9a-fA-F]{40}$'
      or lower(v_profile_wallet) <> lower(p_package->>'executorWallet') then
     raise exception 'Authenticated participant wallet is not currently verified for package issuance'
       using errcode = '42501';
@@ -163,7 +163,7 @@ begin
      or p_package_hash !~ '^[0-9a-fA-F]{64}'
      or p_broadcast_tx_hash is null
      or char_length(p_broadcast_tx_hash) <> 66
-     or p_broadcast_tx_hash !~ '^0x[0-9a-fA-F]{64}' then
+     or p_broadcast_tx_hash !~ '^0x[0-9a-fA-F]{64}$' then
     raise exception 'Invalid connected-wallet submission arguments'
       using errcode = '22023';
   end if;
@@ -217,7 +217,7 @@ begin
   if not found or v_profile_verified is distinct from true
      or v_profile_wallet is null
      or char_length(v_profile_wallet) <> 42
-     or v_profile_wallet !~ '^0x[0-9a-fA-F]{40}'
+     or v_profile_wallet !~ '^0x[0-9a-fA-F]{40}$'
      or lower(v_profile_wallet) <> lower(coalesce(v_attempt.package_payload->>'executorWallet','')) then
     raise exception 'Authenticated participant wallet verification changed after package issuance'
       using errcode = '42501';
@@ -305,7 +305,7 @@ commit;
   if not found or v_profile_verified is distinct from true
      or v_profile_wallet is null
      or char_length(v_profile_wallet) <> 42
-     or v_profile_wallet !~ '^0x[0-9a-fA-F]{40}'
+     or v_profile_wallet !~ '^0x[0-9a-fA-F]{40}$'
      or lower(v_profile_wallet) <> lower(p_package->>'executorWallet') then
     raise exception 'Authenticated participant wallet is not currently verified for package issuance'
       using errcode = '42501';
@@ -370,7 +370,7 @@ begin
      or p_package_hash !~ '^[0-9a-fA-F]{64}'
      or p_broadcast_tx_hash is null
      or char_length(p_broadcast_tx_hash) <> 66
-     or p_broadcast_tx_hash !~ '^0x[0-9a-fA-F]{64}' then
+     or p_broadcast_tx_hash !~ '^0x[0-9a-fA-F]{64}$' then
     raise exception 'Invalid connected-wallet submission arguments'
       using errcode = '22023';
   end if;
@@ -424,7 +424,7 @@ begin
   if not found or v_profile_verified is distinct from true
      or v_profile_wallet is null
      or char_length(v_profile_wallet) <> 42
-     or v_profile_wallet !~ '^0x[0-9a-fA-F]{40}'
+     or v_profile_wallet !~ '^0x[0-9a-fA-F]{40}$'
      or lower(v_profile_wallet) <> lower(coalesce(v_attempt.package_payload->>'executorWallet','')) then
     raise exception 'Authenticated participant wallet verification changed after package issuance'
       using errcode = '42501';
