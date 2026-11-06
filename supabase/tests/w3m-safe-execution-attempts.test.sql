@@ -249,6 +249,17 @@ begin
   exception when check_violation then null;
   end;
 
+  -- Even a successful receipt cannot finalize if its canonical block timestamp
+  -- falls outside the short-lived package that was issued to the owner wallet.
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,
+      jsonb_set(v_receipt,'{block_timestamp}',to_jsonb(v_package_issue_at - interval '1 second'))
+    );
+    raise exception 'Receipt outside the wallet package window was unexpectedly finalized';
+  exception when check_violation then null;
+  end;
+
   v_result := public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
   if coalesce((v_result->>'finalized')::boolean,false) is not true
      or coalesce((v_result->>'idempotent_replay')::boolean,true) is not false
