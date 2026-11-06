@@ -162,3 +162,39 @@ Deno.test("revenue evidence cannot claim a client-unconfirmed scope", async () =
     throw new Error("Revenue scope acceptance must be explicit and supplied by a trusted agreement adapter.");
   }
 });
+
+
+Deno.test("allowlisted BNB RPC client disables redirects to prevent hostname allowlist bypass", async () => {
+  let redirectMode: RequestRedirect | undefined;
+  const rpc = (await import("./bnb-revenue-adapter.ts")).createAllowlistedBnbRpcClient({
+    rpcUrl: "https://bsc-rpc.publicnode.com",
+    allowedHosts: ["bsc-rpc.publicnode.com"],
+    fetchImpl: (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      redirectMode = init?.redirect;
+      return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: "0x38" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch,
+  });
+  const result = await rpc.request<string>("eth_chainId", []);
+  if (result !== "0x38" || redirectMode !== "error") {
+    throw new Error("Allowlisted RPC requests must reject HTTP redirects.");
+  }
+});
+
+Deno.test("allowlisted BNB RPC client rejects non-HTTPS and non-allowlisted hosts", async () => {
+  const { createAllowlistedBnbRpcClient } = await import("./bnb-revenue-adapter.ts");
+  for (const rpcUrl of ["http://bsc-rpc.publicnode.com", "https://evil.example"]) {
+    let rejected = false;
+    try {
+      createAllowlistedBnbRpcClient({
+        rpcUrl,
+        allowedHosts: ["bsc-rpc.publicnode.com"],
+      });
+    } catch (error) {
+      rejected = error instanceof BnbRevenueAdapterError;
+    }
+    if (!rejected) throw new Error("Untrusted RPC endpoint must be rejected.");
+  }
+});
