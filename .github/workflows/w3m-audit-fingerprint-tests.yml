@@ -14,6 +14,8 @@ on:
     paths:
       - "supabase/functions/w3m-acquisition-verification/audit-fingerprint.ts"
       - "supabase/functions/w3m-acquisition-verification/audit-fingerprint.test.ts"
+      - "supabase/functions/w3m-acquisition-verification/audit-manifest.ts"
+      - "supabase/functions/w3m-acquisition-verification/audit-manifest.test.ts"
       - ".github/workflows/w3m-audit-fingerprint-tests.yml"
 
 permissions:
