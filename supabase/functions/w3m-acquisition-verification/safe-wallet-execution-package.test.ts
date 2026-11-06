@@ -40,7 +40,6 @@ function snapshot(): SafeExecutionFreshSnapshot {
     executorRef: "w3m-executor-v1",
     executorWallet: OWNER_A,
     idempotencyKey: "w3m-deal-001-execute-v1",
-    executorWallet: OWNER_A,
     agreementBinding: {
       termsVersionId: "84000000-0000-4000-8000-000000000004",
       termsVersion: "1",
