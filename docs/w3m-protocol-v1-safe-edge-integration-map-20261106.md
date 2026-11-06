@@ -826,3 +826,18 @@ The builder has no RPC write method, private key, signer, broadcaster, or databa
 **CI:** type-check and package tests are included in the isolated workflow; run [42186113056](https://github.com/Aminzaki1972/Web3Market/actions/runs/42186113056) is pending. Do not call the builder CI-verified until that run succeeds.
 
 No production code or migration was deployed, no connected wallet was prompted, no Safe transaction was broadcast, and no funds were moved.
+
+
+## 45. Authenticated connected-wallet package issuance — isolated draft — 2026-11-06
+
+Added safe-wallet-package-request-handler.ts and focused tests. The handler accepts only a deal UUID, derives the actor from the authenticated session, and requires the server-side context loader to bind that actor to the deal before proceeding. It reloads fresh state after claiming the attempt and rejects any material change to the deal, report, immutable agreement, Safe transaction, owner signatures, threshold, nonce, or calldata.
+
+Added migration 20261107090000_w3m_protocol_v1_wallet_package_issuance.sql and the server-only RPC adapter. The issuance ledger persists the authenticated package actor, SHA-256 of the exact package, exact package payload for safe retry after a lost HTTP response, and issue/expiry timestamps with a maximum two-minute window.
+
+An idempotent retry returns the original stored package only while it remains unexpired and its material Safe/deal bindings still match. Timestamp and canonical read-block metadata may differ on a fresh read; the returned package remains the original stored bytes. A changed material payload, another actor, expired package, or non-CLAIMED attempt is rejected. Any failure after a claim moves the attempt to reconciliation rather than silently reopening it.
+
+The package builder now includes a strict expiry. No browser wallet signs or submits a transaction in this step; no broadcast or finalization is performed. The request handler is dependency-injected and does not yet have a concrete isolated Supabase Edge Function entrypoint/server composition or Deal Room wallet UI.
+
+**CI:** new type checks, handler tests, RPC adapter tests, migration, and disposable PostgreSQL contract tests are included in the isolated workflow. Latest run: https://github.com/Aminzaki1972/Web3Market/actions/runs/42187339703 — pending at the time of this update. Earlier failures were type-check failures in the package-builder/test fixture and are superseded by the current run; do not mark this stage verified until the current workflow passes.
+
+No production migration or function was deployed. No live Deal Room, Safe, wallet, funds, Supabase production database, or Cloudflare configuration was changed.
