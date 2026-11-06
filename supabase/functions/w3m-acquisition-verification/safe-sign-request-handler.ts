@@ -104,7 +104,6 @@ export function createW3MSafeSignRequestHandler(deps: W3MSignHandlerDependencies
         signature,
         expectedWallet: fresh.verifiedWallet,
         signerRole: fresh.signerRole,
-        authorization: auth,
       });
       if (valid !== true) return json(403, { ok: false, error: "SAFE_SIGNATURE_INVALID" });
       const saved = await deps.persistSignatureAtomically({
@@ -114,6 +113,7 @@ export function createW3MSafeSignRequestHandler(deps: W3MSignHandlerDependencies
         signature,
         verifiedWallet: fresh.verifiedWallet,
         signerRole: fresh.signerRole,
+        authorization: auth,
       });
       if (!saved || !Number.isInteger(saved.confirmationsCount) ||
           !Number.isInteger(saved.requiredSignatures) || saved.requiredSignatures !== 2 ||
