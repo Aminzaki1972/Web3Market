@@ -57,6 +57,7 @@ const sourceAudit = {
   id: rawSnapshot.code_audit.auditId,
   project_id: projectId,
   status: "completed", audit_type:"code",
+  overall_score:90, risk_level:"low", analysis_method:"gemini",
   repo_owner: "Aminzaki1972",
   repo_name: "Web3Market",
   repo_url: "https://github.com/Aminzaki1972/Web3Market",
