@@ -166,3 +166,18 @@ The manifest uses version tag `w3m-audit-manifest-v1` and hashes a canonical pay
 Critical loader contract: this helper does not query the database and cannot prove that the caller supplied every row. The future trusted server loader must fetch the audit row and every page of file/finding rows, preserve the complete selected row payloads (not partial projections), verify pagination completion and expected counts, and then call this helper. The resulting digest must be persisted with an append-only deal/audit selection and recomputed from fresh rows before settlement. A matching digest proves equality to the supplied snapshot, not source authenticity or completeness by itself.
 
 The manifest is not yet integrated into `DealTermsSnapshot`, SQL canonical agreement terms, signing, or settlement. No migration, database write, production access, deployment, or merge was performed. CI for the implementation and tests is pending at this commit.
+
+
+## 14. Audit Manifest V1 completeness hardening (2026-11-06)
+
+The first helper draft was tightened after reviewing the actual audit writer and trust-badge reader:
+
+- File natural identity is `path`; the writer persists `audit_id,path,line_count,size_bytes,selected_tier` and the trust-badge reader independently paginates persisted file rows.
+- Finding natural identity is `file_path,line_start,severity,category,title`; these fields are the writer's persisted finding identity. Severity is restricted to `critical|high|medium|low|info`.
+- Every file and finding row must carry the selected `audit_id`.
+- The audit must be completed, have a 40-character commit SHA, repository owner/name, completion timestamp, engine version, and structured evidence version `w3m-audit-evidence-v1` with `tree_truncated=false`.
+- File row count must equal both `code_audits.files_scanned` and `analysis_progress.persisted_file_count`.
+- Finding row count must equal the sum of the five persisted severity counters written at audit completion.
+- Sorting now uses locale-independent code-point comparison, not locale-sensitive collation.
+
+These checks make incomplete pagination and cross-audit row mixing fail closed, assuming the trusted loader actually fetches all pages and selects complete rows. The base DDL for the original `code_audits`, `code_audit_files`, and `code_audit_findings` tables remains unlocated in the repository migration history reviewed here; the field contract above is grounded in the current audit writer/reader code, not claimed as a complete database DDL specification. CI for the latest hardening commit is pending.
