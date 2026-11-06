@@ -16,6 +16,7 @@ declare
   v_safe_hash text := '0x' || repeat('a', 64);
   v_broadcast_hash text := '0x' || repeat('b', 64);
   v_receipt jsonb;
+  v_snapshot jsonb;
 begin
   insert into public.projects (id,status) values (v_project,'active');
 
@@ -140,6 +141,27 @@ begin
   v_result := public.w3m_record_safe_execution_broadcast(v_attempt,v_broadcast_hash);
   if coalesce((v_result->>'idempotent_replay')::boolean,false) is not true then
     raise exception 'Reconciled broadcast hash replay was not idempotent';
+  end if;
+
+  if has_function_privilege('anon','public.w3m_read_safe_finalization_snapshot(uuid)','EXECUTE')
+     or has_function_privilege('authenticated','public.w3m_read_safe_finalization_snapshot(uuid)','EXECUTE')
+     or not has_function_privilege('service_role','public.w3m_read_safe_finalization_snapshot(uuid)','EXECUTE') then
+    raise exception 'Safe finalization snapshot reader privileges are not service-role-only';
+  end if;
+
+  v_snapshot := public.w3m_read_safe_finalization_snapshot(v_attempt);
+  if v_snapshot->>'attempt_id' <> v_attempt::text
+     or v_snapshot->>'deal_id' <> v_deal::text
+     or v_snapshot->>'transaction_id' <> v_tx::text
+     or v_snapshot->>'report_id' <> v_report::text
+     or v_snapshot->>'broadcast_tx_hash' <> lower(v_broadcast_hash)
+     or v_snapshot->>'safe_tx_hash' <> lower(v_safe_hash)
+     or v_snapshot->>'chain_id' <> '56'
+     or v_snapshot->>'seller_net_amount' <> '92.5'
+     or v_snapshot->>'platform_fee' <> '7.5'
+     or v_snapshot->>'policy_status' <> 'locked'
+     or v_snapshot->>'attempt_state' <> 'RECONCILIATION_REQUIRED' then
+    raise exception 'Safe finalization snapshot did not preserve exact bindings and numeric text';
   end if;
 
   v_receipt := jsonb_build_object(
