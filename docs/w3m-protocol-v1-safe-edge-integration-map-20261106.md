@@ -484,3 +484,19 @@ A first PREPARE-specific read path has now been added without weakening the stri
 **Important placement limitation:** this new context requires the release policy and pending release transaction row created by the earlier `prepare-deal-release` handler. It is designed to gate `prepare-safe-release-tx` before transaction rebuild/clearing old signatures/storing a new Safe hash. It does **not yet** gate the initial policy lock and pending-row writes inside `prepare-deal-release`. That pre-lock gate still needs a separate exact snapshot plus the server-computed, read-only release-policy validation result; it must not trust browser-supplied fee or wallet values.
 
 The isolated code and tests are being checked by the current workflow. No result is claimed until the latest run completes. No deployed Safe handler is wired, and no production migration or function has been deployed.
+
+
+## 28. Pre-lock PREPARE gate — implementation and initial CI verification — 2026-11-06
+
+The separate pre-lock path has now been implemented, rather than relying on the post-lock Safe transaction snapshot:
+
+- New service-role-only RPC `w3m_read_validated_release_policy(uuid)` wraps the existing `validate_deal_release_policy` database validator and returns `valid`, deal amount, fee percent, fee amount and seller net as exact text. It performs no policy or transaction writes. A disposable PostgreSQL fixture verifies numeric JSONB values retain all decimal digits through `->>`.
+- `authorizePrelockSafePrepare(...)` reads one exact Deal Room snapshot and one validated policy result. It derives buyer/seller identities and verified wallets from the database, verifies project ownership, requires verified distinct party wallets with non-future verification timestamps, checks the BNB Safe configuration at one canonical block, captures the current Safe nonce, and runs the persisted W3M PREPARE report/evidence gate using the server-derived policy values.
+- The pre-lock helper returns the exact `dealTermsHash` and `safeNonce` only when authorization succeeds. The caller must persist that exact nonce into the locked policy; it must not substitute a separately read or browser-supplied nonce.
+- The helper is read-only. It is designed to be called after the existing server-side policy validator and before the `deal_release_policies` upsert, pending `deal_multisig_transactions` insert/update, or audit write in `prepare-deal-release`.
+- The separate post-lock PREPARE context remains responsible for revalidating the stored policy nonce and current Safe configuration before `prepare-safe-release-tx` rebuilds/stores calldata. This preserves a second check if the Safe nonce changes after the policy lock.
+- The workflow includes the new pre-lock gate tests and disposable SQL reader contract test. Run [42171604906](https://github.com/Aminzaki1972/Web3Market/actions/runs/42171604906) completed successfully: **56/56 steps passed**, including Deno checks/tests and disposable PostgreSQL migrations/contracts.
+
+A follow-up hardening now also binds the pre-lock gate to releasable deal statuses (`funded` or `in_progress`), BNB chain ID 56, and the approved BNB USDT token contract. Those newest status/token refinements are in the current isolated CI queue and are not claimed passed until their run completes.
+
+**Still not wired:** the existing deployed `prepare-deal-release` and `prepare-safe-release-tx` handlers have not been changed. The pre-lock and post-lock helpers are ready for an isolated handler integration step, but production remains untouched.
