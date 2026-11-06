@@ -380,3 +380,19 @@ The fresh-context composer and phase wrapper from section 22 completed isolated 
 These results confirm the automated Deno checks/tests and disposable PostgreSQL workflow steps in those runs. They do not mean the live Safe Edge handlers are wired to W3M. The agreement_binding_supported=false snapshot blocker remains active, so the fresh context intentionally refuses to authorize PREPARE/SIGN/EXECUTE until immutable same-terms buyer/seller consent is implemented. The EIP-712 agreement proposal remains unapproved and proposal-only.
 
 No production deployment, production schema change, live BNB RPC call, Safe signature, broadcast, or fund movement occurred.
+
+
+## 24. Exact phase/deal/Safe-hash binding and finalization separation — 2026-11-06
+
+Additional hardening to the isolated phase boundary:
+
+- `executeSafePhaseOnlyAfterW3M(...)` requires an exact non-empty deal ID for all pre-execution phases and an exact 32-byte Safe transaction hash for SIGN and EXECUTE.
+- The fresh authorization must match the requested phase, exact deal ID, and (where required) the exact stored Safe transaction hash before the protected action can run.
+- `authorizeSafeHandlerPhase(...)` now compares the caller's SIGN/EXECUTE hash against the freshly loaded database transaction row; a mismatch returns `W3M_SAFE_TRANSACTION_HASH_BINDING_MISMATCH`.
+- FINALIZE is explicitly denied by this generic pre-execution boundary with `W3M_FINALIZE_REQUIRES_VERIFIED_RECEIPT_PATH`. It must use the separate raw BNB receipt verifier, fresh finalization snapshot, and atomic finalization RPC. This prevents a pre-execution report gate from being mistaken for proof of on-chain execution.
+- Unknown runtime phase values are rejected before the authorization loader is called.
+- Regression tests cover exact deal binding, SIGN/EXECUTE hash drift, FINALIZE separation, and unknown phases.
+
+CI run 42165869470 completed successfully (46 steps) for the preceding exact deal/hash binding and authorizer update. The FINALIZE-separation and unknown-phase changes are newer; their latest workflow runs 42166372723, 42166434112, and 42166444653 were still in progress when this section was written and are not claimed as passed.
+
+No live Safe Edge handler has been modified or wired, and no production deployment, migration, BNB RPC request, signature, broadcast, or fund movement occurred.
