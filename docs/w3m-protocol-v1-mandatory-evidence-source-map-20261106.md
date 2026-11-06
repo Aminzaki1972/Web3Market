@@ -108,3 +108,65 @@ Do not weaken the report's Code Audit evidence and do not fabricate a preliminar
 
 This is a repository-source finding and design correction only. No migration was changed or applied, no production database was queried or modified, no Edge Function was deployed, and no signing key or provider credential was created. The current green CI run proves the existing isolated tests pass; it does not prove the first-report lifecycle is free of this deadlock.
 
+
+
+## Implementation contract — independent pre-agreement audit snapshot
+
+The repository review has narrowed the implementation boundary. The correction must be additive and must not repurpose the append-only report/evidence registry as a pre-report cache.
+
+### Separation of lifecycle records
+
+- **Audit source:** the completed row in `public.code_audits` plus its persisted `code_audit_files` and `code_audit_findings` rows. These remain the source of truth for the audit.
+- **Agreement snapshot:** a new immutable record, independent of `w3m_acquisition_reports`, proving which completed audit and full manifest the parties are agreeing to.
+- **Report evidence:** the existing `w3m_acquisition_evidence` `CODE_AUDIT` item remains report-scoped and is written only as part of final report issuance. It must point back to the same audit ID and manifest tuple as the agreement snapshot.
+- **Agreement evidence:** `DEAL_AGREEMENT` remains report-scoped and is only eligible after both parties accepted the same current terms version.
+
+### Required snapshot invariants
+
+The persisted snapshot must bind at least:
+
+- deal ID and project ID;
+- immutable audit ID;
+- canonical repository identity (repository ID where the source schema provides it, plus owner/name and normalized URL);
+- immutable commit SHA and audit type;
+- audit completion timestamp and status;
+- manifest algorithm/version and recomputed SHA-256 digest;
+- exact file and finding counts;
+- snapshot creation timestamp and a deterministic snapshot identity.
+
+A uniqueness rule must prevent multiple competing current snapshots for the same deal/audit identity. The database must reject mutation/deletion of accepted snapshots; a changed audit or repository creates a new binding and forces a new terms version rather than rewriting an old one.
+
+### Trusted creation and verification
+
+1. A server-side loader resolves the deal's project and canonical repository from trusted records.
+2. It selects one unambiguous completed audit for that exact project/repository. No browser-supplied audit ID, commit, count, or digest is authoritative.
+3. It reads all persisted file and finding rows using deterministic ordering and complete pagination. It must not silently truncate at an API page limit.
+4. It recomputes the exact manifest using the existing `w3m-audit-manifest-v1` canonicalization contract. The implementation must reuse the canonicalizer used by the Code Audit service; it must not invent a second JSON serialization format.
+5. A narrowly scoped server-only operation persists the validated snapshot. The operation checks source status, identity, completion time, commit, counts, and digest again inside the database transaction. Client roles receive no direct insert/update/delete privileges.
+6. Agreement readers use the snapshot, not a prior report. Agreement signing fails closed if there is no single valid snapshot.
+7. Report issuance independently reloads and recomputes the same source manifest, compares every bound field to the snapshot, then writes the report-scoped CODE_AUDIT evidence and DEAL_AGREEMENT evidence atomically.
+8. Report read-back verification confirms the persisted report and evidence refer to the same audit ID, commit SHA, manifest version/hash, and counts bound by the accepted terms.
+
+### Concurrency and invalidation
+
+- Serialize snapshot creation per deal/audit identity with a transaction-scoped advisory lock or an equivalent unique-key conflict strategy.
+- Serialize terms registration and acceptance against the selected snapshot so a snapshot cannot be swapped between buyer and seller acceptance.
+- If a newer eligible audit is selected, or the project's canonical repository changes, the canonical terms object changes. Both parties must accept a new terms version.
+- If source rows are missing, duplicate, incomplete, inconsistent, or cannot be fully paginated, snapshot creation and report issuance fail closed.
+- Existing completed-audit immutability triggers must remain in place. Snapshotting occurs only after completion; no post-completion repair writes are allowed.
+
+### Migration and test execution gate
+
+The Supabase skill requires a new migration to be created with `supabase migration new <descriptive-name>` and requires verification against the actual database schema before the migration is finalized. The available connected Supabase actions can inspect/apply database changes, but they do not provide the local CLI migration-generation workflow. Therefore this turn does **not** fabricate a timestamped migration file or apply SQL directly to a connected project. The next code implementation must first obtain a proper local Supabase CLI workflow (or an explicitly approved equivalent repository workflow), inspect the exact current table definitions and canonical manifest serializer, then create the additive migration and regression tests.
+
+### Required CI acceptance criteria
+
+- The existing first-deal test must be rewritten so it begins with a completed source audit and **zero** rows in `w3m_acquisition_reports`.
+- Snapshot creation succeeds from source rows alone; agreement terms and signing snapshot include that manifest without a report.
+- Buyer and seller can accept the same immutable terms version.
+- Report issuance before the second acceptance is rejected.
+- Report issuance after both acceptances succeeds only when the report's CODE_AUDIT evidence matches the snapshot tuple byte-for-byte.
+- Tests reject every mismatched tuple component, duplicate snapshots, missing pages/rows, wrong project/repository, stale audit, and any client-supplied digest.
+- Existing report versioning, append-only registry, completed-audit immutability, Safe preparation/signing, and settlement-disabled assertions remain green.
+
+This contract is a design refinement only. It is not an implemented migration or a passing regression test.
