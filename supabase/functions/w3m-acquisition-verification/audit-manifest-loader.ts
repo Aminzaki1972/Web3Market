@@ -36,11 +36,16 @@ async function collectAllPages(
  * persisted rows; this loader verifies read completion and the manifest helper
  * cross-checks persisted totals and audit ownership before hashing.
  */
-export async function loadAuditManifest(input: {
+export interface LoadedAuditManifestSnapshot {
+  audit: AuditManifestRow;
+  manifest: AuditManifest;
+}
+
+export async function loadAuditManifestSnapshot(input: {
   auditId: string;
   source: AuditManifestSource;
   pageSize?: number;
-}): Promise<AuditManifest> {
+}): Promise<LoadedAuditManifestSnapshot> {
   if (!input || typeof input.auditId !== "string" || !input.auditId.trim()) {
     throw new Error("A valid audit ID is required.");
   }
@@ -57,5 +62,14 @@ export async function loadAuditManifest(input: {
     collectAllPages((from, to) => input.source.loadFilesPage(input.auditId, from, to), pageSize, "Audit files"),
     collectAllPages((from, to) => input.source.loadFindingsPage(input.auditId, from, to), pageSize, "Audit findings"),
   ]);
-  return await computeAuditManifest({ audit: auditResult.data, files, findings });
+  const manifest = await computeAuditManifest({ audit: auditResult.data, files, findings });
+  return { audit: auditResult.data, manifest };
+}
+
+export async function loadAuditManifest(input: {
+  auditId: string;
+  source: AuditManifestSource;
+  pageSize?: number;
+}): Promise<AuditManifest> {
+  return (await loadAuditManifestSnapshot(input)).manifest;
 }
