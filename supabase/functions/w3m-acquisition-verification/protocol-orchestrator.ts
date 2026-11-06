@@ -56,9 +56,14 @@ export async function prepareAcquisitionProtocolBatch(
   }
 
   const auditEvidence = aggregation.evidence.filter((item) => item.type === "CODE_AUDIT");
+  const auditMetadata = auditEvidence.length === 1 ? auditEvidence[0].metadata || {} : {};
   if (auditEvidence.length !== 1 ||
       auditEvidence[0].sourceRecordId !== input.auditId ||
-      auditEvidence[0].sourceVersion?.toLowerCase() !== input.acquisition.expectedCommitSha.toLowerCase()) {
+      auditEvidence[0].sourceVersion?.toLowerCase() !== input.acquisition.expectedCommitSha.toLowerCase() ||
+      auditMetadata.auditManifestVersion !== "w3m-audit-manifest-v1" ||
+      auditMetadata.auditManifestHash !== auditEvidence[0].contentHash ||
+      !Number.isSafeInteger(auditMetadata.auditFileCount) || Number(auditMetadata.auditFileCount) <= 0 ||
+      !Number.isSafeInteger(auditMetadata.auditFindingCount) || Number(auditMetadata.auditFindingCount) < 0) {
     throw new Error("Exactly one Code Audit evidence record must match the report audit ID and exact commit SHA.");
   }
 
