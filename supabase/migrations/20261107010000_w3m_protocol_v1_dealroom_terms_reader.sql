@@ -6,6 +6,8 @@ returns table (
   project_id text,
   buyer_id text,
   seller_id text,
+  buyer_wallet text,
+  seller_wallet text,
   deal_amount text,
   currency text,
   expected_amount text,
@@ -41,6 +43,8 @@ as $$
     d.project_id::text,
     d.buyer_id::text,
     d.seller_id::text,
+    buyer_profile.wallet_address,
+    seller_profile.wallet_address,
     d.amount::text,
     d.currency,
     d.expected_amount::text,
@@ -67,6 +71,8 @@ as $$
     p.status
   from public.deals d
   left join public.deal_release_policies p on p.deal_id = d.id
+  left join public.profiles buyer_profile on buyer_profile.id = d.buyer_id
+  left join public.profiles seller_profile on seller_profile.id = d.seller_id
   where d.id = p_deal_id;
 $$;
 
