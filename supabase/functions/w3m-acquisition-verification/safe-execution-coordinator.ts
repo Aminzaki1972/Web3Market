@@ -17,6 +17,19 @@ export interface SafeExecutionFreshSnapshot {
   reportVersion: number;
   executorRef: string;
   idempotencyKey: string;
+  /** Immutable, signature-verified EIP-712 consent for the exact current terms.
+   * The loader must populate this only from loadSafeExecutionDatabaseSnapshot,
+   * which independently recovers both party signatures against current wallets.
+   */
+  agreementBinding: {
+    termsVersionId: string;
+    termsVersion: string;
+    termsHash: string;
+    buyerAcceptanceId: string;
+    sellerAcceptanceId: string;
+    buyerDigest: string;
+    sellerDigest: string;
+  };
   guardInput: SafeExecutionGuardInput;
 }
 
@@ -75,6 +88,18 @@ function snapshotIssues(snapshot: SafeExecutionFreshSnapshot): string[] {
   }
   if (!snapshot.executorRef?.trim()) issues.push("EXECUTOR_REFERENCE_MISSING");
   if (!snapshot.idempotencyKey?.trim()) issues.push("IDEMPOTENCY_KEY_MISSING");
+  const agreement = snapshot.agreementBinding;
+  if (!agreement || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(agreement.termsVersionId ?? "") ||
+      !/^[1-9][0-9]*$/.test(agreement.termsVersion ?? "") ||
+      !/^[0-9a-f]{64}$/i.test(agreement.termsHash ?? "") ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(agreement.buyerAcceptanceId ?? "") ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(agreement.sellerAcceptanceId ?? "") ||
+      !/^0x[0-9a-f]{64}$/i.test(agreement.buyerDigest ?? "") ||
+      !/^0x[0-9a-f]{64}$/i.test(agreement.sellerDigest ?? "") ||
+      agreement.buyerAcceptanceId === agreement.sellerAcceptanceId ||
+      agreement.buyerDigest.toLowerCase() === agreement.sellerDigest.toLowerCase()) {
+    issues.push("IMMUTABLE_AGREEMENT_BINDING_INVALID");
+  }
   if (snapshot.guardInput?.transaction?.deal_id !== snapshot.dealId) {
     issues.push("SAFE_ROW_DEAL_BINDING_INVALID");
   }
@@ -176,7 +201,14 @@ export async function executeW3MSafeRelease(
     fresh.reportId === first.reportId &&
     fresh.reportVersion === first.reportVersion &&
     safeHash(fresh).toLowerCase() === safeHash(first).toLowerCase() &&
-    fresh.idempotencyKey === first.idempotencyKey;
+    fresh.idempotencyKey === first.idempotencyKey &&
+    fresh.agreementBinding.termsVersionId === first.agreementBinding.termsVersionId &&
+    fresh.agreementBinding.termsVersion === first.agreementBinding.termsVersion &&
+    fresh.agreementBinding.termsHash.toLowerCase() === first.agreementBinding.termsHash.toLowerCase() &&
+    fresh.agreementBinding.buyerAcceptanceId === first.agreementBinding.buyerAcceptanceId &&
+    fresh.agreementBinding.sellerAcceptanceId === first.agreementBinding.sellerAcceptanceId &&
+    fresh.agreementBinding.buyerDigest.toLowerCase() === first.agreementBinding.buyerDigest.toLowerCase() &&
+    fresh.agreementBinding.sellerDigest.toLowerCase() === first.agreementBinding.sellerDigest.toLowerCase();
 
   if (!reauthorization.authorized || !sameBinding) {
     return await requireReconciliation(
