@@ -163,6 +163,7 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/atomic-safe-prepare-rpc-adapter.test.ts
           deno check supabase/functions/w3m-acquisition-verification/protocol-service.ts
           deno check supabase/functions/w3m-acquisition-verification/persisted-report-guard.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-acquisition-adapter.ts
           deno check supabase/functions/w3m-acquisition-verification/persisted-report-guard.test.ts
           deno check supabase/functions/w3m-acquisition-verification/deal-terms-hash.ts
           deno check supabase/functions/w3m-acquisition-verification/deal-terms-hash.test.ts
