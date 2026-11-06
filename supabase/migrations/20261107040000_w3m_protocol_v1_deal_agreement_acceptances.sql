@@ -343,7 +343,7 @@ revoke all on function public.w3m_current_deal_terms_json(uuid)
 -- A PASS acquisition report is downstream of the immutable buyer/seller
 -- agreement. Deferred validation sees the complete report + evidence batch at
 -- transaction commit, while allowing diagnostic non-PASS reports earlier.
-create or replace function public.w3m_guard_pass_report_requires_signed_deal_terms()
+create or replace function public.w3m_guard_acquisition_report_requires_signed_deal_terms()
 returns trigger language plpgsql security definer set search_path = ''
 as $pass_report$
 declare
@@ -390,7 +390,7 @@ begin
      and ((a.party_role = 'buyer' and a.party_id = v_deal.buyer_id)
        or (a.party_role = 'seller' and a.party_id = v_deal.seller_id));
   if v_acceptance_count <> 2 then
-    raise exception 'A PASS report requires exactly one current buyer and seller agreement acceptance'
+    raise exception 'An acquisition report requires exactly one current buyer and seller agreement acceptance'
       using errcode = '23514';
   end if;
   select count(*) into v_code_audit_count from public.w3m_acquisition_evidence e
@@ -419,13 +419,13 @@ begin
   return new;
 end;
 $pass_report$;
-revoke all on function public.w3m_guard_pass_report_requires_signed_deal_terms()
+revoke all on function public.w3m_guard_acquisition_report_requires_signed_deal_terms()
   from public, anon, authenticated, service_role;
-drop trigger if exists w3m_pass_report_requires_signed_deal_terms on public.w3m_acquisition_reports;
-create constraint trigger w3m_pass_report_requires_signed_deal_terms
+drop trigger if exists w3m_acquisition_report_requires_signed_deal_terms on public.w3m_acquisition_reports;
+create constraint trigger w3m_acquisition_report_requires_signed_deal_terms
 after insert on public.w3m_acquisition_reports
 deferrable initially deferred
-for each row execute function public.w3m_guard_pass_report_requires_signed_deal_terms();
+for each row execute function public.w3m_guard_acquisition_report_requires_signed_deal_terms();
 
 create or replace function public.w3m_register_deal_terms_version(
   p_deal_id uuid, p_terms_hash text, p_canonical_terms jsonb
