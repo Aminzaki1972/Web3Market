@@ -163,6 +163,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-boundary.test.ts
           deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-commit.ts
           deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-commit.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.test.ts
           deno check supabase/functions/w3m-acquisition-verification/bnb-safe-live-read-client.ts
@@ -250,6 +252,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-boundary.test.ts
       - name: Test atomic pre-lock W3M PREPARE composition
         run: deno test supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-commit.test.ts
+      - name: Test authenticated W3M PREPARE HTTP boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.test.ts
       - name: Test strict Safe execution database snapshot adapter
         run: deno test supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.test.ts
       - name: Test block-pinned read-only BNB Safe RPC client
