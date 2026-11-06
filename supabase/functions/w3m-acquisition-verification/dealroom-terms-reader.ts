@@ -7,6 +7,7 @@ import {
 import type { DealRoomW3MServiceResult } from "./dealroom-w3m-service.ts";
 import type { SettlementStage } from "./settlement-gate.ts";
 import type { EthereumDigestRecoveryVerifier } from "./signature-verifier.ts";
+import type { DealCodeAuditBinding } from "./deal-code-audit-binding.ts";
 
 export interface DealRoomTermsSnapshotRow {
   deal_id: unknown; deal_status: unknown; project_id: unknown; buyer_id: unknown; seller_id: unknown;
@@ -47,6 +48,7 @@ export interface CheckDealRoomFromSnapshotInput {
   stage: SettlementStage;
   now: string;
   safeFacts: DealRoomLiveSafeFacts;
+  codeAudit: DealCodeAuditBinding;
 }
 
 const PLATFORM_WALLET = "0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
@@ -122,6 +124,7 @@ export async function evaluateDealRoomTermsSnapshotRow(
     client: input.client,
     deal,
     policy,
+    codeAudit: input.codeAudit,
     stage: input.stage,
     now: input.now,
     safeConfigurationMatches: safeConfigurationMatches(row, input.safeFacts),
