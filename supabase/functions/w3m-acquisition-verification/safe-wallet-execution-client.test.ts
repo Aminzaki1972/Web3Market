@@ -102,7 +102,7 @@ Deno.test("submits only after package hash, BNB chain, exact executor wallet, an
     from: OWNER,
     safeAddress: SAFE,
     executorWallet: OWNER,
-    safeOwners: [OWNER, "0x4444444444444444444444444444444444444444"],
+    safeOwners: [OWNER, "0x3333333333333333333333333333333333333333"],
     safeTransactionHash: HASH,
     state: "SUBMITTED_UNVERIFIED",
   });
