@@ -2,6 +2,7 @@ import { assertEquals, assertRejects } from "jsr:@std/assert@1";
 import {
   claimSafeExecutionAttempt,
   finalizeSafeExecutionAttempt,
+  issueSafeWalletExecutionPackage,
   markSafeExecutionReconciliationRequired,
   persistAcquisitionRegistryBatch,
   recordSafeExecutionBroadcast,
@@ -154,6 +155,48 @@ Deno.test("execution claim rejects malformed Safe transaction hashes before RPC"
     dealId: "deal-2", transactionId: "tx-2", reportId: "report-2",
     safeTxHash: "bad", executorRef: "isolated-executor",
     idempotencyKey: "idempotency-key-for-test-0002",
+  }));
+  assertEquals(calls, 0);
+});
+
+
+Deno.test("wallet package issuance persists the exact actor, package hash, and expiry", async () => {
+  const calls: { name: string; args: Record<string, unknown> }[] = [];
+  const actorId = "23000000-0000-4000-8000-000000000003";
+  const attemptId = "24000000-0000-4000-8000-000000000004";
+  const packageHash = "c".repeat(64);
+  const expiresAt = "2026-11-06T23:59:00.000Z";
+  const client: W3MRpcClient = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      return { data: {
+        issued: true, idempotent_replay: false, attempt_id: attemptId,
+        package_hash: packageHash, expires_at: expiresAt,
+      }, error: null };
+    },
+  };
+  const result = await issueSafeWalletExecutionPackage(client, {
+    attemptId, actorId, packageHash, expiresAt,
+  });
+  assertEquals(result, {
+    attemptId, packageHash, expiresAt, idempotentReplay: false,
+  });
+  assertEquals(calls[0]?.name, "w3m_issue_safe_execution_package");
+  assertEquals(calls[0]?.args.p_actor_id, actorId);
+  assertEquals(calls[0]?.args.p_package_hash, packageHash);
+});
+
+Deno.test("wallet package issuance rejects mismatched or malformed values before RPC", async () => {
+  let calls = 0;
+  const client: W3MRpcClient = {
+    async rpc() {
+      calls++;
+      return { data: null, error: null };
+    },
+  };
+  await assertRejects(() => issueSafeWalletExecutionPackage(client, {
+    attemptId: "attempt-1", actorId: "not-a-uuid", packageHash: "x".repeat(64),
+    expiresAt: "not-a-date",
   }));
   assertEquals(calls, 0);
 });
