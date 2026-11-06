@@ -278,3 +278,15 @@ CI:
 - Follow-up run `42137916304` completed successfully: all 46 job steps completed with zero failures, including the new Deno adapter type-check and tests, application of the new migration to disposable PostgreSQL, and the SQL snapshot-reader contract test. This verifies the isolated reader and adapter contract only; it does not connect the RPC to production or authorize Safe execution.
 
 All files remain on `w3m-protocol-v1-isolated-20261105`. No production function, database schema, data, secrets, Cloudflare configuration, Safe transaction, or funds were changed.
+
+
+## 16. Concrete read-only BNB Safe RPC reader — 2026-11-06
+
+Added `bnb-safe-live-read-client.ts` and its mocked RPC tests. It implements the existing `SafeLiveReadClient` interface using JSON-RPC only:
+- `eth_chainId`, `eth_blockNumber`, `eth_getCode`;
+- Safe `getOwners()`, `getThreshold()`, `nonce()`, and `VERSION()`;
+- Safe `getTransactionHash(...)` with explicit ABI encoding of the dynamic `bytes data` argument.
+
+The factory captures a BNB mainnet block tag (chain 56) and pins every subsequent Safe `eth_call` and `eth_getCode` request to that same block number. It validates ABI offsets, owner array bounds, address words, uint values, version string, and the returned bytes32 transaction hash. The code performs no transaction signing, submission, or broadcast. Tests use an injected mock JSON-RPC client; no live BNB RPC endpoint has been contacted.
+
+CI for this reader and its follow-up block-number mock correction is still in progress at this documentation update. The concrete reader is not yet connected to an execution Edge Function or to any production Safe handler.
