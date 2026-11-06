@@ -901,3 +901,10 @@ The wallet package now carries the authenticated participant's verified profile 
 Added `finalizeW3MSafeDealRelease`, a separate explicit browser action that sends only the attempt ID to the isolated finalization endpoint. The server reloads the exact stored broadcast hash and package window, fetches the canonical BNB receipt, verifies confirmation count, Safe execution event, and the exact two USDT transfers, then calls the atomic finalization RPC. If confirmations or evidence are not yet sufficient, the helper reports `FINALIZATION_PENDING`; it does not mark the deal complete.
 
 The browser flow is now represented in isolated modules as: authenticated package request → connected owner wallet `execTransaction` → authenticated transaction-hash handoff → separate server receipt verification/finalization. The existing production Deal Room page and legacy Safe execute flow have deliberately not been modified or wired to these draft endpoints.
+
+
+## 49. Exact authenticated wallet-to-Safe owner binding — 2026-11-06
+
+Hardened package issuance so the executor is not merely any address that appears among the Safe signatures. The fresh server context now carries the exact wallet verified for the authenticated buyer/seller account. The package builder requires that wallet to be a current live Safe owner and includes `executorWallet` plus the canonical live `safeOwners` set in the package. The browser refuses submission unless the connected account exactly equals `executorWallet`; a different Safe owner cannot use another participant's authenticated package. Tests cover a non-owner being denied package issuance and a different-but-valid Safe owner being denied wallet submission.
+
+CI is running for this additional binding. This remains isolated and undeployed.
