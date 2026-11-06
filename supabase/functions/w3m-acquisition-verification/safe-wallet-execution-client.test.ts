@@ -143,6 +143,7 @@ Deno.test("orchestrates package issuance, connected-wallet submission, and unver
     if (url.endsWith("/w3m-protocol-v1-safe-wallet-package")) {
       assertEquals(init?.method, "POST");
       assertEquals((init?.headers as Record<string, string>)?.Authorization, "Bearer test-access-token");
+       assertEquals((init?.headers as Record<string, string>)?.apikey, "test-publishable-key");
       return new Response(JSON.stringify({
         ok: true, state: "PACKAGE_ISSUED",
         attempt_id: "24000000-0000-4000-8000-000000000004",
@@ -163,6 +164,7 @@ Deno.test("orchestrates package issuance, connected-wallet submission, and unver
     provider: wallet,
     dealId: value.dealId,
     accessToken: "test-access-token",
+    apiKey: "test-publishable-key",
     supabaseUrl: "https://project.supabase.co",
     fetchImpl,
   });
@@ -171,9 +173,10 @@ Deno.test("orchestrates package issuance, connected-wallet submission, and unver
   assertEquals(result.receiptVerified, false);
   assertEquals(result.finalized, false);
   assertEquals(urls.length, 2);
-  assertEquals(submissionBodies[0]?.attempt_id, "24000000-0000-4000-8000-000000000004");
-  assertEquals(submissionBodies[0]?.package_hash, packageHash);
-  assertEquals(submissionBodies[0]?.transaction_hash, OUTER_HASH);
+  const recordedSubmission = submissionBodies[0] as Record<string, unknown> | undefined;
+  assertEquals(recordedSubmission?.attempt_id, "24000000-0000-4000-8000-000000000004");
+  assertEquals(recordedSubmission?.package_hash, packageHash);
+  assertEquals(recordedSubmission?.transaction_hash, OUTER_HASH);
 });
 
 Deno.test("preserves the wallet hash for reconciliation if submission-hash persistence fails", async () => {
@@ -184,6 +187,7 @@ Deno.test("preserves the wallet hash for reconciliation if submission-hash persi
     provider: provider(),
     dealId: value.dealId,
     accessToken: "test-access-token",
+    apiKey: "test-publishable-key",
     supabaseUrl: "https://project.supabase.co",
     fetchImpl: async () => {
       calls++;
