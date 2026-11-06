@@ -52,10 +52,12 @@ Deno.test("atomic PREPARE adapter sends only allowlisted normalized server field
   });
   assertEquals(calls[0]?.name, "w3m_commit_safe_prepare");
   assertEquals(calls[0]?.args.p_deal_id, input.dealId);
-  const facts = call?.args.p_safe_facts as Record<string, unknown>;
+  const call = calls[0];
+  if (!call) throw new Error("Expected one atomic PREPARE RPC call.");
+  const facts = call.args.p_safe_facts as Record<string, unknown>;
   assertEquals(facts.block_number, BigInt(input.safeFacts.blockNumber).toString());
   assertEquals(facts.owners, input.safeFacts.owners.map((owner) => owner.toLowerCase()));
-  const policy = call?.args.p_policy as Record<string, unknown>;
+  const policy = call.args.p_policy as Record<string, unknown>;
   assertEquals(Object.keys(policy).sort(), [
     "chain_id", "deal_amount", "fee_amount", "fee_percent", "platform_wallet",
     "safe_address", "seller_net_amount", "seller_wallet", "status", "token_contract", "token_symbol",
