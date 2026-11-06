@@ -4,6 +4,7 @@ declare
   v_finalizer text;
   v_pin text;
   v_evidence_lock text;
+  v_dispute_guard text;
   v_attempt_trigger boolean;
   v_evidence_trigger boolean;
 begin
@@ -124,6 +125,13 @@ begin
          and not t.tgisinternal
      ) then
     raise exception 'Dispute writes must serialize against the parent deal settlement lock';
+  end if;
+  select pg_get_functiondef('public.w3m_lock_deal_dispute_mutation()'::regprocedure)
+    into v_dispute_guard;
+  if position('FOR UPDATE' in upper(v_dispute_guard))=0
+     or position('V_DEAL.STATUS = ''COMPLETED''' in upper(v_dispute_guard))=0
+     or position('TG_OP = ''DELETE''' in upper(v_dispute_guard))=0 then
+    raise exception 'Dispute mutation guard must lock the deal, block post-settlement reopening, and preserve records';
   end if;
 end;
 $test$;
