@@ -93,5 +93,11 @@ begin
      position('UPDATE PUBLIC.DEAL_MULTISIG_TRANSACTIONS' in upper(v_finalizer)) then
     raise exception 'W3M acquisition revalidation must precede all settlement state changes';
   end if;
+
+  if position('SELECT * INTO V_POLICY' in upper(v_finalizer)) = 0
+     or position('SELECT * INTO V_POLICY' in upper(v_finalizer)) >
+        position('W3M_CURRENT_DEAL_TERMS_JSON' in upper(v_finalizer)) then
+    raise exception 'W3M finalizer must lock release policy before canonical terms revalidation';
+  end if;
 end;
 $test$;
