@@ -401,3 +401,20 @@ No live Safe Edge handler has been modified or wired, and no production deployme
 ### Follow-up: phase-boundary type-check correction
 
 The first CI attempts for the FINALIZE separation change exposed a TypeScript narrowing error: after FINALIZE was returned as denied, a redundant FINALIZE comparison remained in the hash-required expression. The expression was simplified to require hashes only for SIGN and EXECUTE. This is a compile-time correction, not a relaxation of the gate. The latest workflow for the corrected source is run 42166502907 and was still in progress at the time of this note; no pass is claimed yet.
+
+
+## 25. EIP-712 immutable buyer/seller Deal Agreement — approved isolated implementation — 2026-11-06
+
+The protocol owner approved the previously proposed EIP-712 design. The isolated branch now contains the first implementation slice:
+
+- `deal-agreement-eip712.ts` builds standard EIP-712 typed data and independently computes the `0x1901` digest. Domain: `Web3Market Deal Agreement`, version `1`, BNB Chain ID `56`, intentionally no `verifyingContract`; the exact Safe address is an explicit signed message field. The typed struct binds hashed lowercase UUIDs for deal/project/buyer/seller, Safe address, the existing SHA-256 canonical terms hash, positive terms version, and party role (buyer=1, seller=2).
+- Signature verification uses the existing pinned secp256k1/Keccak recovery adapter. It rejects malformed signatures, unsupported recovery IDs, high-S signatures, wrong wallet, wrong role, wrong chain/domain, wrong Safe, wrong terms hash, and wrong version.
+- `deal-agreement-service.ts` loads current exact database terms through a service-role-only reader, recomputes the canonical terms hash, derives the signing role and wallet from the authenticated user plus verified profile, registers/reuses the immutable terms version, and verifies the signature again before persistence. Browser-supplied party IDs, wallet addresses, role, terms hash, or version are not accepted as authority.
+- New isolated Edge Function `w3m-protocol-v1-deal-agreement` has two POST modes: `prepare` returns server-derived EIP-712 typed data; `accept` accepts only deal ID and signature, derives the actor from the bearer session, independently rebuilds and verifies the typed-data digest, then persists through a restricted RPC.
+- Migration `20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql` creates append-only terms-version and party-acceptance ledgers, service-role-only RPCs, RLS, and a private signing snapshot reader. The RPC compares the submitted canonical terms JSON to freshly locked database deal/policy values before creating a version or acceptance. Exact duplicate submissions are idempotent; conflicting signatures for the same party/version are rejected. A changed canonical terms object creates a new version and prior signatures remain historical only.
+- The Safe EXECUTE snapshot reader now exposes the latest terms version and both acceptance records. The strict TypeScript adapter independently recomputes the current terms hash and recovers both signatures against the current verified buyer/seller wallets before clearing the agreement blocker.
+- Added deterministic cryptographic tests with test-only private keys, authenticated request-boundary tests, service tests, adapter tests, and disposable PostgreSQL tests for version reuse/rollover, exact duplicate idempotency, conflicting duplicate rejection, stale-term rejection, service-role-only RPC privileges, and snapshot exposure.
+
+CI run `42167605390` was triggered for the EIP-712 signature/adapter slice and was still running when this note was written. Runs `42167579061` and `42167529177` were also triggered for the earlier service and request-handler commits. No CI pass is claimed here.
+
+**Not yet complete:** the production Deal Room UI is not wired to request typed data or call the new isolated endpoint; no deployed function or production migration exists. The new signing endpoint is isolated and not deployed. No wallet has been asked to sign, no real signature has been submitted, and no Safe transaction or funds are involved.
