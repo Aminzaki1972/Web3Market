@@ -10,6 +10,7 @@ create or replace function public.w3m_commit_safe_prepare(
 language plpgsql security definer
 set search_path = pg_catalog, public
 as $fn$
+#variable_conflict use_variable
 declare
   d public.deals%rowtype;
   pol public.deal_release_policies%rowtype;
@@ -47,7 +48,7 @@ begin
     raise exception 'Current deal-bound W3M PASS authorization required' using errcode='23514';
   end if;
 
-  if p_safe_facts->>'chain_id' <> '56' or p_safe_facts->>'threshold' <> '2'
+  if coalesce(p_safe_facts->>'chain_id','') <> '56' or coalesce(p_safe_facts->>'threshold','') <> '2'
      or coalesce(p_safe_facts->>'nonce','') !~ '^(0|[1-9][0-9]*)$'
      or coalesce(p_safe_facts->>'block_number','') !~ '^(0|[1-9][0-9]*)$'
      or coalesce(p_safe_facts->>'block_hash','') !~ '^0x[0-9a-fA-F]{64}$'
@@ -64,8 +65,8 @@ begin
     raise exception 'Safe/token address malformed or inconsistent' using errcode='23514';
   end if;
 
-  if p_policy->>'chain_id' <> '56' or p_policy->>'token_symbol' <> 'USDT'
-     or p_policy->>'status' <> 'locked'
+  if coalesce(p_policy->>'chain_id','') <> '56' or coalesce(p_policy->>'token_symbol','') <> 'USDT'
+     or coalesce(p_policy->>'status','') <> 'locked'
      or coalesce(p_policy->>'deal_amount','') !~ '^(0|[1-9][0-9]*)(\.[0-9]+)?$'
      or coalesce(p_policy->>'fee_percent','') !~ '^(0|[1-9][0-9]*)(\.[0-9]+)?$'
      or coalesce(p_policy->>'fee_amount','') !~ '^(0|[1-9][0-9]*)(\.[0-9]+)?$'
