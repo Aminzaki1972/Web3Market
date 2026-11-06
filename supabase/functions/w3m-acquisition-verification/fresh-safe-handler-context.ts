@@ -213,7 +213,7 @@ export async function authorizeSafeHandlerPhaseFromFreshSources(
 ): Promise<W3MPhaseAuthorization> {
   return await authorizeSafeHandlerPhase(
     phase,
-    () => loadFreshSafeHandlerContext(dependencies, dealId, now, phase),
+    () => loadFreshSafeHandlerContext(dependencies, dealId, now, phase === "SIGN" ? "SIGN" : "EXECUTE"),
     recoverAndVerify,
     safeTransactionHash,
   );
