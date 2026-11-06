@@ -10,6 +10,9 @@ import type { EthereumDigestRecoveryVerifier } from "./signature-verifier.ts";
 
 export interface DealRoomTermsSnapshotRow {
   deal_id: unknown; project_id: unknown; buyer_id: unknown; seller_id: unknown;
+  project_owner_id: unknown; project_status: unknown;
+  buyer_wallet: unknown; buyer_wallet_verified: unknown; buyer_wallet_verified_at: unknown;
+  seller_wallet: unknown; seller_wallet_verified: unknown; seller_wallet_verified_at: unknown;
   deal_amount: unknown; currency: unknown; expected_amount: unknown;
   deal_chain_id: unknown; deal_safe_address: unknown; deal_token_contract: unknown;
   payment_status: unknown; payment_tx_hash: unknown; delivery_status: unknown;
