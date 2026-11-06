@@ -153,6 +153,25 @@ begin
       using errcode = '23514';
   end if;
 
+  if v_attempt.state not in ('BROADCAST','RECONCILIATION_REQUIRED')
+     or v_attempt.broadcast_tx_hash is null
+     or lower(v_attempt.broadcast_tx_hash) <> lower(p_broadcast_tx_hash)
+     or v_attempt.package_actor_id is null
+     or v_attempt.package_hash is null
+     or v_attempt.package_payload is null
+     or v_attempt.package_issued_at is null
+     or v_attempt.package_expires_at is null
+     or (p_receipt_evidence->>'block_timestamp')::timestamptz < v_attempt.package_issued_at
+     or (p_receipt_evidence->>'block_timestamp')::timestamptz > v_attempt.package_expires_at then
+    raise exception 'Attempt is not bound to this recorded broadcast'
+      using errcode = '23514';
+  end if;
+
+  select * into v_deal from public.deals
+   where id = v_attempt.deal_id
+   for update;
+  if not found then raise exception 'Deal not found' using errcode = 'P0002'; end if;
+
   -- Lock and revalidate the exact persisted acquisition report at finalization.
   select * into v_report from public.w3m_acquisition_reports
    where id = v_attempt.report_id for update;
@@ -226,24 +245,6 @@ begin
     raise exception 'Both deal parties have not accepted the pinned agreement version' using errcode = '23514';
   end if;
 
-  if v_attempt.state not in ('BROADCAST','RECONCILIATION_REQUIRED')
-     or v_attempt.broadcast_tx_hash is null
-     or lower(v_attempt.broadcast_tx_hash) <> lower(p_broadcast_tx_hash)
-     or v_attempt.package_actor_id is null
-     or v_attempt.package_hash is null
-     or v_attempt.package_payload is null
-     or v_attempt.package_issued_at is null
-     or v_attempt.package_expires_at is null
-     or (p_receipt_evidence->>'block_timestamp')::timestamptz < v_attempt.package_issued_at
-     or (p_receipt_evidence->>'block_timestamp')::timestamptz > v_attempt.package_expires_at then
-    raise exception 'Attempt is not bound to this recorded broadcast'
-      using errcode = '23514';
-  end if;
-
-  select * into v_deal from public.deals
-   where id = v_attempt.deal_id
-   for update;
-  if not found then raise exception 'Deal not found' using errcode = 'P0002'; end if;
 
   select * into v_tx from public.deal_multisig_transactions
    where id = v_attempt.transaction_id and deal_id = v_attempt.deal_id
