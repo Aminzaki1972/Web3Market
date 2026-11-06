@@ -29,7 +29,7 @@ const row: DealRoomTermsSnapshotRow = {
   deal_token_contract: "0x55d398326f99059ff775485246999027b3197955",
   payment_status: "confirmed", payment_tx_hash: "0x" + "a".repeat(64),
   delivery_status: "accepted", buyer_approved_at: "2026-11-06T19:00:00+00:00",
-  dispute_status: "none", release_tx_hash: null,
+  dispute_status: "none", release_tx_hash: null, code_audit: auditFixture,
   policy_deal_id: "deal-reader-1", policy_deal_amount: "100.00000000",
   policy_fee_percent: "7.5000", policy_fee_amount: "7.50000000",
   policy_seller_net_amount: "92.50000000", policy_chain_id: "56",
@@ -92,6 +92,7 @@ Deno.test("exact snapshot loader rejects missing policy", async () => {
   await assertRejects(() => checkDealRoomFromExactSnapshot({
     client: client([{ ...row, policy_deal_id: null }]), dealId: "deal-reader-1",
     stage: "PREPARE", now: "2026-11-06T20:00:00.000Z",
+    codeAudit: auditFixture,
     safeFacts: {
       chainId: 56,
       safeAddress: "0x2222222222222222222222222222222222222222",
@@ -112,6 +113,7 @@ Deno.test("exact snapshot loader rejects missing policy", async () => {
 Deno.test("exact snapshot loader rejects ambiguous rows and RPC errors", async () => {
   await assertRejects(() => checkDealRoomFromExactSnapshot({
     client: client([row, row]), dealId: "deal-reader-1", stage: "PREPARE",
+    codeAudit: auditFixture,
     now: "2026-11-06T20:00:00.000Z", safeFacts: {
       chainId: 56,
       safeAddress: "0x2222222222222222222222222222222222222222",
@@ -130,6 +132,7 @@ Deno.test("exact snapshot loader rejects ambiguous rows and RPC errors", async (
   await assertRejects(() => checkDealRoomFromExactSnapshot({
     client: client(null, new Error("denied")), dealId: "deal-reader-1",
     stage: "PREPARE", now: "2026-11-06T20:00:00.000Z",
+    codeAudit: auditFixture,
     safeFacts: {
       chainId: 56,
       safeAddress: "0x2222222222222222222222222222222222222222",
@@ -152,6 +155,7 @@ Deno.test("exact snapshot loader rejects ambiguous rows and RPC errors", async (
 Deno.test("exact snapshot gate blocks non-releasable deals and non-approved tokens",async()=>{
  await assertRejects(()=>checkDealRoomFromExactSnapshot({
   client:client([{...row,deal_status:"draft"}]),dealId:"deal-reader-1",stage:"PREPARE",
+    codeAudit: auditFixture,
   now:"2026-11-06T20:00:00.000Z",safeFacts:{
    chainId:56,safeAddress:"0x2222222222222222222222222222222222222222",
    owners:["0x4444444444444444444444444444444444444444","0x5555555555555555555555555555555555555555","0x2B15cC63eE3b833F502C065767695Fa2B584f8c9"],
@@ -162,6 +166,7 @@ Deno.test("exact snapshot gate blocks non-releasable deals and non-approved toke
  }));
  await assertRejects(()=>checkDealRoomFromExactSnapshot({
   client:client([{...row,currency:"BUSD"}]),dealId:"deal-reader-1",stage:"PREPARE",
+    codeAudit: auditFixture,
   now:"2026-11-06T20:00:00.000Z",safeFacts:{
    chainId:56,safeAddress:"0x2222222222222222222222222222222222222222",
    owners:["0x4444444444444444444444444444444444444444","0x5555555555555555555555555555555555555555","0x2B15cC63eE3b833F502C065767695Fa2B584f8c9"],
@@ -176,6 +181,7 @@ Deno.test("exact snapshot gate blocks non-releasable deals and non-approved toke
    policy_token_contract:"0x3333333333333333333333333333333333333333",
   }]),
   dealId:"deal-reader-1",stage:"PREPARE",now:"2026-11-06T20:00:00.000Z",
+    codeAudit: auditFixture,
   safeFacts:{
    chainId:56,safeAddress:"0x2222222222222222222222222222222222222222",
    owners:["0x4444444444444444444444444444444444444444","0x5555555555555555555555555555555555555555","0x2B15cC63eE3b833F502C065767695Fa2B584f8c9"],
