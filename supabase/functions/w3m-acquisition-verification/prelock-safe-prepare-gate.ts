@@ -8,6 +8,7 @@ import { checkDealRoomWithW3M } from "./dealroom-w3m-service.ts";
 import type { EthereumDigestRecoveryVerifier } from "./signature-verifier.ts";
 import type { SafeConfigurationExpectation, SafeConfigurationFacts } from "./safe-live-configuration-facts.ts";
 import type { AtomicSafePrepareInput } from "./atomic-safe-prepare-rpc-adapter.ts";
+import type { DealCodeAuditBinding } from "./deal-code-audit-binding.ts";
 
 export type PrelockPrepareDatabase = DealRoomTermsRpcClient & W3MRegistryReadClient;
 export interface CanonicalPrelockSafeFacts extends SafeConfigurationFacts {
@@ -40,6 +41,34 @@ function record(value: unknown): value is Record<string, unknown> {
 function required(value: unknown, label: string): string {
   if (typeof value !== "string" || !value.trim()) throw new Error("PREPARE snapshot " + label + " is missing.");
   return value;
+}
+function currentCodeAuditBinding(value: unknown): DealCodeAuditBinding {
+  if (!record(value)) throw new Error("Current mandatory Code Audit binding is missing.");
+  const auditId = required(value.auditId, "Code Audit ID");
+  const repositoryOwner = required(value.repositoryOwner, "Code Audit repository owner");
+  const repositoryName = required(value.repositoryName, "Code Audit repository name");
+  const repositoryUrl = required(value.repositoryUrl, "Code Audit repository URL");
+  const commitSha = required(value.commitSha, "Code Audit commit SHA").toLowerCase();
+  const auditType = required(value.auditType, "Code Audit type");
+  const completedAt = required(value.completedAt, "Code Audit completion time");
+  const auditEvidenceHash = required(value.auditEvidenceHash, "Code Audit manifest hash").toLowerCase();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(auditId) ||
+      !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(repositoryOwner) ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repositoryName) ||
+      repositoryName === "." || repositoryName === ".." ||
+      repositoryUrl !== "https://github.com/" + repositoryOwner + "/" + repositoryName ||
+      !/^[0-9a-f]{40}$/.test(commitSha) ||
+      !["code", "smart_contract", "complete"].includes(auditType) ||
+      !Number.isFinite(Date.parse(completedAt)) ||
+      !/^[0-9a-f]{64}$/.test(auditEvidenceHash)) {
+    throw new Error("Current mandatory Code Audit binding is malformed.");
+  }
+  return {
+    auditId, repositoryOwner, repositoryName, repositoryUrl, commitSha,
+    auditType: auditType as DealCodeAuditBinding["auditType"],
+    completedAt: new Date(Date.parse(completedAt)).toISOString(),
+    auditEvidenceHash,
+  };
 }
 function sameAddressSet(actual: readonly string[], expected: readonly string[]): boolean {
   if (!Array.isArray(actual) || actual.length !== expected.length ||
@@ -132,6 +161,7 @@ export async function authorizePrelockSafePrepare(
       };
     }
 
+    const codeAudit = currentCodeAuditBinding(row.code_audit);
     const paymentConfirmed = row.payment_status === "confirmed" &&
       typeof row.payment_tx_hash === "string" && HASH.test(row.payment_tx_hash);
     const deliveryAccepted = row.delivery_status === "accepted" &&
@@ -149,6 +179,7 @@ export async function authorizePrelockSafePrepare(
         chainId: 56,
         safeAddress,
         tokenContract,
+        codeAudit,
         policy: {
           dealAmount: policyDealAmount,
           feePercent,
