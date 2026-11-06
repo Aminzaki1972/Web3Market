@@ -3,6 +3,7 @@
 import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
 import { canonicalJson } from "./decision-engine.ts";
 import { computeDealTermsHash } from "./deal-terms-hash.ts";
+import type { DealCodeAuditBinding } from "./deal-code-audit-binding.ts";
 import {
   verifyDealTermsAcceptanceSignature,
   type DealAgreementPartyRole,
@@ -127,6 +128,21 @@ export async function loadSafeExecutionDatabaseSnapshot(
   const project = object(root.project, "project");
   const buyerProfile = object(root.buyer_profile, "buyer profile");
   const sellerProfile = object(root.seller_profile, "seller profile");
+  const rawCodeAudit = object(root.code_audit, "current Code Audit manifest binding");
+  const auditType = text(rawCodeAudit.auditType, "Code Audit type");
+  if (!["code", "smart_contract", "complete"].includes(auditType)) {
+    throw new Error("Safe execution snapshot Code Audit type is unsupported.");
+  }
+  const codeAudit: DealCodeAuditBinding = {
+    auditId: text(rawCodeAudit.auditId, "Code Audit ID"),
+    repositoryOwner: text(rawCodeAudit.repositoryOwner, "Code Audit repository owner"),
+    repositoryName: text(rawCodeAudit.repositoryName, "Code Audit repository name"),
+    repositoryUrl: text(rawCodeAudit.repositoryUrl, "Code Audit repository URL"),
+    commitSha: text(rawCodeAudit.commitSha, "Code Audit commit SHA"),
+    auditType: auditType as DealCodeAuditBinding["auditType"],
+    completedAt: text(rawCodeAudit.completedAt, "Code Audit completion timestamp"),
+    auditEvidenceHash: text(rawCodeAudit.auditEvidenceHash, "Code Audit manifest hash"),
+  };
 
   if (text(deal.id, "deal ID") !== dealId ||
       text(policy.deal_id, "policy deal ID") !== dealId ||
@@ -301,6 +317,7 @@ export async function loadSafeExecutionDatabaseSnapshot(
       chainId: Number(deal.chain_id),
       safeAddress: text(deal.safe_address, "deal Safe address"),
       tokenContract: text(deal.token_contract, "deal token contract"),
+      codeAudit,
       policy: {
         dealAmount: exactDecimal(policy.deal_amount, "policy deal amount"),
         feePercent: exactDecimal(policy.fee_percent, "policy fee percent"),
