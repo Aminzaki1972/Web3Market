@@ -161,6 +161,19 @@ begin
 
   -- Exact retries are idempotent even after expiry; they cannot replace the
   -- already-recorded outer transaction hash.
+  select wallet_address, wallet_verified
+    into v_profile_wallet, v_profile_verified
+    from public.profiles
+   where id = p_actor_id
+   for share;
+  if not found or v_profile_verified is distinct from true
+     or v_profile_wallet is null
+     or v_profile_wallet !~ '^0x[0-9a-fA-F]{40}$'
+     or lower(v_profile_wallet) <> lower(coalesce(v_attempt.package_payload->>'executorWallet','')) then
+    raise exception 'Authenticated participant wallet verification changed after package issuance'
+      using errcode = '42501';
+  end if;
+
   -- A fresh submission from CLAIMED must happen before package expiry.
   -- RECONCILIATION_REQUIRED may still record a possibly earlier broadcast;
   -- the finalizer independently checks the canonical receipt block timestamp.
