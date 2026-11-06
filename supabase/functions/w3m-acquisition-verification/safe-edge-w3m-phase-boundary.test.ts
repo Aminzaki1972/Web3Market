@@ -60,14 +60,21 @@ Deno.test("EXECUTE requires exact deal and exact 32-byte Safe transaction hash",
   assertEquals(count, 0);
 });
 
-Deno.test("FINALIZE accepts only its own phase and exact transaction hash", async () => {
+Deno.test("FINALIZE is blocked here even when the requested deal and hash are exact", async () => {
+  let authorizationCalls = 0;
+  let actionCalls = 0;
   const result = await executeSafePhaseOnlyAfterW3M(
     "FINALIZE", { dealId: deal, safeTransactionHash: hash },
-    async () => ({ authorized: true, issues: [], phase: "FINALIZE", dealId: deal, safeTransactionHash: hash.toUpperCase().replace("0X", "0x") }),
-    async () => "finalized",
+    async () => {
+      authorizationCalls += 1;
+      return { authorized: true, issues: [], phase: "FINALIZE", dealId: deal, safeTransactionHash: hash };
+    },
+    async () => { actionCalls += 1; },
   );
-  assertEquals(result.allowed, true);
-  assertEquals(result.value, "finalized");
+  assertEquals(result.allowed, false);
+  assertEquals(result.authorization.issues, ["W3M_FINALIZE_REQUIRES_VERIFIED_RECEIPT_PATH"]);
+  assertEquals(authorizationCalls, 0);
+  assertEquals(actionCalls, 0);
 });
 
 Deno.test("blank expected deal binding blocks protected action before authorization", async () => {
