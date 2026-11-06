@@ -175,6 +175,12 @@ begin
      set package_expires_at = v_package_expiry
    where id = v_attempt;
 
+  if has_function_privilege('anon','public.w3m_record_safe_wallet_submission(uuid,uuid,text,text)','EXECUTE')
+     or has_function_privilege('authenticated','public.w3m_record_safe_wallet_submission(uuid,uuid,text,text)','EXECUTE')
+     or not has_function_privilege('service_role','public.w3m_record_safe_wallet_submission(uuid,uuid,text,text)','EXECUTE') then
+    raise exception 'Wallet submission RPC privileges are not service-role-only';
+  end if;
+
   v_result := public.w3m_record_safe_wallet_submission(
     v_attempt,v_actor,v_package_hash,v_broadcast_hash
   );
