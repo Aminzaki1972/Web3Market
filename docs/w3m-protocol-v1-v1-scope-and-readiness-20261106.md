@@ -133,3 +133,14 @@ A repository-source map now records the candidate source and trust requirements 
 See [Mandatory Evidence Source Map](w3m-protocol-v1-mandatory-evidence-source-map-20261106.md). The map is source-derived only: no live database was queried, and no migration was applied. Several runtime gaps remain, including exact eligible audit selection and immutable commit binding, complete dispute-row loading, provider credential/runtime configuration, protected signing custody, and the full issuer composition/read-back verification.
 
 This is documentation-only. No new CI run was triggered. The latest comprehensive code CI remains run [42244339970](https://github.com/Aminzaki1972/Web3Market/actions/runs/42244339970), successful on code commit `ba5f6bc5108a4aabede797315afafa9473b2d112`; later branch changes are documentation-only and have not been rerun.
+
+
+## 13. Exact Code Audit evidence selector — 2026-11-06
+
+Added an isolated pure selector/normalizer and Deno tests:
+- `supabase/functions/w3m-acquisition-verification/code-audit-evidence-selector.ts`
+- `supabase/functions/w3m-acquisition-verification/code-audit-evidence-selector.test.ts`
+
+The selector accepts only an explicitly selected completed audit row and requires exact project UUID, repository owner/name, immutable 40-character commit SHA, supported audit type, non-future/fresh completion time, bounded score, and persisted analysis method. It emits a mandatory `CODE_AUDIT` evidence item whose source version is the exact commit and whose content hash covers the normalized audit snapshot. It deliberately does not query the database or choose a “latest” audit; the future trusted loader must select the audit ID from authoritative project/deal linkage using a service-role client.
+
+Negative tests cover wrong project, wrong repository, wrong commit, incomplete/unsupported/stale/future audit, missing analysis provenance, and invalid score. The tests were added to the branch but have **not yet been executed by CI**. No runtime loader was wired and no production schema was inspected or changed. This is not a live evidence source until the authoritative audit-ID selection and server-side read are implemented.
