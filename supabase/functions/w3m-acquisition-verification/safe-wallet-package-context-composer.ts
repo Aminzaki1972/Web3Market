@@ -69,6 +69,7 @@ export async function loadFreshSafeWalletPackageContext(
     chainId: Number(deal.chain_id),
     safeAddress: requiredText(deal.safe_address, "deal Safe"),
     tokenContract: requiredText(deal.token_contract, "deal token"),
+    codeAudit: fresh.codeAudit,
     policy: {
       dealAmount: exactDecimal(policy.deal_amount, "policy deal amount"),
       feePercent: exactDecimal(policy.fee_percent, "policy fee percent"),
