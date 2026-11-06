@@ -1,4 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
+import { computeAuditManifest } from "./audit-manifest.ts";
 import {
   authorizePrelockSafePrepare,
   type PrelockPrepareDatabase,
@@ -12,6 +13,27 @@ const BUYER="0x2222222222222222222222222222222222222222";
 const SELLER="0x3333333333333333333333333333333333333333";
 const PLATFORM="0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
 const HASH="0x"+"a".repeat(64);
+
+const AUDIT="75000000-0000-4000-8000-000000000005";
+const COMMIT="c".repeat(40);
+const auditRow={
+ id:AUDIT,status:"completed",commit_sha:COMMIT,repo_owner:"Aminzaki1972",repo_name:"Web3Market",
+ completed_at:"2026-11-05T00:00:00.000Z",engine_version:"w3m-code-audit-2.0",
+ files_scanned:1,critical_count:0,high_count:0,medium_count:0,low_count:0,info_count:0,
+ analysis_progress:{evidence_version:"w3m-audit-evidence-v1",tree_truncated:false,persisted_file_count:1},
+};
+const auditFile={audit_id:AUDIT,path:"README.md",language:"markdown",line_count:1,selected_tier:"core"};
+const auditManifest=await computeAuditManifest({audit:auditRow,files:[auditFile],findings:[]});
+function manifestFrom(table:string) {
+ const rows=table==="code_audits"?[auditRow]:table==="code_audit_files"?[auditFile]:[];
+ const query:any={
+  select:()=>query,eq:()=>query,order:()=>query,limit:()=>query,
+  range:(from:number,to:number)=>{query.page=rows.slice(from,to+1);return query;},
+  maybeSingle:async()=>({data:auditRow,error:null}),
+  then:(resolve:any,reject:any)=>Promise.resolve({data:query.page??rows,error:null}).then(resolve,reject),
+ };
+ return {select:()=>query};
+}
 function snapshot(overrides:Record<string,unknown>={}) {
  return {deal_id:DEAL,deal_status:"funded",deal_chain_id:"56",project_id:"72000000-0000-4000-8000-000000000002",
   buyer_id:"73000000-0000-4000-8000-000000000003",seller_id:"74000000-0000-4000-8000-000000000004",
@@ -22,13 +44,13 @@ function snapshot(overrides:Record<string,unknown>={}) {
   deal_safe_address:SAFE,deal_token_contract:"0x55d398326f99059ff775485246999027b3197955",
   payment_status:"confirmed",payment_tx_hash:"0x"+"b".repeat(64),delivery_status:"accepted",
   buyer_approved_at:"2026-11-05T00:00:00Z",dispute_status:"none",release_tx_hash:null,
-  code_audit:{auditId:"75000000-0000-4000-8000-000000000005",repositoryOwner:"Aminzaki1972",
+  code_audit:{auditId:AUDIT,repositoryOwner:"Aminzaki1972",
    repositoryName:"Web3Market",repositoryUrl:"https://github.com/Aminzaki1972/Web3Market",
-   commitSha:"c".repeat(40),auditType:"complete",completedAt:"2026-11-05T00:00:00Z",auditEvidenceHash:"d".repeat(64)},
+   commitSha:COMMIT,auditType:"complete",completedAt:"2026-11-05T00:00:00Z",auditEvidenceHash:auditManifest.digest},
   ...overrides};
 }
 function deps(overrides:{snapshot?:unknown;policy?:unknown;facts?:Record<string,unknown>}={}):PrelockSafePrepareDependencies {
- const database={rpc:async(name:string)=>{
+ const database={from:(table:string)=>manifestFrom(table),rpc:async(name:string)=>{
   if(name==="w3m_read_dealroom_terms_snapshot")return {data:overrides.snapshot??[snapshot()],error:null};
   if(name==="w3m_read_validated_release_policy")return {data:overrides.policy??[{
    valid:"true",deal_amount:"100.000000000000000001",fee_percent:"7.500000000000000000",
@@ -111,16 +133,7 @@ Deno.test("pre-lock PREPARE rejects non-USDT deals and malformed payment transac
  assertEquals(denomination.authorized,false);
  assertEquals(denomination.issues,["W3M_PRELOCK_PARTY_OR_TERMS_INVALID"]);
  const base=deps({snapshot:[snapshot({payment_tx_hash:"not-a-transaction-hash"})]});
- const database={...base.database,from(_table:string){
-  return {select(_columns:string){
-   const query={eq(){return query;},order(){return query;},limit(){return query;},
-    maybeSingle(){return Promise.resolve({data:null,error:null});},
-    then(onfulfilled?:((value:{data:unknown;error:unknown})=>unknown)|null,onrejected?:((reason:unknown)=>unknown)|null){
-     return Promise.resolve({data:null,error:null}).then(onfulfilled??undefined,onrejected??undefined);
-    }};
-   return query as never;
-  }};
- }} as unknown as PrelockPrepareDatabase;
+ const database={...base.database,from:(table:string)=>manifestFrom(table)} as unknown as PrelockPrepareDatabase;
  const payment=await authorizePrelockSafePrepare(
   {...base,database},DEAL,"2026-11-06T00:00:00Z",verifier,
  );
