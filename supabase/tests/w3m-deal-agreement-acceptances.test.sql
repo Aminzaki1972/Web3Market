@@ -220,6 +220,7 @@ begin
   end;
   v_canonical := jsonb_set(v_canonical,'{codeAudit,auditId}',to_jsonb('89100000-0000-4000-8000-000000000009'::text));
   v_canonical := jsonb_set(v_canonical,'{codeAudit,completedAt}',to_jsonb('2026-11-06T18:00:00.000Z'::text));
+  v_canonical := jsonb_set(v_canonical,'{codeAudit,commitSha}',to_jsonb(repeat('f',40)));
   v_canonical := jsonb_set(v_canonical,'{codeAudit,auditEvidenceHash}',to_jsonb(repeat('f',64)));
 
   update public.deals set amount=101 where id=v_deal;
@@ -324,6 +325,19 @@ begin
      or has_function_privilege('authenticated','public.w3m_read_deal_agreement_signing_snapshot(uuid)','EXECUTE')
      or not has_function_privilege('service_role','public.w3m_read_deal_agreement_signing_snapshot(uuid)','EXECUTE') then
     raise exception 'Private signing snapshot RPC is not service-role-only';
+  end if;
+  if has_function_privilege('anon','public.w3m_create_deal_code_audit_snapshot(uuid,uuid,text,text,integer,integer)','EXECUTE')
+     or has_function_privilege('authenticated','public.w3m_create_deal_code_audit_snapshot(uuid,uuid,text,text,integer,integer)','EXECUTE')
+     or not has_function_privilege('service_role','public.w3m_create_deal_code_audit_snapshot(uuid,uuid,text,text,integer,integer)','EXECUTE')
+     or has_function_privilege('anon','public.w3m_read_deal_audit_snapshot_context(uuid)','EXECUTE')
+     or has_function_privilege('authenticated','public.w3m_read_deal_audit_snapshot_context(uuid)','EXECUTE')
+     or not has_function_privilege('service_role','public.w3m_read_deal_audit_snapshot_context(uuid)','EXECUTE') then
+    raise exception 'Independent Deal Code Audit snapshot RPCs are not service-role-only';
+  end if;
+  if has_table_privilege('authenticated','public.w3m_deal_code_audit_snapshots','SELECT')
+     or has_table_privilege('authenticated','public.w3m_deal_code_audit_snapshots','INSERT')
+     or has_table_privilege('service_role','public.w3m_deal_code_audit_snapshots','INSERT') then
+    raise exception 'Direct access bypasses the immutable Deal Code Audit snapshot RPC';
   end if;
   if has_table_privilege('authenticated','public.w3m_deal_agreement_acceptances','SELECT')
      or has_table_privilege('authenticated','public.w3m_deal_agreement_acceptances','INSERT')
