@@ -687,3 +687,16 @@ The new SQL test covers first commit, exact idempotent replay, signed-row preser
 - The persisted deal amount and `deals.platform_fee_percent` are now both required to equal the authorized exact policy values; BNB chain comparison is null-safe.
 - The SQL test fixture's deal identifiers were corrected to use explicit PL/pgSQL variable names.
 - Latest code refinement commit: `53c7faf765d70023f4205f340b9ea5380574f480`. The newest test commit is `66046f42e9cab503bac04a389636807f3f1d059a`. No successful CI result has been verified for these new SQL files yet.
+
+
+## 35. Atomic PREPARE server-side RPC adapter — isolated — 2026-11-06
+
+Added `atomic-safe-prepare-rpc-adapter.ts` and focused tests. The adapter calls only `w3m_commit_safe_prepare`; it never performs separate PostgREST writes. It accepts a server-side authenticated actor ID, a deal-bound PASS authorization result, a server-derived policy, and canonical Safe facts. It validates UUIDs, PASS/deal binding, report version and SHA-256 hashes, authorization expiry, exact BNB USDT contract and platform wallet, Safe threshold/chain/address, distinct owner addresses, nonce, block hash, and canonical decimal policy strings before RPC.
+
+The adapter builds fresh allowlisted JSON objects rather than forwarding arbitrary caller objects. It normalizes EVM addresses, converts the canonical hexadecimal BNB block quantity to the decimal representation expected by the SQL RPC, and checks the RPC response's commit flag, idempotency flag, policy/transaction UUIDs, and allowed transaction status. RPC errors or malformed responses fail closed. Tests cover the allowlist, normalization, mismatched PASS/deal binding, malformed hash, invalid Safe threshold, wrong token contract, RPC error, and malformed response.
+
+The disposable fixture was aligned with production columns used by the RPC (`deals.currency`, `deal_release_policies.fee_percent`, and audit old/new status fields). Workflow path filters now include the new migration, SQL test, and shared fixture on the isolated branch; the duplicate migration application was removed so the policy reader is applied once before the atomic PREPARE RPC.
+
+**Boundary limitation:** this is a persistence adapter, not the cryptographic W3M gate. Its typed input is trusted server context and must be created only after the persisted evidence/report signatures, exact current Deal Room terms, verified buyer/seller agreement, and canonical Safe configuration have independently passed. Do not expose this adapter to browser code or allow request JSON to populate its authorization object. The SQL RPC independently rebinds live database fields but cannot itself prove the report signature or query BNB.
+
+**Status:** adapter and tests are committed on the isolated branch. CI must still complete before treating the adapter, SQL migration, fixture, or SQL tests as verified. Nothing has been wired into the deployed PREPARE Edge Functions, and no production migration/function/deal/Safe was changed.
