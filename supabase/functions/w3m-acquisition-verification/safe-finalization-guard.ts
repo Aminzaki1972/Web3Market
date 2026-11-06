@@ -57,6 +57,7 @@ export function validateVerifiedSafeReceipt(
 ): { valid: true } | { valid: false; issues: string[] } {
   const issues: string[] = [];
   if (!HASH.test(expected.broadcastTxHash) || !HASH.test(expected.safeTxHash)) issues.push("EXPECTED_HASH_INVALID");
+  if (!Number.isSafeInteger(expected.minConfirmations) || expected.minConfirmations < 1) issues.push("EXPECTED_CONFIRMATION_POLICY_INVALID");
   if (evidence.chain_id !== 56) issues.push("RECEIPT_CHAIN_MISMATCH");
   if (typeof evidence.transaction_hash !== "string" ||
       evidence.transaction_hash.toLowerCase() !== expected.broadcastTxHash.toLowerCase()) issues.push("BROADCAST_HASH_MISMATCH");
