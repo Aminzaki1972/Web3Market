@@ -19,6 +19,18 @@ begin
     raise exception 'W3M report INSERT serialization trigger is missing';
   end if;
 
+  declare
+    v_writer text;
+  begin
+    select pg_get_functiondef(
+      'public.w3m_lock_report_version_append()'::regprocedure
+    ) into v_writer;
+    if position('PG_ADVISORY_XACT_LOCK' in upper(v_writer))=0
+       or position('NEW.DEAL_ID' in upper(v_writer))=0 then
+      raise exception 'W3M report writer does not lock by NEW.deal_id';
+    end if;
+  end;
+
   select pg_get_functiondef(
     'public.w3m_finalize_safe_execution_attempt(uuid,text,uuid,jsonb)'::regprocedure
   ) into v_finalizer;
@@ -29,6 +41,10 @@ begin
 
   if position('V_ATTEMPT.DEAL_ID::TEXT' in upper(v_finalizer))=0 then
     raise exception 'W3M finalizer advisory lock is not keyed by the attempt deal ID';
+  end if;
+  if position('PG_ADVISORY_XACT_LOCK' in upper(v_finalizer)) >
+     position('SELECT * INTO V_DEAL' in upper(v_finalizer)) then
+    raise exception 'W3M finalizer must acquire the shared lock before reading the deal';
   end if;
 end;
 $test$;
