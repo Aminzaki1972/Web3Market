@@ -270,6 +270,6 @@ export async function acceptDealAgreementWithAuditSnapshot(
   source: AuditManifestSource,
   input: { dealId: string; actorId: string; signature: string },
 ): Promise<AcceptedDealAgreement> {
-  await prepareDealAuditSnapshot(client, source, input.dealId);
+  await prepareDealAuditSnapshot(client, source, input.dealId, input.actorId);
   return await acceptDealAgreement(client, input);
 }
