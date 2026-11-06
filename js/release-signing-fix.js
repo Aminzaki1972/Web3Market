@@ -4,7 +4,7 @@ import {
   executeW3MDealReleaseFromWallet,
   recordW3MSafeWalletSubmission,
   verifyW3MDealReleaseFromServer,
-} from "./w3m-safe-wallet-execution-client.js";
+} from "./w3m-safe-wallet-execution-client.js?v=20261106-w3m-v1";
 
 "use strict";
 (() => {
@@ -14,6 +14,7 @@ import {
   const API_KEY = "sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
   const PENDING_KEY = "w3m-safe-attempt:" + String(DEAL_ID || "");
   const ZERO = "0x0000000000000000000000000000000000000000";
+  let memoryPending = null;
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
@@ -66,19 +67,21 @@ import {
   function readPending() {
     try {
       const value = JSON.parse(sessionStorage.getItem(PENDING_KEY) || "null");
-      if (!value || typeof value.attemptId !== "string") return null;
-      return value;
-    } catch {
-      return null;
-    }
+      if (value && typeof value.attemptId === "string") memoryPending = value;
+    } catch { /* retain in-memory reconciliation details */ }
+    return memoryPending;
   }
 
   function savePending(value) {
-    sessionStorage.setItem(PENDING_KEY, JSON.stringify(value));
+    memoryPending = value;
+    try { sessionStorage.setItem(PENDING_KEY, JSON.stringify(value)); }
+    catch { /* keep the hash in memory; never re-send automatically */ }
   }
 
   function clearPending() {
-    sessionStorage.removeItem(PENDING_KEY);
+    memoryPending = null;
+    try { sessionStorage.removeItem(PENDING_KEY); }
+    catch { /* no persistent session entry to clear */ }
   }
 
   async function wireFallback(client) {
