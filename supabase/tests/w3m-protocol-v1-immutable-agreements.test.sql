@@ -50,7 +50,11 @@ begin
 
     v_blocked := false;
     begin
-      execute format('truncate table public.%I',v_table);
+      if v_table = 'w3m_deal_terms_versions' then
+        execute 'truncate table public.w3m_deal_agreement_acceptances, public.w3m_deal_terms_versions';
+    else
+        execute format('truncate table public.%I',v_table);
+    end if;
     exception when sqlstate '55000' then v_blocked := true;
     end;
     if not v_blocked then raise exception 'TRUNCATE was not blocked on %',v_table; end if;
