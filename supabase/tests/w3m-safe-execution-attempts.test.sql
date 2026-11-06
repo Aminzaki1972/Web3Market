@@ -169,7 +169,7 @@ begin
     'execution_success',true,'execution_failure',false,
     'safe_address','0x2222222222222222222222222222222222222222',
     'safe_tx_hash',v_safe_hash,
-    'token_contract','0x3333333333333333333333333333333333333333',
+    'token_contract','0x55d398326f99059ff775485246999027b3197955',
     'transfers',jsonb_build_array(
       jsonb_build_object('from_address','0x2222222222222222222222222222222222222222',
         'to_address','0x4444444444444444444444444444444444444444','amount','92.5'),
