@@ -25,11 +25,11 @@ The trusted context RPC also receives the authenticated actor ID and rejects cal
 A deferred database constraint trigger, `w3m_acquisition_report_requires_signed_deal_terms`, now blocks every acquisition report unless:
 - the latest deal terms still match the current deal and saved Code Audit snapshot;
 - both buyer and seller have accepted that exact terms version; and
-- the report contains exactly one mandatory PASS `CODE_AUDIT` evidence row matching the saved audit ID, commit, manifest version/hash and file/finding counts.
+- the report contains exactly one mandatory `CODE_AUDIT` evidence row matching the saved audit ID, commit, manifest version/hash, file/finding counts, score, risk level and analysis method.
 
-The SQL regression test begins with zero acquisition reports, creates a completed source audit and snapshot, rejects a PASS report before signatures, accepts it after both signatures with matching audit evidence, and proves that a newer audit changes the current binding. It also checks snapshot idempotency and append-only protection. Non-PASS reports are subject to the same signature and audit-snapshot binding rule.
+The SQL regression test begins with zero acquisition reports, creates a completed source audit and snapshot, rejects both PASS and BLOCKED reports before signatures, accepts a PASS report after both signatures with matching audit evidence, and proves that a newer audit changes the current binding. It also checks snapshot idempotency and append-only protection. The deferred guard applies to UUID-backed W3M deals; the authenticated W3M report endpoint accepts UUID deal IDs only.
 
-The code and migration remain isolated on `w3m-protocol-v1-isolated-20261105`. The latest complete validation result is still pending; earlier SQL CI runs exposed migration-tail corruption and a TypeScript fixture typing issue, both of which have been corrected in later commits. Do not treat the latest branch as validated until the current workflow completes successfully. The snapshot RPC and migration have not been applied to production, and the Edge Function deployment/request-handler wiring has not been deployed or verified.
+The code and migration remain isolated on `w3m-protocol-v1-isolated-20261105`. The latest complete validation result is still pending; earlier SQL CI runs exposed migration-tail corruption and a TypeScript fixture typing issue, both of which have been corrected in later commits. Do not treat the latest branch as validated until the current workflow completes successfully. The snapshot RPC and migration have not been applied to production. The agreement Edge Function and request-handler are wired in the isolated source and included in CI checks, but have not been deployed or enabled.
 
 ## Registry model
 
