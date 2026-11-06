@@ -665,3 +665,18 @@ The complete live `prepare-deal-release` v43 source was fetched again and compar
 6. Do not treat the legacy 8-decimal validator as the W3M canonical fee proof. Validate exact decimal text, 18-decimal policy constraint, BNB chain 56, the configured USDT denomination/token address, Safe address, verified party wallets, payment hash, and current Safe nonce/block facts before persistence.
 
 **Important correction to earlier design notes:** the release-policy immutability trigger makes a naive `upsert(... onConflict: deal_id)` unsafe for a locked policy if the nonce or any immutable routing/financial field changes. The atomic RPC must explicitly distinguish an idempotent identical retry from a changed binding that requires a hard denial. No SQL migration has been authored or deployed yet; no production object or data was changed.
+
+
+## 34. Atomic PREPARE RPC draft — isolated implementation — 2026-11-06
+
+Added `supabase/migrations/20261107070000_w3m_protocol_v1_atomic_safe_prepare.sql` and a disposable PostgreSQL test script `supabase/tests/w3m-protocol-v1-atomic-safe-prepare.test.sql`. The isolated workflow now includes the migration and test.
+
+The RPC is service-role-only and serializes per-deal PREPARE using `SELECT ... FOR UPDATE` on the parent deal row, without updating that row. It rebinds the actor to a buyer/seller participant, payment and delivery state, dispute state, BNB chain 56, USDT denomination, Safe/token addresses, verified profile wallets, the 2-of-3 Safe owner set, canonical Safe nonce/block facts, exact 18-decimal fee arithmetic, and a current deal-bound W3M PASS authorization envelope.
+
+Within one PostgreSQL transaction it inserts/updates the release policy, exactly one `release_to_seller` transaction, and the explicit deal audit row. Any database/trigger failure aborts the transaction. It rejects duplicate release rows, preserves signed/submitted/confirmed/cancelled transaction rows, allows only an identical locked-policy retry, and rejects changed nonce or financial/routing binding after lock. It does not assume a nonexistent unique `(deal_id, action)` constraint.
+
+The new SQL test covers first commit, exact idempotent replay, signed-row preservation, changed-nonce denial, service-role-only grants, and forced audit-write failure with rollback assertions. The workflow runs it only against its disposable PostgreSQL service.
+
+**Important precision finding:** production `validate_deal_release_policy(uuid)` computes the fee rounded to 8 decimals and can reject an otherwise valid locked policy whose canonical fee uses 18 decimals. The atomic W3M RPC therefore does not call that legacy validator; it independently rechecks the underlying payment, delivery, buyer-approval, dispute, chain, Safe, token, party-wallet and exact fee conditions. This avoids allowing the old 8-decimal fee calculation to veto or redefine the W3M 18-decimal agreement.
+
+**Status:** migration and SQL test are committed to the isolated branch, but this turn has not yet established a successful CI run for the new files. The RPC is not wired into the live `prepare-deal-release` or `prepare-safe-release-tx` handlers, has not been deployed, and does not protect production transactions yet.
