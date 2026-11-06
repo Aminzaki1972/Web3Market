@@ -247,6 +247,13 @@ begin
       using errcode = '23514';
   end if;
 
+  -- The deal row is already locked above. A newly opened dispute must block
+  -- settlement even when the previously signed acquisition report passed.
+  if v_deal.dispute_status is distinct from 'none' then
+    raise exception 'An active or unresolved deal dispute blocks Safe settlement'
+      using errcode = '23514';
+  end if;
+
   -- Lock the release policy before rebuilding canonical terms. The canonical
   -- terms function reads this row, so locking it first prevents a policy
   -- mutation between terms comparison and the later settlement checks.
