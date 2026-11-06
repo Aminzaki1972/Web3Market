@@ -99,7 +99,7 @@ Deno.test("pre-lock PREPARE rejects non-USDT deals and malformed payment transac
  );
  assertEquals(denomination.authorized,false);
  assertEquals(denomination.issues,["W3M_PRELOCK_PARTY_OR_TERMS_INVALID"]);
- const base=deps();
+ const base=deps({snapshot:[snapshot({payment_tx_hash:"not-a-transaction-hash"})]});
  const database={...base.database,from(_table:string){
   return {select(_columns:string){
    const query={eq(){return query;},order(){return query;},limit(){return query;},
