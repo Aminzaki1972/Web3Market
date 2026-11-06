@@ -352,6 +352,15 @@ begin
         'to_address','0x4444444444444444444444444444444444444444','amount','92.5'),
       jsonb_build_object('from_address','0x2222222222222222222222222222222222222222',
         'to_address','0x2B15cC63eE3b833F502C065767695Fa2B584f8c9','amount','7.5')
+    ),
+    'acquisition_attestation',jsonb_build_object(
+      'authorized',true,'signature_valid',true,
+      'report_id',v_report::text,'report_version',1,
+      'report_hash',repeat('d',64),'evidence_hash',repeat('c',64),
+      'signer_key_id','attempt-test-key',
+      'terms_version_id',v_terms_result->>'terms_version_id',
+      'terms_version',1,'terms_hash',v_terms_hash,
+      'recomputed_evidence_hash',repeat('c',64)
     )
   );
 
