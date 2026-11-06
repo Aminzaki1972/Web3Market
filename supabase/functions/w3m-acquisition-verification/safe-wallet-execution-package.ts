@@ -43,6 +43,8 @@ export interface SafeWalletExecutionPackage {
   agreementTermsVersionId: string;
   agreementTermsHash: string;
   safeAddress: string;
+  executorWallet: string;
+  safeOwners: string[];
   safeTransactionHash: string;
   safeVersion: string;
   readBlockNumber: string;
@@ -105,6 +107,11 @@ export async function buildSafeWalletExecutionPackage(
     throw new Error("Package issue or expiry timestamp is invalid or exceeds the two-minute limit.");
   }
   const agreement = validAgreement(snapshot);
+  const executorWallet = requiredText(snapshot.executorWallet, "authenticated executor wallet");
+  if (!ADDRESS.test(executorWallet) ||
+      !facts.owners.some((owner) => sameAddress(owner, executorWallet))) {
+    throw new Error("Authenticated executor wallet is not a current Safe owner.");
+  }
   const guardInput: SafeExecutionGuardInput = snapshot.guardInput;
   if (!guardInput || guardInput.transaction?.deal_id !== snapshot.dealId ||
       guardInput.settlement?.dealId !== snapshot.dealId ||
@@ -181,6 +188,8 @@ export async function buildSafeWalletExecutionPackage(
     agreementTermsVersionId: agreement.termsVersionId,
     agreementTermsHash: agreement.termsHash,
     safeAddress,
+    executorWallet: executorWallet.toLowerCase(),
+    safeOwners: facts.owners.map((owner) => owner.toLowerCase()).sort(),
     safeTransactionHash: safeHash,
     safeVersion: facts.version,
     readBlockNumber: facts.readBlockNumber,
