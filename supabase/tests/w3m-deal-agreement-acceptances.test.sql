@@ -19,8 +19,8 @@ declare
   v_version_id uuid;
   v_snapshot jsonb;
 begin
-  insert into public.projects(id,owner_id,status)
-    values (v_project,v_seller,'active');
+  insert into public.projects(id,owner_id,status,github_url)
+    values (v_project,v_seller,'active','https://github.com/Aminzaki1972/Web3Market');
   insert into public.profiles(id,wallet_address,wallet_verified,wallet_verified_at)
     values
       (v_buyer,'0x5555555555555555555555555555555555555555',true,now()),
@@ -46,6 +46,33 @@ begin
     92.5,7.5,7.5,7,'USDT'
   );
 
+  -- The immutable W3M report registry supplies exactly one current, passing
+  -- CODE_AUDIT record whose evidence hash is the full Audit Manifest V1 digest.
+  insert into public.w3m_acquisition_reports(
+    id,deal_id,project_id,report_version,status,engine_version,evidence_hash,
+    report_hash,report_payload,signer_key_id,report_signature,issued_at,expires_at
+  ) values (
+    '86000000-0000-4000-8000-000000000006',v_deal::text,v_project::text,1,'PASS',
+    'w3m-acquisition-verification-1.0.0',repeat('a',64),repeat('b',64),
+    jsonb_build_object('reportId','86000000-0000-4000-8000-000000000006'),
+    'test-signer-v1','0x' || repeat('d',130),now()-interval '5 minutes',now()+interval '1 day'
+  );
+  insert into public.w3m_acquisition_evidence(
+    report_id,evidence_type,source_table,source_record_id,source_version,evidence_hash,
+    result,mandatory,observed_at,valid_until,details
+  ) values (
+    '86000000-0000-4000-8000-000000000006','CODE_AUDIT','code_audits',
+    '87000000-0000-4000-8000-000000000007',repeat('a',40),repeat('c',64),
+    'PASS',true,now()-interval '5 minutes',now()+interval '1 day',
+    jsonb_build_object(
+      'auditStatus','completed','auditType','code','commitSha',repeat('a',40),
+      'repositoryOwner','Aminzaki1972','repositoryName','Web3Market',
+      'completedAt','2026-11-01T10:00:00.000Z',
+      'auditManifestVersion','w3m-audit-manifest-v1','auditManifestHash',repeat('c',64),
+      'auditFileCount',190,'auditFindingCount',25
+    )
+  );
+
   -- One wallet cannot represent both buyer and seller consent.
   update public.profiles
      set wallet_address='0x4444444444444444444444444444444444444444'
@@ -65,6 +92,16 @@ begin
     'currency','USDT','expectedAmount','100','chainId',56,
     'safeAddress','0x2222222222222222222222222222222222222222',
     'tokenContract','0x3333333333333333333333333333333333333333',
+    'codeAudit',jsonb_build_object(
+      'auditId','87000000-0000-4000-8000-000000000007',
+      'repositoryOwner','Aminzaki1972',
+      'repositoryName','Web3Market',
+      'repositoryUrl','https://github.com/Aminzaki1972/Web3Market',
+      'commitSha',repeat('a',40),
+      'auditType','code',
+      'completedAt','2026-11-01T10:00:00.000Z',
+      'auditEvidenceHash',repeat('c',64)
+    ),
     'releasePolicy',jsonb_build_object(
       'dealAmount','100','feePercent','7.5','feeAmount','7.5',
       'sellerNetAmount','92.5','chainId',56,
@@ -136,7 +173,8 @@ begin
   v_snapshot := public.w3m_read_deal_agreement_signing_snapshot(v_deal);
   if v_snapshot->'deal'->>'id' <> v_deal::text
      or v_snapshot->'buyer_profile'->>'wallet_address' <> '0x5555555555555555555555555555555555555555'
-     or v_snapshot->'policy'->>'safe_nonce' <> '7' then
+     or v_snapshot->'policy'->>'safe_nonce' <> '7'
+     or v_snapshot->'code_audit'->>'auditEvidenceHash' <> repeat('c',64) then
     raise exception 'Private agreement signing snapshot did not return the exact server-side party and policy facts';
   end if;
 
