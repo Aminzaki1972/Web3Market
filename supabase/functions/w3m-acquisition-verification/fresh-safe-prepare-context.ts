@@ -73,6 +73,17 @@ export async function authorizeSafePrepareFromFreshSources(
     }
     const buyerWallet = required(row.buyer_wallet, "verified buyer wallet");
     const sellerWallet = required(row.seller_wallet, "verified seller wallet");
+    const buyerVerifiedAt = required(row.buyer_wallet_verified_at, "buyer wallet verification time");
+    const sellerVerifiedAt = required(row.seller_wallet_verified_at, "seller wallet verification time");
+    const buyerVerifiedTime = Date.parse(buyerVerifiedAt);
+    const sellerVerifiedTime = Date.parse(sellerVerifiedAt);
+    const nowTime = Date.parse(now);
+    if (row.project_owner_id !== row.seller_id ||
+        row.buyer_wallet_verified !== "true" || row.seller_wallet_verified !== "true" ||
+        !Number.isFinite(buyerVerifiedTime) || !Number.isFinite(sellerVerifiedTime) ||
+        buyerVerifiedTime > nowTime || sellerVerifiedTime > nowTime) {
+      return { authorized: false, issues: ["W3M_PREPARE_PROJECT_OR_WALLET_VERIFICATION_INVALID"], phase: "PREPARE", dealId };
+    }
     const policySellerWallet = required(row.policy_seller_wallet, "policy seller wallet");
     const platformWallet = required(row.policy_platform_wallet, "policy platform wallet");
     const safeAddress = required(row.deal_safe_address, "deal Safe address");
