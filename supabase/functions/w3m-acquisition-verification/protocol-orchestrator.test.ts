@@ -5,18 +5,18 @@ import type { ProtocolOrchestratorInput } from "./protocol-orchestrator.ts";
 import type { AcquisitionEvidence, EvidenceType } from "./decision-engine.ts";
 import type { AssetTransferEvent } from "./asset-transfer-orchestrator.ts";
 
-const DEAL = "deal-orch-1";
-const PROJECT = "project-orch-1";
+const DEAL = "00000000-0000-4000-8000-000000000101";
+const PROJECT = "00000000-0000-4000-8000-000000000102";
 const ASSET = "repo-orch-1";
 const SELLER = "seller-orch-1";
 const BUYER = "buyer-orch-1";
-const AUDIT = "audit-orch-1";
+const AUDIT = "00000000-0000-4000-8000-000000000103";
 const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 const HASH = "a".repeat(64);
 const AUDIT_MANIFEST_HASH = "c".repeat(64);
 const NOW = "2026-11-05T20:00:00.000Z";
 const EXPIRES = "2026-11-05T20:10:00.000Z";
-const UUIDS = Array.from({ length: 18 }, (_, i) =>
+const UUIDS = Array.from({ length: 24 }, (_, i) =>
   "00000000-0000-4000-8000-" + String(i + 1).padStart(12, "0")
 );
 
@@ -52,19 +52,13 @@ const signer = async (digestHex: string) => {
 function evidence(): AcquisitionEvidence[] {
   const meta: Record<string, Record<string, unknown>> = {
     PROJECT_IDENTITY: { projectApproved: true, identityMatched: true },
-    CODE_AUDIT: {
-      auditStatus: "completed", commitSha: COMMIT,
-      auditManifestVersion: "w3m-audit-manifest-v1",
-      auditManifestHash: AUDIT_MANIFEST_HASH,
-      auditFileCount: 190, auditFindingCount: 25,
-    },
     DEAL_AGREEMENT: { buyerAcceptedTerms: true, sellerAcceptedTerms: true },
     PAYMENT: { paymentConfirmed: true },
     BUYER_ACCEPTANCE: { deliveryAccepted: true },
     DISPUTE_CHECK: { openDispute: false },
   };
   const types: EvidenceType[] = [
-    "PROJECT_IDENTITY", "CODE_AUDIT", "DEAL_AGREEMENT",
+    "PROJECT_IDENTITY", "DEAL_AGREEMENT",
     "PAYMENT", "BUYER_ACCEPTANCE", "DISPUTE_CHECK",
   ];
   return types.map((type, i) => ({
@@ -74,11 +68,11 @@ function evidence(): AcquisitionEvidence[] {
     mandatory: true,
     dealId: DEAL,
     projectId: PROJECT,
-    contentHash: type === "CODE_AUDIT" ? AUDIT_MANIFEST_HASH : HASH,
+    contentHash: HASH,
     observedAt: "2026-11-05T19:00:00.000Z",
     validUntil: EXPIRES,
-    sourceRecordId: type === "CODE_AUDIT" ? AUDIT : "source-orch-" + i,
-    sourceVersion: type === "CODE_AUDIT" ? COMMIT : "v1",
+    sourceRecordId: "source-orch-" + i,
+    sourceVersion: "v1",
     metadata: meta[type],
   }));
 }
@@ -119,11 +113,36 @@ function input(overrides: Partial<ProtocolOrchestratorInput> = {}): ProtocolOrch
       now: NOW,
     },
     reportId: UUIDS[0],
-    evidenceRowIds: UUIDS.slice(1, 9),
-    eventRowIds: UUIDS.slice(9, 18),
+    evidenceRowIds: UUIDS.slice(1, 8),
+    eventRowIds: UUIDS.slice(8, 16),
     reportVersion: 1,
     dealTermsHash: "b".repeat(64),
     auditId: AUDIT,
+    codeAudit: {
+      row: {
+        id: AUDIT,
+        project_id: PROJECT,
+        status: "completed",
+        audit_type: "complete",
+        repo_owner: "Aminzaki1972",
+        repo_name: "Web3Market",
+        commit_sha: COMMIT,
+        completed_at: "2026-11-05T19:00:00.000Z",
+        overall_score: 77.55,
+        risk_level: "Moderate",
+        analysis_method: "gemini",
+      },
+      manifest: {
+        version: "w3m-audit-manifest-v1",
+        auditId: AUDIT,
+        fileCount: 190,
+        findingCount: 25,
+        digest: AUDIT_MANIFEST_HASH,
+      },
+      repositoryOwner: "Aminzaki1972",
+      repositoryName: "Web3Market",
+      maxAgeMs: 90 * 24 * 60 * 60 * 1000,
+    },
     issuedAt: NOW,
     expiresAt: EXPIRES,
     actorType: "VERIFIER",
@@ -160,35 +179,27 @@ Deno.test("orchestrator rejects Code Audit ID mismatch", async () => {
   if (!rejected) throw new Error("Mismatched audit ID must be rejected.");
 });
 
-Deno.test("orchestrator rejects Code Audit evidence without the complete manifest digest", async () => {
+Deno.test("orchestrator rejects a manifest bound to a different audit ID", async () => {
   const base = input();
-  const changed = base.acquisition.baseEvidence.map((item) =>
-    item.type === "CODE_AUDIT"
-      ? { ...item, metadata: { ...item.metadata, auditManifestHash: "d".repeat(64) } }
-      : item
-  );
   let rejected = false;
   try {
     await prepareAcquisitionProtocolBatch({
       ...base,
-      acquisition: { ...base.acquisition, baseEvidence: changed },
+      codeAudit: { ...base.codeAudit, manifest: { ...base.codeAudit.manifest, auditId: "00000000-0000-4000-8000-000000000104" } },
     }, signer);
   } catch {
     rejected = true;
   }
-  if (!rejected) throw new Error("Code Audit manifest hash mismatch must be rejected.");
+  if (!rejected) throw new Error("Manifest audit ID mismatch must be rejected.");
 });
 
 Deno.test("orchestrator rejects a Code Audit commit mismatch", async () => {
   const base = input();
-  const changed = base.acquisition.baseEvidence.map((item) =>
-    item.type === "CODE_AUDIT" ? { ...item, sourceVersion: "f".repeat(40) } : item
-  );
   let rejected = false;
   try {
     await prepareAcquisitionProtocolBatch({
       ...base,
-      acquisition: { ...base.acquisition, baseEvidence: changed },
+      codeAudit: { ...base.codeAudit, row: { ...base.codeAudit.row, commit_sha: "f".repeat(40) } },
     }, signer);
   } catch {
     rejected = true;
@@ -196,21 +207,24 @@ Deno.test("orchestrator rejects a Code Audit commit mismatch", async () => {
   if (!rejected) throw new Error("Wrong audited commit must be rejected.");
 });
 
-Deno.test("orchestrator rejects duplicate Code Audit evidence", async () => {
+Deno.test("orchestrator rejects caller-supplied Code Audit evidence", async () => {
   const base = input();
-  const duplicate = { ...base.acquisition.baseEvidence.find((item) => item.type === "CODE_AUDIT")!, id: "second-audit" };
+  const forged: AcquisitionEvidence = {
+    id: "forged-code-audit", type: "CODE_AUDIT", result: "PASS", mandatory: true,
+    dealId: DEAL, projectId: PROJECT, contentHash: AUDIT_MANIFEST_HASH,
+    observedAt: NOW, validUntil: EXPIRES, sourceRecordId: AUDIT, sourceVersion: COMMIT,
+    metadata: { auditManifestVersion: "w3m-audit-manifest-v1", auditManifestHash: AUDIT_MANIFEST_HASH },
+  };
   let rejected = false;
   try {
     await prepareAcquisitionProtocolBatch({
       ...base,
-      acquisition: { ...base.acquisition, baseEvidence: [...base.acquisition.baseEvidence, duplicate] },
-      evidenceRowIds: [...base.evidenceRowIds, UUIDS[17]],
-      eventRowIds: [...base.eventRowIds, "00000000-0000-4000-8000-000000000020"],
+      acquisition: { ...base.acquisition, baseEvidence: [...base.acquisition.baseEvidence, forged] },
     }, signer);
   } catch {
     rejected = true;
   }
-  if (!rejected) throw new Error("Ambiguous multiple Code Audit records must be rejected.");
+  if (!rejected) throw new Error("Caller-supplied Code Audit evidence must be rejected.");
 });
 
 Deno.test("orchestrator preserves conditional revenue requirement", async () => {
