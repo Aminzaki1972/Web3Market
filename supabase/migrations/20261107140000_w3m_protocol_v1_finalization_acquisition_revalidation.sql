@@ -16,6 +16,7 @@ as $pin$
 declare
   v_report public.w3m_acquisition_reports%rowtype;
   v_terms public.w3m_deal_terms_versions%rowtype;
+  v_signer public.w3m_trusted_signer_keys%rowtype;
   v_signer_event text;
   v_acceptance_count integer;
 begin
@@ -31,8 +32,11 @@ begin
      or v_report.report_signature is null or v_report.signer_key_id is null then
     raise exception 'Only the latest unexpired signed PASS report can be pinned' using errcode = '23514';
   end if;
-  perform 1 from public.w3m_trusted_signer_keys k where k.key_id = v_report.signer_key_id for update;
-  if not found then raise exception 'W3M report signer key is missing' using errcode = '23514'; end if;
+  select * into v_signer from public.w3m_trusted_signer_keys k where k.key_id = v_report.signer_key_id for update;
+  if not found or v_report.issued_at < v_signer.valid_from
+     or (v_signer.valid_until is not null and v_report.issued_at >= v_signer.valid_until) then
+    raise exception 'W3M report signer key is missing or outside its validity window' using errcode = '23514';
+  end if;
   select e.event_type into v_signer_event from public.w3m_trusted_signer_key_events e
    where e.key_id = v_report.signer_key_id order by e.event_id desc limit 1;
   if v_signer_event is distinct from 'ACTIVATED' then
@@ -217,9 +221,12 @@ begin
   end if;
 
   -- A revocation RPC locks this same signer-key row before appending REVOKED.
-  perform 1 from public.w3m_trusted_signer_keys k
+  select * into v_signer from public.w3m_trusted_signer_keys k
    where k.key_id = v_report.signer_key_id for update;
-  if not found then raise exception 'Pinned report signer key is missing' using errcode = '23514'; end if;
+  if not found or v_report.issued_at < v_signer.valid_from
+     or (v_signer.valid_until is not null and v_report.issued_at >= v_signer.valid_until) then
+    raise exception 'Pinned report signer key is missing or outside its validity window' using errcode = '23514';
+  end if;
   select e.event_type into v_signer_event
     from public.w3m_trusted_signer_key_events e
    where e.key_id = v_report.signer_key_id
