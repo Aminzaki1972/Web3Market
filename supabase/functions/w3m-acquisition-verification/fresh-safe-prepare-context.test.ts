@@ -84,6 +84,18 @@ Deno.test("PREPARE rejects unverified wallets, future verification time and sell
  assertEquals(owner.issues,["W3M_PREPARE_PROJECT_OR_WALLET_VERIFICATION_INVALID"]);
 });
 
+
+Deno.test("PREPARE rejects internally inconsistent Safe fact acknowledgements",async()=>{
+ const issues=await authorizeSafePrepareFromFreshSources(
+  deps([row()],{issues:["unexpected"],valid:true}),DEAL,"2026-11-06T00:00:00Z",verifier);
+ assertEquals(issues.authorized,false);
+ assertEquals(issues.issues.includes("W3M_PREPARE_SAFE_CONFIGURATION_INVALID"),true);
+ const owners=await authorizeSafePrepareFromFreshSources(
+  deps([row()],{owners:[BUYER,BUYER,PLATFORM]}),DEAL,"2026-11-06T00:00:00Z",verifier);
+ assertEquals(owners.authorized,false);
+ assertEquals(owners.issues.includes("W3M_PREPARE_SAFE_CONFIGURATION_INVALID"),true);
+});
+
 Deno.test("PREPARE rejects invalid deal identifiers and timestamps before database reads",async()=>{
  let reads=0;
  const d=deps([row()]);
