@@ -201,6 +201,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/audit-manifest-supabase-adapter.test.ts
           deno check supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-persistence.ts
           deno check supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-persistence.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-service.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-service.test.ts
           deno check supabase/functions/w3m-acquisition-verification/audit-manifest-binding.ts
           deno check supabase/functions/w3m-acquisition-verification/audit-manifest-loader.test.ts
           deno check supabase/functions/w3m-acquisition-verification/dealroom-w3m-gate.ts
@@ -343,6 +345,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/audit-manifest-supabase-adapter.test.ts
       - name: Test independent deal Code Audit snapshot persistence boundary
         run: deno test supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-persistence.test.ts
+      - name: Test pre-agreement independent Deal Code Audit snapshot orchestration
+        run: deno test supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-service.test.ts
       - name: Test combined Deal Room W3M settlement gate
         run: deno test supabase/functions/w3m-acquisition-verification/dealroom-w3m-gate.test.ts
       - name: Test server-side persisted report loader
