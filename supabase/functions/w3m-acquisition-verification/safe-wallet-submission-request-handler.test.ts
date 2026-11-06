@@ -33,7 +33,6 @@ Deno.test("wallet submission derives actor from session and reports hash as unve
   });
   const response = await handler(req({
     attempt_id: ATTEMPT, package_hash: PACKAGE_HASH, transaction_hash: TX_HASH,
-    actor_id: "attacker-controlled",
   }));
   const body = await response.json();
   assertEquals(response.status, 200);
@@ -79,4 +78,20 @@ Deno.test("wallet submission persistence errors fail closed without claiming ver
   const body = await response.json();
   assertEquals(response.status, 409);
   assertEquals(body.error, "W3M_WALLET_SUBMISSION_REJECTED");
+});
+
+
+Deno.test("wallet submission rejects client-supplied authority fields before RPC", async () => {
+  let calls = 0;
+  const rpc: W3MRpcClient = { async rpc() { calls++; return { data: null, error: null }; } };
+  const handler = createW3MSafeWalletSubmissionRequestHandler({
+    authenticate: async () => ({ userId: ACTOR }),
+    rpc,
+  });
+  const response = await handler(req({
+    attempt_id: ATTEMPT, package_hash: PACKAGE_HASH, transaction_hash: TX_HASH,
+    actor_id: "attacker",
+  }));
+  assertEquals(response.status, 400);
+  assertEquals(calls, 0);
 });
