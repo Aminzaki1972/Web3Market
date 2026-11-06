@@ -10,6 +10,7 @@ import {
   finalizeBnbSafeReleaseFromFreshSnapshot,
 } from "../w3m-acquisition-verification/bnb-safe-receipt-verifier.ts";
 import type { W3MRpcClient } from "../w3m-acquisition-verification/supabase-rpc-adapter.ts";
+import type { W3MRegistryReadClient } from "../w3m-acquisition-verification/persisted-report-loader.ts";
 import { handleW3MSafeFinalizationRequest } from "../w3m-acquisition-verification/safe-finalization-request-handler.ts";
 
 const ALLOWED_ORIGINS = new Set([
@@ -51,10 +52,13 @@ Deno.serve(async (request) => {
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const database: W3MRpcClient = {
+  const database: W3MRpcClient & W3MRegistryReadClient = {
     async rpc(name, args) {
       const result = await supabase.rpc(name, args);
       return { data: result.data, error: result.error };
+    },
+    from(table) {
+      return supabase.from(table) as unknown as ReturnType<W3MRegistryReadClient["from"]>;
     },
   };
   let bnbRpc;
