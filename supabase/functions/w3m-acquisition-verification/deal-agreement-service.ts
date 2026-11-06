@@ -3,7 +3,6 @@ import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
 import { computeDealTermsHash } from "./deal-terms-hash.ts";
 import {
   buildDealTermsAcceptanceTypedData,
-  computeDealTermsAcceptanceDigest,
   verifyDealTermsAcceptanceSignature,
   type DealAgreementPartyRole,
   type Eip712DealAgreementTypedData,
@@ -223,15 +222,3 @@ export async function acceptDealAgreement(
   };
 }
 
-export function dealAgreementDigestForPreparedAcceptance(prepared: PreparedDealAgreement): string {
-  return computeDealTermsAcceptanceDigest({
-    dealId: prepared.dealId,
-    projectId: prepared.typedData.message.projectId,
-    buyerId: prepared.typedData.message.buyerId,
-    sellerId: prepared.typedData.message.sellerId,
-    safeAddress: prepared.typedData.message.safeAddress,
-    termsHash: prepared.termsHash,
-    termsVersion: prepared.termsVersion,
-    partyRole: prepared.partyRole,
-  });
-}
