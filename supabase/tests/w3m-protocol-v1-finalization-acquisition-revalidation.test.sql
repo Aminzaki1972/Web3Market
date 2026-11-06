@@ -43,6 +43,13 @@ begin
     raise exception 'W3M evidence append does not share the per-deal serialization lock';
   end if;
 
+  if to_regprocedure('public.w3m_read_safe_finalization_acquisition_bundle(uuid)') is null
+     or not has_function_privilege('service_role','public.w3m_read_safe_finalization_acquisition_bundle(uuid)','EXECUTE')
+     or has_function_privilege('anon','public.w3m_read_safe_finalization_acquisition_bundle(uuid)','EXECUTE')
+     or has_function_privilege('authenticated','public.w3m_read_safe_finalization_acquisition_bundle(uuid)','EXECUTE') then
+    raise exception 'W3M cryptographic acquisition bundle reader is missing or not service-role-only';
+  end if;
+
   select pg_get_functiondef('public.w3m_pin_acquisition_and_terms_on_attempt()'::regprocedure)
     into v_pin;
   if position('PG_ADVISORY_XACT_LOCK' in upper(v_pin))=0
@@ -76,7 +83,10 @@ begin
      or position('W3M_ACQUISITION_EVIDENCE' in upper(v_finalizer))=0
      or position('W3M_TRUSTED_SIGNER_KEY_EVENTS' in upper(v_finalizer))=0
      or position('W3M_DEAL_AGREEMENT_ACCEPTANCES' in upper(v_finalizer))=0
-     or position('W3M_CURRENT_DEAL_TERMS_JSON' in upper(v_finalizer))=0 then
+     or position('W3M_CURRENT_DEAL_TERMS_JSON' in upper(v_finalizer))=0
+     or position('ACQUISITION_ATTESTATION' in upper(v_finalizer))=0
+     or position('RECOMPUTED_EVIDENCE_HASH' in upper(v_finalizer))=0
+     or position('SIGNATURE_VALID' in upper(v_finalizer))=0 then
     raise exception 'W3M finalizer is missing persisted report/evidence/signer/agreement revalidation';
   end if;
   if position('V_ATTEMPT.PINNED_REPORT_HASH' in upper(v_finalizer)) >
