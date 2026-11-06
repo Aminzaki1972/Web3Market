@@ -316,3 +316,10 @@ The proposal specifies EIP-712 typed-data acceptance by each verified buyer/sell
 This remains **design only**. No agreement table, RPC, browser wallet-signing flow, or production schema change has been created. The current W3M snapshot continues to block EXECUTE because timestamp-only legacy agreement rows cannot prove immutable terms acceptance. Implementation awaits approval of the exact EIP-712 payload and wallet-signing flow.
 
 The canonical-block BNB Safe facts reader CI run `42138975440` is currently in progress; its final outcome is not yet claimed.
+
+
+## 19. BNB JSON-RPC redirect hardening — 2026-11-06
+
+The shared HTTPS/hostname-allowlisted BNB JSON-RPC client now sets Fetch `redirect: "error"`. This prevents an allowlisted endpoint from returning an HTTP redirect that causes the runtime to follow a different hostname and bypass the original hostname allowlist. HTTPS, no embedded URL credentials, and explicit hostname allowlisting remain required.
+
+Added tests for redirect rejection mode and rejection of non-HTTPS/non-allowlisted endpoints. CI runs `42164163576` (implementation) and `42164173993` (tests) were started for these commits; final outcomes are pending in this document's current revision. No live RPC endpoint was contacted by the tests.
