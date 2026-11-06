@@ -98,10 +98,8 @@ export function encodeSafeExecTransactionCalldata(pkg) {
 }
 
 /**
- * @param {{request: (args: {method:string; params?:unknown[]})=>Promise<unknown>}} provider EIP-1193 provider
- * @param {object} pkg Exact server-issued package
- * @param {string} expectedPackageHash SHA-256 from the authenticated package endpoint
- * @param {()=>number} [now] Injectable clock for tests
+ * @param {{provider:{request:(args:{method:string;params?:unknown[]})=>Promise<unknown>}, package:object, expectedPackageHash:string, now?:()=>number}} options
+ * EIP-1193 provider, exact server-issued package, and SHA-256 from the authenticated endpoint.
  */
 export async function submitSafeWalletExecutionPackage({
   provider,
