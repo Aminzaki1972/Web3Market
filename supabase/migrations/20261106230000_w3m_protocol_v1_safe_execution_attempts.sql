@@ -167,10 +167,12 @@ begin
      or v_deal.payment_tx_hash !~ '^0x[0-9a-fA-F]{64}$'
      or v_deal.delivery_status is distinct from 'accepted'
      or v_deal.buyer_approved_at is null
-     or coalesce(v_deal.dispute_status, 'none') <> 'none'
+     or v_deal.dispute_status is distinct from 'none'
+     or v_deal.status not in ('funded','in_progress')
      or v_deal.chain_id is distinct from 56
      or v_deal.safe_address is null
      or lower(coalesce(v_deal.token_contract,'')) <> v_bnb_usdt
+     or v_policy.status is null
      or v_policy.status not in ('locked','ready')
      or v_policy.chain_id is distinct from 56
      or v_policy.safe_address is null
