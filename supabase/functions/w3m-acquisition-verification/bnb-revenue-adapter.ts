@@ -146,6 +146,7 @@ export function createAllowlistedBnbRpcClient(input: {
       requestId += 1;
       const response = await fetchImpl(parsedUrl.toString(), {
         method: "POST",
+        redirect: "error",
         headers: { "content-type": "application/json", accept: "application/json" },
         body: JSON.stringify({ jsonrpc: "2.0", id: requestId, method, params }),
       });
