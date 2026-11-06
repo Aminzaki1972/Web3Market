@@ -89,7 +89,7 @@ export async function evaluateDealRoomRowsWithW3M(
     throw new Error("W3M V1 blocks every dispute status except exact 'none'.");
   }
   const paymentConfirmed = d.payment_status === "confirmed" &&
-    typeof d.payment_tx_hash === "string" && d.payment_tx_hash.trim().length > 0;
+    typeof d.payment_tx_hash === "string" && /^0x[0-9a-f]{64}$/i.test(d.payment_tx_hash);
   const deliveryAccepted = d.delivery_status === "accepted" &&
     typeof d.buyer_approved_at === "string" && d.buyer_approved_at.trim().length > 0;
 
