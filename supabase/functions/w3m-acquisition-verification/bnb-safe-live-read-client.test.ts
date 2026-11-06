@@ -4,6 +4,8 @@ import type { JsonRpcClient } from "./bnb-revenue-adapter.ts";
 import {
   BnbSafeLiveReadError,
   createBnbSafeLiveReadClient,
+  createBnbSafeLiveReadClientAtCurrentBlock,
+  getBnbSafeReadBlockTag,
 } from "./bnb-safe-live-read-client.ts";
 
 const SAFE = "0x2222222222222222222222222222222222222222";
@@ -107,4 +109,21 @@ Deno.test("Safe live reader rejects invalid block tags and malformed ABI results
   const malformed = mockRpc({ eth_call: "0x01" });
   const client = createBnbSafeLiveReadClient(malformed.rpc, BLOCK);
   await assertRejects(() => client.getOwners(SAFE), BnbSafeLiveReadError);
+});
+
+
+Deno.test("BNB read client captures chain 56 block tag before contract reads", async () => {
+  const { rpc, calls } = mockRpc();
+  assertEquals(await getBnbSafeReadBlockTag(rpc), "0x123456");
+  const client = await createBnbSafeLiveReadClientAtCurrentBlock(rpc);
+  assertEquals(client.blockTag, "0x123456");
+  assertEquals(calls.some((call) => call.method === "eth_blockNumber"), true);
+  assertEquals(calls.filter((call) => call.method === "eth_chainId").length, 2);
+});
+
+Deno.test("BNB read client refuses wrong chain or malformed head block", async () => {
+  const wrongChain = mockRpc({ eth_chainId: "0x61" });
+  await assertRejects(() => getBnbSafeReadBlockTag(wrongChain.rpc), BnbSafeLiveReadError);
+  const badHead = mockRpc({ eth_blockNumber: "latest" });
+  await assertRejects(() => getBnbSafeReadBlockTag(badHead.rpc), BnbSafeLiveReadError);
 });
