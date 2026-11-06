@@ -1,6 +1,8 @@
 // HTTP boundary for the isolated W3M Safe finalization handler.
 // Identity is derived only from a verified bearer session; the caller supplies
 // an attempt ID, never the actor ID, broadcast hash, or receipt evidence.
+import { extractW3MBearerToken } from "./bearer-token.ts";
+
 export interface W3MSafeFinalizationRequestDependencies {
   authenticate(token: string): Promise<string | null>;
   finalize(input: { attemptId: string; actorId: string }): Promise<unknown>;
@@ -21,7 +23,7 @@ export async function handleW3MSafeFinalizationRequest(
   const match = /^Bearer\s+(.+)$/i.exec(authorization);
   if (!match?.[1]?.trim()) return json(401, { ok: false, error: "AUTHENTICATION_REQUIRED" });
   let actorId: string | null;
-  try { actorId = await dependencies.authenticate(match[1].trim()); }
+  try { actorId = await dependencies.authenticate(token); }
   catch { return json(401, { ok: false, error: "AUTHENTICATION_FAILED" }); }
   if (typeof actorId !== "string" || !actorId.trim()) {
     return json(401, { ok: false, error: "AUTHENTICATION_FAILED" });
