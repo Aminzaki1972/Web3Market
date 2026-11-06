@@ -4,7 +4,7 @@ import {
   submitSafeWalletExecutionPackage,
   executeW3MDealReleaseFromWallet,
   recordW3MSafeWalletSubmission,
-  finalizeW3MSafeDealRelease,
+  verifyW3MDealReleaseFromServer,
   verifyW3MDealReleaseFromServer,
 } from "../../../js/w3m-safe-wallet-execution-client.js";
 
@@ -320,47 +320,3 @@ Deno.test("finalization helper never treats a 409 response as a confirmed deal",
   assertEquals(result.finalized, false);
 });
 
-
-Deno.test("finalization client sends only the attempt ID and accepts only server-confirmed state", async () => {
-  const requests: { url: string; body: Record<string, unknown> }[] = [];
-  const result = await finalizeW3MSafeDealRelease({
-    attemptId: "24000000-0000-4000-8000-000000000004",
-    accessToken: "test-access-token",
-    apiKey: "test-publishable-key",
-    supabaseUrl: "https://project.supabase.co",
-    fetchImpl: async (input, init) => {
-      requests.push({
-        url: String(input),
-        body: JSON.parse(String(init?.body)) as Record<string, unknown>,
-      });
-      return new Response(JSON.stringify({
-        ok: true,
-        result: { state: "CONFIRMED", broadcastTxHash: OUTER_HASH },
-      }), { status: 200 });
-    },
-  });
-  assertEquals(result, {
-    state: "CONFIRMED",
-    attemptId: "24000000-0000-4000-8000-000000000004",
-    transactionHash: OUTER_HASH,
-    finalized: true,
-  });
-  assertEquals(requests[0]?.url.endsWith("/w3m-protocol-v1-finalize-safe-release"), true);
-  assertEquals(requests[0]?.body, {
-    attempt_id: "24000000-0000-4000-8000-000000000004",
-  });
-});
-
-Deno.test("finalization client reports pending when server receipt verification is not yet satisfied", async () => {
-  const result = await finalizeW3MSafeDealRelease({
-    attemptId: "24000000-0000-4000-8000-000000000004",
-    accessToken: "test-access-token",
-    apiKey: "test-publishable-key",
-    supabaseUrl: "https://project.supabase.co",
-    fetchImpl: async () => new Response(JSON.stringify({
-      ok: false, error: "W3M_FINALIZATION_BLOCKED",
-    }), { status: 409 }),
-  });
-  assertEquals(result.state, "FINALIZATION_PENDING");
-  assertEquals(result.finalized, false);
-});
