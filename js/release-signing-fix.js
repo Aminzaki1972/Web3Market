@@ -159,11 +159,17 @@ import {
     );
 
     if (pending) {
-      box.innerHTML = '<div class="wallet-box" style="background:#eff6ff;border-color:#bfdbfe;color:#1e40af"><strong>W3M Safe settlement · awaiting verification</strong><div class="info" id="w3mSafeNote">Transaction hash is recorded as unverified. The server must confirm the canonical BNB receipt and exact seller/platform transfers.</div><div class="info" style="margin-top:6px">Transaction: <code>' + esc(pending.transactionHash) + '</code></div><button id="w3mSafeVerify" class="btn primary">Verify & finalize</button>' +
-        (pending.state === "SUBMITTED_UNRECORDED" ? '<button id="w3mSafeRetry" class="btn primary">Retry transaction-hash registration</button>' : '') +
+      box.innerHTML = '<div class="wallet-box" style="background:#eff6ff;border-color:#bfdbfe;color:#1e40af"><strong>W3M Safe settlement · awaiting verification</strong><div class="info" id="w3mSafeNote">' +
+        (pending.state === "SUBMITTED_UNRECORDED"
+          ? "The wallet returned a transaction hash, but it is not yet registered on the server. Retry registration; do not send another Safe transaction."
+          : "Transaction hash is recorded as unverified. The server must confirm the canonical BNB receipt and exact seller/platform transfers.") +
+        '</div><div class="info" style="margin-top:6px">Transaction: <code>' + esc(pending.transactionHash) + '</code></div>' +
+        (pending.state === "SUBMITTED_UNRECORDED"
+          ? '<button id="w3mSafeRetry" class="btn primary">Retry transaction-hash registration</button>'
+          : '<button id="w3mSafeVerify" class="btn primary">Verify & finalize</button>') +
         '</div>';
-      wireVerify(client);
       if (pending.state === "SUBMITTED_UNRECORDED") wireRetry(client);
+      else wireVerify(client);
       return;
     }
 
