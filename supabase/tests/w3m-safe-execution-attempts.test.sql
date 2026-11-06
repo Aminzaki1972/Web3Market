@@ -12,7 +12,7 @@ declare
   v_report uuid := '40000000-0000-4000-8000-000000000004';
   v_policy uuid := '50000000-0000-4000-8000-000000000005';
   v_attempt uuid;
-  v_actor uuid := '23000000-0000-4000-8000-000000000003';
+  v_actor uuid := '21000000-0000-4000-8000-000000000002';
   v_package_hash text := repeat('c',64);
   v_package jsonb;
   v_package_expiry timestamptz;
