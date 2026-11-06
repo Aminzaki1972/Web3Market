@@ -77,8 +77,12 @@ export function buildDealCodeAuditBinding(input: {
   }
   const completedAt = requiredText(metadata.completedAt, "Audit completion timestamp");
   const completedMs = Date.parse(completedAt);
-  if (!Number.isFinite(completedMs) || completedMs > Date.parse(evidence.observedAt)) {
-    throw new Error("Code Audit completion timestamp is invalid or later than evidence observation.");
+  const observedMs = Date.parse(evidence.observedAt);
+  const validUntilMs = evidence.validUntil === null ? Number.NaN : Date.parse(evidence.validUntil);
+  if (!Number.isFinite(completedMs) || !Number.isFinite(observedMs) ||
+      !Number.isFinite(validUntilMs) || completedMs > observedMs ||
+      observedMs >= validUntilMs) {
+    throw new Error("Code Audit completion, observation, or validity timestamps are invalid or out of order.");
   }
   return {
     auditId,
