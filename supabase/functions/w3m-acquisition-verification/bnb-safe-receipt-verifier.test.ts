@@ -32,6 +32,8 @@ const expected: BnbSafeReceiptExpectation = {
   platformWallet: "0x" + "6".repeat(40),
   platformFee: "7.5",
   minConfirmations: 6,
+  packageIssuedAt: "2026-11-06T12:00:00.000Z",
+  packageExpiresAt: "2026-11-06T12:02:00.000Z",
 };
 const safeSuccess = topic("ExecutionSuccess(bytes32,uint256)");
 const safeFailure = topic("ExecutionFailure(bytes32,uint256)");
@@ -70,6 +72,7 @@ function mockRpc(overrides: Record<string, unknown> = {}) {
   const chainId = overrides.chainId ?? "0x38";
   const head = overrides.head ?? "0x70";
   const canonicalHash = overrides.canonicalHash ?? blockHash;
+  const blockTimestamp = overrides.blockTimestamp ?? "0x6aedc17c";
   const decimals = overrides.decimals ?? wordUint(18n);
   const rpc = {
     async request<T>(method: string, params: unknown[]): Promise<T> {
@@ -78,7 +81,7 @@ function mockRpc(overrides: Record<string, unknown> = {}) {
       if (method === "eth_chainId") value = chainId;
       else if (method === "eth_getTransactionReceipt") value = receipt;
       else if (method === "eth_blockNumber") value = head;
-      else if (method === "eth_getBlockByNumber") value = { hash: canonicalHash };
+      else if (method === "eth_getBlockByNumber") value = { hash: canonicalHash, timestamp: blockTimestamp };
       else if (method === "eth_call") value = decimals;
       else throw new Error("Unexpected RPC method " + method);
       return value as T;
@@ -94,6 +97,7 @@ Deno.test("raw BNB receipt verifies Safe event and exact token transfers", async
   assertEquals(result.execution_success, true);
   assertEquals(result.execution_failure, false);
   assertEquals(result.confirmations, 13);
+  assertEquals(result.block_timestamp, "2026-11-06T12:01:00.000Z");
   assertEquals(result.transfers, [
     { from_address: expected.safeAddress, to_address: expected.sellerWallet, amount: "92.5" },
     { from_address: expected.safeAddress, to_address: expected.platformWallet, amount: "7.5" },
@@ -270,4 +274,14 @@ Deno.test("missing fresh snapshot blocks BNB receipt read and finalization", asy
   );
   assertEquals(databaseCalls, 1);
   assertEquals(rpcCalls.length, 0);
+});
+
+
+Deno.test("raw receipt timestamp outside the stored wallet package window is rejected", async () => {
+  const early = mockRpc({ blockTimestamp: "0x6aedc0f0" });
+  await assertRejects(
+    () => verifyBnbSafeReleaseReceipt(early.rpc, expected),
+    BnbSafeReceiptVerificationError,
+    "outside the issued W3M wallet package window",
+  );
 });
