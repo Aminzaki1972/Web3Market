@@ -136,7 +136,7 @@ Deno.test("orchestrates package issuance, connected-wallet submission, and unver
   const value = pkg();
   const packageHash = await hash(value);
   const urls: string[] = [];
-  let submissionBody: Record<string, unknown> | null = null;
+  const submissionBodies: Record<string, unknown>[] = [];
   const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     urls.push(url);
@@ -150,7 +150,7 @@ Deno.test("orchestrates package issuance, connected-wallet submission, and unver
       }), { status: 200, headers: { "content-type": "application/json" } });
     }
     if (url.endsWith("/w3m-protocol-v1-safe-wallet-submit")) {
-      submissionBody = JSON.parse(String(init?.body));
+      submissionBodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
       return new Response(JSON.stringify({
         ok: true, state: "BROADCAST_UNVERIFIED",
         transaction_hash: OUTER_HASH, receipt_verified: false, finalized: false,
@@ -171,9 +171,9 @@ Deno.test("orchestrates package issuance, connected-wallet submission, and unver
   assertEquals(result.receiptVerified, false);
   assertEquals(result.finalized, false);
   assertEquals(urls.length, 2);
-  assertEquals(submissionBody?.attempt_id, "24000000-0000-4000-8000-000000000004");
-  assertEquals(submissionBody?.package_hash, packageHash);
-  assertEquals(submissionBody?.transaction_hash, OUTER_HASH);
+  assertEquals(submissionBodies[0]?.attempt_id, "24000000-0000-4000-8000-000000000004");
+  assertEquals(submissionBodies[0]?.package_hash, packageHash);
+  assertEquals(submissionBodies[0]?.transaction_hash, OUTER_HASH);
 });
 
 Deno.test("preserves the wallet hash for reconciliation if submission-hash persistence fails", async () => {
