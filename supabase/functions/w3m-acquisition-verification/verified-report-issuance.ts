@@ -31,8 +31,18 @@ export async function issuePersistAndVerifyW3MReport(
 ): Promise<VerifiedReportIssuanceResult> {
   const issuance = await issueAndPersistAcquisitionReport(input, signDigest, serviceClient);
 
+  // Reload every report, including diagnostic non-PASS reports. A successful
+  // write RPC alone is not proof that the exact issued row is now the latest
+  // persisted version for this deal.
+  const bundle = await loadCurrentW3MReportBundle(serviceClient, input.acquisition.dealId);
+  if (!bundle.reportRow || bundle.reportRow.id !== issuance.reportId ||
+      bundle.latestReportVersion !== issuance.reportVersion) {
+    throw new Error("Persisted W3M report is missing, superseded, or does not match the issued report.");
+  }
+
   // Non-PASS reports are valid diagnostic records, but are never settlement
-  // candidates. Do not label them as verified settlement reports.
+  // candidates. Their persistence identity is checked above, but they are not
+  // labeled as verified settlement reports.
   if (issuance.decisionStatus !== "PASS") {
     return {
       issuance,
@@ -41,12 +51,6 @@ export async function issuePersistAndVerifyW3MReport(
       settlementAuthorized: false,
       executionEnabled: false,
     };
-  }
-
-  const bundle = await loadCurrentW3MReportBundle(serviceClient, input.acquisition.dealId);
-  if (!bundle.reportRow || bundle.reportRow.id !== issuance.reportId ||
-      bundle.latestReportVersion !== issuance.reportVersion) {
-    throw new Error("Persisted W3M report is missing, superseded, or does not match the issued report.");
   }
 
   const verification = await verifyPersistedW3MReport({
