@@ -349,9 +349,9 @@ revoke all on function public.w3m_current_deal_code_audit_json(uuid)
 revoke all on function public.w3m_current_deal_terms_json(uuid)
   from public, anon, authenticated, service_role;
 
--- A PASS acquisition report is downstream of the immutable buyer/seller
+-- Every acquisition report is downstream of the immutable buyer/seller
 -- agreement. Deferred validation sees the complete report + evidence batch at
--- transaction commit, while allowing diagnostic non-PASS reports earlier.
+-- transaction commit, regardless of the decision status.
 create or replace function public.w3m_guard_acquisition_report_requires_signed_deal_terms()
 returns trigger language plpgsql security definer set search_path = ''
 as $pass_report$
