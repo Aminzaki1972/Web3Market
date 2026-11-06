@@ -394,3 +394,141 @@ export async function verifyW3MDealReleaseFromServer({
   };
 }
 
+
+
+/**
+ * Sign the exact already-prepared Safe EIP-712 transaction and submit that
+ * signature to the isolated W3M SIGN endpoint. The server independently
+ * reloads W3M PASS, party agreement, profile wallet, and Safe state before
+ * atomically storing the signature.
+ *
+ * @param {{signer:object, ethers:object, dealId:string, safeAddress:string,
+ *   safeTransactionHash:string, transaction:object, expectedWallet:string,
+ *   accessToken:string, apiKey:string, supabaseUrl:string,
+ *   fetchImpl?:typeof fetch}} options
+ */
+export async function signW3MSafeRelease({
+  signer,
+  ethers,
+  dealId,
+  safeAddress,
+  safeTransactionHash,
+  transaction,
+  expectedWallet,
+  accessToken,
+  apiKey,
+  supabaseUrl,
+  fetchImpl = fetch,
+}) {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  assert(typeof dealId === "string" && uuid.test(dealId), "A valid deal ID is required.");
+  assert(ADDRESS.test(safeAddress || ""), "Safe address is invalid.");
+  assert(HASH.test(safeTransactionHash || ""), "Safe transaction hash is invalid.");
+  assert(ADDRESS.test(expectedWallet || ""), "Verified participant wallet is invalid.");
+  assert(signer && typeof signer.getAddress === "function" &&
+    typeof signer.signTypedData === "function" && signer.provider &&
+    typeof signer.provider.getNetwork === "function",
+  "A connected ethers signer is required.");
+  assert(ethers?.TypedDataEncoder && typeof ethers.TypedDataEncoder.hash === "function",
+    "Ethers TypedDataEncoder is required.");
+  const network = await signer.provider.getNetwork();
+  assert(BigInt(network.chainId) === 56n, "Connected wallet must be on BNB Chain 56.");
+  const signerAddress = await signer.getAddress();
+  assert(ADDRESS.test(signerAddress) &&
+    signerAddress.toLowerCase() === expectedWallet.toLowerCase(),
+  "Connected signer does not match the verified participant wallet.");
+
+  const UINT = /^(0|[1-9][0-9]*)$/;
+  assert(transaction && ADDRESS.test(transaction.to || "") &&
+    typeof transaction.data === "string" && /^0x(?:[0-9a-fA-F]{2})*$/.test(transaction.data) &&
+    (transaction.operation === 0 || transaction.operation === 1) &&
+    [transaction.value, transaction.safeTxGas, transaction.baseGas,
+      transaction.gasPrice, transaction.nonce].every((value) =>
+        typeof value === "string" && UINT.test(value)) &&
+    ADDRESS.test(transaction.gasToken || "") &&
+    ADDRESS.test(transaction.refundReceiver || ""),
+  "Safe EIP-712 transaction fields are invalid.");
+
+  const domain = { chainId: 56, verifyingContract: safeAddress };
+  const types = {
+    SafeTx: [
+      { name: "to", type: "address" },
+      { name: "value", type: "uint256" },
+      { name: "data", type: "bytes" },
+      { name: "operation", type: "uint8" },
+      { name: "safeTxGas", type: "uint256" },
+      { name: "baseGas", type: "uint256" },
+      { name: "gasPrice", type: "uint256" },
+      { name: "gasToken", type: "address" },
+      { name: "refundReceiver", type: "address" },
+      { name: "nonce", type: "uint256" },
+    ],
+  };
+  const message = {
+    to: transaction.to,
+    value: transaction.value,
+    data: transaction.data,
+    operation: transaction.operation,
+    safeTxGas: transaction.safeTxGas,
+    baseGas: transaction.baseGas,
+    gasPrice: transaction.gasPrice,
+    gasToken: transaction.gasToken,
+    refundReceiver: transaction.refundReceiver,
+    nonce: transaction.nonce,
+  };
+  const digest = ethers.TypedDataEncoder.hash(domain, types, message);
+  assert(typeof digest === "string" &&
+    digest.toLowerCase() === safeTransactionHash.toLowerCase(),
+  "Safe EIP-712 digest does not match the prepared Safe transaction hash.");
+
+  const signature = await signer.signTypedData(domain, types, message);
+  assert(typeof signature === "string" && /^0x[0-9a-f]{130}$/i.test(signature),
+    "Wallet returned an invalid Safe EIP-712 signature.");
+  assert(typeof accessToken === "string" && accessToken.trim().length > 0,
+    "An authenticated Supabase access token is required.");
+  assert(typeof apiKey === "string" && apiKey.trim().length > 0,
+    "A Supabase publishable API key is required.");
+  let base;
+  try { base = new URL(supabaseUrl); } catch {
+    throw new Error("Supabase URL is invalid.");
+  }
+  assert(base.protocol === "https:" && !base.username && !base.password && !base.search && !base.hash,
+    "Supabase endpoint must be a clean HTTPS URL.");
+  const response = await fetchImpl(
+    new URL("/functions/v1/w3m-protocol-v1-safe-sign", base.origin),
+    {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + accessToken,
+        "apikey": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        deal_id: dealId,
+        safe_tx_hash: safeTransactionHash.toLowerCase(),
+        signature,
+      }),
+    },
+  );
+  let body;
+  try { body = await response.json(); } catch {
+    throw new Error("W3M Safe SIGN endpoint returned invalid JSON.");
+  }
+  if (!response.ok || body?.ok !== true ||
+      (body.recorded !== true && body.idempotent_replay !== true) ||
+      body.required_signatures !== 2 ||
+      !Number.isInteger(body.confirmations_count) ||
+      body.confirmations_count < 0 || body.confirmations_count > 2 ||
+      !["awaiting_signatures", "signed"].includes(body.status)) {
+    throw new Error(body?.error || "W3M Safe signature was not atomically recorded.");
+  }
+  return {
+    recorded: body.recorded === true,
+    idempotentReplay: body.idempotent_replay === true,
+    confirmationsCount: body.confirmations_count,
+    requiredSignatures: 2,
+    status: body.status,
+    signerAddress,
+    safeTransactionHash: safeTransactionHash.toLowerCase(),
+  };
+}
