@@ -34,8 +34,16 @@ export interface SafeExecutionCoordinatorDependencies {
     attemptId: string;
     snapshot: SafeExecutionFreshSnapshot;
   }): Promise<{ transactionHash: string }>;
-  recordBroadcast(attemptId: string, transactionHash: string): Promise<unknown>;
-  markReconciliationRequired(attemptId: string, code: string): Promise<unknown>;
+  recordBroadcast(attemptId: string, transactionHash: string): Promise<{
+    recorded: boolean;
+    idempotentReplay: boolean;
+    state: "BROADCAST" | "RECONCILIATION_REQUIRED";
+  }>;
+  markReconciliationRequired(attemptId: string, code: string): Promise<{
+    updated: boolean;
+    idempotentReplay: boolean;
+    state: "RECONCILIATION_REQUIRED";
+  }>;
   verifySignature?: SafeDigestSignatureVerifier;
 }
 
@@ -91,8 +99,10 @@ async function requireReconciliation(
 ): Promise<SafeExecutionCoordinatorResult> {
   let reconciliationRecorded = false;
   try {
-    await dependencies.markReconciliationRequired(attemptId, reason);
-    reconciliationRecorded = true;
+    const result = await dependencies.markReconciliationRequired(attemptId, reason);
+    reconciliationRecorded = result?.updated === true &&
+      result.state === "RECONCILIATION_REQUIRED" &&
+      typeof result.idempotentReplay === "boolean";
   } catch {
     // The active CLAIMED attempt remains blocking even if this transition fails.
   }
@@ -126,12 +136,15 @@ export async function executeW3MSafeRelease(
     return { state: "BLOCKED", issues: ["EXECUTION_CLAIM_FAILED"] };
   }
 
-  if (!claim || typeof claim.attemptId !== "string" || !claim.attemptId.trim()) {
+  if (!claim || typeof claim.attemptId !== "string" || !claim.attemptId.trim() ||
+      typeof claim.claimed !== "boolean" ||
+      typeof claim.idempotentReplay !== "boolean" ||
+      !["CLAIMED", "BROADCAST", "RECONCILIATION_REQUIRED"].includes(claim.state)) {
     return { state: "BLOCKED", issues: ["EXECUTION_CLAIM_RESPONSE_INVALID"] };
   }
 
-  // A replay or any previously advanced attempt must be reconciled, never resent.
-  if (claim.idempotentReplay || claim.state !== "CLAIMED" || claim.claimed !== true) {
+  // Only a brand-new, positively confirmed claim may proceed to the second read.
+  if (claim.idempotentReplay !== false || claim.state !== "CLAIMED" || claim.claimed !== true) {
     return await requireReconciliation(
       dependencies,
       claim.attemptId,
@@ -187,7 +200,16 @@ export async function executeW3MSafeRelease(
   }
 
   try {
-    await dependencies.recordBroadcast(claim.attemptId, transactionHash);
+    const recorded = await dependencies.recordBroadcast(claim.attemptId, transactionHash);
+    if (!recorded || recorded.recorded !== true ||
+        typeof recorded.idempotentReplay !== "boolean" ||
+        recorded.state !== "BROADCAST") {
+      return await requireReconciliation(
+        dependencies,
+        claim.attemptId,
+        "BROADCAST_HASH_PERSISTENCE_UNCONFIRMED",
+      );
+    }
   } catch {
     return await requireReconciliation(
       dependencies,
