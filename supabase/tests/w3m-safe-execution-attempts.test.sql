@@ -202,7 +202,8 @@ begin
   update public.profiles set wallet_verified = true where id = v_actor;
 
   update public.w3m_safe_execution_attempts
-     set package_expires_at = package_issued_at + interval '1 microsecond'
+     set package_issued_at = clock_timestamp() - interval '2 minutes',
+         package_expires_at = clock_timestamp() - interval '1 minute'
    where id = v_attempt;
   begin
     perform public.w3m_record_safe_wallet_submission(
