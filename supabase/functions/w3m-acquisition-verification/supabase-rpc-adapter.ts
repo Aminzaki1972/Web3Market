@@ -258,6 +258,8 @@ export async function issueSafeWalletExecutionPackage(
       typeof result.idempotent_replay !== "boolean" ||
       typeof result.package_hash !== "string" ||
       !/^[0-9a-f]{64}$/i.test(result.package_hash) ||
+      (result.idempotent_replay === false &&
+        result.package_hash.toLowerCase() !== input.packageHash.toLowerCase()) ||
       typeof result.expires_at !== "string" ||
       !Number.isFinite(Date.parse(result.expires_at)) ||
       (storedPackage as Record<string, unknown>).protocol !== "W3M_PROTOCOL_V1" ||
