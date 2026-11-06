@@ -1,4 +1,4 @@
--- W3M Protocol V1 — one-use connected-wallet package issuance and submission.
+-- W3M Protocol V1 — one-use connected-wallet execution package issuance.
 -- Isolated draft only. Apply only to disposable PostgreSQL in CI; never deploy here.
 begin;
 
@@ -58,6 +58,7 @@ begin
   if p_attempt_id is null or p_actor_id is null
      or p_package_hash is null or p_package_hash !~ '^[0-9a-fA-F]{64}$'
      or p_package->>'protocol' is distinct from 'W3M_PROTOCOL_V1'
+     or p_package->>'executorWallet' !~ '^0x[0-9a-fA-F]{40}$'
      or p_expires_at is null
      or v_package_expires_at is distinct from p_expires_at
      or v_package_issued_at > v_now
@@ -92,42 +93,7 @@ begin
    for share;
   if not found or v_profile_verified is distinct from true
      or v_profile_wallet is null
-     or v_profile_wallet !~ '^0x[0-9a-fA-F]{40}
-    if v_attempt.package_actor_id = p_actor_id
-       and v_attempt.package_expires_at > v_now
-       and (v_attempt.package_payload - 'issuedAt' - 'expiresAt' - 'readBlockNumber' - 'readBlockHash')
-           = (p_package - 'issuedAt' - 'expiresAt' - 'readBlockNumber' - 'readBlockHash') then
-      return jsonb_build_object(
-        'issued', true,
-        'idempotent_replay', true,
-        'attempt_id', v_attempt.id,
-        'package_hash', lower(v_attempt.package_hash),
-        'expires_at', v_attempt.package_expires_at,
-        'package', v_attempt.package_payload
-      );
-    end if;
-    raise exception 'Execution package is immutable, expired, or bound to another actor'
-      using errcode = '23505';
-  end if;
-
-  update public.w3m_safe_execution_attempts
-     set package_actor_id = p_actor_id,
-         package_hash = lower(p_package_hash),
-         package_payload = p_package,
-         package_issued_at = v_now,
-         package_expires_at = p_expires_at
-   where id = p_attempt_id;
-
-  return jsonb_build_object(
-    'issued', true,
-    'idempotent_replay', false,
-    'attempt_id', p_attempt_id,
-    'package_hash', lower(p_package_hash),
-    'expires_at', p_expires_at,
-    'package', p_package
-  );
-end;
-$issue$;
+     or v_profile_wallet !~ '^0x[0-9a-fA-F]{40}$'
      or lower(v_profile_wallet) <> lower(p_package->>'executorWallet') then
     raise exception 'Authenticated participant wallet is not currently verified for package issuance'
       using errcode = '42501';
@@ -183,12 +149,14 @@ set search_path = pg_catalog, public
 as $submission$
 declare
   v_attempt public.w3m_safe_execution_attempts%rowtype;
-  v_now timestamptz := clock_timestamp();
+  v_profile_wallet text;
+  v_profile_verified boolean;
 begin
   if p_attempt_id is null or p_actor_id is null
      or p_package_hash is null or p_package_hash !~ '^[0-9a-fA-F]{64}$'
      or p_broadcast_tx_hash is null or p_broadcast_tx_hash !~ '^0x[0-9a-fA-F]{64}$' then
-    raise exception 'Invalid connected-wallet submission arguments' using errcode = '22023';
+    raise exception 'Invalid connected-wallet submission arguments'
+      using errcode = '22023';
   end if;
 
   select * into v_attempt
@@ -211,6 +179,27 @@ begin
 
   -- Exact retries are idempotent even after expiry; they cannot replace the
   -- already-recorded outer transaction hash.
+  if v_attempt.state = 'BROADCAST'
+     and lower(coalesce(v_attempt.broadcast_tx_hash,'')) = lower(p_broadcast_tx_hash) then
+    return jsonb_build_object(
+      'recorded', true, 'idempotent_replay', true,
+      'attempt_id', v_attempt.id, 'state', 'BROADCAST',
+      'broadcast_tx_hash', lower(v_attempt.broadcast_tx_hash)
+    );
+  end if;
+
+  if v_attempt.state = 'RECONCILIATION_REQUIRED'
+     and v_attempt.broadcast_tx_hash is not null
+     and lower(v_attempt.broadcast_tx_hash) = lower(p_broadcast_tx_hash) then
+    return jsonb_build_object(
+      'recorded', true, 'idempotent_replay', true,
+      'attempt_id', v_attempt.id, 'state', 'RECONCILIATION_REQUIRED',
+      'broadcast_tx_hash', lower(v_attempt.broadcast_tx_hash)
+    );
+  end if;
+
+  -- For a new or recovered hash, the authenticated participant must still
+  -- control the exact profile wallet that received this one-use package.
   select wallet_address, wallet_verified
     into v_profile_wallet, v_profile_verified
     from public.profiles
@@ -233,36 +222,11 @@ begin
       using errcode = '23514';
   end if;
 
-  if v_attempt.state = 'BROADCAST'
-     and lower(coalesce(v_attempt.broadcast_tx_hash,'')) = lower(p_broadcast_tx_hash) then
-    return jsonb_build_object(
-      'recorded', true, 'idempotent_replay', true,
-      'attempt_id', v_attempt.id, 'state', 'BROADCAST',
-      'broadcast_tx_hash', lower(v_attempt.broadcast_tx_hash)
-    );
-  end if;
-
-  if v_attempt.state = 'RECONCILIATION_REQUIRED'
-     and v_attempt.broadcast_tx_hash is not null
-     and lower(v_attempt.broadcast_tx_hash) = lower(p_broadcast_tx_hash) then
-    return jsonb_build_object(
-      'recorded', true, 'idempotent_replay', true,
-      'attempt_id', v_attempt.id, 'state', 'RECONCILIATION_REQUIRED',
-      'broadcast_tx_hash', lower(v_attempt.broadcast_tx_hash)
-    );
-  end if;
-
-  if v_attempt.package_expires_at <= v_now
-     or v_attempt.package_issued_at > v_now then
-    raise exception 'Connected-wallet package is expired or not yet valid'
-      using errcode = '23514';
-  end if;
-
   if v_attempt.state = 'RECONCILIATION_REQUIRED'
      and v_attempt.broadcast_tx_hash is null then
     update public.w3m_safe_execution_attempts
        set broadcast_tx_hash = lower(p_broadcast_tx_hash),
-           broadcast_at = v_now
+           broadcast_at = clock_timestamp()
      where id = p_attempt_id;
     return jsonb_build_object(
       'recorded', true, 'idempotent_replay', false,
@@ -279,7 +243,7 @@ begin
   update public.w3m_safe_execution_attempts
      set state = 'BROADCAST',
          broadcast_tx_hash = lower(p_broadcast_tx_hash),
-         broadcast_at = v_now
+         broadcast_at = clock_timestamp()
    where id = p_attempt_id;
 
   return jsonb_build_object(
@@ -292,10 +256,11 @@ $submission$;
 
 revoke all on function public.w3m_issue_safe_execution_package(uuid,uuid,text,jsonb,timestamptz)
   from public, anon, authenticated, service_role;
-revoke all on function public.w3m_record_safe_wallet_submission(uuid,uuid,text,text)
-  from public, anon, authenticated, service_role;
 grant execute on function public.w3m_issue_safe_execution_package(uuid,uuid,text,jsonb,timestamptz)
   to service_role;
+
+revoke all on function public.w3m_record_safe_wallet_submission(uuid,uuid,text,text)
+  from public, anon, authenticated, service_role;
 grant execute on function public.w3m_record_safe_wallet_submission(uuid,uuid,text,text)
   to service_role;
 
