@@ -118,7 +118,7 @@ export async function buildSafeWalletExecutionPackage(
     throw new Error("W3M execution authorization failed: " + decision.issues.join(","));
   }
 
-  const tx = guardInput.transaction as Record<string, unknown>;
+  const tx = guardInput.transaction as unknown as Record<string, unknown>;
   const safeAddress = requiredText(tx.safe_address, "Safe address");
   const safeHash = requiredText(guardInput.recomputedSafeTransactionHash, "Recomputed Safe transaction hash");
   if (!HASH.test(safeHash) ||
