@@ -82,8 +82,9 @@ function nonNegativeInteger(value: JsonValue | undefined, label: string): number
 /**
  * Hashes complete exact row snapshots supplied by the trusted loader.
  * Audit identity is audit.id; file natural key is path; finding natural key is
- * file_path + line_start + severity + category + title (the persisted finding
- * identity used by the audit writer). Complete pagination is enforced through
+ * normalized file_path + line_start + severity + category + title. Key
+ * normalization matches auditFindingsKey in the writer; exact row payloads
+ * remain unchanged in the digest. Complete pagination is enforced through
  * the persisted file and severity totals in the completed audit row.
  */
 export async function computeAuditManifest(input: AuditManifestInput): Promise<AuditManifest> {
@@ -114,10 +115,10 @@ export async function computeAuditManifest(input: AuditManifestInput): Promise<A
     requiredString(row.path, "Audit file path"), "Audit files");
   const findings = stableRows(input.findings, (row) => {
     const rawPath = row.file_path;
-    const path = rawPath === null ? null : requiredString(rawPath, "Finding file path");
+    const path = rawPath === null ? "" : requiredString(rawPath, "Finding file path").replace(/\\\\/g, "/");
     const severity = requiredString(row.severity, "Finding severity").toLowerCase();
-    const category = requiredString(row.category, "Finding category");
-    const title = requiredString(row.title, "Finding title");
+    const category = requiredString(row.category, "Finding category").toLowerCase();
+    const title = requiredString(row.title, "Finding title").toLowerCase();
     const lineStart = row.line_start;
     if (lineStart !== null && lineStart !== undefined &&
         (!Number.isInteger(lineStart) || Number(lineStart) < 0)) {
@@ -128,7 +129,9 @@ export async function computeAuditManifest(input: AuditManifestInput): Promise<A
     }
     // Repository-level findings legitimately have null file_path/line_start.
     // JSON tuple encoding distinguishes those from file-scoped findings.
-    return JSON.stringify([path, lineStart ?? null, severity, category, title]);
+    // The audit writer normalizes missing/null line_start to zero and null
+    // file_path to the empty string when de-duplicating persisted findings.
+    return JSON.stringify([path, lineStart ?? 0, severity, category, title]);
   }, "Audit findings");
 
   for (const row of [...files, ...findings]) {
