@@ -3,6 +3,7 @@
 create or replace function public.w3m_read_dealroom_terms_snapshot(p_deal_id uuid)
 returns table (
   deal_id text,
+  deal_status text,
   project_id text,
   buyer_id text,
   seller_id text,
@@ -46,6 +47,7 @@ set search_path = public
 as $$
   select
     d.id::text,
+    d.status::text,
     d.project_id::text,
     d.buyer_id::text,
     d.seller_id::text,
