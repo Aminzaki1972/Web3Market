@@ -10,7 +10,7 @@ const expected = {
   now: "2026-11-06T18:00:00.000Z",
   maxAgeMs: 30 * 24 * 60 * 60 * 1000,
   manifest: {
-    version: "w3m-audit-manifest-v1",
+    version: "w3m-audit-manifest-v1" as const,
     auditId: "22222222-2222-4222-8222-222222222222",
     fileCount: 190,
     findingCount: 25,
