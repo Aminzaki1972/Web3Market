@@ -75,6 +75,14 @@ begin
   select deal_id into v_deal_id from public.w3m_acquisition_reports where id = new.report_id;
   if v_deal_id is null then raise exception 'Evidence report binding is missing' using errcode = '23514'; end if;
   perform pg_advisory_xact_lock(hashtextextended(v_deal_id, 0));
+  if exists (
+    select 1 from public.w3m_safe_execution_attempts a
+     where a.report_id = new.report_id
+       and a.state in ('CLAIMED','BROADCAST','CONFIRMED','RECONCILIATION_REQUIRED')
+  ) then
+    raise exception 'Evidence manifest is frozen after an execution attempt pins the report'
+      using errcode = '55000';
+  end if;
   return new;
 end;
 $lock$;
