@@ -36,6 +36,16 @@ const rawSnapshot = {
     platform_wallet: "0x2B15cC63eE3b833F502C065767695Fa2B584f8c9",
     safe_nonce: "7", status: "locked", updated_at: "2026-11-06T10:00:00Z" },
   project: { id: projectId, owner_id: sellerId, status: "active" },
+  code_audit: {
+    auditId: "75000000-0000-4000-8000-000000000005",
+    repositoryOwner: "Aminzaki1972",
+    repositoryName: "Web3Market",
+    repositoryUrl: "https://github.com/Aminzaki1972/Web3Market",
+    commitSha: "a".repeat(40),
+    auditType: "code",
+    completedAt: "2026-11-01T10:00:00.000Z",
+    auditEvidenceHash: "c".repeat(64),
+  },
   buyer_profile: { id: buyerId, wallet_address: buyerSigner.wallet, wallet_verified: true, wallet_verified_at: "2026-11-06T10:00:00Z" },
   seller_profile: { id: sellerId, wallet_address: sellerSigner.wallet, wallet_verified: true, wallet_verified_at: "2026-11-06T10:00:00Z" },
 };
