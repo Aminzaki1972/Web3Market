@@ -760,3 +760,20 @@ The isolated branch now contains the next SIGN-layer pieces:
 - SQL and Deno tests were added for authorization denial, participant binding, exact replay, threshold completion, response validation and failure behavior.
 
 **Verification status:** PREPARE CI run `42178914223` completed successfully, including its disposable PostgreSQL migration/test path. The first SIGN-boundary CI exposed one test expectation error (the persistence adapter is invoked and then throws, so its invocation count is one); the assertion was corrected. The atomic SIGN migration and adapter CI runs are pending and must finish before SIGN can be marked verified. No production migration, live Safe handler, wallet, transaction, or deployment was changed. This SIGN implementation is still an isolated dependency-injected boundary; a dedicated authenticated Edge Function entrypoint and full integration with live Safe handler flow remain outstanding.
+
+
+## 41. Isolated SIGN phase composition and endpoint — 2026-11-06
+
+The SIGN flow now has a dedicated isolated Edge Function entrypoint at `supabase/functions/w3m-protocol-v1-safe-sign/index.ts`. It is **not deployed** and does not replace the live `record-safe-release-signature` function.
+
+- Authenticates the bearer token through Supabase Auth and derives actor ID from the verified session.
+- Accepts only deal ID, exact Safe transaction hash and signature from the request body; browser actor, wallet, role, signer list, and authorization are ignored.
+- Builds a server-side database context and reads current BNB Safe facts at a canonical block through the allowlisted public BNB RPC.
+- Uses a phase-aware context composer to require fresh W3M SIGN authorization, the immutable buyer/seller agreement pair, exact deal/hash binding, and the participant's current verified wallet.
+- The Safe snapshot adapter now has a SIGN-only mode that permits `awaiting_signatures` and does not impose the two-signature threshold before the first signer. EXECUTE retains the stricter `signed` + threshold requirements.
+- Verifies the EIP-712 SafeTx digest signature against the server-derived wallet, then persists through the service-role-only atomic SIGN RPC.
+- CORS is restricted to the Web3Market production origins; CORS is not treated as authentication.
+
+CI caught a misplaced authorization property in the handler's callback types. That was corrected so the fresh authorization is passed to the persistence callback, not the cryptographic verifier. A separate test assertion was also corrected to distinguish "persistence callback invoked and failed" from "persistence callback never invoked". The latest workflow run must pass all type checks, Deno tests and disposable PostgreSQL migration tests before SIGN is marked verified.
+
+The GitHub repository's Cloudflare Pages check may build a preview for this isolated branch; production branch remains separate. No production Supabase migration/function was deployed, and no Safe, wallet, funds or production database row was changed.
