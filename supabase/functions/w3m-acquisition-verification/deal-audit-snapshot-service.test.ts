@@ -20,7 +20,8 @@ const audit = {
   },
 };
 const context = {
-  deal_id: dealId, project_id: projectId, audit_id: auditId,
+  deal_id: dealId, project_id: projectId, buyer_id:"83000000-0000-4000-8000-000000000003",
+  seller_id:"84000000-0000-4000-8000-000000000004", audit_id: auditId,
   project_github_url: "https://github.com/owner/repo",
 };
 function source(auditRow: AuditManifestRow = audit): AuditManifestSource {
@@ -78,6 +79,7 @@ Deno.test("rejects a repository that differs from the authoritative project list
     client(calls, {...context,project_github_url:"https://github.com/other/repo"}),
     source(),
     dealId,
+    "83000000-0000-4000-8000-000000000003",
   ));
   assertEquals((calls as {name:string}[]).map(x=>x.name), ["w3m_read_deal_audit_snapshot_context"]);
 });
@@ -88,6 +90,7 @@ Deno.test("rejects a completed audit owned by another project before persistence
     client(calls),
     source({...audit,project_id:"75000000-0000-4000-8000-000000000005"}),
     dealId,
+    "83000000-0000-4000-8000-000000000003",
   ));
   assertEquals((calls as {name:string}[]).map(x=>x.name), ["w3m_read_deal_audit_snapshot_context"]);
 });
@@ -96,10 +99,22 @@ Deno.test("fails closed when the trusted context RPC errors or returns another d
   const errorClient: W3MRpcClient = {
     async rpc() { return {data:null,error:new Error("db")}; },
   };
-  await assertRejects(() => prepareDealAuditSnapshot(errorClient, source(), dealId));
+  await assertRejects(() => prepareDealAuditSnapshot(errorClient, source(), dealId, "83000000-0000-4000-8000-000000000003"));
   await assertRejects(() => prepareDealAuditSnapshot(
     client([], {...context,deal_id:"75000000-0000-4000-8000-000000000005"}),
     source(),
     dealId,
+    "83000000-0000-4000-8000-000000000003",
   ));
+});
+
+Deno.test("rejects a non-party actor before persisting the independent snapshot", async () => {
+  const calls: unknown[] = [];
+  await assertRejects(() => prepareDealAuditSnapshot(
+    client(calls),
+    source(),
+    dealId,
+    "75000000-0000-4000-8000-000000000005",
+  ));
+  assertEquals((calls as {name:string}[]).map(x=>x.name), ["w3m_read_deal_audit_snapshot_context"]);
 });
