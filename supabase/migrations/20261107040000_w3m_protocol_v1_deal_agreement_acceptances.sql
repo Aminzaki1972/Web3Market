@@ -365,8 +365,11 @@ declare
   v_matching_code_audit_count integer;
   v_deal_id uuid;
 begin
-  if new.deal_id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' then
-    raise exception 'Acquisition report deal ID must be a UUID' using errcode = '23514';
+  -- The shared registry can contain non-W3M diagnostic identifiers. The
+  -- authenticated W3M report endpoint accepts UUID deal IDs only; apply this
+  -- deal-signature guard to UUID-backed W3M deals.
+  if new.deal_id is null or new.deal_id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' then
+    return new;
   end if;
   v_deal_id := new.deal_id::uuid;
   select * into v_deal from public.deals where id = v_deal_id;
