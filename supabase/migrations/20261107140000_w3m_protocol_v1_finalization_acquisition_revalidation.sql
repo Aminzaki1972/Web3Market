@@ -234,6 +234,14 @@ begin
    for update;
   if not found then raise exception 'Deal not found' using errcode = 'P0002'; end if;
 
+  -- Lock the release policy before rebuilding canonical terms. The canonical
+  -- terms function reads this row, so locking it first prevents a policy
+  -- mutation between terms comparison and the later settlement checks.
+  select * into v_policy from public.deal_release_policies
+   where deal_id = v_attempt.deal_id
+   for update;
+  if not found then raise exception 'Release policy not found' using errcode = '23514'; end if;
+
   -- Lock and revalidate the exact persisted acquisition report at finalization.
   select * into v_report from public.w3m_acquisition_reports
    where id = v_attempt.report_id for update;
@@ -331,11 +339,6 @@ begin
    where id = v_attempt.transaction_id and deal_id = v_attempt.deal_id
    for update;
   if not found then raise exception 'Bound Safe transaction not found' using errcode = '23514'; end if;
-
-  select * into v_policy from public.deal_release_policies
-   where deal_id = v_attempt.deal_id
-   for update;
-  if not found then raise exception 'Release policy not found' using errcode = '23514'; end if;
 
   if p_actor_id not in (v_deal.buyer_id, v_deal.seller_id) then
     raise exception 'Finalization actor is not a deal participant' using errcode = '42501';
