@@ -286,11 +286,6 @@ begin
 
   -- The deal row is already locked above. A newly opened dispute must block
   -- settlement even when the previously signed acquisition report passed.
-  if v_deal.dispute_status is distinct from 'none' then
-    raise exception 'An active or unresolved deal dispute blocks Safe settlement'
-      using errcode = '23514';
-  end if;
-
   -- The parent deal lock serializes dispute inserts and status changes. Keep
   -- every non-terminal dispute fail-closed; resolved/closed records remain auditable.
   perform 1 from public.deal_disputes d
