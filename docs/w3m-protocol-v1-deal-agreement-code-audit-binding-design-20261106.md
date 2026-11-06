@@ -111,3 +111,28 @@ The pure Code Audit binding module now exports `assertDealCodeAuditMatchesProjec
 This helper does not load the project row and does not make caller-supplied URLs authoritative. The future server loader must read the project's `github_url` directly from the authoritative project record, call this comparison before producing evidence or signed terms, and fail closed on any mismatch.
 
 The new tests cover exact matches, normalized URL forms, different owners/repositories, deceptive hosts, credentials, non-HTTPS URLs, encoded paths, query strings, and extra path segments. This closes the pure comparison boundary only; it is not yet wired into the agreement signing service, SQL canonical terms, or report issuer runtime.
+
+
+## 11. Agreement implementation map and schema verification (2026-11-06)
+
+The isolated branch source review has now identified the actual agreement hash and SQL enforcement points:
+
+- TypeScript canonical terms and hash: `supabase/functions/w3m-acquisition-verification/deal-terms-hash.ts` (`DealTermsSnapshot`, `computeDealTermsHash`).
+- Trusted agreement loader and both prepare/accept paths: `deal-agreement-service.ts`, function `loadSigningContext`, which reads only the service-role RPC `w3m_read_deal_agreement_signing_snapshot` before calculating and registering the canonical terms.
+- SQL canonical mirror and stale-signature guard: migration `20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql`, function `w3m_current_deal_terms_json`; both registration and acceptance compare the submitted canonical JSON against this database-generated value.
+- Signing snapshot currently returns project identity/owner/status but not the project's GitHub URL or an explicitly selected audit row.
+
+The authoritative project repository column is confirmed by existing application code as `public.projects.github_url`. Existing project-detail code reads `projects.id,github_url,status`; existing project review code reads `projects.id,owner_id,github_url`. The pure URL comparison helper must therefore receive `project.github_url` from the trusted server snapshot, not a browser value.
+
+The exact audit selection mechanism is not yet established. The audit V2 migration test fixture only declares a minimal `code_audits` table with `id`, `requested_by`, `project_id`, `status`, and `engine_version`; it is intentionally not a complete production schema contract. Application code and the Buyer Due Diligence review confirm that audit rows also expose fields such as `repo_url`, `commit_sha`, `completed_at`, `overall_score`, `risk_level`, and `analysis_method`/engine provenance in relevant paths, but a single authoritative full DDL definition for these columns has not yet been located in the repository migrations reviewed. Do not write a selector RPC against assumed columns or silently choose the newest audit.
+
+### Safe next implementation sequence
+
+1. Locate and verify the complete deployed-origin DDL/schema contract for `code_audits` and the exact evidence columns needed by the selector.
+2. Add a server-owned per-deal explicit audit selection, with no direct client table access and no automatic latest-audit fallback. The server must load `projects.github_url`, the exact audit row by ID, and compare project ID, normalized repository identity, completion status, commit SHA, audit scope, provenance, score/risk and freshness before accepting the selection.
+3. Extend `DealTermsSnapshot` and `computeDealTermsHash` with a required, validated audit binding. Do not make it optional for the acquisition V1 signing path: a missing selection must fail closed.
+4. Extend the SQL signing snapshot to return the selected audit binding and `projects.github_url`; extend `w3m_current_deal_terms_json` to emit the exact same nested JSON keys and canonical values as TypeScript. Registration and acceptance already compare against the SQL canonical JSON, so mismatch must reject.
+5. Add parity tests proving TypeScript and SQL canonical JSON match, and changing audit ID or commit changes the terms hash/version. Confirm old buyer/seller signatures cannot authorize the changed terms.
+6. Keep report evidence and settlement-time persisted-report verification tied to that same signed audit ID, commit and evidence hash. Do not treat the agreement binding alone as proof that the repository remains unchanged or that the report is still fresh.
+
+This section records source findings and the implementation sequence only. No migration, production schema read, runtime function patch, deployment, or production data change was performed.
