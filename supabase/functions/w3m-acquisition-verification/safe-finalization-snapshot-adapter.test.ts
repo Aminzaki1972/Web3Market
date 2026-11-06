@@ -22,7 +22,7 @@ const row = {
   transaction_status: "submitted",
   attempt_state: "BROADCAST",
   package_actor_id: "buyer-1",
-  package_hash: "0x" + "c".repeat(64),
+  package_hash: "c".repeat(64),
   package_issued_at: "2026-11-06T12:00:00.000Z",
   package_expires_at: "2026-11-06T12:02:00.000Z",
 };
