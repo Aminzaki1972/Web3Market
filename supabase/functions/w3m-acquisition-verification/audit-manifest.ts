@@ -49,7 +49,11 @@ function assertJsonValue(value: unknown, label: string, depth = 0): asserts valu
   throw new Error(label + " contains a non-JSON value.");
 }
 
-function stableRows(rows: AuditManifestRow[], idKey: string, label: string): AuditManifestRow[] {
+function stableRows(
+  rows: AuditManifestRow[],
+  keyOf: (row: AuditManifestRow) => string,
+  label: string,
+): AuditManifestRow[] {
   if (!Array.isArray(rows)) throw new Error(label + " must be an array.");
   const seen = new Set<string>();
   const normalized = rows.map((row, index) => {
@@ -57,32 +61,93 @@ function stableRows(rows: AuditManifestRow[], idKey: string, label: string): Aud
       throw new Error(label + " row " + index + " must be an object.");
     }
     assertJsonValue(row, label + " row " + index);
-    const id = requiredString(row[idKey], label + " row " + idKey);
-    if (seen.has(id)) throw new Error(label + " contains duplicate " + idKey + " values.");
-    seen.add(id);
-    return { id, row };
+    const key = keyOf(row);
+    if (!key) throw new Error(label + " row has no stable natural key.");
+    if (seen.has(key)) throw new Error(label + " contains duplicate natural keys.");
+    seen.add(key);
+    return { key, row };
   });
-  normalized.sort((a, b) => a.id.localeCompare(b.id));
+  // Code-point ordering is locale-independent across runtimes.
+  normalized.sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
   return normalized.map((item) => item.row);
 }
 
+function nonNegativeInteger(value: JsonValue | undefined, label: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    throw new Error(label + " must be a non-negative integer.");
+  }
+  return value;
+}
+
 /**
- * Hashes the full exact row snapshots supplied by the trusted loader.
- * Required identifiers: audit.id, files.id, findings.id. Do not pass partial
- * projections and do not omit pages. Recompute from fresh persisted rows at
- * agreement signing and immediately before settlement.
+ * Hashes complete exact row snapshots supplied by the trusted loader.
+ * Audit identity is audit.id; file natural key is path; finding natural key is
+ * file_path + line_start + severity + category + title (the persisted finding
+ * identity used by the audit writer). Complete pagination is enforced through
+ * the persisted file and severity totals in the completed audit row.
  */
 export async function computeAuditManifest(input: AuditManifestInput): Promise<AuditManifest> {
-  if (!input || typeof input !== "object" || !input.audit || typeof input.audit !== "object" || Array.isArray(input.audit)) {
+  if (!input || typeof input !== "object" || !input.audit ||
+      typeof input.audit !== "object" || Array.isArray(input.audit)) {
     throw new Error("A persisted audit row is required.");
   }
-  assertJsonValue(input.audit, "Audit row");
-  const auditId = requiredString(input.audit.id, "Audit row id");
-  const files = stableRows(input.files, "id", "Audit files");
-  const findings = stableRows(input.findings, "id", "Audit findings");
+  const audit = input.audit;
+  assertJsonValue(audit, "Audit row");
+  const auditId = requiredString(audit.id, "Audit row id");
+  if (audit.status !== "completed") throw new Error("Only completed audits can be manifested.");
+  const commitSha = requiredString(audit.commit_sha, "Audit commit SHA");
+  if (!/^[0-9a-f]{40}$/i.test(commitSha)) throw new Error("Audit commit SHA is invalid.");
+  requiredString(audit.repo_owner, "Audit repository owner");
+  requiredString(audit.repo_name, "Audit repository name");
+  requiredString(audit.completed_at, "Audit completion timestamp");
+  requiredString(audit.engine_version, "Audit engine version");
+
+  const progress = audit.analysis_progress;
+  if (!progress || typeof progress !== "object" || Array.isArray(progress)) {
+    throw new Error("Structured audit completion evidence is required.");
+  }
+  if (progress.evidence_version !== "w3m-audit-evidence-v1" || progress.tree_truncated !== false) {
+    throw new Error("Audit evidence version or repository tree completeness is invalid.");
+  }
+
+  const files = stableRows(input.files, (row) =>
+    requiredString(row.path, "Audit file path"), "Audit files");
+  const findings = stableRows(input.findings, (row) => {
+    const path = requiredString(row.file_path, "Finding file path");
+    const severity = requiredString(row.severity, "Finding severity").toLowerCase();
+    const category = requiredString(row.category, "Finding category");
+    const title = requiredString(row.title, "Finding title");
+    if (!Number.isInteger(row.line_start) || Number(row.line_start) < 0) {
+      throw new Error("Finding line_start must be a non-negative integer.");
+    }
+    if (!["critical", "high", "medium", "low", "info"].includes(severity)) {
+      throw new Error("Finding severity is unsupported.");
+    }
+    return [path, String(row.line_start), severity, category, title].join("\u0000");
+  }, "Audit findings");
+
+  for (const row of [...files, ...findings]) {
+    if (row.audit_id !== auditId) {
+      throw new Error("Every file and finding row must belong to the selected audit.");
+    }
+  }
+
+  const filesScanned = nonNegativeInteger(audit.files_scanned, "Audit files_scanned");
+  const persistedFiles = nonNegativeInteger(progress.persisted_file_count, "Persisted file count");
+  if (files.length !== filesScanned || files.length !== persistedFiles) {
+    throw new Error("Persisted file rows do not match the audit's completed file counts.");
+  }
+
+  const findingCount = findings.length;
+  const persistedFindingCount = ["critical_count", "high_count", "medium_count", "low_count", "info_count"]
+    .reduce((sum, key) => sum + nonNegativeInteger(audit[key], "Audit " + key), 0);
+  if (findingCount !== persistedFindingCount) {
+    throw new Error("Persisted finding rows do not match the audit's severity totals.");
+  }
+
   const payload = {
     version: AUDIT_MANIFEST_VERSION,
-    audit: input.audit,
+    audit,
     files,
     findings,
     counts: { files: files.length, findings: findings.length },
@@ -91,7 +156,7 @@ export async function computeAuditManifest(input: AuditManifestInput): Promise<A
     version: AUDIT_MANIFEST_VERSION,
     auditId,
     fileCount: files.length,
-    findingCount: findings.length,
+    findingCount,
     digest: await sha256Hex(canonicalJson(payload)),
   };
 }
