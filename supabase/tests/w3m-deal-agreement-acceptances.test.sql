@@ -110,7 +110,7 @@ begin
   -- A PASS report is rejected before both parties have signed, even though
   -- the independent audit snapshot already exists.
   begin
-    set constraints w3m_pass_report_requires_signed_deal_terms immediate;
+    set constraints w3m_acquisition_report_requires_signed_deal_terms immediate;
     insert into public.w3m_acquisition_reports(
       id,deal_id,project_id,report_version,buyer_id,seller_id,status,engine_version,
       evidence_hash,report_hash,report_payload,signer_key_id,report_signature,issued_at,expires_at
@@ -126,7 +126,7 @@ begin
     raise exception 'PASS report was accepted before both agreement signatures';
   exception when check_violation then null;
   end;
-  set constraints w3m_pass_report_requires_signed_deal_terms deferred;
+  set constraints w3m_acquisition_report_requires_signed_deal_terms deferred;
 
   -- One wallet cannot represent both buyer and seller consent.
   update public.profiles
@@ -240,11 +240,11 @@ begin
       'auditFileCount',1,'auditFindingCount',0
     )
   );
-  set constraints w3m_pass_report_requires_signed_deal_terms immediate;
+  set constraints w3m_acquisition_report_requires_signed_deal_terms immediate;
   if (select count(*) from public.w3m_acquisition_reports where id='86000000-0000-4000-8000-000000000006') <> 1 then
     raise exception 'PASS report was not accepted after both agreement signatures';
   end if;
-  set constraints w3m_pass_report_requires_signed_deal_terms deferred;
+  set constraints w3m_acquisition_report_requires_signed_deal_terms deferred;
 
   begin
     perform public.w3m_insert_deal_agreement_acceptance(
