@@ -8,7 +8,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const ADDRESS = /^0x[0-9a-f]{40}$/i;
 const HASH = /^0x[0-9a-f]{64}$/i;
 const SHA256 = /^[0-9a-f]{64}$/;
-const DECIMAL = /^(0|[1-9][0-9]*)(\\.[0-9]+)?$/;
+const DECIMAL = /^(0|[1-9][0-9]*)(\.[0-9]+)?$/;
 const BNB_USDT = "0x55d398326f99059ff775485246999027b3197955";
 const PLATFORM_WALLET = "0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
 
