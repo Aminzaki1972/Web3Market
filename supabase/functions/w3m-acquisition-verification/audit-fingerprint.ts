@@ -11,11 +11,11 @@ const DOMAIN = "w3m-audit-fingerprint:v1\n";
 
 function canonicalJson(value: unknown, seen = new Set<object>()): string {
   if (value === null || typeof value === "string" || typeof value === "boolean") {
-    return JSON.stringify(value);
+    return JSON.stringify(value) as string;
   }
   if (typeof value === "number") {
     if (!Number.isFinite(value)) throw new Error("Manifest contains a non-finite number.");
-    return JSON.stringify(value);
+    return JSON.stringify(value) as string;
   }
   if (typeof value !== "object") {
     throw new Error("Manifest contains a value that is not JSON-compatible.");
