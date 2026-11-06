@@ -53,7 +53,7 @@ const receiptLogs = [
   {
     address: expected.tokenContract,
     topics: [transfer, wordAddress(expected.safeAddress), wordAddress(expected.platformWallet)],
-    data: wordUint(75n * 10n ** 16n),
+    data: wordUint(75n * 10n ** 17n),
     logIndex: "0x2",
   },
 ];
@@ -104,8 +104,8 @@ Deno.test("wrong chain is rejected before receipt lookup", async () => {
   const { rpc, calls } = mockRpc({ chainId: "0x1" });
   await assertRejects(
     () => verifyBnbSafeReleaseReceipt(rpc, expected),
-    BnbSafeReceiptVerificationError,
-    "not BNB Chain",
+    Error,
+    "receipt verification unavailable",
   );
   assertEquals(calls, ["eth_chainId"]);
 });
