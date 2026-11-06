@@ -75,3 +75,16 @@ The source review confirms the blocker is still present:
 5. Add the listed race/regression cases to disposable PostgreSQL CI, including a revocation or evidence mutation racing the finalizer.
 
 No SQL or runtime code was changed as part of this audit because the present interfaces do not yet carry a complete report attestation into the atomic RPC. Guessing at that contract would risk creating a false security boundary.
+
+## Append-only protection increment — 2026-11-06
+
+An isolated migration and regression test were added:
+
+- `supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql`
+- `supabase/tests/w3m-protocol-v1-append-only-registry.test.sql`
+
+The migration installs statement-level UPDATE/DELETE/TRUNCATE rejection triggers on the W3M acquisition report, evidence, report-event, trusted-signer-key, and trusted-signer-event registries. It does not grant additional write privileges; the service role remains read-only on these tables and writes continue through the existing SECURITY DEFINER registry RPCs. The SQL regression test checks the triggers and verifies that report/evidence/event/signer mutation attempts are rejected.
+
+The isolated CI workflow was updated to apply this migration only to its disposable PostgreSQL service and execute the new test. Run `42197764274` on commit `7650efd` was queued and then entered `in_progress` at the time of this note; its result is not yet known.
+
+This closes the direct row-mutation gap for these five registries only if CI passes and the database owner does not disable triggers. It does **not** close the finalization-time revalidation gap. Deal-terms version/acceptance immutability and signer-revocation serialization with finalization still require explicit handling, and the atomic finalizer still does not lock/revalidate the acquisition report/evidence/signer/terms bundle.
