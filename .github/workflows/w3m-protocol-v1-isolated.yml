@@ -1,4 +1,5 @@
 name: W3M Protocol V1 isolated checks
+# Includes fail-closed Safe SIGN and atomic signature persistence checks.
 
 on:
   pull_request:
