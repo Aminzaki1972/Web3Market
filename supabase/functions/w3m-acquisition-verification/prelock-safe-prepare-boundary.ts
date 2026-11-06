@@ -35,7 +35,8 @@ export async function executePrelockPrepareOnlyAfterW3M<T>(
     now,
     recoverAndVerify,
   );
-  if (!authorization.authorized ||
+  if (authorization.phase !== "PREPARE" || authorization.dealId !== dealId ||
+      authorization.issues.length !== 0 || !authorization.authorized ||
       typeof authorization.dealTermsHash !== "string" ||
       !/^[0-9a-f]{64}$/i.test(authorization.dealTermsHash) ||
       typeof authorization.safeNonce !== "string" ||
