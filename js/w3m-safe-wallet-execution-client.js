@@ -261,3 +261,63 @@ export async function executeW3MDealReleaseFromWallet({
     finalized: false,
   };
 }
+
+
+/**
+ * Ask the isolated server to independently verify the canonical BNB receipt
+ * and run atomic FINALIZE. The browser supplies only the attempt ID; no
+ * receipt, transfer amounts, or "success" claim is accepted from the client.
+ *
+ * @param {{attemptId:string, accessToken:string, apiKey:string, supabaseUrl:string,
+ *   fetchImpl?:typeof fetch}} options
+ */
+export async function verifyW3MDealReleaseFromServer({
+  attemptId,
+  accessToken,
+  apiKey,
+  supabaseUrl,
+  fetchImpl = fetch,
+}) {
+  assert(typeof attemptId === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(attemptId),
+  "A valid W3M execution attempt ID is required.");
+  assert(typeof accessToken === "string" && accessToken.trim().length > 0,
+    "An authenticated Supabase access token is required.");
+  assert(typeof apiKey === "string" && apiKey.trim().length > 0,
+    "A Supabase publishable API key is required.");
+  let base;
+  try { base = new URL(supabaseUrl); } catch {
+    throw new Error("Supabase URL is invalid.");
+  }
+  assert(base.protocol === "https:" && !base.username && !base.password && !base.search && !base.hash,
+    "Supabase endpoint must be a clean HTTPS URL.");
+  const response = await fetchImpl(
+    new URL("/functions/v1/w3m-protocol-v1-finalize-safe-release", base.origin),
+    {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + accessToken,
+        "apikey": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ attempt_id: attemptId }),
+    },
+  );
+  let body;
+  try { body = await response.json(); } catch {
+    throw new Error("W3M finalization endpoint returned invalid JSON.");
+  }
+  if (response.status === 409 && body?.ok === false) {
+    return { state: "VERIFICATION_PENDING_OR_BLOCKED", attemptId, finalized: false };
+  }
+  assert(response.ok && body?.ok === true && body.result?.state === "CONFIRMED" &&
+    body.result?.attemptId === attemptId,
+  body?.error || "W3M server has not confirmed this exact execution attempt.");
+  return {
+    state: "CONFIRMED",
+    attemptId,
+    transactionHash: body.result.broadcastTxHash,
+    idempotentReplay: body.result.idempotentReplay === true,
+    finalized: true,
+  };
+}
