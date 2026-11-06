@@ -554,3 +554,24 @@ The production Supabase project was inspected read-only. No database SQL was exe
 **Next implementation dependency:** the exact live schema is now known, but an atomic SQL persistence RPC has not yet been authored or tested. The Supabase CLI is not available in the current execution environment, so no migration filename or SQL deployment is being guessed. This remains isolated until a proper migration-generation/test path is available.
 
 This source/schema review makes the next integration target precise, but **does not mean W3M is protecting live Deal Room operations**. The live handlers remain unchanged.
+
+
+## 31. Remaining four live Safe handler versions — read-only review — 2026-11-06
+
+Additional production Edge Function reads were completed without changing any function:
+
+| Live handler | Version | SHA-256 |
+|---|---:|---|
+| `create-safe` | 56 | `d888f48d48c87563e20e43318f9187c0f02d9a46fbe5e037cadbb5520b918e07` |
+| `record-safe-release-signature` | 24 | `fb4fedf2c17245b52d2920d3ac13c426b02a49d176dc96e75237c599840d5d01` |
+| `execute-safe-release` | 28 | `e51aa4f2dffe259292a627b0ab1c3663c5f2ef46b7792cd96c156c452eb65d22` |
+| `finalize-safe-release` | 25 | `4f39f60122f79198fd8b2051cefd172d600f1c1d3a5d48310b40620957efd5ce` |
+
+**Source-derived integration findings**
+- `create-safe` authenticates and authorizes deal participants/admin, deploys a 2-of-3 Safe and writes deal Safe fields plus a pending release policy in separate database operations. It is a setup stage, not the settlement PREPARE gate.
+- `record-safe-release-signature` recomputes the Safe EIP-712 typed-data digest and verifies the recovered signer against the verified wallet and current Safe owners. W3M's immutable buyer/seller EIP-712 deal agreement must be checked before this legacy SIGN path records a signature.
+- `execute-safe-release` checks two stored signers are current Safe owners and recomputes the Safe transaction hash, but it does not independently recover each stored ECDSA signature from the exact Safe digest at execution time. It then broadcasts through the configured executor and updates the multisig row separately.
+- `finalize-safe-release` already checks the mined receipt, successful receipt status, exact Safe `ExecutionSuccess` event for the stored Safe transaction hash, and exact Safe-to-seller plus Safe-to-platform USDT transfer amounts. However, it updates the multisig row, release policy, deal, project and audit log as separate writes; the audit insert result is not checked.
+- The isolated W3M EXECUTE path therefore retains its stricter per-signature recovery, agreement binding, fresh pre-broadcast authorization and atomic attempt claim. The isolated W3M FINALIZE endpoint retains its receipt verifier and atomic finalizer. These must replace/guard the corresponding legacy paths before any production protection can be claimed.
+
+This completes the read-only source inventory of all six live Safe handlers. The integration work remaining is now bounded to connecting the isolated PREPARE/SIGN/EXECUTE/FINALIZE gates to those exact handler entry points and introducing the required atomic database persistence operations. No live function or database object was changed.
