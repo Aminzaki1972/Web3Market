@@ -29,6 +29,7 @@ declare
   fee_value numeric;
   seller_net_value numeric;
   audit_metadata jsonb;
+  existing_audit jsonb;
   now_value timestamptz := clock_timestamp();
 begin
   if p_deal_id is null or p_actor_id is null
@@ -140,6 +141,15 @@ begin
          and lower(pol.safe_address)=safe_addr and lower(pol.token_contract)=token_addr
          and pol.token_symbol='USDT' and pol.chain_id=56 and pol.safe_nonce=nonce_value
          and n_tx=1 then
+        select metadata into existing_audit from public.deal_audit_logs
+         where deal_id=p_deal_id and action='release_policy_locked'
+         order by created_at desc limit 1;
+        if existing_audit->>'w3m_report_id' is distinct from p_w3m_authorization->>'report_id'
+           or existing_audit->>'w3m_report_version' is distinct from p_w3m_authorization->>'report_version'
+           or existing_audit->>'w3m_report_hash' is distinct from p_w3m_authorization->>'report_hash'
+           or existing_audit->>'w3m_deal_terms_hash' is distinct from p_w3m_authorization->>'deal_terms_hash' then
+          raise exception 'Locked policy W3M report binding changed; reconciliation required' using errcode='23514';
+        end if;
         select * into tx from public.deal_multisig_transactions
          where deal_id=p_deal_id and action='release_to_seller' for update;
         if tx.amount=seller_net_value and tx.token_symbol='USDT'
