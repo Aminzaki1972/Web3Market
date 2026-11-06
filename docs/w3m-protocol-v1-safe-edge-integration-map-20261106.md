@@ -526,3 +526,20 @@ Added `prelock-safe-prepare-boundary.ts` as the mandatory composition point for 
 CI run [42172312612](https://github.com/Aminzaki1972/Web3Market/actions/runs/42172312612) completed successfully after the latest token/status refinements. The new boundary wrapper and its test are in the current isolated CI queue (latest relevant runs: [42172893422](https://github.com/Aminzaki1972/Web3Market/actions/runs/42172893422), [42172888436](https://github.com/Aminzaki1972/Web3Market/actions/runs/42172888436)); their outcome is not yet known.
 
 **Important:** this wrapper is not yet called by the legacy `prepare-deal-release` handler. It establishes and tests the safe side-effect boundary, but does not itself protect the live endpoint until a separately reviewed handler integration uses it. No deployed function, production database, wallet, Safe, or funds were changed.
+
+
+## 29. PREPARE write boundary — 2026-11-06
+
+Added executable helper `prelock-prepare-commit-boundary.ts` and tests. It accepts only a successful PREPARE authorization with:
+- zero authorization issues;
+- a 32-byte canonical deal-terms hash;
+- a canonical decimal Safe nonce;
+- a canonical BNB block number and 32-byte block hash.
+
+Only then does it invoke the caller's persistence callback, exactly once, forwarding the original deal ID, terms hash, nonce, and block identity unchanged. Denied or malformed authorization returns without invoking the callback. This is intended to guard the policy upsert, pending Safe transaction insert/update, and audit write as one follow-on atomic persistence operation.
+
+The helper is deliberately not represented as a complete database transaction: its caller must still use one atomic server-side RPC for the policy/transaction/audit persistence, and must not perform those three writes separately.
+
+The new helper and its tests have been added to the isolated CI workflow. Runs `42172870148`, `42172874295`, `42172888436`, `42172893422`, and `42172907113` were in progress at the time of this note; no result is claimed for these runs yet.
+
+**Integration status remains unchanged:** neither old deployed PREPARE handler has been modified or routed through this boundary. This is an isolated, executable integration seam, not active protection on the live marketplace.
