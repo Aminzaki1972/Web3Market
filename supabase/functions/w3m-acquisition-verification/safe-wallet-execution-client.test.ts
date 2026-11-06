@@ -3,6 +3,7 @@ import {
   encodeSafeExecTransactionCalldata,
   submitSafeWalletExecutionPackage,
   executeW3MDealReleaseFromWallet,
+  recordW3MSafeWalletSubmission,
   finalizeW3MSafeDealRelease,
   verifyW3MDealReleaseFromServer,
 } from "../../../js/w3m-safe-wallet-execution-client.js";
@@ -212,6 +213,64 @@ Deno.test("preserves the wallet hash for reconciliation if submission-hash persi
   assertEquals(result.finalized, false);
 });
 
+
+Deno.test("recovers an already-submitted wallet hash without requesting another wallet transaction", async () => {
+  const attemptId = "24000000-0000-4000-8000-000000000004";
+  const packageHash = "c".repeat(64);
+  let requestBody: Record<string, unknown> | null = null;
+  const result = await recordW3MSafeWalletSubmission({
+    attemptId,
+    packageHash,
+    transactionHash: OUTER_HASH,
+    accessToken: "test-access-token",
+    apiKey: "test-publishable-key",
+    supabaseUrl: "https://project.supabase.co",
+    fetchImpl: async (input, init) => {
+      assertEquals(String(input), "https://project.supabase.co/functions/v1/w3m-protocol-v1-safe-wallet-submit");
+      assertEquals(init?.method, "POST");
+      assertEquals((init?.headers as Record<string, string>)?.Authorization, "Bearer test-access-token");
+      assertEquals((init?.headers as Record<string, string>)?.apikey, "test-publishable-key");
+      requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(JSON.stringify({
+        ok: true,
+        state: "BROADCAST_UNVERIFIED",
+        attempt_id: attemptId,
+        transaction_hash: OUTER_HASH,
+        receipt_verified: false,
+        finalized: false,
+      }), { status: 200 });
+    },
+  });
+  assertEquals(requestBody, {
+    attempt_id: attemptId,
+    package_hash: packageHash,
+    transaction_hash: OUTER_HASH,
+  });
+  assertEquals(result, {
+    state: "BROADCAST_UNVERIFIED",
+    attemptId,
+    packageHash,
+    transactionHash: OUTER_HASH,
+    receiptVerified: false,
+    finalized: false,
+  });
+});
+
+Deno.test("wallet hash recovery preserves the original hash when the server remains unavailable", async () => {
+  const result = await recordW3MSafeWalletSubmission({
+    attemptId: "24000000-0000-4000-8000-000000000004",
+    packageHash: "c".repeat(64),
+    transactionHash: OUTER_HASH,
+    accessToken: "test-access-token",
+    apiKey: "test-publishable-key",
+    supabaseUrl: "https://project.supabase.co",
+    fetchImpl: async () => new Response("not-json", { status: 503 }),
+  });
+  assertEquals(result.state, "SUBMITTED_UNRECORDED");
+  assertEquals(result.transactionHash, OUTER_HASH);
+  assertEquals(result.receiptVerified, false);
+  assertEquals(result.finalized, false);
+});
 
 Deno.test("finalization helper sends only the attempt ID and trusts only server CONFIRMED", async () => {
   const attemptId = "24000000-0000-4000-8000-000000000004";
