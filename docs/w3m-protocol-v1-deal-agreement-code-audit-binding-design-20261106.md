@@ -103,3 +103,11 @@ This is a pre-integration contract, not yet part of `computeDealTermsHash`, `w3m
 ## 9. Evidence validity interval hardening (2026-11-06)
 
 The pure binding boundary now also requires all three temporal facts to be valid and ordered: audit completion must not occur after evidence observation, and the observation must be strictly earlier than the evidence validity deadline. Missing, malformed, or out-of-order validity timestamps are rejected. This checks the evidence interval itself; the upstream decision engine and server-side issuer must still compare the deadline against the trusted current issuance time to reject evidence that has since expired.
+
+## 10. Authoritative project repository comparison boundary (2026-11-06)
+
+The pure Code Audit binding module now exports `assertDealCodeAuditMatchesProjectRepository`. It compares the selected audit's normalized owner/repository identity against a repository URL supplied by the trusted server-side project loader. It rejects missing URLs, non-HTTPS URLs, non-GitHub hosts, credentials, ports, query strings, fragments, encoded paths, extra path segments, and owner/repository mismatches. A single trailing slash and the conventional `.git` suffix are normalized.
+
+This helper does not load the project row and does not make caller-supplied URLs authoritative. The future server loader must read the project's `github_url` directly from the authoritative project record, call this comparison before producing evidence or signed terms, and fail closed on any mismatch.
+
+The new tests cover exact matches, normalized URL forms, different owners/repositories, deceptive hosts, credentials, non-HTTPS URLs, encoded paths, query strings, and extra path segments. This closes the pure comparison boundary only; it is not yet wired into the agreement signing service, SQL canonical terms, or report issuer runtime.
