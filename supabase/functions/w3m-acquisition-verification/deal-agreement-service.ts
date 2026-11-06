@@ -256,7 +256,7 @@ export async function prepareDealAgreementAcceptanceWithAuditSnapshot(
   source: AuditManifestSource,
   input: { dealId: string; actorId: string },
 ): Promise<PreparedDealAgreement> {
-  await prepareDealAuditSnapshot(client, source, input.dealId);
+  await prepareDealAuditSnapshot(client, source, input.dealId, input.actorId);
   return await prepareDealAgreementAcceptance(client, input);
 }
 
