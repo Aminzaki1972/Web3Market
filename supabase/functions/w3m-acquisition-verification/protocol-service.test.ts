@@ -69,6 +69,7 @@ Deno.test("protocol service rejects a latest report belonging to another deal be
     },
     mock.client,
   ));
+  if (!(error instanceof Error)) throw error;
   assertEquals(error.message, "Latest persisted W3M report sequence is malformed or belongs to another deal.");
   assertEquals(mock.reads, ["w3m_acquisition_reports", "w3m_acquisition_evidence"]);
   assertEquals(mock.writes, []);
@@ -90,6 +91,7 @@ Deno.test("protocol service rejects a malformed latest report identity before si
     },
     mock.client,
   ));
+  if (!(error instanceof Error)) throw error;
   assertEquals(error.message, "Latest persisted W3M report sequence is malformed or belongs to another deal.");
   assertEquals(mock.reads, ["w3m_acquisition_reports", "w3m_acquisition_evidence"]);
   assertEquals(mock.writes, []);
@@ -111,6 +113,7 @@ Deno.test("protocol service rejects an exhausted latest report version before si
     },
     mock.client,
   ));
+  if (!(error instanceof Error)) throw error;
   assertEquals(error.message, "Latest persisted W3M report sequence is malformed or belongs to another deal.");
   assertEquals(mock.reads, ["w3m_acquisition_reports", "w3m_acquisition_evidence"]);
   assertEquals(mock.writes, []);
