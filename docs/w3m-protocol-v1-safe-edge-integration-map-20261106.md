@@ -526,3 +526,31 @@ Added `prelock-safe-prepare-boundary.ts` as the mandatory composition point for 
 CI run [42172312612](https://github.com/Aminzaki1972/Web3Market/actions/runs/42172312612) completed successfully after the latest token/status refinements. The new boundary wrapper and its test are in the current isolated CI queue (latest relevant runs: [42172893422](https://github.com/Aminzaki1972/Web3Market/actions/runs/42172893422), [42172888436](https://github.com/Aminzaki1972/Web3Market/actions/runs/42172888436)); their outcome is not yet known.
 
 **Important:** this wrapper is not yet called by the legacy `prepare-deal-release` handler. It establishes and tests the safe side-effect boundary, but does not itself protect the live endpoint until a separately reviewed handler integration uses it. No deployed function, production database, wallet, Safe, or funds were changed.
+
+
+## 30. Read-only production PREPARE handler and schema review — 2026-11-06
+
+The production Supabase project was inspected read-only. No database SQL was executed and no Edge Function was deployed or changed.
+
+**Captured live function identities**
+- `prepare-deal-release`: version 43, source SHA-256 `6c670d08fbb55fdc61a10c39b5f32062d311934228df59ce23096d337ba52e18`.
+- `prepare-safe-release-tx`: version 37, source SHA-256 `f4248dde096a3532befca8dbd894cdb3bb6511bdf2d6a70c8e253b9587b01dfe`.
+
+**Verified production table shapes**
+- `deals`: UUID identity/parties/project; numeric amount; currency; status; chain/Safe/token; payment status and tx hash; delivery status and buyer acceptance timestamp; dispute status; release tx hash.
+- `deal_release_policies`: numeric deal/fee/seller amounts; seller/platform wallets; Safe/token/chain; status; Safe nonce; lock/release timestamps.
+- `deal_multisig_transactions`: amount/token/chain/Safe; transaction hash/data/operation/gas/nonce; signature JSON; confirmation count and status.
+- `deal_multisig_signers`: signer role/user/wallet, Safe transaction hash, signature and signature status.
+- `deal_audit_logs`: deal, actor, action, old/new status, JSON metadata and timestamp.
+- `deal_disputes`: deal and dispute status. All inspected tables have RLS enabled.
+
+**Exact insertion points and existing risks**
+1. In `prepare-deal-release`, after authentication/participant/deal reads and before the existing release-transaction fast path, run the W3M pre-lock gate. The current function checks payment hash only for non-empty text, then validates the fee policy, then may return `already_prepared` or write the policy, pending multisig row, and audit log separately.
+2. The three writes at the end of `prepare-deal-release` are separate PostgREST operations. If a later write fails, an earlier policy/transaction write can remain. The final integration must replace them with one atomic server-side commit operation; do not wrap the current three REST calls in the generic callback and call that atomic.
+3. In `prepare-safe-release-tx`, run the post-lock W3M PREPARE context before the existing `already_prepared` fast path and before any mutation. The current fast path accepts structurally parseable MultiSend calldata based on destination/operation/length; it does not independently prove the exact two inner USDT transfers before returning.
+4. The current rebuild path clears the old Safe hash/signatures and deletes signer rows before the full replacement transaction is rebuilt and validated. The W3M gate and semantic payload validator must run before this destructive reset; the reset and replacement write should be atomic or use a recoverable attempt record.
+5. Both live handlers currently use nonempty payment-hash checks; the isolated W3M path now requires a canonical 32-byte transaction hash and USDT denomination.
+
+**Next implementation dependency:** the exact live schema is now known, but an atomic SQL persistence RPC has not yet been authored or tested. The Supabase CLI is not available in the current execution environment, so no migration filename or SQL deployment is being guessed. This remains isolated until a proper migration-generation/test path is available.
+
+This source/schema review makes the next integration target precise, but **does not mean W3M is protecting live Deal Room operations**. The live handlers remain unchanged.
