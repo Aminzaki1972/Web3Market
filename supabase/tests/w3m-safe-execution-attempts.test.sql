@@ -145,13 +145,49 @@ begin
   exception when unique_violation then null;
   end;
 
-  v_result := public.w3m_record_safe_execution_broadcast(v_attempt,v_broadcast_hash);
-  if coalesce((v_result->>'recorded')::boolean,false) is not true then
-    raise exception 'Broadcast hash was not recorded';
+  -- A package cannot be used by another participant or after expiry.
+  begin
+    perform public.w3m_record_safe_wallet_submission(
+      v_attempt,v_seller,v_package_hash,v_broadcast_hash
+    );
+    raise exception 'Wallet package submission by a different actor was unexpectedly accepted';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.w3m_record_safe_wallet_submission(
+      v_attempt,v_actor,repeat('f',64),v_broadcast_hash
+    );
+    raise exception 'Wallet package submission with a different package hash was unexpectedly accepted';
+  exception when insufficient_privilege then null;
+  end;
+
+  update public.w3m_safe_execution_attempts
+     set package_expires_at = clock_timestamp() - interval '1 second'
+   where id = v_attempt;
+  begin
+    perform public.w3m_record_safe_wallet_submission(
+      v_attempt,v_actor,v_package_hash,'0x' || repeat('f',64)
+    );
+    raise exception 'Expired wallet package was unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+  update public.w3m_safe_execution_attempts
+     set package_expires_at = v_package_expiry
+   where id = v_attempt;
+
+  v_result := public.w3m_record_safe_wallet_submission(
+    v_attempt,v_actor,v_package_hash,v_broadcast_hash
+  );
+  if coalesce((v_result->>'recorded')::boolean,false) is not true
+     or v_result->>'state' <> 'BROADCAST'
+     or v_result->>'broadcast_tx_hash' <> lower(v_broadcast_hash) then
+    raise exception 'Connected-wallet transaction hash was not recorded against its exact package';
   end if;
-  v_result := public.w3m_record_safe_execution_broadcast(v_attempt,v_broadcast_hash);
+  v_result := public.w3m_record_safe_wallet_submission(
+    v_attempt,v_actor,v_package_hash,v_broadcast_hash
+  );
   if coalesce((v_result->>'idempotent_replay')::boolean,false) is not true then
-    raise exception 'Same broadcast hash was not idempotent';
+    raise exception 'Same connected-wallet transaction hash was not idempotent';
   end if;
 
   update public.deal_multisig_transactions set status='submitted',tx_hash=v_broadcast_hash where id=v_tx;
