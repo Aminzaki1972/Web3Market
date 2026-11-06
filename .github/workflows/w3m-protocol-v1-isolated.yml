@@ -142,6 +142,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/safe-live-configuration-facts.test.ts
           deno check supabase/functions/w3m-acquisition-verification/bnb-safe-configuration-facts-reader.ts
           deno check supabase/functions/w3m-acquisition-verification/bnb-safe-configuration-facts-reader.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/fresh-safe-prepare-context.ts
+          deno check supabase/functions/w3m-acquisition-verification/fresh-safe-prepare-context.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.test.ts
           deno check supabase/functions/w3m-acquisition-verification/bnb-safe-live-read-client.ts
@@ -219,6 +221,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/safe-live-configuration-facts.test.ts
       - name: Test canonical-block BNB Safe configuration facts for PREPARE
         run: deno test supabase/functions/w3m-acquisition-verification/bnb-safe-configuration-facts-reader.test.ts
+      - name: Test fresh pre-transaction W3M PREPARE context
+        run: deno test supabase/functions/w3m-acquisition-verification/fresh-safe-prepare-context.test.ts
       - name: Test strict Safe execution database snapshot adapter
         run: deno test supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.test.ts
       - name: Test block-pinned read-only BNB Safe RPC client
