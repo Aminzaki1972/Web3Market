@@ -38,13 +38,15 @@ begin
     raise exception 'Invalid W3M Safe SIGN request' using errcode = '22023';
   end if;
 
-  if p_w3m_authorization->>'authorized' <> 'true'
-     or p_w3m_authorization->>'phase' <> 'SIGN'
-     or p_w3m_authorization->>'deal_id' <> p_deal_id::text
-     or lower(p_w3m_authorization->>'safe_tx_hash') <> lower(p_safe_tx_hash)
-     or coalesce(jsonb_typeof(p_w3m_authorization->'issues'),'null') <> 'array'
-     or jsonb_array_length(p_w3m_authorization->'issues') <> 0 then
+  if p_w3m_authorization->>'authorized' is distinct from 'true'
+     or p_w3m_authorization->>'phase' is distinct from 'SIGN'
+     or p_w3m_authorization->>'deal_id' is distinct from p_deal_id::text
+     or lower(p_w3m_authorization->>'safe_tx_hash') is distinct from lower(p_safe_tx_hash)
+     or jsonb_typeof(p_w3m_authorization->'issues') is distinct from 'array' then
     raise exception 'W3M SIGN authorization is missing or misbound' using errcode = '42501';
+  end if;
+  if jsonb_array_length(p_w3m_authorization->'issues') <> 0 then
+    raise exception 'W3M SIGN authorization contains blockers' using errcode = '42501';
   end if;
 
   begin
