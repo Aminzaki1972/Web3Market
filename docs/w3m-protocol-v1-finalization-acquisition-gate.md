@@ -129,3 +129,8 @@ Files:
 The first CI attempt for immutable agreement history exposed a test-harness issue: PostgreSQL rejects truncating the parent terms table alone while the acceptance table references it, before the expected trigger can run. The test was corrected to issue a single multi-table TRUNCATE for the parent/child pair. This was a test setup failure, not evidence that the append-only trigger failed.
 
 The latest CI run after that correction is `42198620724` on `f7f31fd0ea4c46252585539c7b179881cb287914`; its result is pending. The report-version serialization barrier is groundwork only: the finalizer still needs to load and lock the pinned report, all evidence, signer key/latest event, immutable terms version and both acceptance rows, then compare the typed attestation before any settlement update. Release remains blocked.
+
+
+The report append/finalizer advisory-lock implementation is now committed. The SQL regression test was strengthened to verify that both the report INSERT trigger and finalizer use `pg_advisory_xact_lock(hashtextextended(deal_id, 0))`, and that the finalizer obtains the lock before reading the deal. The immutable-agreement TRUNCATE test now truncates the referencing acceptance table and terms parent together so PostgreSQL's foreign-key precheck does not mask the trigger's expected rejection.
+
+CI status: the earlier run `42198188037` failed only in the immutable-agreement TRUNCATE test setup (FK dependency); the failure was diagnosed from the PostgreSQL log and corrected. Run `42198620724` is validating the correction, and run `42198707586` was queued for the strengthened report-lock assertions. Neither is yet a successful validation of the latest branch head.
