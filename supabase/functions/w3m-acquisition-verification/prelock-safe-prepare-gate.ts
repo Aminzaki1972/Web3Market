@@ -9,6 +9,7 @@ import type { EthereumDigestRecoveryVerifier } from "./signature-verifier.ts";
 import type { SafeConfigurationExpectation, SafeConfigurationFacts } from "./safe-live-configuration-facts.ts";
 import type { AtomicSafePrepareInput } from "./atomic-safe-prepare-rpc-adapter.ts";
 import type { DealCodeAuditBinding } from "./deal-code-audit-binding.ts";
+import { verifyCurrentAuditManifest } from "./audit-manifest-binding.ts";
 
 export type PrelockPrepareDatabase = DealRoomTermsRpcClient & W3MRegistryReadClient;
 export interface CanonicalPrelockSafeFacts extends SafeConfigurationFacts {
@@ -109,6 +110,8 @@ export async function authorizePrelockSafePrepare(
     if (validated.valid !== "true") {
       return { authorized: false, issues: ["W3M_RELEASE_POLICY_VALIDATION_FAILED"], phase: "PREPARE", dealId };
     }
+    const codeAudit = currentCodeAuditBinding(row.code_audit);
+    await verifyCurrentAuditManifest(dependencies.database, codeAudit);
 
     const buyerWallet = required(row.buyer_wallet, "buyer wallet");
     const sellerWallet = required(row.seller_wallet, "seller wallet");
@@ -161,7 +164,6 @@ export async function authorizePrelockSafePrepare(
       };
     }
 
-    const codeAudit = currentCodeAuditBinding(row.code_audit);
     const paymentConfirmed = row.payment_status === "confirmed" &&
       typeof row.payment_tx_hash === "string" && HASH.test(row.payment_tx_hash);
     const deliveryAccepted = row.delivery_status === "accepted" &&
