@@ -22,7 +22,7 @@ function positiveInteger(value: unknown, label: string): number {
   return value as number;
 }
 
-export interface W3MAcquisitionFinalizationAttestation {
+export interface W3MAcquisitionFinalizationAttestation extends Record<string, unknown> {
   authorized: true;
   report_id: string;
   report_version: number;
