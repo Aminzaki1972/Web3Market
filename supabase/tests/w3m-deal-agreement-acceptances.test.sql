@@ -74,9 +74,11 @@ begin
      or coalesce((v_audit_snapshot->>'idempotent_replay')::boolean,true) then
     raise exception 'Independent first-deal Code Audit snapshot was not created';
   end if;
-  v_context := public.w3m_read_deal_audit_snapshot_context(v_deal);
+  v_context := public.w3m_read_deal_audit_snapshot_context(v_deal,v_buyer);
   if v_context->>'deal_id' <> v_deal::text
      or v_context->>'project_id' <> v_project::text
+     or v_context->>'buyer_id' <> v_buyer::text
+     or v_context->>'seller_id' <> v_seller::text
      or v_context->>'audit_id' <> '87000000-0000-4000-8000-000000000007' then
     raise exception 'Pre-agreement audit context did not select the exact project audit';
   end if;
@@ -411,7 +413,7 @@ begin
   if has_function_privilege('anon','public.w3m_create_deal_code_audit_snapshot(uuid,uuid,text,text,integer,integer)','EXECUTE')
      or has_function_privilege('authenticated','public.w3m_create_deal_code_audit_snapshot(uuid,uuid,text,text,integer,integer)','EXECUTE')
      or not has_function_privilege('service_role','public.w3m_create_deal_code_audit_snapshot(uuid,uuid,text,text,integer,integer)','EXECUTE')
-     or has_function_privilege('anon','public.w3m_read_deal_audit_snapshot_context(uuid)','EXECUTE')
+     or has_function_privilege('anon','public.w3m_read_deal_audit_snapshot_context(uuid,uuid)','EXECUTE')
      or has_function_privilege('authenticated','public.w3m_read_deal_audit_snapshot_context(uuid)','EXECUTE')
      or not has_function_privilege('service_role','public.w3m_read_deal_audit_snapshot_context(uuid)','EXECUTE') then
     raise exception 'Independent Deal Code Audit snapshot RPCs are not service-role-only';
