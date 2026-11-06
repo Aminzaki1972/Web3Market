@@ -275,3 +275,30 @@ Deno.test("reconciliation is not reported persisted when its RPC response is mal
   }
   assert(!h.calls.includes("broadcast"), h.calls.join(","));
 });
+
+
+Deno.test("malformed initial snapshot fails closed without throwing or claiming", async () => {
+  const h = deps({
+    loadFresh: async () => snapshot({
+      guardInput: undefined as unknown as SafeExecutionGuardInput,
+    }),
+  });
+  const result = await executeW3MSafeRelease(h.dependencies);
+  assert(result.state === "BLOCKED", JSON.stringify(result));
+  assert(!h.calls.includes("claim") && !h.calls.includes("broadcast"), h.calls.join(","));
+});
+
+Deno.test("malformed pre-broadcast snapshot enters reconciliation without broadcasting", async () => {
+  let loads = 0;
+  const h = deps({
+    loadFresh: async () => {
+      loads++;
+      if (loads === 1) return snapshot();
+      return snapshot({ guardInput: undefined as unknown as SafeExecutionGuardInput });
+    },
+  });
+  const result = await executeW3MSafeRelease(h.dependencies);
+  assert(result.state === "RECONCILIATION_REQUIRED", JSON.stringify(result));
+  assert(!h.calls.includes("broadcast"), h.calls.join(","));
+  assert(h.calls.includes("reconcile"), h.calls.join(","));
+});
