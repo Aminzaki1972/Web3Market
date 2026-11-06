@@ -218,17 +218,22 @@ begin
      or v_profile.wallet_address is null or v_profile.wallet_verified_at is null
      or v_profile.wallet_verified_at > now()
      or lower(v_profile.wallet_address) <> lower(p_wallet_address)
-     or lower(v_deal.buyer_id::text) = lower(v_deal.seller_id::text)
-     or exists (
-       select 1 from public.profiles buyer_profile
-       where buyer_profile.id = v_deal.buyer_id
-         and lower(buyer_profile.wallet_address) = lower(v_profile.wallet_address)
-     ) and p_party_role = 'seller'
-     or exists (
-       select 1 from public.profiles seller_profile
-       where seller_profile.id = v_deal.seller_id
-         and lower(seller_profile.wallet_address) = lower(v_profile.wallet_address)
-     ) and p_party_role = 'buyer' then
+     or not exists (
+       select 1
+         from public.profiles buyer_profile
+         join public.profiles seller_profile on seller_profile.id = v_deal.seller_id
+        where buyer_profile.id = v_deal.buyer_id
+          and buyer_profile.wallet_verified is true
+          and seller_profile.wallet_verified is true
+          and buyer_profile.wallet_address is not null
+          and seller_profile.wallet_address is not null
+          and buyer_profile.wallet_verified_at is not null
+          and seller_profile.wallet_verified_at is not null
+          and buyer_profile.wallet_verified_at <= now()
+          and seller_profile.wallet_verified_at <= now()
+          and lower(buyer_profile.wallet_address) <> lower(seller_profile.wallet_address)
+          and lower(v_policy.seller_wallet) = lower(seller_profile.wallet_address)
+     ) then
     raise exception 'Wallet is not the currently verified party wallet' using errcode = '42501';
   end if;
 
