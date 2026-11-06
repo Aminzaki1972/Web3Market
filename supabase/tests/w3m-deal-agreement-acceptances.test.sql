@@ -127,6 +127,24 @@ begin
   exception when check_violation then null;
   end;
   execute 'set constraints w3m_acquisition_report_requires_signed_deal_terms deferred';
+  begin
+    execute 'set constraints w3m_acquisition_report_requires_signed_deal_terms immediate';
+    insert into public.w3m_acquisition_reports(
+      id,deal_id,project_id,report_version,buyer_id,seller_id,status,engine_version,
+      evidence_hash,report_hash,report_payload,signer_key_id,report_signature,issued_at,expires_at
+    ) values (
+      '86200000-0000-4000-8000-000000000006',v_deal::text,v_project::text,1,
+      v_buyer::text,v_seller::text,'BLOCKED','w3m-acquisition-verification-1.0.0',
+      repeat('b',64),repeat('e',64),
+      jsonb_build_object('dealId',v_deal::text,'projectId',v_project::text,
+        'buyerId',v_buyer::text,'sellerId',v_seller::text,'dealTermsHash',v_hash,
+        'auditId','87000000-0000-4000-8000-000000000007','expectedCommitSha',repeat('a',40)),
+      'test-signer-v1','0x' || repeat('e',130),now(),now()+interval '1 day'
+    );
+    raise exception 'BLOCKED report was accepted before both agreement signatures';
+  exception when check_violation then null;
+  end;
+  execute 'set constraints w3m_acquisition_report_requires_signed_deal_terms deferred';
 
   -- One wallet cannot represent both buyer and seller consent.
   update public.profiles
