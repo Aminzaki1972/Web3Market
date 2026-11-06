@@ -118,6 +118,14 @@ export async function verifyBnbSafeReleaseReceipt(
     throw new BnbSafeReceiptVerificationError("Receipt block timestamp exceeds supported precision.");
   }
   const blockTimestamp = new Date(Number(blockTimestampSeconds) * 1000).toISOString();
+  const packageIssuedAt = Date.parse(expected.packageIssuedAt);
+  const packageExpiresAt = Date.parse(expected.packageExpiresAt);
+  const receiptBlockAt = Date.parse(blockTimestamp);
+  if (!Number.isFinite(packageIssuedAt) || !Number.isFinite(packageExpiresAt) ||
+      packageExpiresAt <= packageIssuedAt || receiptBlockAt < packageIssuedAt ||
+      receiptBlockAt > packageExpiresAt) {
+    throw new BnbSafeReceiptVerificationError("Receipt block timestamp is outside the issued W3M wallet package window.");
+  }
 
   // Read token decimals at the receipt block, not from browser/config input.
   const decimalsResult = await rpc.request<unknown>("eth_call", [
