@@ -200,7 +200,7 @@ export async function buildSignedRegistryBatch(
     id: input.evidenceRowIds[index],
     report_id: input.reportId,
     evidence_type: item.type,
-    source_table: null,
+    source_table: item.type === "CODE_AUDIT" ? "code_audits" : null,
     source_record_id: item.sourceRecordId ?? null,
     source_version: item.sourceVersion ?? null,
     evidence_hash: item.contentHash,
