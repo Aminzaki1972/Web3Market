@@ -1,6 +1,6 @@
 import { assertEquals, assertNotEquals, assertThrows } from "jsr:@std/assert@1";
 import type { AcquisitionEvidence } from "./decision-engine.ts";
-import { buildDealCodeAuditBinding } from "./deal-code-audit-binding.ts";
+import { assertDealCodeAuditMatchesProjectRepository, buildDealCodeAuditBinding } from "./deal-code-audit-binding.ts";
 
 const dealId = "44444444-4444-4444-8444-444444444444";
 const projectId = "11111111-1111-4111-8111-111111111111";
@@ -87,4 +87,49 @@ Deno.test("requires a valid evidence observation inside the audit validity inter
     expectedDealId: dealId,
     expectedProjectId: projectId,
   }));
+});
+
+
+Deno.test("authoritative project repository must match the selected audit repository", () => {
+  const binding = buildDealCodeAuditBinding({
+    evidence: evidence(),
+    expectedDealId: dealId,
+    expectedProjectId: projectId,
+  });
+  assertEquals(
+    assertDealCodeAuditMatchesProjectRepository(binding, "https://github.com/Aminzaki1972/Web3Market/"),
+    undefined,
+  );
+  assertEquals(
+    assertDealCodeAuditMatchesProjectRepository(binding, "https://github.com/Aminzaki1972/Web3Market.git"),
+    undefined,
+  );
+  assertThrows(() => assertDealCodeAuditMatchesProjectRepository(
+    binding,
+    "https://github.com/another-owner/Web3Market",
+  ));
+  assertThrows(() => assertDealCodeAuditMatchesProjectRepository(
+    binding,
+    "https://github.com/Aminzaki1972/another-repository",
+  ));
+});
+
+Deno.test("project repository comparison rejects non-canonical and ambiguous URLs", () => {
+  const binding = buildDealCodeAuditBinding({
+    evidence: evidence(),
+    expectedDealId: dealId,
+    expectedProjectId: projectId,
+  });
+  for (const url of [
+    null,
+    "",
+    "http://github.com/Aminzaki1972/Web3Market",
+    "https://github.com.evil.example/Aminzaki1972/Web3Market",
+    "https://user@github.com/Aminzaki1972/Web3Market",
+    "https://github.com/Aminzaki1972/Web3Market/tree/main",
+    "https://github.com/Aminzaki1972%2FWeb3Market",
+    "https://github.com/Aminzaki1972/Web3Market?tab=readme",
+  ]) {
+    assertThrows(() => assertDealCodeAuditMatchesProjectRepository(binding, url));
+  }
 });
