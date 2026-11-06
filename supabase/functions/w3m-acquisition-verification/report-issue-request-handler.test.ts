@@ -50,3 +50,26 @@ Deno.test("report issue denies unauthorized actors", async () => {
   const response = await handleW3MReportIssueRequest(request({ deal_id: DEAL }), d.value);
   if (response.status !== 403 || d.calls.includes("issue")) throw new Error("authorization bypass");
 });
+
+Deno.test("report issue rejects malformed service output", async () => {
+  const d = deps({
+    issue: async () => ({
+      reportId: " ",
+      reportVersion: 1,
+      decisionStatus: "PASS",
+    } as unknown as Awaited<ReturnType<W3MReportIssueRequestDependencies["issue"]>>),
+  });
+  const response = await handleW3MReportIssueRequest(request({ deal_id: DEAL }), d.value);
+  if (response.status !== 503) throw new Error("malformed service output accepted");
+});
+Deno.test("report issue rejects unknown decision status from service", async () => {
+  const d = deps({
+    issue: async () => ({
+      reportId: "report-1",
+      reportVersion: 1,
+      decisionStatus: "APPROVED",
+    } as unknown as Awaited<ReturnType<W3MReportIssueRequestDependencies["issue"]>>),
+  });
+  const response = await handleW3MReportIssueRequest(request({ deal_id: DEAL }), d.value);
+  if (response.status !== 503) throw new Error("unknown decision status accepted");
+});
