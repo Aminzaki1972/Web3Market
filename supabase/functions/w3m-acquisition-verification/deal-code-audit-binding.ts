@@ -95,3 +95,40 @@ export function buildDealCodeAuditBinding(input: {
     auditEvidenceHash: evidence.contentHash,
   };
 }
+
+/**
+ * Compare the audit's normalized GitHub identity with the authoritative
+ * repository URL loaded from the project row. This must run in the trusted
+ * server loader; a browser-provided project URL is never authoritative.
+ */
+export function assertDealCodeAuditMatchesProjectRepository(
+  binding: DealCodeAuditBinding,
+  projectRepositoryUrl: unknown,
+): void {
+  if (typeof projectRepositoryUrl !== "string" || !projectRepositoryUrl.trim()) {
+    throw new Error("The project's authoritative GitHub repository URL is missing.");
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(projectRepositoryUrl.trim());
+  } catch {
+    throw new Error("The project's GitHub repository URL is malformed.");
+  }
+  if (parsed.protocol !== "https:" || parsed.hostname.toLowerCase() !== "github.com" ||
+      parsed.username || parsed.password || parsed.port || parsed.search || parsed.hash ||
+      parsed.pathname.includes("%")) {
+    throw new Error("The project's GitHub repository URL is not a canonical public GitHub URL.");
+  }
+  const parts = parsed.pathname.split("/").filter(Boolean);
+  if (parts.length !== 2) {
+    throw new Error("The project's GitHub repository URL must identify exactly one repository.");
+  }
+  const owner = parts[0];
+  const repository = parts[1].replace(/\.git$/i, "");
+  if (!GITHUB_OWNER.test(owner) || !GITHUB_REPO.test(repository) ||
+      repository === "." || repository === ".." ||
+      owner.toLowerCase() !== binding.repositoryOwner.toLowerCase() ||
+      repository.toLowerCase() !== binding.repositoryName.toLowerCase()) {
+    throw new Error("The selected Code Audit repository does not match the project's authoritative GitHub repository.");
+  }
+}
