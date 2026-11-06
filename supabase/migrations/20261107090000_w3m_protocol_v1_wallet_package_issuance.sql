@@ -122,21 +122,10 @@ declare
   v_attempt public.w3m_safe_execution_attempts%rowtype;
 begin
   if p_attempt_id is null or p_actor_id is null
-     or p_package_hash is null or p_package_hash !~ '^[0-9a-fA-F]{64}
-  from public, anon, authenticated, service_role;
-grant execute on function public.w3m_issue_safe_execution_package(uuid,uuid,text,jsonb,timestamptz)
-  to service_role;
-
-commit;
-
-     or p_broadcast_tx_hash is null or p_broadcast_tx_hash !~ '^0x[0-9a-fA-F]{64}
-  from public, anon, authenticated, service_role;
-grant execute on function public.w3m_issue_safe_execution_package(uuid,uuid,text,jsonb,timestamptz)
-  to service_role;
-
-commit;
- then
-    raise exception 'Invalid connected-wallet submission arguments' using errcode = '22023';
+     or p_package_hash is null or p_package_hash !~ '^[0-9a-fA-F]{64}$'
+     or p_broadcast_tx_hash is null or p_broadcast_tx_hash !~ '^0x[0-9a-fA-F]{64}$' then
+    raise exception 'Invalid connected-wallet submission arguments'
+      using errcode = '22023';
   end if;
 
   select * into v_attempt
@@ -206,14 +195,14 @@ commit;
 end;
 $submission$;
 
-revoke all on function public.w3m_record_safe_wallet_submission(uuid,uuid,text,text)
-  from public, anon, authenticated, service_role;
-grant execute on function public.w3m_record_safe_wallet_submission(uuid,uuid,text,text)
-  to service_role;
-
 revoke all on function public.w3m_issue_safe_execution_package(uuid,uuid,text,jsonb,timestamptz)
   from public, anon, authenticated, service_role;
 grant execute on function public.w3m_issue_safe_execution_package(uuid,uuid,text,jsonb,timestamptz)
+  to service_role;
+
+revoke all on function public.w3m_record_safe_wallet_submission(uuid,uuid,text,text)
+  from public, anon, authenticated, service_role;
+grant execute on function public.w3m_record_safe_wallet_submission(uuid,uuid,text,text)
   to service_role;
 
 commit;
