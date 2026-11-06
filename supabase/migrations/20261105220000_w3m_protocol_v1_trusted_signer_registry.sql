@@ -132,9 +132,12 @@ begin
     raise exception 'Invalid signer revocation request' using errcode = '23514';
   end if;
 
-  if not exists (
-    select 1 from public.w3m_trusted_signer_keys where key_id = p_key_id
-  ) then
+  -- Serialize revocation against any finalizer that locks this same key row.
+  perform 1
+    from public.w3m_trusted_signer_keys
+   where key_id = p_key_id
+   for update;
+  if not found then
     raise exception 'Unknown signer key' using errcode = '23503';
   end if;
 
