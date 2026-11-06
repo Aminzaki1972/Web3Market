@@ -395,6 +395,18 @@ begin
   exception when check_violation then null;
   end;
 
+  -- A dispute opened after the report and wallet claim must still block
+  -- settlement. Resolving it is an explicit status change, not deletion.
+  insert into public.deal_disputes (deal_id,opened_by,reason,status)
+  values (v_deal,v_buyer,'Isolated test dispute opened after execution claim','open');
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
+    raise exception 'An open dispute was unexpectedly allowed to finalize';
+  exception when check_violation then null;
+  end;
+  update public.deal_disputes set status='resolved'
+   where deal_id=v_deal and status='open';
+
   v_result := public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
   if coalesce((v_result->>'finalized')::boolean,false) is not true
      or coalesce((v_result->>'idempotent_replay')::boolean,true) is not false
