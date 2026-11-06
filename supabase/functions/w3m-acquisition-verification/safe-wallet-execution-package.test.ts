@@ -38,6 +38,7 @@ function snapshot(): SafeExecutionFreshSnapshot {
     reportId: "83000000-0000-4000-8000-000000000003",
     reportVersion: 1,
     executorRef: "w3m-executor-v1",
+    executorWallet: OWNER_A,
     idempotencyKey: "w3m-deal-001-execute-v1",
     agreementBinding: {
       termsVersionId: "84000000-0000-4000-8000-000000000004",
