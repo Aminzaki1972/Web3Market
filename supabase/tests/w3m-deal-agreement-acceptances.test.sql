@@ -66,12 +66,12 @@ begin
   update public.code_audits
      set status='completed',completed_at='2026-11-01T10:00:00Z'
    where id='87000000-0000-4000-8000-000000000007';
-  v_audit_snapshot := public.w3m_create_deal_code_audit_snapshot(
+  v_snapshot := public.w3m_create_deal_code_audit_snapshot(
     v_deal,'87000000-0000-4000-8000-000000000007',
     'w3m-audit-manifest-v1',repeat('c',64),1,0
   );
-  if v_audit_snapshot->>'audit_id' <> '87000000-0000-4000-8000-000000000007'
-     or coalesce((v_audit_snapshot->>'idempotent_replay')::boolean,true) then
+  if v_snapshot->>'audit_id' <> '87000000-0000-4000-8000-000000000007'
+     or coalesce((v_snapshot->>'idempotent_replay')::boolean,true) then
     raise exception 'Independent first-deal Code Audit snapshot was not created';
   end if;
   v_context := public.w3m_read_deal_audit_snapshot_context(v_deal,v_buyer);
@@ -89,17 +89,17 @@ begin
     raise exception 'Non-party actor was allowed to read the deal audit snapshot context';
   exception when insufficient_privilege then null;
   end;
-  v_audit_snapshot := public.w3m_create_deal_code_audit_snapshot(
+  v_snapshot := public.w3m_create_deal_code_audit_snapshot(
     v_deal,'87000000-0000-4000-8000-000000000007',
     'w3m-audit-manifest-v1',repeat('c',64),1,0
   );
-  if coalesce((v_audit_snapshot->>'idempotent_replay')::boolean,false) is not true then
+  if coalesce((v_snapshot->>'idempotent_replay')::boolean,false) is not true then
     raise exception 'Exact duplicate snapshot request was not idempotent';
   end if;
   begin
     update public.w3m_deal_code_audit_snapshots
        set manifest_hash=repeat('d',64)
-     where id=(v_audit_snapshot->>'id')::uuid;
+     where id=(v_snapshot->>'id')::uuid;
     raise exception 'Immutable Deal Code Audit snapshot accepted an update';
   exception when sqlstate '55000' then null;
   end;
@@ -313,12 +313,12 @@ begin
   update public.code_audits
      set status='completed',completed_at='2026-11-06T18:00:00Z'
    where id='89100000-0000-4000-8000-000000000009';
-  v_audit_snapshot := public.w3m_create_deal_code_audit_snapshot(
+  v_snapshot := public.w3m_create_deal_code_audit_snapshot(
     v_deal,'89100000-0000-4000-8000-000000000009',
     'w3m-audit-manifest-v1',repeat('f',64),1,0
   );
-  if v_audit_snapshot->>'audit_id' <> '89100000-0000-4000-8000-000000000009'
-     or coalesce((v_audit_snapshot->>'idempotent_replay')::boolean,true) then
+  if v_snapshot->>'audit_id' <> '89100000-0000-4000-8000-000000000009'
+     or coalesce((v_snapshot->>'idempotent_replay')::boolean,true) then
     raise exception 'Updated source audit snapshot was not created';
   end if;
   begin
