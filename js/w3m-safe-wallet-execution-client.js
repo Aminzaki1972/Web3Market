@@ -282,24 +282,27 @@ export async function recordW3MSafeWalletSubmission({
   }
   assert(base.protocol === "https:" && !base.username && !base.password && !base.search && !base.hash,
     "Supabase endpoint must be a clean HTTPS URL.");
-  const response = await fetchImpl(
-    new URL("/functions/v1/w3m-protocol-v1-safe-wallet-submit", base.origin),
-    {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer " + accessToken,
-        "apikey": apiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        attempt_id: attemptId,
-        package_hash: packageHash.toLowerCase(),
-        transaction_hash: transactionHash.toLowerCase(),
-      }),
-    },
-  );
+  let response;
   let body;
-  try { body = await response.json(); } catch {
+  try {
+    response = await fetchImpl(
+      new URL("/functions/v1/w3m-protocol-v1-safe-wallet-submit", base.origin),
+      {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + accessToken,
+          "apikey": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          attempt_id: attemptId,
+          package_hash: packageHash.toLowerCase(),
+          transaction_hash: transactionHash.toLowerCase(),
+        }),
+      },
+    );
+    body = await response.json();
+  } catch {
     return {
       state: "SUBMITTED_UNRECORDED",
       attemptId,
