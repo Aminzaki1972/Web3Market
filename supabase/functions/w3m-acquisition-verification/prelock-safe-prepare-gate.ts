@@ -2,7 +2,6 @@
 // This gate runs before release-policy upsert and pending Safe transaction writes.
 // The validated policy values come from a service-role-only wrapper around the
 // existing database validator, never from the browser. No writes occur here.
-import type { JsonRpcClient } from "./bnb-revenue-adapter.ts";
 import type { W3MRegistryReadClient } from "./persisted-report-loader.ts";
 import type { DealRoomTermsRpcClient, DealRoomTermsSnapshotRow } from "./dealroom-terms-reader.ts";
 import { checkDealRoomWithW3M } from "./dealroom-w3m-service.ts";
@@ -10,7 +9,7 @@ import type { EthereumDigestRecoveryVerifier } from "./signature-verifier.ts";
 import type { SafeConfigurationExpectation, SafeConfigurationFacts } from "./safe-live-configuration-facts.ts";
 import type { AtomicSafePrepareInput } from "./atomic-safe-prepare-rpc-adapter.ts";
 
-export type PrelockPrepareDatabase = DealRoomTermsRpcClient & W3MRegistryReadClient & JsonRpcClient;
+export type PrelockPrepareDatabase = DealRoomTermsRpcClient & W3MRegistryReadClient;
 export interface CanonicalPrelockSafeFacts extends SafeConfigurationFacts {
   readBlockNumber: string;
   readBlockHash: string;
