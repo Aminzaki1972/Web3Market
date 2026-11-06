@@ -103,7 +103,7 @@ begin
   exception when insufficient_privilege then null;
   end;
 
-  v_package_expiry := clock_timestamp() + interval '1 second';
+  v_package_expiry := clock_timestamp() + interval '5 seconds';
   v_package := jsonb_build_object(
     'protocol','W3M_PROTOCOL_V1',
     'issuedAt',clock_timestamp(),
@@ -132,7 +132,7 @@ begin
   v_package := jsonb_build_object(
     'protocol','W3M_PROTOCOL_V1',
     'issuedAt',clock_timestamp(),
-    'expiresAt',clock_timestamp() + interval '800 milliseconds',
+    'expiresAt',clock_timestamp() + interval '4 seconds',
     'dealId',v_deal::text,
     'executorWallet','0x3333333333333333333333333333333333333333'
   );
@@ -205,7 +205,7 @@ begin
   -- The outer hash can be reported after expiry if a wallet broadcast may
   -- have happened earlier. This remains unverified until canonical receipt
   -- timestamp enforcement inside FINALIZE.
-  perform pg_sleep(1.1);
+  perform pg_sleep(5.1);
   v_result := public.w3m_record_safe_wallet_submission(
     v_attempt,v_actor,v_package_hash,v_broadcast_hash
   );
@@ -310,7 +310,7 @@ begin
 
   v_receipt := jsonb_build_object(
     'chain_id',56,'transaction_hash',v_broadcast_hash,'receipt_status',1,
-    'block_timestamp',v_package_issue_at + interval '500 milliseconds',
+    'block_timestamp',v_package_issue_at + interval '2 seconds',
     'execution_success',true,'execution_failure',false,
     'safe_address','0x2222222222222222222222222222222222222222',
     'safe_tx_hash',v_safe_hash,
