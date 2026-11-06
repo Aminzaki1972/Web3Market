@@ -49,16 +49,27 @@ Deno.test("EXECUTE rejects malformed deal id before authoritative reads", async 
   assertEquals(response.status, 400);
   assertEquals(loads, 0);
 });
-Deno.test("EXECUTE derives actor server-side and passes only actor/deal to dependency loader", async () => {
-  let seen: unknown;
+Deno.test("EXECUTE rejects every client-supplied field except deal_id before dependency loading", async () => {
+  let loads = 0;
   const handler = createW3MSafeExecuteRequestHandler({
     authenticate: async () => ({ userId: actor }),
-    loadExecutionDependencies: async (input) => { seen = input; return coordinator(); },
+    loadExecutionDependencies: async () => { loads++; return coordinator(); },
   });
   const response = await handler(req({
     deal_id: deal, actor_id: "attacker", wallet: "0x" + "2".repeat(40),
     safe_tx_hash: "0x" + "a".repeat(64), authorized: true,
   }));
+  assertEquals(response.status, 400);
+  assertEquals(loads, 0);
+});
+
+Deno.test("EXECUTE accepts only deal_id and derives actor identity from authentication", async () => {
+  let seen: unknown;
+  const handler = createW3MSafeExecuteRequestHandler({
+    authenticate: async () => ({ userId: actor }),
+    loadExecutionDependencies: async (input) => { seen = input; return coordinator(); },
+  });
+  const response = await handler(req({ deal_id: deal }));
   assertEquals(response.status, 409);
   assertEquals(seen, { actorId: actor, dealId: deal });
 });
