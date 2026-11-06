@@ -22,6 +22,10 @@ function evidence(overrides: Partial<AcquisitionEvidence> = {}): AcquisitionEvid
     sourceVersion: commitSha,
     metadata: {
       auditStatus: "completed",
+      auditManifestVersion: "w3m-audit-manifest-v1",
+      auditManifestHash: "b".repeat(64),
+      auditFileCount: 190,
+      auditFindingCount: 25,
       auditType: "code",
       commitSha,
       repositoryOwner: "Aminzaki1972",
