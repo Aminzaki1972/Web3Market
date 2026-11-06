@@ -1,6 +1,7 @@
 // Authenticated HTTP boundary for isolated W3M PREPARE.
 // The browser may supply only deal_id. Actor, report authorization, policy,
 // Safe facts, signer verifier and service-role RPC client are server-derived.
+import { extractW3MBearerToken } from "./bearer-token.ts";
 import type { EthereumDigestRecoveryVerifier } from "./signature-verifier.ts";
 import type { PrelockSafePrepareDependencies } from "./prelock-safe-prepare-gate.ts";
 import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
@@ -30,7 +31,7 @@ export async function handleW3MPrelockPrepareRequest(
   const match = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") ?? "");
   if (!match?.[1]?.trim()) return json(401, { ok: false, error: "AUTHENTICATION_REQUIRED" });
   let actorId: string | null;
-  try { actorId = await dependencies.authenticate(match[1].trim()); }
+  try { actorId = await dependencies.authenticate(token); }
   catch { return json(401, { ok: false, error: "AUTHENTICATION_FAILED" }); }
   if (typeof actorId !== "string" || !UUID.test(actorId)) {
     return json(401, { ok: false, error: "AUTHENTICATION_FAILED" });
