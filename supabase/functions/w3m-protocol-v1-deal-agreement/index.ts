@@ -4,9 +4,11 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import type { W3MRpcClient } from "../w3m-acquisition-verification/supabase-rpc-adapter.ts";
 import {
-  acceptDealAgreement,
-  prepareDealAgreementAcceptance,
+  acceptDealAgreementWithAuditSnapshot,
+  prepareDealAgreementAcceptanceWithAuditSnapshot,
 } from "../w3m-acquisition-verification/deal-agreement-service.ts";
+import { createSupabaseAuditManifestSource } from "../w3m-acquisition-verification/audit-manifest-supabase-adapter.ts";
+import type { W3MRegistryReadClient } from "../w3m-acquisition-verification/persisted-report-loader.ts";
 import { handleW3MDealAgreementRequest } from "../w3m-acquisition-verification/deal-agreement-request-handler.ts";
 
 const ALLOWED_ORIGINS = new Set([
@@ -42,14 +44,19 @@ Deno.serve(async (request) => {
       return { data: result.data, error: result.error };
     },
   };
+  const manifestSource = createSupabaseAuditManifestSource(
+    supabase as unknown as W3MRegistryReadClient,
+  );
   const response = await handleW3MDealAgreementRequest(request, {
     authenticate: async (token) => {
       const { data, error } = await supabase.auth.getUser(token);
       if (error || !data.user?.id) return null;
       return data.user.id;
     },
-    prepare: async (input) => await prepareDealAgreementAcceptance(database, input),
-    accept: async (input) => await acceptDealAgreement(database, input),
+    prepareWithAuditSnapshot: async (input) =>
+      await prepareDealAgreementAcceptanceWithAuditSnapshot(database, manifestSource, input),
+    acceptWithAuditSnapshot: async (input) =>
+      await acceptDealAgreementWithAuditSnapshot(database, manifestSource, input),
   });
   const headers = new Headers(response.headers);
   for (const [key, value] of Object.entries(corsHeaders(origin))) headers.set(key, value);
