@@ -133,7 +133,8 @@ begin
     'protocol','W3M_PROTOCOL_V1',
     'issuedAt',clock_timestamp(),
     'expiresAt',clock_timestamp() + interval '80 seconds',
-    'dealId',v_deal::text
+    'dealId',v_deal::text,
+    'executorWallet','0x3333333333333333333333333333333333333333'
   );
   v_result := public.w3m_issue_safe_execution_package(
     v_attempt,v_actor,repeat('d',64),v_package,(v_package->>'expiresAt')::timestamptz
