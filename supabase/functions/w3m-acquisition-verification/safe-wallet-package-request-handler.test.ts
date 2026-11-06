@@ -20,6 +20,7 @@ function snapshot(): SafeExecutionFreshSnapshot {
     reportVersion: 1,
     executorRef: ACTOR,
     idempotencyKey: "w3m-package-idempotency-key-0001",
+    executorWallet: "0x2222222222222222222222222222222222222222",
     agreementBinding: {
       termsVersionId: "84000000-0000-4000-8000-000000000004",
       termsVersion: "1",
