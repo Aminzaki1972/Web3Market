@@ -160,6 +160,25 @@ Deno.test("orchestrator rejects Code Audit ID mismatch", async () => {
   if (!rejected) throw new Error("Mismatched audit ID must be rejected.");
 });
 
+Deno.test("orchestrator rejects Code Audit evidence without the complete manifest digest", async () => {
+  const base = input();
+  const changed = base.acquisition.baseEvidence.map((item) =>
+    item.type === "CODE_AUDIT"
+      ? { ...item, metadata: { ...item.metadata, auditManifestHash: "d".repeat(64) } }
+      : item
+  );
+  let rejected = false;
+  try {
+    await prepareAcquisitionProtocolBatch({
+      ...base,
+      acquisition: { ...base.acquisition, baseEvidence: changed },
+    }, signer);
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) throw new Error("Code Audit manifest hash mismatch must be rejected.");
+});
+
 Deno.test("orchestrator rejects a Code Audit commit mismatch", async () => {
   const base = input();
   const changed = base.acquisition.baseEvidence.map((item) =>
