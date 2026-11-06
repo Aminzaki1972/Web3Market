@@ -29,12 +29,21 @@ export async function loadAndAuthorizeFreshSafeSignContext(
       (fresh.signerRole !== "buyer" && fresh.signerRole !== "seller")) {
     throw new Error("Authenticated deal participant has no verified signing wallet.");
   }
-  const authorization = await authorizeSafeHandlerPhase(
+  const decision = await authorizeSafeHandlerPhase(
     "SIGN",
     async () => fresh,
     verifyEthereumRawDigestSignature,
     input.safeTransactionHash,
   );
+  const authorization = {
+    authorized: decision.authorized,
+    phase: "SIGN" as const,
+    dealId: decision.dealId,
+    safeTransactionHash: decision.safeTransactionHash ?? null,
+    issues: decision.issues,
+    reportId: decision.reportId,
+    reportVersion: decision.reportVersion,
+  };
   return {
     authorization,
     verifiedWallet: fresh.verifiedWallet,
