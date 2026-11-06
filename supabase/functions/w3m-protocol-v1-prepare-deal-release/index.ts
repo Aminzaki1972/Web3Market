@@ -18,6 +18,7 @@ import type {
   PrelockPrepareDatabase,
 } from "../w3m-acquisition-verification/prelock-safe-prepare-gate.ts";
 import type { W3MRpcClient } from "../w3m-acquisition-verification/supabase-rpc-adapter.ts";
+import type { SafeConfigurationExpectation } from "../w3m-acquisition-verification/safe-live-configuration-facts.ts";
 import {
   verifyEthereumRawDigestSignature,
 } from "../w3m-acquisition-verification/ethereum-signature-adapter.ts";
@@ -92,21 +93,22 @@ Deno.serve(async (request) => {
         throw new Error("Canonical BNB block header is unavailable.");
       }
 
+      const beforeHash = before.hash.toLowerCase();
       const gate = {
         database,
-        async readSafeConfiguration(expected): Promise<CanonicalPrelockSafeFacts> {
+        async readSafeConfiguration(expected: SafeConfigurationExpectation): Promise<CanonicalPrelockSafeFacts> {
           const facts = await readAndVerifySafeConfigurationFacts(safeReader, expected);
           const after = await bnbRpc.request<unknown>("eth_getBlockByNumber", [blockTag, false]);
           if (!isRecord(after) || typeof after.hash !== "string" ||
               !/^0x[0-9a-f]{64}$/i.test(after.hash) ||
               after.number !== blockTag ||
-              after.hash.toLowerCase() !== before.hash.toLowerCase()) {
+              after.hash.toLowerCase() !== beforeHash) {
             throw new Error("BNB block changed during the Safe configuration read.");
           }
           return {
             ...facts,
             readBlockNumber: blockTag,
-            readBlockHash: before.hash.toLowerCase(),
+            readBlockHash: beforeHash,
           };
         },
       };
