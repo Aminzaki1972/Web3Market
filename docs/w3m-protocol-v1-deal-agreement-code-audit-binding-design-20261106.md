@@ -186,3 +186,10 @@ These checks make incomplete pagination and cross-audit row mixing fail closed, 
 ## 15. Trusted pagination loader boundary (2026-11-06)
 
 Added `audit-manifest-loader.ts` and tests. The loader accepts a trusted source adapter, reads the exact audit ID, exhausts every file and finding page (configurable page size, maximum 1000; 100,000-row safety ceiling), rejects query errors and identity mismatch, then invokes the strict manifest validator. Its adapter contract explicitly requires full-row selection and audit-ID filtering; the helper does not itself instantiate Supabase or access the network. Integration into the live signing/finalization path remains intentionally deferred until the complete source DDL and immutable manifest persistence design are verified.
+
+
+## 16. Manifest-backed CODE_AUDIT evidence (2026-11-06)
+
+The existing pure `selectCodeAuditEvidence` selector now requires a freshly computed `AuditManifest` whose version and audit ID match the selected audit. It uses the manifest digest itself as `AcquisitionEvidence.contentHash`, and carries the manifest version, digest, file count, and finding count in metadata. The immutable deal binding helper now rejects CODE_AUDIT evidence unless the metadata digest equals the evidence content hash and the manifest version/counts are valid. This removes the previous summary-only audit snapshot hash as a substitute for complete persisted evidence.
+
+The protocol CI workflow now type-checks and runs the manifest helper, paginated loader, selector, and binding tests. The latest workflow run must complete successfully before this stage is considered verified. No live function, database, agreement signing, or settlement integration has been changed.
