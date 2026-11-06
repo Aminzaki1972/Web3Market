@@ -11,6 +11,16 @@ export type FreshSafeW3MContext = Omit<CheckDealRoomFromSnapshotInput, "stage" |
   now: string;
   /** Exact Safe hash loaded from the authoritative server-side transaction row. */
   safeTransactionHash?: string | null;
+  /** Verified EIP-712 agreement pair from the strict Safe snapshot adapter. */
+  agreementBinding?: {
+    termsVersionId: string;
+    termsVersion: string;
+    termsHash: string;
+    buyerAcceptanceId: string;
+    sellerAcceptanceId: string;
+    buyerDigest: string;
+    sellerDigest: string;
+  };
 };
 
 export async function authorizeSafeHandlerPhase(
