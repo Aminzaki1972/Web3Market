@@ -17,6 +17,7 @@ declare
   v_version jsonb;
   v_accept jsonb;
   v_version_id uuid;
+  v_snapshot jsonb;
 begin
   insert into public.projects(id,owner_id,status)
     values (v_project,v_seller,'active');
@@ -119,6 +120,20 @@ begin
     raise exception 'Expected exactly one buyer and one seller acceptance';
   end if;
 
+  v_snapshot := public.w3m_read_deal_agreement_signing_snapshot(v_deal);
+  if v_snapshot->'deal'->>'id' <> v_deal::text
+     or v_snapshot->'buyer_profile'->>'wallet_address' <> '0x5555555555555555555555555555555555555555'
+     or v_snapshot->'policy'->>'safe_nonce' <> '7' then
+    raise exception 'Private agreement signing snapshot did not return the exact server-side party and policy facts';
+  end if;
+
+  v_snapshot := public.w3m_read_safe_execution_snapshot(v_deal);
+  if v_snapshot->>'agreement_binding_supported' <> 'true'
+     or v_snapshot->'terms_version'->>'terms_version' <> '1'
+     or jsonb_array_length(v_snapshot->'agreement_acceptances') <> 2 then
+    raise exception 'Safe execution snapshot did not expose both immutable agreement signatures';
+  end if;
+
   update public.deals set amount=101 where id=v_deal;
   begin
     perform public.w3m_insert_deal_agreement_acceptance(
@@ -128,6 +143,24 @@ begin
     raise exception 'Old acceptance was replayed after terms changed';
   exception when check_violation then null;
   end;
+
+  update public.deal_release_policies
+     set deal_amount=101, fee_amount=7.575, seller_net_amount=93.425
+   where deal_id=v_deal;
+  v_canonical := jsonb_set(v_canonical,'{amount}',to_jsonb('101'::text));
+  v_canonical := jsonb_set(v_canonical,'{expectedAmount}',to_jsonb('100'::text));
+  v_canonical := jsonb_set(v_canonical,'{releasePolicy,dealAmount}',to_jsonb('101'::text));
+  v_canonical := jsonb_set(v_canonical,'{releasePolicy,feeAmount}',to_jsonb('7.575'::text));
+  v_canonical := jsonb_set(v_canonical,'{releasePolicy,sellerNetAmount}',to_jsonb('93.425'::text));
+  v_version := public.w3m_register_deal_terms_version(v_deal,repeat('b',64),v_canonical);
+  if v_version->>'terms_version' <> '2'
+     or coalesce((v_version->>'idempotent_replay')::boolean,true) then
+    raise exception 'Changed terms did not create a new immutable version';
+  end if;
+  if (select count(*) from public.w3m_deal_agreement_acceptances
+      where deal_id=v_deal and terms_version=1) <> 2 then
+    raise exception 'Prior signed version was not preserved as immutable history';
+  end if;
 
   if has_function_privilege('anon','public.w3m_register_deal_terms_version(uuid,text,jsonb)','EXECUTE')
      or has_function_privilege('authenticated','public.w3m_register_deal_terms_version(uuid,text,jsonb)','EXECUTE')
