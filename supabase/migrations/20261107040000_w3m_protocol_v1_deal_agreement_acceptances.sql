@@ -151,8 +151,9 @@ begin
      or v_audit.status is distinct from 'completed'
      or v_audit.completed_at is null
      or v_audit.files_scanned is null
-     or coalesce(v_audit.commit_sha,'') !~* '^[0-9a-f]{40} '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$'
-     or coalesce(v_audit.repo_name,'') !~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,99}
+     or coalesce(v_audit.commit_sha,'') !~* '^[0-9a-f]{40}$'
+     or coalesce(v_audit.repo_owner,'') !~ '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$'
+     or coalesce(v_audit.repo_name,'') !~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$'
      or v_audit.repo_name in ('.','..')
      or coalesce(v_audit.analysis_progress->>'evidence_version','') <> 'w3m-audit-evidence-v1'
      or coalesce(v_audit.analysis_progress->>'tree_truncated','') <> 'false'
@@ -261,11 +262,20 @@ begin
    where a.project_id = v_project.id
      and a.status = 'completed'
      and a.completed_at is not null
-     and a.commit_sha ~* '^[0-9a-f]{40} a.completed_at desc, a.id desc
+     and a.commit_sha ~* '^[0-9a-f]{40}$'
+     and a.repo_owner ~ '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$'
+     and a.repo_name ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$'
+     and a.repo_name not in ('.','..')
+     and a.analysis_progress->>'evidence_version' = 'w3m-audit-evidence-v1'
+     and a.analysis_progress->>'tree_truncated' = 'false'
+     and a.analysis_progress->>'persisted_file_count' ~ '^[1-9][0-9]*$'
+     and lower(regexp_replace(regexp_replace(btrim(coalesce(v_project.github_url,'')), '/+$', ''), '\.git$', '', 'i'))
+       = lower('https://github.com/' || a.repo_owner || '/' || a.repo_name)
+   order by a.completed_at desc, a.id desc
    limit 1;
 
   if v_audit_id is null then
-    raise exception 'No completed Code Audit is available for this project'
+    raise exception 'No complete repository-matching Code Audit is available for this project'
       using errcode = '23514';
   end if;
 
