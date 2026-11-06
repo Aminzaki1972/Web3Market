@@ -223,53 +223,15 @@ export async function executeW3MDealReleaseFromWallet({
     now,
   });
 
-  let persistenceResponse;
-  let persistenceBody;
-  try {
-    persistenceResponse = await fetchImpl(
-      new URL("/functions/v1/w3m-protocol-v1-safe-wallet-submit", base.origin),
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          attempt_id: packageBody.attempt_id,
-          package_hash: packageBody.package_hash,
-          transaction_hash: submitted.transactionHash,
-        }),
-      },
-    );
-    persistenceBody = await persistenceResponse.json();
-  } catch {
-    return {
-      state: "SUBMITTED_UNRECORDED",
-      attemptId: packageBody.attempt_id,
-      packageHash: packageBody.package_hash,
-      transactionHash: submitted.transactionHash,
-      receiptVerified: false,
-      finalized: false,
-    };
-  }
-
-  if (!persistenceResponse.ok || persistenceBody?.ok !== true ||
-      !["BROADCAST_UNVERIFIED", "RECONCILIATION_REQUIRED"].includes(persistenceBody.state) ||
-      persistenceBody.transaction_hash?.toLowerCase() !== submitted.transactionHash.toLowerCase()) {
-    return {
-      state: "SUBMITTED_UNRECORDED",
-      attemptId: packageBody.attempt_id,
-      packageHash: packageBody.package_hash,
-      transactionHash: submitted.transactionHash,
-      receiptVerified: false,
-      finalized: false,
-    };
-  }
-  return {
-    state: persistenceBody.state,
+  return await recordW3MSafeWalletSubmission({
     attemptId: packageBody.attempt_id,
     packageHash: packageBody.package_hash,
     transactionHash: submitted.transactionHash,
-    receiptVerified: false,
-    finalized: false,
-  };
+    accessToken,
+    apiKey,
+    supabaseUrl,
+    fetchImpl,
+  });
 }
 
 
