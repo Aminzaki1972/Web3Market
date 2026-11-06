@@ -56,6 +56,7 @@ function validatePackage(pkg) {
     uuid.test(pkg.buyerAcceptanceId || "") &&
     uuid.test(pkg.sellerAcceptanceId || "") &&
     pkg.buyerAcceptanceId !== pkg.sellerAcceptanceId &&
+    /^[1-9][0-9]*$/.test(pkg.agreementTermsVersion || "") &&
     /^[0-9a-f]{64}$/i.test(pkg.agreementTermsHash || "") &&
     HASH.test(pkg.buyerAcceptanceDigest || "") &&
     HASH.test(pkg.sellerAcceptanceDigest || "") &&
