@@ -185,8 +185,12 @@ export async function authorizePrelockSafePrepare(
     ];
     if (!gate.authorized || issues.length !== 0) {
       return {
-        authorized: false, issues, phase: "PREPARE", dealId,
-        readBlockNumber: facts.readBlockNumber, readBlockHash: facts.readBlockHash,
+        authorized: false,
+        issues: issues.length > 0 ? issues : ["W3M_PRELOCK_GATE_NOT_AUTHORIZED"],
+        phase: "PREPARE",
+        dealId,
+        readBlockNumber: facts.readBlockNumber,
+        readBlockHash: facts.readBlockHash,
       };
     }
     const report = gate.verifiedReportAuthorization;
