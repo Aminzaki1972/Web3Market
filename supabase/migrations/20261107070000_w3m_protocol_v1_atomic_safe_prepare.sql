@@ -94,9 +94,9 @@ begin
      or d.chain_id is distinct from 56 or lower(coalesce(d.safe_address,'')) <> safe_addr
      or lower(coalesce(d.token_contract,'')) <> token_addr
      or upper(coalesce(d.token_symbol,d.currency,'')) <> 'USDT'
-     or d.dispute_status not in ('none','closed')
+     or coalesce(d.dispute_status,'') not in ('none','closed')
      or d.delivery_status <> 'accepted' or d.buyer_approved_at is null
-     or d.amount <> amount_value or d.platform_fee_percent <> fee_percent_value then
+     or d.amount is distinct from amount_value or d.platform_fee_percent is distinct from fee_percent_value then
     raise exception 'Current deal/payment/delivery/dispute/amount state is not eligible' using errcode='23514';
   end if;
   if exists(select 1 from public.deal_disputes x where x.deal_id=p_deal_id
@@ -113,8 +113,8 @@ begin
      or buyer_wallet !~ '^0x[0-9a-f]{40}$' or seller_wallet !~ '^0x[0-9a-f]{40}$'
      or buyer_wallet=seller_wallet or buyer_wallet=lower(platform_wallet)
      or seller_wallet=lower(platform_wallet)
-     or lower(p_policy->>'seller_wallet') <> seller_wallet
-     or lower(p_policy->>'platform_wallet') <> lower(platform_wallet) then
+     or lower(p_policy->>'seller_wallet') is distinct from seller_wallet
+     or lower(p_policy->>'platform_wallet') is distinct from lower(platform_wallet) then
     raise exception 'Verified party wallet binding failed' using errcode='23514';
   end if;
   if (select count(distinct lower(value)) from jsonb_array_elements_text(p_safe_facts->'owners')) <> 3
