@@ -22,8 +22,12 @@ declare
   v_broadcast_hash text := '0x' || repeat('b', 64);
   v_receipt jsonb;
   v_snapshot jsonb;
+  v_terms_hash text := repeat('f',64);
+  v_terms jsonb;
+  v_terms_result jsonb;
+  v_acceptance jsonb;
 begin
-  insert into public.projects (id,status) values (v_project,'active');
+  insert into public.projects (id,owner_id,status) values (v_project,v_seller,'active');
 
   insert into public.w3m_trusted_signer_keys (
     key_id, algorithm, public_address, valid_from, valid_until, created_by
@@ -68,13 +72,41 @@ begin
     '0x2222222222222222222222222222222222222222',7
   );
 
+  -- Pin a real immutable terms version and both party acceptances for the attempt.
+  v_terms := public.w3m_current_deal_terms_json(v_deal);
+  v_terms_result := public.w3m_register_deal_terms_version(v_deal,v_terms_hash,v_terms);
+  if coalesce((v_terms_result->>'terms_version')::bigint,0) <> 1 then
+    raise exception 'Attempt fixture could not register its immutable deal terms';
+  end if;
+  v_acceptance := public.w3m_insert_deal_agreement_acceptance(
+    v_deal,1,'buyer',v_buyer,'0x3333333333333333333333333333333333333333',
+    v_terms_hash,v_terms,'0x' || repeat('1',64),'0x' || repeat('2',130)
+  );
+  if coalesce((v_acceptance->>'accepted')::boolean,false) is not true then
+    raise exception 'Attempt fixture buyer acceptance failed';
+  end if;
+  v_acceptance := public.w3m_insert_deal_agreement_acceptance(
+    v_deal,1,'seller',v_seller,'0x4444444444444444444444444444444444444444',
+    v_terms_hash,v_terms,'0x' || repeat('3',64),'0x' || repeat('4',130)
+  );
+  if coalesce((v_acceptance->>'accepted')::boolean,false) is not true then
+    raise exception 'Attempt fixture seller acceptance failed';
+  end if;
+
   insert into public.w3m_acquisition_reports (
     id,deal_id,project_id,report_version,supersedes_report_id,buyer_id,seller_id,status,engine_version,
     evidence_hash,report_hash,report_payload,signer_key_id,report_signature,issued_at,expires_at
   ) values (
     v_report,v_deal::text,v_project::text,1,null,v_buyer::text,v_seller::text,'PASS','test-engine',
-    repeat('c',64),repeat('d',64),'{}'::jsonb,'attempt-test-key',
+    repeat('c',64),repeat('d',64),jsonb_build_object('dealTermsHash',v_terms_hash,'evidenceCount',1),'attempt-test-key',
     '0x' || repeat('e',130),now() - interval '1 minute',now() + interval '1 hour'
+  );
+
+  insert into public.w3m_acquisition_evidence (
+    report_id,evidence_type,evidence_hash,result,mandatory,observed_at,valid_until,details
+  ) values (
+    v_report,'PROJECT_IDENTITY',repeat('c',64),'PASS',true,now(),now() + interval '1 hour',
+    jsonb_build_object('evidenceId','attempt-test-project-identity','evidenceObservedAt',now(),'evidenceValidUntil',now() + interval '1 hour')
   );
 
   v_result := public.w3m_claim_safe_execution_attempt(
