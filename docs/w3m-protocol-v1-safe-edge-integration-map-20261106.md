@@ -275,6 +275,6 @@ The strict Deno adapter validates deal/project/participant bindings, exact decim
 
 CI:
 - Run `42137826566` reached the disposable PostgreSQL stage and failed before applying the new migration because the test fixture attempted to add `token_symbol` twice. The fixture was corrected by removing duplicate additions; no SQL assertion or runtime behavior is claimed from the failed run.
-- Follow-up run `42137916304` is running against the corrected fixture and includes the new Deno adapter type-check/test plus the disposable PostgreSQL migration and contract test. Its result must be checked before calling this snapshot reader CI-verified.
+- Follow-up run `42137916304` completed successfully: all 46 job steps completed with zero failures, including the new Deno adapter type-check and tests, application of the new migration to disposable PostgreSQL, and the SQL snapshot-reader contract test. This verifies the isolated reader and adapter contract only; it does not connect the RPC to production or authorize Safe execution.
 
 All files remain on `w3m-protocol-v1-isolated-20261105`. No production function, database schema, data, secrets, Cloudflare configuration, Safe transaction, or funds were changed.
