@@ -61,7 +61,7 @@ Deno.test("protocol service rejects a latest report belonging to another deal be
     report_version: 4,
   });
   let signerCalls = 0;
-  await assertRejects(() => issueAndPersistAcquisitionReport(
+  const error = await assertRejects(() => issueAndPersistAcquisitionReport(
     deliberatelyIncompleteInput,
     async () => {
       signerCalls++;
@@ -69,6 +69,7 @@ Deno.test("protocol service rejects a latest report belonging to another deal be
     },
     mock.client,
   ));
+  assertEquals(error.message, "Latest persisted W3M report sequence is malformed or belongs to another deal.");
   assertEquals(mock.reads, ["w3m_acquisition_reports", "w3m_acquisition_evidence"]);
   assertEquals(mock.writes, []);
   assertEquals(signerCalls, 0);
@@ -81,7 +82,7 @@ Deno.test("protocol service rejects a malformed latest report identity before si
     report_version: 4,
   });
   let signerCalls = 0;
-  await assertRejects(() => issueAndPersistAcquisitionReport(
+  const error = await assertRejects(() => issueAndPersistAcquisitionReport(
     deliberatelyIncompleteInput,
     async () => {
       signerCalls++;
@@ -89,6 +90,7 @@ Deno.test("protocol service rejects a malformed latest report identity before si
     },
     mock.client,
   ));
+  assertEquals(error.message, "Latest persisted W3M report sequence is malformed or belongs to another deal.");
   assertEquals(mock.reads, ["w3m_acquisition_reports", "w3m_acquisition_evidence"]);
   assertEquals(mock.writes, []);
   assertEquals(signerCalls, 0);
@@ -101,7 +103,7 @@ Deno.test("protocol service rejects an exhausted latest report version before si
     report_version: 2147483647,
   });
   let signerCalls = 0;
-  await assertRejects(() => issueAndPersistAcquisitionReport(
+  const error = await assertRejects(() => issueAndPersistAcquisitionReport(
     deliberatelyIncompleteInput,
     async () => {
       signerCalls++;
@@ -109,6 +111,7 @@ Deno.test("protocol service rejects an exhausted latest report version before si
     },
     mock.client,
   ));
+  assertEquals(error.message, "Latest persisted W3M report sequence is malformed or belongs to another deal.");
   assertEquals(mock.reads, ["w3m_acquisition_reports", "w3m_acquisition_evidence"]);
   assertEquals(mock.writes, []);
   assertEquals(signerCalls, 0);
