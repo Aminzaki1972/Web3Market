@@ -112,3 +112,20 @@ This establishes a shared serialization point for the next finalizer change: fin
 ### CI follow-up — 2026-11-06
 
 The follow-on changes for immutable agreement history and signer-revocation row locking are included in isolated run `42198188037` (head commit `fca96858a257d88b22122d9fe94b96bd95ff791e`). At the latest check this run was still `in_progress`; its SQL migration and regression results are not yet validated. The later documentation-only commit does not change the code tested by that run.
+
+
+## Report-version serialization increment — 2026-11-06
+
+Added an isolated database serialization barrier for the latest-report race:
+
+- `w3m_acquisition_reports` now has a BEFORE INSERT trigger that obtains a transaction advisory lock keyed by the report's `deal_id`.
+- The atomic Safe finalizer obtains the same per-deal advisory lock immediately after locking the execution attempt.
+- This creates a shared serialization point so a new report append cannot race past finalization's latest-report check once that check is wired into the finalizer.
+
+Files:
+- `supabase/migrations/20261107130000_w3m_protocol_v1_report_version_serialization.sql`
+- `supabase/tests/w3m-protocol-v1-report-version-serialization.test.sql`
+
+The first CI attempt for immutable agreement history exposed a test-harness issue: PostgreSQL rejects truncating the parent terms table alone while the acceptance table references it, before the expected trigger can run. The test was corrected to issue a single multi-table TRUNCATE for the parent/child pair. This was a test setup failure, not evidence that the append-only trigger failed.
+
+The latest CI run after that correction is `42198620724` on `f7f31fd0ea4c46252585539c7b179881cb287914`; its result is pending. The report-version serialization barrier is groundwork only: the finalizer still needs to load and lock the pinned report, all evidence, signer key/latest event, immutable terms version and both acceptance rows, then compare the typed attestation before any settlement update. Release remains blocked.
