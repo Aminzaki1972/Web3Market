@@ -181,3 +181,8 @@ The first helper draft was tightened after reviewing the actual audit writer and
 - Sorting now uses locale-independent code-point comparison, not locale-sensitive collation.
 
 These checks make incomplete pagination and cross-audit row mixing fail closed, assuming the trusted loader actually fetches all pages and selects complete rows. The base DDL for the original `code_audits`, `code_audit_files`, and `code_audit_findings` tables remains unlocated in the repository migration history reviewed here; the field contract above is grounded in the current audit writer/reader code, not claimed as a complete database DDL specification. CI for the latest hardening commit is pending.
+
+
+## 15. Trusted pagination loader boundary (2026-11-06)
+
+Added `audit-manifest-loader.ts` and tests. The loader accepts a trusted source adapter, reads the exact audit ID, exhausts every file and finding page (configurable page size, maximum 1000; 100,000-row safety ceiling), rejects query errors and identity mismatch, then invokes the strict manifest validator. Its adapter contract explicitly requires full-row selection and audit-ID filtering; the helper does not itself instantiate Supabase or access the network. Integration into the live signing/finalization path remains intentionally deferred until the complete source DDL and immutable manifest persistence design are verified.
