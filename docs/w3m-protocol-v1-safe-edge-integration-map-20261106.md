@@ -805,7 +805,7 @@ The isolated claim RPC was corrected to independently rebind:
 - fee amount = `round(deal_amount * 7.5 / 100, 18)`;
 - seller net = deal amount minus fee.
 
-The legacy validator call was removed from the execution-claim path. The disposable SQL fixture deliberately defines the legacy validator to return `valid=false`; the claim test is expected to succeed only when the new W3M exact checks pass. The fixture uses a valid BNB USDT token address and a syntactically valid 32-byte payment hash.
+The legacy validator call was removed from the execution-claim path. The claim also now fails closed for a null dispute status or an ineligible deal lifecycle state, and rejects a null policy status. The disposable SQL fixture deliberately defines the legacy validator to return `valid=false`; the claim test is expected to succeed only when the new W3M exact checks pass. The fixture uses a valid BNB USDT token address and a syntactically valid 32-byte payment hash.
 
 **Verification:** latest workflow run [42184955398](https://github.com/Aminzaki1972/Web3Market/actions/runs/42184955398), commit `7c0ee6e5ad18010b29b32ba48581910905b7d063`, is still running. Do not treat the SQL correction as CI-verified until this run completes successfully. Earlier queued runs for intermediate commits do not verify the final corrected SQL/test fixture.
 
