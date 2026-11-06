@@ -587,3 +587,38 @@ This completes the read-only source inventory of all six live Safe handlers. The
 - The legacy validator allows dispute status `none` or `resolved`, while the isolated W3M adapter currently requires exact `none`. This is deliberately fail-closed pending a precise policy for `resolved_buyer` versus `resolved_seller`; no resolved dispute is silently treated as clear.
 
 These details are based on read-only schema/index/function-definition queries. They are recorded to prevent an incorrect future atomic RPC or an assumed uniqueness constraint.
+
+
+## 31. Read-only live CREATE / SIGN / FINALIZE review — 2026-11-06
+
+Additional live Edge Functions were fetched directly from the production Supabase project for source review only. No function was updated or deployed.
+
+**Exact live identities**
+- `create-safe`: version 56; SHA-256 `d888f48d48c87563e20e43318f9187c0f02d9a46fbe5e037cadbb5520b918e07`.
+- `record-safe-release-signature`: version 24; SHA-256 `fb4fedf2c17245b52d2920d3ac13c426b02a49d176dc96e75237c599840d5d01`.
+- `finalize-safe-release`: version 25; SHA-256 `4f39f60122f79198fd8b2051cefd172d600f1c1d3a5d48310b40620957efd5ce`.
+
+**CREATE**
+- Authenticates the caller and checks deal participation/admin role, accepted deal status, BNB chain 56, verified buyer/seller wallets, distinct Safe owners, and a separate deployer.
+- Deploys/attaches to a 2-of-3 Safe and verifies owners/threshold on-chain.
+- After deployment, updates `deals` and upserts `deal_release_policies` as separate database operations.
+- No W3M report/evidence/agreement gate is called before deployment. The final integration must decide whether CREATE is an allowed preparatory action before W3M PASS, or whether policy creation and any release preparation must remain gated. The latter must never be confused with authorization to release funds.
+
+**SIGN**
+- Existing handler does cryptographically recover the EIP-712 SafeTx signature and checks it against the verified profile wallet, current Safe owners, threshold, nonce, and stored Safe transaction hash.
+- It upserts the signer's row, then separately reads all signatures and updates the multisig transaction's signatures/count/status. These writes are not one atomic operation.
+- It does not yet require the W3M immutable deal-agreement binding before accepting a Safe signature. The isolated authorizer already requires the exact buyer/seller EIP-712 deal agreement for SIGN and EXECUTE, but that authorizer is not wired to this live handler.
+
+**FINALIZE**
+- Existing handler verifies a mined successful BNB receipt, configured Safe destination, recomputed Safe transaction hash, Safe ExecutionSuccess event, and exact Safe→seller and Safe→platform USDT transfer amounts.
+- It then updates the multisig transaction, release policy, deal, project sold status, and audit log as separate writes. The audit insert result is ignored. A later failure can therefore leave partially finalized database state.
+- The isolated W3M finalizer already uses a separate receipt-verification path and atomic finalization RPC. It is not deployed and is not connected to this live handler.
+
+**Current implementation sequence**
+1. Preserve CREATE as a Safe custody setup action, but do not let it imply release authorization; bind its policy creation to verified immutable deal terms and atomic persistence.
+2. Wire the exact immutable agreement and W3M report gate into SIGN before any signature row is persisted.
+3. Wire the fresh pre-broadcast W3M authorization into EXECUTE and keep the existing Safe hash/signature/nonce checks.
+4. Replace FINALIZE's multi-write sequence with the isolated receipt-proof + atomic finalization path.
+5. Convert PREPARE's policy/transaction/audit writes into one database RPC, then wire the pre-lock boundary before the existing fast path and before any mutation.
+
+No live function was modified. The six previously captured source snapshots remain historical snapshots; these version/hash identities above are the latest read-only production fetches from this review.
