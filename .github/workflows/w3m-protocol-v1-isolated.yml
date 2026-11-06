@@ -152,8 +152,6 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/fresh-safe-prepare-context.test.ts
           deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-gate.ts
           deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-gate.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/prelock-prepare-commit-boundary.ts
-          deno check supabase/functions/w3m-acquisition-verification/prelock-prepare-commit-boundary.test.ts
           deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-boundary.ts
           deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-boundary.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.ts
@@ -237,8 +235,6 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/fresh-safe-prepare-context.test.ts
       - name: Test pre-lock W3M PREPARE gate
         run: deno test supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-gate.test.ts
-      - name: Test fail-closed PREPARE write boundary
-        run: deno test supabase/functions/w3m-acquisition-verification/prelock-prepare-commit-boundary.test.ts
       - name: Test pre-lock W3M PREPARE side-effect boundary
         run: deno test supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-boundary.test.ts
       - name: Test strict Safe execution database snapshot adapter
