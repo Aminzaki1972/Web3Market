@@ -93,7 +93,7 @@ function snapshotIssues(snapshot: SafeExecutionFreshSnapshot): string[] {
       !/^[1-9][0-9]*$/.test(agreement.termsVersion ?? "") ||
       !/^[0-9a-f]{64}$/i.test(agreement.termsHash ?? "") ||
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(agreement.buyerAcceptanceId ?? "") ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(agreement.sellerAcceptanceId ?? "") ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(agreement.sellerAcceptanceId ?? "") ||
       !/^0x[0-9a-f]{64}$/i.test(agreement.buyerDigest ?? "") ||
       !/^0x[0-9a-f]{64}$/i.test(agreement.sellerDigest ?? "") ||
       agreement.buyerAcceptanceId === agreement.sellerAcceptanceId ||
