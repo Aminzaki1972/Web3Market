@@ -324,3 +324,20 @@ Deno.test("finalization helper never treats a 409 response as a confirmed deal",
   assertEquals(result.finalized, false);
 });
 
+
+
+Deno.test("wallet hash recovery preserves original hash when fetch itself rejects", async () => {
+  const result = await recordW3MSafeWalletSubmission({
+    attemptId: "24000000-0000-4000-8000-000000000004",
+    packageHash: "c".repeat(64),
+    transactionHash: OUTER_HASH,
+    accessToken: "test-access-token",
+    apiKey: "test-publishable-key",
+    supabaseUrl: "https://project.supabase.co",
+    fetchImpl: async () => { throw new Error("network unavailable"); },
+  });
+  assertEquals(result.state, "SUBMITTED_UNRECORDED");
+  assertEquals(result.transactionHash, OUTER_HASH);
+  assertEquals(result.receiptVerified, false);
+  assertEquals(result.finalized, false);
+});
