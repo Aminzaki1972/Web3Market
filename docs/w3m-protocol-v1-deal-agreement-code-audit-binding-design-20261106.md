@@ -98,3 +98,8 @@ The isolated branch now contains:
 The pure helper accepts only an already-selected mandatory `CODE_AUDIT` evidence object and validates its exact deal/project binding, audit record UUID, immutable 40-character commit, repository owner/name, supported audit scope, completion timestamp, and evidence SHA-256. It emits a deterministic compact object containing audit ID, canonical GitHub URL, commit SHA, audit scope, completion time, and evidence hash. It performs no I/O and cannot select an audit or mark one as passing.
 
 This is a pre-integration contract, not yet part of `computeDealTermsHash`, `w3m_current_deal_terms_json`, or the live agreement-signing path. The remaining integration must load a server-owned selected audit ID, compare the project's authoritative GitHub URL, include the exact same binding in both TypeScript and SQL canonical terms, and test that changing the audit/commit creates a new terms version requiring both parties to sign again. No client-supplied repository or audit data may be authoritative.
+
+
+## 9. Evidence validity interval hardening (2026-11-06)
+
+The pure binding boundary now also requires all three temporal facts to be valid and ordered: audit completion must not occur after evidence observation, and the observation must be strictly earlier than the evidence validity deadline. Missing, malformed, or out-of-order validity timestamps are rejected. This checks the evidence interval itself; the upstream decision engine and server-side issuer must still compare the deadline against the trusted current issuance time to reject evidence that has since expired.
