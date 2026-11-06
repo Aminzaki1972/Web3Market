@@ -99,5 +99,12 @@ begin
         position('W3M_CURRENT_DEAL_TERMS_JSON' in upper(v_finalizer)) then
     raise exception 'W3M finalizer must lock release policy before canonical terms revalidation';
   end if;
+
+  if position('SELECT * INTO V_PROJECT' in upper(v_finalizer)) = 0
+     or position('V_PROJECT.OWNER_ID IS DISTINCT FROM V_DEAL.SELLER_ID' in upper(v_finalizer)) = 0
+     or position('V_PROJECT.OWNER_ID IS DISTINCT FROM V_DEAL.SELLER_ID' in upper(v_finalizer)) >
+        position('UPDATE PUBLIC.DEAL_MULTISIG_TRANSACTIONS' in upper(v_finalizer)) then
+    raise exception 'W3M finalizer must lock and revalidate current project ownership before settlement';
+  end if;
 end;
 $test$;
