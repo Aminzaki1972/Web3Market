@@ -1,5 +1,6 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import { prepareDealAuditSnapshot } from "./deal-audit-snapshot-service.ts";
+import type { AuditManifestRow } from "./audit-manifest.ts";
 import type { AuditManifestSource } from "./audit-manifest-loader.ts";
 import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
 
@@ -22,7 +23,7 @@ const context = {
   deal_id: dealId, project_id: projectId, audit_id: auditId,
   project_github_url: "https://github.com/owner/repo",
 };
-function source(auditRow: Record<string, unknown> = audit): AuditManifestSource {
+function source(auditRow: AuditManifestRow = audit): AuditManifestSource {
   return {
     async loadAudit(id) { return {data: id === auditId ? auditRow : null}; },
     async loadFilesPage(id, from, to) {
