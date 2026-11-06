@@ -56,6 +56,14 @@ Deno.test("pre-lock PREPARE fails closed when exact deal or validated policy sna
 
 
 
+Deno.test("pre-lock PREPARE fails closed when current Code Audit manifest binding is absent",async()=>{
+ const result=await authorizePrelockSafePrepare(
+  deps({snapshot:[snapshot({code_audit:null})]}),DEAL,"2026-11-06T00:00:00Z",verifier,
+ );
+ assertEquals(result.authorized,false);
+ assertEquals(result.issues,["W3M_PRELOCK_PREPARE_AUTHORIZATION_FAILED"]);
+});
+
 Deno.test("pre-lock PREPARE rejects a token other than the approved BNB USDT contract",async()=>{
  const result=await authorizePrelockSafePrepare(
   deps({snapshot:[snapshot({deal_token_contract:"0x4444444444444444444444444444444444444444"})]}),
