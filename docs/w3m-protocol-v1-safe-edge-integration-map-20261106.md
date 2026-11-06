@@ -680,3 +680,10 @@ The new SQL test covers first commit, exact idempotent replay, signed-row preser
 **Important precision finding:** production `validate_deal_release_policy(uuid)` computes the fee rounded to 8 decimals and can reject an otherwise valid locked policy whose canonical fee uses 18 decimals. The atomic W3M RPC therefore does not call that legacy validator; it independently rechecks the underlying payment, delivery, buyer-approval, dispute, chain, Safe, token, party-wallet and exact fee conditions. This avoids allowing the old 8-decimal fee calculation to veto or redefine the W3M 18-decimal agreement.
 
 **Status:** migration and SQL test are committed to the isolated branch, but this turn has not yet established a successful CI run for the new files. The RPC is not wired into the live `prepare-deal-release` or `prepare-safe-release-tx` handlers, has not been deployed, and does not protect production transactions yet.
+
+
+**Implementation refinements after the first draft**
+- The exact production validator source was inspected. It uses `round(amount * 7.5 / 100, 8)`, so calling it from the atomic RPC would break the intended 18-decimal policy on some amounts and could also reject an idempotent retry. The RPC now performs its own database-state checks and deliberately does not call that legacy fee validator.
+- The persisted deal amount and `deals.platform_fee_percent` are now both required to equal the authorized exact policy values; BNB chain comparison is null-safe.
+- The SQL test fixture's deal identifiers were corrected to use explicit PL/pgSQL variable names.
+- Latest code refinement commit: `53c7faf765d70023f4205f340b9ea5380574f480`. The newest test commit is `66046f42e9cab503bac04a389636807f3f1d059a`. No successful CI result has been verified for these new SQL files yet.
