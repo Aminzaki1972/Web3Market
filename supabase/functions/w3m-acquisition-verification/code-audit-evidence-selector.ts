@@ -53,6 +53,8 @@ export async function selectCodeAuditEvidence(
   expected: CodeAuditEvidenceExpectation,
 ): Promise<CodeAuditEvidenceSelection> {
   if (!row) return fail("The deal has no explicitly selected Code Audit record.");
+  if (!UUID.test(expected.dealId)) return fail("The expected deal ID is invalid.");
+  if (!text(expected.repositoryOwner) || !text(expected.repositoryName)) return fail("The expected repository identity is incomplete.");
   if (!UUID.test(text(row.id))) return fail("The selected audit record ID is invalid.");
   if (!UUID.test(expected.projectId) || text(row.project_id) !== expected.projectId) {
     return fail("The selected audit is not bound to the exact deal project.");
@@ -84,6 +86,8 @@ export async function selectCodeAuditEvidence(
   }
   const analysisMethod = text(row.analysis_method);
   if (!analysisMethod) return fail("The selected Code Audit analysis method is missing.");
+  const riskLevel = text(row.risk_level);
+  if (!riskLevel) return fail("The selected Code Audit risk level is missing.");
 
   const snapshot = {
     auditId: text(row.id),
@@ -95,7 +99,7 @@ export async function selectCodeAuditEvidence(
     auditStatus: "completed",
     completedAt: new Date(completedMs).toISOString(),
     overallScore: score,
-    riskLevel: text(row.risk_level),
+    riskLevel,
     analysisMethod,
   };
   const canonical = JSON.stringify(Object.fromEntries(
@@ -112,7 +116,7 @@ export async function selectCodeAuditEvidence(
     projectId: expected.projectId,
     contentHash,
     observedAt: expected.now,
-    validUntil: new Date(nowMs + expected.maxAgeMs).toISOString(),
+    validUntil: new Date(completedMs + expected.maxAgeMs).toISOString(),
     sourceRecordId: snapshot.auditId,
     sourceVersion: snapshot.commitSha,
     metadata: {
