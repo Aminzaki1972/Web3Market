@@ -3,6 +3,7 @@ import {
   encodeSafeExecTransactionCalldata,
   submitSafeWalletExecutionPackage,
   executeW3MDealReleaseFromWallet,
+  verifyW3MDealReleaseFromServer,
 } from "../../../js/w3m-safe-wallet-execution-client.js";
 
 const SAFE = "0x1111111111111111111111111111111111111111";
@@ -202,5 +203,54 @@ Deno.test("preserves the wallet hash for reconciliation if submission-hash persi
   assertEquals(result.state, "SUBMITTED_UNRECORDED");
   assertEquals(result.transactionHash, OUTER_HASH);
   assertEquals(result.receiptVerified, false);
+  assertEquals(result.finalized, false);
+});
+
+
+Deno.test("finalization helper sends only the attempt ID and trusts only server CONFIRMED", async () => {
+  const attemptId = "24000000-0000-4000-8000-000000000004";
+  let requestBody: Record<string, unknown> | null = null;
+  const result = await verifyW3MDealReleaseFromServer({
+    attemptId,
+    accessToken: "test-access-token",
+    apiKey: "test-publishable-key",
+    supabaseUrl: "https://project.supabase.co",
+    fetchImpl: async (input, init) => {
+      assertEquals(String(input), "https://project.supabase.co/functions/v1/w3m-protocol-v1-finalize-safe-release");
+      assertEquals(init?.method, "POST");
+      assertEquals((init?.headers as Record<string, string>)?.apikey, "test-publishable-key");
+      requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(JSON.stringify({
+        ok: true,
+        result: {
+          state: "CONFIRMED",
+          attemptId,
+          broadcastTxHash: OUTER_HASH,
+          idempotentReplay: false,
+        },
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    },
+  });
+  assertEquals(requestBody, { attempt_id: attemptId });
+  assertEquals(result, {
+    state: "CONFIRMED",
+    attemptId,
+    transactionHash: OUTER_HASH,
+    idempotentReplay: false,
+    finalized: true,
+  });
+});
+
+Deno.test("finalization helper never treats a 409 response as a confirmed deal", async () => {
+  const result = await verifyW3MDealReleaseFromServer({
+    attemptId: "24000000-0000-4000-8000-000000000004",
+    accessToken: "test-access-token",
+    apiKey: "test-publishable-key",
+    supabaseUrl: "https://project.supabase.co",
+    fetchImpl: async () => new Response(JSON.stringify({
+      ok: false, error: "W3M_FINALIZATION_BLOCKED",
+    }), { status: 409 }),
+  });
+  assertEquals(result.state, "VERIFICATION_PENDING_OR_BLOCKED");
   assertEquals(result.finalized, false);
 });
