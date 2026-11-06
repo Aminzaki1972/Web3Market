@@ -100,3 +100,10 @@ A follow-on isolated migration and SQL regression test now protect the two agree
 The migration installs the existing database-level append-only rejection trigger on `w3m_deal_terms_versions` and `w3m_deal_agreement_acceptances`. The CI workflow applies it only after `20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql`, then checks UPDATE, DELETE, and TRUNCATE rejection and verifies that authenticated/service roles do not have direct mutation paths. The trigger test also checks all three trigger operation bits, not just trigger presence.
 
 This protects the immutable terms and signed-consent history from ordinary row mutation in the disposable CI schema. It does not yet serialize trusted-signer revocation against finalization, and it does not wire the persisted acquisition report/evidence/signer/terms guard into the atomic Safe finalizer. The finalization-time acquisition gate therefore remains OPEN / BLOCKING FOR RELEASE. CI must complete successfully on the new branch head before this increment is considered validated.
+
+
+## Trusted signer revocation lock — 2026-11-06
+
+The isolated trusted-signer revocation RPC now obtains `SELECT ... FOR UPDATE` on the signer-key row before appending the REVOKED event. Its SQL regression test asserts that the function definition contains this row lock, and the existing lifecycle test still verifies that revocation changes the derived signer status.
+
+This establishes a shared serialization point for the next finalizer change: finalization must lock the same signer-key row and re-read the latest event in its own transaction. The lock added to revocation alone does not close the race until the atomic finalizer takes the matching lock and validates the signer status before committing.
