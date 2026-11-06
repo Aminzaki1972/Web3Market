@@ -97,6 +97,9 @@ async function loadSigningContext(client: W3MRpcClient, dealId: string): Promise
   }
   const buyerWallet = verifiedWallet(buyer, "Buyer");
   const sellerWallet = verifiedWallet(seller, "Seller");
+  if (buyerWallet === sellerWallet) {
+    throw new Error("Buyer and seller must control distinct verified wallets for independent agreement consent.");
+  }
   if (text(policy.seller_wallet, "Policy seller wallet").toLowerCase() !== sellerWallet) {
     throw new Error("Locked release policy seller wallet differs from the currently verified seller wallet.");
   }
