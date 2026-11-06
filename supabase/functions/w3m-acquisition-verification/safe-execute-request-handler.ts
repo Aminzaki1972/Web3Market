@@ -38,7 +38,9 @@ export function createW3MSafeExecuteRequestHandler(deps: W3MExecuteRequestDepend
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid");
       body = parsed as Record<string, unknown>;
     } catch { return json(400, { ok: false, error: "INVALID_JSON" }); }
-    if (typeof body.deal_id !== "string" || !UUID.test(body.deal_id)) {
+    const bodyKeys = Object.keys(body);
+    if (bodyKeys.length !== 1 || bodyKeys[0] !== "deal_id" ||
+        typeof body.deal_id !== "string" || !UUID.test(body.deal_id)) {
       return json(400, { ok: false, error: "INVALID_EXECUTE_REQUEST" });
     }
     try {
