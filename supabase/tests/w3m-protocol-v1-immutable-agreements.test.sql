@@ -19,6 +19,7 @@ begin
         and not t.tgisinternal
         and (t.tgtype & 2) = 2
         and (t.tgtype & 8) = 8
+        and (t.tgtype & 16) = 16
         and (t.tgtype & 32) = 32
     ) then
       raise exception 'UPDATE/DELETE/TRUNCATE append-only trigger is missing on %',v_table;
