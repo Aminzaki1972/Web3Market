@@ -19,7 +19,7 @@ export interface SafeConfigurationExpectation {
   expectedThreshold: number;
   expectedVersion: string;
   expectedChainId: number;
-  expectedNonce: string;
+  expectedNonce?: string;
 }
 
 export interface SafeConfigurationFacts {
@@ -114,8 +114,9 @@ export async function readAndVerifySafeConfigurationFacts(
       threshold < 1 || threshold > owners.length) {
     issues.push("SAFE_LIVE_THRESHOLD_MISMATCH");
   }
-  const expectedNonce = uint(expected.expectedNonce);
-  if (nonce === null || expectedNonce === null || nonce !== expectedNonce) {
+  const expectedNonce = expected.expectedNonce === undefined ? null : uint(expected.expectedNonce);
+  if (nonce === null || (expected.expectedNonce !== undefined &&
+      (expectedNonce === null || nonce !== expectedNonce))) {
     issues.push("SAFE_LIVE_NONCE_MISMATCH");
   }
   if (version !== expected.expectedVersion) issues.push("SAFE_LIVE_VERSION_MISMATCH");
