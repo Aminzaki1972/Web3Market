@@ -72,7 +72,7 @@ export async function loadSafeFinalizationExpectation(
     throw new Error("W3M finalization actor is not a deal participant.");
   }
   const packageActorId = textField(row, "package_actor_id");
-  const packageHash = hashField(row, "package_hash");
+  hashField(row, "package_hash");
   const packageIssuedAt = textField(row, "package_issued_at");
   const packageExpiresAt = textField(row, "package_expires_at");
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(packageActorId) ||
