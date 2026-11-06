@@ -13,9 +13,8 @@ Use **EIP-712 typed-data signatures** from each party's already verified wallet.
 - `name`: `Web3Market Deal Agreement`
 - `version`: `1`
 - `chainId`: `56` (BNB Smart Chain mainnet)
-- `verifyingContract`: the exact Safe address locked in the deal release policy
 
-The Safe address is used as a deal-specific EIP-712 domain separator. This is an off-chain signature format; it does not add a method to or change the Safe contract.
+The EIP-712 domain deliberately omits `verifyingContract`: signatures are verified by Web3Market's server, not by a smart contract. The exact Safe address is instead an explicit field in the signed message below. This avoids implying that the Safe contract itself verifies acquisition agreements.
 
 ### Primary type
 
@@ -25,6 +24,7 @@ DealTermsAcceptance(
   bytes32 projectId,
   bytes32 buyerId,
   bytes32 sellerId,
+  address safeAddress,
   bytes32 termsHash,
   uint256 termsVersion,
   uint8 partyRole
@@ -36,7 +36,8 @@ Field encoding:
 - `termsHash` is the exact 32-byte SHA-256 digest returned by the existing canonical `computeDealTermsHash` function.
 - `termsVersion` is a positive monotonically increasing integer.
 - `partyRole`: `1` = buyer, `2` = seller.
-- Both parties must sign the same `dealId`, `projectId`, `buyerId`, `sellerId`, `termsHash`, `termsVersion`, chain and Safe domain. Only `partyRole` differs.
+- `safeAddress` is the exact Safe address from the locked release policy; both parties sign the same address in the message.
+- Both parties must sign the same `dealId`, `projectId`, `buyerId`, `sellerId`, `safeAddress`, `termsHash`, `termsVersion`, and chain-bound domain. Only `partyRole` differs.
 
 The final digest is standard EIP-712:
 `keccak256(0x1901 || domainSeparator || hashStruct(message))`.
