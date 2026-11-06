@@ -249,6 +249,15 @@ begin
      and a.analysis_progress->>'evidence_version' = 'w3m-audit-evidence-v1'
      and a.analysis_progress->>'tree_truncated' = 'false'
      and a.analysis_progress->>'persisted_file_count' ~ '^[1-9][0-9]*$'
+     and a.files_scanned > 0
+     and a.files_scanned::text = a.analysis_progress->>'persisted_file_count'
+     and lower(regexp_replace(regexp_replace(btrim(coalesce(a.repo_url,'')), '/+$', ''), '\.git$', '', 'i'))
+       = lower('https://github.com/' || a.repo_owner || '/' || a.repo_name)
+     and a.files_scanned = (select count(*) from public.code_audit_files f where f.audit_id = a.id)
+     and (coalesce(a.critical_count,0) + coalesce(a.high_count,0)
+       + coalesce(a.medium_count,0) + coalesce(a.low_count,0)
+       + coalesce(a.info_count,0))
+       = (select count(*) from public.code_audit_findings f where f.audit_id = a.id)
      and lower(regexp_replace(regexp_replace(btrim(coalesce(v_project.github_url,'')), '/+$', ''), '\.git$', '', 'i'))
        = lower('https://github.com/' || a.repo_owner || '/' || a.repo_name)
    order by a.completed_at desc, a.id desc
