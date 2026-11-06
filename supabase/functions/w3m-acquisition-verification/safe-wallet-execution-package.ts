@@ -48,6 +48,7 @@ export interface SafeWalletExecutionPackage {
   readBlockNumber: string;
   readBlockHash: string;
   issuedAt: string;
+  expiresAt: string;
   call: SafeWalletExecutionCall;
   signatures: SafeWalletExecutionSignature[];
   requiredSignatures: number;
@@ -57,6 +58,7 @@ export interface BuildSafeWalletExecutionPackageInput {
   snapshot: SafeExecutionFreshSnapshot;
   liveFacts: CanonicalBnbSafeExecutionFacts;
   issuedAt: string;
+  expiresAt: string;
   verifySignature?: SafeDigestSignatureVerifier;
 }
 
@@ -96,7 +98,12 @@ export async function buildSafeWalletExecutionPackage(
       snapshot.reportVersion < 1) {
     throw new Error("Deal, transaction, report, or report-version binding is invalid.");
   }
-  if (!Number.isFinite(Date.parse(input.issuedAt))) throw new Error("Package issue timestamp is invalid.");
+  const issuedAtMs = Date.parse(input.issuedAt);
+  const expiresAtMs = Date.parse(input.expiresAt);
+  if (!Number.isFinite(issuedAtMs) || !Number.isFinite(expiresAtMs) ||
+      expiresAtMs <= issuedAtMs || expiresAtMs - issuedAtMs > 120_000) {
+    throw new Error("Package issue or expiry timestamp is invalid or exceeds the two-minute limit.");
+  }
   const agreement = validAgreement(snapshot);
   const guardInput: SafeExecutionGuardInput = snapshot.guardInput;
   if (!guardInput || guardInput.transaction?.deal_id !== snapshot.dealId ||
@@ -179,6 +186,7 @@ export async function buildSafeWalletExecutionPackage(
     readBlockNumber: facts.readBlockNumber,
     readBlockHash: facts.readBlockHash,
     issuedAt: input.issuedAt,
+    expiresAt: input.expiresAt,
     call,
     signatures,
     requiredSignatures: facts.threshold,
