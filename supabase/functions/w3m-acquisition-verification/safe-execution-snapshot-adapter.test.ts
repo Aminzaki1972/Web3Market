@@ -38,7 +38,17 @@ const snapshot = {
     token_symbol: "USDT", chain_id: "56", safe_nonce: "7", status: "locked",
     locked_at: "2026-11-06T18:00:00Z", released_at: null, release_tx_hash: null,
   },
-  project: { id: "72000000-0000-4000-8000-000000000002", owner_id: sellerId, status: "active", updated_at: "2026-11-06T18:00:00Z" },
+  project: { id: "72000000-0000-4000-8000-000000000002", owner_id: sellerId, status: "active", github_url: "https://github.com/Aminzaki1972/Web3Market", updated_at: "2026-11-06T18:00:00Z" },
+  code_audit: {
+    auditId: "87000000-0000-4000-8000-000000000007",
+    repositoryOwner: "Aminzaki1972",
+    repositoryName: "Web3Market",
+    repositoryUrl: "https://github.com/Aminzaki1972/Web3Market",
+    commitSha: "a".repeat(40),
+    auditType: "code",
+    completedAt: "2026-11-01T10:00:00.000Z",
+    auditEvidenceHash: "c".repeat(64),
+  },
   buyer_profile: { id: buyerId, wallet_address: "0x5555555555555555555555555555555555555555", wallet_verified: true, wallet_verified_at: "2026-11-06T18:00:00Z" },
   seller_profile: { id: sellerId, wallet_address: "0x4444444444444444444444444444444444444444", wallet_verified: true, wallet_verified_at: "2026-11-06T18:00:00Z" },
   release_transactions: [{
