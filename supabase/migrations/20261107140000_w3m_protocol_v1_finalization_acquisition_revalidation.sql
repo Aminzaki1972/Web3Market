@@ -140,6 +140,43 @@ revoke all on function public.w3m_read_safe_finalization_acquisition_bundle(uuid
 grant execute on function public.w3m_read_safe_finalization_acquisition_bundle(uuid)
   to service_role;
 
+-- Serialize dispute creation/status changes against finalization by locking
+-- the parent deal row. Once a deal is completed, a new dispute cannot be added.
+create or replace function public.w3m_lock_deal_dispute_mutation()
+returns trigger language plpgsql security definer set search_path = pg_catalog, public
+as $dispute$
+declare
+  v_deal public.deals%rowtype;
+  v_deal_id uuid;
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'Deal dispute records cannot be deleted; resolve them with an explicit status'
+      using errcode = '55000';
+  end if;
+  if tg_op = 'UPDATE' and old.deal_id is distinct from new.deal_id then
+    raise exception 'A dispute cannot be moved to another deal'
+      using errcode = '23514';
+  end if;
+  v_deal_id := new.deal_id;
+  select * into v_deal from public.deals where id = v_deal_id for update;
+  if not found then
+    raise exception 'Dispute deal does not exist' using errcode = '23503';
+  end if;
+  if tg_op = 'INSERT' and
+     (v_deal.status = 'completed' or v_deal.release_tx_hash is not null) then
+    raise exception 'A dispute cannot be opened after settlement is completed'
+      using errcode = '23514';
+  end if;
+  return new;
+end;
+$dispute$;
+revoke all on function public.w3m_lock_deal_dispute_mutation()
+  from public, anon, authenticated, service_role;
+drop trigger if exists w3m_deal_disputes_lock_parent_deal on public.deal_disputes;
+create trigger w3m_deal_disputes_lock_parent_deal
+before insert or update or delete on public.deal_disputes
+for each row execute function public.w3m_lock_deal_dispute_mutation();
+
 create or replace function public.w3m_finalize_safe_execution_attempt(
   p_attempt_id uuid,
   p_broadcast_tx_hash text,
@@ -251,6 +288,19 @@ begin
   -- settlement even when the previously signed acquisition report passed.
   if v_deal.dispute_status is distinct from 'none' then
     raise exception 'An active or unresolved deal dispute blocks Safe settlement'
+      using errcode = '23514';
+  end if;
+
+  -- The parent deal lock serializes dispute inserts and status changes. Keep
+  -- every non-terminal dispute fail-closed; resolved/closed records remain auditable.
+  perform 1 from public.deal_disputes d
+   where d.deal_id = v_deal.id for update;
+  if exists (
+    select 1 from public.deal_disputes d
+     where d.deal_id = v_deal.id
+       and lower(coalesce(d.status,'')) not in ('resolved','closed')
+  ) then
+    raise exception 'An open or unresolved dispute blocks Safe settlement'
       using errcode = '23514';
   end if;
 
