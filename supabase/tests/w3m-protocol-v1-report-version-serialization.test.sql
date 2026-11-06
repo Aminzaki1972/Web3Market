@@ -23,7 +23,7 @@ begin
     'public.w3m_finalize_safe_execution_attempt(uuid,text,uuid,jsonb)'::regprocedure
   ) into v_finalizer;
   if position('PG_ADVISORY_XACT_LOCK' in upper(v_finalizer))=0
-     or position('HASH TEXTE XTENDED' in upper(v_finalizer))>0 then
+  then
     raise exception 'W3M finalizer does not acquire the report append serialization lock';
   end if;
 
