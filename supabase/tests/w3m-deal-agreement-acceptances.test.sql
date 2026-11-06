@@ -185,6 +185,44 @@ begin
     raise exception 'Safe execution snapshot did not expose both immutable agreement signatures';
   end if;
 
+  -- A newer signed acquisition report with a different Audit Manifest
+  -- must change the canonical agreement terms and invalidate old signatures.
+  insert into public.w3m_acquisition_reports(
+    id,deal_id,project_id,report_version,status,engine_version,evidence_hash,
+    report_hash,report_payload,signer_key_id,report_signature,issued_at,expires_at
+  ) values (
+    '89000000-0000-4000-8000-000000000009',v_deal::text,v_project::text,2,'PASS',
+    'w3m-acquisition-verification-1.0.0',repeat('3',64),repeat('4',64),
+    jsonb_build_object('reportId','89000000-0000-4000-8000-000000000009'),
+    'test-signer-v1','0x' || repeat('f',130),now(),now()+interval '1 day'
+  );
+  insert into public.w3m_acquisition_evidence(
+    report_id,evidence_type,source_table,source_record_id,source_version,evidence_hash,
+    result,mandatory,observed_at,valid_until,details
+  ) values (
+    '89000000-0000-4000-8000-000000000009','CODE_AUDIT','code_audits',
+    '89100000-0000-4000-8000-000000000009',repeat('a',40),repeat('f',64),
+    'PASS',true,now(),now()+interval '1 day',
+    jsonb_build_object(
+      'auditStatus','completed','auditType','code','commitSha',repeat('a',40),
+      'repositoryOwner','Aminzaki1972','repositoryName','Web3Market',
+      'completedAt','2026-11-06T18:00:00.000Z',
+      'auditManifestVersion','w3m-audit-manifest-v1','auditManifestHash',repeat('f',64),
+      'auditFileCount',190,'auditFindingCount',26
+    )
+  );
+  begin
+    perform public.w3m_insert_deal_agreement_acceptance(
+      v_deal,1,'buyer',v_buyer,'0x5555555555555555555555555555555555555555',
+      v_hash,v_canonical,v_digest_buyer,v_sig_buyer
+    );
+    raise exception 'Old agreement signature was accepted after Audit Manifest changed';
+  exception when check_violation then null;
+  end;
+  v_canonical := jsonb_set(v_canonical,'{codeAudit,auditId}',to_jsonb('89100000-0000-4000-8000-000000000009'::text));
+  v_canonical := jsonb_set(v_canonical,'{codeAudit,completedAt}',to_jsonb('2026-11-06T18:00:00.000Z'::text));
+  v_canonical := jsonb_set(v_canonical,'{codeAudit,auditEvidenceHash}',to_jsonb(repeat('f',64)));
+
   update public.deals set amount=101 where id=v_deal;
   begin
     perform public.w3m_insert_deal_agreement_acceptance(
@@ -272,9 +310,9 @@ begin
     id,deal_id,project_id,report_version,status,engine_version,evidence_hash,
     report_hash,report_payload,issued_at,expires_at
   ) values (
-    '88000000-0000-4000-8000-000000000008',v_deal::text,v_project::text,2,'BLOCKED',
+    '89200000-0000-4000-8000-000000000009',v_deal::text,v_project::text,3,'BLOCKED',
     'w3m-acquisition-verification-1.0.0',repeat('1',64),repeat('2',64),
-    jsonb_build_object('reportId','88000000-0000-4000-8000-000000000008'),
+    jsonb_build_object('reportId','89200000-0000-4000-8000-000000000009'),
     now(),now()+interval '1 day'
   );
   if public.w3m_current_deal_code_audit_json(v_deal) is not null then
