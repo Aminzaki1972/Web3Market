@@ -5,6 +5,7 @@ import {
   executeW3MDealReleaseFromWallet,
   recordW3MSafeWalletSubmission,
   verifyW3MDealReleaseFromServer,
+  signW3MSafeRelease,
 } from "../../../js/w3m-safe-wallet-execution-client.js";
 
 const SAFE = "0x1111111111111111111111111111111111111111";
@@ -341,4 +342,94 @@ Deno.test("wallet hash recovery preserves original hash when fetch itself reject
   assertEquals(result.transactionHash, OUTER_HASH);
   assertEquals(result.receiptVerified, false);
   assertEquals(result.finalized, false);
+});
+
+
+Deno.test("signs exact BNB Safe EIP-712 transaction and records through W3M SIGN endpoint", async () => {
+  const requestBodies: Record<string, unknown>[] = [];
+  const signature = "0x" + "1".repeat(130);
+  const transaction = {
+    to: "0x3333333333333333333333333333333333333333",
+    value: "0",
+    data: "0x12345678",
+    operation: 1,
+    safeTxGas: "0",
+    baseGas: "0",
+    gasPrice: "0",
+    gasToken: "0x0000000000000000000000000000000000000000",
+    refundReceiver: "0x0000000000000000000000000000000000000000",
+    nonce: "7",
+  };
+  const signer = {
+    provider: { async getNetwork() { return { chainId: 56n }; } },
+    async getAddress() { return OWNER; },
+    async signTypedData(domain: unknown, types: unknown, message: unknown) {
+      assertEquals((domain as Record<string, unknown>).chainId, 56);
+      assertEquals((message as Record<string, unknown>).nonce, "7");
+      return signature;
+    },
+  };
+  const result = await signW3MSafeRelease({
+    signer,
+    ethers: { TypedDataEncoder: { hash: () => HASH } },
+    dealId: "81000000-0000-4000-8000-000000000001",
+    safeAddress: SAFE,
+    safeTransactionHash: HASH,
+    transaction,
+    expectedWallet: OWNER,
+    accessToken: "test-access-token",
+    apiKey: "test-publishable-key",
+    supabaseUrl: "https://project.supabase.co",
+    fetchImpl: async (input, init) => {
+      assertEquals(String(input), "https://project.supabase.co/functions/v1/w3m-protocol-v1-safe-sign");
+      assertEquals((init?.headers as Record<string, string>)?.apikey, "test-publishable-key");
+      requestBodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return new Response(JSON.stringify({
+        ok: true, recorded: true, idempotent_replay: false,
+        confirmations_count: 1, required_signatures: 2, status: "awaiting_signatures",
+      }), { status: 200 });
+    },
+  });
+  assertEquals(result, {
+    recorded: true, idempotentReplay: false,
+    confirmationsCount: 1, requiredSignatures: 2,
+    status: "awaiting_signatures", signerAddress: OWNER,
+    safeTransactionHash: HASH,
+  });
+  assertEquals(requestBodies[0]?.deal_id, "81000000-0000-4000-8000-000000000001");
+  assertEquals(requestBodies[0]?.safe_tx_hash, HASH);
+  assertEquals(requestBodies[0]?.signature, signature);
+});
+
+Deno.test("blocks Safe signing before wallet prompt when typed-data digest or account is wrong", async () => {
+  let signCalls = 0;
+  let fetchCalls = 0;
+  const transaction = {
+    to: "0x3333333333333333333333333333333333333333",
+    value: "0", data: "0x", operation: 1,
+    safeTxGas: "0", baseGas: "0", gasPrice: "0",
+    gasToken: "0x0000000000000000000000000000000000000000",
+    refundReceiver: "0x0000000000000000000000000000000000000000",
+    nonce: "7",
+  };
+  const signer = {
+    provider: { async getNetwork() { return { chainId: 56n }; } },
+    async getAddress() { return OWNER; },
+    async signTypedData() { signCalls++; return "0x" + "1".repeat(130); },
+  };
+  await assertRejects(() => signW3MSafeRelease({
+    signer,
+    ethers: { TypedDataEncoder: { hash: () => "0x" + "b".repeat(64) } },
+    dealId: "81000000-0000-4000-8000-000000000001",
+    safeAddress: SAFE,
+    safeTransactionHash: HASH,
+    transaction,
+    expectedWallet: OWNER,
+    accessToken: "test-access-token",
+    apiKey: "test-publishable-key",
+    supabaseUrl: "https://project.supabase.co",
+    fetchImpl: async () => { fetchCalls++; return new Response("{}"); },
+  }));
+  assertEquals(signCalls, 0);
+  assertEquals(fetchCalls, 0);
 });
