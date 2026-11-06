@@ -156,6 +156,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/safe-signature-persistence-adapter.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-sign-context-composer.ts
           deno check supabase/functions/w3m-protocol-v1-safe-sign/index.ts
+          deno check supabase/functions/w3m-acquisition-verification/bearer-token.ts
+          deno check supabase/functions/w3m-acquisition-verification/bearer-token.test.ts
           deno check supabase/functions/w3m-acquisition-verification/fresh-safe-handler-context.ts
           deno check supabase/functions/w3m-acquisition-verification/trusted-signer-registry-adapter.ts
           deno check supabase/functions/w3m-acquisition-verification/trusted-signer-registry-adapter.test.ts
@@ -277,6 +279,7 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-client.test.ts
       - name: Test atomic W3M Safe SIGN persistence adapter
         run: deno test supabase/functions/w3m-acquisition-verification/safe-signature-persistence-adapter.test.ts
+        run: deno test supabase/functions/w3m-acquisition-verification/bearer-token.test.ts
       - name: Test authenticated W3M Safe SIGN request boundary
         run: deno test supabase/functions/w3m-acquisition-verification/safe-sign-request-handler.test.ts
       - name: Test Safe execution-time signature set
