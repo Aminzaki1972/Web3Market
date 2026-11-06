@@ -211,10 +211,21 @@ async function snapshotWithSignedAgreements() {
   };
   const buyerProfile = { ...snapshot.buyer_profile, wallet_address: buyer.wallet };
   const sellerProfile = { ...snapshot.seller_profile, wallet_address: seller.wallet };
+  const codeAudit = {
+    auditId: "87000000-0000-4000-8000-000000000007",
+    repositoryOwner: "Aminzaki1972",
+    repositoryName: "Web3Market",
+    repositoryUrl: "https://github.com/Aminzaki1972/Web3Market",
+    commitSha: "a".repeat(40),
+    auditType: "code" as const,
+    completedAt: "2026-11-01T10:00:00.000Z",
+    auditEvidenceHash: "c".repeat(64),
+  };
   const terms = await computeDealTermsHash({
     dealId, projectId: String(deal.project_id), buyerId, sellerId,
     amount: "100", currency: "USDT", expectedAmount: "100", chainId: 56,
     safeAddress: String(deal.safe_address), tokenContract: String(deal.token_contract),
+    codeAudit,
     policy: {
       dealAmount: "100", feePercent: "7.5", feeAmount: "7.5", sellerNetAmount: "92.5",
       chainId: 56, safeAddress: String(policy.safe_address),
