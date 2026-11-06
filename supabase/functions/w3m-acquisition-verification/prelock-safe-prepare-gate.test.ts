@@ -13,7 +13,7 @@ const SELLER="0x3333333333333333333333333333333333333333";
 const PLATFORM="0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
 const HASH="0x"+"a".repeat(64);
 function snapshot(overrides:Record<string,unknown>={}) {
- return {deal_id:DEAL,project_id:"72000000-0000-4000-8000-000000000002",
+ return {deal_id:DEAL,deal_status:"funded",deal_chain_id:"56",project_id:"72000000-0000-4000-8000-000000000002",
   buyer_id:"73000000-0000-4000-8000-000000000003",seller_id:"74000000-0000-4000-8000-000000000004",
   project_owner_id:"74000000-0000-4000-8000-000000000004",project_status:"active",
   buyer_wallet:BUYER,buyer_wallet_verified:"true",buyer_wallet_verified_at:"2026-11-05T00:00:00Z",
@@ -49,6 +49,16 @@ Deno.test("pre-lock PREPARE fails closed when exact deal or validated policy sna
  const noPolicy=await authorizePrelockSafePrepare(deps({policy:[]}),DEAL,"2026-11-06T00:00:00Z",verifier);
  assertEquals(noPolicy.authorized,false);
  assertEquals(noPolicy.issues,["W3M_PRELOCK_POLICY_VALIDATION_UNAVAILABLE"]);
+});
+
+
+Deno.test("pre-lock PREPARE rejects non-releasable deal status and non-BNB chain",async()=>{
+ const status=await authorizePrelockSafePrepare(deps({snapshot:[snapshot({deal_status:"draft"})]}),DEAL,"2026-11-06T00:00:00Z",verifier);
+ assertEquals(status.authorized,false);
+ assertEquals(status.issues,["W3M_PRELOCK_PARTY_OR_TERMS_INVALID"]);
+ const chain=await authorizePrelockSafePrepare(deps({snapshot:[snapshot({deal_chain_id:"97"})]}),DEAL,"2026-11-06T00:00:00Z",verifier);
+ assertEquals(chain.authorized,false);
+ assertEquals(chain.issues,["W3M_PRELOCK_PARTY_OR_TERMS_INVALID"]);
 });
 
 Deno.test("pre-lock PREPARE refuses a failed database release-policy validation",async()=>{
