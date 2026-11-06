@@ -104,6 +104,28 @@ body.w3m-drawer-open{overflow-x:hidden}
 .safe-home-brand{display:block;color:#166534;font-size:11px;font-weight:950;letter-spacing:1.2px}
 .safe-home-copy{display:block;margin-top:3px;color:#14532d;font-size:clamp(13px,1.6vw,16px);font-weight:950;line-height:1.35}
 @media(max-width:620px){.safe-home-badge{gap:10px;padding:12px 13px;margin:17px 0 7px}.safe-home-check{width:34px;height:34px;flex-basis:34px;font-size:22px}.safe-home-copy{font-size:13px}}
+
+/* W3M Protocol homepage announcement */
+.w3m-protocol-home{padding:30px 0 34px;background:linear-gradient(180deg,#f6f7f9 0%,#eef4fb 100%)}
+.w3m-protocol-card{position:relative;overflow:hidden;display:grid;grid-template-columns:1.05fr .95fr;gap:30px;align-items:center;padding:clamp(25px,4vw,42px);border:1px solid rgba(91,190,255,.32);border-radius:24px;background:radial-gradient(circle at 85% 12%,rgba(73,190,255,.2),transparent 32%),linear-gradient(125deg,#071126 0%,#0c1e3c 58%,#102d50 100%);color:#fff;box-shadow:0 18px 44px rgba(7,17,38,.14)}
+.w3m-protocol-kicker{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border:1px solid rgba(111,211,255,.32);border-radius:999px;background:rgba(79,179,255,.1);color:#9ce4ff;font-size:10px;font-weight:950;letter-spacing:1.1px}
+.w3m-protocol-kicker:before{content:"";width:7px;height:7px;border-radius:50%;background:#65d6ff;box-shadow:0 0 12px #65d6ff}
+.w3m-protocol-copy h2{margin:14px 0 10px;color:#fff;font-size:clamp(29px,4vw,43px);line-height:1.06;letter-spacing:-1.5px}
+.w3m-protocol-copy h2 span{color:#78d9ff}
+.w3m-protocol-copy p{max-width:650px;margin:0;color:#d0dced;font-size:14px;line-height:1.8}
+.w3m-protocol-status{display:inline-flex;margin-top:16px;padding:7px 10px;border:1px solid rgba(255,209,112,.3);border-radius:9px;background:rgba(255,190,72,.1);color:#ffda91;font-size:10px;font-weight:900;letter-spacing:.35px}
+.w3m-protocol-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:21px}
+.w3m-protocol-actions .btn{min-height:43px}
+.w3m-protocol-actions .btn.protocol-primary{background:#66d5ff;border-color:#66d5ff;color:#06152b}
+.w3m-protocol-actions .protocol-note{color:#aebed3;font-size:11px;font-weight:700}
+.w3m-protocol-points{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.w3m-protocol-point{min-height:105px;padding:17px;border:1px solid rgba(169,207,255,.16);border-radius:15px;background:rgba(255,255,255,.055)}
+.w3m-protocol-point b{display:block;margin-bottom:5px;color:#fff;font-size:13px}
+.w3m-protocol-point span{display:block;color:#b9c9de;font-size:11px;line-height:1.55}
+.w3m-protocol-point i{display:block;margin-bottom:9px;color:#77dcff;font-size:18px;font-style:normal}
+@media(max-width:760px){.w3m-protocol-card{grid-template-columns:1fr;gap:22px}.w3m-protocol-points{gap:9px}.w3m-protocol-point{min-height:98px;padding:14px}}
+@media(max-width:420px){.w3m-protocol-points{grid-template-columns:1fr 1fr}.w3m-protocol-point b{font-size:12px}.w3m-protocol-point span{font-size:10px}}
+
 </style>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8944758021416023" crossorigin="anonymous"></script>
 <!-- Google tag (gtag.js) — Web3Market GA4 -->
@@ -153,6 +175,7 @@ body.w3m-drawer-open{overflow-x:hidden}
     </nav>
     <div class="w3m-drawer-section-title">W3M Services</div>
     <nav class="w3m-drawer-links" aria-label="W3M services">
+      <a href="w3m-protocol.html">🔐 <span>W3M Protocol</span></a>
       <a href="w3m-whitepaper.html">🪙 <span>W3M Token</span></a>
       <a class="installAppBtn" id="installAppBtn" href="https://github.com/Aminzaki1972/Web3Market-Android/releases/latest/download/app-release.apk" aria-label="Download Web3Market Android APK">📱 <span>Download APK</span></a>
     </nav>
@@ -163,6 +186,29 @@ body.w3m-drawer-open{overflow-x:hidden}
   </aside>
 </header>
 <main><section class="hero"><div class="wrap heroGrid"><div><span class="eyebrow"><span class="dot"></span>AI + ON-CHAIN WEB3 MARKETPLACE</span><h1>The World's First Marketplace for Buying & Selling Web3 Projects <span class="claim">Powered by AI. Built On-Chain.</span></h1><p>Discover, evaluate, buy and sell Web3 projects with AI-powered reviews and blockchain-secured transactions.</p><div class="safe-home-badge" role="note" aria-label="Safe Wallet multi-signature escrow integration tested on BNB Smart Chain"><span class="safe-home-check" aria-hidden="true">✓</span><span><span class="safe-home-brand">SAFE{WALLET}</span><span class="safe-home-copy">Safe{Wallet} Multi-Signature Escrow — BNB Chain Test Completed</span></span></div><div class="sellerOffer" aria-label="Seller pricing"><span class="freeLine">LIST YOUR WEB3 PROJECT FOR FREE</span><span class="successLine">Pay only when your deal successfully closes.</span><span class="feeLine">No upfront listing fees • No monthly fees • <b>7.5% success fee</b> when your deal closes.</span></div><div class="heroActions"><a class="btn accent" href="#marketplace">Explore marketplace</a><a class="btn" href="#sell">Choose Buyer or Seller</a><a class="btn supportLink" href="support.html">Contact Support</a></div><div class="proof"><span>✓ <strong>AI-powered project review</strong></span><span>✓ <strong>On-chain transaction ready</strong></span><span>✓ <strong>Global Web3 marketplace</strong></span></div></div></div></section>
+
+<section class="w3m-protocol-home" aria-labelledby="w3mProtocolHomeTitle">
+  <div class="wrap">
+    <div class="w3m-protocol-card">
+      <div class="w3m-protocol-copy">
+        <span class="w3m-protocol-kicker">WEB3MARKET TECHNOLOGY · W3M V1</span>
+        <h2 id="w3mProtocolHomeTitle">Introducing <span>W3M Protocol</span></h2>
+        <p>An evidence-driven protocol being developed to verify digital asset acquisitions and authorize conditional blockchain settlement — connecting ownership, agreement, payment and asset-transfer evidence to clear transaction decisions.</p>
+        <span class="w3m-protocol-status">CORE ARCHITECTURE DEVELOPED · INTEGRATION &amp; VALIDATION IN PROGRESS</span>
+        <div class="w3m-protocol-actions">
+          <a class="btn protocol-primary" href="w3m-protocol.html">Explore the Protocol →</a>
+          <span class="protocol-note">Built by Web3Market</span>
+        </div>
+      </div>
+      <div class="w3m-protocol-points" aria-label="W3M Protocol capabilities under development">
+        <div class="w3m-protocol-point"><i aria-hidden="true">⌕</i><b>Evidence Verification</b><span>Verify the evidence required for a digital acquisition.</span></div>
+        <div class="w3m-protocol-point"><i aria-hidden="true">▤</i><b>Agreement Integrity</b><span>Bind transaction terms to the specific deal.</span></div>
+        <div class="w3m-protocol-point"><i aria-hidden="true">⇄</i><b>Asset Transfer</b><span>Validate transfer evidence before settlement.</span></div>
+        <div class="w3m-protocol-point"><i aria-hidden="true">◇</i><b>Conditional Settlement</b><span>Keep execution blocked until required conditions pass.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
 
 <section class="wrap support-availability" aria-label="24/7 customer support"><div class="support-copy"><span class="support-icon" aria-hidden="true">◉</span><div><h2>24/7 Support for Buyers & Sellers</h2><p>We're here to help you throughout your Web3Market journey.</p><div class="support-hours">24/7 — Every day of the week</div></div></div><a class="support-cta" href="register.html" data-support-account-gate>Go to Your Account →</a></section>
 <section class="browse" id="marketplace"><div class="wrap"><div class="browseBar"><div><h2>Browse Web3 opportunities</h2><p>Real projects, structured information and a clear acquisition path.</p></div><a class="view" href="marketplace.html">View marketplace →</a></div><div class="categories" id="categories"><span class="cat active">All Projects</span><span class="cat">Micro-SaaS</span><span class="cat">DeFi</span><span class="cat">AI</span><span class="cat">Infrastructure</span><span class="cat">Tools</span></div></div></section>
