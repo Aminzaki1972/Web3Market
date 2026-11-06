@@ -115,7 +115,7 @@ export async function computeAuditManifest(input: AuditManifestInput): Promise<A
     requiredString(row.path, "Audit file path"), "Audit files");
   const findings = stableRows(input.findings, (row) => {
     const rawPath = row.file_path;
-    const path = rawPath === null ? "" : requiredString(rawPath, "Finding file path").replace(/\\\\/g, "/");
+    const path = rawPath === null ? "" : requiredString(rawPath, "Finding file path").replace(/\\/g, "/");
     const severity = requiredString(row.severity, "Finding severity").toLowerCase();
     const category = requiredString(row.category, "Finding category").toLowerCase();
     const title = requiredString(row.title, "Finding title").toLowerCase();
