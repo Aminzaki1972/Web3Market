@@ -12,7 +12,7 @@ begin
     raise exception 'Deal Room snapshot RPC must be service-role-only';
   end if;
 
-  insert into public.projects(id,owner_id,status) values ('10000000-0000-0000-0000-000000000001','40000000-0000-0000-0000-000000000001','active');
+  insert into public.projects(id,owner_id,status,github_url) values ('10000000-0000-0000-0000-000000000001','40000000-0000-0000-0000-000000000001','active','https://github.com/example/project');
   insert into public.profiles(id,wallet_address,wallet_verified,wallet_verified_at)
   values
     ('30000000-0000-0000-0000-000000000001','0x5555555555555555555555555555555555555555',true,now()),
@@ -62,7 +62,8 @@ begin
      or v.buyer_wallet_verified <> 'true'
      or v.seller_wallet_verified <> 'true'
      or v.buyer_wallet_verified_at is null
-     or v.seller_wallet_verified_at is null then
+     or v.seller_wallet_verified_at is null
+     or v.code_audit is not null then
     raise exception 'Exact-text Deal Room snapshot did not preserve canonical values';
   end if;
 end;
