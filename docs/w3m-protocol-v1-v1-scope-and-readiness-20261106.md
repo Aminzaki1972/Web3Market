@@ -113,3 +113,14 @@ The detailed implementation contract and acceptance matrix are recorded in [Repo
 **Status remains blocked for live issuance:** no production signing key custody service has been selected/configured; authoritative source loading for all mandatory evidence types is not yet proven as one runtime path; and no production issuer Edge Function has been deployed. A PASS decision produced by the pure isolated pipeline is not by itself a trusted settlement authorization.
 
 The documentation update does not change code and does not require a new CI run. The latest comprehensive code verification remains run [42244339970](https://github.com/Aminzaki1972/Web3Market/actions/runs/42244339970) on code commit `ba5f6bc5108a4aabede797315afafa9473b2d112`; documentation-only commits after that run have not been re-run through CI.
+
+
+## 11. Acquisition registry schema authority review — 2026-11-06
+
+A repository migration/code review found two distinct draft report schema families: `acquisition_*` and `w3m_acquisition_*`. They differ in table names, status vocabulary, evidence taxonomy, signature model, and persistence API. The current report batch builder and RPC adapter target only the `w3m_*` family through `w3m_insert_acquisition_registry_batch`.
+
+V1 therefore designates `w3m_*` as its sole canonical isolated report ledger. The separate `acquisition_*` migration is not wired into the current issuer and must not be treated as an interchangeable schema or dual-written. No historical migration was edited or applied. See [Acquisition Registry Schema Authority Review](w3m-protocol-v1-acquisition-registry-schema-authority-review-20261106.md).
+
+The isolated Deal Room snapshot migration reads `deals`, `deal_release_policies`, `projects`, and `profiles`, but that snapshot is not a complete report evidence loader. It does not establish authoritative Code Audit selection, all provider observations, or the complete mandatory evidence set. Live source schema must be verified separately before implementing that loader.
+
+This is a documentation-only change. It does not change the CI-tested code. The latest comprehensive code CI remains run [42244339970](https://github.com/Aminzaki1972/Web3Market/actions/runs/42244339970) on `ba5f6bc5108a4aabede797315afafa9473b2d112`.
