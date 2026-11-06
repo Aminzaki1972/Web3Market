@@ -219,3 +219,16 @@ export async function loadSafeExecutionDatabaseSnapshot(
     blockers: [...new Set(blockers)],
   };
 }
+
+
+/** Execution callers must use this wrapper rather than ignoring snapshot blockers. */
+export async function loadReadySafeExecutionDatabaseSnapshot(
+  client: W3MRpcClient,
+  dealId: string,
+): Promise<SafeExecutionDatabaseSnapshot> {
+  const snapshot = await loadSafeExecutionDatabaseSnapshot(client, dealId);
+  if (snapshot.blockers.length > 0) {
+    throw new Error("W3M Safe execution snapshot is blocked: " + snapshot.blockers.join(", "));
+  }
+  return snapshot;
+}
