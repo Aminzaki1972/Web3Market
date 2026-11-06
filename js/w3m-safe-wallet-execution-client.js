@@ -51,6 +51,16 @@ async function sha256Hex(value) {
 function validatePackage(pkg) {
   assert(pkg && typeof pkg === "object" && pkg.protocol === "W3M_PROTOCOL_V1", "W3M package is missing.");
   assert(pkg.chainId === 56, "W3M package is not for BNB Chain 56.");
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  assert(uuid.test(pkg.agreementTermsVersionId || "") &&
+    uuid.test(pkg.buyerAcceptanceId || "") &&
+    uuid.test(pkg.sellerAcceptanceId || "") &&
+    pkg.buyerAcceptanceId !== pkg.sellerAcceptanceId &&
+    /^[0-9a-f]{64}$/i.test(pkg.agreementTermsHash || "") &&
+    HASH.test(pkg.buyerAcceptanceDigest || "") &&
+    HASH.test(pkg.sellerAcceptanceDigest || "") &&
+    pkg.buyerAcceptanceDigest.toLowerCase() !== pkg.sellerAcceptanceDigest.toLowerCase(),
+  "Exact immutable buyer and seller EIP-712 acceptances are required.");
   assert(ADDRESS.test(pkg.safeAddress || ""), "Safe address is invalid.");
   assert(ADDRESS.test(pkg.executorWallet || ""), "Authenticated executor wallet is invalid.");
   assert(Array.isArray(pkg.safeOwners) && pkg.safeOwners.length > 0 &&
