@@ -152,3 +152,17 @@ These fields are confirmed by `w3m-trust-badge/index.ts`, `buyer-dd-create/index
 Important distinction: `analysis_progress` carries structured scan evidence (including evidence version, batch stats, persisted-file count, and truncation flags), but the repository review has not established a canonical, immutable, persisted SHA-256 digest for the complete audit report plus all file and finding rows. A deal binding must not label a hash of a partial metadata subset as a full audit evidence hash. Before writing the selector migration, define a deterministic server-side audit manifest over the exact persisted audit row, all paginated `code_audit_files` rows and all paginated `code_audit_findings` rows, with stable ordering and a versioned canonical encoding; store its digest in an append-only deal selection record and recompute it before final settlement. If the source rows change, recomputation must fail closed.
 
 No SQL migration or TypeScript agreement hash was changed in this step. The implementation is intentionally gated on this manifest contract so that the protocol does not cryptographically bind a misleading or incomplete audit fingerprint.
+
+
+## 13. Audit Manifest V1 pure implementation (2026-11-06)
+
+Added an isolated pure implementation:
+
+- `supabase/functions/w3m-acquisition-verification/audit-manifest.ts`
+- `supabase/functions/w3m-acquisition-verification/audit-manifest.test.ts`
+
+The manifest uses version tag `w3m-audit-manifest-v1` and hashes a canonical payload containing the complete supplied audit row, all supplied file rows, all supplied finding rows, and explicit file/finding counts. File and finding rows are sorted by their stable `id`; missing or duplicate IDs, non-JSON values, non-finite numbers, and excessive nesting are rejected. Tests cover order independence and digest changes when any audit/file/finding content changes.
+
+Critical loader contract: this helper does not query the database and cannot prove that the caller supplied every row. The future trusted server loader must fetch the audit row and every page of file/finding rows, preserve the complete selected row payloads (not partial projections), verify pagination completion and expected counts, and then call this helper. The resulting digest must be persisted with an append-only deal/audit selection and recomputed from fresh rows before settlement. A matching digest proves equality to the supplied snapshot, not source authenticity or completeness by itself.
+
+The manifest is not yet integrated into `DealTermsSnapshot`, SQL canonical agreement terms, signing, or settlement. No migration, database write, production access, deployment, or merge was performed. CI for the implementation and tests is pending at this commit.
