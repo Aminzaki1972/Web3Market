@@ -149,6 +149,8 @@ export async function loadFreshSafeHandlerContext(
 ): Promise<Omit<CheckDealRoomFromSnapshotInput, "stage"> & {
   safeTransactionHash: string;
   agreementBinding: FreshImmutableAgreementBinding;
+  databaseSnapshot: SafeExecutionDatabaseSnapshot;
+  liveExecutionFacts: SafeLiveExecutionFacts & { readBlockNumber: string; readBlockHash: string };
   verifiedWallet?: string;
   signerRole?: "buyer" | "seller";
   transactionStatus: "awaiting_signatures" | "signed";
@@ -195,6 +197,8 @@ export async function loadFreshSafeHandlerContext(
     safeFacts,
     safeTransactionHash: requiredText(snapshot.releaseTransaction.safe_tx_hash, "fresh Safe transaction hash"),
     agreementBinding: immutableAgreementBindingFromSnapshot(snapshot),
+    databaseSnapshot: snapshot,
+    liveExecutionFacts: facts,
     verifiedWallet,
     signerRole,
     transactionStatus,
