@@ -38,10 +38,6 @@ function exactDecimal(value: unknown, label: string): string {
   }
   return value;
 }
-function bool(value: unknown): boolean {
-  return value === true;
-}
-
 export async function loadFreshSafeWalletPackageContext(
   dependencies: SafeWalletPackageContextDependencies,
   actorId: string,
