@@ -137,6 +137,7 @@ begin
 
   if v_audit.project_id is distinct from v_deal.project_id
      or v_audit.status is distinct from 'completed'
+     or v_audit.audit_type not in ('code','smart_contract','complete')
      or v_audit.completed_at is null
      or v_audit.files_scanned is null
      or coalesce(v_audit.commit_sha,'') !~* '^[0-9a-f]{40}$'
@@ -197,7 +198,7 @@ begin
     file_count,finding_count
   ) values (
     p_deal_id,v_deal.project_id,v_next_version,p_audit_id,v_audit.repo_owner,v_audit.repo_name,
-    v_repository_url,lower(v_audit.commit_sha),'code',v_audit.completed_at,
+    v_repository_url,lower(v_audit.commit_sha),v_audit.audit_type,v_audit.completed_at,
     p_manifest_version,p_manifest_hash,p_file_count,p_finding_count
   ) returning * into v_snapshot;
 
@@ -241,6 +242,7 @@ begin
     from public.code_audits a
    where a.project_id = v_project.id
      and a.status = 'completed'
+     and a.audit_type in ('code','smart_contract','complete')
      and a.completed_at is not null
      and a.commit_sha ~* '^[0-9a-f]{40}$'
      and a.repo_owner ~ '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$'
@@ -293,6 +295,7 @@ as $audit$
   where s.deal_id = p_deal_id and a.status = 'completed'
     and a.commit_sha = s.commit_sha and a.repo_owner = s.repository_owner
     and a.repo_name = s.repository_name and a.completed_at = s.completed_at
+    and a.audit_type = s.audit_type
     and lower(regexp_replace(regexp_replace(btrim(coalesce(p.github_url,'')), '/+$', ''), '\.git$', '', 'i'))
       = lower(s.repository_url)
   order by s.snapshot_version desc limit 1;
@@ -350,6 +353,7 @@ declare
   v_deal public.deals%rowtype;
   v_terms public.w3m_deal_terms_versions%rowtype;
   v_snapshot public.w3m_deal_code_audit_snapshots%rowtype;
+  v_audit public.code_audits%rowtype;
   v_acceptance_count integer;
   v_code_audit_count integer;
   v_matching_code_audit_count integer;
@@ -375,6 +379,11 @@ begin
   select * into v_snapshot from public.w3m_deal_code_audit_snapshots s
    where s.deal_id = v_deal_id and s.project_id = v_deal.project_id
    order by s.snapshot_version desc limit 1;
+  if not found then
+    raise exception 'An independent Code Audit snapshot is required before an acquisition report is issued'
+      using errcode = '23514';
+  end if;
+  select * into v_audit from public.code_audits a where a.id = v_snapshot.audit_id;
   if not found
      or v_terms.canonical_terms->'codeAudit' is distinct from public.w3m_current_deal_code_audit_json(v_deal_id)
      or public.w3m_current_deal_terms_json(v_deal_id) is distinct from v_terms.canonical_terms
@@ -411,7 +420,12 @@ begin
      and e.details->>'commitSha' = v_snapshot.commit_sha
      and e.details->>'repositoryOwner' = v_snapshot.repository_owner
      and e.details->>'repositoryName' = v_snapshot.repository_name
-     and e.details->>'auditType' = v_snapshot.audit_type;
+     and e.details->>'auditType' = v_snapshot.audit_type
+     and e.details->>'auditStatus' = 'completed'
+     and e.details->>'completedAt' = to_char(v_audit.completed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+     and (e.details->>'overallScore')::numeric = v_audit.overall_score
+     and e.details->>'riskLevel' = v_audit.risk_level
+     and e.details->>'analysisMethod' = v_audit.analysis_method;
   if v_code_audit_count <> 1 or v_matching_code_audit_count <> 1 then
     raise exception 'Acquisition report must contain exactly one mandatory CODE_AUDIT evidence row matching the saved manifest snapshot'
       using errcode = '23514';
