@@ -92,7 +92,8 @@ export async function authorizePrelockSafePrepare(
     const feeAmount = required(validated.fee_amount, "validated fee amount");
     const sellerNetAmount = required(validated.seller_net_amount, "validated seller net amount");
     if (!["funded", "in_progress"].includes(String(row.deal_status ?? "").toLowerCase()) ||
-        row.deal_chain_id !== "56" || row.project_owner_id !== row.seller_id ||
+        row.deal_chain_id !== "56" || String(row.currency ?? "").toUpperCase() !== "USDT" ||
+        row.project_owner_id !== row.seller_id ||
         row.buyer_wallet_verified !== "true" || row.seller_wallet_verified !== "true" ||
         !Number.isFinite(buyerVerifiedAt) || !Number.isFinite(sellerVerifiedAt) ||
         buyerVerifiedAt > nowTime || sellerVerifiedAt > nowTime ||
@@ -131,7 +132,7 @@ export async function authorizePrelockSafePrepare(
     }
 
     const paymentConfirmed = row.payment_status === "confirmed" &&
-      typeof row.payment_tx_hash === "string" && row.payment_tx_hash.trim().length > 0;
+      typeof row.payment_tx_hash === "string" && HASH.test(row.payment_tx_hash);
     const deliveryAccepted = row.delivery_status === "accepted" &&
       typeof row.buyer_approved_at === "string" && row.buyer_approved_at.trim().length > 0;
     const gate = await checkDealRoomWithW3M({
