@@ -32,10 +32,10 @@ const input: AtomicSafePrepareInput = {
 };
 
 Deno.test("atomic PREPARE adapter sends only allowlisted normalized server fields", async () => {
-  let call: { name: string; args: Record<string, unknown> } | null = null;
+  const calls: { name: string; args: Record<string, unknown> }[] = [];
   const client: W3MRpcClient = {
     async rpc(name, args) {
-      call = { name, args };
+      calls.push({ name, args });
       return { data: {
         committed: true, idempotent_replay: false,
         policy_id: "82000000-0000-4000-8000-000000000010",
@@ -50,8 +50,8 @@ Deno.test("atomic PREPARE adapter sends only allowlisted normalized server field
     transactionId: "82000000-0000-4000-8000-000000000011",
     status: "awaiting_signatures", idempotentReplay: false,
   });
-  assertEquals(call?.name, "w3m_commit_safe_prepare");
-  assertEquals(call?.args.p_deal_id, input.dealId);
+  assertEquals(calls[0]?.name, "w3m_commit_safe_prepare");
+  assertEquals(calls[0]?.args.p_deal_id, input.dealId);
   const facts = call?.args.p_safe_facts as Record<string, unknown>;
   assertEquals(facts.block_number, BigInt(input.safeFacts.blockNumber).toString());
   assertEquals(facts.owners, input.safeFacts.owners.map((owner) => owner.toLowerCase()));
