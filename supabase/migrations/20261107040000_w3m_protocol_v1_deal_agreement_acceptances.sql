@@ -355,22 +355,21 @@ declare
   v_matching_code_audit_count integer;
   v_deal_id uuid;
 begin
-  if new.status is distinct from 'PASS' then return new; end if;
   if new.deal_id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' then
-    raise exception 'PASS report deal ID must be a UUID' using errcode = '23514';
+    raise exception 'Acquisition report deal ID must be a UUID' using errcode = '23514';
   end if;
   v_deal_id := new.deal_id::uuid;
   select * into v_deal from public.deals where id = v_deal_id;
   if not found or new.project_id is distinct from v_deal.project_id::text
      or new.buyer_id is distinct from v_deal.buyer_id::text
      or new.seller_id is distinct from v_deal.seller_id::text then
-    raise exception 'PASS report deal, project or party identity does not match the live deal'
+    raise exception 'Acquisition report deal, project or party identity does not match the live deal'
       using errcode = '23514';
   end if;
   select * into v_terms from public.w3m_deal_terms_versions t
    where t.deal_id = v_deal_id order by t.terms_version desc limit 1;
   if not found then
-    raise exception 'Both parties must sign canonical deal terms before a PASS report is issued'
+    raise exception 'Both parties must sign canonical deal terms before an acquisition report is issued'
       using errcode = '23514';
   end if;
   select * into v_snapshot from public.w3m_deal_code_audit_snapshots s
@@ -382,7 +381,7 @@ begin
      or new.report_payload->>'dealTermsHash' is distinct from v_terms.terms_hash
      or new.report_payload->>'auditId' is distinct from v_snapshot.audit_id::text
      or lower(new.report_payload->>'expectedCommitSha') is distinct from v_snapshot.commit_sha then
-    raise exception 'PASS report does not bind the latest immutable deal terms and Code Audit snapshot'
+    raise exception 'Acquisition report does not bind the latest immutable deal terms and Code Audit snapshot'
       using errcode = '23514';
   end if;
   select count(*) into v_acceptance_count from public.w3m_deal_agreement_acceptances a
@@ -396,10 +395,11 @@ begin
   end if;
   select count(*) into v_code_audit_count from public.w3m_acquisition_evidence e
    where e.report_id = new.id and e.evidence_type = 'CODE_AUDIT'
-     and e.mandatory is true and e.result = 'PASS';
+     and e.mandatory is true;
   select count(*) into v_matching_code_audit_count from public.w3m_acquisition_evidence e
    where e.report_id = new.id and e.evidence_type = 'CODE_AUDIT'
-     and e.mandatory is true and e.result = 'PASS'
+     and e.mandatory is true
+     and e.result in ('PASS','FAIL','REVIEW')
      and e.source_table = 'code_audits'
      and e.source_record_id = v_snapshot.audit_id::text
      and lower(e.source_version) = v_snapshot.commit_sha
@@ -413,7 +413,7 @@ begin
      and e.details->>'repositoryName' = v_snapshot.repository_name
      and e.details->>'auditType' = v_snapshot.audit_type;
   if v_code_audit_count <> 1 or v_matching_code_audit_count <> 1 then
-    raise exception 'PASS report must contain exactly one CODE_AUDIT evidence row matching the saved manifest snapshot'
+    raise exception 'Acquisition report must contain exactly one mandatory CODE_AUDIT evidence row matching the saved manifest snapshot'
       using errcode = '23514';
   end if;
   return new;
