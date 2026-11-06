@@ -162,9 +162,10 @@ begin
   if not found then
     raise exception 'Dispute deal does not exist' using errcode = '23503';
   end if;
-  if tg_op = 'INSERT' and
+  if (tg_op = 'INSERT' or tg_op = 'UPDATE') and
+     lower(coalesce(new.status,'')) not in ('resolved','closed') and
      (v_deal.status = 'completed' or v_deal.release_tx_hash is not null) then
-    raise exception 'A dispute cannot be opened after settlement is completed'
+    raise exception 'An active dispute cannot be created or reopened after settlement is completed'
       using errcode = '23514';
   end if;
   return new;
@@ -286,10 +287,10 @@ begin
 
   -- The deal row is already locked above. A newly opened dispute must block
   -- settlement even when the previously signed acquisition report passed.
-  -- The parent deal lock serializes dispute inserts and status changes. Keep
-  -- every non-terminal dispute fail-closed; resolved/closed records remain auditable.
-  perform 1 from public.deal_disputes d
-   where d.deal_id = v_deal.id for update;
+  -- The parent deal lock serializes dispute inserts and status changes. Avoid
+  -- locking child dispute rows here: UPDATE already locks its child row before
+  -- the trigger takes the parent lock, so the parent lock alone avoids inversion.
+  -- Keep every non-terminal dispute fail-closed; resolved/closed records remain auditable.
   if exists (
     select 1 from public.deal_disputes d
      where d.deal_id = v_deal.id
