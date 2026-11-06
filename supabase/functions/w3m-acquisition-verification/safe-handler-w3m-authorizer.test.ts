@@ -3,6 +3,17 @@ import { authorizeSafeHandlerPhase } from "./safe-handler-w3m-authorizer.ts";
 import { executeSafePhaseOnlyAfterW3M } from "./safe-edge-w3m-phase-boundary.ts";
 
 const verifier = async () => false;
+const codeAudit = {
+  auditId: "75000000-0000-4000-8000-000000000005",
+  repositoryOwner: "Aminzaki1972",
+  repositoryName: "Web3Market",
+  repositoryUrl: "https://github.com/Aminzaki1972/Web3Market",
+  commitSha: "c".repeat(40),
+  auditType: "complete" as const,
+  completedAt: "2026-11-05T00:00:00.000Z",
+  auditEvidenceHash: "d".repeat(64),
+};
+
 const agreementBinding = {
   termsVersionId: "81000000-0000-4000-8000-000000000001",
   termsVersion: "2",
@@ -76,7 +87,7 @@ Deno.test("generic Safe execution authorizer refuses PREPARE even when a fresh c
     "PREPARE",
     async () => {
       loaderCalls += 1;
-      return { client: {} as never, dealId: "deal-1", now: "2026-11-06T00:00:00.000Z", safeFacts: {} as never };
+      return { client: {} as never, dealId: "deal-1", now: "2026-11-06T00:00:00.000Z", safeFacts: {} as never, codeAudit };
     },
     verifier,
   );
@@ -103,6 +114,7 @@ Deno.test("SIGN refuses a Safe hash that differs from the fresh database transac
       dealId: "deal-1",
       now: "2026-11-06T00:00:00.000Z",
       safeFacts: {} as never,
+      codeAudit,
       safeTransactionHash: databaseHash,
       agreementBinding,
     }),
