@@ -109,7 +109,7 @@ Deno.test("audit manifest rejects missing or duplicate natural keys", async () =
       input.findings[1],
       { ...input.findings[1], file_path: "src\\a.ts", severity: "HIGH", category: "SECURITY", title: "Finding A" },
     ],
-    audit: { ...input.audit, high_count: 2 },
+    audit: { ...input.audit, high_count: 2, medium_count: 0 },
   }));
 });
 
