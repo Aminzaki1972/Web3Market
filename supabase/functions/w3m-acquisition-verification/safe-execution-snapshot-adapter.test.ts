@@ -1,6 +1,7 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1";
 import {
   loadSafeExecutionDatabaseSnapshot,
+  loadReadySafeExecutionDatabaseSnapshot,
   type SafeExecutionDatabaseSnapshot,
 } from "./safe-execution-snapshot-adapter.ts";
 import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
@@ -128,4 +129,9 @@ Deno.test("snapshot records dispute, payment, delivery, and wallet blockers", as
 Deno.test("snapshot rejects RPC errors and malformed request identifiers", async () => {
   await assertRejects(() => loadSafeExecutionDatabaseSnapshot(client(null, new Error("denied")), dealId));
   await assertRejects(() => loadSafeExecutionDatabaseSnapshot(client(snapshot), "not-a-uuid"));
+});
+
+
+Deno.test("execution-ready snapshot wrapper refuses every unresolved blocker", async () => {
+  await assertRejects(() => loadReadySafeExecutionDatabaseSnapshot(client(snapshot), dealId));
 });
