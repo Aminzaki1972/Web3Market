@@ -70,6 +70,8 @@ Deno.test("EXECUTE accepts only deal_id and derives actor identity from authenti
     loadExecutionDependencies: async (input) => { seen = input; return coordinator(); },
   });
   const response = await handler(req({ deal_id: deal }));
+  // The fixture deliberately cannot complete a release; this status confirms
+  // the request passed validation and reached the coordinator's fail-closed path.
   assertEquals(response.status, 409);
   assertEquals(seen, { actorId: actor, dealId: deal });
 });
