@@ -3,6 +3,7 @@
 // exact compact object that a future DealTermsSnapshot must include before
 // computing the buyer/seller EIP-712 agreement hash. It performs no I/O.
 import type { AcquisitionEvidence } from "./decision-engine.ts";
+import { AUDIT_MANIFEST_VERSION } from "./audit-manifest.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SHA1 = /^[0-9a-f]{40}$/i;
@@ -60,6 +61,12 @@ export function buildDealCodeAuditBinding(input: {
     throw new Error("Code Audit record ID or immutable commit SHA is invalid.");
   }
   const metadata = evidence.metadata || {};
+  if (metadata.auditManifestVersion !== AUDIT_MANIFEST_VERSION ||
+      metadata.auditManifestHash !== evidence.contentHash ||
+      !Number.isSafeInteger(metadata.auditFileCount) || Number(metadata.auditFileCount) <= 0 ||
+      !Number.isSafeInteger(metadata.auditFindingCount) || Number(metadata.auditFindingCount) < 0) {
+    throw new Error("Code Audit evidence must include the matching complete Audit Manifest V1 digest and counts.");
+  }
   if (metadata.auditStatus !== "completed") {
     throw new Error("Only a completed Code Audit can be included in signed deal terms.");
   }
