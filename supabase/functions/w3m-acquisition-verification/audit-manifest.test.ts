@@ -28,14 +28,14 @@ Deno.test("manifest sorts files deterministically by normalized path", () => {
   assertEquals((a.files as Array<{path:string}>).map((f) => f.path), ["src/a.ts", "src/z.ts"]);
 });
 
-Deno.test("manifest excludes unscanned rows but checks scanned count", () => {
+Deno.test("manifest excludes unscanned rows but checks scanned count", async () => {
   const withUnscanned = [...files, { ...files[0], path: "ignored.txt", scanned: false }];
   assertEquals((buildW3MAuditManifest(audit, withUnscanned, findings).files as unknown[]).length, 2);
-  assertRejects(() => buildW3MAuditManifest({ ...audit, files_scanned: 3 }, files, findings));
+  await assertRejects(() => buildW3MAuditManifest({ ...audit, files_scanned: 3 }, files, findings));
 });
 
-Deno.test("manifest rejects incomplete audits and missing immutable file SHAs", () => {
-  assertRejects(() => buildW3MAuditManifest({ ...audit, status: "processing" }, files, findings));
-  assertRejects(() => buildW3MAuditManifest(audit, [{ ...files[0], sha: null }, files[1]], findings));
-  assertRejects(() => buildW3MAuditManifest({ ...audit, commit_sha: null }, files, findings));
+Deno.test("manifest rejects incomplete audits and missing immutable file SHAs", async () => {
+  await assertRejects(() => buildW3MAuditManifest({ ...audit, status: "processing" }, files, findings));
+  await assertRejects(() => buildW3MAuditManifest(audit, [{ ...files[0], sha: null }, files[1]], findings));
+  await assertRejects(() => buildW3MAuditManifest({ ...audit, commit_sha: null }, files, findings));
 });
