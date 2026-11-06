@@ -162,7 +162,7 @@ begin
   end;
 
   update public.w3m_safe_execution_attempts
-     set package_expires_at = clock_timestamp() - interval '1 second'
+     set package_expires_at = package_issued_at + interval '1 microsecond'
    where id = v_attempt;
   begin
     perform public.w3m_record_safe_wallet_submission(
