@@ -138,6 +138,9 @@ begin
   if v_audit.project_id is distinct from v_deal.project_id
      or v_audit.status is distinct from 'completed'
      or v_audit.audit_type not in ('code','smart_contract','complete')
+     or v_audit.overall_score is null
+     or coalesce(v_audit.risk_level,'') = ''
+     or coalesce(v_audit.analysis_method,'') = ''
      or v_audit.completed_at is null
      or v_audit.files_scanned is null
      or coalesce(v_audit.commit_sha,'') !~* '^[0-9a-f]{40}$'
@@ -243,6 +246,9 @@ begin
    where a.project_id = v_project.id
      and a.status = 'completed'
      and a.audit_type in ('code','smart_contract','complete')
+     and a.overall_score is not null
+     and coalesce(a.risk_level,'') <> ''
+     and coalesce(a.analysis_method,'') <> ''
      and a.completed_at is not null
      and a.commit_sha ~* '^[0-9a-f]{40}$'
      and a.repo_owner ~ '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$'
