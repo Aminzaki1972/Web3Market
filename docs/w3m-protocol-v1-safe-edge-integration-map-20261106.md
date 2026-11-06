@@ -883,3 +883,12 @@ The SQL package migration now contains the service-role-only issuance and submis
 **CI:** new endpoint composition, browser orchestration, expiry policy, and disposable PostgreSQL tests are included in the isolated workflow. Latest run after these additions is pending; do not treat the implementation as verified until a current full workflow succeeds.
 
 **Still outstanding:** run and repair the complete CI suite after the package-expiry SQL changes; then add the Deal Room UI entrypoint and a user-facing reconciliation/finalization status path. No production integration or deployment is authorized by this work.
+
+
+## 48. Browser handoff and server-only finalization helper — 2026-11-06
+
+Extended `js/w3m-safe-wallet-execution-client.js` with a complete browser handoff: request the authenticated package, verify its SHA-256, chain, connected signer and current Safe nonce, submit `execTransaction` from the connected owner wallet, then persist only the returned outer transaction hash against the exact attempt/package binding. The requests now include the Supabase publishable API key as well as the authenticated session token.
+
+Added `verifyW3MDealReleaseFromServer`. It sends only the execution attempt ID to the isolated finalization endpoint. The browser cannot submit receipt logs, transfer amounts, recipient addresses, or a client-declared success. A 409 response remains `VERIFICATION_PENDING_OR_BLOCKED`; only the server's exact `CONFIRMED` result is surfaced as finalized.
+
+**Important:** this is the browser orchestration helper, not yet the Deal Room visual integration. No button has been enabled on the live Deal Room, no production endpoint has been changed, and no wallet transaction has been sent by this work. Automated CI is being rerun after the latest test and helper changes.
