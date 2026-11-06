@@ -218,7 +218,7 @@ revoke all on function public.w3m_create_deal_code_audit_snapshot(uuid,uuid,text
 grant execute on function public.w3m_create_deal_code_audit_snapshot(uuid,uuid,text,text,integer,integer)
   to service_role;
 
-create or replace function public.w3m_read_deal_audit_snapshot_context(p_deal_id uuid)
+create or replace function public.w3m_read_deal_audit_snapshot_context(p_deal_id uuid, p_actor_id uuid)
 returns jsonb language plpgsql stable security definer set search_path = ''
 as $snapshot_context$
 declare
@@ -229,6 +229,10 @@ begin
   if p_deal_id is null then raise exception 'Deal ID is required' using errcode = '22023'; end if;
   select * into v_deal from public.deals where id = p_deal_id;
   if not found then return null; end if;
+  if p_actor_id is null or p_actor_id not in (v_deal.buyer_id,v_deal.seller_id) then
+    raise exception 'Only the authenticated buyer or seller may prepare this deal audit snapshot'
+      using errcode = '42501';
+  end if;
   select * into v_project from public.projects where id = v_deal.project_id;
   if not found then return null; end if;
   select a.id into v_audit_id
@@ -252,12 +256,13 @@ begin
       using errcode = '23514';
   end if;
   return jsonb_build_object('deal_id',v_deal.id,'project_id',v_project.id,
+    'buyer_id',v_deal.buyer_id,'seller_id',v_deal.seller_id,
     'project_github_url',v_project.github_url,'audit_id',v_audit_id);
 end;
 $snapshot_context$;
-revoke all on function public.w3m_read_deal_audit_snapshot_context(uuid)
+revoke all on function public.w3m_read_deal_audit_snapshot_context(uuid,uuid)
   from public, anon, authenticated;
-grant execute on function public.w3m_read_deal_audit_snapshot_context(uuid)
+grant execute on function public.w3m_read_deal_audit_snapshot_context(uuid,uuid)
   to service_role;
 
 create or replace function public.w3m_current_deal_code_audit_json(p_deal_id uuid)
