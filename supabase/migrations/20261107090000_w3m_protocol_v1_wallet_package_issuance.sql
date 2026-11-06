@@ -58,7 +58,7 @@ begin
   if p_attempt_id is null or p_actor_id is null
      or p_package_hash is null
      or char_length(p_package_hash) <> 64
-     or p_package_hash !~ '^[0-9a-fA-F]{64}
+     or p_package_hash !~ '^[0-9a-fA-F]{64}'
      or p_package->>'protocol' is distinct from 'W3M_PROTOCOL_V1'
      or p_package->>'executorWallet' is null
      or char_length(p_package->>'executorWallet') <> 42
@@ -160,7 +160,7 @@ begin
   if p_attempt_id is null or p_actor_id is null
      or p_package_hash is null
      or char_length(p_package_hash) <> 64
-     or p_package_hash !~ '^[0-9a-fA-F]{64}
+     or p_package_hash !~ '^[0-9a-fA-F]{64}'
      or p_broadcast_tx_hash is null
      or char_length(p_broadcast_tx_hash) <> 66
      or p_broadcast_tx_hash !~ '^0x[0-9a-fA-F]{64}$' then
