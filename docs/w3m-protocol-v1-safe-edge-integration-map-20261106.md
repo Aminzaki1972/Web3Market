@@ -711,3 +711,12 @@ To prevent callers from inventing report bindings after a PASS, `dealroom-w3m-se
 The isolated workflow now type-checks and tests the composition helper. The focused composition test confirms that a missing deal snapshot cannot reach the atomic persistence RPC. Full positive-path composition still depends on a valid signed report bundle and live Safe configuration; it is not simulated by weakening the signature verifier.
 
 **Status:** the isolated PREPARE path now has a concrete gate → verified report binding → allowlisted atomic RPC composition. It has not been connected to either deployed PREPARE Edge Function. The legacy live multi-write path remains unchanged until a separately reviewed integration plan and explicit deployment approval. CI for the new composition and SQL migration must complete before this draft is marked verified.
+
+
+## 37. PREPARE replay hardening — isolated refinement — 2026-11-06
+
+The atomic SQL RPC now independently enforces the exact BNB USDT contract address, not merely the USDT symbol and a syntactically valid address. Null dispute state is treated as ineligible rather than relying on SQL three-valued comparison behavior. The server adapter already enforces the same token address and the platform wallet.
+
+An identical locked-policy replay must now also match the original single `release_policy_locked` audit record's report ID, report version, report hash, and deal-terms hash. Missing/duplicate audit binding or a changed W3M report is denied; replay does not silently substitute a newer report for the report that authorized the original lock. SQL tests now include wrong-token denial, null-dispute denial, and changed-report replay denial.
+
+**Verification:** these refinements are committed on the isolated branch. GitHub's commit-status endpoint has not yet returned a CI status for the new commits, so SQL and Deno tests remain pending CI confirmation. No production migration, Edge Function, deal, Safe, or funds were touched.
