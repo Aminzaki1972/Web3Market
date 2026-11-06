@@ -62,6 +62,21 @@ Deno.test("pre-lock PREPARE rejects a token other than the approved BNB USDT con
  assertEquals(result.issues,["W3M_PRELOCK_PARTY_OR_TERMS_INVALID"]);
 });
 
+
+Deno.test("pre-lock PREPARE rejects non-USDT denomination and malformed payment hash",async()=>{
+ const currency=await authorizePrelockSafePrepare(
+  deps({snapshot:[snapshot({currency:"BUSD"})]}),DEAL,"2026-11-06T00:00:00Z",verifier,
+ );
+ assertEquals(currency.authorized,false);
+ assertEquals(currency.issues,["W3M_PRELOCK_PARTY_OR_TERMS_INVALID"]);
+ const payment=await authorizePrelockSafePrepare(
+  deps({snapshot:[snapshot({payment_tx_hash:"not-a-transaction-hash"})]}),
+  DEAL,"2026-11-06T00:00:00Z",verifier,
+ );
+ assertEquals(payment.authorized,false);
+ assertEquals(payment.issues,["W3M_PRELOCK_W3M_REPORT_GATE_BLOCKED"]);
+});
+
 Deno.test("pre-lock PREPARE rejects non-releasable deal status and non-BNB chain",async()=>{
  const status=await authorizePrelockSafePrepare(deps({snapshot:[snapshot({deal_status:"draft"})]}),DEAL,"2026-11-06T00:00:00Z",verifier);
  assertEquals(status.authorized,false);
