@@ -200,6 +200,9 @@ begin
     raise exception 'Execution attempt not found' using errcode = 'P0002';
   end if;
 
+  -- Share the per-deal advisory lock with report and evidence append triggers.
+  perform pg_advisory_xact_lock(hashtextextended(v_attempt.deal_id::text, 0));
+
   if v_attempt.state = 'CONFIRMED' then
     if lower(v_attempt.broadcast_tx_hash) = lower(p_broadcast_tx_hash) then
       return jsonb_build_object(
