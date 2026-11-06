@@ -41,6 +41,7 @@ function mockRpc(overrides: Record<string, unknown> = {}): { rpc: JsonRpcClient;
       calls.push({ method, params });
       let result: unknown;
       if (method === "eth_chainId") result = "0x38";
+      else if (method === "eth_blockNumber") result = "0x123456";
       else if (method === "eth_getCode") result = "0x60006000";
       else if (method === "eth_call") {
         const callData = String((params[0] as Record<string, unknown>).data);
