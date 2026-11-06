@@ -321,3 +321,67 @@ export async function verifyW3MDealReleaseFromServer({
     finalized: true,
   };
 }
+
+
+/**
+ * Ask the isolated server endpoint to verify the canonical BNB receipt and
+ * atomically finalize the deal. This is a separate explicit user action; the
+ * server derives the broadcast hash from its stored attempt and never trusts
+ * browser receipt data.
+ *
+ * @param {{attemptId:string, accessToken:string, apiKey:string, supabaseUrl:string,
+ *   fetchImpl?:typeof fetch}} options
+ */
+export async function finalizeW3MSafeDealRelease({
+  attemptId,
+  accessToken,
+  apiKey,
+  supabaseUrl,
+  fetchImpl = fetch,
+}) {
+  assert(typeof attemptId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(attemptId),
+    "A valid W3M execution attempt ID is required.");
+  assert(typeof accessToken === "string" && accessToken.trim().length > 0,
+    "An authenticated Supabase access token is required.");
+  assert(typeof apiKey === "string" && apiKey.trim().length > 0,
+    "A Supabase publishable API key is required.");
+  let base;
+  try { base = new URL(supabaseUrl); } catch {
+    throw new Error("Supabase URL is invalid.");
+  }
+  assert(base.protocol === "https:" && !base.username && !base.password && !base.search && !base.hash,
+    "Supabase endpoint must be a clean HTTPS URL.");
+  let response;
+  let body;
+  try {
+    response = await fetchImpl(
+      new URL("/functions/v1/w3m-protocol-v1-finalize-safe-release", base.origin),
+      {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + accessToken,
+          "apikey": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ attempt_id: attemptId }),
+      },
+    );
+    body = await response.json();
+  } catch {
+    return { state: "FINALIZATION_PENDING", attemptId, finalized: false };
+  }
+  if (response.ok && body?.ok === true && body.result?.state === "CONFIRMED") {
+    return {
+      state: "CONFIRMED",
+      attemptId,
+      transactionHash: body.result.broadcastTxHash ?? body.result.broadcast_tx_hash ?? null,
+      finalized: true,
+    };
+  }
+  return {
+    state: "FINALIZATION_PENDING",
+    attemptId,
+    error: body?.error || "W3M receipt verification or confirmation threshold is not yet satisfied.",
+    finalized: false,
+  };
+}
