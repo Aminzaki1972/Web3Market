@@ -47,7 +47,9 @@ export async function handleW3MReportIssueRequest(
     const allowed = await dependencies.authorize({ actorId, dealId: value.deal_id });
     if (!allowed) return json(403, { ok: false, error: "REPORT_ISSUANCE_FORBIDDEN" });
     const result = await dependencies.issue({ actorId, dealId: value.deal_id });
-    if (typeof result.reportId !== "string" || !result.reportId.trim() ||
+    // Registry report IDs are UUID primary keys; reject malformed service output
+    // here instead of returning an identifier that cannot be persisted/reloaded.
+    if (typeof result.reportId !== "string" || !UUID.test(result.reportId) ||
         !Number.isSafeInteger(result.reportVersion) || result.reportVersion < 1 ||
         !DECISIONS.has(result.decisionStatus)) {
       return json(503, { ok: false, error: "REPORT_ISSUANCE_INCOMPLETE" });
