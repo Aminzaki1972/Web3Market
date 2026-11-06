@@ -124,3 +124,12 @@ V1 therefore designates `w3m_*` as its sole canonical isolated report ledger. Th
 The isolated Deal Room snapshot migration reads `deals`, `deal_release_policies`, `projects`, and `profiles`, but that snapshot is not a complete report evidence loader. It does not establish authoritative Code Audit selection, all provider observations, or the complete mandatory evidence set. Live source schema must be verified separately before implementing that loader.
 
 This is a documentation-only change. It does not change the CI-tested code. The latest comprehensive code CI remains run [42244339970](https://github.com/Aminzaki1972/Web3Market/actions/runs/42244339970) on `ba5f6bc5108a4aabede797315afafa9473b2d112`.
+
+
+## 12. Mandatory evidence source map — 2026-11-06
+
+A repository-source map now records the candidate source and trust requirements for deal/parties, immutable terms and bilateral acceptance, Code Audit, audit checkout payment, deal escrow, dispute state, GitHub control, registrar/domain control, asset transfer, and the canonical report registry. It explicitly separates audit checkout payment from deal consideration and distinguishes provider observations from ownership/transfer proof.
+
+See [Mandatory Evidence Source Map](w3m-protocol-v1-mandatory-evidence-source-map-20261106.md). The map is source-derived only: no live database was queried, and no migration was applied. Several runtime gaps remain, including exact eligible audit selection and immutable commit binding, complete dispute-row loading, provider credential/runtime configuration, protected signing custody, and the full issuer composition/read-back verification.
+
+This is documentation-only. No new CI run was triggered. The latest comprehensive code CI remains run [42244339970](https://github.com/Aminzaki1972/Web3Market/actions/runs/42244339970), successful on code commit `ba5f6bc5108a4aabede797315afafa9473b2d112`; later branch changes are documentation-only and have not been rerun.
