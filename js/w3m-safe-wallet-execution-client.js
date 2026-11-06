@@ -532,3 +532,60 @@ export async function signW3MSafeRelease({
     safeTransactionHash: safeTransactionHash.toLowerCase(),
   };
 }
+
+
+/**
+ * Request the single atomic W3M PREPARE operation. Browser input is only the
+ * deal ID; the server reloads report, deal, wallets, policy, and canonical Safe
+ * facts and commits policy + release transaction + audit atomically.
+ */
+export async function prepareW3MSafeRelease({
+  dealId,
+  accessToken,
+  apiKey,
+  supabaseUrl,
+  fetchImpl = fetch,
+}) {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  assert(typeof dealId === "string" && uuid.test(dealId), "A valid deal ID is required.");
+  assert(typeof accessToken === "string" && accessToken.trim().length > 0,
+    "An authenticated Supabase access token is required.");
+  assert(typeof apiKey === "string" && apiKey.trim().length > 0,
+    "A Supabase publishable API key is required.");
+  let base;
+  try { base = new URL(supabaseUrl); } catch {
+    throw new Error("Supabase URL is invalid.");
+  }
+  assert(base.protocol === "https:" && !base.username && !base.password && !base.search && !base.hash,
+    "Supabase endpoint must be a clean HTTPS URL.");
+  const response = await fetchImpl(
+    new URL("/functions/v1/w3m-protocol-v1-prepare-deal-release", base.origin),
+    {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + accessToken,
+        "apikey": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ deal_id: dealId }),
+    },
+  );
+  let body;
+  try { body = await response.json(); } catch {
+    throw new Error("W3M PREPARE endpoint returned invalid JSON.");
+  }
+  const result = body?.result;
+  if (!response.ok || body?.ok !== true ||
+      !result || typeof result.policyId !== "string" || !uuid.test(result.policyId) ||
+      typeof result.transactionId !== "string" || !uuid.test(result.transactionId) ||
+      typeof result.status !== "string" || typeof result.idempotentReplay !== "boolean") {
+    throw new Error(body?.error || "W3M PREPARE did not commit an atomic release transaction.");
+  }
+  return {
+    dealId,
+    policyId: result.policyId,
+    transactionId: result.transactionId,
+    status: result.status,
+    idempotentReplay: result.idempotentReplay,
+  };
+}
