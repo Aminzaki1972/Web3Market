@@ -52,6 +52,12 @@ function validatePackage(pkg) {
   assert(pkg && typeof pkg === "object" && pkg.protocol === "W3M_PROTOCOL_V1", "W3M package is missing.");
   assert(pkg.chainId === 56, "W3M package is not for BNB Chain 56.");
   assert(ADDRESS.test(pkg.safeAddress || ""), "Safe address is invalid.");
+  assert(ADDRESS.test(pkg.executorWallet || ""), "Authenticated executor wallet is invalid.");
+  assert(Array.isArray(pkg.safeOwners) && pkg.safeOwners.length > 0 &&
+    pkg.safeOwners.every((owner) => ADDRESS.test(owner || "")) &&
+    new Set(pkg.safeOwners.map((owner) => owner.toLowerCase())).size === pkg.safeOwners.length &&
+    pkg.safeOwners.some((owner) => owner.toLowerCase() === pkg.executorWallet.toLowerCase()),
+    "Authenticated executor wallet is not in the current Safe owner set.");
   assert(HASH.test(pkg.safeTransactionHash || ""), "Safe transaction hash is invalid.");
   assert(typeof pkg.expiresAt === "string" && Date.parse(pkg.expiresAt) > Date.now(), "W3M package has expired.");
   assert(pkg.call && ADDRESS.test(pkg.call.to || ""), "Safe call target is invalid.");
@@ -124,8 +130,10 @@ export async function submitSafeWalletExecutionPackage({
   assert(Array.isArray(accounts) && accounts.length > 0 && ADDRESS.test(accounts[0]),
     "No connected wallet account is available.");
   const from = accounts[0];
-  assert(pkg.signatures.some((row) => row.signerAddress.toLowerCase() === from.toLowerCase()),
-    "Connected wallet is not one of the verified Safe signers.");
+  assert(from.toLowerCase() === pkg.executorWallet.toLowerCase(),
+    "Connected wallet does not match the authenticated participant's verified wallet.");
+  assert(pkg.safeOwners.some((owner) => owner.toLowerCase() === from.toLowerCase()),
+    "Connected wallet is not a current Safe owner.");
 
   const nonceResult = await provider.request({
     method: "eth_call",
