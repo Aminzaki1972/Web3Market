@@ -133,6 +133,9 @@ begin
      or v_buyer.wallet_verified is distinct from true
      or v_seller.wallet_verified is distinct from true
      or v_buyer.wallet_address is null or v_seller.wallet_address is null
+     or lower(v_buyer.wallet_address) = lower(v_seller.wallet_address)
+     or v_buyer.wallet_verified_at is null or v_seller.wallet_verified_at is null
+     or v_buyer.wallet_verified_at > now() or v_seller.wallet_verified_at > now()
      or lower(v_policy.seller_wallet) <> lower(v_seller.wallet_address) then
     raise exception 'Deal is not eligible for immutable agreement signing' using errcode = '23514';
   end if;
@@ -173,6 +176,7 @@ declare
   v_deal public.deals%rowtype;
   v_policy public.deal_release_policies%rowtype;
   v_profile public.profiles%rowtype;
+  v_project public.projects%rowtype;
   v_version public.w3m_deal_terms_versions%rowtype;
   v_current_terms jsonb;
   v_existing public.w3m_deal_agreement_acceptances%rowtype;
@@ -193,6 +197,17 @@ begin
   if not found then raise exception 'Deal not found' using errcode = 'P0002'; end if;
   select * into v_policy from public.deal_release_policies where deal_id = p_deal_id for update;
   if not found then raise exception 'Release policy not found' using errcode = 'P0002'; end if;
+  select * into v_project from public.projects where id = v_deal.project_id for share;
+  if not found then raise exception 'Project not found' using errcode = 'P0002'; end if;
+
+  if v_deal.chain_id <> 56 or v_policy.chain_id <> 56
+     or lower(v_deal.safe_address) <> lower(v_policy.safe_address)
+     or lower(v_deal.token_contract) <> lower(v_policy.token_contract)
+     or v_policy.status not in ('locked','ready')
+     or v_project.owner_id <> v_deal.seller_id then
+    raise exception 'Deal, project ownership, or locked Safe policy changed before agreement acceptance'
+      using errcode = '23514';
+  end if;
 
   v_expected_party := case when p_party_role = 'buyer' then v_deal.buyer_id else v_deal.seller_id end;
   if p_party_id <> v_expected_party then
@@ -200,8 +215,20 @@ begin
   end if;
   select * into v_profile from public.profiles where id = v_expected_party;
   if not found or v_profile.wallet_verified is distinct from true
-     or v_profile.wallet_address is null
-     or lower(v_profile.wallet_address) <> lower(p_wallet_address) then
+     or v_profile.wallet_address is null or v_profile.wallet_verified_at is null
+     or v_profile.wallet_verified_at > now()
+     or lower(v_profile.wallet_address) <> lower(p_wallet_address)
+     or lower(v_deal.buyer_id::text) = lower(v_deal.seller_id::text)
+     or exists (
+       select 1 from public.profiles buyer_profile
+       where buyer_profile.id = v_deal.buyer_id
+         and lower(buyer_profile.wallet_address) = lower(v_profile.wallet_address)
+     ) and p_party_role = 'seller'
+     or exists (
+       select 1 from public.profiles seller_profile
+       where seller_profile.id = v_deal.seller_id
+         and lower(seller_profile.wallet_address) = lower(v_profile.wallet_address)
+     ) and p_party_role = 'buyer' then
     raise exception 'Wallet is not the currently verified party wallet' using errcode = '42501';
   end if;
 
