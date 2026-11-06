@@ -103,7 +103,7 @@ begin
   exception when insufficient_privilege then null;
   end;
 
-  v_package_expiry := clock_timestamp() + interval '90 seconds';
+  v_package_expiry := clock_timestamp() + interval '1 second';
   v_package := jsonb_build_object(
     'protocol','W3M_PROTOCOL_V1',
     'issuedAt',clock_timestamp(),
@@ -132,7 +132,7 @@ begin
   v_package := jsonb_build_object(
     'protocol','W3M_PROTOCOL_V1',
     'issuedAt',clock_timestamp(),
-    'expiresAt',clock_timestamp() + interval '80 seconds',
+    'expiresAt',clock_timestamp() + interval '800 milliseconds',
     'dealId',v_deal::text,
     'executorWallet','0x3333333333333333333333333333333333333333'
   );
@@ -205,10 +205,7 @@ begin
   -- The outer hash can be reported after expiry if a wallet broadcast may
   -- have happened earlier. This remains unverified until canonical receipt
   -- timestamp enforcement inside FINALIZE.
-  update public.w3m_safe_execution_attempts
-     set package_issued_at = clock_timestamp() - interval '2 minutes',
-         package_expires_at = clock_timestamp() - interval '1 minute'
-   where id = v_attempt;
+  perform pg_sleep(1.1);
   v_result := public.w3m_record_safe_wallet_submission(
     v_attempt,v_actor,v_package_hash,v_broadcast_hash
   );
@@ -216,10 +213,6 @@ begin
      or v_result->>'state' <> 'BROADCAST' then
     raise exception 'Delayed wallet hash handoff was not recorded for receipt reconciliation';
   end if;
-  update public.w3m_safe_execution_attempts
-     set package_issued_at = clock_timestamp() - interval '1 second',
-         package_expires_at = v_package_expiry
-   where id = v_attempt;
 
   if has_function_privilege('anon','public.w3m_record_safe_wallet_submission(uuid,uuid,text,text)','EXECUTE')
      or has_function_privilege('authenticated','public.w3m_record_safe_wallet_submission(uuid,uuid,text,text)','EXECUTE')
@@ -317,7 +310,7 @@ begin
 
   v_receipt := jsonb_build_object(
     'chain_id',56,'transaction_hash',v_broadcast_hash,'receipt_status',1,
-    'block_timestamp',v_package_issue_at + interval '30 seconds',
+    'block_timestamp',v_package_issue_at + interval '500 milliseconds',
     'execution_success',true,'execution_failure',false,
     'safe_address','0x2222222222222222222222222222222222222222',
     'safe_tx_hash',v_safe_hash,
