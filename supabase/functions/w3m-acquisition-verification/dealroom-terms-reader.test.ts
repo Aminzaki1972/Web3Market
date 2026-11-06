@@ -221,6 +221,7 @@ Deno.test("exact snapshot reader blocks live Safe chain, nonce, and owner mismat
       dealId: "deal-reader-1",
       stage: "PREPARE",
       now: "2026-11-06T20:00:00.000Z",
+      codeAudit: auditFixture,
       safeFacts,
     });
     assertEquals(
