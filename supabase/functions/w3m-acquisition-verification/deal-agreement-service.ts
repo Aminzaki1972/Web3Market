@@ -1,6 +1,7 @@
 // W3M Protocol V1 — server-side immutable deal agreement signing service.
 import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
 import { computeDealTermsHash } from "./deal-terms-hash.ts";
+import type { DealCodeAuditBinding } from "./deal-code-audit-binding.ts";
 import {
   buildDealTermsAcceptanceTypedData,
   verifyDealTermsAcceptanceSignature,
@@ -46,6 +47,7 @@ export interface DealAgreementSigningContext {
   sellerWallet: string;
   safeAddress: string;
   termsHash: string;
+  codeAudit: DealCodeAuditBinding;
   canonicalTerms: Record<string, unknown>;
 }
 export interface PreparedDealAgreement {
@@ -78,6 +80,7 @@ async function loadSigningContext(client: W3MRpcClient, dealId: string): Promise
   const project = object(root.project, "Project");
   const buyer = object(root.buyer_profile, "Buyer profile");
   const seller = object(root.seller_profile, "Seller profile");
+  const audit = object(root.code_audit, "Current Code Audit manifest binding");
   const dealIdValue = text(deal.id, "Deal ID");
   const projectId = text(deal.project_id, "Project ID");
   const buyerId = text(deal.buyer_id, "Buyer ID");
@@ -104,6 +107,20 @@ async function loadSigningContext(client: W3MRpcClient, dealId: string): Promise
     throw new Error("Locked release policy seller wallet differs from the currently verified seller wallet.");
   }
   const safeAddress = text(policy.safe_address, "Policy Safe");
+  const auditType = text(audit.auditType, "Code Audit type");
+  if (!["code", "smart_contract", "complete"].includes(auditType)) {
+    throw new Error("Current Code Audit type is unsupported.");
+  }
+  const codeAudit: DealCodeAuditBinding = {
+    auditId: text(audit.auditId, "Code Audit ID"),
+    repositoryOwner: text(audit.repositoryOwner, "Code Audit repository owner"),
+    repositoryName: text(audit.repositoryName, "Code Audit repository name"),
+    repositoryUrl: text(audit.repositoryUrl, "Code Audit repository URL"),
+    commitSha: text(audit.commitSha, "Code Audit commit SHA"),
+    auditType: auditType as DealCodeAuditBinding["auditType"],
+    completedAt: text(audit.completedAt, "Code Audit completion timestamp"),
+    auditEvidenceHash: text(audit.auditEvidenceHash, "Code Audit manifest hash"),
+  };
   const terms = await computeDealTermsHash({
     dealId,
     projectId,
@@ -115,6 +132,7 @@ async function loadSigningContext(client: W3MRpcClient, dealId: string): Promise
     chainId: Number(deal.chain_id),
     safeAddress: text(deal.safe_address, "Deal Safe"),
     tokenContract: text(deal.token_contract, "Deal token"),
+    codeAudit,
     policy: {
       dealAmount: decimal(policy.deal_amount, "Policy deal amount"),
       feePercent: decimal(policy.fee_percent, "Policy fee percent"),
@@ -131,7 +149,7 @@ async function loadSigningContext(client: W3MRpcClient, dealId: string): Promise
   });
   return {
     dealId, projectId, buyerId, sellerId, buyerWallet, sellerWallet,
-    safeAddress, termsHash: terms.dealTermsHash, canonicalTerms: terms.canonicalTerms,
+    safeAddress, termsHash: terms.dealTermsHash, codeAudit, canonicalTerms: terms.canonicalTerms,
   };
 }
 
