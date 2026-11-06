@@ -115,6 +115,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/trusted-signer-registry-adapter.test.ts
           deno check supabase/functions/w3m-acquisition-verification/supabase-rpc-adapter.ts
           deno check supabase/functions/w3m-acquisition-verification/supabase-rpc-adapter.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/atomic-safe-prepare-rpc-adapter.ts
+          deno check supabase/functions/w3m-acquisition-verification/atomic-safe-prepare-rpc-adapter.test.ts
           deno check supabase/functions/w3m-acquisition-verification/protocol-service.ts
           deno check supabase/functions/w3m-acquisition-verification/persisted-report-guard.ts
           deno check supabase/functions/w3m-acquisition-verification/persisted-report-guard.test.ts
@@ -287,7 +289,6 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107070000_w3m_protocol_v1_atomic_safe_prepare.sql
-          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-schema.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-trusted-signer-schema.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-attempts.test.sql
