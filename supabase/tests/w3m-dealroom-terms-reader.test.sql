@@ -18,7 +18,7 @@ begin
     ('30000000-0000-0000-0000-000000000001','0x5555555555555555555555555555555555555555',true,now()),
     ('40000000-0000-0000-0000-000000000001','0x4444444444444444444444444444444444444444',true,now());
   insert into public.deals(
-    id, project_id, buyer_id, seller_id, amount, currency, expected_amount,
+    id, project_id, buyer_id, seller_id, amount, currency, expected_amount, status,
     payment_status, payment_tx_hash, delivery_status, buyer_approved_at,
     dispute_status, chain_id, safe_address, token_contract
   ) values (
@@ -26,7 +26,7 @@ begin
     '10000000-0000-0000-0000-000000000001',
     '30000000-0000-0000-0000-000000000001',
     '40000000-0000-0000-0000-000000000001',
-    100.000000000000000001, 'USDT', 100.000000000000000001,
+    100.000000000000000001, 'USDT', 100.000000000000000001, 'funded',
     'confirmed', repeat('a', 64), 'accepted', now(), 'none', 56,
     '0x2222222222222222222222222222222222222222',
     '0x3333333333333333333333333333333333333333'
@@ -49,7 +49,8 @@ begin
   select * into v
   from public.w3m_read_dealroom_terms_snapshot('20000000-0000-0000-0000-000000000001'::uuid);
 
-  if v.deal_amount <> '100.000000000000000001'
+  if v.deal_status <> 'funded'
+     or v.deal_amount <> '100.000000000000000001'
      or v.policy_fee_amount <> '7.500000000000000000'
      or v.policy_seller_net_amount <> '92.500000000000000001'
      or v.deal_chain_id <> '56'
