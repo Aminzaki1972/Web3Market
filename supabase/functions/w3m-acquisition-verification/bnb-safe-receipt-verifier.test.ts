@@ -297,3 +297,53 @@ Deno.test("raw receipt timestamp outside the stored wallet package window is rej
     "outside the issued W3M wallet package window",
   );
 });
+
+
+Deno.test("receipt transaction hash mismatch or failed status is rejected", async () => {
+  const wrongHash = mockRpc({ receipt: { transactionHash: "0x" + "9".repeat(64) } });
+  await assertRejects(
+    () => verifyBnbSafeReleaseReceipt(wrongHash.rpc, expected),
+    BnbSafeReceiptVerificationError,
+    "unsuccessful or malformed",
+  );
+  const failedStatus = mockRpc({ receipt: { status: "0x0" } });
+  await assertRejects(
+    () => verifyBnbSafeReleaseReceipt(failedStatus.rpc, expected),
+    BnbSafeReceiptVerificationError,
+    "unsuccessful or malformed",
+  );
+});
+
+Deno.test("malformed token decimals response is rejected", async () => {
+  const { rpc } = mockRpc({ decimals: "0x12" });
+  await assertRejects(
+    () => verifyBnbSafeReleaseReceipt(rpc, expected),
+    BnbSafeReceiptVerificationError,
+    "Token decimals() returned malformed data",
+  );
+});
+
+Deno.test("duplicate transfer log index is rejected", async () => {
+  const duplicateIndex = [
+    receiptLogs[0],
+    receiptLogs[1],
+    { ...receiptLogs[2], logIndex: receiptLogs[1].logIndex },
+  ];
+  const { rpc } = mockRpc({ receipt: { logs: duplicateIndex } });
+  await assertRejects(
+    () => verifyBnbSafeReleaseReceipt(rpc, expected),
+    BnbSafeReceiptVerificationError,
+    "Duplicate Transfer log index",
+  );
+});
+
+Deno.test("removed receipt log is rejected", async () => {
+  const { rpc } = mockRpc({
+    receipt: { logs: [{ ...receiptLogs[1], removed: true }, receiptLogs[0], receiptLogs[2]] },
+  });
+  await assertRejects(
+    () => verifyBnbSafeReleaseReceipt(rpc, expected),
+    BnbSafeReceiptVerificationError,
+    "removed or malformed log",
+  );
+});
