@@ -102,3 +102,14 @@ This is stronger CI evidence for the isolated components. It does not close the 
 The branch head at the time of this update is `ba5f6bc5108a4aabede797315afafa9473b2d112`. GitHub Actions run [42244339970](https://github.com/Aminzaki1972/Web3Market/actions/runs/42244339970) completed with **success** on commit `ba5f6bc5108a4aabede797315afafa9473b2d112`. The `decision-engine-and-schema` job completed successfully, including Deno type-checks, decision/settlement/Safe payload suites, asset-transfer and provider adapters, unified evidence aggregation, report registry batch/orchestrator and trusted signer verification, authenticated request boundaries, BNB Safe facts and receipt verification, finalization guards, and the disposable PostgreSQL migration/contract-test sequence. The four malformed receipt-attestation SQL cases (chain ID, receipt status, execution-success boolean, and block timestamp) were included in this successful run.
 
 This run verifies the isolated candidate and disposable database only. It does not establish that a protected signing key or provider credentials are configured, that the report issuer has a deployed runtime composition, that the six active Deal Room/Safe functions call the W3M gate, or that a BNB testnet end-to-end settlement has completed. The blockers in section 3 remain open.
+
+
+## 10. Report issuer runtime composition gate — 2026-11-06
+
+A source-level review of the report pipeline confirms that the authenticated request handler, unified evidence aggregator, protocol orchestrator, registry batch builder, trusted signer verifier, and persistence service exist as separate injectable/pure components. They are not yet composed into a live Edge Function that loads every mandatory evidence source authoritatively, uses protected key custody, persists atomically, and verifies the persisted digest on read-back.
+
+The detailed implementation contract and acceptance matrix are recorded in [Report Issuer Runtime Composition Gate](w3m-protocol-v1-report-issuer-runtime-composition-gate-20261106.md).
+
+**Status remains blocked for live issuance:** no production signing key custody service has been selected/configured; authoritative source loading for all mandatory evidence types is not yet proven as one runtime path; and no production issuer Edge Function has been deployed. A PASS decision produced by the pure isolated pipeline is not by itself a trusted settlement authorization.
+
+The documentation update does not change code and does not require a new CI run. The latest comprehensive code verification remains run [42244339970](https://github.com/Aminzaki1972/Web3Market/actions/runs/42244339970) on code commit `ba5f6bc5108a4aabede797315afafa9473b2d112`; documentation-only commits after that run have not been re-run through CI.
