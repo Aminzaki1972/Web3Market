@@ -12,7 +12,7 @@ set search_path = ''
 as $normalize$
   select case
     when position('.' in p_value::text) = 0 then p_value::text
-    else regexp_replace(regexp_replace(p_value::text, '0+$', ''), '\., '')
+    else rtrim(rtrim(p_value::text, '0'), '.')
   end;
 $normalize$;
 
