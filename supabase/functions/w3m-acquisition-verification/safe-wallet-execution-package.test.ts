@@ -153,6 +153,10 @@ Deno.test("builds exact BNB Safe wallet package with owner-sorted verified signa
   assert(result.chainId === 56, "chain must be BNB");
   assert(result.safeTransactionHash === HASH, "must bind exact Safe hash");
   assert(result.call.nonce === "7", "must bind current nonce");
+  assert(result.buyerAcceptanceId === snapshot().agreementBinding?.buyerAcceptanceId, "must bind exact buyer acceptance");
+  assert(result.sellerAcceptanceId === snapshot().agreementBinding?.sellerAcceptanceId, "must bind exact seller acceptance");
+  assert(result.buyerAcceptanceDigest === snapshot().agreementBinding?.buyerDigest, "must bind buyer EIP-712 digest");
+  assert(result.sellerAcceptanceDigest === snapshot().agreementBinding?.sellerDigest, "must bind seller EIP-712 digest");
   assert(result.signatures.length === 2, "must include threshold signatures");
   assert(result.signatures[0].signerAddress.toLowerCase() === OWNER_A.toLowerCase(), "signatures must be owner sorted");
   assert(result.signatures[1].signerAddress.toLowerCase() === OWNER_B.toLowerCase(), "second owner signature missing");
