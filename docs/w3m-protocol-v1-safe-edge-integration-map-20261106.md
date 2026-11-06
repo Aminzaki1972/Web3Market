@@ -575,3 +575,15 @@ Additional production Edge Function reads were completed without changing any fu
 - The isolated W3M EXECUTE path therefore retains its stricter per-signature recovery, agreement binding, fresh pre-broadcast authorization and atomic attempt claim. The isolated W3M FINALIZE endpoint retains its receipt verifier and atomic finalizer. These must replace/guard the corresponding legacy paths before any production protection can be claimed.
 
 This completes the read-only source inventory of all six live Safe handlers. The integration work remaining is now bounded to connecting the isolated PREPARE/SIGN/EXECUTE/FINALIZE gates to those exact handler entry points and introducing the required atomic database persistence operations. No live function or database object was changed.
+
+
+### Additional read-only database constraints and validator findings
+
+- `deal_release_policies.deal_id` has a unique index, so policy upsert by `deal_id` is supported.
+- `deal_multisig_transactions` has **no unique index on (deal_id, action)**. It has a non-unique deal index and a partial unique index on non-null `safe_tx_hash`. An atomic commit RPC must lock the parent deal and explicitly select/update-or-insert the release row; it must not assume `ON CONFLICT (deal_id, action)` exists.
+- `deal_multisig_signers` has unique `(deal_id, signer_role)` and partial unique `(deal_id, wallet_address, safe_tx_hash)` indexes.
+- The live `validate_deal_release_policy(uuid)` function is SECURITY DEFINER and currently checks payment status/hash presence, delivery acceptance, BNB chain/Safe/token configuration, and locked-policy consistency. It calculates the platform fee with PostgreSQL `round(amount * 7.5 / 100, 8)`.
+- W3M's canonical terms hasher independently computes fee rounding at 8 and 18 decimal places and blocks the deal unless both results match the persisted fee. This is intentionally stricter than simply accepting a fee rounded at 8 decimals; it prevents a precision mismatch from being signed or settled.
+- The legacy validator allows dispute status `none` or `resolved`, while the isolated W3M adapter currently requires exact `none`. This is deliberately fail-closed pending a precise policy for `resolved_buyer` versus `resolved_seller`; no resolved dispute is silently treated as clear.
+
+These details are based on read-only schema/index/function-definition queries. They are recorded to prevent an incorrect future atomic RPC or an assumed uniqueness constraint.
