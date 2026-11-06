@@ -61,6 +61,9 @@ export async function loadSafeFinalizationExpectation(
       row.policy_status !== "locked" && row.policy_status !== "ready") {
     throw new Error("W3M finalization snapshot state or binding is not eligible.");
   }
+  textField(row, "deal_id");
+  textField(row, "transaction_id");
+  textField(row, "report_id");
   const buyerId = textField(row, "buyer_id");
   const sellerId = textField(row, "seller_id");
   if (input.actorId !== buyerId && input.actorId !== sellerId) {
