@@ -59,6 +59,100 @@ grant select on table public.w3m_deal_terms_versions to service_role;
 grant select on table public.w3m_deal_agreement_acceptances to service_role;
 
 -- Exact SQL representation of the same canonical terms object built in TypeScript.
+create or replace function public.w3m_current_deal_code_audit_json(p_deal_id uuid)
+returns jsonb language plpgsql stable security definer set search_path = ''
+as $audit$
+declare
+  v_deal public.deals%rowtype;
+  v_project public.projects%rowtype;
+  v_report_id uuid;
+  v_evidence public.w3m_acquisition_evidence%rowtype;
+  v_count integer;
+  v_owner text;
+  v_repo text;
+  v_repo_url text;
+  v_manifest_hash text;
+  v_file_count integer;
+  v_finding_count integer;
+begin
+  if p_deal_id is null then
+    raise exception 'Deal ID is required for Code Audit binding' using errcode = '22023';
+  end if;
+  select * into v_deal from public.deals where id = p_deal_id;
+  if not found then return null; end if;
+  select * into v_project from public.projects where id = v_deal.project_id;
+  if not found then return null; end if;
+
+  select r.id into v_report_id
+    from public.w3m_acquisition_reports r
+   where r.deal_id = v_deal.id::text
+     and r.project_id = v_deal.project_id::text
+     and r.status = 'PASS'
+     and r.expires_at > now()
+   order by r.report_version desc, r.issued_at desc
+   limit 1;
+  if v_report_id is null then return null; end if;
+
+  select count(*) into v_count
+    from public.w3m_acquisition_evidence e
+   where e.report_id = v_report_id
+     and e.evidence_type = 'CODE_AUDIT'
+     and e.result = 'PASS'
+     and e.mandatory is true;
+  if v_count <> 1 then return null; end if;
+
+  select * into v_evidence
+    from public.w3m_acquisition_evidence e
+   where e.report_id = v_report_id
+     and e.evidence_type = 'CODE_AUDIT'
+     and e.result = 'PASS'
+     and e.mandatory is true
+   limit 1;
+
+  if v_evidence.source_record_id is null
+     or v_evidence.source_record_id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+     or v_evidence.source_version is null
+     or v_evidence.source_version !~* '^[0-9a-f]{40}$'
+     or v_evidence.evidence_hash !~ '^[0-9a-f]{64}$'
+     or v_evidence.details->>'auditStatus' <> 'completed'
+     or v_evidence.details->>'auditManifestVersion' <> 'w3m-audit-manifest-v1'
+     or v_evidence.details->>'auditManifestHash' <> v_evidence.evidence_hash
+     or v_evidence.details->>'commitSha' is distinct from lower(v_evidence.source_version)
+     or v_evidence.details->>'auditType' not in ('code','smart_contract','complete')
+     or coalesce(v_evidence.details->>'completedAt','') = ''
+     or coalesce(v_evidence.details->>'repositoryOwner','') = ''
+     or coalesce(v_evidence.details->>'repositoryName','') = ''
+     or coalesce(v_evidence.details->>'auditFileCount','') !~ '^[1-9][0-9]*$'
+     or coalesce(v_evidence.details->>'auditFindingCount','') !~ '^(0|[1-9][0-9]*)$' then
+    return null;
+  end if;
+
+  v_owner := v_evidence.details->>'repositoryOwner';
+  v_repo := v_evidence.details->>'repositoryName';
+  v_repo_url := 'https://github.com/' || v_owner || '/' || v_repo;
+  if lower(regexp_replace(regexp_replace(btrim(coalesce(v_project.github_url,'')), '/+$', ''), '\.git$', '', 'i'))
+       <> lower(v_repo_url) then
+    return null;
+  end if;
+
+  v_manifest_hash := lower(v_evidence.evidence_hash);
+  v_file_count := (v_evidence.details->>'auditFileCount')::integer;
+  v_finding_count := (v_evidence.details->>'auditFindingCount')::integer;
+  return jsonb_build_object(
+    'auditId', v_evidence.source_record_id,
+    'repositoryOwner', v_owner,
+    'repositoryName', v_repo,
+    'repositoryUrl', v_repo_url,
+    'commitSha', lower(v_evidence.source_version),
+    'auditType', v_evidence.details->>'auditType',
+    'completedAt', v_evidence.details->>'completedAt',
+    'auditEvidenceHash', v_manifest_hash
+  );
+end;
+$audit$;
+revoke all on function public.w3m_current_deal_code_audit_json(uuid)
+  from public, anon, authenticated, service_role;
+
 create or replace function public.w3m_current_deal_terms_json(p_deal_id uuid)
 returns jsonb language sql stable security definer set search_path = ''
 as $current$
@@ -75,6 +169,7 @@ as $current$
     'chainId', 56,
     'safeAddress', lower(d.safe_address),
     'tokenContract', lower(d.token_contract),
+    'codeAudit', public.w3m_current_deal_code_audit_json(d.id),
     'releasePolicy', jsonb_build_object(
       'dealAmount', public.w3m_normalize_numeric_text(p.deal_amount),
       'feePercent', public.w3m_normalize_numeric_text(p.fee_percent),
@@ -93,6 +188,8 @@ as $current$
   join public.deal_release_policies p on p.deal_id = d.id
   where d.id = p_deal_id;
 $current$;
+revoke all on function public.w3m_current_deal_code_audit_json(uuid)
+  from public, anon, authenticated, service_role;
 revoke all on function public.w3m_current_deal_terms_json(uuid)
   from public, anon, authenticated, service_role;
 
@@ -141,6 +238,9 @@ begin
   end if;
 
   v_current_terms := public.w3m_current_deal_terms_json(p_deal_id);
+  if v_current_terms->'codeAudit' is null or v_current_terms->'codeAudit' = 'null'::jsonb then
+    raise exception 'A current complete Code Audit manifest is required before agreement signing' using errcode = '23514';
+  end if;
   if p_canonical_terms is distinct from v_current_terms then
     raise exception 'Submitted canonical terms do not match current locked database terms' using errcode = '23514';
   end if;
@@ -249,6 +349,9 @@ begin
     raise exception 'Agreement terms version is stale or misbound' using errcode = '23514';
   end if;
   v_current_terms := public.w3m_current_deal_terms_json(p_deal_id);
+  if v_current_terms->'codeAudit' is null or v_current_terms->'codeAudit' = 'null'::jsonb then
+    raise exception 'A current complete Code Audit manifest is required before agreement acceptance' using errcode = '23514';
+  end if;
   if v_current_terms is distinct from v_version.canonical_terms
      or p_canonical_terms is distinct from v_current_terms then
     raise exception 'Deal terms changed after wallet signing' using errcode = '23514';
@@ -291,6 +394,7 @@ declare
   v_project jsonb;
   v_buyer_profile jsonb;
   v_seller_profile jsonb;
+  v_code_audit jsonb;
 begin
   if p_deal_id is null then raise exception 'Deal ID is required' using errcode = '22023'; end if;
   select * into v_deal from public.deals where id = p_deal_id;
@@ -305,6 +409,7 @@ begin
   select jsonb_build_object('id',p.id::text,'wallet_address',p.wallet_address,
     'wallet_verified',p.wallet_verified,'wallet_verified_at',p.wallet_verified_at::text)
     into v_seller_profile from public.profiles p where p.id = v_deal.seller_id;
+  v_code_audit := public.w3m_current_deal_code_audit_json(v_deal.id);
   return jsonb_build_object(
     'deal',jsonb_build_object('id',v_deal.id::text,'project_id',v_deal.project_id::text,
       'buyer_id',v_deal.buyer_id::text,'seller_id',v_deal.seller_id::text,
@@ -319,7 +424,8 @@ begin
       'token_contract',v_policy.token_contract,'seller_wallet',v_policy.seller_wallet,
       'platform_wallet',v_policy.platform_wallet,'safe_nonce',v_policy.safe_nonce::text,
       'status',v_policy.status,'updated_at',v_policy.updated_at::text),
-    'project',v_project,'buyer_profile',v_buyer_profile,'seller_profile',v_seller_profile
+    'project',v_project,'buyer_profile',v_buyer_profile,'seller_profile',v_seller_profile,
+    'code_audit',v_code_audit
   );
 end;
 $read$;
