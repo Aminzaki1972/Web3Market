@@ -45,7 +45,7 @@ begin
     payment_tx_hash,delivery_status,buyer_approved_at,dispute_status,chain_id,
     safe_address,token_contract,token_symbol,delivery_accepted_at
   ) values(
-    deal_id,'82000000-0000-4000-8000-000000000004',buyer_id,seller_id,100,'USDT',
+    v_deal_id,'82000000-0000-4000-8000-000000000004',buyer_id,seller_id,100,'USDT',
     'funded','confirmed','0x' || repeat('d',64),'accepted',now(),'none',56,
     '0x4444444444444444444444444444444444444444',
     '0x5555555555555555555555555555555555555555','USDT',now()
