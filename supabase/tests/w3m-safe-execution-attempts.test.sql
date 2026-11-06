@@ -201,17 +201,20 @@ begin
   end;
   update public.profiles set wallet_verified = true where id = v_actor;
 
+  -- The outer hash can be reported after expiry if a wallet broadcast may
+  -- have happened earlier. This remains unverified until canonical receipt
+  -- timestamp enforcement inside FINALIZE.
   update public.w3m_safe_execution_attempts
      set package_issued_at = clock_timestamp() - interval '2 minutes',
          package_expires_at = clock_timestamp() - interval '1 minute'
    where id = v_attempt;
-  begin
-    perform public.w3m_record_safe_wallet_submission(
-      v_attempt,v_actor,v_package_hash,'0x' || repeat('f',64)
-    );
-    raise exception 'Expired wallet package was unexpectedly accepted';
-  exception when check_violation then null;
-  end;
+  v_result := public.w3m_record_safe_wallet_submission(
+    v_attempt,v_actor,v_package_hash,v_broadcast_hash
+  );
+  if coalesce((v_result->>'recorded')::boolean,false) is not true
+     or v_result->>'state' <> 'BROADCAST' then
+    raise exception 'Delayed wallet hash handoff was not recorded for receipt reconciliation';
+  end if;
   update public.w3m_safe_execution_attempts
      set package_issued_at = clock_timestamp() - interval '1 second',
          package_expires_at = v_package_expiry
