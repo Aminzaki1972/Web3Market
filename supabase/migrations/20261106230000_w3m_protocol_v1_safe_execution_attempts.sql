@@ -164,7 +164,41 @@ begin
 
   if v_deal.payment_status is distinct from 'confirmed'
      or v_deal.payment_tx_hash is null
-     or v_deal.payment_tx_hash !~ '^0x[0-9a-fA-F]{64}
+     or v_deal.payment_tx_hash !~ '^0x[0-9a-fA-F]{64}$'
+     or v_deal.delivery_status is distinct from 'accepted'
+     or v_deal.buyer_approved_at is null
+     or coalesce(v_deal.dispute_status, 'none') <> 'none'
+     or v_deal.chain_id is distinct from 56
+     or v_deal.safe_address is null
+     or lower(coalesce(v_deal.token_contract,'')) <> v_bnb_usdt
+     or v_policy.status not in ('locked','ready')
+     or v_policy.chain_id is distinct from 56
+     or v_policy.safe_address is null
+     or lower(v_policy.safe_address) <> lower(v_deal.safe_address)
+     or lower(coalesce(v_policy.token_contract,'')) <> v_bnb_usdt
+     or lower(coalesce(v_policy.platform_wallet,'')) <> v_platform_wallet
+     or v_policy.token_symbol is distinct from 'USDT'
+     or coalesce(v_deal.token_symbol, v_deal.currency) is distinct from 'USDT' then
+    raise exception 'Deal, payment, delivery, dispute, or release policy is not execution-ready'
+      using errcode = '23514';
+  end if;
+
+  -- Recompute canonical 18-decimal fee arithmetic here. The legacy
+  -- validate_deal_release_policy function rounds to 8 decimals and may disagree
+  -- with the locked policy, so it must not be used as the W3M execution gate.
+  v_amount := v_policy.deal_amount;
+  v_fee_percent := v_policy.fee_percent;
+  v_fee := v_policy.fee_amount;
+  v_seller_net := v_policy.seller_net_amount;
+  if v_amount is null or v_fee_percent is null or v_fee is null or v_seller_net is null
+     or v_amount <= 0 or v_fee_percent <> 7.5
+     or v_deal.amount is distinct from v_amount
+     or v_deal.platform_fee_percent is distinct from v_fee_percent
+     or v_fee <> round(v_amount * v_fee_percent / 100, 18)
+     or v_seller_net <> v_amount - v_fee then
+    raise exception 'Exact 18-decimal release fee arithmetic mismatch'
+      using errcode = '23514';
+  end if;
 
   if v_tx.action is distinct from 'release_to_seller'
      or v_tx.status is distinct from 'signed'
@@ -173,12 +207,6 @@ begin
      or v_tx.chain_id is distinct from 56
      or lower(v_tx.safe_address) <> lower(v_policy.safe_address) then
     raise exception 'Stored Safe transaction is not the exact signed release for this deal'
-      using errcode = '23514';
-  end if;
-
-  v_validation := public.validate_deal_release_policy(p_deal_id);
-  if coalesce((v_validation->>'valid')::boolean, false) is not true then
-    raise exception 'Existing release policy validator rejected the deal'
       using errcode = '23514';
   end if;
 
