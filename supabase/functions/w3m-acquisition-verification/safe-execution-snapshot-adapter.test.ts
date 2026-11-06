@@ -138,3 +138,33 @@ Deno.test("snapshot rejects RPC errors and malformed request identifiers", async
 Deno.test("execution-ready snapshot wrapper refuses every unresolved blocker", async () => {
   await assertRejects(() => loadReadySafeExecutionDatabaseSnapshot(client(snapshot), dealId));
 });
+
+
+Deno.test("snapshot rejects nonce and token symbol drift across deal, policy, and Safe transaction", async () => {
+  await assertRejects(() => loadSafeExecutionDatabaseSnapshot(client({
+    ...snapshot,
+    release_transactions: [{ ...snapshot.release_transactions[0], safe_nonce: "8" }],
+  }), dealId));
+  await assertRejects(() => loadSafeExecutionDatabaseSnapshot(client({
+    ...snapshot,
+    release_transactions: [{ ...snapshot.release_transactions[0], token_symbol: "BUSD" }],
+  }), dealId));
+});
+
+Deno.test("snapshot rejects buyer or seller signatures stored under another party identity", async () => {
+  await assertRejects(() => loadSafeExecutionDatabaseSnapshot(client({
+    ...snapshot,
+    signers: snapshot.signers.map((row, index) =>
+      index === 0 ? { ...row, signer_id: sellerId } : row),
+  }), dealId));
+});
+
+Deno.test("snapshot exposes project owner and platform wallet mismatches as blockers", async () => {
+  const result = await loadSafeExecutionDatabaseSnapshot(client({
+    ...snapshot,
+    project: { ...snapshot.project, owner_id: buyerId },
+    policy: { ...snapshot.policy, platform_wallet: "0x6666666666666666666666666666666666666666" },
+  }), dealId);
+  assertEquals(result.blockers.includes("PROJECT_OWNER_SELLER_MISMATCH"), true);
+  assertEquals(result.blockers.includes("POLICY_PLATFORM_WALLET_MISMATCH"), true);
+});
