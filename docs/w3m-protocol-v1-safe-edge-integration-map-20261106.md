@@ -891,7 +891,7 @@ Extended `js/w3m-safe-wallet-execution-client.js` with a complete browser handof
 
 Added `verifyW3MDealReleaseFromServer`. It sends only the execution attempt ID to the isolated finalization endpoint. The browser cannot submit receipt logs, transfer amounts, recipient addresses, or a client-declared success. A 409 response remains `VERIFICATION_PENDING_OR_BLOCKED`; only the server's exact `CONFIRMED` result is surfaced as finalized.
 
-**Important:** this is the browser orchestration helper, not yet the Deal Room visual integration. No button has been enabled on the live Deal Room, no production endpoint has been changed, and no wallet transaction has been sent by this work. Automated CI is being rerun after the latest test and helper changes.
+**Important:** this is the browser orchestration helper, not yet the Deal Room visual integration. No button has been enabled on the live Deal Room, no production endpoint has been changed, and no wallet transaction has been sent by this work. **Baseline CI:** run 42189969991 passed all 68 workflow steps, including Deno checks/tests and the disposable PostgreSQL migration suite. That green run covers the browser handoff and server-only finalization helper before the later exact-executor-wallet hardening; the latter has its own newer CI run pending.
 
 
 ## 48. Explicit server-side finalization client and authenticated executor binding — isolated draft — 2026-11-06
@@ -907,7 +907,7 @@ The browser flow is now represented in isolated modules as: authenticated packag
 
 Hardened package issuance so the executor is not merely any address that appears among the Safe signatures. The fresh server context now carries the exact wallet verified for the authenticated buyer/seller account. The package builder requires that wallet to be a current live Safe owner and includes `executorWallet` plus the canonical live `safeOwners` set in the package. The browser refuses submission unless the connected account exactly equals `executorWallet`; a different Safe owner cannot use another participant's authenticated package. Tests cover a non-owner being denied package issuance and a different-but-valid Safe owner being denied wallet submission.
 
-CI is running for this additional binding. This remains isolated and undeployed.
+CI is running for this additional binding. The prior baseline run 42189969991 is green, but does not include this latest executor-wallet hardening. This remains isolated and undeployed.
 
 
 
