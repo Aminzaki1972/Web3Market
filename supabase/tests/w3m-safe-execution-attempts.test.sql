@@ -37,6 +37,10 @@ begin
     key_id, event_type, actor_type, reason, event_hash
   ) values ('attempt-test-key','ACTIVATED','SYSTEM','isolated test key',repeat('a',64));
 
+  insert into public.profiles (id,wallet_address,wallet_verified,wallet_verified_at) values
+    (v_buyer,'0x3333333333333333333333333333333333333333',true,now()),
+    (v_seller,'0x4444444444444444444444444444444444444444',true,now());
+
   insert into public.deals (
     id, project_id, buyer_id, seller_id, amount, payment_status, payment_tx_hash,
     delivery_status, buyer_approved_at, dispute_status, chain_id, safe_address, token_contract
@@ -104,7 +108,8 @@ begin
     'protocol','W3M_PROTOCOL_V1',
     'issuedAt',clock_timestamp(),
     'expiresAt',v_package_expiry,
-    'dealId',v_deal::text
+    'dealId',v_deal::text,
+    'executorWallet','0x3333333333333333333333333333333333333333'
   );
   v_result := public.w3m_issue_safe_execution_package(
     v_attempt,v_actor,v_package_hash,v_package,v_package_expiry
@@ -177,6 +182,16 @@ begin
     raise exception 'Wallet package submission with a different package hash was unexpectedly accepted';
   exception when insufficient_privilege then null;
   end;
+
+  update public.profiles set wallet_verified = false where id = v_actor;
+  begin
+    perform public.w3m_record_safe_wallet_submission(
+      v_attempt,v_actor,v_package_hash,'0x' || repeat('f',64)
+    );
+    raise exception 'A revoked participant wallet was unexpectedly allowed to submit';
+  exception when insufficient_privilege then null;
+  end;
+  update public.profiles set wallet_verified = true where id = v_actor;
 
   update public.w3m_safe_execution_attempts
      set package_expires_at = package_issued_at + interval '1 microsecond'
