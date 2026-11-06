@@ -17,6 +17,7 @@ const expected: SafeFinalizationExpectation = {
   sellerAmount: "92.5",
   platformWallet: "0x" + "6".repeat(40),
   platformFee: "7.5",
+  minConfirmations: 6,
 };
 const evidence: VerifiedSafeReceiptEvidence = {
   chain_id: 56,
@@ -27,6 +28,7 @@ const evidence: VerifiedSafeReceiptEvidence = {
   safe_address: expected.safeAddress,
   safe_tx_hash: expected.safeTxHash,
   token_contract: expected.tokenContract,
+  confirmations: 13,
   transfers: [
     { from_address: expected.safeAddress, to_address: expected.sellerWallet, amount: "92.5000" },
     { from_address: expected.safeAddress, to_address: expected.platformWallet, amount: "7.500" },
@@ -116,4 +118,10 @@ Deno.test("invalid receipt evidence never calls finalization RPC", async () => {
   }
   assertEquals(threw, true);
   assertEquals(rpcCalls, 0);
+});
+
+Deno.test("insufficient BNB confirmations block finalization evidence", () => {
+  const result = validateVerifiedSafeReceipt(expected, { ...evidence, confirmations: 1 });
+  assertEquals(result.valid, false);
+  if (!result.valid) assertEquals(result.issues.includes("CONFIRMATIONS_INSUFFICIENT"), true);
 });
