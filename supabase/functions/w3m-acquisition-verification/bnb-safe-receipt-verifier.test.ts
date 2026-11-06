@@ -249,6 +249,7 @@ Deno.test("fresh acquisition bundle failure blocks BNB receipt read and finaliza
       }
       throw new Error("Unexpected database RPC");
     },
+    from() { throw new Error("Audit source reads are not expected after a failed acquisition bundle RPC."); },
   };
   await assertRejects(
     () => finalizeBnbSafeReleaseFromFreshSnapshot(
@@ -274,6 +275,7 @@ Deno.test("missing fresh snapshot blocks BNB receipt read and finalization", asy
       databaseCalls += 1;
       return { data: null, error: new Error("snapshot unavailable") };
     },
+    from() { throw new Error("Audit source reads are not expected after a failed snapshot RPC."); },
   };
   await assertRejects(
     () => finalizeBnbSafeReleaseFromFreshSnapshot(
