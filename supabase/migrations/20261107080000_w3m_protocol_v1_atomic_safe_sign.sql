@@ -55,7 +55,7 @@ begin
   exception when others then
     raise exception 'W3M report authorization metadata is malformed' using errcode = '22023';
   end;
-  if v_report_version is null or v_report_version < 1 then
+  if v_report_id is null or v_report_version is null or v_report_version < 1 then
     raise exception 'W3M report authorization metadata is invalid' using errcode = '22023';
   end if;
 
@@ -86,8 +86,9 @@ begin
     raise exception 'Actor wallet is not the current verified wallet' using errcode = '42501';
   end if;
 
-  if v_deal.chain_id <> 56 or v_deal.payment_status <> 'confirmed'
-     or v_deal.delivery_status <> 'accepted'
+  if v_deal.chain_id is distinct from 56
+     or v_deal.payment_status is distinct from 'confirmed'
+     or v_deal.delivery_status is distinct from 'accepted'
      or v_deal.dispute_status is distinct from 'none'
      or v_deal.buyer_approved_at is null then
     raise exception 'Deal payment, delivery, or dispute state blocks signing' using errcode = '23514';
@@ -103,12 +104,12 @@ begin
        where deal_id = p_deal_id and action = 'release_to_seller') <> 1 then
     raise exception 'Ambiguous Safe release transaction rows' using errcode = '23514';
   end if;
-  if v_tx.safe_tx_hash is null or v_tx.safe_address is null
+  if v_tx.safe_tx_hash is null or v_tx.safe_address is null or v_deal.safe_address is null
      or lower(v_tx.safe_tx_hash) <> lower(p_safe_tx_hash)
-     or v_tx.chain_id <> 56
+     or v_tx.chain_id is distinct from 56
      or lower(v_tx.safe_address) <> lower(v_deal.safe_address)
-     or v_tx.required_signatures <> 2
-     or v_tx.status not in ('awaiting_signatures','signed') then
+     or v_tx.required_signatures is distinct from 2
+     or v_tx.status is null or v_tx.status not in ('awaiting_signatures','signed') then
     raise exception 'Safe release transaction changed or is not signable' using errcode = '23514';
   end if;
 
