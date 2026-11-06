@@ -15,6 +15,11 @@ import {
 } from "./report-registry-batch.ts";
 import { mapTrustedSignerRegistryRows } from "./trusted-signer-registry-adapter.ts";
 import { verifyTrustedEthereumReportSignature } from "./signature-verifier.ts";
+import {
+  selectCodeAuditEvidence,
+  type CodeAuditSourceRow,
+} from "./code-audit-evidence-selector.ts";
+import type { AuditManifest } from "./audit-manifest.ts";
 
 export const W3M_PROTOCOL_ORCHESTRATOR_VERSION = "w3m-protocol-orchestrator-1.0.0";
 
@@ -27,6 +32,14 @@ export interface ProtocolOrchestratorInput {
   supersedesReportId?: string | null;
   dealTermsHash: string;
   auditId: string;
+  /** Trusted server-loaded audit row plus a freshly recomputed complete manifest. */
+  codeAudit: {
+    row: CodeAuditSourceRow;
+    manifest: AuditManifest;
+    repositoryOwner: string;
+    repositoryName: string;
+    maxAgeMs: number;
+  };
   issuedAt: string;
   expiresAt: string;
   actorType: "SYSTEM" | "VERIFIER";
@@ -48,7 +61,27 @@ export async function prepareAcquisitionProtocolBatch(
   input: ProtocolOrchestratorInput,
   signDigest: (digestHex: string) => Promise<RegistrySigner>,
 ): Promise<ProtocolOrchestratorResult> {
-  const aggregation = await aggregateAcquisitionEvidence(input.acquisition);
+  if (input.acquisition.baseEvidence.some((item) => item.type === "CODE_AUDIT")) {
+    throw new Error("Code Audit evidence must be produced by the trusted manifest selector, not caller-supplied base evidence.");
+  }
+  const selectedAudit = await selectCodeAuditEvidence(input.codeAudit.row, {
+    dealId: input.acquisition.dealId,
+    projectId: input.acquisition.projectId,
+    repositoryOwner: input.codeAudit.repositoryOwner,
+    repositoryName: input.codeAudit.repositoryName,
+    commitSha: input.acquisition.expectedCommitSha,
+    now: input.acquisition.now,
+    maxAgeMs: input.codeAudit.maxAgeMs,
+    manifest: input.codeAudit.manifest,
+  });
+  if (selectedAudit.result !== "PASS" || selectedAudit.evidence.sourceRecordId !== input.auditId) {
+    throw new Error("Current Code Audit selection failed: " +
+      (selectedAudit.result === "PASS" ? "Audit ID does not match the report request." : selectedAudit.reason));
+  }
+  const aggregation = await aggregateAcquisitionEvidence({
+    ...input.acquisition,
+    baseEvidence: [...input.acquisition.baseEvidence, selectedAudit.evidence],
+  });
 
   if (aggregation.decision.dealId !== input.acquisition.dealId ||
       aggregation.decision.projectId !== input.acquisition.projectId) {
