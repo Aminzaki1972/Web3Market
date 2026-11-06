@@ -396,3 +396,8 @@ Additional hardening to the isolated phase boundary:
 CI run 42165869470 completed successfully (46 steps) for the preceding exact deal/hash binding and authorizer update. The FINALIZE-separation and unknown-phase changes are newer; their latest workflow runs 42166372723, 42166434112, and 42166444653 were still in progress when this section was written and are not claimed as passed.
 
 No live Safe Edge handler has been modified or wired, and no production deployment, migration, BNB RPC request, signature, broadcast, or fund movement occurred.
+
+
+### Follow-up: phase-boundary type-check correction
+
+The first CI attempts for the FINALIZE separation change exposed a TypeScript narrowing error: after FINALIZE was returned as denied, a redundant FINALIZE comparison remained in the hash-required expression. The expression was simplified to require hashes only for SIGN and EXECUTE. This is a compile-time correction, not a relaxation of the gate. The latest workflow for the corrected source is run 42166502907 and was still in progress at the time of this note; no pass is claimed yet.
