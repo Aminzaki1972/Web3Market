@@ -720,3 +720,14 @@ The atomic SQL RPC now independently enforces the exact BNB USDT contract addres
 An identical locked-policy replay must now also match the original single `release_policy_locked` audit record's report ID, report version, report hash, and deal-terms hash. Missing/duplicate audit binding or a changed W3M report is denied; replay does not silently substitute a newer report for the report that authorized the original lock. SQL tests now include wrong-token denial, null-dispute denial, and changed-report replay denial.
 
 **Verification:** these refinements are committed on the isolated branch. GitHub's commit-status endpoint has not yet returned a CI status for the new commits, so SQL and Deno tests remain pending CI confirmation. No production migration, Edge Function, deal, Safe, or funds were touched.
+
+
+## 38. Authenticated PREPARE request boundary and migration source repair — 2026-11-06
+
+Added `prelock-safe-prepare-request-handler.ts` as the isolated HTTP boundary. The browser may provide only a deal UUID. The actor ID is derived from the authenticated Supabase session; server context construction supplies the service-role RPC client, persisted-report signature verifier, Deal Room reader, validated policy reader, and canonical BNB Safe reader. Client-supplied actor IDs, policy objects, report authorization, Safe facts, or signatures are not consumed. The handler invokes the gate-to-atomic-persistence composition and returns a denial if the gate fails.
+
+The atomic SQL migration received a source-integrity repair after inspection found an incomplete Safe-address condition and an orphaned duplicate SQL tail. The migration now has one transaction terminator and a complete address + exact BNB USDT contract check. The audit-bound idempotent replay block remains present and checks that the original W3M report ID/version/hash and deal-terms hash are unchanged.
+
+Added HTTP-boundary tests for authentication, malformed deal IDs, POST-only behavior, and ignoring browser-supplied authority fields. Workflow now includes type checks and tests for the handler.
+
+**Important integration status:** this is still a dependency-injected request handler, not a deployed or fully wired Supabase Edge Function. The actual service-role context factory and canonical BNB RPC implementation must be assembled in a dedicated isolated Edge Function entrypoint before replacing either live PREPARE handler. The SQL migration, HTTP handler and tests have not yet received CI confirmation. No live handler, production migration, database, Safe, or funds were changed.
