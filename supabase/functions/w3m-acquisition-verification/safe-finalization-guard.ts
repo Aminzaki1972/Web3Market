@@ -20,6 +20,7 @@ export interface VerifiedSafeReceiptEvidence {
   token_contract: string;
   transfers: SafeReceiptTransfer[];
   confirmations: number;
+  block_timestamp: string;
 }
 export interface SafeFinalizationExpectation {
   attemptId: string;
@@ -33,6 +34,8 @@ export interface SafeFinalizationExpectation {
   platformWallet: string;
   platformFee: string;
   minConfirmations: number;
+  packageIssuedAt: string;
+  packageExpiresAt: string;
 }
 export type FreshReceiptVerifier = () => Promise<VerifiedSafeReceiptEvidence>;
 
@@ -58,6 +61,14 @@ export function validateVerifiedSafeReceipt(
   const issues: string[] = [];
   if (!HASH.test(expected.broadcastTxHash) || !HASH.test(expected.safeTxHash)) issues.push("EXPECTED_HASH_INVALID");
   if (!Number.isSafeInteger(expected.minConfirmations) || expected.minConfirmations < 1) issues.push("EXPECTED_CONFIRMATION_POLICY_INVALID");
+  const packageIssuedAt = Date.parse(expected.packageIssuedAt);
+  const packageExpiresAt = Date.parse(expected.packageExpiresAt);
+  const receiptBlockAt = Date.parse(evidence.block_timestamp);
+  if (!Number.isFinite(packageIssuedAt) || !Number.isFinite(packageExpiresAt) ||
+      packageExpiresAt <= packageIssuedAt || !Number.isFinite(receiptBlockAt) ||
+      receiptBlockAt < packageIssuedAt || receiptBlockAt > packageExpiresAt) {
+    issues.push("RECEIPT_OUTSIDE_WALLET_PACKAGE_VALIDITY_WINDOW");
+  }
   if (evidence.chain_id !== 56) issues.push("RECEIPT_CHAIN_MISMATCH");
   if (typeof evidence.transaction_hash !== "string" ||
       evidence.transaction_hash.toLowerCase() !== expected.broadcastTxHash.toLowerCase()) issues.push("BROADCAST_HASH_MISMATCH");
