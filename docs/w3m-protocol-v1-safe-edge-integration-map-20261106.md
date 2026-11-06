@@ -932,3 +932,8 @@ A focused test covers the hash-recovery handoff. This avoids asking a user to su
 ## 49. Exact immutable agreement pair in the wallet execution package — isolated draft — 2026-11-06
 
 The connected-wallet package now includes the exact buyer and seller acceptance record IDs, their individual EIP-712 typed-data digests, the immutable terms-version ID/number, and canonical terms hash. The package endpoint compares both acceptance IDs and digests again after the atomic execution claim and before issuance. A changed acceptance pair forces `RECONCILIATION_REQUIRED` and no package is returned. The browser validates the package's agreement binding before it will request a wallet transaction.
+
+
+## 50. Verified participant wallet revalidation at package issue and hash handoff — isolated draft — 2026-11-06
+
+The atomic package-issuance RPC now locks and rechecks the participant's current `profiles.wallet_verified` and `wallet_address` against the server-composed `executorWallet` inside the same transaction that stores the one-use package. The wallet-submission RPC performs the same current-profile check before accepting a new or recovered transaction hash. Exact same-hash idempotent retries remain readable after the original submission, while a changed/revoked profile wallet cannot initiate a new hash handoff. The finalizer independently checks the canonical receipt timestamp against the stored package window.
