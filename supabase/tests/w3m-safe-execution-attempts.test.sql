@@ -109,7 +109,7 @@ begin
   );
   if coalesce((v_result->>'issued')::boolean,false) is not true
      or coalesce((v_result->>'idempotent_replay')::boolean,false) is not true
-     or v_result->'package'->>'expiresAt' <> v_package_expiry::text then
+     or (v_result->'package'->>'expiresAt')::timestamptz <> v_package_expiry then
     raise exception 'Exact semantic wallet package replay did not return the original package';
   end if;
 
