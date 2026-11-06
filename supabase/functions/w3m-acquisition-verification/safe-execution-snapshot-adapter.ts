@@ -68,6 +68,7 @@ export interface SafeExecutionDatabaseSnapshot {
   partyAgreements: SafeExecutionSnapshotPartyAgreement[];
   termsVersion: SafeExecutionSnapshotTermsVersion | null;
   agreementAcceptances: SafeExecutionSnapshotAgreementAcceptance[];
+  codeAudit: DealCodeAuditBinding;
   dispute: Record<string, unknown> | null;
   blockers: string[];
 }
@@ -443,6 +444,7 @@ export async function loadSafeExecutionDatabaseSnapshot(
     partyAgreements: agreements,
     termsVersion,
     agreementAcceptances,
+    codeAudit,
     dispute: root.dispute === null ? null : object(root.dispute, "dispute"),
     blockers: [...new Set(blockers)],
   };
