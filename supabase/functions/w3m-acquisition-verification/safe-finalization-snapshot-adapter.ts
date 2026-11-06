@@ -72,7 +72,10 @@ export async function loadSafeFinalizationExpectation(
     throw new Error("W3M finalization actor is not a deal participant.");
   }
   const packageActorId = textField(row, "package_actor_id");
-  hashField(row, "package_hash");
+  const packageHash = textField(row, "package_hash");
+  if (!/^[0-9a-f]{64}$/i.test(packageHash)) {
+    throw new Error("W3M finalization snapshot package hash is invalid.");
+  }
   const packageIssuedAt = textField(row, "package_issued_at");
   const packageExpiresAt = textField(row, "package_expires_at");
   if (packageActorId !== buyerId && packageActorId !== sellerId ||
