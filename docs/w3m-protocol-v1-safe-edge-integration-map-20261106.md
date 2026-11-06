@@ -942,3 +942,8 @@ The atomic package-issuance RPC now locks and rechecks the participant's current
 ## 51. Connected-wallet Safe EIP-712 signing client — isolated draft — 2026-11-06
 
 Added `signW3MSafeRelease` to the browser helper. It requires BNB Chain 56, the active signer to match the verified participant wallet, and the ethers-computed Safe EIP-712 digest to equal the exact prepared `safe_tx_hash` before it opens the wallet signature prompt. It then posts only `deal_id`, `safe_tx_hash`, and the signature to the authenticated isolated W3M SIGN endpoint. The server independently reloads the current W3M PASS and immutable agreement context, recovers the signature against the verified profile wallet, and atomically persists it. No transaction is sent during signing.
+
+
+## 52. Browser PREPARE request helper — isolated draft — 2026-11-06
+
+Added `prepareW3MSafeRelease`. It posts only the deal ID and authenticated Supabase session to the isolated PREPARE endpoint. It accepts only the server's atomic commit response containing the policy ID, release transaction ID, state, and idempotent-replay flag. The client cannot submit its own report, payment, seller/platform wallets, fee, Safe owners, or policy values.
