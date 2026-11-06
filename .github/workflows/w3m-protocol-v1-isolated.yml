@@ -166,6 +166,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/safe-execution-coordinator.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-execute-request-handler.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-execute-request-handler.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-package-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-package-request-handler.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-wallet-execution-package.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-wallet-execution-package.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-live-execution-facts.ts
@@ -266,6 +268,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/safe-execute-request-handler.test.ts
       - name: Test connected-wallet Safe execution package
         run: deno test supabase/functions/w3m-acquisition-verification/safe-wallet-execution-package.test.ts
+      - name: Test authenticated one-use Safe wallet package endpoint
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-wallet-package-request-handler.test.ts
       - name: Test read-only live Safe execution facts
         run: deno test supabase/functions/w3m-acquisition-verification/safe-live-execution-facts.test.ts
       - name: Test read-only Safe configuration facts for PREPARE
