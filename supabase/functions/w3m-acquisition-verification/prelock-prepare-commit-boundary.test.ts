@@ -34,6 +34,11 @@ Deno.test("PREPARE commit boundary rejects missing or malformed nonce/hash/block
     async () => { writes += 1; return "written"; },
   );
   assertEquals(invalid.committed, false);
+  const nonCanonicalBlock = await commitReleasePreparationOnlyAfterW3M(
+    { ...authorized, readBlockNumber: "0x0123" },
+    async () => { writes += 1; return "written"; },
+  );
+  assertEquals(nonCanonicalBlock.committed, false);
   assertEquals(writes, 0);
 });
 
