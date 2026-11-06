@@ -290,3 +290,18 @@ Added `bnb-safe-live-read-client.ts` and its mocked RPC tests. It implements the
 The factory captures a BNB mainnet block tag (chain 56) and pins every subsequent Safe `eth_call` and `eth_getCode` request to that same block number. It validates ABI offsets, owner array bounds, address words, uint values, version string, and the returned bytes32 transaction hash. The code performs no transaction signing, submission, or broadcast. Tests use an injected mock JSON-RPC client; no live BNB RPC endpoint has been contacted.
 
 CI run `42138329931` completed successfully with zero failed steps, including type-checking and all five mocked tests for the block-pinned reader. A later hardening pass added an execution-ready snapshot wrapper plus stricter nonce, signer, project-owner, wallet-verification, and platform-wallet checks. Follow-up run `42138582420` completed successfully: all 46 job steps completed with zero failures, including Deno type-checks/tests and the disposable PostgreSQL migration/contract checks. The concrete reader is not yet connected to an execution Edge Function or to any production Safe handler.
+
+
+## 17. Canonical-block BNB Safe execution facts reader — 2026-11-06
+
+Added:
+- `supabase/functions/w3m-acquisition-verification/bnb-safe-execution-facts-reader.ts`
+- `supabase/functions/w3m-acquisition-verification/bnb-safe-execution-facts-reader.test.ts`
+
+This wrapper composes the existing read-only BNB Safe client with the Safe facts verifier. It captures BNB chain 56 and one fixed block number, reads that block's hash, performs the Safe contract reads and Safe transaction-hash recomputation at the pinned block, then reads the same block header again. If the block hash changed during the read window (reorg), it returns an invalid facts result with `SAFE_READ_BLOCK_NOT_CANONICAL`. Malformed or unavailable block headers fail closed.
+
+The wrapper accepts an injected `JsonRpcClient`; it does not choose or contact a live RPC endpoint itself. The future Edge handler must construct that client with the existing HTTPS hostname allowlist. Tests use mocked JSON-RPC responses only; no live BNB endpoint, wallet, Safe transaction, or funds are touched.
+
+CI run `42138975440` was created for commit `958f94e8b69155b80ee3875ec25052b42f9607bd`; its initial state was queued. The new helper and tests are included in the workflow's type-check and test steps. Final CI result will be recorded after completion.
+
+The next unresolved execution prerequisites remain unchanged: immutable buyer/seller agreement signatures bound to the canonical deal-terms hash; loading and cryptographically verifying the latest persisted W3M report/evidence/trusted signer bundle; and composing those with the live Safe facts and coordinator in a dedicated isolated EXECUTE handler. No existing production Safe handler is wired to W3M.
