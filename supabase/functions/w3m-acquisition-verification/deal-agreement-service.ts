@@ -2,6 +2,8 @@
 import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
 import { computeDealTermsHash } from "./deal-terms-hash.ts";
 import type { DealCodeAuditBinding } from "./deal-code-audit-binding.ts";
+import type { AuditManifestSource } from "./audit-manifest-loader.ts";
+import { prepareDealAuditSnapshot } from "./deal-audit-snapshot-service.ts";
 import {
   buildDealTermsAcceptanceTypedData,
   verifyDealTermsAcceptanceSignature,
@@ -243,3 +245,31 @@ export async function acceptDealAgreement(
   };
 }
 
+
+/**
+ * Safe public preparation path: recompute and persist the independent audit
+ * snapshot first, then construct EIP-712 terms from the SQL signing snapshot.
+ * Request handlers should use this wrapper rather than the low-level function.
+ */
+export async function prepareDealAgreementAcceptanceWithAuditSnapshot(
+  client: W3MRpcClient,
+  source: AuditManifestSource,
+  input: { dealId: string; actorId: string },
+): Promise<PreparedDealAgreement> {
+  await prepareDealAuditSnapshot(client, source, input.dealId);
+  return await prepareDealAgreementAcceptance(client, input);
+}
+
+/**
+ * Revalidate the source manifest and idempotently persist its per-deal snapshot
+ * before accepting a party signature. A changed audit creates new terms and
+ * makes an earlier party signature stale rather than silently reusing it.
+ */
+export async function acceptDealAgreementWithAuditSnapshot(
+  client: W3MRpcClient,
+  source: AuditManifestSource,
+  input: { dealId: string; actorId: string; signature: string },
+): Promise<AcceptedDealAgreement> {
+  await prepareDealAuditSnapshot(client, source, input.dealId);
+  return await acceptDealAgreement(client, input);
+}
