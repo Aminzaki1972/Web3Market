@@ -291,12 +291,13 @@ begin
   -- locking child dispute rows here: UPDATE already locks its child row before
   -- the trigger takes the parent lock, so the parent lock alone avoids inversion.
   -- Keep every non-terminal dispute fail-closed; resolved/closed records remain auditable.
-  if exists (
-    select 1 from public.deal_disputes d
-     where d.deal_id = v_deal.id
-       and lower(coalesce(d.status,'')) not in ('resolved','closed')
-  ) then
-    raise exception 'An open or unresolved dispute blocks Safe settlement'
+  if v_deal.dispute_status is distinct from 'none'
+     or exists (
+       select 1 from public.deal_disputes d
+        where d.deal_id = v_deal.id
+          and lower(coalesce(d.status,'')) not in ('resolved','closed')
+     ) then
+    raise exception 'An open, unresolved, or unclassified dispute blocks Safe settlement'
       using errcode = '23514';
   end if;
 
