@@ -13,6 +13,16 @@ function snapshot(): DealTermsSnapshot {
     chainId: 56,
     safeAddress: "0x2222222222222222222222222222222222222222",
     tokenContract: "0x3333333333333333333333333333333333333333",
+    codeAudit: {
+      auditId: "22222222-2222-4222-8222-222222222222",
+      repositoryOwner: "Aminzaki1972",
+      repositoryName: "Web3Market",
+      repositoryUrl: "https://github.com/Aminzaki1972/Web3Market",
+      commitSha: "a".repeat(40),
+      auditType: "code",
+      completedAt: "2026-11-01T10:00:00.000Z",
+      auditEvidenceHash: "c".repeat(64),
+    },
     policy: {
       dealAmount: "100",
       feePercent: "7.5000",
@@ -60,6 +70,28 @@ Deno.test("deal terms hash changes when a recipient or economic term changes", a
     },
   });
   assertNotEquals(base.dealTermsHash, changed.dealTermsHash);
+});
+
+Deno.test("deal terms hash changes when the selected audit manifest changes", async () => {
+  const base = await computeDealTermsHash(snapshot());
+  const changed = await computeDealTermsHash({
+    ...snapshot(),
+    codeAudit: { ...snapshot().codeAudit, auditEvidenceHash: "d".repeat(64) },
+  });
+  assertNotEquals(base.dealTermsHash, changed.dealTermsHash);
+});
+
+Deno.test("deal terms hash rejects malformed or unsupported audit bindings", async () => {
+  const base = snapshot();
+  await assertRejects(() => computeDealTermsHash({
+    ...base, codeAudit: { ...base.codeAudit, commitSha: "bad" },
+  }));
+  await assertRejects(() => computeDealTermsHash({
+    ...base, codeAudit: { ...base.codeAudit, auditEvidenceHash: "bad" },
+  }));
+  await assertRejects(() => computeDealTermsHash({
+    ...base, codeAudit: { ...base.codeAudit, repositoryUrl: "https://github.com/other/repo" },
+  }));
 });
 
 Deno.test("deal terms hash rejects unsafe numeric input and mismatched policy amount", async () => {
