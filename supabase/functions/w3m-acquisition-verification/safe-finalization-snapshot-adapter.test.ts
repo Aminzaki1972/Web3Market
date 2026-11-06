@@ -21,6 +21,10 @@ const row = {
   policy_status: "locked",
   transaction_status: "submitted",
   attempt_state: "BROADCAST",
+  package_actor_id: "buyer-1",
+  package_hash: "0x" + "c".repeat(64),
+  package_issued_at: "2026-11-06T12:00:00.000Z",
+  package_expires_at: "2026-11-06T12:02:00.000Z",
 };
 function client(data: unknown = row, error: unknown = null) {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
@@ -120,4 +124,17 @@ Deno.test("RPC errors and malformed snapshots fail closed", async () => {
     Error,
     "malformed",
   );
+});
+
+
+Deno.test("requires a valid package actor and ordered issue/expiry timestamps", async () => {
+  for (const changed of [
+    { ...row, package_actor_id: "intruder" },
+    { ...row, package_hash: "bad" },
+    { ...row, package_expires_at: "2026-11-06T11:59:00.000Z" },
+  ]) {
+    await assertRejects(() => loadSafeFinalizationExpectation(client(changed), {
+      attemptId: "attempt-1", actorId: "buyer-1", minConfirmations: 6,
+    }), Error);
+  }
 });
