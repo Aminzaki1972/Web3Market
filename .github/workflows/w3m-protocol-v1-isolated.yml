@@ -8,6 +8,7 @@ on:
       - "supabase/functions/w3m-protocol-v1-finalize-safe-release/**"
       - "supabase/functions/w3m-protocol-v1-deal-agreement/**"
       - "supabase/functions/w3m-protocol-v1-prepare-deal-release/**"
+      - "supabase/functions/w3m-protocol-v1-safe-sign/**"
       - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
       - "supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql"
       - "supabase/migrations/20261106230000_w3m_protocol_v1_safe_execution_attempts.sql"
@@ -18,7 +19,9 @@ on:
       - "supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql"
       - "supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql"
       - "supabase/migrations/20261107070000_w3m_protocol_v1_atomic_safe_prepare.sql"
+      - "supabase/migrations/20261107080000_w3m_protocol_v1_atomic_safe_sign.sql"
       - "supabase/tests/w3m-protocol-v1-atomic-safe-prepare.test.sql"
+      - "supabase/tests/w3m-protocol-v1-atomic-safe-sign.test.sql"
       - "supabase/tests/w3m-dealroom-prepare-policy-reader-fixture.sql"
       - "supabase/tests/w3m-dealroom-prepare-policy-reader.test.sql"
       - "supabase/tests/w3m-deal-agreement-acceptances.test.sql"
@@ -119,6 +122,9 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/safe-sign-request-handler.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-signature-persistence-adapter.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-signature-persistence-adapter.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-sign-context-composer.ts
+          deno check supabase/functions/w3m-protocol-v1-safe-sign/index.ts
+          deno check supabase/functions/w3m-acquisition-verification/fresh-safe-handler-context.ts
           deno check supabase/functions/w3m-acquisition-verification/trusted-signer-registry-adapter.ts
           deno check supabase/functions/w3m-acquisition-verification/trusted-signer-registry-adapter.test.ts
           deno check supabase/functions/w3m-acquisition-verification/supabase-rpc-adapter.ts
