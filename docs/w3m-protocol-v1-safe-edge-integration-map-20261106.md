@@ -866,3 +866,20 @@ Added two separate isolated Edge Function directories:
 Rebuilt `20261107090000_w3m_protocol_v1_wallet_package_issuance.sql` after detecting malformed SQL introduced during an earlier edit. The corrected migration now has clean function boundaries, service-role-only grants, immutable package issuance, exact actor/package-hash binding, package expiry enforcement at submission, and idempotent replay for the same outer transaction hash. The PostgreSQL suite now tests actor substitution, package-hash substitution, expired package rejection, successful submission, replay, and RPC privileges.
 
 **Verification status:** CI is rerunning against the corrected SQL and both isolated Edge Function entrypoints. Do not treat the current code as verified until the latest workflow finishes green. These two Edge Functions and all draft migrations remain undeployed. The Deal Room browser UI and end-to-end user-facing wallet flow are still outstanding.
+
+
+## 47. Concrete connected-wallet endpoint composition — isolated draft — 2026-11-06
+
+Added isolated Edge Function entrypoints:
+- `w3m-protocol-v1-safe-wallet-package`: authenticates the Supabase session, composes a fresh Deal Room + immutable agreement + latest persisted PASS report + canonical BNB Safe snapshot, claims one execution attempt, re-reads all critical bindings, and issues the exact short-lived package through the service-role-only RPC.
+- `w3m-protocol-v1-safe-wallet-submit`: authenticates the same session and records only the outer BNB transaction hash against the exact attempt, package hash, and server-derived actor. The response is explicitly `BROADCAST_UNVERIFIED`; it does not verify a receipt or finalize.
+
+Added `executeW3MDealReleaseFromWallet` to the isolated browser helper. It calls the package endpoint, verifies the returned canonical package hash, requests Safe `execTransaction` from the connected owner wallet, and submits the returned transaction hash to the authenticated submission endpoint. If the wallet broadcasts but hash persistence fails, it returns `SUBMITTED_UNRECORDED` with the attempt/hash/package binding for reconciliation; it never calls that a completed deal.
+
+The SQL package migration now contains the service-role-only issuance and submission RPCs, immutable package fields, actor/hash binding, idempotent same-hash replay, and expiry rejection for a new submission from `CLAIMED`. A `RECONCILIATION_REQUIRED` attempt may record a possibly earlier broadcast, but finalization still independently requires the canonical receipt block timestamp to be within the stored package window.
+
+**Safety boundary:** no server private key, relayer, or paid service is used. The connected owner wallet signs/sends and pays gas. These Edge Functions and migrations are still isolated draft files; they are not deployed, no wallet was prompted, and no chain transaction was sent by this work.
+
+**CI:** new endpoint composition, browser orchestration, expiry policy, and disposable PostgreSQL tests are included in the isolated workflow. Latest run after these additions is pending; do not treat the implementation as verified until a current full workflow succeeds.
+
+**Still outstanding:** run and repair the complete CI suite after the package-expiry SQL changes; then add the Deal Room UI entrypoint and a user-facing reconciliation/finalization status path. No production integration or deployment is authorized by this work.
