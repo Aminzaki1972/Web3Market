@@ -73,27 +73,6 @@ begin
     '0x2222222222222222222222222222222222222222',7
   );
 
-  -- Pin a real immutable terms version and both party acceptances for the attempt.
-  v_terms := public.w3m_current_deal_terms_json(v_deal);
-  v_terms_result := public.w3m_register_deal_terms_version(v_deal,v_terms_hash,v_terms);
-  if coalesce((v_terms_result->>'terms_version')::bigint,0) <> 1 then
-    raise exception 'Attempt fixture could not register its immutable deal terms';
-  end if;
-  v_acceptance := public.w3m_insert_deal_agreement_acceptance(
-    v_deal,1,'buyer',v_buyer,'0x3333333333333333333333333333333333333333',
-    v_terms_hash,v_terms,'0x' || repeat('1',64),'0x' || repeat('2',130)
-  );
-  if coalesce((v_acceptance->>'accepted')::boolean,false) is not true then
-    raise exception 'Attempt fixture buyer acceptance failed';
-  end if;
-  v_acceptance := public.w3m_insert_deal_agreement_acceptance(
-    v_deal,1,'seller',v_seller,'0x4444444444444444444444444444444444444444',
-    v_terms_hash,v_terms,'0x' || repeat('3',64),'0x' || repeat('4',130)
-  );
-  if coalesce((v_acceptance->>'accepted')::boolean,false) is not true then
-    raise exception 'Attempt fixture seller acceptance failed';
-  end if;
-
   insert into public.w3m_acquisition_reports (
     id,deal_id,project_id,report_version,supersedes_report_id,buyer_id,seller_id,status,engine_version,
     evidence_hash,report_hash,report_payload,signer_key_id,report_signature,issued_at,expires_at
@@ -125,6 +104,27 @@ begin
       'auditFindingCount','0'
     )
   );
+
+  -- Pin a real immutable terms version and both party acceptances for the attempt.
+  v_terms := public.w3m_current_deal_terms_json(v_deal);
+  v_terms_result := public.w3m_register_deal_terms_version(v_deal,v_terms_hash,v_terms);
+  if coalesce((v_terms_result->>'terms_version')::bigint,0) <> 1 then
+    raise exception 'Attempt fixture could not register its immutable deal terms';
+  end if;
+  v_acceptance := public.w3m_insert_deal_agreement_acceptance(
+    v_deal,1,'buyer',v_buyer,'0x3333333333333333333333333333333333333333',
+    v_terms_hash,v_terms,'0x' || repeat('1',64),'0x' || repeat('2',130)
+  );
+  if coalesce((v_acceptance->>'accepted')::boolean,false) is not true then
+    raise exception 'Attempt fixture buyer acceptance failed';
+  end if;
+  v_acceptance := public.w3m_insert_deal_agreement_acceptance(
+    v_deal,1,'seller',v_seller,'0x4444444444444444444444444444444444444444',
+    v_terms_hash,v_terms,'0x' || repeat('3',64),'0x' || repeat('4',130)
+  );
+  if coalesce((v_acceptance->>'accepted')::boolean,false) is not true then
+    raise exception 'Attempt fixture seller acceptance failed';
+  end if;
 
   v_result := public.w3m_claim_safe_execution_attempt(
     v_deal,v_tx,v_report,v_safe_hash,v_actor::text,'attempt-idempotency-key-0001'
