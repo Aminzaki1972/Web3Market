@@ -55,3 +55,13 @@ Deno.test("non-POST request is rejected", async () => {
   assertEquals(response.status, 405);
   assertEquals(authenticated, false);
 });
+
+Deno.test("finalization rejects multi-part bearer credentials before authentication", async () => {
+  let authenticated = false;
+  const response = await handleW3MSafeFinalizationRequest(request({ attempt_id: attemptId }, "valid extra"), {
+    authenticate: async () => { authenticated = true; return actorId; },
+    finalize: async () => ({}),
+  });
+  assertEquals(response.status, 401);
+  assertEquals(authenticated, false);
+});
