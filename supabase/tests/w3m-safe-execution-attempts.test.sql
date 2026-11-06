@@ -12,6 +12,8 @@ declare
   v_report uuid := '40000000-0000-4000-8000-000000000004';
   v_policy uuid := '50000000-0000-4000-8000-000000000005';
   v_attempt uuid;
+  v_actor uuid := '23000000-0000-4000-8000-000000000003';
+  v_package_hash text := repeat('c',64);
   v_result jsonb;
   v_safe_hash text := '0x' || repeat('a', 64);
   v_broadcast_hash text := '0x' || repeat('b', 64);
@@ -69,13 +71,44 @@ begin
   );
 
   v_result := public.w3m_claim_safe_execution_attempt(
-    v_deal,v_tx,v_report,v_safe_hash,'isolated-test-executor','attempt-idempotency-key-0001'
+    v_deal,v_tx,v_report,v_safe_hash,v_actor::text,'attempt-idempotency-key-0001'
   );
   if coalesce((v_result->>'claimed')::boolean,false) is not true
      or coalesce((v_result->>'idempotent_replay')::boolean,true) is not false then
     raise exception 'Initial execution claim did not create a fresh claim';
   end if;
   v_attempt := (v_result->>'attempt_id')::uuid;
+
+  v_result := public.w3m_issue_safe_execution_package(
+    v_attempt,v_actor,v_package_hash,clock_timestamp() + interval '90 seconds'
+  );
+  if coalesce((v_result->>'issued')::boolean,false) is not true
+     or coalesce((v_result->>'idempotent_replay')::boolean,true) is not false
+     or v_result->>'package_hash' <> v_package_hash then
+    raise exception 'Initial connected-wallet package issuance failed';
+  end if;
+
+  v_result := public.w3m_issue_safe_execution_package(
+    v_attempt,v_actor,v_package_hash,clock_timestamp() + interval '90 seconds'
+  );
+  if coalesce((v_result->>'issued')::boolean,false) is not true
+     or coalesce((v_result->>'idempotent_replay')::boolean,false) is not true then
+    raise exception 'Exact unexpired wallet package replay was not idempotent';
+  end if;
+
+  begin
+    perform public.w3m_issue_safe_execution_package(
+      v_attempt,v_actor,repeat('d',64),clock_timestamp() + interval '90 seconds'
+    );
+    raise exception 'Changed wallet package hash was unexpectedly accepted';
+  exception when unique_violation then null;
+  end;
+
+  if has_function_privilege('anon','public.w3m_issue_safe_execution_package(uuid,uuid,text,timestamp with time zone)','EXECUTE')
+     or has_function_privilege('authenticated','public.w3m_issue_safe_execution_package(uuid,uuid,text,timestamp with time zone)','EXECUTE')
+     or not has_function_privilege('service_role','public.w3m_issue_safe_execution_package(uuid,uuid,text,timestamp with time zone)','EXECUTE') then
+    raise exception 'Wallet package issuance RPC privileges are not service-role-only';
+  end if;
 
   v_result := public.w3m_claim_safe_execution_attempt(
     v_deal,v_tx,v_report,v_safe_hash,'isolated-test-executor','attempt-idempotency-key-0001'
