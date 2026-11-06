@@ -7,7 +7,8 @@ import type { AcquisitionEvidence } from "./decision-engine.ts";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SHA1 = /^[0-9a-f]{40}$/i;
 const SHA256 = /^[0-9a-f]{64}$/i;
-const GITHUB_OWNER = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;\nconst GITHUB_REPO = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+const GITHUB_OWNER = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+const GITHUB_REPO = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 
 export interface DealCodeAuditBinding {
   auditId: string;
