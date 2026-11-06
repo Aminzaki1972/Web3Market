@@ -3,6 +3,7 @@ import {
   type W3MReportIssueRequestDependencies,
 } from "./report-issue-request-handler.ts";
 const DEAL = "11111111-1111-4111-8111-111111111111";
+const REPORT = "22222222-2222-4222-8222-222222222222";
 function request(body: unknown, method = "POST", auth = "Bearer valid") {
   return new Request("https://w3m.invalid/report", {
     method,
@@ -17,7 +18,7 @@ function deps(overrides: Partial<W3MReportIssueRequestDependencies> = {}) {
     authorize: async () => { calls.push("authorize"); return true; },
     issue: async () => {
       calls.push("issue");
-      return { reportId: "report-1", reportVersion: 1, decisionStatus: "PASS" };
+      return { reportId: REPORT, reportVersion: 1, decisionStatus: "PASS" };
     },
     ...overrides,
   };
@@ -52,6 +53,7 @@ Deno.test("report issue authorizes before issuing and never authorizes settlemen
   const response = await handleW3MReportIssueRequest(request({ deal_id: DEAL }), d.value);
   const body = await response.json();
   if (response.status !== 200 || d.calls.join(",") !== "auth,authorize,issue") throw new Error("issuance order failed");
+  if (body.report_id !== REPORT) throw new Error("report UUID was not returned");
   if (body.settlement_authorized !== false || body.execution_enabled !== false) throw new Error("issuance crossed settlement boundary");
 });
 Deno.test("report issue denies unauthorized actors", async () => {
@@ -70,10 +72,21 @@ Deno.test("report issue rejects malformed service output", async () => {
   const response = await handleW3MReportIssueRequest(request({ deal_id: DEAL }), d.value);
   if (response.status !== 503) throw new Error("malformed service output accepted");
 });
-Deno.test("report issue rejects unknown decision status from service", async () => {
+Deno.test("report issue rejects a non-UUID report identity", async () => {
   const d = deps({
     issue: async () => ({
       reportId: "report-1",
+      reportVersion: 1,
+      decisionStatus: "PASS",
+    } as unknown as Awaited<ReturnType<W3MReportIssueRequestDependencies["issue"]>>),
+  });
+  const response = await handleW3MReportIssueRequest(request({ deal_id: DEAL }), d.value);
+  if (response.status !== 503) throw new Error("non-UUID report identity accepted");
+});
+Deno.test("report issue rejects unknown decision status from service", async () => {
+  const d = deps({
+    issue: async () => ({
+      reportId: REPORT,
       reportVersion: 1,
       decisionStatus: "APPROVED",
     } as unknown as Awaited<ReturnType<W3MReportIssueRequestDependencies["issue"]>>),
