@@ -13,6 +13,7 @@ Deno.test("fresh Deal Room read failure denies PREPARE and blocks protected acti
   );
   const result = await executeSafePhaseOnlyAfterW3M(
     "PREPARE",
+    { dealId: "deal-1" },
     async () => authorization,
     async () => { actionCount += 1; },
   );
@@ -32,6 +33,7 @@ Deno.test("EXECUTE read failure remains denied and preserves exact phase binding
   );
   const result = await executeSafePhaseOnlyAfterW3M(
     "EXECUTE",
+    { dealId: "deal-1", safeTransactionHash: hash },
     async () => authorization,
     async () => "broadcast",
   );
@@ -70,6 +72,7 @@ Deno.test("missing deal context denies without calling the protected action", as
   );
   const result = await executeSafePhaseOnlyAfterW3M(
     "PREPARE",
+    { dealId: "" },
     async () => authorization,
     async () => { actionCount += 1; },
   );
