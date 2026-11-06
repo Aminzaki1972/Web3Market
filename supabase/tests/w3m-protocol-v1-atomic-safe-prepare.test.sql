@@ -72,6 +72,22 @@ begin
     where deal_id=v_deal_id and action='release_policy_locked';
   if audit_count<>1 then raise exception 'Idempotent retry duplicated audit record'; end if;
 
+  policy := jsonb_set(policy,'{token_contract}','"0x5555555555555555555555555555555555555555"'::jsonb);
+  begin
+    perform public.w3m_commit_safe_prepare(v_deal_id,actor_id,policy,safe_facts,auth);
+    raise exception 'Non-canonical token contract unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+  policy := jsonb_set(policy,'{token_contract}','"0x55d398326f99059ff775485246999027b3197955"'::jsonb);
+
+  update public.deals set dispute_status=null where id=v_deal_id;
+  begin
+    perform public.w3m_commit_safe_prepare(v_deal_id,actor_id,policy,safe_facts,auth);
+    raise exception 'Null dispute state unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+  update public.deals set dispute_status='none' where id=v_deal_id;
+
   update public.deal_multisig_transactions set status='signed'
    where deal_id=v_deal_id and action='release_to_seller';
   result := public.w3m_commit_safe_prepare(v_deal_id,actor_id,policy,safe_facts,auth);
