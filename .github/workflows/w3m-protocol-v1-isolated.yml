@@ -10,6 +10,7 @@ on:
       - "supabase/migrations/20261106240000_w3m_protocol_v1_safe_execution_finalizer.sql"
       - "supabase/migrations/20261107010000_w3m_protocol_v1_dealroom_terms_reader.sql"
       - "supabase/migrations/20261107020000_w3m_protocol_v1_safe_finalization_snapshot_reader.sql"
+      - "supabase/migrations/20261107020000_w3m_protocol_v1_safe_finalization_snapshot_reader.sql"
       - "supabase/tests/w3m-safe-execution-attempts-fixture.sql"
       - "supabase/tests/w3m-safe-execution-attempts.test.sql"
       - "supabase/tests/w3m-protocol-v1-schema.test.sql"
@@ -27,6 +28,7 @@ on:
       - "supabase/migrations/20261106230000_w3m_protocol_v1_safe_execution_attempts.sql"
       - "supabase/migrations/20261106240000_w3m_protocol_v1_safe_execution_finalizer.sql"
       - "supabase/migrations/20261107010000_w3m_protocol_v1_dealroom_terms_reader.sql"
+      - "supabase/migrations/20261107020000_w3m_protocol_v1_safe_finalization_snapshot_reader.sql"
       - "supabase/tests/w3m-dealroom-terms-reader-fixture.sql"
       - "supabase/tests/w3m-dealroom-terms-reader.test.sql"
       - "supabase/tests/w3m-safe-execution-attempts-fixture.sql"
@@ -105,6 +107,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/safe-handler-w3m-authorizer.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-finalization-guard.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-finalization-guard.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-snapshot-adapter.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-snapshot-adapter.test.ts
           deno check supabase/functions/w3m-acquisition-verification/bnb-safe-receipt-verifier.ts
           deno check supabase/functions/w3m-acquisition-verification/bnb-safe-receipt-verifier.test.ts
       - name: Test decision engine
@@ -155,6 +159,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/dealroom-w3m-service.test.ts
       - name: Test strict Deal Room row adapter
         run: deno test supabase/functions/w3m-acquisition-verification/dealroom-supabase-adapter.test.ts
+      - name: Test Safe finalization snapshot adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-finalization-snapshot-adapter.test.ts
       - name: Test raw BNB Safe receipt verifier
         run: deno test supabase/functions/w3m-acquisition-verification/bnb-safe-receipt-verifier.test.ts
       - name: Test Safe finalization receipt guard
@@ -184,6 +190,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261106230000_w3m_protocol_v1_safe_execution_attempts.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261106240000_w3m_protocol_v1_safe_execution_finalizer.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107020000_w3m_protocol_v1_safe_finalization_snapshot_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107010000_w3m_protocol_v1_dealroom_terms_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107020000_w3m_protocol_v1_safe_finalization_snapshot_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-schema.test.sql
