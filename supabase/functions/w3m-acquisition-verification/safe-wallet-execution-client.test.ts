@@ -37,6 +37,8 @@ function pkg() {
     agreementTermsVersionId: "84000000-0000-4000-8000-000000000004",
     agreementTermsHash: "f".repeat(64),
     safeAddress: SAFE,
+    executorWallet: OWNER,
+    safeOwners: [OWNER, "0x3333333333333333333333333333333333333333"],
     safeTransactionHash: HASH,
     safeVersion: "1.4.1",
     readBlockNumber: "90000000",
