@@ -4,6 +4,7 @@ import { keccak_256 } from "jsr:@noble/hashes@1.7.1/sha3";
 import type { JsonRpcClient } from "./bnb-revenue-adapter.ts";
 import { finalizeOnlyAfterVerifiedSafeReceipt } from "./safe-finalization-guard.ts";
 import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
+import { loadSafeFinalizationExpectation } from "./safe-finalization-snapshot-adapter.ts";
 import type {
   SafeFinalizationExpectation,
   VerifiedSafeReceiptEvidence,
@@ -211,4 +212,18 @@ export async function finalizeBnbSafeReleaseAfterRpcVerification(
     expected,
     () => verifyBnbSafeReleaseReceipt(bnbRpc, expected),
   );
+}
+
+/** Fresh database snapshot -> raw BNB receipt verification -> atomic finalizer. */
+export async function finalizeBnbSafeReleaseFromFreshSnapshot(
+  database: W3MRpcClient,
+  bnbRpc: JsonRpcClient,
+  input: {
+    attemptId: string;
+    actorId: string;
+    minConfirmations: number;
+  },
+) {
+  const expected = await loadSafeFinalizationExpectation(database, input);
+  return await finalizeBnbSafeReleaseAfterRpcVerification(database, bnbRpc, expected);
 }
