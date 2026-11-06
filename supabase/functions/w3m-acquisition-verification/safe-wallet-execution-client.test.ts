@@ -2,6 +2,7 @@ import { assertEquals, assertRejects } from "jsr:@std/assert@1";
 import {
   encodeSafeExecTransactionCalldata,
   submitSafeWalletExecutionPackage,
+  executeW3MDealReleaseFromWallet,
 } from "../../../js/w3m-safe-wallet-execution-client.js";
 
 const SAFE = "0x1111111111111111111111111111111111111111";
@@ -128,4 +129,74 @@ Deno.test("blocks wrong chain, wrong signer, changed nonce, expired package, and
     provider: mismatchWallet, package: value, expectedPackageHash: "c".repeat(64),
   }));
   assertEquals(mismatchWallet.calls.some((call) => call.method === "eth_sendTransaction"), false);
+});
+
+
+Deno.test("orchestrates package issuance, connected-wallet submission, and unverified hash persistence", async () => {
+  const value = pkg();
+  const packageHash = await hash(value);
+  const urls: string[] = [];
+  let submissionBody: Record<string, unknown> | null = null;
+  const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    urls.push(url);
+    if (url.endsWith("/w3m-protocol-v1-safe-wallet-package")) {
+      assertEquals(init?.method, "POST");
+      assertEquals((init?.headers as Record<string, string>)?.Authorization, "Bearer test-access-token");
+      return new Response(JSON.stringify({
+        ok: true, state: "PACKAGE_ISSUED",
+        attempt_id: "24000000-0000-4000-8000-000000000004",
+        package_hash: packageHash, package: value,
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (url.endsWith("/w3m-protocol-v1-safe-wallet-submit")) {
+      submissionBody = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({
+        ok: true, state: "BROADCAST_UNVERIFIED",
+        transaction_hash: OUTER_HASH, receipt_verified: false, finalized: false,
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    throw new Error("Unexpected endpoint");
+  };
+  const wallet = provider();
+  const result = await executeW3MDealReleaseFromWallet({
+    provider: wallet,
+    dealId: value.dealId,
+    accessToken: "test-access-token",
+    supabaseUrl: "https://project.supabase.co",
+    fetchImpl,
+  });
+  assertEquals(result.state, "BROADCAST_UNVERIFIED");
+  assertEquals(result.transactionHash, OUTER_HASH);
+  assertEquals(result.receiptVerified, false);
+  assertEquals(result.finalized, false);
+  assertEquals(urls.length, 2);
+  assertEquals(submissionBody?.attempt_id, "24000000-0000-4000-8000-000000000004");
+  assertEquals(submissionBody?.package_hash, packageHash);
+  assertEquals(submissionBody?.transaction_hash, OUTER_HASH);
+});
+
+Deno.test("preserves the wallet hash for reconciliation if submission-hash persistence fails", async () => {
+  const value = pkg();
+  const packageHash = await hash(value);
+  let calls = 0;
+  const result = await executeW3MDealReleaseFromWallet({
+    provider: provider(),
+    dealId: value.dealId,
+    accessToken: "test-access-token",
+    supabaseUrl: "https://project.supabase.co",
+    fetchImpl: async () => {
+      calls++;
+      if (calls === 1) return new Response(JSON.stringify({
+        ok: true, state: "PACKAGE_ISSUED",
+        attempt_id: "24000000-0000-4000-8000-000000000004",
+        package_hash: packageHash, package: value,
+      }), { status: 200 });
+      throw new Error("simulated network loss after wallet submission");
+    },
+  });
+  assertEquals(result.state, "SUBMITTED_UNRECORDED");
+  assertEquals(result.transactionHash, OUTER_HASH);
+  assertEquals(result.receiptVerified, false);
+  assertEquals(result.finalized, false);
 });
