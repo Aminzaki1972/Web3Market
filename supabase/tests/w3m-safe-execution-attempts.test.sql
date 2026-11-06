@@ -82,6 +82,23 @@ begin
   end if;
   v_attempt := (v_result->>'attempt_id')::uuid;
 
+  begin
+    perform public.w3m_claim_safe_execution_attempt(
+      v_deal,v_tx,v_report,v_safe_hash,v_seller::text,'attempt-idempotency-key-0001'
+    );
+    raise exception 'A different deal participant reused another actor idempotency claim';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    perform public.w3m_claim_safe_execution_attempt(
+      v_deal,v_tx,v_report,v_safe_hash,'23000000-0000-4000-8000-000000000003',
+      'attempt-idempotency-key-0002'
+    );
+    raise exception 'A non-participant was unexpectedly allowed to claim Safe execution';
+  exception when insufficient_privilege then null;
+  end;
+
   v_package_expiry := clock_timestamp() + interval '90 seconds';
   v_package := jsonb_build_object(
     'protocol','W3M_PROTOCOL_V1',
@@ -130,7 +147,7 @@ begin
   end if;
 
   v_result := public.w3m_claim_safe_execution_attempt(
-    v_deal,v_tx,v_report,v_safe_hash,'isolated-test-executor','attempt-idempotency-key-0001'
+    v_deal,v_tx,v_report,v_safe_hash,v_actor::text,'attempt-idempotency-key-0001'
   );
   if coalesce((v_result->>'idempotent_replay')::boolean,false) is not true
      or (v_result->>'attempt_id')::uuid <> v_attempt then
@@ -200,7 +217,7 @@ begin
   update public.deal_multisig_transactions set status='submitted',tx_hash=v_broadcast_hash where id=v_tx;
 
   v_result := public.w3m_claim_safe_execution_attempt(
-    v_deal,v_tx,v_report,v_safe_hash,'isolated-test-executor','attempt-idempotency-key-0001'
+    v_deal,v_tx,v_report,v_safe_hash,v_actor::text,'attempt-idempotency-key-0001'
   );
   if coalesce((v_result->>'idempotent_replay')::boolean,false) is not true
      or (v_result->>'attempt_id')::uuid <> v_attempt then
