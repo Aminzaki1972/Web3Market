@@ -82,3 +82,21 @@ Deno.test("blank expected deal binding blocks protected action before authorizat
   assertEquals(authorizationCalls, 0);
   assertEquals(actionCount, 0);
 });
+
+
+Deno.test("FINALIZE is never authorized by the pre-execution phase boundary", async () => {
+  let authorizationCalls = 0;
+  let actionCalls = 0;
+  const result = await executeSafePhaseOnlyAfterW3M(
+    "FINALIZE", { dealId: deal, safeTransactionHash: hash },
+    async () => {
+      authorizationCalls += 1;
+      return { authorized: true, issues: [], phase: "FINALIZE", dealId: deal, safeTransactionHash: hash };
+    },
+    async () => { actionCalls += 1; },
+  );
+  assertEquals(result.allowed, false);
+  assertEquals(result.authorization.issues, ["W3M_FINALIZE_REQUIRES_VERIFIED_RECEIPT_PATH"]);
+  assertEquals(authorizationCalls, 0);
+  assertEquals(actionCalls, 0);
+});
