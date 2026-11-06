@@ -166,20 +166,21 @@ Deno.test("wallet package issuance persists the exact actor, package hash, and e
   const attemptId = "24000000-0000-4000-8000-000000000004";
   const packageHash = "c".repeat(64);
   const expiresAt = "2026-11-06T23:59:00.000Z";
+  const pkg = { protocol: "W3M_PROTOCOL_V1", expiresAt, dealId: "deal-1" };
   const client: W3MRpcClient = {
     async rpc(name, args) {
       calls.push({ name, args });
       return { data: {
         issued: true, idempotent_replay: false, attempt_id: attemptId,
-        package_hash: packageHash, expires_at: expiresAt,
+        package_hash: packageHash, expires_at: expiresAt, package: pkg,
       }, error: null };
     },
   };
   const result = await issueSafeWalletExecutionPackage(client, {
-    attemptId, actorId, packageHash, expiresAt,
+    attemptId, actorId, packageHash, package: pkg, expiresAt,
   });
   assertEquals(result, {
-    attemptId, packageHash, expiresAt, idempotentReplay: false,
+    attemptId, packageHash, expiresAt, package: pkg, idempotentReplay: false,
   });
   assertEquals(calls[0]?.name, "w3m_issue_safe_execution_package");
   assertEquals(calls[0]?.args.p_actor_id, actorId);
@@ -196,7 +197,7 @@ Deno.test("wallet package issuance rejects mismatched or malformed values before
   };
   await assertRejects(() => issueSafeWalletExecutionPackage(client, {
     attemptId: "attempt-1", actorId: "not-a-uuid", packageHash: "x".repeat(64),
-    expiresAt: "not-a-date",
+    package: { protocol: "W3M_PROTOCOL_V1" }, expiresAt: "not-a-date",
   }));
   assertEquals(calls, 0);
 });
