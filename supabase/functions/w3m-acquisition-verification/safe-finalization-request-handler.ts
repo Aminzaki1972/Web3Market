@@ -18,7 +18,7 @@ export async function handleW3MSafeFinalizationRequest(
 ): Promise<Response> {
   if (request.method !== "POST") return json(405, { ok: false, error: "POST_REQUIRED" });
   const authorization = request.headers.get("authorization") ?? "";
-  const match = /^Bearer\\s+(.+)$/i.exec(authorization);
+  const match = /^Bearer\s+(.+)$/i.exec(authorization);
   if (!match?.[1]?.trim()) return json(401, { ok: false, error: "AUTHENTICATION_REQUIRED" });
   let actorId: string | null;
   try { actorId = await dependencies.authenticate(match[1].trim()); }
