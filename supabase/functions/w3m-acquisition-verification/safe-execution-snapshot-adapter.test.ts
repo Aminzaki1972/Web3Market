@@ -281,3 +281,19 @@ Deno.test("snapshot rejects canonical terms drift after both parties signed", as
   };
   await assertRejects(() => loadSafeExecutionDatabaseSnapshot(client(drifted), dealId));
 });
+
+Deno.test("SIGN snapshot permits an awaiting-signatures transaction without weakening EXECUTE", async () => {
+  const pending = {
+    ...snapshot,
+    release_transactions: [{
+      ...snapshot.release_transactions[0],
+      status: "awaiting_signatures",
+      confirmations_count: 0,
+    }],
+    signers: [],
+  };
+  const sign = await loadSafeExecutionDatabaseSnapshot(client(pending), dealId, "SIGN");
+  assertEquals(sign.releaseTransaction.status, "awaiting_signatures");
+  assertEquals(sign.blockers.includes("SAFE_SIGNATURES_BELOW_THRESHOLD"), false);
+  await assertRejects(() => loadSafeExecutionDatabaseSnapshot(client(pending), dealId, "EXECUTE"));
+});
