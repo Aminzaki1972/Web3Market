@@ -19,6 +19,15 @@ The existing migration `20261107065000_w3m_protocol_v1_dealroom_code_audit_snaps
 
 A server-only TypeScript persistence boundary has now been added at `deal-audit-snapshot-persistence.ts`. It accepts a previously recomputed Manifest V1 and strict audit binding, calls the planned `w3m_create_deal_code_audit_snapshot` RPC with only deal/audit identity and computed manifest facts, and validates the exact persisted response. Its unit tests and workflow checks are included. The SQL table/RPC, signing-reader integration, and zero-prior-report regression test are still pending; this adapter is not production-usable until those pieces exist.
 
+A pre-agreement orchestration service has now been added at `deal-audit-snapshot-service.ts`. It asks a trusted context RPC to select the audit for the exact deal/project, loads the complete source manifest through the existing paginated loader, validates the audit's project identity and repository URL against the authoritative project listing, and then calls the persistence boundary. It does not query acquisition reports. Tests cover the no-report path, project/repository mismatch, cross-project audit mismatch, and context RPC failure. The manifest loader now returns the exact audit row alongside its computed digest so the same source row is used to build the immutable binding.
+
+The required SQL RPC contracts are now explicit:
+- `w3m_read_deal_audit_snapshot_context(p_deal_id)` returns exactly `deal_id`, `project_id`, `project_github_url`, and a server-selected `audit_id` for a completed audit on that project.
+- `w3m_create_deal_code_audit_snapshot(...)` rechecks deal/project/audit identity and persisted source counts in one transaction, inserts an immutable versioned snapshot, and returns the persisted source identity and manifest facts. The RPC must not accept client-selected repository/commit/hash/counts as authority; the only hash/count values it accepts are those produced by the trusted Edge Function, and it must verify the source row and counts itself.
+- `w3m_current_deal_code_audit_json(p_deal_id)` must read this snapshot registry, not an acquisition report. Both agreement term registration and acceptance must re-read the same snapshot binding, with report issuance remaining downstream of both signatures.
+
+The orchestration code and tests are not end-to-end complete until these SQL contracts exist and the agreement signing RPC consumes the saved snapshot. No database migration has been added or applied in this continuation.
+
 ## Registry model
 
 Introduce one server-only append-only registry, provisionally named `w3m_deal_code_audit_snapshots`, with:
