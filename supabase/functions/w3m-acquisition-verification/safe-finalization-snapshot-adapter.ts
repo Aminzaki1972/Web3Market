@@ -75,8 +75,7 @@ export async function loadSafeFinalizationExpectation(
   hashField(row, "package_hash");
   const packageIssuedAt = textField(row, "package_issued_at");
   const packageExpiresAt = textField(row, "package_expires_at");
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(packageActorId) ||
-      (packageActorId !== buyerId && packageActorId !== sellerId) ||
+  if (packageActorId !== buyerId && packageActorId !== sellerId ||
       !Number.isFinite(Date.parse(packageIssuedAt)) ||
       !Number.isFinite(Date.parse(packageExpiresAt)) ||
       Date.parse(packageExpiresAt) <= Date.parse(packageIssuedAt)) {
