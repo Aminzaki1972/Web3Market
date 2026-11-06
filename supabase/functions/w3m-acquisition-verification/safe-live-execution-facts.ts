@@ -78,6 +78,13 @@ export async function readAndVerifySafeLiveExecutionFacts(
   if (!safeAddress || !expectedSafeAddress || safeAddress !== expectedSafeAddress) {
     issues.push("SAFE_ADDRESS_MISMATCH");
   }
+  const tx = expected.transaction;
+  if (!tx || !address(tx.to) || !address(tx.gasToken) || !address(tx.refundReceiver) ||
+      typeof tx.data !== "string" || !/^0x(?:[0-9a-fA-F]{2})*$/.test(tx.data) ||
+      (tx.operation !== 0 && tx.operation !== 1) ||
+      [tx.value, tx.safeTxGas, tx.baseGas, tx.gasPrice, tx.nonce].some((value) => uint(value) === null)) {
+    issues.push("SAFE_TRANSACTION_FIELDS_INVALID");
+  }
 
   const expectedOwners = expected.expectedOwners.map(address);
   if (expectedOwners.length === 0 || expectedOwners.some((owner) => owner === null) ||
@@ -93,7 +100,7 @@ export async function readAndVerifySafeLiveExecutionFacts(
   let version: string | null = null;
   let recomputedSafeTransactionHash: string | null = null;
 
-  if (safeAddress) {
+  if (safeAddress && !issues.includes("SAFE_TRANSACTION_FIELDS_INVALID")) {
     try {
       const [chain, bytecode, currentOwners, currentThreshold, currentNonce, currentVersion, txHash] =
         await Promise.all([
@@ -126,7 +133,7 @@ export async function readAndVerifySafeLiveExecutionFacts(
   }
 
   if (chainId !== expected.expectedChainId) issues.push("SAFE_CHAIN_ID_MISMATCH");
-  if (typeof code !== "string" || !/^0x[0-9a-fA-F]*[1-9a-fA-F][0-9a-fA-F]*$/.test(code)) {
+  if (typeof code !== "string" || !/^0x(?:[0-9a-fA-F]{2})+$/.test(code)) {
     issues.push("SAFE_CONTRACT_CODE_MISSING");
   }
 
