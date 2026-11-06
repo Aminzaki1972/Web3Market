@@ -110,9 +110,10 @@ begin
 
   if position('PUBLIC.DEAL_DISPUTES' in upper(v_finalizer)) = 0
      or position('NOT IN (''RESOLVED'',''CLOSED'')' in upper(v_finalizer)) = 0
+     or position('V_DEAL.DISPUTE_STATUS IS DISTINCT FROM ''NONE''' in upper(v_finalizer)) = 0
      or position('PUBLIC.DEAL_DISPUTES' in upper(v_finalizer)) >
         position('UPDATE PUBLIC.DEAL_MULTISIG_TRANSACTIONS' in upper(v_finalizer)) then
-    raise exception 'W3M finalizer must reject active or unresolved disputes before settlement';
+    raise exception 'W3M finalizer must reject active, unresolved, or unclassified dispute state before settlement';
   end if;
 
   if to_regprocedure('public.w3m_lock_deal_dispute_mutation()') is null
