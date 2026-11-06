@@ -152,6 +152,9 @@ begin
     )
   );
 
+  execute 'set constraints w3m_acquisition_report_requires_signed_deal_terms immediate';
+  execute 'set constraints w3m_acquisition_report_requires_signed_deal_terms deferred';
+
   v_result := public.w3m_claim_safe_execution_attempt(
     v_deal,v_tx,v_report,v_safe_hash,v_actor::text,'attempt-idempotency-key-0001'
   );
