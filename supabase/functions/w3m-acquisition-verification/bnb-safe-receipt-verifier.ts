@@ -2,6 +2,8 @@
 // It verifies raw RPC receipt/log data; it never broadcasts or signs transactions.
 import { keccak_256 } from "jsr:@noble/hashes@1.7.1/sha3";
 import type { JsonRpcClient } from "./bnb-revenue-adapter.ts";
+import { finalizeOnlyAfterVerifiedSafeReceipt } from "./safe-finalization-guard.ts";
+import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
 import type {
   SafeFinalizationExpectation,
   VerifiedSafeReceiptEvidence,
@@ -27,9 +29,7 @@ export class BnbSafeReceiptVerificationError extends Error {
   }
 }
 
-export interface BnbSafeReceiptExpectation extends SafeFinalizationExpectation {
-  minConfirmations: number;
-}
+export interface BnbSafeReceiptExpectation extends SafeFinalizationExpectation {}
 
 interface RpcLog {
   address?: unknown;
@@ -198,4 +198,17 @@ export async function verifyBnbSafeReleaseReceipt(
     transfers,
     confirmations: Number(head - blockNumber + 1n),
   } as VerifiedSafeReceiptEvidence;
+}
+
+/** Complete server-side read -> verify -> atomic-finalization composition. */
+export async function finalizeBnbSafeReleaseAfterRpcVerification(
+  database: W3MRpcClient,
+  bnbRpc: JsonRpcClient,
+  expected: BnbSafeReceiptExpectation,
+) {
+  return await finalizeOnlyAfterVerifiedSafeReceipt(
+    database,
+    expected,
+    () => verifyBnbSafeReleaseReceipt(bnbRpc, expected),
+  );
 }
