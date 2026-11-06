@@ -46,3 +46,14 @@ Deno.test("PREPARE HTTP boundary permits only POST",async()=>{
  });
  assertEquals(response.status,405);
 });
+
+Deno.test("PREPARE rejects multi-part bearer credentials before authentication",async()=>{
+ let authenticated=false;
+ const response=await handleW3MPrelockPrepareRequest(req({deal_id:DEAL},"valid extra"),{
+  async authenticate(){authenticated=true;return ACTOR;},
+  async buildServerContext(){throw new Error("must not run");},
+  now(){return "2026-11-06T00:00:00Z";},
+ });
+ assertEquals(response.status,401);
+ assertEquals(authenticated,false);
+});
