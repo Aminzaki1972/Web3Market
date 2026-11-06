@@ -29,7 +29,7 @@ function manifestFrom(table:string) {
  const query:any={
   select:()=>query,eq:()=>query,order:()=>query,limit:()=>query,
   range:(from:number,to:number)=>{query.page=rows.slice(from,to+1);return query;},
-  maybeSingle:async()=>({data:auditRow,error:null}),
+  maybeSingle:async()=>({data:table==="code_audits"?auditRow:null,error:null}),
   then:(resolve:any,reject:any)=>Promise.resolve({data:query.page??rows,error:null}).then(resolve,reject),
  };
  return {select:()=>query};
