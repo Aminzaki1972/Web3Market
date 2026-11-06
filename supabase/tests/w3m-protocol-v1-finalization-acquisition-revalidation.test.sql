@@ -106,5 +106,11 @@ begin
         position('UPDATE PUBLIC.DEAL_MULTISIG_TRANSACTIONS' in upper(v_finalizer)) then
     raise exception 'W3M finalizer must lock and revalidate current project ownership before settlement';
   end if;
+
+  if position('V_DEAL.DISPUTE_STATUS IS DISTINCT FROM ''NONE''' in upper(v_finalizer)) = 0
+     or position('V_DEAL.DISPUTE_STATUS IS DISTINCT FROM ''NONE''' in upper(v_finalizer)) >
+        position('UPDATE PUBLIC.DEAL_MULTISIG_TRANSACTIONS' in upper(v_finalizer)) then
+    raise exception 'W3M finalizer must reject active or unresolved disputes before settlement';
+  end if;
 end;
 $test$;
