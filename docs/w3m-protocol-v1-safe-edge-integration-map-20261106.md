@@ -854,3 +854,15 @@ The receipt/finalization path now also reads the canonical BNB receipt block tim
 **CI:** the isolated workflow now includes the wallet ABI client, package request handler, submission-hash boundary, RPC adapters, receipt-time checks, and disposable PostgreSQL tests. Latest workflow run at this documentation update: https://github.com/Aminzaki1972/Web3Market/actions/runs/42188374442 — pending. Do not mark these changes CI-verified until a current run succeeds.
 
 **Still outstanding:** a concrete isolated Supabase Edge Function composition for package issuance and submission, the Deal Room wallet UI, and end-to-end server composition wiring to the existing FINALIZE endpoint. No production migration/function was deployed, no wallet was prompted by this work, and no transaction was broadcast by ChatGPT.
+
+
+## 47. Isolated connected-wallet Edge Function composition and SQL hardening — 2026-11-06
+
+Added two separate isolated Edge Function directories:
+
+- `supabase/functions/w3m-protocol-v1-safe-wallet-package/index.ts` authenticates the session, loads the authoritative Deal Room/Safe snapshot and latest signed W3M report, recovers both immutable EIP-712 party acceptances, reads canonical BNB Safe facts at a pinned block, and issues a short-lived one-use package through the service-role-only RPC. A request-local `WeakMap` binds the exact fresh snapshot to its canonical live facts; no browser facts are accepted.
+- `supabase/functions/w3m-protocol-v1-safe-wallet-submit/index.ts` authenticates the session and records only the outer transaction hash against the exact package actor/hash. Its response remains explicitly unverified; receipt verification and atomic FINALIZE remain separate.
+
+Rebuilt `20261107090000_w3m_protocol_v1_wallet_package_issuance.sql` after detecting malformed SQL introduced during an earlier edit. The corrected migration now has clean function boundaries, service-role-only grants, immutable package issuance, exact actor/package-hash binding, package expiry enforcement at submission, and idempotent replay for the same outer transaction hash. The PostgreSQL suite now tests actor substitution, package-hash substitution, expired package rejection, successful submission, replay, and RPC privileges.
+
+**Verification status:** CI is rerunning against the corrected SQL and both isolated Edge Function entrypoints. Do not treat the current code as verified until the latest workflow finishes green. These two Edge Functions and all draft migrations remain undeployed. The Deal Room browser UI and end-to-end user-facing wallet flow are still outstanding.
