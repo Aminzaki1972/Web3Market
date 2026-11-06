@@ -113,6 +113,7 @@ function array(value: unknown, label: string): unknown[] {
 export async function loadSafeExecutionDatabaseSnapshot(
   client: W3MRpcClient,
   dealId: string,
+  phase: "SIGN" | "EXECUTE" = "EXECUTE",
 ): Promise<SafeExecutionDatabaseSnapshot> {
   if (!UUID.test(dealId)) throw new Error("A valid deal UUID is required.");
   const { data, error } = await client.rpc("w3m_read_safe_execution_snapshot", {
@@ -159,7 +160,8 @@ export async function loadSafeExecutionDatabaseSnapshot(
   const releaseTransaction = object(txRows[0], "release transaction");
   if (text(releaseTransaction.deal_id, "transaction deal ID") !== dealId ||
       releaseTransaction.action !== "release_to_seller" ||
-      releaseTransaction.status !== "signed" ||
+      (phase === "EXECUTE" && releaseTransaction.status !== "signed") ||
+      (phase === "SIGN" && releaseTransaction.status !== "awaiting_signatures" && releaseTransaction.status !== "signed") ||
       !HASH.test(text(releaseTransaction.safe_tx_hash, "Safe transaction hash")) ||
       releaseTransaction.chain_id !== "56" ||
       text(releaseTransaction.safe_address, "transaction Safe address").toLowerCase() !==
@@ -411,7 +413,7 @@ export async function loadSafeExecutionDatabaseSnapshot(
   if (text(project.owner_id, "project owner ID") !== text(deal.seller_id, "deal seller ID")) {
     blockers.push("PROJECT_OWNER_SELLER_MISMATCH");
   }
-  if (signers.length < 2) blockers.push("SAFE_SIGNATURES_BELOW_THRESHOLD");
+  if (phase === "EXECUTE" && signers.length < 2) blockers.push("SAFE_SIGNATURES_BELOW_THRESHOLD");
 
   return {
     deal,
