@@ -18,7 +18,7 @@ export interface CodeAuditSourceRow {
   completed_at: unknown;
   overall_score: unknown;
   risk_level: unknown;
-  engine_version?: unknown;
+  analysis_method?: unknown;
 }
 
 export interface CodeAuditEvidenceExpectation {
@@ -83,8 +83,8 @@ export async function selectCodeAuditEvidence(
   if (!Number.isFinite(score) || score < 0 || score > 100) {
     return fail("The selected Code Audit score is invalid.");
   }
-  const engineVersion = text(row.engine_version);
-  if (!engineVersion) return fail("The selected Code Audit engine version is missing.");
+  const analysisMethod = text(row.analysis_method);
+  if (!analysisMethod) return fail("The selected Code Audit analysis method is missing.");
 
   const snapshot = {
     auditId: text(row.id),
@@ -97,7 +97,7 @@ export async function selectCodeAuditEvidence(
     completedAt: new Date(completedMs).toISOString(),
     overallScore: score,
     riskLevel: text(row.risk_level),
-    engineVersion,
+    analysisMethod,
   };
   const canonical = JSON.stringify(Object.fromEntries(
     Object.entries(snapshot).sort(([a], [b]) => a.localeCompare(b)),
@@ -124,7 +124,7 @@ export async function selectCodeAuditEvidence(
       repositoryName: snapshot.repositoryName,
       overallScore: snapshot.overallScore,
       riskLevel: snapshot.riskLevel,
-      engineVersion: snapshot.engineVersion,
+      analysisMethod: snapshot.analysisMethod,
       completedAt: snapshot.completedAt,
     },
   };
