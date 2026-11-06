@@ -4,6 +4,7 @@ import { keccak_256 } from "jsr:@noble/hashes@1.7.1/sha3";
 import type { JsonRpcClient } from "./bnb-revenue-adapter.ts";
 import { finalizeOnlyAfterVerifiedSafeReceipt } from "./safe-finalization-guard.ts";
 import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
+import type { W3MRegistryReadClient } from "./persisted-report-loader.ts";
 import { loadSafeFinalizationExpectation } from "./safe-finalization-snapshot-adapter.ts";
 import { verifySafeFinalizationAcquisitionBundle } from "./safe-finalization-acquisition-adapter.ts";
 import type {
@@ -231,7 +232,7 @@ export async function finalizeBnbSafeReleaseAfterRpcVerification(
 
 /** Fresh database snapshot -> raw BNB receipt verification -> atomic finalizer. */
 export async function finalizeBnbSafeReleaseFromFreshSnapshot(
-  database: W3MRpcClient,
+  database: W3MRpcClient & W3MRegistryReadClient,
   bnbRpc: JsonRpcClient,
   input: {
     attemptId: string;
