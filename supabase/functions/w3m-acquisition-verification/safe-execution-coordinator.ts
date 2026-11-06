@@ -21,7 +21,7 @@ export interface SafeExecutionFreshSnapshot {
    * The loader must populate this only from loadSafeExecutionDatabaseSnapshot,
    * which independently recovers both party signatures against current wallets.
    */
-  agreementBinding: {
+  agreementBinding?: {
     termsVersionId: string;
     termsVersion: string;
     termsHash: string;
@@ -196,19 +196,23 @@ export async function executeW3MSafeRelease(
   }
 
   const reauthorization = await authorize(fresh, dependencies.verifySignature);
+  const firstAgreement = first.agreementBinding;
+  const freshAgreement = fresh.agreementBinding;
+  const sameAgreement = !!firstAgreement && !!freshAgreement &&
+    freshAgreement.termsVersionId === firstAgreement.termsVersionId &&
+    freshAgreement.termsVersion === firstAgreement.termsVersion &&
+    freshAgreement.termsHash.toLowerCase() === firstAgreement.termsHash.toLowerCase() &&
+    freshAgreement.buyerAcceptanceId === firstAgreement.buyerAcceptanceId &&
+    freshAgreement.sellerAcceptanceId === firstAgreement.sellerAcceptanceId &&
+    freshAgreement.buyerDigest.toLowerCase() === firstAgreement.buyerDigest.toLowerCase() &&
+    freshAgreement.sellerDigest.toLowerCase() === firstAgreement.sellerDigest.toLowerCase();
   const sameBinding = fresh.dealId === first.dealId &&
     fresh.transactionId === first.transactionId &&
     fresh.reportId === first.reportId &&
     fresh.reportVersion === first.reportVersion &&
     safeHash(fresh).toLowerCase() === safeHash(first).toLowerCase() &&
     fresh.idempotencyKey === first.idempotencyKey &&
-    fresh.agreementBinding.termsVersionId === first.agreementBinding.termsVersionId &&
-    fresh.agreementBinding.termsVersion === first.agreementBinding.termsVersion &&
-    fresh.agreementBinding.termsHash.toLowerCase() === first.agreementBinding.termsHash.toLowerCase() &&
-    fresh.agreementBinding.buyerAcceptanceId === first.agreementBinding.buyerAcceptanceId &&
-    fresh.agreementBinding.sellerAcceptanceId === first.agreementBinding.sellerAcceptanceId &&
-    fresh.agreementBinding.buyerDigest.toLowerCase() === first.agreementBinding.buyerDigest.toLowerCase() &&
-    fresh.agreementBinding.sellerDigest.toLowerCase() === first.agreementBinding.sellerDigest.toLowerCase();
+    sameAgreement;
 
   if (!reauthorization.authorized || !sameBinding) {
     return await requireReconciliation(
