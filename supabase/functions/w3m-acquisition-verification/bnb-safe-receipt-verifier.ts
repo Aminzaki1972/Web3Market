@@ -5,6 +5,7 @@ import type { JsonRpcClient } from "./bnb-revenue-adapter.ts";
 import { finalizeOnlyAfterVerifiedSafeReceipt } from "./safe-finalization-guard.ts";
 import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
 import { loadSafeFinalizationExpectation } from "./safe-finalization-snapshot-adapter.ts";
+import { verifySafeFinalizationAcquisitionBundle } from "./safe-finalization-acquisition-adapter.ts";
 import type {
   SafeFinalizationExpectation,
   VerifiedSafeReceiptEvidence,
@@ -239,5 +240,9 @@ export async function finalizeBnbSafeReleaseFromFreshSnapshot(
   },
 ) {
   const expected = await loadSafeFinalizationExpectation(database, input);
-  return await finalizeBnbSafeReleaseAfterRpcVerification(database, bnbRpc, expected);
+  const acquisitionAttestation = await verifySafeFinalizationAcquisitionBundle(database, input.attemptId);
+  return await finalizeBnbSafeReleaseAfterRpcVerification(database, bnbRpc, {
+    ...expected,
+    acquisitionAttestation,
+  });
 }
