@@ -1,6 +1,6 @@
 # W3M Protocol V1 — immutable Deal Agreement signature proposal
 
-Status: **DESIGN PROPOSAL ONLY — NOT IMPLEMENTED**
+Status: **APPROVED FOR ISOLATED IMPLEMENTATION — NOT DEPLOYED**
 
 This proposal closes the current critical gap: the legacy `deal_party_agreements` rows record only party identity and a timestamp. They do not prove that buyer and seller accepted the same immutable deal terms. W3M must continue to block settlement until both parties have signed one identical canonical terms hash.
 
@@ -70,6 +70,6 @@ The browser should request `eth_signTypedData_v4` only after showing the canonic
 - browser-supplied party ID, wallet, digest or terms hash cannot override server-derived values;
 - concurrent terms update during signing causes persistence rejection.
 
-## Decision required before implementation
+## Approval and implementation boundary
 
-This is the recommended standard because it is wallet-native, domain-separated, chain-bound, Safe-bound, and compatible with the existing raw-digest secp256k1 recovery primitive after EIP-712 digest construction. It has **not** been implemented or wired into Deal Room. The protocol owner must approve this exact EIP-712 payload and signature flow before code or database changes are made.
+The protocol owner explicitly approved this EIP-712 payload and signature flow on 2026-11-06. Implementation is authorized only on the isolated branch `w3m-protocol-v1-isolated-20261105`. The code, SQL migration, request endpoint, and automated tests are drafts until CI passes and a separate production review/deployment approval is given. No production migration, deployed function, or Deal Room UI change is authorized by this approval.
