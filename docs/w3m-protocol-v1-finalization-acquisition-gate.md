@@ -88,3 +88,15 @@ The migration installs statement-level UPDATE/DELETE/TRUNCATE rejection triggers
 The isolated CI workflow was updated to apply this migration only to its disposable PostgreSQL service and execute the new test. Run `42197764274` on commit `7650efd` was queued and then entered `in_progress` at the time of this note; its result is not yet known.
 
 This closes the direct row-mutation gap for these five registries only if CI passes and the database owner does not disable triggers. It does **not** close the finalization-time revalidation gap. Deal-terms version/acceptance immutability and signer-revocation serialization with finalization still require explicit handling, and the atomic finalizer still does not lock/revalidate the acquisition report/evidence/signer/terms bundle.
+
+
+## Immutable agreement-history increment — 2026-11-06
+
+A follow-on isolated migration and SQL regression test now protect the two agreement-history tables after their schema migration has run:
+
+- `supabase/migrations/20261107120000_w3m_protocol_v1_immutable_agreements.sql`
+- `supabase/tests/w3m-protocol-v1-immutable-agreements.test.sql`
+
+The migration installs the existing database-level append-only rejection trigger on `w3m_deal_terms_versions` and `w3m_deal_agreement_acceptances`. The CI workflow applies it only after `20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql`, then checks UPDATE, DELETE, and TRUNCATE rejection and verifies that authenticated/service roles do not have direct mutation paths. The trigger test also checks all three trigger operation bits, not just trigger presence.
+
+This protects the immutable terms and signed-consent history from ordinary row mutation in the disposable CI schema. It does not yet serialize trusted-signer revocation against finalization, and it does not wire the persisted acquisition report/evidence/signer/terms guard into the atomic Safe finalizer. The finalization-time acquisition gate therefore remains OPEN / BLOCKING FOR RELEASE. CI must complete successfully on the new branch head before this increment is considered validated.
