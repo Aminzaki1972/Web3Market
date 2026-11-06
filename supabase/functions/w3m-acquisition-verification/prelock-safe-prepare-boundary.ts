@@ -41,6 +41,7 @@ export async function executePrelockPrepareOnlyAfterW3M<T>(
       typeof authorization.safeNonce !== "string" ||
       !/^(0|[1-9][0-9]*)$/.test(authorization.safeNonce) ||
       typeof authorization.readBlockNumber !== "string" ||
+      !/^0x(?:0|[1-9a-f][0-9a-f]*)$/i.test(authorization.readBlockNumber) ||
       typeof authorization.readBlockHash !== "string" ||
       !/^0x[0-9a-f]{64}$/i.test(authorization.readBlockHash)) {
     return { allowed: false, authorization };
