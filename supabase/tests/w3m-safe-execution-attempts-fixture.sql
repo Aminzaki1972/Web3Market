@@ -3,6 +3,7 @@ CREATE TABLE public.projects (
   id uuid PRIMARY KEY,
   owner_id uuid,
   status text NOT NULL DEFAULT 'active',
+  github_url text,
   updated_at timestamptz
 );
 CREATE TABLE public.deals (
