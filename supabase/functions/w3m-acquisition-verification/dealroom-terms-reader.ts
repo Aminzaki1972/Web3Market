@@ -50,6 +50,7 @@ export interface CheckDealRoomFromSnapshotInput {
 }
 
 const PLATFORM_WALLET = "0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
+const BNB_USDT = "0x55d398326f99059ff775485246999027b3197955";
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
 function sameAddressSet(actual: readonly string[], expected: readonly string[]): boolean {
@@ -71,6 +72,8 @@ function safeConfigurationMatches(row: DealRoomTermsSnapshotRow, facts: DealRoom
     ADDRESS.test(facts.safeAddress) &&
     facts.safeAddress.toLowerCase() === String(row.deal_safe_address).toLowerCase() &&
     facts.safeAddress.toLowerCase() === String(row.policy_safe_address).toLowerCase() &&
+    String(row.deal_token_contract).toLowerCase() === BNB_USDT &&
+    String(row.policy_token_contract).toLowerCase() === BNB_USDT &&
     sameAddressSet(facts.owners, [
       facts.expectedBuyerWallet,
       facts.expectedSellerWallet,
@@ -89,6 +92,9 @@ export async function evaluateDealRoomTermsSnapshotRow(
 ): Promise<DealRoomW3MServiceResult> {
   if (!input.dealId.trim()) throw new Error("Deal ID is required.");
   if (row.deal_id !== input.dealId) throw new Error("Deal Room snapshot deal binding mismatch.");
+  if (!["funded", "in_progress"].includes(String(row.deal_status ?? "").toLowerCase())) {
+    throw new Error("Deal is not in a releasable state; W3M settlement is blocked.");
+  }
   if (row.policy_deal_id === null || row.policy_deal_id === undefined) {
     throw new Error("W3M release policy is missing; settlement is blocked.");
   }
