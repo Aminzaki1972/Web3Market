@@ -41,8 +41,8 @@ export async function loadAndAuthorizeFreshSafeSignContext(
     dealId: decision.dealId,
     safeTransactionHash: decision.safeTransactionHash ?? null,
     issues: decision.issues,
-    reportId: decision.reportId,
-    reportVersion: decision.reportVersion,
+    reportId: decision.reportId ?? undefined,
+    reportVersion: decision.reportVersion ?? undefined,
   };
   return {
     authorization,
