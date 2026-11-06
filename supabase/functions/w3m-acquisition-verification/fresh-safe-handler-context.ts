@@ -195,6 +195,7 @@ export async function loadFreshSafeHandlerContext(
     dealId,
     now,
     safeFacts,
+    codeAudit: snapshot.codeAudit,
     safeTransactionHash: requiredText(snapshot.releaseTransaction.safe_tx_hash, "fresh Safe transaction hash"),
     agreementBinding: immutableAgreementBindingFromSnapshot(snapshot),
     databaseSnapshot: snapshot,
