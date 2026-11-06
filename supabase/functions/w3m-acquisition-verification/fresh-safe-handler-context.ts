@@ -15,6 +15,8 @@ import type { CheckDealRoomFromSnapshotInput, DealRoomLiveSafeFacts } from "./de
 import { authorizeSafeHandlerPhase } from "./safe-handler-w3m-authorizer.ts";
 import type { EthereumDigestRecoveryVerifier } from "./signature-verifier.ts";
 import type { W3MSafePhase, W3MPhaseAuthorization } from "./safe-edge-w3m-phase-boundary.ts";
+import { loadAuditManifest } from "./audit-manifest-loader.ts";
+import { createSupabaseAuditManifestSource } from "./audit-manifest-supabase-adapter.ts";
 
 export type SafeExecutionContextDatabase =
   W3MRpcClient & W3MRegistryReadClient & JsonRpcClient;
@@ -159,6 +161,17 @@ export async function loadFreshSafeHandlerContext(
   const snapshot = await loadSafeExecutionDatabaseSnapshot(dependencies.database, dealId, phase);
   if (snapshot.blockers.length > 0) {
     throw new Error("W3M Safe execution is blocked: " + snapshot.blockers.join(","));
+  }
+
+  const recomputedAuditManifest = await loadAuditManifest({
+    auditId: snapshot.codeAudit.auditId,
+    source: createSupabaseAuditManifestSource(dependencies.database),
+    pageSize: 500,
+  });
+  if (recomputedAuditManifest.version !== "w3m-audit-manifest-v1" ||
+      recomputedAuditManifest.auditId !== snapshot.codeAudit.auditId ||
+      recomputedAuditManifest.digest !== snapshot.codeAudit.auditEvidenceHash) {
+    throw new Error("Current persisted Code Audit rows no longer match the signed Audit Manifest.");
   }
 
   const expected = transactionExpectation(snapshot);
