@@ -73,7 +73,7 @@ Deno.test("binds the complete manifest digest into deal-specific Code Audit evid
   assert(result.result === "PASS");
   assertEquals(result.evidence.dealId, expected.dealId);
   assertEquals(result.evidence.projectId, expected.projectId);
-  assertEquals(result.evidence.contentHash.length, 64);
+  assertEquals(result.evidence.contentHash, expected.manifest.digest);
   assertEquals(result.evidence.metadata?.auditManifestHash, expected.manifest.digest);
 });
 
