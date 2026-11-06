@@ -91,12 +91,12 @@ begin
   end if;
   if d.status not in ('funded','in_progress') or d.payment_status <> 'confirmed'
      or d.payment_tx_hash is null or d.payment_tx_hash !~ '^0x[0-9a-fA-F]{64}$'
-     or d.chain_id <> 56 or lower(coalesce(d.safe_address,'')) <> safe_addr
+     or d.chain_id is distinct from 56 or lower(coalesce(d.safe_address,'')) <> safe_addr
      or lower(coalesce(d.token_contract,'')) <> token_addr
      or upper(coalesce(d.token_symbol,d.currency,'')) <> 'USDT'
      or d.dispute_status not in ('none','closed')
      or d.delivery_status <> 'accepted' or d.buyer_approved_at is null
-     or d.amount <> amount_value then
+     or d.amount <> amount_value or d.platform_fee_percent <> fee_percent_value then
     raise exception 'Current deal/payment/delivery/dispute/amount state is not eligible' using errcode='23514';
   end if;
   if exists(select 1 from public.deal_disputes x where x.deal_id=p_deal_id
