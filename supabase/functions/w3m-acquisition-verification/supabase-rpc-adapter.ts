@@ -218,6 +218,7 @@ export interface SafeWalletPackageIssuanceResult {
   attemptId: string;
   packageHash: string;
   expiresAt: string;
+  package: Record<string, unknown>;
   idempotentReplay: boolean;
 }
 
@@ -227,6 +228,7 @@ export async function issueSafeWalletExecutionPackage(
     attemptId: string;
     actorId: string;
     packageHash: string;
+    package: Record<string, unknown>;
     expiresAt: string;
   },
 ): Promise<SafeWalletPackageIssuanceResult> {
@@ -235,30 +237,38 @@ export async function issueSafeWalletExecutionPackage(
   requireText(input.expiresAt, "Package expiry");
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.actorId) ||
       !/^[0-9a-f]{64}$/i.test(input.packageHash) ||
-      !Number.isFinite(Date.parse(input.expiresAt))) {
+      !Number.isFinite(Date.parse(input.expiresAt)) ||
+      !input.package || input.package.protocol !== "W3M_PROTOCOL_V1" ||
+      input.package.expiresAt !== input.expiresAt) {
     throw new Error("Safe wallet package issuance fields are malformed.");
   }
   const { data, error } = await client.rpc("w3m_issue_safe_execution_package", {
     p_attempt_id: input.attemptId,
     p_actor_id: input.actorId,
     p_package_hash: input.packageHash.toLowerCase(),
+    p_package: input.package,
     p_expires_at: input.expiresAt,
   });
   if (error) throw new Error("W3M Safe wallet package issuance failed.");
   const result = asObject(data, "Safe wallet package issuance");
-  if (result.issued !== true ||
+  const storedPackage = result.package;
+  if (!storedPackage || typeof storedPackage !== "object" || Array.isArray(storedPackage) ||
+      result.issued !== true ||
       result.attempt_id !== input.attemptId ||
       typeof result.idempotent_replay !== "boolean" ||
       typeof result.package_hash !== "string" ||
-      result.package_hash.toLowerCase() !== input.packageHash.toLowerCase() ||
+      !/^[0-9a-f]{64}$/i.test(result.package_hash) ||
       typeof result.expires_at !== "string" ||
-      !Number.isFinite(Date.parse(result.expires_at))) {
-    throw new Error("W3M Safe wallet package issuance response does not match the request.");
+      !Number.isFinite(Date.parse(result.expires_at)) ||
+      (storedPackage as Record<string, unknown>).protocol !== "W3M_PROTOCOL_V1" ||
+      (storedPackage as Record<string, unknown>).expiresAt !== result.expires_at) {
+    throw new Error("W3M Safe wallet package issuance response does not match the stored package.");
   }
   return {
     attemptId: input.attemptId,
-    packageHash: input.packageHash.toLowerCase(),
+    packageHash: result.package_hash.toLowerCase(),
     expiresAt: result.expires_at,
+    package: storedPackage as Record<string, unknown>,
     idempotentReplay: result.idempotent_replay,
   };
 }
