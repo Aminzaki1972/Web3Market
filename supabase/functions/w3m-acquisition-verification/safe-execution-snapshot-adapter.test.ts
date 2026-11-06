@@ -1,0 +1,131 @@
+import { assertEquals, assertRejects } from "jsr:@std/assert@1";
+import {
+  loadSafeExecutionDatabaseSnapshot,
+  type SafeExecutionDatabaseSnapshot,
+} from "./safe-execution-snapshot-adapter.ts";
+import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
+
+const dealId = "71000000-0000-4000-8000-000000000001";
+const buyerId = "73000000-0000-4000-8000-000000000003";
+const sellerId = "74000000-0000-4000-8000-000000000004";
+const safeHash = "0x" + "b".repeat(64);
+
+const snapshot = {
+  deal: {
+    id: dealId, project_id: "72000000-0000-4000-8000-000000000002",
+    buyer_id: buyerId, seller_id: sellerId, amount: "100.000000000000000001",
+    currency: "USDT", status: "funded", payment_status: "confirmed",
+    payment_tx_hash: "0x" + "a".repeat(64), chain_id: "56",
+    safe_address: "0x2222222222222222222222222222222222222222",
+    token_contract: "0x3333333333333333333333333333333333333333",
+    token_symbol: "USDT", expected_amount: "100.000000000000000001",
+    platform_fee: "7.500000000000000000", platform_fee_percent: "7.5",
+    seller_net_amount: "92.500000000000000001", platform_fee_amount: "7.5",
+    delivery_status: "accepted", buyer_approved_at: "2026-11-06T19:00:00Z",
+    delivery_accepted_at: "2026-11-06T19:00:00Z", dispute_status: "none",
+    release_tx_hash: null, buyer_agreed_at: "2026-11-06T18:00:00Z",
+    seller_agreed_at: "2026-11-06T18:00:00Z",
+  },
+  policy: {
+    id: "76000000-0000-4000-8000-000000000006", deal_id: dealId,
+    deal_amount: "100.000000000000000001", fee_percent: "7.5",
+    fee_amount: "7.500000000000000000", seller_net_amount: "92.500000000000000001",
+    seller_wallet: "0x4444444444444444444444444444444444444444",
+    platform_wallet: "0x2B15cC63eE3b833F502C065767695Fa2B584f8c9",
+    safe_address: "0x2222222222222222222222222222222222222222",
+    token_contract: "0x3333333333333333333333333333333333333333",
+    token_symbol: "USDT", chain_id: "56", safe_nonce: "7", status: "locked",
+    locked_at: "2026-11-06T18:00:00Z", released_at: null, release_tx_hash: null,
+  },
+  project: { id: "72000000-0000-4000-8000-000000000002", owner_id: sellerId, status: "active", updated_at: "2026-11-06T18:00:00Z" },
+  buyer_profile: { id: buyerId, wallet_address: "0x5555555555555555555555555555555555555555", wallet_verified: true, wallet_verified_at: "2026-11-06T18:00:00Z" },
+  seller_profile: { id: sellerId, wallet_address: "0x4444444444444444444444444444444444444444", wallet_verified: true, wallet_verified_at: "2026-11-06T18:00:00Z" },
+  release_transactions: [{
+    id: "75000000-0000-4000-8000-000000000005", deal_id: dealId,
+    action: "release_to_seller", safe_tx_hash: safeHash, tx_hash: null,
+    status: "signed", confirmations_count: 2, required_signatures: 2,
+    safe_nonce: "7", to_address: "0x9641d764fc13c8B624c04430C7356C1C7C8102e2",
+    data: "0x1234", value_wei: "0", operation: 1, safe_tx_gas: "0",
+    base_gas: "0", gas_price: "0",
+    gas_token: "0x0000000000000000000000000000000000000000",
+    refund_receiver: "0x0000000000000000000000000000000000000000",
+    signatures: [], amount: "100", token_symbol: "USDT", chain_id: "56",
+    safe_address: "0x2222222222222222222222222222222222222222",
+    updated_at: "2026-11-06T18:00:00Z",
+  }],
+  signers: [
+    { deal_id: dealId, signer_role: "buyer", signer_id: buyerId,
+      wallet_address: "0x5555555555555555555555555555555555555555",
+      signature_status: "signed", signed_at: "2026-11-06T18:00:00Z",
+      safe_tx_hash: safeHash, signature: "0x" + "c".repeat(130) },
+    { deal_id: dealId, signer_role: "seller", signer_id: sellerId,
+      wallet_address: "0x4444444444444444444444444444444444444444",
+      signature_status: "signed", signed_at: "2026-11-06T18:00:00Z",
+      safe_tx_hash: safeHash, signature: "0x" + "d".repeat(130) },
+  ],
+  party_agreements: [
+    { party_role: "buyer", party_id: buyerId, agreed_at: "2026-11-06T18:00:00Z" },
+    { party_role: "seller", party_id: sellerId, agreed_at: "2026-11-06T18:00:00Z" },
+  ],
+  dispute: null,
+  agreement_binding_supported: false,
+};
+
+function client(data: unknown, error: unknown = null): W3MRpcClient {
+  return {
+    async rpc(name: string, args: Record<string, unknown>) {
+      assertEquals(name, "w3m_read_safe_execution_snapshot");
+      assertEquals(args.p_deal_id, dealId);
+      return { data, error };
+    },
+  };
+}
+
+Deno.test("strict Safe execution snapshot preserves exact text and blocks timestamp-only agreements", async () => {
+  const result: SafeExecutionDatabaseSnapshot = await loadSafeExecutionDatabaseSnapshot(client(snapshot), dealId);
+  assertEquals(result.deal.amount, "100.000000000000000001");
+  assertEquals(result.policy.seller_net_amount, "92.500000000000000001");
+  assertEquals(result.releaseTransaction.safe_nonce, "7");
+  assertEquals(result.signers.length, 2);
+  assertEquals(result.partyAgreements[0].termsHash, null);
+  assertEquals(result.blockers.includes("IMMUTABLE_AGREEMENT_TERMS_BINDING_UNSUPPORTED"), true);
+  assertEquals(result.blockers.includes("PAYMENT_STATE_NOT_CONFIRMED"), false);
+  assertEquals(result.blockers.includes("BUYER_DELIVERY_ACCEPTANCE_MISSING"), false);
+});
+
+Deno.test("snapshot rejects missing, ambiguous, or duplicate legacy release transactions", async () => {
+  await assertRejects(() => loadSafeExecutionDatabaseSnapshot(client({ ...snapshot, release_transactions: [] }), dealId));
+  await assertRejects(() => loadSafeExecutionDatabaseSnapshot(client({
+    ...snapshot, release_transactions: [...snapshot.release_transactions, snapshot.release_transactions[0]],
+  }), dealId));
+});
+
+Deno.test("snapshot rejects numeric coercion for financial fields", async () => {
+  await assertRejects(() => loadSafeExecutionDatabaseSnapshot(client({
+    ...snapshot, deal: { ...snapshot.deal, amount: 100 },
+  }), dealId));
+});
+
+Deno.test("snapshot rejects signer rows bound to another Safe transaction hash", async () => {
+  await assertRejects(() => loadSafeExecutionDatabaseSnapshot(client({
+    ...snapshot, signers: snapshot.signers.map((row, index) =>
+      index === 0 ? { ...row, safe_tx_hash: "0x" + "f".repeat(64) } : row),
+  }), dealId));
+});
+
+Deno.test("snapshot records dispute, payment, delivery, and wallet blockers", async () => {
+  const result = await loadSafeExecutionDatabaseSnapshot(client({
+    ...snapshot,
+    deal: { ...snapshot.deal, dispute_status: "under_review", payment_status: "pending", delivery_status: "pending" },
+    buyer_profile: { ...snapshot.buyer_profile, wallet_verified: false },
+  }), dealId);
+  assertEquals(result.blockers.includes("DEAL_DISPUTE_STATE_NOT_CLEAR"), true);
+  assertEquals(result.blockers.includes("PAYMENT_STATE_NOT_CONFIRMED"), true);
+  assertEquals(result.blockers.includes("BUYER_DELIVERY_ACCEPTANCE_MISSING"), true);
+  assertEquals(result.blockers.includes("PARTICIPANT_WALLET_VERIFICATION_MISSING"), true);
+});
+
+Deno.test("snapshot rejects RPC errors and malformed request identifiers", async () => {
+  await assertRejects(() => loadSafeExecutionDatabaseSnapshot(client(null, new Error("denied")), dealId));
+  await assertRejects(() => loadSafeExecutionDatabaseSnapshot(client(snapshot), "not-a-uuid"));
+});
