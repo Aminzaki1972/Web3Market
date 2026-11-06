@@ -113,6 +113,11 @@ export async function verifyBnbSafeReleaseReceipt(
   if (!record(block) || !same(block.hash, receipt.blockHash)) {
     throw new BnbSafeReceiptVerificationError("Receipt block is no longer canonical.");
   }
+  const blockTimestampSeconds = quantity(block.timestamp, "receipt block timestamp");
+  if (blockTimestampSeconds > BigInt(Math.floor(Number.MAX_SAFE_INTEGER / 1000))) {
+    throw new BnbSafeReceiptVerificationError("Receipt block timestamp exceeds supported precision.");
+  }
+  const blockTimestamp = new Date(Number(blockTimestampSeconds) * 1000).toISOString();
 
   // Read token decimals at the receipt block, not from browser/config input.
   const decimalsResult = await rpc.request<unknown>("eth_call", [
@@ -198,6 +203,7 @@ export async function verifyBnbSafeReleaseReceipt(
     token_contract: expected.tokenContract.toLowerCase(),
     transfers,
     confirmations: Number(head - blockNumber + 1n),
+    block_timestamp: blockTimestamp,
   } as VerifiedSafeReceiptEvidence;
 }
 
