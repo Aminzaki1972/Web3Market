@@ -142,6 +142,7 @@ const input = (): BuildSafeWalletExecutionPackageInput => ({
   snapshot: snapshot(),
   liveFacts: facts(),
   issuedAt: "2026-11-06T12:00:00.000Z",
+  expiresAt: "2026-11-06T12:01:30.000Z",
   verifySignature: async () => true,
 });
 
