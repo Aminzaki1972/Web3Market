@@ -2,6 +2,7 @@ import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import { keccak_256 } from "jsr:@noble/hashes@1.7.1/sha3";
 import {
   BnbSafeReceiptVerificationError,
+  finalizeBnbSafeReleaseAfterRpcVerification,
   verifyBnbSafeReleaseReceipt,
   type BnbSafeReceiptExpectation,
 } from "./bnb-safe-receipt-verifier.ts";
@@ -149,4 +150,46 @@ Deno.test("receipt with more than two Safe-originating transfers is rejected", a
   };
   const { rpc } = mockRpc({ receipt: { logs: [...receiptLogs, extra] } });
   await assertRejects(() => verifyBnbSafeReleaseReceipt(rpc, expected), BnbSafeReceiptVerificationError, "exactly two");
+});
+
+Deno.test("verified raw BNB receipt is required before atomic finalization RPC", async () => {
+  const { rpc } = mockRpc();
+  let calls = 0;
+  const database = {
+    async rpc(name: string, args: Record<string, unknown>) {
+      calls += 1;
+      assertEquals(name, "w3m_finalize_safe_execution_attempt");
+      assertEquals(args.p_attempt_id, expected.attemptId);
+      return {
+        data: {
+          finalized: true,
+          idempotent_replay: false,
+          attempt_id: expected.attemptId,
+          state: "CONFIRMED",
+          broadcast_tx_hash: expected.broadcastTxHash,
+        },
+        error: null,
+      };
+    },
+  };
+  const result = await finalizeBnbSafeReleaseAfterRpcVerification(database, rpc, expected);
+  assertEquals(result.state, "CONFIRMED");
+  assertEquals(calls, 1);
+});
+
+Deno.test("wrong BNB chain blocks atomic finalization RPC", async () => {
+  const { rpc } = mockRpc({ chainId: "0x1" });
+  let calls = 0;
+  const database = {
+    async rpc() {
+      calls += 1;
+      return { data: {}, error: null };
+    },
+  };
+  await assertRejects(
+    () => finalizeBnbSafeReleaseAfterRpcVerification(database, rpc, expected),
+    BnbSafeReceiptVerificationError,
+    "not BNB Chain",
+  );
+  assertEquals(calls, 0);
 });
