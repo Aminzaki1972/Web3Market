@@ -56,13 +56,16 @@ begin
   ) values (
     '87000000-0000-4000-8000-000000000007',v_project,
     'https://github.com/Aminzaki1972/Web3Market','Aminzaki1972','Web3Market',
-    repeat('a',40),'completed','2026-11-01T10:00:00Z',
+    repeat('a',40),'running',null,
     'w3m-code-audit-1.0',
     '{"evidence_version":"w3m-audit-evidence-v1","tree_truncated":false,"persisted_file_count":1}'::jsonb,
     1,0,0,0,0,0
   );
   insert into public.code_audit_files(id,audit_id,path)
     values ('87100000-0000-4000-8000-000000000007','87000000-0000-4000-8000-000000000007','README.md');
+  update public.code_audits
+     set status='completed',completed_at='2026-11-01T10:00:00Z'
+   where id='87000000-0000-4000-8000-000000000007';
   v_audit_snapshot := public.w3m_create_deal_code_audit_snapshot(
     v_deal,'87000000-0000-4000-8000-000000000007',
     'w3m-audit-manifest-v1',repeat('c',64),1,0
@@ -272,13 +275,16 @@ begin
   ) values (
     '89100000-0000-4000-8000-000000000009',v_project,
     'https://github.com/Aminzaki1972/Web3Market','Aminzaki1972','Web3Market',
-    repeat('f',40),'completed','2026-11-06T18:00:00Z',
+    repeat('f',40),'running',null,
     'w3m-code-audit-1.0',
     '{"evidence_version":"w3m-audit-evidence-v1","tree_truncated":false,"persisted_file_count":1}'::jsonb,
     1,0,0,0,0,0
   );
   insert into public.code_audit_files(id,audit_id,path)
     values ('89200000-0000-4000-8000-000000000009','89100000-0000-4000-8000-000000000009','README.md');
+  update public.code_audits
+     set status='completed',completed_at='2026-11-06T18:00:00Z'
+   where id='89100000-0000-4000-8000-000000000009';
   v_audit_snapshot := public.w3m_create_deal_code_audit_snapshot(
     v_deal,'89100000-0000-4000-8000-000000000009',
     'w3m-audit-manifest-v1',repeat('f',64),1,0
