@@ -22,6 +22,9 @@ function snapshot(overrides:Record<string,unknown>={}) {
   deal_safe_address:SAFE,deal_token_contract:"0x55d398326f99059ff775485246999027b3197955",
   payment_status:"confirmed",payment_tx_hash:"0x"+"b".repeat(64),delivery_status:"accepted",
   buyer_approved_at:"2026-11-05T00:00:00Z",dispute_status:"none",release_tx_hash:null,
+  code_audit:{auditId:"75000000-0000-4000-8000-000000000005",repositoryOwner:"Aminzaki1972",
+   repositoryName:"Web3Market",repositoryUrl:"https://github.com/Aminzaki1972/Web3Market",
+   commitSha:"c".repeat(40),auditType:"complete",completedAt:"2026-11-05T00:00:00Z",auditEvidenceHash:"d".repeat(64)},
   ...overrides};
 }
 function deps(overrides:{snapshot?:unknown;policy?:unknown;facts?:Record<string,unknown>}={}):PrelockSafePrepareDependencies {
