@@ -27,13 +27,12 @@ declare
   v_status text;
   v_report_id uuid;
   v_report_version integer;
-  v_report_hash text;
 begin
   if p_deal_id is null or p_actor_id is null
      or p_safe_tx_hash is null or p_safe_tx_hash !~ '^0x[0-9a-fA-F]{64}$'
      or p_signature is null or p_signature !~ '^0x[0-9a-fA-F]{130}$'
      or p_verified_wallet is null or p_verified_wallet !~ '^0x[0-9a-fA-F]{40}$'
-     or p_signer_role not in ('buyer','seller')
+     or p_signer_role is null or p_signer_role not in ('buyer','seller')
      or p_w3m_authorization is null
      or jsonb_typeof(p_w3m_authorization) <> 'object' then
     raise exception 'Invalid W3M Safe SIGN request' using errcode = '22023';
@@ -51,11 +50,10 @@ begin
   begin
     v_report_id := (p_w3m_authorization->>'report_id')::uuid;
     v_report_version := (p_w3m_authorization->>'report_version')::integer;
-    v_report_hash := p_w3m_authorization->>'report_hash';
   exception when others then
     raise exception 'W3M report authorization metadata is malformed' using errcode = '22023';
   end;
-  if v_report_version < 1 or v_report_hash !~ '^[0-9a-f]{64}$' then
+  if v_report_version is null or v_report_version < 1 then
     raise exception 'W3M report authorization metadata is invalid' using errcode = '22023';
   end if;
 
@@ -81,6 +79,7 @@ begin
   if not found or v_profile.wallet_verified is distinct from true
      or v_profile.wallet_verified_at is null
      or v_profile.wallet_verified_at > now()
+     or v_profile.wallet_address is null
      or lower(v_profile.wallet_address) <> lower(p_verified_wallet) then
     raise exception 'Actor wallet is not the current verified wallet' using errcode = '42501';
   end if;
@@ -102,7 +101,8 @@ begin
        where deal_id = p_deal_id and action = 'release_to_seller') <> 1 then
     raise exception 'Ambiguous Safe release transaction rows' using errcode = '23514';
   end if;
-  if lower(v_tx.safe_tx_hash) <> lower(p_safe_tx_hash)
+  if v_tx.safe_tx_hash is null or v_tx.safe_address is null
+     or lower(v_tx.safe_tx_hash) <> lower(p_safe_tx_hash)
      or v_tx.chain_id <> 56
      or lower(v_tx.safe_address) <> lower(v_deal.safe_address)
      or v_tx.required_signatures <> 2
@@ -189,7 +189,6 @@ begin
       'wallet_address',lower(p_verified_wallet),
       'report_id',v_report_id,
       'report_version',v_report_version,
-      'report_hash',v_report_hash,
       'confirmations_count',v_count
     )
   );
