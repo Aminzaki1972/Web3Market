@@ -13,11 +13,12 @@ const agreementBinding = {
   sellerDigest: "0x" + "2".repeat(64),
 };
 
-Deno.test("fresh Deal Room read failure denies PREPARE and blocks protected action", async () => {
+Deno.test("generic Safe execution snapshot authorizer refuses PREPARE and blocks protected action", async () => {
+  let loaderCalls = 0;
   let actionCount = 0;
   const authorization = await authorizeSafeHandlerPhase(
     "PREPARE",
-    async () => { throw new Error("database unavailable"); },
+    async () => { loaderCalls += 1; throw new Error("must use dedicated prepare snapshot"); },
     verifier,
   );
   const result = await executeSafePhaseOnlyAfterW3M(
@@ -27,8 +28,9 @@ Deno.test("fresh Deal Room read failure denies PREPARE and blocks protected acti
     async () => { actionCount += 1; },
   );
   assertEquals(authorization.authorized, false);
-  assertEquals(authorization.issues, ["W3M_FRESH_AUTHORIZATION_READ_FAILED"]);
+  assertEquals(authorization.issues, ["W3M_PREPARE_REQUIRES_PREPARE_SNAPSHOT_PATH"]);
   assertEquals(result.allowed, false);
+  assertEquals(loaderCalls, 0);
   assertEquals(actionCount, 0);
 });
 
@@ -67,25 +69,26 @@ Deno.test("FINALIZE cannot pass through the pre-execution Deal Room authorizer",
   assertEquals(loaderCalls, 0);
 });
 
-Deno.test("missing deal context denies without calling the protected action", async () => {
+Deno.test("generic Safe execution authorizer refuses PREPARE even when a fresh context callback is supplied", async () => {
+  let loaderCalls = 0;
   let actionCount = 0;
   const authorization = await authorizeSafeHandlerPhase(
     "PREPARE",
-    async () => ({
-      client: {} as never,
-      dealId: "",
-      now: "2026-11-06T00:00:00.000Z",
-      safeFacts: {} as never,
-    }),
+    async () => {
+      loaderCalls += 1;
+      return { client: {} as never, dealId: "deal-1", now: "2026-11-06T00:00:00.000Z", safeFacts: {} as never };
+    },
     verifier,
   );
   const result = await executeSafePhaseOnlyAfterW3M(
     "PREPARE",
-    { dealId: "" },
+    { dealId: "deal-1" },
     async () => authorization,
     async () => { actionCount += 1; },
   );
   assertEquals(result.allowed, false);
+  assertEquals(authorization.issues, ["W3M_PREPARE_REQUIRES_PREPARE_SNAPSHOT_PATH"]);
+  assertEquals(loaderCalls, 0);
   assertEquals(actionCount, 0);
 });
 
