@@ -9,6 +9,8 @@ import type { W3MSafePhase, W3MPhaseAuthorization } from "./safe-edge-w3m-phase-
 
 export type FreshSafeW3MContext = Omit<CheckDealRoomFromSnapshotInput, "stage" | "now"> & {
   now: string;
+  /** Exact Safe hash loaded from the authoritative server-side transaction row. */
+  safeTransactionHash?: string | null;
 };
 
 export async function authorizeSafeHandlerPhase(
@@ -32,6 +34,20 @@ export async function authorizeSafeHandlerPhase(
     if (!fresh || typeof fresh.dealId !== "string" || !fresh.dealId.trim()) {
       throw new Error("Fresh deal context is missing.");
     }
+    const requiresStoredHash = phase === "SIGN" || phase === "EXECUTE";
+    if (requiresStoredHash && (
+      typeof safeTransactionHash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(safeTransactionHash) ||
+      typeof fresh.safeTransactionHash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(fresh.safeTransactionHash) ||
+      fresh.safeTransactionHash.toLowerCase() !== safeTransactionHash.toLowerCase()
+    )) {
+      return {
+        authorized: false,
+        issues: ["W3M_SAFE_TRANSACTION_HASH_BINDING_MISMATCH"],
+        phase,
+        dealId: fresh.dealId,
+        safeTransactionHash: fresh.safeTransactionHash ?? null,
+      };
+    }
     const stage = phase === "EXECUTE" ? "EXECUTE" : "PREPARE";
     const result = await checkDealRoomFromExactSnapshot({
       ...fresh,
@@ -47,7 +63,7 @@ export async function authorizeSafeHandlerPhase(
       issues,
       phase,
       dealId: fresh.dealId,
-      safeTransactionHash: safeTransactionHash ?? null,
+      safeTransactionHash: fresh.safeTransactionHash ?? safeTransactionHash ?? null,
       reportId: result.decision.reportId,
       reportVersion: result.decision.reportVersion,
     };
