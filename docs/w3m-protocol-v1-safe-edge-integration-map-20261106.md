@@ -927,3 +927,8 @@ Added client tests for successful hash-persistence recovery and a still-unavaila
 Added `recordW3MSafeWalletSubmission` to the browser helper. If the owner wallet already returned an outer BNB transaction hash but the HTTP response to the persistence endpoint was lost, the client can retry only the authenticated idempotent hash-recording request using the same attempt ID, package hash, and original transaction hash. It never calls `eth_sendTransaction` again. The server RPC preserves the original hash and rejects replacements; finalization still verifies the raw canonical receipt independently.
 
 A focused test covers the hash-recovery handoff. This avoids asking a user to submit the Safe transaction a second time just because the hash-persistence response was interrupted.
+
+
+## 49. Exact immutable agreement pair in the wallet execution package — isolated draft — 2026-11-06
+
+The connected-wallet package now includes the exact buyer and seller acceptance record IDs, their individual EIP-712 typed-data digests, the immutable terms-version ID/number, and canonical terms hash. The package endpoint compares both acceptance IDs and digests again after the atomic execution claim and before issuance. A changed acceptance pair forces `RECONCILIATION_REQUIRED` and no package is returned. The browser validates the package's agreement binding before it will request a wallet transaction.
