@@ -113,6 +113,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/bnb-safe-receipt-verifier.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-execution-coordinator.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-execution-coordinator.test.ts
           deno check supabase/functions/w3m-protocol-v1-finalize-safe-release/index.ts
       - name: Test decision engine
         run: deno test supabase/functions/w3m-acquisition-verification/decision-engine.test.ts
@@ -166,6 +168,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/safe-finalization-snapshot-adapter.test.ts
       - name: Test authenticated W3M Safe finalization request boundary
         run: deno test supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.test.ts
+      - name: Test fail-closed W3M Safe execution coordinator
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-execution-coordinator.test.ts
       - name: Test raw BNB Safe receipt verifier
         run: deno test supabase/functions/w3m-acquisition-verification/bnb-safe-receipt-verifier.test.ts
       - name: Test Safe finalization receipt guard
