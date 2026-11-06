@@ -2,6 +2,10 @@ name: W3M Protocol V1 isolated checks
 # Includes fail-closed Safe SIGN and atomic signature persistence checks.
 
 on:
+  # Run isolated validation on pushes to this dedicated branch only.
+  push:
+    branches:
+      - "w3m-protocol-v1-isolated-20261105"
   # Validate changes on the isolated branch without deploying production.
   pull_request:
     paths:
