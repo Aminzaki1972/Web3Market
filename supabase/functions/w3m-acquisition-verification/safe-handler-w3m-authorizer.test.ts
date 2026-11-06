@@ -3,6 +3,15 @@ import { authorizeSafeHandlerPhase } from "./safe-handler-w3m-authorizer.ts";
 import { executeSafePhaseOnlyAfterW3M } from "./safe-edge-w3m-phase-boundary.ts";
 
 const verifier = async () => false;
+const agreementBinding = {
+  termsVersionId: "81000000-0000-4000-8000-000000000001",
+  termsVersion: "2",
+  termsHash: "e".repeat(64),
+  buyerAcceptanceId: "82000000-0000-4000-8000-000000000002",
+  sellerAcceptanceId: "83000000-0000-4000-8000-000000000003",
+  buyerDigest: "0x" + "1".repeat(64),
+  sellerDigest: "0x" + "2".repeat(64),
+};
 
 Deno.test("fresh Deal Room read failure denies PREPARE and blocks protected action", async () => {
   let actionCount = 0;
@@ -92,6 +101,7 @@ Deno.test("SIGN refuses a Safe hash that differs from the fresh database transac
       now: "2026-11-06T00:00:00.000Z",
       safeFacts: {} as never,
       safeTransactionHash: databaseHash,
+      agreementBinding,
     }),
     verifier,
     requestedHash,
@@ -119,4 +129,45 @@ Deno.test("EXECUTE refuses a Safe hash that differs from the fresh database tran
   assertEquals(authorization.authorized, false);
   assertEquals(authorization.issues, ["W3M_SAFE_TRANSACTION_HASH_BINDING_MISMATCH"]);
   assertEquals(authorization.safeTransactionHash, databaseHash);
+});
+
+
+Deno.test("SIGN and EXECUTE require both immutable EIP-712 party acceptances", async () => {
+  const hash = "0x" + "a".repeat(64);
+  const authorization = await authorizeSafeHandlerPhase(
+    "SIGN",
+    async () => ({
+      client: {} as never,
+      dealId: "deal-1",
+      now: "2026-11-06T00:00:00.000Z",
+      safeFacts: {} as never,
+      safeTransactionHash: hash,
+      agreementBinding: undefined,
+    }),
+    verifier,
+    hash,
+  );
+  assertEquals(authorization.authorized, false);
+  assertEquals(authorization.issues, ["W3M_IMMUTABLE_PARTY_AGREEMENT_REQUIRED"]);
+});
+
+Deno.test("valid immutable agreement binding is passed to the exact snapshot gate", async () => {
+  let gateCalled = false;
+  const hash = "0x" + "a".repeat(64);
+  const authorization = await authorizeSafeHandlerPhase(
+    "SIGN",
+    async () => ({
+      client: {} as never,
+      dealId: "deal-1",
+      now: "2026-11-06T00:00:00.000Z",
+      safeFacts: {} as never,
+      safeTransactionHash: hash,
+      agreementBinding,
+    }),
+    async () => { gateCalled = true; return false; },
+    hash,
+  );
+  assertEquals(gateCalled, true);
+  assertEquals(authorization.authorized, false);
+  assertEquals(authorization.issues.includes("W3M_IMMUTABLE_PARTY_AGREEMENT_REQUIRED"), false);
 });
