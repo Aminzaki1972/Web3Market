@@ -66,6 +66,8 @@ declare
   v_deal public.deals%rowtype;
   v_project public.projects%rowtype;
   v_report_id uuid;
+  v_report_status text;
+  v_report_expires_at timestamptz;
   v_evidence public.w3m_acquisition_evidence%rowtype;
   v_count integer;
   v_owner text;
@@ -83,15 +85,15 @@ begin
   select * into v_project from public.projects where id = v_deal.project_id;
   if not found then return null; end if;
 
-  select r.id into v_report_id
+  select r.id, r.status, r.expires_at
+    into v_report_id, v_report_status, v_report_expires_at
     from public.w3m_acquisition_reports r
    where r.deal_id = v_deal.id::text
      and r.project_id = v_deal.project_id::text
-     and r.status = 'PASS'
-     and r.expires_at > now()
    order by r.report_version desc, r.issued_at desc
    limit 1;
-  if v_report_id is null then return null; end if;
+  if v_report_id is null or v_report_status <> 'PASS'
+     or v_report_expires_at <= now() then return null; end if;
 
   select count(*) into v_count
     from public.w3m_acquisition_evidence e
@@ -114,11 +116,11 @@ begin
      or v_evidence.source_version is null
      or v_evidence.source_version !~* '^[0-9a-f]{40}$'
      or v_evidence.evidence_hash !~ '^[0-9a-f]{64}$'
-     or v_evidence.details->>'auditStatus' <> 'completed'
-     or v_evidence.details->>'auditManifestVersion' <> 'w3m-audit-manifest-v1'
-     or v_evidence.details->>'auditManifestHash' <> v_evidence.evidence_hash
+     or v_evidence.details->>'auditStatus' is distinct from 'completed'
+     or v_evidence.details->>'auditManifestVersion' is distinct from 'w3m-audit-manifest-v1'
+     or v_evidence.details->>'auditManifestHash' is distinct from v_evidence.evidence_hash
      or v_evidence.details->>'commitSha' is distinct from lower(v_evidence.source_version)
-     or v_evidence.details->>'auditType' not in ('code','smart_contract','complete')
+     or coalesce(v_evidence.details->>'auditType','') not in ('code','smart_contract','complete')
      or coalesce(v_evidence.details->>'completedAt','') = ''
      or coalesce(v_evidence.details->>'repositoryOwner','') = ''
      or coalesce(v_evidence.details->>'repositoryName','') = ''
