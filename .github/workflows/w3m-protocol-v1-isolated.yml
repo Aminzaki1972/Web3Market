@@ -16,6 +16,8 @@ on:
       - "deal-room.html"
       - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
       - "supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql"
+      - "supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql"
+      - "supabase/tests/w3m-protocol-v1-append-only-registry.test.sql"
       - "supabase/migrations/20261106230000_w3m_protocol_v1_safe_execution_attempts.sql"
       - "supabase/migrations/20261107090000_w3m_protocol_v1_wallet_package_issuance.sql"
       - "supabase/migrations/20261106240000_w3m_protocol_v1_safe_execution_finalizer.sql"
@@ -57,6 +59,8 @@ on:
       - "deal-room.html"
       - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
       - "supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql"
+      - "supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql"
+      - "supabase/tests/w3m-protocol-v1-append-only-registry.test.sql"
       - "supabase/migrations/20261106230000_w3m_protocol_v1_safe_execution_attempts.sql"
       - "supabase/migrations/20261107090000_w3m_protocol_v1_wallet_package_issuance.sql"
       - "supabase/migrations/20261106240000_w3m_protocol_v1_safe_execution_finalizer.sql"
@@ -346,6 +350,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-prepare-policy-reader-fixture.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261106230000_w3m_protocol_v1_safe_execution_attempts.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107090000_w3m_protocol_v1_wallet_package_issuance.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261106240000_w3m_protocol_v1_safe_execution_finalizer.sql
@@ -360,6 +365,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107080000_w3m_protocol_v1_atomic_safe_sign.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-schema.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-trusted-signer-schema.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-append-only-registry.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-attempts.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-terms-reader.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-prepare-policy-reader.test.sql
