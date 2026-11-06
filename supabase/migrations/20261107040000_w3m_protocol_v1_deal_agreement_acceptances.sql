@@ -109,7 +109,8 @@ begin
      and e.mandatory is true
    limit 1;
 
-  if v_evidence.result <> 'PASS'
+  if v_evidence.source_table is distinct from 'code_audits'
+     or v_evidence.result <> 'PASS'
      or v_evidence.valid_until is null
      or v_evidence.valid_until <= now()
      or v_evidence.observed_at > now()
