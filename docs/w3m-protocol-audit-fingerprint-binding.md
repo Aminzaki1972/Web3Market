@@ -116,3 +116,30 @@ Added `.github/workflows/w3m-audit-fingerprint-tests.yml` to run the focused Den
 Additional schema search did not locate authoritative creation DDL for `deals`, `deal_party_agreements`, `code_audit_files`, or `code_audit_findings` in the inspected repository history. Existing migrations and application queries reveal only partial column usage. Therefore an append-only persistence migration is intentionally blocked pending complete schema and RLS inspection. Do not infer missing columns or add a speculative migration.
 
 The next safe integration task is to identify the authoritative table definitions (or inspect the connected database read-only), then design the ledger table and server-only write path against the verified schema.
+
+## 13. Read-only production schema inspection (2026-11-07)
+
+The connected `web3market` Supabase project was inspected read-only. No SQL write, migration, or production change was performed.
+
+Verified audit columns:
+- `code_audits`: audit UUID, status, repository owner/name, commit SHA, engine version, audit type, file/line counts, scores, risk level, summary.
+- `code_audit_files`: path, language, size, line count, selected tier, Git blob `sha`, and `scanned`.
+- `code_audit_findings`: severity, category, title, status, file/line range, evidence, description, recommendation, confidence.
+
+Verified deal columns:
+- `deals`: project, buyer, seller, amount/currency, status, chain/Safe/payment fields and delivery/inspection timestamps.
+- `deal_party_agreements`: deal, party role, party UUID and `agreed_at` timestamp only.
+- `deal_terms`: a `terms_snapshot` JSONB field plus party timestamps and deadlines.
+- `deal_multisig_signers`: signer identity/wallet, signature status/time, Safe transaction hash and signature text.
+
+Security observations:
+- `code_audits`, `code_audit_files`, and `code_audit_findings` have RLS and authenticated SELECT policies scoped to audit owner/admin.
+- `deal_party_agreements` has participant INSERT/SELECT and UPDATE policies. Its `agreed_at` value is therefore not an immutable cryptographic proof.
+- `deal_terms` has participant SELECT policy in the inspected policy set; no verified server-side cryptographic agreement acceptance path was established.
+- `deal_multisig_signers.signature` relates to Safe transaction signing; it must not be repurposed as legal agreement signature evidence without a separate typed-data domain and verification path.
+
+The persisted manifest builder now binds completed audit identity, exact commit SHA, engine/type, score summary, sorted scanned-file Git blob SHAs, and sorted finding evidence. It fails closed if the audit is incomplete, the commit is missing, scanned-file count differs, or any scanned file lacks a valid Git blob SHA. This is stronger than hashing display metadata alone.
+
+## 14. CI follow-up
+
+An initial run of the expanded workflow passed the original fingerprint tests but failed in the new manifest test suite. Review found that asynchronous `assertRejects` calls in the manifest tests were not awaited; these assertions have now been corrected. A rerun for the correction commit has not yet appeared in the workflow-run listing, so the expanded suite remains unverified until a subsequent run reports success. Do not mark this branch CI-clean yet.
