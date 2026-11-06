@@ -8,17 +8,11 @@ Bind each acquisition agreement to one immutable, completed technical-audit snap
 
 The final acquisition-verification report is a separate artifact. It may be issued only after the buyer and seller have accepted the same fingerprint and all other required protocol checks have passed.
 
-## 2. Existing components to reuse
+## 2. Existing components and verified limitations
 
-The implementation review identified the existing audit-manifest helpers:
+Repository inspection found no exported `computeAuditManifest`, `loadAuditManifest`, or `verifyCurrentAuditManifest` helpers in the indexed default-branch code. Do not assume these functions exist or import them until their implementation is located and verified. The isolated implementation therefore introduces a small, versioned fingerprint primitive in `supabase/functions/w3m-acquisition-verification/audit-fingerprint.ts`; it accepts a manifest supplied by a trusted caller and does not itself load or authorize database evidence.
 
-- `computeAuditManifest`
-- `loadAuditManifest`
-- `verifyCurrentAuditManifest`
-
-The implementation must reuse these canonical helpers rather than introduce a second, divergent fingerprint algorithm. Before coding, confirm their current exports, input/output types, canonical serialization, digest algorithm, and failure behavior in the current branch.
-
-The current Deal Room reads party-agreement metadata from `deal_party_agreements` using `deal_id`, `party_role`, `party_id`, and `agreed_at`. Existing agreement signing code already validates the deal, verified wallet, party role, terms version, and typed-data signature. The new fingerprint binding must complement—not bypass—those checks.
+The live Deal Room currently reads `deal_party_agreements` using `deal_id`, `party_role`, `party_id`, and `agreed_at`; its UI writes an `agreed_at` timestamp. This is a recorded UI acceptance, not proof of an EIP-712 signature. The separate `js/w3m-deal-agreement-client.js` is explicitly documented as an isolated browser-side coordinator and is not imported by the live Deal Room. Its tests exercise client-side validation, but repository inspection has not established a deployed server-side prepare/accept endpoint or persistent cryptographic acceptance store. The fingerprint integration must not treat the timestamp as a cryptographic signature.
 
 ## 3. Fingerprint record lifecycle
 
@@ -107,4 +101,10 @@ This branch is for code and migration review only. Do not apply migrations to pr
 
 ## 10. Current verification status
 
-Repository review confirms the existing audit tables and party-agreement usage, plus the existing typed-data agreement client tests. The exact current schema for the audit-manifest helpers, agreement-acceptance storage, and acquisition-verification report issuance still needs direct inspection before a safe migration or runtime patch can be authored. No schema change or live transaction has been performed as part of this specification update.
+Repository review confirms the audit table is present and the Deal Room uses `deal_party_agreements` for timestamp-based UI acceptance. The isolated typed-data client exists with component tests, but a live server-side signing/acceptance path and report-issuance runtime have not been verified. The exact persisted audit-evidence schema, RLS policies, agreement-acceptance storage, and report issuance path still require direct inspection before a database migration or runtime integration can be authored. No schema change or live transaction has been performed.
+
+## 11. Isolated implementation checkpoint
+
+Added `audit-fingerprint.ts` and `audit-fingerprint.test.ts` on this feature branch. The primitive creates a deterministic canonical JSON envelope and a domain-separated SHA-256 digest, binding the audit ID, normalized repository identity, exact 40-character commit SHA, manifest schema version, and manifest payload. It rejects malformed identifiers, missing/short commit hashes, non-finite numbers, unsupported values, circular references, and non-plain objects.
+
+The tests cover key-order stability, evidence/commit sensitivity, malformed commit rejection, non-JSON input rejection, and case normalization. These tests have been authored but have not yet been executed in this environment. This is a cryptographic utility only: it is not yet connected to persisted audit evidence, authorization, RLS, deal signatures, or report issuance. It must not be described as an end-to-end protocol implementation.
