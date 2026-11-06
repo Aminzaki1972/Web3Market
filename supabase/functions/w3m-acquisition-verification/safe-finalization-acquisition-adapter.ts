@@ -113,7 +113,9 @@ export async function verifySafeFinalizationAcquisitionBundle(
     pageSize: 500,
   });
   if (manifest.auditId !== auditId || manifest.digest !== auditHash ||
-      manifest.version !== auditDetails.auditManifestVersion) {
+      manifest.version !== auditDetails.auditManifestVersion ||
+      manifest.fileCount !== auditDetails.auditFileCount ||
+      manifest.findingCount !== auditDetails.auditFindingCount) {
     throw new Error("Current Code Audit source rows no longer match the signed manifest at finalization.");
   }
 
