@@ -39,6 +39,9 @@ const ADDRESS = /^0x[0-9a-f]{40}$/i;
 const HASH = /^0x[0-9a-f]{64}$/i;
 const SIGNATURE = /^0x[0-9a-f]{130}$/i;
 const DECIMAL = /^(0|[1-9][0-9]*)(\.[0-9]+)?$/;
+const MULTISEND_CALL_ONLY = "0x9641d764fc13c8b624c04430c7356c1c7c8102e2";
+const PLATFORM_WALLET = "0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
+const UINT = /^(0|[1-9][0-9]*)$/;
 
 function object(value: unknown, label: string): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -101,6 +104,8 @@ export async function loadSafeExecutionDatabaseSnapshot(
   for (const field of ["deal_amount", "fee_percent", "fee_amount", "seller_net_amount"] as const) {
     exactDecimal(policy[field], "policy " + field);
   }
+  const policyNonce = text(policy.safe_nonce, "policy Safe nonce");
+  if (!UINT.test(policyNonce)) throw new Error("Policy Safe nonce is not an exact unsigned integer.");
 
   if (deal.chain_id !== "56" || policy.chain_id !== "56" ||
       text(deal.safe_address, "deal Safe address").toLowerCase() !==
@@ -125,6 +130,15 @@ export async function loadSafeExecutionDatabaseSnapshot(
     throw new Error("Safe release transaction is not the exact signed BNB release for this deal.");
   }
   exactDecimal(releaseTransaction.value_wei, "Safe transaction native value");
+  if (releaseTransaction.value_wei !== "0" ||
+      text(releaseTransaction.to_address, "Safe transaction target").toLowerCase() !== MULTISEND_CALL_ONLY ||
+      Number(releaseTransaction.operation) !== 1) {
+    throw new Error("Safe release transaction must target the approved MultiSendCallOnly contract with zero value and DELEGATECALL.");
+  }
+  const transactionNonce = text(releaseTransaction.safe_nonce, "transaction Safe nonce");
+  if (!UINT.test(transactionNonce) || transactionNonce !== policyNonce) {
+    throw new Error("Stored Safe transaction nonce does not match the locked release policy.");
+  }
   exactDecimal(releaseTransaction.safe_tx_gas, "Safe transaction gas");
   exactDecimal(releaseTransaction.base_gas, "Safe transaction base gas");
   exactDecimal(releaseTransaction.gas_price, "Safe transaction gas price");
@@ -136,8 +150,9 @@ export async function loadSafeExecutionDatabaseSnapshot(
   }
 
   const safeHash = String(releaseTransaction.safe_tx_hash).toLowerCase();
-  const signers = array(root.signers, "signer list").map((value, index) => {
-    const row = object(value, "signer row " + index);
+  const allSignerRows = array(root.signers, "signer list").map((value, index) =>
+    object(value, "signer row " + index));
+  const signers = allSignerRows.filter((row) => row.signature_status === "signed").map((row, index) => {
     const walletAddress = text(row.wallet_address, "signer wallet");
     const signature = text(row.signature, "signer signature");
     const signerHash = text(row.safe_tx_hash, "signer Safe transaction hash");
@@ -198,13 +213,22 @@ export async function loadSafeExecutionDatabaseSnapshot(
     blockers.push("BUYER_DELIVERY_ACCEPTANCE_MISSING");
   }
   if (buyerProfile.wallet_verified !== true || !ADDRESS.test(String(buyerProfile.wallet_address ?? "")) ||
-      sellerProfile.wallet_verified !== true || !ADDRESS.test(String(sellerProfile.wallet_address ?? ""))) {
+      !timestamp(buyerProfile.wallet_verified_at) ||
+      sellerProfile.wallet_verified !== true || !ADDRESS.test(String(sellerProfile.wallet_address ?? "")) ||
+      !timestamp(sellerProfile.wallet_verified_at)) {
     blockers.push("PARTICIPANT_WALLET_VERIFICATION_MISSING");
   }
   if (text(policy.seller_wallet, "policy seller wallet").toLowerCase() !==
       String(sellerProfile.wallet_address).toLowerCase()) {
     blockers.push("POLICY_SELLER_WALLET_MISMATCH");
   }
+  if (text(policy.platform_wallet, "policy platform wallet").toLowerCase() !== PLATFORM_WALLET) {
+    blockers.push("POLICY_PLATFORM_WALLET_MISMATCH");
+  }
+  if (text(project.owner_id, "project owner ID") !== text(deal.seller_id, "deal seller ID")) {
+    blockers.push("PROJECT_OWNER_SELLER_MISMATCH");
+  }
+  if (signers.length < 2) blockers.push("SAFE_SIGNATURES_BELOW_THRESHOLD");
 
   return {
     deal,
