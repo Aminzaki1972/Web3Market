@@ -69,18 +69,20 @@ begin
   );
 
   begin
+    execute 'set constraints w3m_acquisition_report_requires_signed_deal_terms immediate';
     insert into public.w3m_acquisition_reports (
       deal_id, project_id, report_version, status, engine_version,
       evidence_hash, report_hash, report_payload, expires_at
     ) values (
-      'test-deal-unsigned', 'test-project-001', 1, 'PASS', 'test-engine',
+      '71000000-0000-4000-8000-000000000001', 'test-project-001', 1, 'PASS', 'test-engine',
       repeat('a', 64), repeat('b', 64), '{}'::jsonb, now() + interval '1 day'
     );
-    raise exception 'Unsigned PASS report was incorrectly accepted';
+    raise exception 'Orphaned W3M PASS report was incorrectly accepted';
   exception
     when check_violation then
       null;
   end;
+  execute 'set constraints w3m_acquisition_report_requires_signed_deal_terms deferred';
 end;
 $$;
 
