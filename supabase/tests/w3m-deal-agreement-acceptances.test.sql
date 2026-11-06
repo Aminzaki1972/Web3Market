@@ -95,6 +95,27 @@ begin
     raise exception 'First-deal test must begin without an acquisition report';
   end if;
 
+  -- A PASS report is rejected before both parties have signed, even though
+  -- the independent audit snapshot already exists.
+  begin
+    set constraints w3m_pass_report_requires_signed_deal_terms immediate;
+    insert into public.w3m_acquisition_reports(
+      id,deal_id,project_id,report_version,buyer_id,seller_id,status,engine_version,
+      evidence_hash,report_hash,report_payload,signer_key_id,report_signature,issued_at,expires_at
+    ) values (
+      '86000000-0000-4000-8000-000000000006',v_deal::text,v_project::text,1,
+      v_buyer::text,v_seller::text,'PASS','w3m-acquisition-verification-1.0.0',
+      repeat('b',64),repeat('d',64),
+      jsonb_build_object('dealId',v_deal::text,'projectId',v_project::text,
+        'buyerId',v_buyer::text,'sellerId',v_seller::text,'dealTermsHash',v_hash,
+        'auditId','87000000-0000-4000-8000-000000000007','expectedCommitSha',repeat('a',40)),
+      'test-signer-v1','0x' || repeat('d',130),now(),now()+interval '1 day'
+    );
+    raise exception 'PASS report was accepted before both agreement signatures';
+  exception when check_violation then null;
+  end;
+  set constraints w3m_pass_report_requires_signed_deal_terms deferred;
+
   -- One wallet cannot represent both buyer and seller consent.
   update public.profiles
      set wallet_address='0x4444444444444444444444444444444444444444'
@@ -177,6 +198,41 @@ begin
   if coalesce((v_accept->>'idempotent_replay')::boolean,false) is not true then
     raise exception 'Exact duplicate signature was not idempotent';
   end if;
+
+  -- Once both signatures exist, a PASS report may be persisted only when its
+  -- CODE_AUDIT evidence matches the exact independent snapshot.
+  insert into public.w3m_acquisition_reports(
+    id,deal_id,project_id,report_version,buyer_id,seller_id,status,engine_version,
+    evidence_hash,report_hash,report_payload,signer_key_id,report_signature,issued_at,expires_at
+  ) values (
+    '86000000-0000-4000-8000-000000000006',v_deal::text,v_project::text,1,
+    v_buyer::text,v_seller::text,'PASS','w3m-acquisition-verification-1.0.0',
+    repeat('b',64),repeat('d',64),
+    jsonb_build_object('dealId',v_deal::text,'projectId',v_project::text,
+      'buyerId',v_buyer::text,'sellerId',v_seller::text,'dealTermsHash',v_hash,
+      'auditId','87000000-0000-4000-8000-000000000007','expectedCommitSha',repeat('a',40)),
+    'test-signer-v1','0x' || repeat('d',130),now(),now()+interval '1 day'
+  );
+  insert into public.w3m_acquisition_evidence(
+    report_id,evidence_type,source_table,source_record_id,source_version,evidence_hash,
+    result,mandatory,observed_at,valid_until,details
+  ) values (
+    '86000000-0000-4000-8000-000000000006','CODE_AUDIT','code_audits',
+    '87000000-0000-4000-8000-000000000007',repeat('a',40),repeat('c',64),
+    'PASS',true,now(),now()+interval '1 day',
+    jsonb_build_object(
+      'auditStatus','completed','auditType','code','commitSha',repeat('a',40),
+      'repositoryOwner','Aminzaki1972','repositoryName','Web3Market',
+      'completedAt','2026-11-01T10:00:00.000Z',
+      'auditManifestVersion','w3m-audit-manifest-v1','auditManifestHash',repeat('c',64),
+      'auditFileCount',1,'auditFindingCount',0
+    )
+  );
+  set constraints w3m_pass_report_requires_signed_deal_terms immediate;
+  if (select count(*) from public.w3m_acquisition_reports where id='86000000-0000-4000-8000-000000000006') <> 1 then
+    raise exception 'PASS report was not accepted after both agreement signatures';
+  end if;
+  set constraints w3m_pass_report_requires_signed_deal_terms deferred;
 
   begin
     perform public.w3m_insert_deal_agreement_acceptance(
@@ -327,9 +383,8 @@ begin
 
   -- The current binding is independent of report issuance: a first-deal
   -- agreement can be signed against its persisted snapshot before any report.
-  if (select count(*) from public.w3m_acquisition_reports where deal_id=v_deal::text) <> 0
-     or public.w3m_current_deal_code_audit_json(v_deal) is null then
-    raise exception 'Pre-agreement Code Audit snapshot unexpectedly depends on an acquisition report';
+  if public.w3m_current_deal_code_audit_json(v_deal) is null then
+    raise exception 'Independent Code Audit snapshot unexpectedly depends on current report status';
   end if;
 
   if has_function_privilege('anon','public.w3m_register_deal_terms_version(uuid,text,jsonb)','EXECUTE')
