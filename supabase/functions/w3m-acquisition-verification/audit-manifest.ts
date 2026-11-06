@@ -128,7 +128,7 @@ export async function computeAuditManifest(input: AuditManifestInput): Promise<A
       throw new Error("Finding severity is unsupported.");
     }
     // Repository-level findings legitimately have null file_path/line_start.
-    // JSON tuple encoding distinguishes those from file-scoped findings.
+    // The writer normalizes those values to empty path and line zero for identity.
     // The audit writer normalizes missing/null line_start to zero and null
     // file_path to the empty string when de-duplicating persisted findings.
     return JSON.stringify([path, lineStart ?? 0, severity, category, title]);
