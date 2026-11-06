@@ -38,7 +38,11 @@ export function createW3MSafeWalletSubmissionRequestHandler(
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid");
       body = parsed as Record<string, unknown>;
     } catch { return json(400, { ok: false, error: "INVALID_JSON" }); }
-    if (typeof body.attempt_id !== "string" || !UUID.test(body.attempt_id) ||
+    const bodyKeys = Object.keys(body).sort();
+    if (bodyKeys.length !== 3 ||
+        bodyKeys[0] !== "attempt_id" || bodyKeys[1] !== "package_hash" ||
+        bodyKeys[2] !== "transaction_hash" ||
+        typeof body.attempt_id !== "string" || !UUID.test(body.attempt_id) ||
         typeof body.package_hash !== "string" || !/^[0-9a-f]{64}$/i.test(body.package_hash) ||
         typeof body.transaction_hash !== "string" || !HASH.test(body.transaction_hash)) {
       return json(400, { ok: false, error: "INVALID_WALLET_SUBMISSION" });
