@@ -11,6 +11,7 @@ export interface W3MReportIssueRequestDependencies {
   }>;
 }
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const DECISIONS = new Set(["PASS", "INCOMPLETE", "BLOCKED", "REVIEW_REQUIRED"]);
 function json(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -44,7 +45,9 @@ export async function handleW3MReportIssueRequest(
     const allowed = await dependencies.authorize({ actorId, dealId: value.deal_id });
     if (!allowed) return json(403, { ok: false, error: "REPORT_ISSUANCE_FORBIDDEN" });
     const result = await dependencies.issue({ actorId, dealId: value.deal_id });
-    if (!result.reportId || !Number.isSafeInteger(result.reportVersion) || result.reportVersion < 1) {
+    if (typeof result.reportId !== "string" || !result.reportId.trim() ||
+        !Number.isSafeInteger(result.reportVersion) || result.reportVersion < 1 ||
+        !DECISIONS.has(result.decisionStatus)) {
       return json(503, { ok: false, error: "REPORT_ISSUANCE_INCOMPLETE" });
     }
     return json(200, {
