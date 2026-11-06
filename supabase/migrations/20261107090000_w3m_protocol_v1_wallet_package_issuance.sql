@@ -107,6 +107,110 @@ begin
 end;
 $issue$;
 
+create or replace function public.w3m_record_safe_wallet_submission(
+  p_attempt_id uuid,
+  p_actor_id uuid,
+  p_package_hash text,
+  p_broadcast_tx_hash text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $submission$
+declare
+  v_attempt public.w3m_safe_execution_attempts%rowtype;
+begin
+  if p_attempt_id is null or p_actor_id is null
+     or p_package_hash is null or p_package_hash !~ '^[0-9a-fA-F]{64}
+  from public, anon, authenticated, service_role;
+grant execute on function public.w3m_issue_safe_execution_package(uuid,uuid,text,jsonb,timestamptz)
+  to service_role;
+
+commit;
+
+     or p_broadcast_tx_hash is null or p_broadcast_tx_hash !~ '^0x[0-9a-fA-F]{64}
+  from public, anon, authenticated, service_role;
+grant execute on function public.w3m_issue_safe_execution_package(uuid,uuid,text,jsonb,timestamptz)
+  to service_role;
+
+commit;
+ then
+    raise exception 'Invalid connected-wallet submission arguments' using errcode = '22023';
+  end if;
+
+  select * into v_attempt
+    from public.w3m_safe_execution_attempts
+   where id = p_attempt_id
+   for update;
+  if not found then
+    raise exception 'Execution attempt not found' using errcode = 'P0002';
+  end if;
+
+  if v_attempt.package_actor_id is distinct from p_actor_id
+     or v_attempt.package_hash is null
+     or lower(v_attempt.package_hash) <> lower(p_package_hash)
+     or v_attempt.package_payload is null then
+    raise exception 'Wallet submission is not bound to the exact issued package actor and hash'
+      using errcode = '42501';
+  end if;
+
+  if v_attempt.state = 'BROADCAST'
+     and lower(coalesce(v_attempt.broadcast_tx_hash,'')) = lower(p_broadcast_tx_hash) then
+    return jsonb_build_object(
+      'recorded', true, 'idempotent_replay', true,
+      'attempt_id', v_attempt.id, 'state', 'BROADCAST',
+      'broadcast_tx_hash', lower(v_attempt.broadcast_tx_hash)
+    );
+  end if;
+
+  if v_attempt.state = 'RECONCILIATION_REQUIRED'
+     and v_attempt.broadcast_tx_hash is not null
+     and lower(v_attempt.broadcast_tx_hash) = lower(p_broadcast_tx_hash) then
+    return jsonb_build_object(
+      'recorded', true, 'idempotent_replay', true,
+      'attempt_id', v_attempt.id, 'state', 'RECONCILIATION_REQUIRED',
+      'broadcast_tx_hash', lower(v_attempt.broadcast_tx_hash)
+    );
+  end if;
+
+  if v_attempt.state = 'RECONCILIATION_REQUIRED'
+     and v_attempt.broadcast_tx_hash is null then
+    update public.w3m_safe_execution_attempts
+       set broadcast_tx_hash = lower(p_broadcast_tx_hash),
+           broadcast_at = clock_timestamp()
+     where id = p_attempt_id;
+    return jsonb_build_object(
+      'recorded', true, 'idempotent_replay', false,
+      'attempt_id', v_attempt.id, 'state', 'RECONCILIATION_REQUIRED',
+      'broadcast_tx_hash', lower(p_broadcast_tx_hash)
+    );
+  end if;
+
+  if v_attempt.state is distinct from 'CLAIMED' then
+    raise exception 'Attempt cannot accept a new connected-wallet transaction hash'
+      using errcode = '23514';
+  end if;
+
+  update public.w3m_safe_execution_attempts
+     set state = 'BROADCAST',
+         broadcast_tx_hash = lower(p_broadcast_tx_hash),
+         broadcast_at = clock_timestamp()
+   where id = p_attempt_id;
+
+  return jsonb_build_object(
+    'recorded', true, 'idempotent_replay', false,
+    'attempt_id', v_attempt.id, 'state', 'BROADCAST',
+    'broadcast_tx_hash', lower(p_broadcast_tx_hash)
+  );
+end;
+$submission$;
+
+revoke all on function public.w3m_record_safe_wallet_submission(uuid,uuid,text,text)
+  from public, anon, authenticated, service_role;
+grant execute on function public.w3m_record_safe_wallet_submission(uuid,uuid,text,text)
+  to service_role;
+
 revoke all on function public.w3m_issue_safe_execution_package(uuid,uuid,text,jsonb,timestamptz)
   from public, anon, authenticated, service_role;
 grant execute on function public.w3m_issue_safe_execution_package(uuid,uuid,text,jsonb,timestamptz)
