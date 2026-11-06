@@ -29,8 +29,19 @@ export interface DealRoomW3MServiceInput {
   releaseAlreadyFinalized: boolean;
 }
 
+export interface VerifiedW3MReportAuthorization {
+  decision: "PASS";
+  dealId: string;
+  reportId: string;
+  reportVersion: number;
+  reportHash: string;
+  dealTermsHash: string;
+  expiresAt: string;
+}
+
 export interface DealRoomW3MServiceResult extends DealRoomW3MGateResult {
   dealTermsHash: string;
+  verifiedReportAuthorization?: VerifiedW3MReportAuthorization;
 }
 
 export async function checkDealRoomWithW3M(
@@ -61,5 +72,25 @@ export async function checkDealRoomWithW3M(
     releaseAlreadyFinalized: input.releaseAlreadyFinalized,
   }, recoverAndVerify);
 
-  return { ...gate, dealTermsHash: terms.dealTermsHash };
+  let verifiedReportAuthorization: VerifiedW3MReportAuthorization | undefined;
+  if (gate.authorized) {
+    const row = bundle.reportRow;
+    if (!row || typeof row.id !== "string" || !row.id.trim() ||
+        !Number.isSafeInteger(row.report_version) || (row.report_version as number) < 1 ||
+        typeof row.report_hash !== "string" || !/^[0-9a-f]{64}$/i.test(row.report_hash) ||
+        typeof row.expires_at !== "string" || !Number.isFinite(Date.parse(row.expires_at)) ||
+        Date.parse(row.expires_at) <= Date.parse(input.now)) {
+      throw new Error("Verified W3M report binding is incomplete.");
+    }
+    verifiedReportAuthorization = {
+      decision: "PASS",
+      dealId: input.terms.dealId,
+      reportId: row.id,
+      reportVersion: row.report_version as number,
+      reportHash: row.report_hash.toLowerCase(),
+      dealTermsHash: terms.dealTermsHash,
+      expiresAt: row.expires_at,
+    };
+  }
+  return { ...gate, dealTermsHash: terms.dealTermsHash, ...(verifiedReportAuthorization ? { verifiedReportAuthorization } : {}) };
 }
