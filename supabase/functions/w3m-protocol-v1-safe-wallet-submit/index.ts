@@ -42,7 +42,10 @@ Deno.serve(async (request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const database: W3MRpcClient = {
-    rpc: (name, args) => supabase.rpc(name, args),
+    async rpc(name, args) {
+      const result = await supabase.rpc(name, args);
+      return { data: result.data, error: result.error };
+    },
   };
 
   const handler = createW3MSafeWalletSubmissionRequestHandler({
