@@ -3,6 +3,7 @@ import { keccak_256 } from "jsr:@noble/hashes@1.7.1/sha3";
 import {
   BnbSafeReceiptVerificationError,
   finalizeBnbSafeReleaseAfterRpcVerification,
+  finalizeBnbSafeReleaseFromFreshSnapshot,
   verifyBnbSafeReleaseReceipt,
   type BnbSafeReceiptExpectation,
 } from "./bnb-safe-receipt-verifier.ts";
@@ -192,4 +193,81 @@ Deno.test("wrong BNB chain blocks atomic finalization RPC", async () => {
     "not BNB Chain",
   );
   assertEquals(calls, 0);
+});
+
+Deno.test("fresh DB snapshot is loaded before BNB verification and atomic finalization", async () => {
+  const { rpc } = mockRpc();
+  const snapshot = {
+    attempt_id: expected.attemptId,
+    deal_id: "deal-1",
+    transaction_id: "tx-1",
+    report_id: "report-1",
+    safe_tx_hash: expected.safeTxHash,
+    broadcast_tx_hash: expected.broadcastTxHash,
+    chain_id: 56,
+    safe_address: expected.safeAddress,
+    token_contract: expected.tokenContract,
+    seller_wallet: expected.sellerWallet,
+    seller_net_amount: expected.sellerAmount,
+    platform_wallet: expected.platformWallet,
+    platform_fee: expected.platformFee,
+    buyer_id: expected.actorId,
+    seller_id: "seller-1",
+    deal_status: "funded",
+    policy_status: "locked",
+    transaction_status: "submitted",
+    attempt_state: "BROADCAST",
+  };
+  const calls: string[] = [];
+  const database = {
+    async rpc(name: string) {
+      calls.push(name);
+      if (name === "w3m_read_safe_finalization_snapshot") return { data: snapshot, error: null };
+      if (name === "w3m_finalize_safe_execution_attempt") {
+        return {
+          data: {
+            finalized: true,
+            idempotent_replay: false,
+            attempt_id: expected.attemptId,
+            state: "CONFIRMED",
+            broadcast_tx_hash: expected.broadcastTxHash,
+          },
+          error: null,
+        };
+      }
+      throw new Error("Unexpected database RPC");
+    },
+  };
+  const result = await finalizeBnbSafeReleaseFromFreshSnapshot(
+    database,
+    rpc,
+    { attemptId: expected.attemptId, actorId: expected.actorId, minConfirmations: 6 },
+  );
+  assertEquals(result.state, "CONFIRMED");
+  assertEquals(calls, [
+    "w3m_read_safe_finalization_snapshot",
+    "w3m_finalize_safe_execution_attempt",
+  ]);
+});
+
+Deno.test("missing fresh snapshot blocks BNB receipt read and finalization", async () => {
+  const { rpc, calls: rpcCalls } = mockRpc();
+  let databaseCalls = 0;
+  const database = {
+    async rpc() {
+      databaseCalls += 1;
+      return { data: null, error: new Error("snapshot unavailable") };
+    },
+  };
+  await assertRejects(
+    () => finalizeBnbSafeReleaseFromFreshSnapshot(
+      database,
+      rpc,
+      { attemptId: expected.attemptId, actorId: expected.actorId, minConfirmations: 6 },
+    ),
+    Error,
+    "snapshot read failed",
+  );
+  assertEquals(databaseCalls, 1);
+  assertEquals(rpcCalls.length, 0);
 });
