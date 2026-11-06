@@ -3,8 +3,11 @@ import { secp256k1 } from "jsr:@noble/curves@1.8.2/secp256k1";
 import { keccak_256 } from "jsr:@noble/hashes@1.7.1/sha3";
 import {
   acceptDealAgreement,
+  acceptDealAgreementWithAuditSnapshot,
   prepareDealAgreementAcceptance,
+  prepareDealAgreementAcceptanceWithAuditSnapshot,
 } from "./deal-agreement-service.ts";
+import type { AuditManifestSource } from "./audit-manifest-loader.ts";
 import { computeDealTermsAcceptanceDigest } from "./deal-agreement-eip712.ts";
 import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
 
@@ -49,6 +52,71 @@ const rawSnapshot = {
   buyer_profile: { id: buyerId, wallet_address: buyerSigner.wallet, wallet_verified: true, wallet_verified_at: "2026-11-06T10:00:00Z" },
   seller_profile: { id: sellerId, wallet_address: sellerSigner.wallet, wallet_verified: true, wallet_verified_at: "2026-11-06T10:00:00Z" },
 };
+
+const sourceAudit = {
+  id: rawSnapshot.code_audit.auditId,
+  project_id: projectId,
+  status: "completed",
+  repo_owner: "Aminzaki1972",
+  repo_name: "Web3Market",
+  repo_url: "https://github.com/Aminzaki1972/Web3Market",
+  commit_sha: "a".repeat(40),
+  completed_at: "2026-11-01T10:00:00.000Z",
+  engine_version: "w3m-code-audit-1.0",
+  files_scanned: 1,
+  critical_count: 0, high_count: 0, medium_count: 0, low_count: 0, info_count: 0,
+  analysis_progress: {
+    evidence_version: "w3m-audit-evidence-v1",
+    tree_truncated: false,
+    persisted_file_count: 1,
+  },
+};
+const auditSource: AuditManifestSource = {
+  async loadAudit(id) { return {data: id === sourceAudit.id ? sourceAudit : null}; },
+  async loadFilesPage(id, from) {
+    return {data: from === 0 ? [{id:"file-1",audit_id:sourceAudit.id,path:"README.md"}] : []};
+  },
+  async loadFindingsPage() { return {data:[]}; },
+};
+function snapshotAwareClient(calls: Array<{name:string,args:Record<string,unknown>}> = []): W3MRpcClient {
+  let manifestHash = "";
+  return { async rpc(name,args) {
+    calls.push({name,args});
+    if (name === "w3m_read_deal_audit_snapshot_context") return {data:{
+      deal_id:dealId,project_id:projectId,audit_id:sourceAudit.id,
+      project_github_url:"https://github.com/Aminzaki1972/Web3Market",
+    },error:null};
+    if (name === "w3m_create_deal_code_audit_snapshot") {
+      manifestHash = String(args.p_manifest_hash);
+      return {data:{
+        id:"77000000-0000-4000-8000-000000000007",
+        deal_id:dealId,project_id:projectId,snapshot_version:1,audit_id:sourceAudit.id,
+        repository_owner:"Aminzaki1972",repository_name:"Web3Market",
+        repository_url:"https://github.com/Aminzaki1972/Web3Market",
+        commit_sha:"a".repeat(40),audit_type:"code",
+        completed_at:"2026-11-01T10:00:00.000Z",
+        manifest_version:args.p_manifest_version,manifest_hash:manifestHash,
+        file_count:1,finding_count:0,idempotent_replay:false,
+      },error:null};
+    }
+    if (name === "w3m_read_deal_agreement_signing_snapshot") {
+      return {data:{
+        ...rawSnapshot,
+        code_audit:{...rawSnapshot.code_audit,auditEvidenceHash:manifestHash},
+      },error:null};
+    }
+    if (name === "w3m_register_deal_terms_version") return {data:{
+      deal_id:dealId,terms_version:1,terms_version_id:"75000000-0000-4000-8000-000000000005",
+      terms_hash:args.p_terms_hash,idempotent_replay:false,
+    },error:null};
+    if (name === "w3m_insert_deal_agreement_acceptance") return {data:{
+      accepted:true,acceptance_id:"76000000-0000-4000-8000-000000000006",
+      terms_version:1,party_role:args.p_party_role,idempotent_replay:false,
+    },error:null};
+    throw new Error("Unexpected RPC " + name);
+  }};
+}
+
 function mockClient(calls: Array<{name:string,args:Record<string,unknown>}> = [], snapshotData = rawSnapshot): W3MRpcClient {
   return { async rpc(name,args) {
     calls.push({name,args});
@@ -121,4 +189,41 @@ Deno.test("wrong actor and invalid signatures never reach the persistence RPC", 
     dealId,actorId:buyerId,signature:"0x" + "0".repeat(130),
   }));
   assertEquals(calls.some(x=>x.name==="w3m_insert_deal_agreement_acceptance"),false);
+});
+
+Deno.test("public agreement preparation persists the independent audit snapshot before building signed terms", async () => {
+  const calls: Array<{name:string,args:Record<string,unknown>}> = [];
+  const prepared = await prepareDealAgreementAcceptanceWithAuditSnapshot(
+    snapshotAwareClient(calls),auditSource,{dealId,actorId:buyerId},
+  );
+  assertEquals(prepared.partyRole,"buyer");
+  assertEquals(calls.map(x=>x.name),[
+    "w3m_read_deal_audit_snapshot_context",
+    "w3m_create_deal_code_audit_snapshot",
+    "w3m_read_deal_agreement_signing_snapshot",
+    "w3m_register_deal_terms_version",
+  ]);
+});
+
+Deno.test("public agreement acceptance revalidates and persists the audit snapshot before storing a signature", async () => {
+  const preparation = await prepareDealAgreementAcceptanceWithAuditSnapshot(
+    snapshotAwareClient(),auditSource,{dealId,actorId:buyerId},
+  );
+  const digest = computeDealTermsAcceptanceDigest({
+    dealId,projectId,buyerId,sellerId,safeAddress,
+    termsHash:preparation.termsHash,termsVersion:preparation.termsVersion,partyRole:"buyer",
+  });
+  const signature = buyerSigner.sign(digest.slice(2));
+  const calls: Array<{name:string,args:Record<string,unknown>}> = [];
+  const accepted = await acceptDealAgreementWithAuditSnapshot(
+    snapshotAwareClient(calls),auditSource,{dealId,actorId:buyerId,signature},
+  );
+  assertEquals(accepted.partyRole,"buyer");
+  assertEquals(calls.map(x=>x.name),[
+    "w3m_read_deal_audit_snapshot_context",
+    "w3m_create_deal_code_audit_snapshot",
+    "w3m_read_deal_agreement_signing_snapshot",
+    "w3m_register_deal_terms_version",
+    "w3m_insert_deal_agreement_acceptance",
+  ]);
 });
