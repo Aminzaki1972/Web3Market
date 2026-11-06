@@ -9,6 +9,8 @@ on:
       - "supabase/functions/w3m-protocol-v1-deal-agreement/**"
       - "supabase/functions/w3m-protocol-v1-prepare-deal-release/**"
       - "supabase/functions/w3m-protocol-v1-safe-sign/**"
+      - "supabase/functions/w3m-protocol-v1-safe-wallet-package/**"
+      - "supabase/functions/w3m-protocol-v1-safe-wallet-submit/**"
       - "js/w3m-safe-wallet-execution-client.js"
       - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
       - "supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql"
@@ -44,6 +46,8 @@ on:
       - "supabase/functions/w3m-protocol-v1-deal-agreement/**"
       - "supabase/functions/w3m-protocol-v1-prepare-deal-release/**"
       - "supabase/functions/w3m-protocol-v1-safe-sign/**"
+      - "supabase/functions/w3m-protocol-v1-safe-wallet-package/**"
+      - "supabase/functions/w3m-protocol-v1-safe-wallet-submit/**"
       - "js/w3m-deal-agreement-client.js"
       - "js/w3m-safe-wallet-execution-client.js"
       - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
@@ -168,6 +172,9 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/safe-execution-coordinator.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-execute-request-handler.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-execute-request-handler.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-package-context-composer.ts
+          deno check supabase/functions/w3m-protocol-v1-safe-wallet-package/index.ts
+          deno check supabase/functions/w3m-protocol-v1-safe-wallet-submit/index.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-wallet-package-request-handler.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-wallet-package-request-handler.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-wallet-submission-request-handler.ts
