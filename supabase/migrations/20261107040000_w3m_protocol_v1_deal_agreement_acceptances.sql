@@ -301,7 +301,7 @@ as $audit$
     'repositoryUrl',s.repository_url,
     'commitSha',s.commit_sha,
     'auditType',s.audit_type,
-    'completedAt',s.completed_at,
+    'completedAt',to_char(s.completed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
     'auditEvidenceHash',s.manifest_hash
   )
   from public.w3m_deal_code_audit_snapshots s
