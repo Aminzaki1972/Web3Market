@@ -1,5 +1,4 @@
 -- Isolated PostgreSQL test: completed Code Audit source rows cannot change.
-BEGIN;
 CREATE TABLE public.code_audits (
   id uuid PRIMARY KEY,
   status text NOT NULL
@@ -87,4 +86,3 @@ BEGIN
   END IF;
 END $$;
 
-ROLLBACK;
