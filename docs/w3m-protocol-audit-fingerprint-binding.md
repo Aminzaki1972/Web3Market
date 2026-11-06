@@ -134,8 +134,8 @@ Verified deal columns:
 
 Security observations:
 - `code_audits`, `code_audit_files`, and `code_audit_findings` have RLS and authenticated SELECT policies scoped to audit owner/admin.
-- `deal_party_agreements` has participant INSERT/SELECT and UPDATE policies. Its `agreed_at` value is therefore not an immutable cryptographic proof.
-- `deal_terms` has participant SELECT policy in the inspected policy set; no verified server-side cryptographic agreement acceptance path was established.
+- `deal_party_agreements` has participant INSERT/SELECT and UPDATE policies. A database trigger prevents changing the deal/party identity and prevents clearing or changing `agreed_at` once it is non-null. However, the trigger does not validate a signature or bind the timestamp to `deal_terms.terms_snapshot`; the INSERT policy also does not constrain a caller-supplied initial `agreed_at`. The timestamp is therefore tamper-resistant after it is set, but is not cryptographic acceptance evidence.
+- `deal_terms` has a participant SELECT policy in the inspected policy set and stores `terms_snapshot`; no verified server-side cryptographic acceptance path binding signatures to that snapshot was established.
 - `deal_multisig_signers.signature` relates to Safe transaction signing; it must not be repurposed as legal agreement signature evidence without a separate typed-data domain and verification path.
 
 The persisted manifest builder now binds completed audit identity, exact commit SHA, engine/type, score summary, sorted scanned-file Git blob SHAs, and sorted finding evidence. It fails closed if the audit is incomplete, the commit is missing, scanned-file count differs, or any scanned file lacks a valid Git blob SHA. This is stronger than hashing display metadata alone.
@@ -143,3 +143,16 @@ The persisted manifest builder now binds completed audit identity, exact commit 
 ## 14. CI follow-up
 
 An initial run of the expanded workflow passed the original fingerprint tests but failed in the new manifest test suite. Review found that asynchronous `assertRejects` calls in the manifest tests were not awaited; these assertions have now been corrected. A rerun for the correction commit has not yet appeared in the workflow-run listing, so the expanded suite remains unverified until a subsequent run reports success. Do not mark this branch CI-clean yet.
+
+
+## 15. Agreement trigger and policy review (2026-11-07)
+
+A second read-only inspection queried the live trigger definitions, RLS policies, and constraints. No database writes were performed.
+
+- The existing `prevent_deal_agreement_tampering()` trigger blocks changes to `deal_id`, `party_role`, or `party_id`; once `agreed_at` is non-null it blocks clearing or changing that timestamp.
+- The participant INSERT policy checks that the caller is the matching buyer/seller and that the party role matches the deal. It does not constrain an initial caller-supplied `agreed_at` value. The UPDATE policy is participant-scoped; the trigger protects an already-populated timestamp but does not verify a cryptographic signature.
+- An AFTER trigger records agreement insert/update/delete events in `admin_audit_log`. This is operational audit logging, not a cryptographic signature ledger.
+- `deal_terms` is unique per deal and contains `terms_snapshot`, `buyer_agreed_at`, and `seller_agreed_at`; the inspected RLS policy set grants participants SELECT. No server-side signing endpoint or signature-verification record bound to the terms snapshot was verified.
+- `deal_multisig_signers.signature` remains Safe transaction signature data and is not suitable as agreement-signature storage.
+
+Implementation consequence: retain the current timestamp protections and audit triggers. Do not replace or weaken them. The protocol needs a separate server-verified acceptance record that binds the deal ID, immutable terms snapshot hash/version, audit fingerprint ID/digest, party role and identity, signature scheme/domain, signer address, signature bytes, and verification timestamp. The server must validate the authenticated account-to-wallet relationship and recover/verify the signer before persisting acceptance. Any new append-only schema or function must be reviewed separately against the exact RLS and trigger definitions; no production migration is authorized or performed by this inspection.
