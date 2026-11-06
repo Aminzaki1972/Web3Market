@@ -8,12 +8,14 @@ All work in this branch is isolated. No production database migration, Edge Func
 
 ## Core records
 
+The intended V1 domain records are:
+
 - `acquisition_reports`: one versioned verification envelope per deal/report revision.
 - `acquisition_evidence`: content-hashed references to Passport, code audit, repository commit, ownership, delivery, payment, agreement, and wallet-signature evidence.
 - `acquisition_report_signatures`: EIP-712 acknowledgements over the exact report digest.
 - `acquisition_report_events`: append-only state-transition history.
 
-The schema is introduced by `supabase/migrations/20261106000100_w3m_protocol_v1_acquisition_verification.sql`.
+A preliminary schema is present in `supabase/migrations/20261106000100_w3m_protocol_v1_acquisition_verification.sql`.
 
 ## Verification state machine
 
@@ -35,32 +37,35 @@ A PASS must include a manifest hash and verification timestamp. A later evidence
 4. EIP-712 signatures acknowledge that exact digest. The verifier must recover the signer address and compare it with the verified wallet bound to the relevant deal participant.
 5. Signatures do not move funds, do not replace Safe owner confirmations, and do not themselves authorize execution.
 
-## Settlement gate — required integration, not yet wired
+## Verified implementation snapshot (2026-11-06)
 
-Before any release transaction can be prepared or executed, the server-side release path must independently load the latest report for the deal and require all of the following:
+The following is confirmed by source inspection on this isolated branch:
 
-- report status is `pass`;
-- report has not expired;
-- evidence manifest hash is present and matches the stored evidence set;
-- the exact required evidence categories are verified;
-- the report's repository commit matches the commit referenced by the accepted code audit, where repository audit evidence is required;
-- required buyer/seller acknowledgements are valid for the exact report digest;
-- deal is not disputed, cancelled, or otherwise ineligible;
-- the Safe address, chain, transaction target, calldata, and threshold are independently validated by the existing Safe release logic.
+- The connected-wallet package endpoint loads a fresh Deal Room context, current BNB Safe facts, the persisted report bundle, trusted signer registry, and verifies the report before it issues a package.
+- The package context composes the deterministic settlement gate with payment confirmation, buyer delivery acceptance, dispute state, Safe configuration, and report validity.
+- The wallet submission endpoint records the browser-returned transaction hash as unverified. It does not treat the hash as proof of execution and does not finalize a deal.
+- The finalization endpoint independently reads the attempt snapshot, fetches the BNB Chain receipt, checks canonical block/confirmations, Safe execution events, and exact seller/platform token transfers before calling the atomic finalization RPC.
+- The browser finalization helper sends only the attempt ID and accepts only a server response with state `CONFIRMED`.
 
-Any missing, stale, mismatched, or unavailable mandatory evidence must fail closed. Recheck the gate at both release preparation and immediately before Safe execution; never trust a client-supplied PASS flag.
+## Critical integration gaps — do not mark V1 complete yet
+
+1. **Finalization-time acquisition revalidation:** the current finalization snapshot adapter verifies the attempt, package, participants, transaction state, Safe/token/recipient/amount bindings and receipt evidence, but the inspected adapter does not reload and revalidate the latest acquisition report/evidence/signatures at finalization time. Add a server-side finalization gate that checks the same report revision and current evidence state immediately before the atomic finalize RPC. Any unavailable or changed mandatory evidence must block.
+2. **Registry schema alignment:** the runtime report loader currently reads `w3m_acquisition_reports`, `w3m_acquisition_evidence`, and `w3m_trusted_signer_key_status`. The new preliminary migration creates a separate `acquisition_reports` / `acquisition_evidence` / `acquisition_report_signatures` / `acquisition_report_events` set. These are not interchangeable. Decide and implement a deliberate migration/adapter path before applying the new migration to any database.
+3. **Database contract verification:** inspect the existing RPC definitions for package issuance, attempt snapshot, submission recording, and atomic finalization. Confirm that each RPC binds the report ID/version and deal terms to the exact execution attempt and rejects stale or disputed state. Do not infer this from the TypeScript adapter alone.
+4. **End-to-end verification:** run deterministic unit tests and isolated database integration tests for PASS, BLOCKED, EXPIRED, changed evidence/commit, missing or revoked signer, disputed deal, duplicate submission, receipt reorg/insufficient confirmations, wrong Safe event, wrong token/recipient/amount, and idempotent finalization.
+5. **Deployment boundary:** do not deploy Edge Functions, apply migrations to production, connect the new path to the live Deal Room, or submit a real Safe transaction until the above checks pass and the owner explicitly approves a separate deployment step.
 
 ## Security boundaries
 
-- Tables are RLS-enabled and deny direct access to anon/authenticated roles. Edge Functions must authenticate the caller, authorize deal participation, and use service_role only server-side.
+- Registry tables must be protected by RLS and must not be directly writable by anon/authenticated clients. Edge Functions must authenticate the caller, authorize deal participation, and use service_role only server-side.
 - Event history is append-only.
 - No secrets, private keys, seed phrases, or raw wallet credentials belong in these tables.
 - A protocol PASS is a workflow decision based on configured evidence checks; it is not a legal opinion, independent smart-contract audit, guarantee against fraud, or proof of title.
 
-## Remaining implementation
+## Next implementation sequence
 
-1. Implement authenticated Edge Functions to create reports, add evidence, compute canonical manifests, verify evidence, and validate EIP-712 signatures.
-2. Add deterministic unit tests for manifest ordering/hash stability, signature recovery, authorization, expiry, commit mismatch, and state transitions.
-3. Integrate the server-side PASS gate into both `prepare-deal-release` and the Safe execution endpoint.
-4. Add end-to-end tests for PASS, BLOCKED, EXPIRED, changed commit, missing signature, disputed deal, and Safe transaction mismatch.
-5. Review and apply the migration only in a dedicated test database. Do not apply it to production until schema compatibility and RLS are verified.
+1. Inspect the SQL definitions behind the existing W3M registry and Safe RPCs; map their actual inputs, locks, invariants, and returned states.
+2. Align the preliminary acquisition schema with the runtime registry, or explicitly build and test an adapter/migration that preserves historical report integrity.
+3. Implement finalization-time report/evidence/signature revalidation inside the trusted server-side transaction boundary, not in browser code.
+4. Add adversarial tests for evidence changes between package issuance and finalization, report expiry, signer revocation, and dispute opening during the package window.
+5. Run all isolated tests and inspect CI results. Apply the schema only to a dedicated test database after compatibility and RLS review; production remains untouched.
