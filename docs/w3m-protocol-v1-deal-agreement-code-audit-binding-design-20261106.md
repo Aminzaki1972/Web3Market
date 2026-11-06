@@ -86,3 +86,15 @@ If the project repository changes, a different audit is selected, the commit cha
 ## 7. Release boundary
 
 This is a source-derived design proposal only. No migration, live database read, Edge Function patch, key configuration, deployment, or production change was performed. Implementation should begin only in the isolated branch after confirming the exact existing schema and adding disposable PostgreSQL contract tests.
+
+
+## 8. Pure canonical binding boundary added (2026-11-06)
+
+The isolated branch now contains:
+
+- `supabase/functions/w3m-acquisition-verification/deal-code-audit-binding.ts`
+- `supabase/functions/w3m-acquisition-verification/deal-code-audit-binding.test.ts`
+
+The pure helper accepts only an already-selected mandatory `CODE_AUDIT` evidence object and validates its exact deal/project binding, audit record UUID, immutable 40-character commit, repository owner/name, supported audit scope, completion timestamp, and evidence SHA-256. It emits a deterministic compact object containing audit ID, canonical GitHub URL, commit SHA, audit scope, completion time, and evidence hash. It performs no I/O and cannot select an audit or mark one as passing.
+
+This is a pre-integration contract, not yet part of `computeDealTermsHash`, `w3m_current_deal_terms_json`, or the live agreement-signing path. The remaining integration must load a server-owned selected audit ID, compare the project's authoritative GitHub URL, include the exact same binding in both TypeScript and SQL canonical terms, and test that changing the audit/commit creates a new terms version requiring both parties to sign again. No client-supplied repository or audit data may be authoritative.
