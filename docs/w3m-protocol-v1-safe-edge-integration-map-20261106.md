@@ -920,3 +920,10 @@ The helper retries only the authenticated `w3m-protocol-v1-safe-wallet-submit` e
 Added client tests for successful hash-persistence recovery and a still-unavailable endpoint. These tests are included in the existing isolated workflow's `safe-wallet-execution-client.test.ts` suite. The new commits are `ea5c36ebb5cb7340b861c80d79ce701f665a6e6b` and `3d0c67d819e34b83ebf84ef932b0d755f8e6b835`.
 
 **Verification:** the latest commit has no reported combined-status checks yet; do not mark the new tests green until the corresponding GitHub Actions run completes. No wallet was prompted, no transaction was sent, no production function or migration was deployed, and no live Deal Room was modified.
+
+
+## 50. Safe wallet hash persistence recovery — 2026-11-06
+
+Added `recordW3MSafeWalletSubmission` to the browser helper. If the owner wallet already returned an outer BNB transaction hash but the HTTP response to the persistence endpoint was lost, the client can retry only the authenticated idempotent hash-recording request using the same attempt ID, package hash, and original transaction hash. It never calls `eth_sendTransaction` again. The server RPC preserves the original hash and rejects replacements; finalization still verifies the raw canonical receipt independently.
+
+A focused test covers the hash-recovery handoff. This avoids asking a user to submit the Safe transaction a second time just because the hash-persistence response was interrupted.
