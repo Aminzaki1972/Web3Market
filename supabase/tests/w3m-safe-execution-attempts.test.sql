@@ -26,6 +26,7 @@ declare
   v_terms jsonb;
   v_terms_result jsonb;
   v_acceptance jsonb;
+  v_rejected boolean;
 begin
   insert into public.projects (id,owner_id,status) values (v_project,v_seller,'active');
 
@@ -363,6 +364,55 @@ begin
       'recomputed_evidence_hash',repeat('c',64)
     )
   );
+
+  -- Malformed server receipt attestations must fail closed before any state transition.
+  v_rejected := false;
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,
+      jsonb_set(v_receipt,'{chain_id}',to_jsonb('not-a-number'::text))
+    );
+  exception when others then v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception 'Malformed receipt chain_id was unexpectedly accepted';
+  end if;
+
+  v_rejected := false;
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,
+      jsonb_set(v_receipt,'{receipt_status}',to_jsonb('not-an-integer'::text))
+    );
+  exception when others then v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception 'Malformed receipt_status was unexpectedly accepted';
+  end if;
+
+  v_rejected := false;
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,
+      jsonb_set(v_receipt,'{execution_success}',to_jsonb('not-a-boolean'::text))
+    );
+  exception when others then v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception 'Malformed execution_success was unexpectedly accepted';
+  end if;
+
+  v_rejected := false;
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,
+      jsonb_set(v_receipt,'{block_timestamp}',to_jsonb('not-a-timestamp'::text))
+    );
+  exception when others then v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception 'Malformed block_timestamp was unexpectedly accepted';
+  end if;
 
   -- Recipient substitution must not finalize the deal.
   begin
