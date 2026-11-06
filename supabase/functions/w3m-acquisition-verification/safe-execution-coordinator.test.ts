@@ -320,7 +320,7 @@ Deno.test("changed EIP-712 agreement version or either party acceptance after cl
       loads++;
       const value = snapshot();
       if (loads === 2) {
-        value.agreementBinding.sellerAcceptanceId = "84000000-0000-4000-8000-000000000004";
+        value.agreementBinding!.sellerAcceptanceId = "84000000-0000-4000-8000-000000000004";
       }
       return value;
     },
