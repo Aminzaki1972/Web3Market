@@ -188,6 +188,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/audit-manifest.ts
           deno check supabase/functions/w3m-acquisition-verification/audit-manifest.test.ts
           deno check supabase/functions/w3m-acquisition-verification/audit-manifest-loader.ts
+          deno check supabase/functions/w3m-acquisition-verification/audit-manifest-supabase-adapter.ts
+          deno check supabase/functions/w3m-acquisition-verification/audit-manifest-binding.ts
           deno check supabase/functions/w3m-acquisition-verification/audit-manifest-loader.test.ts
           deno check supabase/functions/w3m-acquisition-verification/dealroom-w3m-gate.ts
           deno check supabase/functions/w3m-acquisition-verification/dealroom-w3m-gate.test.ts
