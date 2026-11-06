@@ -51,3 +51,30 @@ Deno.test("normalizes repository and identity casing before hashing", async () =
   });
   assertEquals(a.digest, b.digest);
 });
+
+Deno.test("fingerprint digest is a lowercase SHA-256 hex string", async () => {
+  const result = await computeW3MAuditFingerprint(base);
+  if (!/^[0-9a-f]{64}$/.test(result.digest)) {
+    throw new Error("Fingerprint must be a 32-byte lowercase hexadecimal SHA-256 digest.");
+  }
+  assertEquals(result.algorithm, "sha-256");
+  assertEquals(result.schemaVersion, base.schemaVersion);
+});
+
+Deno.test("array order is significant because manifest evidence order is explicit", async () => {
+  const a = await computeW3MAuditFingerprint({
+    ...base, manifest: { files: ["a.ts", "b.ts"] },
+  });
+  const b = await computeW3MAuditFingerprint({
+    ...base, manifest: { files: ["b.ts", "a.ts"] },
+  });
+  if (a.digest === b.digest) {
+    throw new Error("Reordering an evidence array must change the fingerprint.");
+  }
+});
+
+Deno.test("rejects non-plain objects in the manifest", async () => {
+  await assertRejects(() => computeW3MAuditFingerprint({
+    ...base, manifest: { generatedAt: new Date("2026-11-07T00:00:00.000Z") },
+  }));
+});
