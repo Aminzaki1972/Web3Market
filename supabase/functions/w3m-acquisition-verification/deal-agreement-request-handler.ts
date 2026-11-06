@@ -5,8 +5,8 @@ import { extractW3MBearerToken } from "./bearer-token.ts";
 
 export interface W3MDealAgreementRequestDependencies {
   authenticate(token: string): Promise<string | null>;
-  prepare(input: { dealId: string; actorId: string }): Promise<unknown>;
-  accept(input: { dealId: string; actorId: string; signature: string }): Promise<unknown>;
+  prepareWithAuditSnapshot(input: { dealId: string; actorId: string }): Promise<unknown>;
+  acceptWithAuditSnapshot(input: { dealId: string; actorId: string; signature: string }): Promise<unknown>;
 }
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SIGNATURE = /^0x[0-9a-f]{130}$/i;
@@ -41,7 +41,7 @@ export async function handleW3MDealAgreementRequest(
   }
   if (value.mode === "prepare") {
     try {
-      const result = await dependencies.prepare({ dealId: value.deal_id, actorId });
+      const result = await dependencies.prepareWithAuditSnapshot({ dealId: value.deal_id, actorId });
       return json(200, { ok: true, result });
     } catch {
       return json(409, { ok: false, error: "W3M_AGREEMENT_PREPARATION_BLOCKED" });
@@ -52,7 +52,7 @@ export async function handleW3MDealAgreementRequest(
       return json(400, { ok: false, error: "INVALID_EIP712_SIGNATURE" });
     }
     try {
-      const result = await dependencies.accept({
+      const result = await dependencies.acceptWithAuditSnapshot({
         dealId: value.deal_id, actorId, signature: value.signature,
       });
       return json(200, { ok: true, result });
