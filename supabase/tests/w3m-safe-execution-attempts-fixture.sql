@@ -11,6 +11,7 @@ CREATE TABLE public.deals (
   buyer_id uuid NOT NULL,
   seller_id uuid NOT NULL,
   amount numeric NOT NULL DEFAULT 100,
+  currency text NOT NULL DEFAULT 'USDT',
   token_symbol text,
   platform_fee numeric NOT NULL DEFAULT 0,
   platform_fee_percent numeric NOT NULL DEFAULT 7.5,
@@ -71,6 +72,7 @@ CREATE TABLE public.deal_release_policies (
   platform_wallet text,
   seller_net_amount numeric NOT NULL DEFAULT 92.5,
   fee_amount numeric NOT NULL DEFAULT 7.5,
+  fee_percent numeric NOT NULL DEFAULT 7.5,
   token_symbol text,
   locked_at timestamptz,
   updated_at timestamptz,
@@ -82,6 +84,8 @@ CREATE TABLE public.deal_audit_logs (
   deal_id uuid NOT NULL REFERENCES public.deals(id),
   actor_id uuid NOT NULL,
   action text NOT NULL,
+  old_status text,
+  new_status text,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
