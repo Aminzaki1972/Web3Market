@@ -508,6 +508,6 @@ To prevent accidental use of the EXECUTE snapshot for PREPARE, the generic `auth
 
 The exact Deal Room reader also now blocks deal statuses outside `funded`/`in_progress` and any token other than the approved BNB USDT contract. Regression tests cover the generic PREPARE refusal, releasable status, BNB chain and token binding.
 
-CI run [42172206694](https://github.com/Aminzaki1972/Web3Market/actions/runs/42172206694) completed successfully: **57/57 steps passed**, including the full Deno suite and disposable PostgreSQL checks. The newest follow-up run for the final token-mismatch assertion adjustment is [42172312612](https://github.com/Aminzaki1972/Web3Market/actions/runs/42172312612) and remains in progress at the time of this note.
+CI run [42172206694](https://github.com/Aminzaki1972/Web3Market/actions/runs/42172206694) completed successfully: **57/57 steps passed**. The final follow-up run [42172312612](https://github.com/Aminzaki1972/Web3Market/actions/runs/42172312612) also completed successfully: **57/57 steps passed**, including the final token-mismatch regression, full Deno suite and disposable PostgreSQL checks.
 
 No old Safe handler is wired or changed. The dedicated PREPARE paths are still isolated integration components; deployment remains out of scope.
