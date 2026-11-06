@@ -274,6 +274,92 @@ export async function executeW3MDealReleaseFromWallet({
 
 
 /**
+ * Retry persistence of an already-submitted outer transaction hash.
+ * Use this after executeW3MDealReleaseFromWallet returns SUBMITTED_UNRECORDED.
+ * It never asks the wallet to send again; it only retries the authenticated,
+ * idempotent hash-recording endpoint for the original attempt/package/hash.
+ *
+ * @param {{attemptId:string, packageHash:string, transactionHash:string,
+ *   accessToken:string, apiKey:string, supabaseUrl:string,
+ *   fetchImpl?:typeof fetch}} options
+ */
+export async function recordW3MSafeWalletSubmission({
+  attemptId,
+  packageHash,
+  transactionHash,
+  accessToken,
+  apiKey,
+  supabaseUrl,
+  fetchImpl = fetch,
+}) {
+  assert(typeof attemptId === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(attemptId),
+  "A valid W3M execution attempt ID is required.");
+  assert(typeof packageHash === "string" && /^[0-9a-f]{64}$/i.test(packageHash),
+    "A valid W3M package hash is required.");
+  assert(typeof transactionHash === "string" && HASH.test(transactionHash),
+    "A valid already-submitted BNB transaction hash is required.");
+  assert(typeof accessToken === "string" && accessToken.trim().length > 0,
+    "An authenticated Supabase access token is required.");
+  assert(typeof apiKey === "string" && apiKey.trim().length > 0,
+    "A Supabase publishable API key is required.");
+  let base;
+  try { base = new URL(supabaseUrl); } catch {
+    throw new Error("Supabase URL is invalid.");
+  }
+  assert(base.protocol === "https:" && !base.username && !base.password && !base.search && !base.hash,
+    "Supabase endpoint must be a clean HTTPS URL.");
+  const response = await fetchImpl(
+    new URL("/functions/v1/w3m-protocol-v1-safe-wallet-submit", base.origin),
+    {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + accessToken,
+        "apikey": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        attempt_id: attemptId,
+        package_hash: packageHash.toLowerCase(),
+        transaction_hash: transactionHash.toLowerCase(),
+      }),
+    },
+  );
+  let body;
+  try { body = await response.json(); } catch {
+    return {
+      state: "SUBMITTED_UNRECORDED",
+      attemptId,
+      packageHash: packageHash.toLowerCase(),
+      transactionHash: transactionHash.toLowerCase(),
+      receiptVerified: false,
+      finalized: false,
+    };
+  }
+  if (!response.ok || body?.ok !== true ||
+      !["BROADCAST_UNVERIFIED", "RECONCILIATION_REQUIRED"].includes(body.state) ||
+      body.attempt_id !== attemptId ||
+      body.transaction_hash?.toLowerCase() !== transactionHash.toLowerCase()) {
+    return {
+      state: "SUBMITTED_UNRECORDED",
+      attemptId,
+      packageHash: packageHash.toLowerCase(),
+      transactionHash: transactionHash.toLowerCase(),
+      receiptVerified: false,
+      finalized: false,
+    };
+  }
+  return {
+    state: body.state,
+    attemptId,
+    packageHash: packageHash.toLowerCase(),
+    transactionHash: transactionHash.toLowerCase(),
+    receiptVerified: false,
+    finalized: false,
+  };
+}
+
+/**
  * Ask the isolated server to independently verify the canonical BNB receipt
  * and run atomic FINALIZE. The browser supplies only the attempt ID; no
  * receipt, transfer amounts, or "success" claim is accepted from the client.
