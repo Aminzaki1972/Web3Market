@@ -120,6 +120,7 @@ export async function loadFreshSafeHandlerContext(
     dealId,
     now,
     safeFacts,
+    safeTransactionHash: requiredText(snapshot.releaseTransaction.safe_tx_hash, "fresh Safe transaction hash"),
   };
 }
 
