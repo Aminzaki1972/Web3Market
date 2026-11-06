@@ -11,6 +11,7 @@ export interface W3MRegistrySelectQuery extends PromiseLike<W3MRegistryReadResul
   order(column: string, options: { ascending: boolean }): W3MRegistrySelectQuery;
   limit(count: number): W3MRegistrySelectQuery;
   maybeSingle(): PromiseLike<W3MRegistryReadResult>;
+  range(from: number, to: number): W3MRegistrySelectQuery;
 }
 
 export interface W3MRegistryReadClient {
