@@ -8,6 +8,8 @@ export interface W3MSignAuthorization {
   dealId: string;
   safeTransactionHash: string | null;
   issues: string[];
+  reportId?: string;
+  reportVersion?: number;
 }
 export interface W3MSignContext {
   authorization: W3MSignAuthorization;
@@ -44,6 +46,7 @@ export interface W3MSignHandlerDependencies {
     signature: string;
     verifiedWallet: string;
     signerRole: "buyer" | "seller";
+    authorization: W3MSignAuthorization;
   }): Promise<W3MSignPersistenceResult>;
 }
 const HASH = /^0x[0-9a-f]{64}$/i;
@@ -101,6 +104,7 @@ export function createW3MSafeSignRequestHandler(deps: W3MSignHandlerDependencies
         signature,
         expectedWallet: fresh.verifiedWallet,
         signerRole: fresh.signerRole,
+        authorization: auth,
       });
       if (valid !== true) return json(403, { ok: false, error: "SAFE_SIGNATURE_INVALID" });
       const saved = await deps.persistSignatureAtomically({
