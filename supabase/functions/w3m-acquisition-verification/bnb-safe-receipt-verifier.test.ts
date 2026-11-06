@@ -34,6 +34,19 @@ const expected: BnbSafeReceiptExpectation = {
   minConfirmations: 6,
   packageIssuedAt: "2026-11-06T12:00:00.000Z",
   packageExpiresAt: "2026-11-06T12:02:00.000Z",
+  acquisitionAttestation: {
+    authorized: true,
+    signature_valid: true,
+    report_id: "report-1",
+    report_version: 1,
+    report_hash: "a".repeat(64),
+    evidence_hash: "b".repeat(64),
+    signer_key_id: "signer-1",
+    terms_version_id: "terms-1",
+    terms_version: 1,
+    terms_hash: "c".repeat(64),
+    recomputed_evidence_hash: "b".repeat(64),
+  },
 };
 const safeSuccess = topic("ExecutionSuccess(bytes32,uint256)");
 const safeFailure = topic("ExecutionFailure(bytes32,uint256)");
@@ -199,8 +212,8 @@ Deno.test("wrong BNB chain blocks atomic finalization RPC", async () => {
   assertEquals(calls, 0);
 });
 
-Deno.test("fresh DB snapshot is loaded before BNB verification and atomic finalization", async () => {
-  const { rpc } = mockRpc();
+Deno.test("fresh acquisition bundle failure blocks BNB receipt read and finalization", async () => {
+  const { rpc, calls: rpcCalls } = mockRpc();
   const snapshot = {
     attempt_id: expected.attemptId,
     deal_id: "deal-1",
@@ -231,31 +244,26 @@ Deno.test("fresh DB snapshot is loaded before BNB verification and atomic finali
     async rpc(name: string) {
       calls.push(name);
       if (name === "w3m_read_safe_finalization_snapshot") return { data: snapshot, error: null };
-      if (name === "w3m_finalize_safe_execution_attempt") {
-        return {
-          data: {
-            finalized: true,
-            idempotent_replay: false,
-            attempt_id: expected.attemptId,
-            state: "CONFIRMED",
-            broadcast_tx_hash: expected.broadcastTxHash,
-          },
-          error: null,
-        };
+      if (name === "w3m_read_safe_finalization_acquisition_bundle") {
+        return { data: null, error: new Error("acquisition bundle unavailable") };
       }
       throw new Error("Unexpected database RPC");
     },
   };
-  const result = await finalizeBnbSafeReleaseFromFreshSnapshot(
-    database,
-    rpc,
-    { attemptId: expected.attemptId, actorId: expected.actorId, minConfirmations: 6 },
+  await assertRejects(
+    () => finalizeBnbSafeReleaseFromFreshSnapshot(
+      database,
+      rpc,
+      { attemptId: expected.attemptId, actorId: expected.actorId, minConfirmations: 6 },
+    ),
+    Error,
+    "acquisition finalization bundle read failed",
   );
-  assertEquals(result.state, "CONFIRMED");
   assertEquals(calls, [
     "w3m_read_safe_finalization_snapshot",
-    "w3m_finalize_safe_execution_attempt",
+    "w3m_read_safe_finalization_acquisition_bundle",
   ]);
+  assertEquals(rpcCalls.length, 0);
 });
 
 Deno.test("missing fresh snapshot blocks BNB receipt read and finalization", async () => {
