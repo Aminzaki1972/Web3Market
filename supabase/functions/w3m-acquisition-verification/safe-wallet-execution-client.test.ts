@@ -84,7 +84,7 @@ Deno.test("encodes exact Safe execTransaction calldata with dynamic offsets and 
   assertEquals(data.slice(10 + 64 * 2, 10 + 64 * 3), "0".repeat(61) + "140");
 });
 
-Deno.test("submits only after package hash, BNB chain, verified signer, and Safe nonce checks", async () => {
+Deno.test("submits only after package hash, BNB chain, exact executor wallet, and Safe nonce checks", async () => {
   const value = pkg();
   const packageHash = await hash(value);
   const wallet = provider();
@@ -108,12 +108,13 @@ Deno.test("submits only after package hash, BNB chain, verified signer, and Safe
   assertEquals(sent.value, "0x0");
 });
 
-Deno.test("blocks wrong chain, wrong signer, changed nonce, expired package, and hash mismatch before send", async () => {
+Deno.test("blocks wrong chain, non-executor Safe owner, changed nonce, expired package, and hash mismatch before send", async () => {
   const value = pkg();
   const packageHash = await hash(value);
   for (const options of [
     { chain: "0x1" },
-    { accounts: ["0x4444444444444444444444444444444444444444"] },
+    // This account is a different current Safe owner, but not the authenticated executor.
+    { accounts: ["0x3333333333333333333333333333333333333333"] },
     { nonce: "0x" + "0".repeat(63) + "8" },
   ]) {
     const wallet = provider(options);
