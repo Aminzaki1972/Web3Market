@@ -20,6 +20,7 @@ import {
 import {
   createW3MSafeSignRequestHandler,
 } from "../w3m-acquisition-verification/safe-sign-request-handler.ts";
+import { extractW3MBearerToken } from "../w3m-acquisition-verification/bearer-token.ts";
 import {
   verifyEthereumRawDigestSignature,
 } from "../w3m-acquisition-verification/ethereum-signature-adapter.ts";
@@ -85,9 +86,9 @@ Deno.serve(async (request) => {
 
   const handler = createW3MSafeSignRequestHandler({
     authenticate: async (incoming) => {
-      const match = /^Bearer\\s+(.+)$/i.exec(incoming.headers.get("authorization") ?? "");
-      if (!match?.[1]?.trim()) return null;
-      const { data, error } = await supabase.auth.getUser(match[1].trim());
+      const token = extractW3MBearerToken(incoming.headers.get("authorization"));
+      if (!token) return null;
+      const { data, error } = await supabase.auth.getUser(token);
       if (error || !data.user?.id) return null;
       return { userId: data.user.id };
     },
