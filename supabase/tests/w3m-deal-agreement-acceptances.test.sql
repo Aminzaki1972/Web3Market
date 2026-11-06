@@ -46,6 +46,19 @@ begin
     92.5,7.5,7.5,7,'USDT'
   );
 
+  -- One wallet cannot represent both buyer and seller consent.
+  update public.profiles
+     set wallet_address='0x4444444444444444444444444444444444444444'
+   where id=v_buyer;
+  begin
+    perform public.w3m_register_deal_terms_version(v_deal,v_hash,'{}'::jsonb);
+    raise exception 'Terms version was registered with the same buyer and seller wallet';
+  exception when check_violation then null;
+  end;
+  update public.profiles
+     set wallet_address='0x5555555555555555555555555555555555555555'
+   where id=v_buyer;
+
   v_canonical := jsonb_build_object(
     'protocol','W3M Protocol V1','dealId',v_deal::text,'projectId',v_project::text,
     'buyerId',v_buyer::text,'sellerId',v_seller::text,'amount','100',
@@ -174,6 +187,22 @@ begin
   exception when check_violation then null;
   end;
   update public.projects set owner_id=v_seller where id=v_project;
+
+  -- Even if only one party is signing, both current verified wallets must remain distinct.
+  update public.profiles
+     set wallet_address='0x5555555555555555555555555555555555555555'
+   where id=v_seller;
+  begin
+    perform public.w3m_insert_deal_agreement_acceptance(
+      v_deal,2,'buyer',v_buyer,'0x5555555555555555555555555555555555555555',
+      repeat('b',64),v_canonical,'0x' || repeat('a',64),'0x' || repeat('d',130)
+    );
+    raise exception 'Agreement acceptance was allowed with shared buyer and seller wallet';
+  exception when check_violation then null;
+  end;
+  update public.profiles
+     set wallet_address='0x4444444444444444444444444444444444444444'
+   where id=v_seller;
 
   -- A chain or Safe policy change after version creation must also veto acceptance.
   update public.deals set chain_id=97 where id=v_deal;
