@@ -64,3 +64,27 @@ Deno.test("rejects malformed audit IDs, commits, repository names, scope and tim
   assertThrows(() => buildDealCodeAuditBinding({ evidence: evidence({ metadata: { ...evidence().metadata, auditType: "unknown" } }), expectedDealId: dealId, expectedProjectId: projectId }));
   assertThrows(() => buildDealCodeAuditBinding({ evidence: evidence({ metadata: { ...evidence().metadata, completedAt: "2026-11-07T00:00:00.000Z" } }), expectedDealId: dealId, expectedProjectId: projectId }));
 });
+
+
+Deno.test("requires a valid evidence observation inside the audit validity interval", () => {
+  assertThrows(() => buildDealCodeAuditBinding({
+    evidence: evidence({ validUntil: null }),
+    expectedDealId: dealId,
+    expectedProjectId: projectId,
+  }));
+  assertThrows(() => buildDealCodeAuditBinding({
+    evidence: evidence({ observedAt: "not-a-date" }),
+    expectedDealId: dealId,
+    expectedProjectId: projectId,
+  }));
+  assertThrows(() => buildDealCodeAuditBinding({
+    evidence: evidence({ observedAt: "2026-12-01T10:00:00.000Z" }),
+    expectedDealId: dealId,
+    expectedProjectId: projectId,
+  }));
+  assertThrows(() => buildDealCodeAuditBinding({
+    evidence: evidence({ validUntil: "2026-10-31T10:00:00.000Z" }),
+    expectedDealId: dealId,
+    expectedProjectId: projectId,
+  }));
+});
