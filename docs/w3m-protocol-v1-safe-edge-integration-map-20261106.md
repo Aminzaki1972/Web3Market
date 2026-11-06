@@ -807,6 +807,22 @@ The isolated claim RPC was corrected to independently rebind:
 
 The legacy validator call was removed from the execution-claim path. The claim also now fails closed for a null dispute status or an ineligible deal lifecycle state, and rejects a null policy status. The disposable SQL fixture deliberately defines the legacy validator to return `valid=false`; the claim test is expected to succeed only when the new W3M exact checks pass. The fixture uses a valid BNB USDT token address and a syntactically valid 32-byte payment hash.
 
-**Verification history:** earlier runs [42184955398](https://github.com/Aminzaki1972/Web3Market/actions/runs/42184955398) and [42185035291](https://github.com/Aminzaki1972/Web3Market/actions/runs/42185035291) failed at the disposable PostgreSQL migration stage. Log review identified an orphaned duplicate SQL fragment after the migration's `COMMIT`; it was removed in commit `ae3a946f20ac661f476bee5f1e1fce8e3ec70ec4`. The receipt fixture was then aligned to the canonical BNB USDT token contract in commit `f2bc14bacf5c0cda1ca5576dd9b6e17af7d8513b`. The latest workflow run [42185335049](https://github.com/Aminzaki1972/Web3Market/actions/runs/42185335049), on that fixture commit, is in progress. **The SQL correction is not yet CI-verified.**
+**Verification history:** earlier runs [42184955398](https://github.com/Aminzaki1972/Web3Market/actions/runs/42184955398) and [42185035291](https://github.com/Aminzaki1972/Web3Market/actions/runs/42185035291) failed at the disposable PostgreSQL migration stage. Log review identified an orphaned duplicate SQL fragment after the migration's `COMMIT`; it was removed in commit `ae3a946f20ac661f476bee5f1e1fce8e3ec70ec4`. The receipt fixture was then aligned to the canonical BNB USDT token contract in commit `f2bc14bacf5c0cda1ca5576dd9b6e17af7d8513b`. Workflow run [42185335049](https://github.com/Aminzaki1972/Web3Market/actions/runs/42185335049), on commit `f2bc14bacf5c0cda1ca5576dd9b6e17af7d8513b`, completed with **success**, including the disposable PostgreSQL migration/claim tests. The SQL correction is CI-verified.
 
 No production migration or function was deployed, and no production data, Safe, wallet, or funds were touched.
+
+
+## 44. Connected-wallet Safe package builder — isolated draft — 2026-11-06
+
+Added `safe-wallet-execution-package.ts` and focused tests. The pure builder:
+- reruns the complete W3M settlement + stored payload + signature-recovery guard;
+- requires the exact deal, latest PASS report/version, and both immutable EIP-712 buyer/seller acceptance bindings;
+- requires canonical BNB Chain 56 Safe facts from a single pinned read block, including the Safe address, bytecode-backed live facts, current owner set, threshold, version, nonce, and recomputed Safe transaction hash;
+- compares the live owner set and threshold to the signature-validation inputs and binds the Safe nonce to the current transaction;
+- returns only the exact Safe transaction call fields and verified owner signatures sorted by signer address for connected-wallet submission.
+
+The builder has no RPC write method, private key, signer, broadcaster, or database mutation. The package is not a transaction receipt and does not mark a deal settled. The wallet-submission request boundary, one-use claim/package persistence semantics, browser wallet adapter, and post-submit broadcast-hash recording still need a concrete server composition and separate tests. In particular, a package must not be returned from an idempotent or already-used attempt, and uncertain submissions must enter reconciliation rather than be retried.
+
+**CI:** type-check and package tests are included in the isolated workflow; run [42186113056](https://github.com/Aminzaki1972/Web3Market/actions/runs/42186113056) is pending. Do not call the builder CI-verified until that run succeeds.
+
+No production code or migration was deployed, no connected wallet was prompted, no Safe transaction was broadcast, and no funds were moved.
