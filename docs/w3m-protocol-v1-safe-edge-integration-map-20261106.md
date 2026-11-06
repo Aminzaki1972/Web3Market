@@ -257,3 +257,24 @@ This review only inspected schema metadata and the validator definition. It did 
 A read-only source inspection of the isolated branch's current `js/deal-room.js` confirms that the “I Agree to Deal Terms” button currently upserts only `deal_id`, `party_role`, `party_id`, and a client-generated `agreed_at` timestamp into `deal_party_agreements`. The read path selects only `party_role,party_id,agreed_at`. No wallet signature, canonical terms digest, terms version, or signed payload is created or verified in this flow.
 
 This means the current UI action is a recorded acknowledgement, not cryptographic proof of acceptance of an immutable agreement. The W3M Protocol must not elevate that timestamp to verified `DEAL_AGREEMENT` evidence. A future agreement upgrade needs a separately reviewed flow that binds both parties to one canonical terms digest/version and verifies each party's signature against the wallet associated with that party. The signature scheme and canonical typed payload must be specified before implementation; do not assume `personal_sign` or raw-digest signing without an explicit protocol decision.
+
+
+## 15. Isolated Safe EXECUTE database snapshot reader — 2026-11-06
+
+Added:
+- `supabase/migrations/20261107030000_w3m_protocol_v1_safe_execution_snapshot_reader.sql`
+- `supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.ts`
+- `supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.test.ts`
+- disposable SQL contract test `supabase/tests/w3m-safe-execution-snapshot-reader.test.sql`
+
+The new service-role-only, read-only RPC `w3m_read_safe_execution_snapshot(uuid)` returns one consistent JSON snapshot of the exact deal, release policy, project, buyer/seller wallet verification metadata, all legacy `release_to_seller` transaction rows, signer rows, party-agreement acknowledgement rows, and dispute status. PostgreSQL numeric values are converted to exact text before leaving the database. The reader returns every release candidate rather than hiding duplicates; the adapter rejects zero or multiple candidates because the legacy table has no unique deal/action constraint.
+
+The strict Deno adapter validates deal/project/participant bindings, exact decimal strings, BNB chain and Safe/token consistency, exact signed release transaction hash, signer hash binding and unique wallets, and the buyer/seller acknowledgement rows. It records explicit blockers for missing immutable agreement binding, any dispute record/non-`none` deal dispute status, unconfirmed payment, missing buyer delivery acceptance, unverified participant wallets, and seller-wallet/policy mismatch. It never authorizes, signs, broadcasts, or finalizes.
+
+**Important:** `agreement_binding_supported` is deliberately false in this version because the current production agreement table and UI do not store a terms digest/version or wallet signature. Thus this snapshot adapter cannot produce an execution-ready result today; that is a safety property, not a temporary bypass. A separate, reviewed agreement-signing design is required before a future snapshot can clear that blocker.
+
+CI:
+- Run `42137826566` reached the disposable PostgreSQL stage and failed before applying the new migration because the test fixture attempted to add `token_symbol` twice. The fixture was corrected by removing duplicate additions; no SQL assertion or runtime behavior is claimed from the failed run.
+- Follow-up run `42137916304` is running against the corrected fixture and includes the new Deno adapter type-check/test plus the disposable PostgreSQL migration and contract test. Its result must be checked before calling this snapshot reader CI-verified.
+
+All files remain on `w3m-protocol-v1-isolated-20261105`. No production function, database schema, data, secrets, Cloudflare configuration, Safe transaction, or funds were changed.
