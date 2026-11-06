@@ -469,3 +469,18 @@ This distinction prevents an unsafe shortcut: the EXECUTE snapshot must not be w
 9. Integration tests must run against isolated handler copies/adapters and disposable PostgreSQL. The existing deployed handlers and production environment remain untouched until a separately approved deployment plan exists.
 
 **Current readiness:** the reusable SIGN/EXECUTE authorization and execution components are CI-verified, and the finalization endpoint is CI-verified. The PREPARE-specific pre-transaction snapshot is the next implementation item. None of the five existing deployed Safe handlers is currently wired to W3M.
+
+
+### PREPARE follow-up: post-lock pre-transaction gate components — 2026-11-06
+
+A first PREPARE-specific read path has now been added without weakening the strict EXECUTE snapshot:
+
+- `w3m_read_dealroom_terms_snapshot` now exposes exact buyer/seller wallet addresses, wallet verification flags/timestamps, project owner/status, deal terms and locked policy values.
+- `safe-live-configuration-facts.ts` validates BNB chain 56, deployed Safe code, exact three-owner set, threshold 2, Safe version 1.4.1 and expected nonce without requiring a Safe transaction hash.
+- `bnb-safe-configuration-facts-reader.ts` pins all Safe reads to one BNB block and rechecks its hash to reject a reorg during the read.
+- `fresh-safe-prepare-context.ts` composes the exact Deal Room row with the canonical Safe configuration and W3M PREPARE gate. It checks project owner equals seller, both party wallets are verified and distinct, verification timestamps are not in the future, seller wallet matches the locked policy, and platform wallet matches the configured platform wallet.
+- The Deal Room row evaluator was split so the gate consumes the same exact database row used to derive the Safe facts; it does not silently reread a different row after the chain snapshot.
+
+**Important placement limitation:** this new context requires the release policy and pending release transaction row created by the earlier `prepare-deal-release` handler. It is designed to gate `prepare-safe-release-tx` before transaction rebuild/clearing old signatures/storing a new Safe hash. It does **not yet** gate the initial policy lock and pending-row writes inside `prepare-deal-release`. That pre-lock gate still needs a separate exact snapshot plus the server-computed, read-only release-policy validation result; it must not trust browser-supplied fee or wallet values.
+
+The isolated code and tests are being checked by the current workflow. No result is claimed until the latest run completes. No deployed Safe handler is wired, and no production migration or function has been deployed.
