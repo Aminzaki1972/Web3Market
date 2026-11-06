@@ -52,4 +52,16 @@ Deno.test("finding pages use the manifest natural-key tuple before offset pagina
     { method: "order", column: "id", ascending: true },
     { method: "range", from: 100, to: 199 },
   ]);
+
+  calls.length = 0;
+  const fileResult = await source.loadFilesPage("audit-123", 200, 299);
+  assertEquals(fileResult.data, []);
+  assertEquals(calls, [
+    { method: "from", table: "code_audit_files" },
+    { method: "select", columns: "*" },
+    { method: "eq", column: "audit_id", value: "audit-123" },
+    { method: "order", column: "path", ascending: true },
+    { method: "order", column: "id", ascending: true },
+    { method: "range", from: 200, to: 299 },
+  ]);
 });
