@@ -19,6 +19,7 @@ export interface VerifiedSafeReceiptEvidence {
   safe_tx_hash: string;
   token_contract: string;
   transfers: SafeReceiptTransfer[];
+  confirmations: number;
 }
 export interface SafeFinalizationExpectation {
   attemptId: string;
@@ -31,6 +32,7 @@ export interface SafeFinalizationExpectation {
   sellerAmount: string;
   platformWallet: string;
   platformFee: string;
+  minConfirmations: number;
 }
 export type FreshReceiptVerifier = () => Promise<VerifiedSafeReceiptEvidence>;
 
@@ -59,6 +61,7 @@ export function validateVerifiedSafeReceipt(
   if (typeof evidence.transaction_hash !== "string" ||
       evidence.transaction_hash.toLowerCase() !== expected.broadcastTxHash.toLowerCase()) issues.push("BROADCAST_HASH_MISMATCH");
   if (evidence.receipt_status !== 1) issues.push("RECEIPT_NOT_SUCCESSFUL");
+  if (!Number.isSafeInteger(evidence.confirmations) || evidence.confirmations < expected.minConfirmations) issues.push("CONFIRMATIONS_INSUFFICIENT");
   if (evidence.execution_success !== true || evidence.execution_failure !== false) issues.push("SAFE_EXECUTION_EVENT_INVALID");
   if (!sameAddress(evidence.safe_address, expected.safeAddress)) issues.push("SAFE_ADDRESS_MISMATCH");
   if (typeof evidence.safe_tx_hash !== "string" ||
