@@ -3,12 +3,27 @@ import { signAndSubmitW3MDealAgreement } from "../../../js/w3m-deal-agreement-cl
 const dealId = "71000000-0000-4000-8000-000000000001";
 const wallet = "0x5555555555555555555555555555555555555555";
 const signature = "0x" + "a".repeat(130);
+const types = {
+  EIP712Domain: [
+    { name: "name", type: "string" }, { name: "version", type: "string" },
+    { name: "chainId", type: "uint256" },
+  ],
+  DealTermsAcceptance: [
+    { name: "dealId", type: "bytes32" }, { name: "projectId", type: "bytes32" },
+    { name: "buyerId", type: "bytes32" }, { name: "sellerId", type: "bytes32" },
+    { name: "safeAddress", type: "address" }, { name: "termsHash", type: "bytes32" },
+    { name: "termsVersion", type: "uint256" }, { name: "partyRole", type: "uint8" },
+  ],
+};
 function prepared(overrides: Record<string, unknown> = {}) {
   return { ok: true, result: {
-    dealId, partyRole: "buyer", walletAddress: wallet, termsHash: "a".repeat(64), termsVersion: "3",
+    dealId, partyRole: "buyer", walletAddress: wallet, termsHash: "2".repeat(64), termsVersion: "3",
     typedData: { domain: { name: "Web3Market Deal Agreement", version: "1", chainId: 56 },
-      primaryType: "DealTermsAcceptance", types: { EIP712Domain: [], DealTermsAcceptance: [] },
-      message: { dealId: "0x" + "1".repeat(64), termsHash: "0x" + "2".repeat(64), termsVersion: "3", partyRole: 1 } },
+      primaryType: "DealTermsAcceptance", types,
+      message: { dealId: "0x" + "1".repeat(64), projectId: "0x" + "3".repeat(64),
+        buyerId: "0x" + "4".repeat(64), sellerId: "0x" + "5".repeat(64),
+        safeAddress: "0x2222222222222222222222222222222222222222",
+        termsHash: "0x" + "2".repeat(64), termsVersion: "3", partyRole: 1 } },
     ...overrides,
   }};
 }
@@ -35,10 +50,32 @@ Deno.test("client rejects a substituted EIP-712 domain", async () => {
     request:async()=>prepared({typedData:{...prepared().result.typedData,domain:{name:"Attacker",version:"1",chainId:56}}}),
     signTypedData:async()=>signature}));
 });
+Deno.test("client rejects changed terms hash before requesting a wallet signature", async () => {
+  let signed=false;
+  const altered=prepared();
+  altered.result.typedData.message.termsHash="0x"+"9".repeat(64);
+  await assertRejects(()=>signAndSubmitW3MDealAgreement({dealId,accessToken:"session",walletAddress:wallet,
+    request:async()=>altered,signTypedData:async()=>{signed=true;return signature;}}));
+  assertEquals(signed,false);
+});
+Deno.test("client rejects a substituted typed-data field schema", async () => {
+  let signed=false;
+  const altered=prepared();
+  altered.result.typedData.types.DealTermsAcceptance=types.DealTermsAcceptance.slice(0,7);
+  await assertRejects(()=>signAndSubmitW3MDealAgreement({dealId,accessToken:"session",walletAddress:wallet,
+    request:async()=>altered,signTypedData:async()=>{signed=true;return signature;}}));
+  assertEquals(signed,false);
+});
 Deno.test("client rejects acceptance for a changed terms version", async () => {
   await assertRejects(()=>signAndSubmitW3MDealAgreement({dealId,accessToken:"session",walletAddress:wallet,
     request:async(body:unknown)=>(body as {mode:string}).mode==="prepare"?prepared():{ok:true,result:{
       dealId,partyRole:"buyer",termsVersion:"4",acceptanceId:"76000000-0000-4000-8000-000000000006",idempotentReplay:false}},
+    signTypedData:async()=>signature}));
+});
+Deno.test("client rejects a malformed acceptance identifier", async () => {
+  await assertRejects(()=>signAndSubmitW3MDealAgreement({dealId,accessToken:"session",walletAddress:wallet,
+    request:async(body:unknown)=>(body as {mode:string}).mode==="prepare"?prepared():{ok:true,result:{
+      dealId,partyRole:"buyer",termsVersion:"3",acceptanceId:"not-a-uuid",idempotentReplay:false}},
     signTypedData:async()=>signature}));
 });
 Deno.test("client never submits a malformed wallet signature", async () => {
