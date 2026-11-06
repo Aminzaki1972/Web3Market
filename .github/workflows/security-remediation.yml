@@ -24,6 +24,7 @@ on:
       - 'project.html'
       - 'seller-dashboard.html'
       - 'supabase/functions/w3m-code-audit/**'
+      - 'supabase/functions/w3m-ai-assistant/**'
       - 'supabase/migrations/**'
       - 'tests/security/**'
       - '.github/workflows/security-remediation.yml'
@@ -52,6 +53,17 @@ jobs:
             node --check "$file"
           done
           node tests/security/check-cdn-sri.mjs
+
+
+  w3m-ai-assistant-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check W3M AI Assistant Edge Function
+        run: deno check supabase/functions/w3m-ai-assistant/index.ts
 
   profile-guard-migration:
     runs-on: ubuntu-latest
