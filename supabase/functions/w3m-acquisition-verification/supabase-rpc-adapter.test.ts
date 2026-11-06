@@ -172,7 +172,7 @@ Deno.test("wallet package issuance persists the exact actor, package hash, and e
       calls.push({ name, args });
       return { data: {
         issued: true, idempotent_replay: false, attempt_id: attemptId,
-        package_hash: packageHash, expires_at: expiresAt, package: pkg,
+        package_hash: String(args.p_package_hash), expires_at: expiresAt, package: pkg,
       }, error: null };
     },
   };
