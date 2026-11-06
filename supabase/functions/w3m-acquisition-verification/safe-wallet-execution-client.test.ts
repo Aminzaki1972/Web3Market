@@ -166,6 +166,7 @@ Deno.test("orchestrates package issuance, connected-wallet submission, and unver
       submissionBodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
       return new Response(JSON.stringify({
         ok: true, state: "BROADCAST_UNVERIFIED",
+        attempt_id: "24000000-0000-4000-8000-000000000004",
         transaction_hash: OUTER_HASH, receipt_verified: false, finalized: false,
       }), { status: 200, headers: { "content-type": "application/json" } });
     }
