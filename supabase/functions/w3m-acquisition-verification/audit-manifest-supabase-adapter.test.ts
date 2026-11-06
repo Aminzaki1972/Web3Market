@@ -49,6 +49,7 @@ Deno.test("finding pages use the manifest natural-key tuple before offset pagina
     { method: "order", column: "severity", ascending: true },
     { method: "order", column: "category", ascending: true },
     { method: "order", column: "title", ascending: true },
+    { method: "order", column: "id", ascending: true },
     { method: "range", from: 100, to: 199 },
   ]);
 });
