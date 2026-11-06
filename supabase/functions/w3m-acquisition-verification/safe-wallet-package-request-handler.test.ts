@@ -42,6 +42,7 @@ function packageValue(dealId = DEAL): SafeWalletExecutionPackage {
     reportId: "83000000-0000-4000-8000-000000000003",
     reportVersion: 1,
     agreementTermsVersionId: "84000000-0000-4000-8000-000000000004",
+    agreementTermsVersion: "1",
     agreementTermsHash: "f".repeat(64),
     buyerAcceptanceId: "85000000-0000-4000-8000-000000000005",
     sellerAcceptanceId: "86000000-0000-4000-8000-000000000006",
