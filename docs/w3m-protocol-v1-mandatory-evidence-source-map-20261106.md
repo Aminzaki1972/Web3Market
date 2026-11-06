@@ -67,3 +67,44 @@ The browser may submit only a deal identifier and user-authored statements that 
 ## Explicit non-claims
 
 This is a source-derived map, not a live Supabase schema inspection. No production or connected database was queried; no migration was applied; no Edge Function was deployed; no signing key was created; no provider credentials were read; no Safe transaction or funds were touched.
+
+## Critical sequencing finding — first-report / agreement circular dependency
+
+A source review after the isolated CI pass found a first-deal deadlock that the current SQL fixture sequence does not expose.
+
+### Verified dependency chain
+
+1. `w3m_current_deal_code_audit_json(deal_id)` reads the latest `w3m_acquisition_reports` row and its mandatory `CODE_AUDIT` evidence to construct the current audit binding.
+2. `w3m_current_deal_terms_json(deal_id)` embeds that result in the canonical terms object.
+3. `w3m_read_deal_agreement_signing_snapshot(deal_id)` calls the terms/audit readers.
+4. `prepareDealAgreementAcceptance`, `w3m_register_deal_terms_version`, and `w3m_insert_deal_agreement_acceptance` all require a non-null current Code Audit binding.
+5. The final acquisition report is expected to include `DEAL_AGREEMENT` evidence proving both parties accepted the terms.
+
+Therefore, when no prior W3M report exists, agreement signing cannot start; when agreement signing cannot start, the first complete report cannot be issued. The SQL test fixture currently inserts a prior PASS report and CODE_AUDIT evidence before it creates the acceptance records, so it exercises the already-seeded path and masks the first-issuance deadlock.
+
+### Required V1 correction — independent immutable Audit Manifest snapshot
+
+Do not weaken the report's Code Audit evidence and do not fabricate a preliminary PASS report. Introduce a separate pre-agreement audit-manifest snapshot lifecycle:
+
+- A trusted server loader selects the exact completed `code_audits` row for the deal's project and canonical repository, then loads every `code_audit_files` and `code_audit_findings` page.
+- Recompute the complete `w3m-audit-manifest-v1` digest from the full persisted rows.
+- Persist the manifest snapshot independently of `w3m_acquisition_reports`, keyed uniquely to the exact audit ID and bound to project ID, repository owner/name/URL, commit SHA, audit type, completion time, manifest version/hash, and file/finding counts.
+- Permit writes only through a narrowly scoped service-role RPC. The RPC must independently check the completed audit identity, project/repository binding, immutable commit and counts; never accept browser-supplied audit evidence or digest as authoritative.
+- Make the signing snapshot and canonical deal terms read this independent immutable manifest snapshot. The report issuer must recompute the manifest from source rows and compare it with the same snapshot before issuing the report.
+- Keep final report evidence as a separate report-specific row referencing the exact audit ID, commit SHA, and manifest digest. Agreement signatures bind the audit snapshot; the report then proves the same complete manifest.
+- Preserve the existing completed-audit immutability guard and fail closed on missing, duplicate, stale, mismatched, or unrecomputable snapshots.
+
+### Mandatory regression tests before changing the current agreement migration
+
+- First deal: completed Code Audit exists, but no W3M acquisition report exists; buyer and seller can prepare and accept the same terms version.
+- The first report can then be issued only after both acceptances exist and must reference the exact same audit ID, commit SHA, and manifest digest.
+- Wrong project, repository, audit ID, commit, audit type, completion timestamp, manifest hash, file count, or finding count is rejected.
+- Missing or stale manifest snapshot blocks signing and report issuance.
+- Any source file/finding mutation after audit completion is rejected; recomputation mismatch blocks issuance.
+- A later audit or changed project repository invalidates the previous binding and requires a new terms version and both new acceptances.
+- No report, agreement, or settlement path can use a client-supplied manifest digest.
+
+### Release status
+
+This is a repository-source finding and design correction only. No migration was changed or applied, no production database was queried or modified, no Edge Function was deployed, and no signing key or provider credential was created. The current green CI run proves the existing isolated tests pass; it does not prove the first-report lifecycle is free of this deadlock.
+
