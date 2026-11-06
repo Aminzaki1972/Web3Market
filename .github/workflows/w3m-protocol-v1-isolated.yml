@@ -13,6 +13,7 @@ on:
       - "supabase/migrations/20261107010000_w3m_protocol_v1_dealroom_terms_reader.sql"
       - "supabase/migrations/20261107020000_w3m_protocol_v1_safe_finalization_snapshot_reader.sql"
       - "supabase/migrations/20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql"
+      - "supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql"
       - "supabase/tests/w3m-deal-agreement-acceptances.test.sql"
       - "supabase/migrations/20261107030000_w3m_protocol_v1_safe_execution_snapshot_reader.sql"
       - "supabase/tests/w3m-safe-execution-snapshot-reader.test.sql"
@@ -37,6 +38,7 @@ on:
       - "supabase/migrations/20261107020000_w3m_protocol_v1_safe_finalization_snapshot_reader.sql"
       - "supabase/migrations/20261107030000_w3m_protocol_v1_safe_execution_snapshot_reader.sql"
       - "supabase/migrations/20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql"
+      - "supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql"
       - "supabase/tests/w3m-safe-execution-snapshot-reader.test.sql"
       - "supabase/tests/w3m-deal-agreement-acceptances.test.sql"
       - "supabase/tests/w3m-dealroom-terms-reader-fixture.sql"
@@ -247,6 +249,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107020000_w3m_protocol_v1_safe_finalization_snapshot_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107030000_w3m_protocol_v1_safe_execution_snapshot_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-schema.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-trusted-signer-schema.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-attempts.test.sql
