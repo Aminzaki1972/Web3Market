@@ -168,3 +168,116 @@ Deno.test("snapshot exposes project owner and platform wallet mismatches as bloc
   assertEquals(result.blockers.includes("PROJECT_OWNER_SELLER_MISMATCH"), true);
   assertEquals(result.blockers.includes("POLICY_PLATFORM_WALLET_MISMATCH"), true);
 });
+
+import { secp256k1 } from "jsr:@noble/curves@1.8.2/secp256k1";
+import { keccak_256 } from "jsr:@noble/hashes@1.7.1/sha3";
+import { computeDealTermsHash } from "./deal-terms-hash.ts";
+import { computeDealTermsAcceptanceDigest } from "./deal-agreement-eip712.ts";
+
+function signerFixture(keyByte: number) {
+  const privateKey = new Uint8Array(32);
+  privateKey[31] = keyByte;
+  const publicKey = secp256k1.getPublicKey(privateKey, false);
+  const wallet = "0x" + Array.from(keccak_256(publicKey.slice(1)).slice(12),
+    (b) => b.toString(16).padStart(2, "0")).join("");
+  return {
+    wallet,
+    sign(digestHex: string) {
+      const digest = Uint8Array.from(digestHex.match(/.{2}/g)!, (x) => Number.parseInt(x, 16));
+      const signed = secp256k1.sign(digest, privateKey, { prehash: false });
+      return "0x" + Array.from(new Uint8Array([
+        ...signed.toCompactRawBytes(), signed.recovery! + 27,
+      ]), (b) => b.toString(16).padStart(2, "0")).join("");
+    },
+  };
+}
+async function snapshotWithSignedAgreements() {
+  const buyer = signerFixture(1);
+  const seller = signerFixture(2);
+  const deal = { ...snapshot.deal, amount: "100", expected_amount: "100" };
+  const policy = {
+    ...snapshot.policy, deal_amount: "100", fee_percent: "7.5",
+    fee_amount: "7.5", seller_net_amount: "92.5", seller_wallet: seller.wallet,
+  };
+  const buyerProfile = { ...snapshot.buyer_profile, wallet_address: buyer.wallet };
+  const sellerProfile = { ...snapshot.seller_profile, wallet_address: seller.wallet };
+  const terms = await computeDealTermsHash({
+    dealId, projectId: String(deal.project_id), buyerId, sellerId,
+    amount: "100", currency: "USDT", expectedAmount: "100", chainId: 56,
+    safeAddress: String(deal.safe_address), tokenContract: String(deal.token_contract),
+    policy: {
+      dealAmount: "100", feePercent: "7.5", feeAmount: "7.5", sellerNetAmount: "92.5",
+      chainId: 56, safeAddress: String(policy.safe_address),
+      tokenContract: String(policy.token_contract), sellerWallet: seller.wallet,
+      platformWallet: String(policy.platform_wallet), safeNonce: "7", status: "locked",
+    },
+  });
+  const termsVersionId = "77000000-0000-4000-8000-000000000007";
+  const baseAcceptance = {
+    dealId, projectId: String(deal.project_id), buyerId, sellerId,
+    safeAddress: String(policy.safe_address), termsHash: terms.dealTermsHash,
+    termsVersion: "1",
+  };
+  const buyerDigest = computeDealTermsAcceptanceDigest({ ...baseAcceptance, partyRole: "buyer" });
+  const sellerDigest = computeDealTermsAcceptanceDigest({ ...baseAcceptance, partyRole: "seller" });
+  const buyerSignature = buyer.sign(buyerDigest.slice(2));
+  const sellerSignature = seller.sign(sellerDigest.slice(2));
+  return {
+    ...snapshot,
+    deal, policy, buyer_profile: buyerProfile, seller_profile: sellerProfile,
+    signers: snapshot.signers.map((row, index) => ({
+      ...row, wallet_address: index === 0 ? buyer.wallet : seller.wallet,
+    })),
+    agreement_binding_supported: true,
+    terms_version: {
+      id: termsVersionId, deal_id: dealId, terms_version: "1",
+      project_id: String(deal.project_id), buyer_id: buyerId, seller_id: sellerId,
+      chain_id: "56", safe_address: String(policy.safe_address),
+      terms_hash: terms.dealTermsHash, canonical_terms: terms.canonicalTerms,
+    },
+    agreement_acceptances: [
+      {
+        id: "78000000-0000-4000-8000-000000000008", terms_version_id: termsVersionId,
+        deal_id: dealId, terms_version: "1", party_role: "buyer", party_id: buyerId,
+        wallet_address: buyer.wallet, chain_id: "56", safe_address: String(policy.safe_address),
+        terms_hash: terms.dealTermsHash, typed_data_digest: buyerDigest,
+        signature: buyerSignature, accepted_at: "2026-11-06T19:00:00Z",
+      },
+      {
+        id: "79000000-0000-4000-8000-000000000009", terms_version_id: termsVersionId,
+        deal_id: dealId, terms_version: "1", party_role: "seller", party_id: sellerId,
+        wallet_address: seller.wallet, chain_id: "56", safe_address: String(policy.safe_address),
+        terms_hash: terms.dealTermsHash, typed_data_digest: sellerDigest,
+        signature: sellerSignature, accepted_at: "2026-11-06T19:01:00Z",
+      },
+    ],
+  };
+}
+
+Deno.test("snapshot clears immutable agreement blocker only after both real EIP-712 signatures verify", async () => {
+  const data = await snapshotWithSignedAgreements();
+  const result = await loadSafeExecutionDatabaseSnapshot(client(data), dealId);
+  assertEquals(result.termsVersion?.termsVersion, "1");
+  assertEquals(result.agreementAcceptances.length, 2);
+  assertEquals(result.blockers.includes("IMMUTABLE_AGREEMENT_TERMS_BINDING_UNSUPPORTED"), false);
+  assertEquals(result.blockers.includes("IMMUTABLE_AGREEMENT_ACCEPTANCES_INCOMPLETE"), false);
+});
+
+Deno.test("snapshot rejects an invalid EIP-712 agreement signature", async () => {
+  const data = await snapshotWithSignedAgreements();
+  const bad = {
+    ...data,
+    agreement_acceptances: data.agreement_acceptances.map((row, index) =>
+      index === 0 ? { ...row, signature: "0x" + "f".repeat(130) } : row),
+  };
+  await assertRejects(() => loadSafeExecutionDatabaseSnapshot(client(bad), dealId));
+});
+
+Deno.test("snapshot rejects canonical terms drift after both parties signed", async () => {
+  const data = await snapshotWithSignedAgreements();
+  const drifted = {
+    ...data,
+    deal: { ...data.deal, amount: "101" },
+  };
+  await assertRejects(() => loadSafeExecutionDatabaseSnapshot(client(drifted), dealId));
+});
