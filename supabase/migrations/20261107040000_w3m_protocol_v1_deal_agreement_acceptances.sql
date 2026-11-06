@@ -202,7 +202,7 @@ declare
   v_expected_party uuid;
 begin
   if p_deal_id is null or p_terms_version < 1
-     or p_party_role not in ('buyer','seller')
+     or p_party_role is null or p_party_role not in ('buyer','seller')
      or p_party_id is null
      or p_wallet_address is null or p_wallet_address !~ '^0x[0-9a-fA-F]{40}
     raise exception 'Invalid agreement acceptance request' using errcode = '22023';
