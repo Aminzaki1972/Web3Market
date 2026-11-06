@@ -136,6 +136,32 @@ Deno.test("exact snapshot loader rejects ambiguous rows and RPC errors", async (
 });
 
 
+
+Deno.test("exact snapshot gate blocks non-releasable deals and non-approved tokens",async()=>{
+ await assertRejects(()=>checkDealRoomFromExactSnapshot({
+  client:client([{...row,deal_status:"draft"}]),dealId:"deal-reader-1",stage:"PREPARE",
+  now:"2026-11-06T20:00:00.000Z",safeFacts:{
+   chainId:56,safeAddress:"0x2222222222222222222222222222222222222222",
+   owners:["0x4444444444444444444444444444444444444444","0x5555555555555555555555555555555555555555","0x2B15cC63eE3b833F502C065767695Fa2B584f8c9"],
+   threshold:2,version:"1.4.1",nonce:"7",
+   expectedBuyerWallet:"0x5555555555555555555555555555555555555555",
+   expectedSellerWallet:"0x4444444444444444444444444444444444444444",
+  },
+ }));
+ const result=await checkDealRoomFromExactSnapshot({
+  client:client([{...row,deal_token_contract:"0x3333333333333333333333333333333333333333"}]),
+  dealId:"deal-reader-1",stage:"PREPARE",now:"2026-11-06T20:00:00.000Z",
+  safeFacts:{
+   chainId:56,safeAddress:"0x2222222222222222222222222222222222222222",
+   owners:["0x4444444444444444444444444444444444444444","0x5555555555555555555555555555555555555555","0x2B15cC63eE3b833F502C065767695Fa2B584f8c9"],
+   threshold:2,version:"1.4.1",nonce:"7",
+   expectedBuyerWallet:"0x5555555555555555555555555555555555555555",
+   expectedSellerWallet:"0x4444444444444444444444444444444444444444",
+  },
+ });
+ assertEquals(result.decision.issues.some(issue=>issue.code==="SAFE_CONFIGURATION_MISMATCH"),true);
+});
+
 Deno.test("exact snapshot reader blocks live Safe chain, nonce, and owner mismatches", async () => {
   const baseFacts = {
     chainId: 56,
