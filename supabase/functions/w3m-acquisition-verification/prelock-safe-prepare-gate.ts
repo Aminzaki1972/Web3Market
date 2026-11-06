@@ -8,6 +8,7 @@ import type { DealRoomTermsRpcClient, DealRoomTermsSnapshotRow } from "./dealroo
 import { checkDealRoomWithW3M } from "./dealroom-w3m-service.ts";
 import type { EthereumDigestRecoveryVerifier } from "./signature-verifier.ts";
 import type { SafeConfigurationExpectation, SafeConfigurationFacts } from "./safe-live-configuration-facts.ts";
+import type { AtomicSafePrepareInput } from "./atomic-safe-prepare-rpc-adapter.ts";
 
 export type PrelockPrepareDatabase = DealRoomTermsRpcClient & W3MRegistryReadClient & JsonRpcClient;
 export interface CanonicalPrelockSafeFacts extends SafeConfigurationFacts {
@@ -27,6 +28,7 @@ export interface PrelockSafePrepareResult {
   safeNonce?: string;
   readBlockNumber?: string;
   readBlockHash?: string;
+  atomicCommit?: Omit<AtomicSafePrepareInput, "actorId">;
 }
 const PLATFORM_WALLET = "0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
 const BNB_USDT = "0x55d398326f99059ff775485246999027b3197955";
@@ -174,14 +176,54 @@ export async function authorizePrelockSafePrepare(
       ...gate.decision.issues.map((issue) => issue.code),
       ...gate.reportVerificationIssues,
     ];
+    if (!gate.authorized || issues.length !== 0) {
+      return {
+        authorized: false, issues, phase: "PREPARE", dealId,
+        readBlockNumber: facts.readBlockNumber, readBlockHash: facts.readBlockHash,
+      };
+    }
+    const report = gate.verifiedReportAuthorization;
+    if (!report || report.dealId !== dealId) {
+      return {
+        authorized: false, issues: ["W3M_VERIFIED_REPORT_BINDING_UNAVAILABLE"],
+        phase: "PREPARE", dealId,
+        readBlockNumber: facts.readBlockNumber, readBlockHash: facts.readBlockHash,
+      };
+    }
     return {
-      authorized: gate.authorized === true && issues.length === 0,
-      issues,
+      authorized: true,
+      issues: [],
       phase: "PREPARE",
       dealId,
-      ...(gate.authorized ? { dealTermsHash: gate.dealTermsHash, safeNonce: facts.nonce } : {}),
+      dealTermsHash: gate.dealTermsHash,
+      safeNonce: facts.nonce,
       readBlockNumber: facts.readBlockNumber,
       readBlockHash: facts.readBlockHash,
+      atomicCommit: {
+        dealId,
+        authorization: report,
+        policy: {
+          dealAmount: policyDealAmount,
+          feePercent,
+          feeAmount,
+          sellerNetAmount,
+          sellerWallet,
+          platformWallet: PLATFORM_WALLET,
+          safeAddress,
+          tokenContract,
+          tokenSymbol: "USDT",
+          chainId: 56,
+        },
+        safeFacts: {
+          chainId: 56,
+          threshold: 2,
+          nonce: facts.nonce,
+          blockNumber: facts.readBlockNumber,
+          blockHash: facts.readBlockHash,
+          safeAddress,
+          owners: facts.owners,
+        },
+      },
     };
   } catch {
     return { authorized: false, issues: ["W3M_PRELOCK_PREPARE_AUTHORIZATION_FAILED"], phase: "PREPARE", dealId };
