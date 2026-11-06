@@ -123,9 +123,6 @@ begin
      or not (p_safe_facts->'owners' @> jsonb_build_array(lower(platform_wallet))) then
     raise exception 'Safe owners do not match verified deal parties' using errcode='23514';
   end if;
-  if coalesce((public.validate_deal_release_policy(p_deal_id)->>'valid')::boolean,false) is not true then
-    raise exception 'Legacy release validator rejected deal' using errcode='23514';
-  end if;
 
   select count(*) into n_policy from public.deal_release_policies where deal_id=p_deal_id;
   select count(*) into n_tx from public.deal_multisig_transactions
