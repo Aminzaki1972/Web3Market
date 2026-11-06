@@ -61,6 +61,11 @@ begin
     raise exception 'W3M evidence append lock is not keyed through its report deal';
   end if;
 
+  if position('W3M_SAFE_EXECUTION_ATTEMPTS' in upper(v_evidence_lock))=0
+     or position('EVIDENCE MANIFEST IS FROZEN' in upper(v_evidence_lock))=0 then
+    raise exception 'W3M evidence manifest can still be appended after an attempt pins it';
+  end if;
+
   select pg_get_functiondef(
     'public.w3m_finalize_safe_execution_attempt(uuid,text,uuid,jsonb)'::regprocedure
   ) into v_finalizer;
