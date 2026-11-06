@@ -169,6 +169,7 @@ export async function loadFreshSafeWalletPackageContext(
     reportId: report.id,
     reportVersion: report.reportVersion,
     executorRef: actorId,
+    executorWallet: requiredText(fresh.verifiedWallet, "authenticated executor wallet"),
     idempotencyKey: [
       "w3m-wallet-package-v1",
       dealId,
