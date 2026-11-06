@@ -59,102 +59,251 @@ grant select on table public.w3m_deal_terms_versions to service_role;
 grant select on table public.w3m_deal_agreement_acceptances to service_role;
 
 -- Exact SQL representation of the same canonical terms object built in TypeScript.
-create or replace function public.w3m_current_deal_code_audit_json(p_deal_id uuid)
-returns jsonb language plpgsql stable security definer set search_path = ''
-as $audit$
+-- Independent per-deal Code Audit snapshots are created before either party
+-- signs. This removes the former first-report -> agreement -> first-report cycle.
+create table public.w3m_deal_code_audit_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid not null references public.deals(id) on delete restrict,
+  project_id uuid not null references public.projects(id) on delete restrict,
+  snapshot_version bigint not null check (snapshot_version > 0),
+  audit_id uuid not null references public.code_audits(id) on delete restrict,
+  repository_owner text not null check (repository_owner ~ '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$'),
+  repository_name text not null check (repository_name ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$' and repository_name not in ('.','..')),
+  repository_url text not null,
+  commit_sha text not null check (commit_sha ~ '^[0-9a-f]{40}$'),
+  audit_type text not null check (audit_type in ('code','smart_contract','complete')),
+  completed_at timestamptz not null,
+  manifest_version text not null check (manifest_version = 'w3m-audit-manifest-v1'),
+  manifest_hash text not null check (manifest_hash ~ '^[0-9a-f]{64}$'),
+  file_count integer not null check (file_count > 0),
+  finding_count integer not null check (finding_count >= 0),
+  created_at timestamptz not null default now(),
+  unique (deal_id, snapshot_version),
+  unique (deal_id, audit_id, manifest_version, manifest_hash)
+);
+create index w3m_deal_code_audit_snapshots_latest_idx
+  on public.w3m_deal_code_audit_snapshots (deal_id, snapshot_version desc);
+
+comment on table public.w3m_deal_code_audit_snapshots is
+  'Append-only, per-deal pre-agreement Code Audit manifest snapshots. Independent of acquisition report issuance.';
+
+alter table public.w3m_deal_code_audit_snapshots enable row level security;
+revoke all on table public.w3m_deal_code_audit_snapshots from public, anon, authenticated, service_role;
+grant select on table public.w3m_deal_code_audit_snapshots to service_role;
+
+create or replace function public.w3m_reject_deal_code_audit_snapshot_mutation()
+returns trigger language plpgsql security definer set search_path = ''
+as $immutable$
+begin
+  raise exception 'Deal Code Audit snapshots are append-only'
+    using errcode = '55000';
+end;
+$immutable$;
+revoke all on function public.w3m_reject_deal_code_audit_snapshot_mutation()
+  from public, anon, authenticated, service_role;
+
+create trigger w3m_deal_code_audit_snapshots_immutable
+before update or delete on public.w3m_deal_code_audit_snapshots
+for each row execute function public.w3m_reject_deal_code_audit_snapshot_mutation();
+
+-- The caller supplies only the server-recomputed digest and counts. All source
+-- identity, project binding, completion status and persisted row counts are
+-- re-derived from trusted database rows inside this transaction.
+create or replace function public.w3m_create_deal_code_audit_snapshot(
+  p_deal_id uuid,
+  p_audit_id uuid,
+  p_manifest_version text,
+  p_manifest_hash text,
+  p_file_count integer,
+  p_finding_count integer
+)
+returns jsonb language plpgsql security definer set search_path = ''
+as $create_snapshot$
 declare
   v_deal public.deals%rowtype;
   v_project public.projects%rowtype;
-  v_report_id uuid;
-  v_report_status text;
-  v_report_expires_at timestamptz;
-  v_evidence public.w3m_acquisition_evidence%rowtype;
-  v_count integer;
-  v_owner text;
-  v_repo text;
-  v_repo_url text;
-  v_manifest_hash text;
-  v_file_count integer;
-  v_finding_count integer;
+  v_audit public.code_audits%rowtype;
+  v_snapshot public.w3m_deal_code_audit_snapshots%rowtype;
+  v_existing public.w3m_deal_code_audit_snapshots%rowtype;
+  v_actual_files bigint;
+  v_actual_findings bigint;
+  v_expected_findings bigint;
+  v_next_version bigint;
+  v_repository_url text;
+begin
+  if p_deal_id is null or p_audit_id is null
+     or p_manifest_version is distinct from 'w3m-audit-manifest-v1'
+     or p_manifest_hash is null or p_manifest_hash !~ '^[0-9a-f]{64}$'
+     or p_file_count is null or p_file_count <= 0
+     or p_finding_count is null or p_finding_count < 0 then
+    raise exception 'Invalid independent Deal Code Audit snapshot request'
+      using errcode = '22023';
+  end if;
+
+  select * into v_deal from public.deals where id = p_deal_id for update;
+  if not found then raise exception 'Deal not found' using errcode = 'P0002'; end if;
+  select * into v_project from public.projects where id = v_deal.project_id for share;
+  if not found then raise exception 'Deal project not found' using errcode = 'P0002'; end if;
+  select * into v_audit from public.code_audits where id = p_audit_id for share;
+  if not found then raise exception 'Selected Code Audit not found' using errcode = 'P0002'; end if;
+
+  if v_audit.project_id is distinct from v_deal.project_id
+     or v_audit.status is distinct from 'completed'
+     or v_audit.completed_at is null
+     or v_audit.commit_sha !~* '^[0-9a-f]{40}$'
+     or v_audit.repo_owner !~ '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$'
+     or v_audit.repo_name !~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$'
+     or v_audit.repo_name in ('.','..')
+     or coalesce(v_audit.analysis_progress->>'evidence_version','') <> 'w3m-audit-evidence-v1'
+     or coalesce(v_audit.analysis_progress->>'tree_truncated','') <> 'false'
+     or coalesce(v_audit.analysis_progress->>'persisted_file_count','') !~ '^[1-9][0-9]*$' then
+    raise exception 'Selected Code Audit is incomplete or not bound to the deal project'
+      using errcode = '23514';
+  end if;
+
+  v_repository_url := 'https://github.com/' || v_audit.repo_owner || '/' || v_audit.repo_name;
+  if lower(regexp_replace(regexp_replace(btrim(coalesce(v_project.github_url,'')), '/+$', ''), '\.git$', '', 'i'))
+       <> lower(v_repository_url)
+     or lower(regexp_replace(regexp_replace(btrim(coalesce(v_audit.repo_url,'')), '/+$', ''), '\.git$', '', 'i'))
+       <> lower(v_repository_url) then
+    raise exception 'Code Audit repository does not match the authoritative project GitHub URL'
+      using errcode = '23514';
+  end if;
+
+  select count(*) into v_actual_files
+    from public.code_audit_files f where f.audit_id = p_audit_id;
+  select count(*) into v_actual_findings
+    from public.code_audit_findings f where f.audit_id = p_audit_id;
+  v_expected_findings := coalesce(v_audit.critical_count,0)
+    + coalesce(v_audit.high_count,0)
+    + coalesce(v_audit.medium_count,0)
+    + coalesce(v_audit.low_count,0)
+    + coalesce(v_audit.info_count,0);
+
+  if v_actual_files <> p_file_count
+     or v_actual_files <> v_audit.files_scanned
+     or v_actual_files <> (v_audit.analysis_progress->>'persisted_file_count')::integer
+     or v_actual_findings <> p_finding_count
+     or v_actual_findings <> v_expected_findings then
+    raise exception 'Persisted Code Audit rows do not match the recomputed manifest counts'
+      using errcode = '23514';
+  end if;
+
+  select * into v_existing
+    from public.w3m_deal_code_audit_snapshots s
+   where s.deal_id = p_deal_id
+     and s.audit_id = p_audit_id
+     and s.manifest_version = p_manifest_version
+     and s.manifest_hash = p_manifest_hash;
+  if found then
+    return jsonb_build_object(
+      'id',v_existing.id,'deal_id',v_existing.deal_id,'project_id',v_existing.project_id,
+      'snapshot_version',v_existing.snapshot_version,'audit_id',v_existing.audit_id,
+      'repository_owner',v_existing.repository_owner,'repository_name',v_existing.repository_name,
+      'repository_url',v_existing.repository_url,'commit_sha',v_existing.commit_sha,
+      'audit_type',v_existing.audit_type,'completed_at',v_existing.completed_at,
+      'manifest_version',v_existing.manifest_version,'manifest_hash',v_existing.manifest_hash,
+      'file_count',v_existing.file_count,'finding_count',v_existing.finding_count,
+      'idempotent_replay',true
+    );
+  end if;
+
+  select coalesce(max(s.snapshot_version),0) + 1 into v_next_version
+    from public.w3m_deal_code_audit_snapshots s
+   where s.deal_id = p_deal_id;
+
+  insert into public.w3m_deal_code_audit_snapshots (
+    deal_id,project_id,snapshot_version,audit_id,repository_owner,repository_name,
+    repository_url,commit_sha,audit_type,completed_at,manifest_version,manifest_hash,
+    file_count,finding_count
+  ) values (
+    p_deal_id,v_deal.project_id,v_next_version,p_audit_id,v_audit.repo_owner,v_audit.repo_name,
+    v_repository_url,lower(v_audit.commit_sha),'code',v_audit.completed_at,
+    p_manifest_version,p_manifest_hash,p_file_count,p_finding_count
+  ) returning * into v_snapshot;
+
+  return jsonb_build_object(
+    'id',v_snapshot.id,'deal_id',v_snapshot.deal_id,'project_id',v_snapshot.project_id,
+    'snapshot_version',v_snapshot.snapshot_version,'audit_id',v_snapshot.audit_id,
+    'repository_owner',v_snapshot.repository_owner,'repository_name',v_snapshot.repository_name,
+    'repository_url',v_snapshot.repository_url,'commit_sha',v_snapshot.commit_sha,
+    'audit_type',v_snapshot.audit_type,'completed_at',v_snapshot.completed_at,
+    'manifest_version',v_snapshot.manifest_version,'manifest_hash',v_snapshot.manifest_hash,
+    'file_count',v_snapshot.file_count,'finding_count',v_snapshot.finding_count,
+    'idempotent_replay',false
+  );
+end;
+$create_snapshot$;
+
+revoke all on function public.w3m_create_deal_code_audit_snapshot(uuid,uuid,text,text,integer,integer)
+  from public, anon, authenticated, service_role;
+grant execute on function public.w3m_create_deal_code_audit_snapshot(uuid,uuid,text,text,integer,integer)
+  to service_role;
+
+create or replace function public.w3m_read_deal_audit_snapshot_context(p_deal_id uuid)
+returns jsonb language plpgsql stable security definer set search_path = ''
+as $snapshot_context$
+declare
+  v_deal public.deals%rowtype;
+  v_project public.projects%rowtype;
+  v_audit_id uuid;
 begin
   if p_deal_id is null then
-    raise exception 'Deal ID is required for Code Audit binding' using errcode = '22023';
+    raise exception 'Deal ID is required' using errcode = '22023';
   end if;
   select * into v_deal from public.deals where id = p_deal_id;
   if not found then return null; end if;
   select * into v_project from public.projects where id = v_deal.project_id;
   if not found then return null; end if;
 
-  select r.id, r.status, r.expires_at
-    into v_report_id, v_report_status, v_report_expires_at
-    from public.w3m_acquisition_reports r
-   where r.deal_id = v_deal.id::text
-     and r.project_id = v_deal.project_id::text
-   order by r.report_version desc, r.issued_at desc
-   limit 1;
-  if v_report_id is null or v_report_status <> 'PASS'
-     or v_report_expires_at <= now() then return null; end if;
-
-  select count(*) into v_count
-    from public.w3m_acquisition_evidence e
-   where e.report_id = v_report_id
-     and e.evidence_type = 'CODE_AUDIT'
-     and e.mandatory is true;
-  if v_count <> 1 then return null; end if;
-
-  select * into v_evidence
-    from public.w3m_acquisition_evidence e
-   where e.report_id = v_report_id
-     and e.evidence_type = 'CODE_AUDIT'
-     and e.mandatory is true
+  select a.id into v_audit_id
+    from public.code_audits a
+   where a.project_id = v_project.id
+     and a.status = 'completed'
+     and a.completed_at is not null
+   order by a.completed_at desc, a.id desc
    limit 1;
 
-  if v_evidence.source_table is distinct from 'code_audits'
-     or v_evidence.result <> 'PASS'
-     or v_evidence.valid_until is null
-     or v_evidence.valid_until <= now()
-     or v_evidence.observed_at > now()
-     or v_evidence.source_record_id is null
-     or v_evidence.source_record_id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-     or v_evidence.source_version is null
-     or v_evidence.source_version !~* '^[0-9a-f]{40}$'
-     or v_evidence.evidence_hash !~ '^[0-9a-f]{64}$'
-     or v_evidence.details->>'auditStatus' is distinct from 'completed'
-     or v_evidence.details->>'auditManifestVersion' is distinct from 'w3m-audit-manifest-v1'
-     or v_evidence.details->>'auditManifestHash' is distinct from v_evidence.evidence_hash
-     or v_evidence.details->>'commitSha' is distinct from lower(v_evidence.source_version)
-     or coalesce(v_evidence.details->>'auditType','') not in ('code','smart_contract','complete')
-     or coalesce(v_evidence.details->>'completedAt','') = ''
-     or coalesce(v_evidence.details->>'repositoryOwner','') !~ '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$'
-     or coalesce(v_evidence.details->>'repositoryName','') !~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$'
-     or coalesce(v_evidence.details->>'repositoryName','') in ('.','..')
-     or coalesce(v_evidence.details->>'auditFileCount','') !~ '^[1-9][0-9]*$'
-     or coalesce(v_evidence.details->>'auditFindingCount','') !~ '^(0|[1-9][0-9]*)$' then
-    return null;
+  if v_audit_id is null then
+    raise exception 'No completed Code Audit is available for this project'
+      using errcode = '23514';
   end if;
 
-  v_owner := v_evidence.details->>'repositoryOwner';
-  v_repo := v_evidence.details->>'repositoryName';
-  v_repo_url := 'https://github.com/' || v_owner || '/' || v_repo;
-  if lower(regexp_replace(regexp_replace(btrim(coalesce(v_project.github_url,'')), '/+$', ''), '\.git$', '', 'i'))
-       <> lower(v_repo_url) then
-    return null;
-  end if;
-
-  v_manifest_hash := lower(v_evidence.evidence_hash);
-  v_file_count := (v_evidence.details->>'auditFileCount')::integer;
-  v_finding_count := (v_evidence.details->>'auditFindingCount')::integer;
   return jsonb_build_object(
-    'auditId', v_evidence.source_record_id,
-    'repositoryOwner', v_owner,
-    'repositoryName', v_repo,
-    'repositoryUrl', v_repo_url,
-    'commitSha', lower(v_evidence.source_version),
-    'auditType', v_evidence.details->>'auditType',
-    'completedAt', v_evidence.details->>'completedAt',
-    'auditEvidenceHash', v_manifest_hash
+    'deal_id',v_deal.id,'project_id',v_project.id,
+    'project_github_url',v_project.github_url,'audit_id',v_audit_id
   );
 end;
+$snapshot_context$;
+
+revoke all on function public.w3m_read_deal_audit_snapshot_context(uuid)
+  from public, anon, authenticated;
+grant execute on function public.w3m_read_deal_audit_snapshot_context(uuid)
+  to service_role;
+
+create or replace function public.w3m_current_deal_code_audit_json(p_deal_id uuid)
+returns jsonb language sql stable security definer set search_path = ''
+as $audit$
+  select jsonb_build_object(
+    'auditId',s.audit_id,
+    'repositoryOwner',s.repository_owner,
+    'repositoryName',s.repository_name,
+    'repositoryUrl',s.repository_url,
+    'commitSha',s.commit_sha,
+    'auditType',s.audit_type,
+    'completedAt',s.completed_at,
+    'auditEvidenceHash',s.manifest_hash
+  )
+  from public.w3m_deal_code_audit_snapshots s
+  join public.deals d on d.id = s.deal_id and d.project_id = s.project_id
+  join public.projects p on p.id = s.project_id
+  join public.code_audits a on a.id = s.audit_id
+  where s.deal_id = p_deal_id
+    and a.status = 'completed'
+    and lower(regexp_replace(regexp_replace(btrim(coalesce(p.github_url,'')), '/+$', ''), '\.git$', '', 'i'))
+      = lower(s.repository_url)
+  order by s.snapshot_version desc
+  limit 1;
 $audit$;
 revoke all on function public.w3m_current_deal_code_audit_json(uuid)
   from public, anon, authenticated, service_role;
