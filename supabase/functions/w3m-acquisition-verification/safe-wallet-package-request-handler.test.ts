@@ -221,3 +221,48 @@ Deno.test("changed immutable party acceptance digest after claim enters reconcil
     "w3m_mark_safe_execution_reconciliation_required",
   ]);
 });
+
+
+Deno.test("retries a still-claimed package request idempotently after a lost response", async () => {
+  const calls: string[] = [];
+  let loads = 0;
+  const pkg = packageValue();
+  const rpc: W3MRpcClient = {
+    async rpc(name, args) {
+      calls.push(name);
+      if (name === "w3m_claim_safe_execution_attempt") return {
+        data: {
+          attempt_id: ATTEMPT, state: "CLAIMED",
+          claimed: false, idempotent_replay: true,
+        },
+        error: null,
+      };
+      if (name === "w3m_issue_safe_execution_package") return {
+        data: {
+          issued: true, idempotent_replay: true, attempt_id: ATTEMPT,
+          package_hash: String(args.p_package_hash), expires_at: EXPIRY, package: pkg,
+        },
+        error: null,
+      };
+      return { data: null, error: new Error("unexpected RPC") };
+    },
+  };
+  const handler = createW3MSafeWalletPackageRequestHandler({
+    authenticate: async () => ({ userId: ACTOR }),
+    loadFresh: async () => { loads++; return snapshot(); },
+    loadLiveFacts: async () => ({} as never),
+    rpc,
+    now: () => Date.parse("2026-11-06T12:00:00.000Z"),
+    buildPackage: async () => pkg,
+  });
+  const response = await handler(req({ deal_id: DEAL }));
+  const body = await response.json();
+  assertEquals(response.status, 200);
+  assertEquals(body.state, "PACKAGE_ISSUED");
+  assertEquals(body.package, pkg);
+  assertEquals(loads, 2);
+  assertEquals(calls, [
+    "w3m_claim_safe_execution_attempt",
+    "w3m_issue_safe_execution_package",
+  ]);
+});
