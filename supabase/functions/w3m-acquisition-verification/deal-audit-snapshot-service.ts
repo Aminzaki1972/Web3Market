@@ -87,7 +87,7 @@ export async function prepareDealAuditSnapshot(
     repositoryName,
     repositoryUrl: "https://github.com/" + repositoryOwner + "/" + repositoryName,
     commitSha: text(audit.commit_sha, "Audit commit SHA"),
-    auditType: "code",
+    auditType: text(audit.audit_type, "Audit type"),
     completedAt: text(audit.completed_at, "Audit completion time"),
     auditEvidenceHash: loaded.manifest.digest,
   });
