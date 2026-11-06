@@ -136,3 +136,19 @@ The exact audit selection mechanism is not yet established. The audit V2 migrati
 6. Keep report evidence and settlement-time persisted-report verification tied to that same signed audit ID, commit and evidence hash. Do not treat the agreement binding alone as proof that the repository remains unchanged or that the report is still fresh.
 
 This section records source findings and the implementation sequence only. No migration, production schema read, runtime function patch, deployment, or production data change was performed.
+
+
+## 12. Audit source-field verification (2026-11-06)
+
+A second source review confirmed the following audit-row fields are consumed by existing server-side application code:
+
+- Identity and scope: `id`, `project_id`, `repo_url`, `repo_owner`, `repo_name`, `branch`, `audit_type`.
+- Immutable source revision: `commit_sha`.
+- Completion/provenance: `status`, `completed_at`, `engine_version`, and structured `analysis_progress`.
+- Result metadata: `overall_score`, `risk_level`, `files_scanned`, `coverage_score`, severity counts.
+
+These fields are confirmed by `w3m-trust-badge/index.ts`, `buyer-dd-create/index.ts`, `guest-audit-access/index.ts`, and `w3m-audit-autofix-pr/index.ts`. The audit V2 migration adds `audit_type`; it does not define the original `code_audits` table. The complete original DDL and every production column constraint are still not present in the reviewed migration history. Therefore the above is an application-consumed field inventory, not a claim that this is a complete schema contract.
+
+Important distinction: `analysis_progress` carries structured scan evidence (including evidence version, batch stats, persisted-file count, and truncation flags), but the repository review has not established a canonical, immutable, persisted SHA-256 digest for the complete audit report plus all file and finding rows. A deal binding must not label a hash of a partial metadata subset as a full audit evidence hash. Before writing the selector migration, define a deterministic server-side audit manifest over the exact persisted audit row, all paginated `code_audit_files` rows and all paginated `code_audit_findings` rows, with stable ordering and a versioned canonical encoding; store its digest in an append-only deal selection record and recompute it before final settlement. If the source rows change, recomputation must fail closed.
+
+No SQL migration or TypeScript agreement hash was changed in this step. The implementation is intentionally gated on this manifest contract so that the protocol does not cryptographically bind a misleading or incomplete audit fingerprint.
