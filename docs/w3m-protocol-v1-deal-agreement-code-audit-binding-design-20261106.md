@@ -1,7 +1,7 @@
 # W3M Protocol V1 — deal agreement Code Audit binding design
 
 Date: 2026-11-06
-Status: design only; no migration or runtime implementation in this change.
+Status: design and isolated implementation record; production migration/deployment not performed.
 Branch: `w3m-protocol-v1-isolated-20261105`
 
 ## 1. Problem to solve
