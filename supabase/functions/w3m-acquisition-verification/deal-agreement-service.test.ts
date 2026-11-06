@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertNotEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import { secp256k1 } from "jsr:@noble/curves@1.8.2/secp256k1";
 import { keccak_256 } from "jsr:@noble/hashes@1.7.1/sha3";
 import {
@@ -49,10 +49,10 @@ const rawSnapshot = {
   buyer_profile: { id: buyerId, wallet_address: buyerSigner.wallet, wallet_verified: true, wallet_verified_at: "2026-11-06T10:00:00Z" },
   seller_profile: { id: sellerId, wallet_address: sellerSigner.wallet, wallet_verified: true, wallet_verified_at: "2026-11-06T10:00:00Z" },
 };
-function mockClient(calls: Array<{name:string,args:Record<string,unknown>}> = []): W3MRpcClient {
+function mockClient(calls: Array<{name:string,args:Record<string,unknown>}> = [], snapshotData = rawSnapshot): W3MRpcClient {
   return { async rpc(name,args) {
     calls.push({name,args});
-    if (name === "w3m_read_deal_agreement_signing_snapshot") return {data:rawSnapshot,error:null};
+    if (name === "w3m_read_deal_agreement_signing_snapshot") return {data:snapshotData,error:null};
     if (name === "w3m_register_deal_terms_version") return {data:{
       deal_id:dealId,terms_version:1,terms_version_id:"75000000-0000-4000-8000-000000000005",
       terms_hash:args.p_terms_hash,idempotent_replay:false,
@@ -76,6 +76,20 @@ Deno.test("prepare derives the buyer role and returns the exact server-built EIP
     "w3m_read_deal_agreement_signing_snapshot","w3m_register_deal_terms_version",
   ]);
 });
+Deno.test("buyer/seller agreement terms hash changes when the Audit Manifest changes", async () => {
+  const original = await prepareDealAgreementAcceptance(mockClient(), { dealId, actorId: buyerId });
+  const changedSnapshot = {
+    ...rawSnapshot,
+    code_audit: { ...rawSnapshot.code_audit, auditEvidenceHash: "d".repeat(64) },
+  };
+  const changed = await prepareDealAgreementAcceptance(
+    mockClient([], changedSnapshot),
+    { dealId, actorId: buyerId },
+  );
+  assertNotEquals(original.termsHash, changed.termsHash);
+  assertNotEquals(original.typedData.message.termsHash, changed.typedData.message.termsHash);
+});
+
 Deno.test("prepare derives the seller role only from the authenticated seller identity", async () => {
   const prepared = await prepareDealAgreementAcceptance(mockClient(), {dealId,actorId:sellerId});
   assertEquals(prepared.partyRole,"seller");
