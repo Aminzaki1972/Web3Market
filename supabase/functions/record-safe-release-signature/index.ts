@@ -35,6 +35,12 @@ Deno.serve(async(req)=>{
  } catch (error) {
   return json(409,{ok:false,error:"W3M V1 buyer and seller agreement acceptance is required before recording Safe signatures",code:error instanceof W3MFinalizationGateError?error.code:"W3M_FINALIZATION_EVIDENCE_UNAVAILABLE"});
  }
+ if(String(deal.delivery_status||"").toLowerCase()!=="accepted"||!deal.buyer_approved_at)return json(409,{ok:false,error:"Delivery is not accepted"});
+ if(String(deal.payment_status||"").toLowerCase()!=="confirmed"||!deal.payment_tx_hash)return json(409,{ok:false,error:"Buyer payment is not confirmed"});
+ const {data:policy,error:policyError}=await sb.from("deal_release_policies").select("status,safe_address,token_contract,chain_id").eq("deal_id",dealId).maybeSingle();
+ if(policyError||!policy)return json(409,{ok:false,error:"Locked release policy is unavailable"});
+ if(String(policy.status||"").toLowerCase()!=="locked"||Number(policy.chain_id)!==CHAIN_ID)return json(409,{ok:false,error:"Release policy is not locked for BNB Smart Chain"});
+ if(String(deal.release_tx_hash||""))return json(409,{ok:false,error:"Release already finalized"});
  const {data:tx}=await sb.from("deal_multisig_transactions").select("*").eq("deal_id",dealId).eq("action","release_to_seller").maybeSingle();
  if(!tx?.safe_tx_hash)return json(409,{ok:false,error:"Safe transaction is not prepared"});
  const {data:profile}=await sb.from("profiles").select("wallet_address,wallet_verified,role").eq("id",u.user.id).maybeSingle();
