@@ -29,6 +29,14 @@ function decimal(value: unknown, label: string): string {
   if (!DECIMAL.test(v)) fail(label + " must be an exact decimal string (not a floating-point number).");
   return v;
 }
+function positiveDecimal(value: string, label: string): void {
+  if (!/[1-9]/.test(value)) fail(label + " must be greater than zero.");
+}
+function exceedsOneHundred(value: string): boolean {
+  const [whole, fraction = ""] = value.split(".");
+  const integer = BigInt(whole);
+  return integer > 100n || (integer === 100n && /[1-9]/.test(fraction));
+}
 function iso(value: unknown, label: string): string {
   const v = requiredString(value, label);
   if (!ISO_DATE.test(v) || !Number.isFinite(Date.parse(v))) fail(label + " must be a UTC ISO-8601 timestamp.");
@@ -85,12 +93,12 @@ export function validateW3MAcquisitionTermsV1(input: unknown): asserts input is 
 
   const consideration = object(root.consideration, "consideration");
   const amount = decimal(consideration.amount, "consideration.amount");
-  if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) fail("consideration.amount must be a finite positive decimal string.");
+  positiveDecimal(amount, "consideration.amount");
   requiredString(consideration.currency, "consideration.currency");
 
   const fee = object(root.platform_fee, "platform_fee");
   const feePercent = decimal(fee.percent, "platform_fee.percent");
-  if (Number(feePercent) > 100) fail("platform_fee.percent cannot exceed 100.");
+  if (exceedsOneHundred(feePercent)) fail("platform_fee.percent cannot exceed 100.");
   decimal(fee.amount, "platform_fee.amount");
 
   const net = object(root.seller_net, "seller_net");
