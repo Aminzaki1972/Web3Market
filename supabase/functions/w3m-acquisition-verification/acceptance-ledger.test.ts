@@ -234,6 +234,10 @@ Deno.test("rejects invalid acceptance clock, excessive signature lifetime, and a
     ...base,
     acceptedAt: new Date((NOW + 121) * 1000).toISOString(),
   }, NOW));
+  await assertRejects(async () => buildW3MAcceptanceRecord({
+    ...base,
+    termsVersion: (1n << 256n).toString(),
+  }, NOW));
 });
 
 
@@ -303,6 +307,7 @@ Deno.test("strict finalization rejects malformed persisted acceptance evidence",
     { ...seller, signature_deadline: Math.floor(Date.parse(seller.accepted_at) / 1000) + 901 },
     { ...seller, fingerprint_digest: "bad" },
     { ...seller, user_id: "not-a-uuid" },
+    { ...seller, terms_version: ((1n << 256n).toString()) },
   ];
   for (const corrupted of corruptions) {
     let rejected = false;
