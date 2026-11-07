@@ -3,6 +3,17 @@ import {
   verifyW3MAgreementSignature,
   type W3MAgreementTypedData,
 } from "./agreement-signature.ts";
+import { buildW3MAuditManifest, type PersistedAudit, type PersistedAuditFile, type PersistedAuditFinding } from "./audit-manifest.ts";
+import { computeW3MAuditFingerprint, deriveW3MAuditFingerprintId } from "./audit-fingerprint.ts";
+import { createW3MDealAuditBinding } from "./deal-audit-binding.ts";
+
+type W3MQuery = {
+  select(columns: string): W3MQuery;
+  eq(column: string, value: unknown): W3MQuery;
+  order(column: string, options?: { ascending?: boolean }): W3MQuery;
+  range(from: number, to: number): Promise<{ data: unknown[] | null; error: unknown }>;
+  maybeSingle(): Promise<{ data: unknown; error: unknown }>;
+};
 
 export type W3MAdminClient = {
   auth: {
@@ -15,6 +26,7 @@ export type W3MAdminClient = {
     data: unknown;
     error: { code?: string; message?: string } | null;
   }>;
+  from?(table: string): W3MQuery;
 };
 
 type ChallengeRow = {
@@ -153,6 +165,145 @@ function oneChallenge(data: unknown): ChallengeRow | null {
   return row;
 }
 
+async function loadOne<T>(
+  admin: W3MAdminClient,
+  table: string,
+  columns: string,
+  id: string,
+): Promise<T | null> {
+  if (!admin.from) throw new Error("Database query support is unavailable.");
+  const { data, error } = await admin.from(table).select(columns).eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data as T | null;
+}
+
+async function loadAuditRows<T>(
+  admin: W3MAdminClient,
+  table: string,
+  columns: string,
+  auditId: string,
+  orderBy: string,
+): Promise<T[]> {
+  if (!admin.from) throw new Error("Database query support is unavailable.");
+  const rows: T[] = [];
+  const pageSize = 1000;
+  const maximumRows = 20_000;
+  for (let offset = 0; offset < maximumRows; offset += pageSize) {
+    const { data, error } = await admin.from(table)
+      .select(columns)
+      .eq("audit_id", auditId)
+      .order(orderBy, { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    const page = Array.isArray(data) ? data as T[] : [];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+  throw new Error("Audit evidence exceeds the safe manifest publication limit.");
+}
+
+async function publishFingerprintBinding(
+  admin: W3MAdminClient,
+  userId: string,
+  body: Record<string, unknown>,
+): Promise<{ fingerprintId: string; digest: string; bindingHash: string; fileCount: number }> {
+  const dealId = String(body.deal_id || "");
+  const auditId = String(body.audit_id || "");
+  if (!UUID.test(dealId) || !UUID.test(auditId)) {
+    throw new Error("A valid deal_id and audit_id are required.");
+  }
+
+  const deal = await loadOne<{
+    id: string; project_id: string; buyer_id: string; seller_id: string;
+    status: string; dispute_status: string;
+  }>(admin, "deals", "id,project_id,buyer_id,seller_id,status,dispute_status", dealId);
+  if (!deal || deal.seller_id !== userId) {
+    throw Object.assign(new Error("Caller is not the deal seller."), { status: 403 });
+  }
+  if (!["pending", "accepted"].includes(deal.status) || deal.dispute_status !== "none") {
+    throw Object.assign(new Error("Deal is not eligible for audit binding."), { status: 409 });
+  }
+
+  const project = await loadOne<{ id: string; owner_id: string }>(
+    admin, "projects", "id,owner_id", deal.project_id,
+  );
+  if (!project || project.owner_id !== userId) {
+    throw Object.assign(new Error("Caller does not own the listed project."), { status: 403 });
+  }
+
+  const audit = await loadOne<PersistedAudit & { project_id: string | null }>(
+    admin,
+    "code_audits",
+    "id,project_id,status,repo_owner,repo_name,commit_sha,engine_version,audit_type,files_scanned,lines_scanned,overall_score,security_score,architecture_score,code_quality_score,dependency_score,testing_score,documentation_score,web3_score,scalability_score,ai_fit_score,risk_level,summary",
+    auditId,
+  );
+  if (!audit || audit.project_id !== deal.project_id || audit.status !== "completed") {
+    throw Object.assign(new Error("Completed audit does not belong to this marketplace project."), { status: 409 });
+  }
+
+  const [files, findings] = await Promise.all([
+    loadAuditRows<PersistedAuditFile>(
+      admin, "code_audit_files",
+      "path,sha,language,size_bytes,line_count,selected_tier,scanned",
+      auditId, "path",
+    ),
+    loadAuditRows<PersistedAuditFinding>(
+      admin, "code_audit_findings",
+      "severity,category,title,status,file_path,line_start,line_end,evidence,description,recommendation,confidence",
+      auditId, "title",
+    ),
+  ]);
+
+  const manifest = buildW3MAuditManifest(audit, files, findings);
+  const repository = String(audit.repo_owner) + "/" + String(audit.repo_name);
+  const commitSha = String(audit.commit_sha);
+  const fingerprint = await computeW3MAuditFingerprint({
+    auditId: audit.id,
+    repository,
+    commitSha,
+    schemaVersion: "w3m.persisted-audit-manifest.v1",
+    manifest,
+  });
+  const fingerprintId = await deriveW3MAuditFingerprintId(audit.id);
+  const binding = await createW3MDealAuditBinding({
+    dealId,
+    projectId: deal.project_id,
+    auditId: audit.id,
+    fingerprintId,
+    fingerprintDigest: fingerprint.digest,
+    repository,
+    commitSha,
+  });
+
+  const { data, error } = await admin.rpc("w3m_publish_audit_fingerprint_and_binding", {
+    p_deal_id: dealId,
+    p_project_id: deal.project_id,
+    p_audit_id: audit.id,
+    p_fingerprint_id: fingerprintId,
+    p_user_id: userId,
+    p_repository: repository.toLowerCase(),
+    p_commit_sha: commitSha.toLowerCase(),
+    p_fingerprint_digest: fingerprint.digest,
+    p_manifest: manifest,
+    p_binding_hash: binding.binding_hash,
+  });
+  if (error) {
+    const status = rpcStatus(error);
+    throw Object.assign(new Error("Trusted fingerprint publication was rejected."), { status });
+  }
+  if (!Array.isArray(data) || data.length !== 1 ||
+    data[0]?.fingerprint_id !== fingerprintId ||
+    data[0]?.binding_hash !== binding.binding_hash) {
+    throw new Error("Fingerprint and deal binding persistence could not be confirmed.");
+  }
+  return {
+    fingerprintId,
+    digest: fingerprint.digest,
+    bindingHash: binding.binding_hash,
+    fileCount: files.filter((file) => file.scanned === true).length,
+  };
+}
+
 function rpcStatus(error: { code?: string; message?: string } | null): number {
   const code = error?.code || "";
   if (code === "42501") return 403;
@@ -198,6 +349,29 @@ export function createW3MAcquisitionHandler(deps: HandlerDependencies) {
       const now = deps.nowSeconds?.() ?? Math.floor(Date.now() / 1000);
       if (!Number.isSafeInteger(now) || now < 0) {
         return reply(origin, { ok: false, error: "Verification clock unavailable" }, 503);
+      }
+
+      if (body.action === "publish_fingerprint_binding") {
+        try {
+          const published = await publishFingerprintBinding(admin, user.id, body);
+          return reply(origin, {
+            ok: true,
+            audit_id: String(body.audit_id),
+            fingerprint_id: published.fingerprintId,
+            fingerprint_digest: published.digest,
+            binding_hash: published.bindingHash,
+            files_fingerprinted: published.fileCount,
+          }, 201);
+        } catch (error) {
+          const status = typeof (error as { status?: unknown })?.status === "number"
+            ? (error as { status: number }).status : 500;
+          return reply(origin, {
+            ok: false,
+            error: status === 403 ? "Only the verified project seller can bind this audit" :
+              status === 409 ? "Deal, project, or completed audit is not eligible for binding" :
+                "Unable to publish trusted audit fingerprint",
+          }, status);
+        }
       }
 
       if (body.action === "challenge") {
