@@ -319,8 +319,14 @@ jobs:
               or has_table_privilege('service_role','w3m_private.w3m_agreement_challenges','update')
               or has_table_privilege('service_role','w3m_private.w3m_acquisition_terms_versions','insert')
               or has_table_privilege('service_role','w3m_private.w3m_acquisition_terms_versions','update')
+              or has_function_privilege('anon','public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)','execute')
+              or has_function_privilege('authenticated','public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)','execute')
               or has_function_privilege('anon','public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint)','execute')
+              or has_function_privilege('authenticated','public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint)','execute')
+              or has_function_privilege('anon','public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz)','execute')
               or has_function_privilege('authenticated','public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz)','execute')
+              or not has_function_privilege('service_role','public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)','execute')
+              or not has_function_privilege('service_role','public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint)','execute')
               or not has_function_privilege('service_role','public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz)','execute') then
               raise exception 'browser_role_has_protocol_table_privileges';
             end if;
