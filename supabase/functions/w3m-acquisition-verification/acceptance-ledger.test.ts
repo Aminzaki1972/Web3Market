@@ -3,6 +3,7 @@ import {
   buildW3MAcceptanceRecord,
   evaluateW3MAcceptanceLedger,
   hasBothW3MPartyAcceptances,
+  hasCompleteW3MAcceptancePair,
   type W3MAcceptanceCandidateInput,
 } from "./acceptance-ledger.ts";
 
@@ -105,4 +106,50 @@ Deno.test("requires both distinct parties to accept the same terms and audit bin
     termsHash: base.termsHash,
     bindingHash: base.bindingHash,
   }), false);
+});
+
+
+Deno.test("strict finalization requires exactly one buyer and seller on identical evidence and terms", () => {
+  const buyer = buildW3MAcceptanceRecord(base, NOW);
+  const seller = buildW3MAcceptanceRecord({
+    ...base,
+    partyRole: "seller",
+    authenticatedUserId: base.sellerUserId,
+    verifiedWalletAddress: "0x" + "22".repeat(20),
+    recoveredSignerAddress: "0x" + "22".repeat(20),
+    nonce: "0x" + "e".repeat(64),
+  }, NOW);
+  const expected = {
+    dealId: base.dealId,
+    projectId: base.projectId,
+    auditId: base.auditId,
+    fingerprintId: base.fingerprintId,
+    fingerprintDigest: base.fingerprintDigest,
+    bindingHash: base.bindingHash,
+    termsHash: base.termsHash,
+    termsVersion: base.termsVersion,
+  };
+  assertEquals(hasCompleteW3MAcceptancePair([buyer, seller], expected), true);
+  assertEquals(hasCompleteW3MAcceptancePair([buyer], expected), false);
+  assertEquals(hasCompleteW3MAcceptancePair([buyer, seller, seller], expected), false);
+  assertEquals(hasCompleteW3MAcceptancePair([buyer, {
+    ...seller,
+    audit_id: "77777777-7777-4777-8777-777777777777",
+  }], expected), false);
+  assertEquals(hasCompleteW3MAcceptancePair([buyer, {
+    ...seller,
+    fingerprint_digest: "0x" + "f".repeat(64),
+  }], expected), false);
+  assertEquals(hasCompleteW3MAcceptancePair([buyer, {
+    ...seller,
+    terms_version: "2",
+  }], expected), false);
+  assertEquals(hasCompleteW3MAcceptancePair([buyer, {
+    ...seller,
+    user_id: buyer.user_id,
+  }], expected), false);
+  assertEquals(hasCompleteW3MAcceptancePair([buyer, {
+    ...seller,
+    nonce: buyer.nonce,
+  }], expected), false);
 });
