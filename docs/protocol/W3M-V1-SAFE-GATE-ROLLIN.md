@@ -100,6 +100,6 @@ On the PR merge ref containing the status endpoint, client adapter, and regressi
 - Deno type-check: **passed** for the acquisition-verification handler, entrypoint, V1 protocol modules, and shared finalization gate.
 - PostgreSQL 16 V1 ledger migration/concurrency/privilege job: **passed**.
 - Modified browser JavaScript syntax and CDN SRI checks: **passed**.
-- Separate profile-guard migration job was still running at the time of this update; do not count it as passed until its final conclusion is available.
+- Profile-guard migration job: **passed**. All three workflow runs and all five jobs in this CI batch completed successfully.
 
 These are CI tests against the staged branch and disposable PostgreSQL, not a live Supabase integration test. No production migration or Edge Function deployment occurred.
