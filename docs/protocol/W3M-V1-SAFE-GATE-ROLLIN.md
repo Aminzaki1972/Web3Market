@@ -151,3 +151,9 @@ Added `js/w3m-deal-agreement-panel.js` as a read-only renderer for the server-au
 The renderer is intentionally **not imported by `deal-room.html` or `js/deal-room.js`**. It remains isolated until the V1 Edge Function and migration are deployed under a separately approved release, and until the canonical legal/commercial terms are approved. Existing Deal Room and Safe flows remain unchanged.
 
 Provider-mock signer tests and renderer safety tests are included in the V1 Deno workflow. The workflow run `42417887737` completed successfully on commit `b9e6e5b1c0967533bfe36c4b139b3f3a22bc550e`, including the Deno test step and type-check step. This is isolated CI validation, not live browser-wallet/Supabase integration. No production page, database, Edge Function deployment, migration, or Safe transaction was changed.
+
+## CI correction and verified signer/panel tests (2026-11-07)
+
+The first CI run after adding the provider-mock tests exposed a fail-closed validation predicate that rejected valid message fields. The predicate was corrected to reject invalid fields (rather than valid ones), and the workflow was corrected so both new test files are actually executed. The corrected run on commit `4355f31a490a771256256996357a1bb73d659c5c` reports **121 passed, 0 failed**, including all six wallet signer tests and all four agreement-panel tests. The Deno type-check also passed.
+
+The matching PR checks also completed successfully: PostgreSQL 16 V1 migration/concurrency/privilege tests passed; browser JavaScript syntax, CDN SRI, and profile-guard migration checks passed. This validates isolated CI only; it does not establish live browser wallet or live Supabase integration. No production resources were changed.
