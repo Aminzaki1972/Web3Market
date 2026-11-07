@@ -1,6 +1,6 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import {
-  assertCanAppendW3MTermsVersion,
+  assertCanAppendW3MTermsVersion,\n  buildW3MTermsVersionAppendPlan,\n  verifyW3MTermsVersionDigest,
   filterCurrentW3MAcceptances,
   isW3MAcceptanceCurrentForTerms,
   type W3MTermsVersionRecord,
@@ -70,4 +70,39 @@ Deno.test("does not count acceptance for a superseded version", () => {
   assertEquals(isW3MAcceptanceCurrentForTerms({
     deal_id: dealId, terms_version: 2, terms_hash: "b".repeat(64),
   }, superseded), false);
+});
+
+Deno.test("builds a single atomic supersede-and-publish plan", () => {
+  const oldCurrent = first();
+  oldCurrent.status = "published";
+  const plan = buildW3MTermsVersionAppendPlan([oldCurrent], second());
+  assertEquals(plan.supersede_versions, [1]);
+  assertEquals(plan.publish.terms_version, 2);
+  assertEquals(plan.publish.status, "published");
+});
+
+Deno.test("rejects multiple current versions when planning a new publication", () => {
+  const oldCurrent = first();
+  oldCurrent.status = "published";
+  const anotherCurrent = { ...second(), terms_version: 2, status: "published" as const };
+  const candidate = { ...second(), terms_version: 3, terms_hash: "c".repeat(64) };
+  assertThrows(() => buildW3MTermsVersionAppendPlan([oldCurrent, anotherCurrent], candidate));
+});
+
+Deno.test("verifies canonical stored JSON against the domain-separated digest", async () => {
+  const canonicalTerms = '{"schema":"w3m-acquisition-terms-v1","terms_version":1}';
+  const bytes = new TextEncoder().encode("w3m-acquisition-terms:v1\\n" + canonicalTerms);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const termsHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const record = {
+    deal_id: dealId,
+    terms_version: 1,
+    terms_hash: termsHash,
+    canonical_terms_json: canonicalTerms,
+    status: "published" as const,
+    published_at: "2026-11-07T10:00:00Z",
+  };
+  assertEquals(await verifyW3MTermsVersionDigest(record), true);
+  assertEquals(await verifyW3MTermsVersionDigest({ ...record, canonical_terms_json: '{"terms_version":1,"schema":"w3m-acquisition-terms-v1"}' }), false);
+  assertEquals(await verifyW3MTermsVersionDigest({ ...record, terms_hash: "f".repeat(64) }), false);
 });
