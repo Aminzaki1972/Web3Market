@@ -1,7 +1,11 @@
 -- W3M Protocol V1 server-only acceptance evidence. Draft only; never apply to production without explicit approval.
 -- Evidence rows intentionally do not cascade-delete with marketplace records.
 
-create table if not exists public.w3m_audit_fingerprints (
+create schema if not exists w3m_private;
+revoke all on schema w3m_private from public, anon, authenticated;
+grant usage on schema w3m_private to service_role;
+
+create table if not exists w3m_private.w3m_audit_fingerprints (
   id uuid primary key default gen_random_uuid(),
   audit_id uuid not null unique,
   fingerprint_digest text not null unique check (fingerprint_digest ~ '^[0-9a-f]{64}$'),
@@ -11,7 +15,7 @@ create table if not exists public.w3m_audit_fingerprints (
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.w3m_deal_audit_bindings (
+create table if not exists w3m_private.w3m_deal_audit_bindings (
   id uuid primary key default gen_random_uuid(),
   deal_id uuid not null unique,
   project_id uuid not null,
@@ -25,7 +29,7 @@ create table if not exists public.w3m_deal_audit_bindings (
   unique (fingerprint_id, fingerprint_digest)
 );
 
-create table if not exists public.w3m_acquisition_terms_versions (
+create table if not exists w3m_private.w3m_acquisition_terms_versions (
   id uuid primary key default gen_random_uuid(),
   deal_id uuid not null,
   terms_version bigint not null check (terms_version > 0),
@@ -37,9 +41,9 @@ create table if not exists public.w3m_acquisition_terms_versions (
   unique (deal_id, terms_hash)
 );
 create unique index if not exists w3m_terms_one_current_version_per_deal
-  on public.w3m_acquisition_terms_versions (deal_id) where status = 'published';
+  on w3m_private.w3m_acquisition_terms_versions (deal_id) where status = 'published';
 
-create table if not exists public.w3m_agreement_challenges (
+create table if not exists w3m_private.w3m_agreement_challenges (
   id uuid primary key default gen_random_uuid(),
   deal_id uuid not null,
   project_id uuid not null,
@@ -60,9 +64,9 @@ create table if not exists public.w3m_agreement_challenges (
   check (signature_deadline <= extract(epoch from created_at)::bigint + 900)
 );
 
-create table if not exists public.w3m_agreement_acceptances (
+create table if not exists w3m_private.w3m_agreement_acceptances (
   id uuid primary key default gen_random_uuid(),
-  challenge_id uuid not null unique references public.w3m_agreement_challenges(id) on delete restrict,
+  challenge_id uuid not null unique references w3m_private.w3m_agreement_challenges(id) on delete restrict,
   deal_id uuid not null,
   project_id uuid not null,
   audit_id uuid not null,
@@ -84,20 +88,20 @@ create table if not exists public.w3m_agreement_acceptances (
   check (extract(epoch from accepted_at)::bigint >= signature_deadline - 900)
 );
 
-alter table public.w3m_audit_fingerprints enable row level security;
-alter table public.w3m_deal_audit_bindings enable row level security;
-alter table public.w3m_acquisition_terms_versions enable row level security;
-alter table public.w3m_agreement_challenges enable row level security;
-alter table public.w3m_agreement_acceptances enable row level security;
+alter table w3m_private.w3m_audit_fingerprints enable row level security;
+alter table w3m_private.w3m_deal_audit_bindings enable row level security;
+alter table w3m_private.w3m_acquisition_terms_versions enable row level security;
+alter table w3m_private.w3m_agreement_challenges enable row level security;
+alter table w3m_private.w3m_agreement_acceptances enable row level security;
 
-revoke all on public.w3m_audit_fingerprints, public.w3m_deal_audit_bindings,
-  public.w3m_acquisition_terms_versions, public.w3m_agreement_challenges,
-  public.w3m_agreement_acceptances from anon, authenticated;
-grant select, insert on public.w3m_audit_fingerprints, public.w3m_deal_audit_bindings to service_role;
-grant select, insert, update on public.w3m_acquisition_terms_versions, public.w3m_agreement_challenges to service_role;
-grant select, insert on public.w3m_agreement_acceptances to service_role;
+revoke all on w3m_private.w3m_audit_fingerprints, w3m_private.w3m_deal_audit_bindings,
+  w3m_private.w3m_acquisition_terms_versions, w3m_private.w3m_agreement_challenges,
+  w3m_private.w3m_agreement_acceptances from anon, authenticated;
+grant select, insert on w3m_private.w3m_audit_fingerprints, w3m_private.w3m_deal_audit_bindings to service_role;
+grant select, insert, update on w3m_private.w3m_acquisition_terms_versions, w3m_private.w3m_agreement_challenges to service_role;
+grant select, insert on w3m_private.w3m_agreement_acceptances to service_role;
 
-create or replace function public.w3m_reject_protocol_mutation()
+create or replace function w3m_private.w3m_reject_protocol_mutation()
 returns trigger language plpgsql set search_path = ''
 as $w3m$
 begin
@@ -105,7 +109,7 @@ begin
 end;
 $w3m$;
 
-create or replace function public.w3m_guard_terms_supersede()
+create or replace function w3m_private.w3m_guard_terms_supersede()
 returns trigger language plpgsql set search_path = ''
 as $w3m$
 begin
@@ -117,7 +121,7 @@ begin
 end;
 $w3m$;
 
-create or replace function public.w3m_guard_challenge_consumption()
+create or replace function w3m_private.w3m_guard_challenge_consumption()
 returns trigger language plpgsql set search_path = ''
 as $w3m$
 begin
@@ -129,27 +133,27 @@ begin
 end;
 $w3m$;
 
-drop trigger if exists w3m_audit_fingerprints_no_mutation on public.w3m_audit_fingerprints;
-create trigger w3m_audit_fingerprints_no_mutation before update or delete on public.w3m_audit_fingerprints
-for each row execute function public.w3m_reject_protocol_mutation();
-drop trigger if exists w3m_bindings_no_mutation on public.w3m_deal_audit_bindings;
-create trigger w3m_bindings_no_mutation before update or delete on public.w3m_deal_audit_bindings
-for each row execute function public.w3m_reject_protocol_mutation();
-drop trigger if exists w3m_terms_guard_update on public.w3m_acquisition_terms_versions;
-create trigger w3m_terms_guard_update before update on public.w3m_acquisition_terms_versions
-for each row execute function public.w3m_guard_terms_supersede();
-drop trigger if exists w3m_terms_no_delete on public.w3m_acquisition_terms_versions;
-create trigger w3m_terms_no_delete before delete on public.w3m_acquisition_terms_versions
-for each row execute function public.w3m_reject_protocol_mutation();
-drop trigger if exists w3m_acceptances_no_mutation on public.w3m_agreement_acceptances;
-create trigger w3m_acceptances_no_mutation before update or delete on public.w3m_agreement_acceptances
-for each row execute function public.w3m_reject_protocol_mutation();
-drop trigger if exists w3m_challenges_guard_consumption on public.w3m_agreement_challenges;
-create trigger w3m_challenges_guard_consumption before update on public.w3m_agreement_challenges
-for each row execute function public.w3m_guard_challenge_consumption();
-drop trigger if exists w3m_challenges_no_delete on public.w3m_agreement_challenges;
-create trigger w3m_challenges_no_delete before delete on public.w3m_agreement_challenges
-for each row execute function public.w3m_reject_protocol_mutation();
+drop trigger if exists w3m_audit_fingerprints_no_mutation on w3m_private.w3m_audit_fingerprints;
+create trigger w3m_audit_fingerprints_no_mutation before update or delete on w3m_private.w3m_audit_fingerprints
+for each row execute function w3m_private.w3m_reject_protocol_mutation();
+drop trigger if exists w3m_bindings_no_mutation on w3m_private.w3m_deal_audit_bindings;
+create trigger w3m_bindings_no_mutation before update or delete on w3m_private.w3m_deal_audit_bindings
+for each row execute function w3m_private.w3m_reject_protocol_mutation();
+drop trigger if exists w3m_terms_guard_update on w3m_private.w3m_acquisition_terms_versions;
+create trigger w3m_terms_guard_update before update on w3m_private.w3m_acquisition_terms_versions
+for each row execute function w3m_private.w3m_guard_terms_supersede();
+drop trigger if exists w3m_terms_no_delete on w3m_private.w3m_acquisition_terms_versions;
+create trigger w3m_terms_no_delete before delete on w3m_private.w3m_acquisition_terms_versions
+for each row execute function w3m_private.w3m_reject_protocol_mutation();
+drop trigger if exists w3m_acceptances_no_mutation on w3m_private.w3m_agreement_acceptances;
+create trigger w3m_acceptances_no_mutation before update or delete on w3m_private.w3m_agreement_acceptances
+for each row execute function w3m_private.w3m_reject_protocol_mutation();
+drop trigger if exists w3m_challenges_guard_consumption on w3m_private.w3m_agreement_challenges;
+create trigger w3m_challenges_guard_consumption before update on w3m_private.w3m_agreement_challenges
+for each row execute function w3m_private.w3m_guard_challenge_consumption();
+drop trigger if exists w3m_challenges_no_delete on w3m_private.w3m_agreement_challenges;
+create trigger w3m_challenges_no_delete before delete on w3m_private.w3m_agreement_challenges
+for each row execute function w3m_private.w3m_reject_protocol_mutation();
 
 create or replace function public.w3m_publish_acquisition_terms_version(
   p_deal_id uuid, p_terms_version bigint, p_terms_hash text, p_canonical_terms_json jsonb
@@ -169,13 +173,13 @@ begin
   end if;
   perform pg_advisory_xact_lock(hashtextextended(p_deal_id::text, 0));
   select coalesce(max(terms_version), 0) into v_max_version
-    from public.w3m_acquisition_terms_versions where deal_id = p_deal_id;
+    from w3m_private.w3m_acquisition_terms_versions where deal_id = p_deal_id;
   if p_terms_version <> v_max_version + 1 then
     raise exception 'terms_version_must_be_next_sequential' using errcode = '23505';
   end if;
-  update public.w3m_acquisition_terms_versions set status = 'superseded'
+  update w3m_private.w3m_acquisition_terms_versions set status = 'superseded'
     where deal_id = p_deal_id and status = 'published';
-  insert into public.w3m_acquisition_terms_versions
+  insert into w3m_private.w3m_acquisition_terms_versions
     (deal_id, terms_version, terms_hash, canonical_terms_json, status)
   values (p_deal_id, p_terms_version, lower(p_terms_hash), p_canonical_terms_json, 'published')
   returning id into v_id;
@@ -209,8 +213,8 @@ begin
     raise exception 'invalid_challenge_parameters' using errcode = '22023';
   end if;
   if not exists (
-    select 1 from public.w3m_audit_fingerprints f
-    join public.w3m_deal_audit_bindings b
+    select 1 from w3m_private.w3m_audit_fingerprints f
+    join w3m_private.w3m_deal_audit_bindings b
       on b.audit_id = f.audit_id and b.fingerprint_id = f.id
      and b.fingerprint_digest = f.fingerprint_digest
      and b.repository = f.repository and b.commit_sha = f.commit_sha
@@ -222,13 +226,13 @@ begin
     raise exception 'trusted_deal_audit_binding_not_found' using errcode = '23503';
   end if;
   if not exists (
-    select 1 from public.w3m_acquisition_terms_versions t
+    select 1 from w3m_private.w3m_acquisition_terms_versions t
     where t.deal_id = p_deal_id and t.terms_version = p_terms_version
       and t.terms_hash = p_terms_hash and t.status = 'published'
   ) then
     raise exception 'current_terms_version_not_found' using errcode = '23503';
   end if;
-  insert into public.w3m_agreement_challenges
+  insert into w3m_private.w3m_agreement_challenges
     (deal_id, project_id, audit_id, fingerprint_id, fingerprint_digest, binding_hash,
      terms_hash, terms_version, party_role, user_id, wallet_address, nonce, signature_deadline)
   values
@@ -246,7 +250,7 @@ create or replace function public.w3m_record_agreement_acceptance(
 ) returns uuid language plpgsql security definer set search_path = ''
 as $w3m$
 declare
-  v_challenge public.w3m_agreement_challenges%rowtype;
+  v_challenge w3m_private.w3m_agreement_challenges%rowtype;
   v_acceptance_id uuid;
   v_now timestamptz := clock_timestamp();
 begin
@@ -258,7 +262,7 @@ begin
     or p_signature is null or p_accepted_at is null then
     raise exception 'acceptance_parameters_required' using errcode = '22023';
   end if;
-  select * into v_challenge from public.w3m_agreement_challenges
+  select * into v_challenge from w3m_private.w3m_agreement_challenges
     where id = p_challenge_id for update;
   if not found then
     raise exception 'challenge_not_found' using errcode = 'P0002';
@@ -267,7 +271,7 @@ begin
     raise exception 'challenge_already_consumed' using errcode = '23505';
   end if;
   if not exists (
-    select 1 from public.w3m_acquisition_terms_versions t
+    select 1 from w3m_private.w3m_acquisition_terms_versions t
     where t.deal_id = v_challenge.deal_id and t.terms_version = v_challenge.terms_version
       and t.terms_hash = v_challenge.terms_hash and t.status = 'published'
   ) then
@@ -283,7 +287,7 @@ begin
     or v_now > to_timestamp(v_challenge.signature_deadline) then
     raise exception 'challenge_acceptance_mismatch_or_expired' using errcode = '22023';
   end if;
-  insert into public.w3m_agreement_acceptances
+  insert into w3m_private.w3m_agreement_acceptances
     (challenge_id, deal_id, project_id, audit_id, fingerprint_id, fingerprint_digest,
      binding_hash, terms_hash, terms_version, party_role, user_id, wallet_address,
      signature, nonce, signature_deadline, accepted_at)
@@ -294,7 +298,7 @@ begin
      v_challenge.user_id, v_challenge.wallet_address, lower(p_signature),
      v_challenge.nonce, v_challenge.signature_deadline, p_accepted_at)
   returning id into v_acceptance_id;
-  update public.w3m_agreement_challenges set consumed_at = v_now
+  update w3m_private.w3m_agreement_challenges set consumed_at = v_now
     where id = v_challenge.id and consumed_at is null;
   if not found then
     raise exception 'challenge_already_consumed' using errcode = '23505';
@@ -303,7 +307,7 @@ begin
 end;
 $w3m$;
 
-create or replace function public.w3m_reject_protocol_mutation()
+create or replace function w3m_private.w3m_reject_protocol_mutation()
 returns trigger language plpgsql set search_path = ''
 as $w3m$
 begin
@@ -311,7 +315,7 @@ begin
 end;
 $w3m$;
 
-create or replace function public.w3m_guard_terms_supersede()
+create or replace function w3m_private.w3m_guard_terms_supersede()
 returns trigger language plpgsql set search_path = ''
 as $w3m$
 begin
@@ -323,7 +327,7 @@ begin
 end;
 $w3m$;
 
-create or replace function public.w3m_guard_challenge_consumption()
+create or replace function w3m_private.w3m_guard_challenge_consumption()
 returns trigger language plpgsql set search_path = ''
 as $w3m$
 begin
@@ -335,27 +339,27 @@ begin
 end;
 $w3m$;
 
-drop trigger if exists w3m_audit_fingerprints_no_mutation on public.w3m_audit_fingerprints;
-create trigger w3m_audit_fingerprints_no_mutation before update or delete on public.w3m_audit_fingerprints
-for each row execute function public.w3m_reject_protocol_mutation();
-drop trigger if exists w3m_bindings_no_mutation on public.w3m_deal_audit_bindings;
-create trigger w3m_bindings_no_mutation before update or delete on public.w3m_deal_audit_bindings
-for each row execute function public.w3m_reject_protocol_mutation();
-drop trigger if exists w3m_terms_guard_update on public.w3m_acquisition_terms_versions;
-create trigger w3m_terms_guard_update before update on public.w3m_acquisition_terms_versions
-for each row execute function public.w3m_guard_terms_supersede();
-drop trigger if exists w3m_terms_no_delete on public.w3m_acquisition_terms_versions;
-create trigger w3m_terms_no_delete before delete on public.w3m_acquisition_terms_versions
-for each row execute function public.w3m_reject_protocol_mutation();
-drop trigger if exists w3m_acceptances_no_mutation on public.w3m_agreement_acceptances;
-create trigger w3m_acceptances_no_mutation before update or delete on public.w3m_agreement_acceptances
-for each row execute function public.w3m_reject_protocol_mutation();
-drop trigger if exists w3m_challenges_guard_consumption on public.w3m_agreement_challenges;
-create trigger w3m_challenges_guard_consumption before update on public.w3m_agreement_challenges
-for each row execute function public.w3m_guard_challenge_consumption();
-drop trigger if exists w3m_challenges_no_delete on public.w3m_agreement_challenges;
-create trigger w3m_challenges_no_delete before delete on public.w3m_agreement_challenges
-for each row execute function public.w3m_reject_protocol_mutation();
+drop trigger if exists w3m_audit_fingerprints_no_mutation on w3m_private.w3m_audit_fingerprints;
+create trigger w3m_audit_fingerprints_no_mutation before update or delete on w3m_private.w3m_audit_fingerprints
+for each row execute function w3m_private.w3m_reject_protocol_mutation();
+drop trigger if exists w3m_bindings_no_mutation on w3m_private.w3m_deal_audit_bindings;
+create trigger w3m_bindings_no_mutation before update or delete on w3m_private.w3m_deal_audit_bindings
+for each row execute function w3m_private.w3m_reject_protocol_mutation();
+drop trigger if exists w3m_terms_guard_update on w3m_private.w3m_acquisition_terms_versions;
+create trigger w3m_terms_guard_update before update on w3m_private.w3m_acquisition_terms_versions
+for each row execute function w3m_private.w3m_guard_terms_supersede();
+drop trigger if exists w3m_terms_no_delete on w3m_private.w3m_acquisition_terms_versions;
+create trigger w3m_terms_no_delete before delete on w3m_private.w3m_acquisition_terms_versions
+for each row execute function w3m_private.w3m_reject_protocol_mutation();
+drop trigger if exists w3m_acceptances_no_mutation on w3m_private.w3m_agreement_acceptances;
+create trigger w3m_acceptances_no_mutation before update or delete on w3m_private.w3m_agreement_acceptances
+for each row execute function w3m_private.w3m_reject_protocol_mutation();
+drop trigger if exists w3m_challenges_guard_consumption on w3m_private.w3m_agreement_challenges;
+create trigger w3m_challenges_guard_consumption before update on w3m_private.w3m_agreement_challenges
+for each row execute function w3m_private.w3m_guard_challenge_consumption();
+drop trigger if exists w3m_challenges_no_delete on w3m_private.w3m_agreement_challenges;
+create trigger w3m_challenges_no_delete before delete on w3m_private.w3m_agreement_challenges
+for each row execute function w3m_private.w3m_reject_protocol_mutation();
 
 revoke all on function public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)
   from public, anon, authenticated;
@@ -367,5 +371,5 @@ grant execute on function public.w3m_publish_acquisition_terms_version(uuid,bigi
 grant execute on function public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint) to service_role;
 grant execute on function public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz) to service_role;
 
-comment on table public.w3m_audit_fingerprints is 'Immutable W3M V1 fingerprint manifest for a completed audit; server-only writes.';
-comment on table public.w3m_agreement_acceptances is 'Append-only W3M V1 EIP-712 agreement acceptance evidence; server-only writes.';
+comment on table w3m_private.w3m_audit_fingerprints is 'Immutable W3M V1 fingerprint manifest for a completed audit; server-only writes.';
+comment on table w3m_private.w3m_agreement_acceptances is 'Append-only W3M V1 EIP-712 agreement acceptance evidence; server-only writes.';
