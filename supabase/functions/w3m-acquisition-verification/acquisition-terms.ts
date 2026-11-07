@@ -85,7 +85,7 @@ export function validateW3MAcquisitionTermsV1(input: unknown): asserts input is 
 
   const consideration = object(root.consideration, "consideration");
   const amount = decimal(consideration.amount, "consideration.amount");
-  if (Number(amount) <= 0) fail("consideration.amount must be greater than zero.");
+  if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) fail("consideration.amount must be a finite positive decimal string.");
   requiredString(consideration.currency, "consideration.currency");
 
   const fee = object(root.platform_fee, "platform_fee");
@@ -95,7 +95,9 @@ export function validateW3MAcquisitionTermsV1(input: unknown): asserts input is 
 
   const net = object(root.seller_net, "seller_net");
   decimal(net.amount, "seller_net.amount");
-  requiredString(net.currency, "seller_net.currency");
+  const netCurrency = requiredString(net.currency, "seller_net.currency");
+  const considerationCurrency = requiredString(consideration.currency, "consideration.currency");
+  if (netCurrency !== considerationCurrency) fail("seller_net.currency must match consideration.currency unless an explicit conversion schedule is added.");
 
   const payment = object(root.payment, "payment");
   if (payment.method !== "safe_multisig") fail("payment.method must explicitly identify the Safe multisig method.");
