@@ -252,3 +252,35 @@ The protocol acceptance gate must be integrated into the earliest relevant serve
 The live `public.deal_terms` table has a single `terms_snapshot jsonb` field, acknowledgement timestamps, deadlines, and created/updated timestamps; the inspected schema has no explicit terms version or terms hash. Its only listed RLS policy is participant SELECT. This does not establish immutable version history. The snapshot writer and all update paths must be traced before canonicalization; V1 must add its own versioned immutable terms record rather than assume the current mutable JSON is already a signed contract.
 
 No live Edge Function was invoked, updated, or redeployed during this inspection.
+
+## 11. Exact catalog constraints and RLS review (read-only, 2026-11-07)
+
+A further catalog query confirmed the following production facts. This section records inspection only; no DDL or data writes were performed.
+
+### 11.1 Referential integrity
+- `deals.id` is the primary key. `deals.project_id` references `projects(id)` with ON DELETE CASCADE; buyer and seller reference `profiles(id)` with ON DELETE RESTRICT.
+- `code_audits.id` is the primary key; `code_audits.project_id` references `projects(id)` with ON DELETE CASCADE.
+- `code_audit_files.audit_id` and `code_audit_findings.audit_id` reference `code_audits(id)` with ON DELETE CASCADE. The inspected files table has no uniqueness constraint on (audit_id, path), and `sha` is nullable.
+- `deal_party_agreements` has a unique constraint on (deal_id, party_role), a buyer/seller role check, and foreign keys to deals and auth.users.
+- `deal_terms` has a unique constraint on deal_id and a cascading foreign key to deals. Its JSON snapshot is NOT NULL with an empty-object default; this alone does not establish a complete canonical contract.
+- The private protocol evidence tables must not inherit cascading deletion from projects, audits, or deals if that could erase acceptance evidence. Before implementation, choose explicit RESTRICT/NO ACTION retention semantics and define a documented archival/retention process. Do not assume cascading foreign keys are safe for immutable legal/security evidence.
+
+### 11.2 RLS and browser-write findings
+- `deal_terms` has a participant SELECT policy only in the inspected policy listing; no participant INSERT/UPDATE policy was listed.
+- `deal_party_agreements` has participant SELECT, INSERT, and UPDATE policies. INSERT checks that party_id is auth.uid() and the role matches the deal's buyer_id or seller_id. UPDATE has owner checks and a tamper-prevention trigger, but this still represents a timestamp acknowledgement, not a cryptographic signature.
+- `code_audit_files` and `code_audit_findings` have authenticated SELECT policies limited to the audit requester or admin. No browser write policy appeared in the inspected listing.
+- `deals` has buyer INSERT and participant/admin SELECT policies in the inspected listing; state changes are additionally governed by triggers.
+
+### 11.3 Trigger and writer search
+- The inspected non-internal triggers on `deals` include financial-field locks, fee synchronization, state-transition enforcement, sensitive-field protection, and lifecycle audit logging.
+- `deal_party_agreements` has a tamper-prevention trigger and audit logging.
+- A read-only function-definition search found an audit-log trigger function referencing `deal_party_agreements`; it did not reveal a trusted writer that publishes canonical `deal_terms.terms_snapshot` versions. No authoritative terms writer or version/hash source was established by this inspection.
+- The actual offer-action browser code calls `act_on_marketplace_offer`, but the earlier read-only catalog lookup found no matching SQL function. This remains an unresolved deployed integration mismatch; do not invent a replacement RPC.
+
+### 11.4 V1 implementation consequences
+1. Treat the current `deal_terms` JSON as untrusted/unversioned until its source and intended semantics are proven. The V1 server must assemble the canonical document from trusted deal, project, audit, and payment data.
+2. Before manifest publication, verify each scanned file row is unique by normalized path, scanned, and has a valid Git blob SHA. Existing nullable `sha` and lack of a unique (audit_id,path) constraint require explicit server-side rejection of incomplete or duplicate evidence.
+3. Store immutable terms versions, deal-audit bindings, consumed challenges/nonces, and acceptances in a private schema with no browser table grants. Enforce uniqueness and immutability in the database transaction, not only in TypeScript preflight helpers.
+4. Use retention-safe foreign-key behavior for protocol evidence. A project/audit/deal deletion must not silently cascade-delete signed acceptance history.
+5. Resolve the offer-action endpoint mismatch and canonical terms source before writing the first persistent version or authorizing Safe deployment.
+6. Keep the production project read-only until an isolated migration and concurrency/security test suite passes and the user explicitly approves any production change.
