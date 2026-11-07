@@ -214,3 +214,56 @@ The typed acceptance binds:
 Focused tests cover valid recovery, wrong-wallet rejection, replay/tampering across deal/fingerprint/digest/terms/role/nonce, expired or overlong deadlines, and malformed inputs. The focused workflow was expanded to run these tests and type-check this module. GitHub Actions run #31 on commit cfe8415448b29dd84ad93341412af898a6dfbd3b passed: all 18 tests (9 fingerprint, 3 manifest, 6 EIP-712) passed, and Deno type-check passed. The initial EIP-712 run failed only because Deno lacked permission for the two environment reads used by the transitive ws compatibility module; the workflow was narrowed to allow only WS_NO_BUFFER_UTIL and WS_NO_UTF_8_VALIDATE, after which both push and pull-request runs passed.
 
 **Important boundary:** this is a pure cryptographic primitive, not a live acceptance endpoint. It does not authenticate Supabase users, query trusted deal/fingerprint/terms rows, compare the recovered wallet with the participant's verified profile wallet, consume the nonce atomically, persist signatures, or issue the final report. The deployed wallet verification flow confirms ownership of a wallet using a personal-message challenge and stores a verified wallet on the profile; the acquisition endpoint must still re-check that stored wallet at request time. No Edge Function deployment, schema migration, production write, or settlement action was performed.
+
+
+## 18. Exact persistence boundary and deletion semantics (2026-11-07)
+
+A further read-only schema review was completed before proposing any migration. No database writes were performed.
+
+### Verified participant identity and deal state
+
+- `public.profiles` contains `id`, `wallet_address`, `wallet_verified`, and `wallet_verified_at`. The current profile SELECT policy is self-only for authenticated users. A server function that uses a service-role client to load another participant's profile must first validate the caller's JWT with the public/anon client, then use a separate server-only service-role client for the narrowly scoped profile read. Never forward the user's Authorization header to the service-role client.
+- The profile trigger definitions were inspected. Authenticated/anonymous clients cannot change `wallet_address`, `wallet_verified`, or `wallet_verified_at`; the verified wallet identity is controlled by trusted wallet-verification workflows. The acquisition function must nevertheless re-read `wallet_address` and `wallet_verified` at both prepare and accept time, and compare the recovered EIP-712 signer to the current profile wallet.
+- The current `deals.status` values include `pending`, `accepted`, `funded`, `in_progress`, `completed`, `cancelled`, `rejected`, and `disputed`. The separate `dispute_status` values include `none`, `open`, `under_review`, `resolved_buyer`, `resolved_seller`, and `closed`. Final report issuance must block when status is `disputed` or dispute status is `open` / `under_review`; the existing deal state-transition trigger must not be weakened or bypassed.
+- `deal_terms` has exactly one row per deal today and stores `terms_snapshot` as non-null JSONB. It has no terms-version column. Therefore, a protocol binding must carry its own server-assigned positive `terms_version`, canonical snapshot, and SHA-256 terms hash. It must not pretend the current table already versions terms.
+- `deals.buyer_id` and `deals.seller_id` reference `profiles(id)`; participant IDs must be compared to the authenticated `auth.users.id`, not accepted from request JSON.
+
+### Proposed append-only records (design only; not migration SQL)
+
+1. **`w3m_audit_fingerprints`**
+   - `id uuid primary key`; `audit_id uuid not null`; optional `project_id uuid`; normalized `repository text`; exact `commit_sha char(40)`; `manifest_schema text`; `digest char(64)`; canonical `manifest jsonb`; `created_at timestamptz`; server source/actor metadata.
+   - Unique identity should prevent duplicate ledger entries for the same audit + manifest version + digest, while allowing a later audit or changed evidence to produce a new record.
+   - FK to `code_audits(id) ON DELETE RESTRICT`. The existing audit rows currently cascade from project deletion and auth-user deletion, and their file/finding rows cascade from audit deletion. The restrictive ledger FK intentionally prevents those cascades from erasing an audit that has become acquisition evidence. This means project/account deletion can be blocked while a retained fingerprint exists; a retention/legal-erasure policy must be explicitly decided before migration.
+   - Do not make the fingerprint depend on a nullable project FK alone; the durable evidence anchor is the audit row plus the repository and commit identity.
+
+2. **`w3m_deal_fingerprint_bindings`**
+   - `id uuid primary key`; `deal_id uuid not null`; `fingerprint_id uuid not null`; `terms_version bigint not null check (terms_version > 0)`; immutable `terms_snapshot jsonb`; `terms_hash char(64)`; `created_at timestamptz`; server actor/source metadata.
+   - Unique `(deal_id, terms_version)`; FK to `deals(id) ON DELETE RESTRICT`; FK to `w3m_audit_fingerprints(id) ON DELETE RESTRICT`.
+   - The binding stores the exact terms snapshot used for signing. A later terms revision creates a new version/binding; it must not update the old row or silently replace a fingerprint after either party has signed.
+   - The deal FK restriction also intentionally blocks deletion of a project that would cascade-delete a deal with retained acquisition evidence. This lifecycle effect must be accepted and tested before migration.
+
+3. **`w3m_agreement_challenges`**
+   - A short-lived server-issued challenge per binding + party role, with authenticated `party_id`, verified `wallet_address`, cryptographically random 32-byte nonce, `issued_at`, `expires_at`, and nullable `consumed_at`.
+   - The challenge's identity, nonce, wallet, role, binding, and expiry are immutable. Only the one-way transition from unconsumed to consumed is permitted. Expired or consumed challenges are rejected.
+   - A challenge record is needed because a nonce that is merely supplied by the browser cannot prove that the server issued it. The server creates the nonce and stores the challenge before returning typed data to the wallet.
+
+4. **`w3m_verified_agreement_acceptances`**
+   - One immutable accepted signature per `(binding_id, party_role)`; include `party_id`, verified `wallet_address`, `challenge_id`, `chain_id=56`, typed-data domain/version, `terms_version`, `terms_hash`, fingerprint digest, signature bytes, signature scheme, recovered signer, server verification timestamp, and verifier version.
+   - Unique `(binding_id, party_role)`, unique `challenge_id`, and unique nonce/challenge consumption prevent competing acceptances and replay. FK references to binding, challenge, and auth user should be restrictive so accepted evidence is not erased by ordinary deal/account deletion.
+   - Exact retries may return the existing acceptance only when the submitted signature and every bound field match byte-for-byte; any different signature or changed terms/fingerprint must fail closed.
+
+5. **`w3m_acquisition_reports`**
+   - Separate append-only final report with binding/fingerprint IDs, buyer and seller acceptance IDs, digest, audited commit, terms version/hash, decision (`PASS`, `BLOCKED`, `INCOMPLETE`, or `REVIEW_REQUIRED`), evidence-check result, verifier version, and `issued_at`.
+   - A report may be issued only after both acceptances are independently verified and the live audit evidence is reloaded/recomputed. A `PASS` is not proof of escrow funding, asset transfer, or settlement.
+
+### Atomicity, access, and UUID encoding
+
+- The accept path must consume the challenge and insert the verified acceptance atomically. Two concurrent requests must not both consume the same challenge or create competing role acceptances. Use a narrowly scoped transaction/RPC path that is callable only by `service_role` (revoke execute from `PUBLIC`, `anon`, and `authenticated`); prefer `SECURITY INVOKER` with fixed search path and no browser grants. Do not add a broadly callable `SECURITY DEFINER` function in `public`.
+- All new tables must have RLS enabled and no direct `anon` or `authenticated` INSERT/UPDATE/DELETE privileges. Browser reads should also be denied unless a separately reviewed requirement exists. The Edge Function authenticates the JWT first, checks deal participation, then uses its isolated server-only client.
+- Existing UUID primary keys (`deals.id`, `code_audits.id`, and proposed ledger IDs) are not already `bytes32`. The EIP-712 helper currently accepts `bytes32`; the server must convert UUIDs deterministically to 32-byte hex by removing UUID hyphens and prefixing `0x`, with tests proving round-trip and fixed-width encoding. Never accept the converted value from the browser.
+- The Edge Function must derive the terms hash from the server-loaded JSONB snapshot using the same canonical JSON rules on every request. It must load all scanned file rows and finding rows, rebuild the manifest, recompute the fingerprint, and compare both digest and repository/commit identity before prepare, accept, and final report issuance.
+- The existing `deal_party_agreements` timestamp workflow, its triggers, and the Safe signer tables remain untouched. They are not substitutes for the new cryptographic acceptance ledger.
+
+### Implementation decision
+
+The exact table and function design is now sufficiently grounded to write a migration draft on the feature branch, but it is **not** approved for application to the connected production database. Before creating that draft, the remaining design review must settle retention/deletion behavior for audits, projects, deals, and accounts, and inspect the full deal-terms mutation path to confirm how revised terms are represented. No migration, SQL write, Edge Function deployment, or production data change has been performed.
