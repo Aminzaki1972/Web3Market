@@ -160,7 +160,7 @@ create trigger w3m_challenges_no_delete before delete on w3m_private.w3m_agreeme
 for each row execute function w3m_private.w3m_reject_protocol_mutation();
 
 create or replace function public.w3m_publish_audit_fingerprint_and_binding(
-  p_deal_id uuid, p_project_id uuid, p_audit_id uuid, p_user_id uuid,
+  p_deal_id uuid, p_project_id uuid, p_audit_id uuid, p_fingerprint_id uuid, p_user_id uuid,
   p_repository text, p_commit_sha text, p_fingerprint_digest text,
   p_manifest jsonb, p_binding_hash text
 ) returns table (fingerprint_id uuid, binding_hash text)
@@ -176,7 +176,7 @@ begin
   if (auth.jwt() ->> 'role') is distinct from 'service_role' then
     raise exception 'service_role_required' using errcode = '42501';
   end if;
-  if p_deal_id is null or p_project_id is null or p_audit_id is null or p_user_id is null
+  if p_deal_id is null or p_project_id is null or p_audit_id is null or p_fingerprint_id is null or p_user_id is null
     or p_repository is null or p_repository !~ '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?/[a-z0-9_.-]+
   p_deal_id uuid, p_terms_version bigint, p_terms_hash text, p_canonical_terms_json jsonb
 ) returns uuid language plpgsql security definer set search_path = ''
@@ -486,7 +486,7 @@ begin
 end;
 $w3m$;
 
-revoke all on function public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,text,text,text,jsonb,text)
+revoke all on function public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text)
   from public, anon, authenticated;
 revoke all on function public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)
   from public, anon, authenticated;
@@ -496,7 +496,7 @@ revoke all on function public.w3m_record_agreement_acceptance(uuid,uuid,text,tex
   from public, anon, authenticated;
 revoke all on function public.w3m_get_agreement_challenge_for_verification(uuid)
   from public, anon, authenticated;
-grant execute on function public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,text,text,text,jsonb,text) to service_role;
+grant execute on function public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text) to service_role;
 grant execute on function public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb) to service_role;
 grant execute on function public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint) to service_role;
 grant execute on function public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz) to service_role;
@@ -1522,7 +1522,8 @@ comment on table w3m_private.w3m_agreement_acceptances is 'Append-only W3M V1 EI
   select * into v_fingerprint from w3m_private.w3m_audit_fingerprints
     where audit_id = p_audit_id for update;
   if found then
-    if v_fingerprint.fingerprint_digest <> p_fingerprint_digest
+    if v_fingerprint.id <> p_fingerprint_id
+      or v_fingerprint.fingerprint_digest <> p_fingerprint_digest
       or v_fingerprint.repository <> p_repository
       or v_fingerprint.commit_sha <> p_commit_sha
       or v_fingerprint.manifest <> p_manifest then
@@ -1530,8 +1531,8 @@ comment on table w3m_private.w3m_agreement_acceptances is 'Append-only W3M V1 EI
     end if;
   else
     insert into w3m_private.w3m_audit_fingerprints
-      (audit_id, fingerprint_digest, repository, commit_sha, manifest)
-    values (p_audit_id, p_fingerprint_digest, p_repository, p_commit_sha, p_manifest)
+      (id, audit_id, fingerprint_digest, repository, commit_sha, manifest)
+    values (p_fingerprint_id, p_audit_id, p_fingerprint_digest, p_repository, p_commit_sha, p_manifest)
     returning * into v_fingerprint;
   end if;
 
