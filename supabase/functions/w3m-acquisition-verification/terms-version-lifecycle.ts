@@ -41,19 +41,29 @@ function assertContiguousVersions(versions: Set<number>, maxVersion: number): vo
 }
 
 function validateVersion(record: W3MTermsVersionRecord): void {
-  if (!UUID.test(record.deal_id)) fail("deal_id must be a UUID.");
+  if (!record || typeof record !== "object" ||
+    typeof record.deal_id !== "string" || !UUID.test(record.deal_id)) {
+    fail("deal_id must be a UUID.");
+  }
   if (!Number.isSafeInteger(record.terms_version) || record.terms_version < 1) {
     fail("terms_version must be a positive safe integer.");
   }
-  if (!SHA256.test(record.terms_hash)) fail("terms_hash must be a SHA-256 hex digest.");
+  if (typeof record.terms_hash !== "string" || !SHA256.test(record.terms_hash)) {
+    fail("terms_hash must be a SHA-256 hex digest.");
+  }
   if (typeof record.canonical_terms_json !== "string" || record.canonical_terms_json.length === 0) {
     fail("canonical_terms_json is required.");
   }
   if (record.status !== "published" && record.status !== "superseded") {
     fail("Terms version status is invalid.");
   }
-  if (typeof record.published_at !== "string" || !Number.isFinite(Date.parse(record.published_at))) {
-    fail("published_at must be a valid timestamp.");
+  if (typeof record.published_at !== "string") {
+    fail("published_at must be a canonical ISO-8601 UTC timestamp.");
+  }
+  const publishedAtMs = Date.parse(record.published_at);
+  if (!Number.isFinite(publishedAtMs) ||
+    new Date(publishedAtMs).toISOString() !== record.published_at) {
+    fail("published_at must be a canonical ISO-8601 UTC timestamp.");
   }
 }
 
