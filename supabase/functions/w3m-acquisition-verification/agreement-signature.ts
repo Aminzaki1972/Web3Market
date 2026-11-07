@@ -93,6 +93,9 @@ export function buildW3MAgreementTypedData(
   nowSeconds = Math.floor(Date.now() / 1000),
 ): W3MAgreementTypedData {
   if (!input || typeof input !== "object") throw new Error("Agreement acceptance input is required.");
+  if (!Number.isSafeInteger(nowSeconds) || nowSeconds < 0) {
+    throw new Error("Current verification time must be a non-negative safe integer.");
+  }
   if (input.partyRole !== "buyer" && input.partyRole !== "seller") {
     throw new Error("Agreement party role must be buyer or seller.");
   }
