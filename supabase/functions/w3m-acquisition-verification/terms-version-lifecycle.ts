@@ -14,7 +14,12 @@ export interface W3MTermsVersionRecord {
   published_at: string;
 }
 
-export interface W3MTermsVersionAppendPlan {\n  supersede_versions: number[];\n  publish: W3MTermsVersionRecord;\n}\n\nexport interface W3MAcceptanceVersionReference {
+export interface W3MTermsVersionAppendPlan {
+  supersede_versions: number[];
+  publish: W3MTermsVersionRecord;
+}
+
+export interface W3MAcceptanceVersionReference {
   deal_id: string;
   terms_version: number;
   terms_hash: string;
