@@ -335,3 +335,42 @@ This is still pure TypeScript policy logic. It does not replace the required dat
 - Corrected feature-branch head: `e4f7b124ad928208c41a202935905a2ac06dd703`.
 - GitHub Actions run `42368675810` completed successfully: the complete configured Deno test step passed and the Deno type-check step passed.
 - This run verifies the pure module/test suite only. It does not verify a database transaction, production Edge Function, Safe deployment, or settlement flow.
+
+
+## 13. Frontend-to-server call-path trace (read-only, 2026-11-07)
+
+The feature-branch frontend sources and currently deployed offer/Safe functions were compared. No production code or configuration was changed.
+
+### 13.1 Offer action mismatch is confirmed
+
+The feature-branch `js/offer-actions.js` obtains the authenticated Supabase user and calls:
+
+```ts
+client.rpc('act_on_marketplace_offer', {
+  p_offer_id, p_action, p_amount, p_currency, p_message
+})
+```
+
+The active production Edge Function `seller-offer-action-v2` instead accepts `deal_id` and `action` (`accept` or `reject`) and updates `deals.status` to `accepted` after seller-ownership and BNB payment-configuration checks. These are different contracts. The deployed Edge Function does not establish that the browser RPC call reaches it. The earlier read-only database function catalog lookup found no SQL function named `act_on_marketplace_offer`.
+
+**V1 consequence:** do not silently redirect the RPC, create an assumed RPC replacement, or treat `seller-offer-action-v2` as the confirmed browser route. The canonical offer-action contract and intended state transitions must be resolved before wiring acceptance publication. Any acceptance implementation must be independent of the legacy `accepted` status.
+
+### 13.2 Safe deployment direct caller is confirmed
+
+The feature-branch `js/deal-room.js` calls `sb.functions.invoke('create-safe', { body: { deal_id: deal.id } })` after a browser-side check that the loaded deal status is `accepted`. A direct HTTP fallback also posts to the same deployed Edge Function when the SDK reports a fetch error.
+
+The active production `create-safe` function (version 56; source SHA-256 `d888f48d48c87563e20e43318f9187c0f02d9a46fbe5e037cadbb5520b918e07`) independently authenticates the caller, loads the deal and verified buyer/seller wallets, checks participant/admin access, `accepted` status, BNB Chain 56, distinct Safe owners and deployer configuration. It then creates/broadcasts the Safe deployment transaction when needed and persists the Safe/release policy.
+
+The function does **not** load or verify a W3M persisted acceptance pair, immutable terms version/hash, audit fingerprint, or deal-audit binding before it can broadcast the deployment transaction. The browser check is not a security control.
+
+**V1 consequence:** the server-side W3M evidence gate must execute inside `create-safe` before any Safe deployment transaction is constructed or broadcast. Until that gate exists and is integration-tested, this entry point is a production bypass relative to the proposed V1 protocol.
+
+### 13.3 Safe and release gate inventory remains mandatory
+
+The earlier source review still applies: release preparation, Safe transaction preparation, Safe signature recording, execution, and finalization must each enforce the persisted current-version evidence predicate at the appropriate boundary. A Safe transaction signature is not a W3M agreement signature. No function was invoked and no live transaction was attempted during this trace.
+
+### 13.4 Current implementation boundary
+
+This trace establishes two concrete integration facts, but it does not establish an authoritative canonical contract source or a safe transactional persistence design. The production `deal_terms.terms_snapshot` remains mutable/unversioned with no confirmed writer semantics. Therefore no migration, acceptance endpoint, or terms publisher should be written against guessed fields. The next V1 implementation work is limited to tracing the canonical deal/offer terms producer and defining the exact server-owned input contract, followed by an unapplied isolated migration and database-backed tests.
+
+No production database writes, Edge Function deployments, PR merges, Safe calls, or financial transfers were performed.
