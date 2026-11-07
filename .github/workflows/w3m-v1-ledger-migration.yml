@@ -147,6 +147,31 @@ jobs:
                 where deal_id=v_deal and terms_version=1) <> 'superseded' then
               raise exception 'old_terms_not_superseded';
             end if;
+
+            begin
+              update public.w3m_agreement_acceptances
+                set signature='0x' || repeat('9',130) where deal_id=v_deal;
+              raise exception 'expected_acceptance_immutability_rejection';
+            exception when sqlstate '55000' then null;
+            end;
+            begin
+              update public.w3m_audit_fingerprints set manifest='{"tampered":true}'::jsonb
+                where id=v_fingerprint;
+              raise exception 'expected_fingerprint_immutability_rejection';
+            exception when sqlstate '55000' then null;
+            end;
+            begin
+              update public.w3m_acquisition_terms_versions set canonical_terms_json='{"tampered":true}'::jsonb
+                where deal_id=v_deal and terms_version=2;
+              raise exception 'expected_terms_immutability_rejection';
+            exception when sqlstate '55000' then null;
+            end;
+            begin
+              update public.w3m_agreement_challenges set nonce='0x' || repeat('9',64)
+                where id=v_challenge;
+              raise exception 'expected_challenge_immutability_rejection';
+            exception when sqlstate '55000' then null;
+            end;
           end;
           $$;
           reset role;
