@@ -100,3 +100,12 @@ Deno.test("rejects malformed identifiers, roles, and signatures", () => {
   try { verifyW3MAgreementSignature(base, "0x1234", NOW); } catch { signatureRejected = true; }
   assertEquals(signatureRejected, true);
 });
+
+
+Deno.test("rejects invalid verifier clock values before constructing typed data", () => {
+  for (const now of [Number.NaN, Number.POSITIVE_INFINITY, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    let rejected = false;
+    try { buildW3MAgreementTypedData(base, now); } catch { rejected = true; }
+    assertEquals(rejected, true);
+  }
+});
