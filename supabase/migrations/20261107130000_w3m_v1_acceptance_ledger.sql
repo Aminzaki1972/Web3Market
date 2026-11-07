@@ -196,6 +196,9 @@ as $w3m$
 declare
   v_id uuid;
   v_now bigint := extract(epoch from clock_timestamp())::bigint;
+  v_deal public.deals%rowtype;
+  v_profile_wallet text;
+  v_wallet_verified boolean;
 begin
   if auth.role() is distinct from 'service_role' then
     raise exception 'service_role_required' using errcode = '42501';
@@ -212,19 +215,46 @@ begin
     or p_signature_deadline > v_now + 900 then
     raise exception 'invalid_challenge_parameters' using errcode = '22023';
   end if;
+
+  select * into v_deal from public.deals where id = p_deal_id for update;
+  if not found or v_deal.project_id <> p_project_id then
+    raise exception 'deal_or_project_not_found' using errcode = 'P0002';
+  end if;
+  if v_deal.status not in ('pending','accepted') or v_deal.dispute_status <> 'none' then
+    raise exception 'deal_not_eligible_for_agreement' using errcode = '22023';
+  end if;
+  if (p_party_role = 'buyer' and v_deal.buyer_id <> p_user_id)
+    or (p_party_role = 'seller' and v_deal.seller_id <> p_user_id) then
+    raise exception 'authenticated_user_is_not_deal_party' using errcode = '42501';
+  end if;
+
+  select wallet_address, wallet_verified into v_profile_wallet, v_wallet_verified
+    from public.profiles where id = p_user_id;
+  if not found or v_wallet_verified is not true
+    or lower(coalesce(v_profile_wallet,'')) <> lower(p_wallet_address) then
+    raise exception 'verified_profile_wallet_mismatch' using errcode = '42501';
+  end if;
+
   if not exists (
-    select 1 from w3m_private.w3m_audit_fingerprints f
+    select 1
+    from public.code_audits a
+    join w3m_private.w3m_audit_fingerprints f
+      on f.audit_id = a.id and f.id = p_fingerprint_id
+     and f.fingerprint_digest = p_fingerprint_digest
     join w3m_private.w3m_deal_audit_bindings b
       on b.audit_id = f.audit_id and b.fingerprint_id = f.id
      and b.fingerprint_digest = f.fingerprint_digest
      and b.repository = f.repository and b.commit_sha = f.commit_sha
-    where f.audit_id = p_audit_id and f.id = p_fingerprint_id
-      and f.fingerprint_digest = p_fingerprint_digest
+    where a.id = p_audit_id and a.project_id = v_deal.project_id
+      and a.status = 'completed'
+      and lower(a.repo_owner || '/' || a.repo_name) = b.repository
+      and lower(a.commit_sha) = b.commit_sha
       and b.deal_id = p_deal_id and b.project_id = p_project_id
       and b.binding_hash = p_binding_hash
   ) then
-    raise exception 'trusted_deal_audit_binding_not_found' using errcode = '23503';
+    raise exception 'trusted_completed_audit_binding_not_found' using errcode = '23503';
   end if;
+
   if not exists (
     select 1 from w3m_private.w3m_acquisition_terms_versions t
     where t.deal_id = p_deal_id and t.terms_version = p_terms_version
@@ -232,6 +262,7 @@ begin
   ) then
     raise exception 'current_terms_version_not_found' using errcode = '23503';
   end if;
+
   insert into w3m_private.w3m_agreement_challenges
     (deal_id, project_id, audit_id, fingerprint_id, fingerprint_digest, binding_hash,
      terms_hash, terms_version, party_role, user_id, wallet_address, nonce, signature_deadline)
