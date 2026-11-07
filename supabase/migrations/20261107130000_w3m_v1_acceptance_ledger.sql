@@ -98,8 +98,11 @@ revoke all on w3m_private.w3m_audit_fingerprints, w3m_private.w3m_deal_audit_bin
   w3m_private.w3m_acquisition_terms_versions, w3m_private.w3m_agreement_challenges,
   w3m_private.w3m_agreement_acceptances from anon, authenticated;
 grant select, insert on w3m_private.w3m_audit_fingerprints, w3m_private.w3m_deal_audit_bindings to service_role;
-grant select, insert, update on w3m_private.w3m_acquisition_terms_versions, w3m_private.w3m_agreement_challenges to service_role;
-grant select, insert on w3m_private.w3m_agreement_acceptances to service_role;
+-- Protocol rows are read-only to the Edge Function role. Mutations must pass
+-- through the SECURITY DEFINER RPCs below, which enforce the transaction rules.
+grant select on w3m_private.w3m_acquisition_terms_versions,
+  w3m_private.w3m_agreement_challenges,
+  w3m_private.w3m_agreement_acceptances to service_role;
 
 create or replace function w3m_private.w3m_reject_protocol_mutation()
 returns trigger language plpgsql set search_path = ''
