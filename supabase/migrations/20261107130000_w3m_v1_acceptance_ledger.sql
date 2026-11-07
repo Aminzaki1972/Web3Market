@@ -308,6 +308,7 @@ as $w3m$
 declare
   v_max_version bigint;
   v_id uuid;
+  v_deal public.deals%rowtype;
 begin
   if (auth.jwt() ->> 'role') is distinct from 'service_role' then
     raise exception 'service_role_required' using errcode = '42501';
@@ -317,6 +318,19 @@ begin
     or p_canonical_terms_json is null or p_canonical_terms_json = '{}'::jsonb then
     raise exception 'invalid_terms_version_parameters' using errcode = '22023';
   end if;
+  -- Serialize terms publication with acceptance by locking the deal first.
+  select * into v_deal from public.deals where id = p_deal_id for update;
+  if not found or v_deal.status not in ('pending','accepted')
+    or v_deal.dispute_status is distinct from 'none' then
+    raise exception 'deal_not_eligible_for_terms_publication' using errcode = '22023';
+  end if;
+  if exists (
+    select 1 from w3m_private.w3m_agreement_acceptances a
+    where a.deal_id = p_deal_id
+  ) then
+    raise exception 'terms_locked_after_first_party_acceptance' using errcode = '23505';
+  end if;
+
   perform pg_advisory_xact_lock(hashtextextended(p_deal_id::text, 0));
   select coalesce(max(terms_version), 0) into v_max_version
     from w3m_private.w3m_acquisition_terms_versions where deal_id = p_deal_id;
