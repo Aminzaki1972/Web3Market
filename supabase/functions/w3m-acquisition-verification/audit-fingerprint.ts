@@ -75,7 +75,7 @@ export async function deriveW3MAuditFingerprintId(auditId: string): Promise<stri
   if (typeof auditId !== "string" || !AUDIT_ID.test(auditId)) {
     throw new Error("A valid audit ID is required to derive a fingerprint ID.");
   }
-  const payload = new TextEncoder().encode("w3m-audit-fingerprint-id:v1\\n" + auditId.toLowerCase());
+  const payload = new TextEncoder().encode("w3m-audit-fingerprint-id:v1\n" + auditId.toLowerCase());
   const digest = await crypto.subtle.digest("SHA-256", payload);
   const bytes = new Uint8Array(digest).slice(0, 16);
   bytes[6] = (bytes[6] & 0x0f) | 0x80;
