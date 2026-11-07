@@ -21,8 +21,14 @@ function requiredString(value: unknown, label: string): string {
 }
 function requiredPolicyText(value: unknown, label: string): string {
   const text = requiredString(value, label).trim();
-  if (/^(?:pending|pending legal review|tbd|to be determined|not defined|not yet defined|n\\/a|na|placeholder|todo|unknown|draft(?:[-\\s].*)?)$/i.test(text) ||
-    /\\b(?:tbd|to be determined|pending legal review|not yet defined|placeholder)\\b/i.test(text)) {
+  const normalized = text.toLowerCase();
+  const placeholders = new Set([
+    "pending", "pending legal review", "tbd", "to be determined",
+    "not defined", "not yet defined", "n/a", "na", "placeholder",
+    "todo", "unknown", "draft",
+  ]);
+  if (placeholders.has(normalized) ||
+    ["tbd", "to be determined", "pending legal review", "not yet defined", "placeholder"].some((term) => normalized.includes(term))) {
     fail(label + " must contain an approved, non-placeholder policy value.");
   }
   return text;
