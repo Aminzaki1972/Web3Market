@@ -24,7 +24,7 @@ const base: W3MAcceptanceCandidateInput = {
   recoveredSignerAddress: "0x" + "11".repeat(20),
   nonce: "0x" + "d".repeat(64),
   deadline: NOW + 120,
-  acceptedAt: "2027-01-15T12:00:00.000Z",
+  acceptedAt: "2027-01-15T08:00:00.000Z",
 };
 
 Deno.test("builds a canonical immutable buyer acceptance record", () => {
