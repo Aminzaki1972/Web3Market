@@ -220,7 +220,8 @@ begin
   if not found or v_deal.project_id <> p_project_id then
     raise exception 'deal_or_project_not_found' using errcode = 'P0002';
   end if;
-  if v_deal.status is null or v_deal.status not in ('pending','accepted')\n    or v_deal.dispute_status is distinct from 'none' then
+  if v_deal.status is null or v_deal.status not in ('pending','accepted')
+    or v_deal.dispute_status is distinct from 'none' then
     raise exception 'deal_not_eligible_for_agreement' using errcode = '22023';
   end if;
   if (p_party_role = 'buyer' and v_deal.buyer_id <> p_user_id)
