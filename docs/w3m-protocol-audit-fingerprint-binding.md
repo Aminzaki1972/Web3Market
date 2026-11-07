@@ -349,7 +349,7 @@ No governing law, arbitration promise, guarantee, refund right, tax treatment, o
 
 - Store the exact immutable snapshot JSONB plus canonical UTF-8 JSON bytes or a deterministic canonical representation. Canonicalization must reject undefined values, non-finite numbers, sparse arrays, duplicate/ambiguous key forms, and non-plain objects; object keys are sorted and array order is preserved.
 - Monetary values must be represented as decimal strings with explicit currency/token decimals, not JavaScript floating-point numbers. Define the rounding mode and scale per currency/asset before fee calculation.
-- Compute `terms_hash = keccak256(canonical_terms_bytes)` (or a separately versioned SHA-256 design, but choose exactly one algorithm and use it consistently); the EIP-712 typed data binds the selected hash, fingerprint digest, deal UUID bytes32 encoding, terms version, party role, verified wallet, chain ID, nonce, and expiry.
+- Compute `terms_hash = SHA-256("w3m-acquisition-terms:v1\\n" || canonical_terms_bytes)`; this is the selected V1 algorithm and is represented as a 32-byte hex value in EIP-712. The EIP-712 typed data binds this hash, fingerprint digest, deal UUID bytes32 encoding, terms version, party role, verified wallet, chain ID, nonce, and expiry.
 - The EIP-712 domain's chain ID 56 binds the signature to BNB Smart Chain. Payment chain/asset fields remain explicit agreement fields and must not be inferred from the EIP-712 domain alone.
 - The server independently rebuilds the typed data from persisted state and recovers the signer. Any mismatch, expired challenge, changed terms, changed audit evidence, wrong wallet, wrong role, wrong chain/domain, or replay returns a fail-closed result.
 - A terms revision creates a new snapshot version and binding. It never overwrites an already signed version. Old unused challenges are invalidated, and existing signatures remain attached only to the exact historical version they signed.
@@ -436,3 +436,14 @@ No governing law, arbitration promise, guarantee, refund right, tax treatment, o
 ### 20.7 Build gate
 
 Before implementation, the team must decide and record: (1) the legally reviewed agreement text and jurisdiction model; (2) accepted asset and payment/currency types; (3) exact decimal and fee rounding rules; (4) required versus optional transfer evidence by project type; (5) escrow conditions and dispute workflow; (6) retention/deletion and account-erasure policy. Until those decisions are settled, implement only pure schema validation and canonicalization tests using synthetic fixtures. Do not create production terms, request wallet signatures, migrate the database, or alter live Deal Room behavior.
+
+
+## 21. Pure V1 terms validator added on the feature branch (2026-11-07)
+
+Added two isolated modules under `supabase/functions/w3m-acquisition-verification/`:
+
+- `acquisition-terms.ts`: validates the V1 terms envelope, server-shaped IDs, project/audit identity, full commit SHA, fingerprint digest, decimal-string consideration and fee values, BNB Chain ID 56, transfer scope, delivery checklist, inspection criteria, dispute procedure, escrow hold, governing terms, risk acknowledgements, and timestamps. It also canonicalizes the full JSON structure and computes a domain-separated SHA-256 terms hash.
+- `acquisition-terms.test.ts`: synthetic tests for valid terms, key-order stability, deterministic hash, missing audit/delivery evidence, floating-point money, wrong chain, same buyer/seller, invalid expiry, sparse arrays, undefined, non-finite values, and circular references.
+- Updated `.github/workflows/w3m-audit-fingerprint-tests.yml` to include the new module and tests in focused Deno test/type-check runs.
+
+This is deliberately a pure validation/hash layer. It does not create real terms, load deal data, calculate and persist fee snapshots, authenticate participants, store signatures, or authorize settlement. Synthetic fixture values are test-only and are not platform terms. CI must pass on the latest branch head before this module is considered verified.
