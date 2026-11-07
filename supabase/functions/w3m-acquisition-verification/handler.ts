@@ -168,12 +168,13 @@ export function createW3MAcquisitionHandler(deps: HandlerDependencies) {
     if (req.method !== "POST") return reply(origin, { ok: false, error: "POST required" }, 405);
     const token = bearerToken(req.headers.get("Authorization"));
     if (!token) return reply(origin, { ok: false, error: "Sign in required" }, 401);
-    const contentLength = Number(req.headers.get("Content-Length") || "0");
-    if (contentLength > 16_384) return reply(origin, { ok: false, error: "Request too large" }, 413);
-
     let body: Record<string, unknown>;
     try {
-      const parsed: unknown = await req.json();
+      const rawBody = await req.text();
+      if (new TextEncoder().encode(rawBody).byteLength > 16_384) {
+        return reply(origin, { ok: false, error: "Request too large" }, 413);
+      }
+      const parsed: unknown = JSON.parse(rawBody);
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
         return reply(origin, { ok: false, error: "JSON object required" }, 400);
       }
