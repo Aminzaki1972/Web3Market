@@ -26,9 +26,11 @@ The following source files were retrieved read-only from the live Supabase proje
 - `prepare-safe-release-tx`: before Safe release transaction preparation.
 - `record-safe-release-signature`: before recording Safe signatures.
 - `execute-safe-release`: before the actual on-chain execution path (read-only/check mode remains available).
-- `finalize-safe-release`: before marking a release complete.
+- `finalize-safe-release`: before marking a release complete; it also independently blocks finalization when a dispute is open or dispute status cannot be verified.
 
-Each function fails closed with HTTP 409 if the current W3M buyer/seller acceptance pair is absent, stale, incomplete, or cryptographically invalid. The static CI regression checks that the gate call appears before the corresponding sensitive action in all six staged sources.
+Each function fails closed with HTTP 409 if the current W3M buyer/seller acceptance pair is absent, stale, incomplete, or cryptographically invalid. The static CI regression checks that the gate call appears before the corresponding sensitive action in all six staged sources, and that finalization checks dispute state before database writes.
+
+Latest branch CI: 104 Deno tests passed; the PostgreSQL migration/concurrency/privilege suite passed; CDN integrity, profile-guard migration, and modified JavaScript syntax checks passed.
 
 ## Important deployment boundary
 
