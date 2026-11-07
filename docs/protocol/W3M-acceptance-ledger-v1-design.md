@@ -374,3 +374,21 @@ The earlier source review still applies: release preparation, Safe transaction p
 This trace establishes two concrete integration facts, but it does not establish an authoritative canonical contract source or a safe transactional persistence design. The production `deal_terms.terms_snapshot` remains mutable/unversioned with no confirmed writer semantics. Therefore no migration, acceptance endpoint, or terms publisher should be written against guessed fields. The next V1 implementation work is limited to tracing the canonical deal/offer terms producer and defining the exact server-owned input contract, followed by an unapplied isolated migration and database-backed tests.
 
 No production database writes, Edge Function deployments, PR merges, Safe calls, or financial transfers were performed.
+
+
+## 14. Isolated browser agreement-client CI coverage (2026-11-07)
+
+The existing isolated browser coordinator `js/w3m-deal-agreement-client.js` was found to have five focused tests in `deal-agreement-client.test.ts`, but that test file was not included in the W3M protocol CI workflow. This meant its wallet/domain/terms-version checks were not continuously enforced by the branch's normal test run.
+
+The workflow was updated on the feature branch to:
+- Trigger on changes to `js/w3m-deal-agreement-client.js` and its Deno test file for both pull-request and branch-push events.
+- Include `deal-agreement-client.test.ts` in the protocol test command.
+
+Verification:
+- Commit: `7b7157e2eaaa5e779fdfc4d444c23e81683ae88a`
+- Pull-request workflow run: `42368975472`
+- Result: **74 passed, 0 failed** across nine test files.
+- Deno type-check step: success.
+- Workflow job: `fingerprint-tests`, conclusion success.
+
+This validates the pure browser coordinator and existing pure modules only. It does not validate a deployed Edge Function, authenticated database persistence, atomic nonce consumption, or Safe/release integration. The client remains isolated and is not imported by the live Deal Room. No production changes or transactions were made.
