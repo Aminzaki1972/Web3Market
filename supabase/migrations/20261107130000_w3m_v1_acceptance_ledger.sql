@@ -649,20 +649,20 @@ begin
     raise exception 'deal_id_required' using errcode = '22023';
   end if;
 
-  select * into v_deal from public.deals where id = p_deal_id;
+  select * into v_deal from public.deals d where d.id = p_deal_id;
   if not found or v_deal.buyer_id is null or v_deal.seller_id is null
     or v_deal.buyer_id = v_deal.seller_id then
     raise exception 'finalization_deal_or_parties_invalid' using errcode = 'P0002';
   end if;
 
-  select * into v_binding from w3m_private.w3m_deal_audit_bindings
-    where deal_id = p_deal_id;
+  select * into v_binding from w3m_private.w3m_deal_audit_bindings b
+    where b.deal_id = p_deal_id;
   if not found or v_binding.project_id is distinct from v_deal.project_id then
     raise exception 'finalization_audit_binding_missing' using errcode = 'P0002';
   end if;
 
-  select * into v_fingerprint from w3m_private.w3m_audit_fingerprints
-    where id = v_binding.fingerprint_id;
+  select * into v_fingerprint from w3m_private.w3m_audit_fingerprints f
+    where f.id = v_binding.fingerprint_id;
   if not found or v_fingerprint.audit_id is distinct from v_binding.audit_id
     or v_fingerprint.fingerprint_digest is distinct from v_binding.fingerprint_digest
     or v_fingerprint.repository is distinct from v_binding.repository
@@ -670,7 +670,7 @@ begin
     raise exception 'finalization_fingerprint_binding_mismatch' using errcode = '23503';
   end if;
 
-  select * into v_audit from public.code_audits where id = v_binding.audit_id;
+  select * into v_audit from public.code_audits a where a.id = v_binding.audit_id;
   if not found or v_audit.project_id is distinct from v_deal.project_id
     or v_audit.status is distinct from 'completed'
     or lower(coalesce(v_audit.repo_owner || '/' || v_audit.repo_name,'')) <> v_binding.repository
@@ -679,8 +679,8 @@ begin
   end if;
 
   select count(*) into v_terms_count
-    from w3m_private.w3m_acquisition_terms_versions
-    where deal_id = p_deal_id and status = 'published';
+    from w3m_private.w3m_acquisition_terms_versions t
+    where t.deal_id = p_deal_id and t.status = 'published';
   if v_terms_count <> 1 then
     raise exception 'finalization_current_terms_version_not_unique' using errcode = '23503';
   end if;
