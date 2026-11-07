@@ -14,6 +14,7 @@ function prepared(overrides: Record<string, unknown> = {}) {
       fingerprintDigest: "1".repeat(64), bindingHash: "3".repeat(64),
       termsHash: "2".repeat(64), termsVersion: "3",
       termsVersionId: "75000000-0000-4000-8000-000000000005",
+      challengeId: "77000000-0000-4000-8000-000000000007",
       typedData: {
         domain: { name: "Web3Market Deal Agreement", version: "1", chainId: 56 },
         primaryType: "DealTermsAcceptance",
@@ -53,7 +54,7 @@ Deno.test("client requests exact terms, signs with verified connected wallet, th
   const calls: unknown[] = [];
   const result = await runClient(async (body, token) => {
     calls.push({ body, token });
-    return (body as {mode:string}).mode === "prepare" ? prepared() : {
+    return (body as {action:string}).action === "prepare" ? prepared() : {
       ok: true, result: { dealId, partyRole: "buyer", termsVersion: "3",
         acceptanceId: "76000000-0000-4000-8000-000000000006", idempotentReplay: false },
     };
@@ -65,8 +66,8 @@ Deno.test("client requests exact terms, signs with verified connected wallet, th
   assertEquals(result.partyRole, "buyer");
   assertEquals(result.termsVersion, "3");
   assertEquals(calls.length, 2);
-  assertEquals(calls[0], { body: { mode: "prepare", deal_id: dealId }, token: "session" });
-  assertEquals(calls[1], { body: { mode: "accept", deal_id: dealId, signature }, token: "session" });
+  assertEquals(calls[0], { body: { action: "prepare", deal_id: dealId, wallet_address: wallet }, token: "session" });
+  assertEquals(calls[1], { body: { action: "accept", deal_id: dealId, challenge_id: "77000000-0000-4000-8000-000000000007", signature }, token: "session" });
 });
 Deno.test("client refuses to sign if connected wallet differs from server verified wallet", async () => {
   let signed = false;
