@@ -92,3 +92,14 @@ The response contains the canonical terms needed for the Deal Room to display th
 Regression coverage was added for participant-only access, cross-account denial, terms-hash integrity, same-version acceptance state, and absence of signature/challenge material in the response. These are source-level test additions on the feature branch; CI has not yet reported a run for the latest commits, so they are **not yet counted as passing tests**.
 
 The action and adapter are not yet connected to the live Deal Room page. That integration remains blocked on the approved canonical terms and a separately approved deployment of the migration and Edge Function. No production resources were changed.
+
+### Latest CI verification for agreement status work — 2026-11-07
+
+On the PR merge ref containing the status endpoint, client adapter, and regression tests:
+- Deno suite: **111 passed, 0 failed**. This includes the new participant-scoped status handler and browser adapter tests.
+- Deno type-check: **passed** for the acquisition-verification handler, entrypoint, V1 protocol modules, and shared finalization gate.
+- PostgreSQL 16 V1 ledger migration/concurrency/privilege job: **passed**.
+- Modified browser JavaScript syntax and CDN SRI checks: **passed**.
+- Separate profile-guard migration job was still running at the time of this update; do not count it as passed until its final conclusion is available.
+
+These are CI tests against the staged branch and disposable PostgreSQL, not a live Supabase integration test. No production migration or Edge Function deployment occurred.
