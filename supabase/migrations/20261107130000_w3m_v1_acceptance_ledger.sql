@@ -676,6 +676,12 @@ revoke all on function public.w3m_record_agreement_acceptance(uuid,uuid,text,tex
   from public, anon, authenticated;
 revoke all on function public.w3m_get_agreement_challenge_for_verification(uuid)
   from public, anon, authenticated;
+revoke all on function w3m_private.w3m_reject_protocol_mutation()
+  from public, anon, authenticated;
+revoke all on function w3m_private.w3m_guard_terms_supersede()
+  from public, anon, authenticated;
+revoke all on function w3m_private.w3m_guard_challenge_consumption()
+  from public, anon, authenticated;
 grant execute on function public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text) to service_role;
 grant execute on function public.w3m_get_deal_finalization_evidence(uuid) to service_role;
 grant execute on function public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb) to service_role;
