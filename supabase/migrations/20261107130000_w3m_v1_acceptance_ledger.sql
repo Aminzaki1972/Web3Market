@@ -310,15 +310,8 @@ begin
   if v_challenge.consumed_at is not null then
     raise exception 'challenge_already_consumed' using errcode = '23505';
   end if;
-  -- Lock current terms through commit; a concurrent publisher must wait.
-  perform 1 from w3m_private.w3m_acquisition_terms_versions t
-    where t.deal_id = v_challenge.deal_id and t.terms_version = v_challenge.terms_version
-      and t.terms_hash = v_challenge.terms_hash and t.status = 'published'
-    for share;
-  if not found then
-    raise exception 'challenge_terms_are_no_longer_current' using errcode = '22023';
-  end if;
-  -- Revalidate deal state, party identity, and verified wallet at acceptance time.
+  -- Lock the deal before terms. Challenge issuance uses the same deal -> terms
+  -- order, preventing an acceptance/issuance deadlock on concurrent requests.
   select * into v_deal from public.deals where id = v_challenge.deal_id for update;
   if not found or v_deal.project_id is distinct from v_challenge.project_id
     or v_deal.status is null or v_deal.status not in ('pending','accepted')
@@ -326,6 +319,15 @@ begin
     or (v_challenge.party_role = 'buyer' and v_deal.buyer_id is distinct from v_challenge.user_id)
     or (v_challenge.party_role = 'seller' and v_deal.seller_id is distinct from v_challenge.user_id) then
     raise exception 'deal_party_or_state_changed_after_challenge' using errcode = '42501';
+  end if;
+
+  -- Lock current terms through commit; a concurrent publisher must wait.
+  perform 1 from w3m_private.w3m_acquisition_terms_versions t
+    where t.deal_id = v_challenge.deal_id and t.terms_version = v_challenge.terms_version
+      and t.terms_hash = v_challenge.terms_hash and t.status = 'published'
+    for share;
+  if not found then
+    raise exception 'challenge_terms_are_no_longer_current' using errcode = '22023';
   end if;
 
   select wallet_address, wallet_verified into v_profile_wallet, v_wallet_verified
