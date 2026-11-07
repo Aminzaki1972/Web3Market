@@ -155,6 +155,7 @@ Deno.test("prepare action derives role, wallet, audit binding, and published ter
     };
   };
   let stored: ReturnType<typeof challengeRow> | null = null;
+  let corruptBindingEvidence = false;
   const from = ((table: string) => makeQuery(publicRows[table] || [])) as NonNullable<W3MAdminClient["from"]>;
   const schema = ((name: string) => {
     if (name !== "w3m_private") throw new Error("Unexpected schema " + name);
@@ -163,6 +164,7 @@ Deno.test("prepare action derives role, wallet, audit binding, and published ter
   const { deps, calls } = makeDeps(async (name, args) => {
     if (name === "w3m_issue_agreement_challenge") {
       stored = { ...challengeRow(wallet.address), nonce: String(args.p_nonce), signature_deadline: Number(args.p_signature_deadline), terms_hash: termsHash };
+      if (corruptBindingEvidence) stored.binding_hash = "9".repeat(64);
       return { data: CHALLENGE_ID, error: null };
     }
     if (name === "w3m_get_agreement_challenge_for_verification") return { data: stored ? [stored] : [], error: null };
@@ -178,6 +180,16 @@ Deno.test("prepare action derives role, wallet, audit binding, and published ter
     prepared.typedData.message.termsHash !== "0x" + termsHash) throw new Error("Preparation did not return the exact trusted deal, terms, wallet, and challenge");
   if (calls[0]?.args.p_user_id !== USER_ID || calls[0]?.args.p_party_role !== "buyer" || calls[0]?.args.p_terms_hash !== termsHash) {
     throw new Error("Preparation RPC was not bound to the authenticated party and trusted published terms");
+  }
+
+  // The server must reject a persisted challenge whose binding evidence differs
+  // from the immutable deal-audit binding, before returning typed data to a browser.
+  corruptBindingEvidence = true;
+  const corruptedResponse = await handler(makeRequest({
+    action: "prepare", deal_id: DEAL_ID, wallet_address: wallet.address,
+  }));
+  if (corruptedResponse.status !== 500) {
+    throw new Error("Preparation must fail closed when persisted challenge binding evidence is substituted");
   }
 });
 
