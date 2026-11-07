@@ -455,3 +455,16 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-immutable-agreements.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-report-version-serialization.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql
+      - name: Verify timestamp-sorted migrations on a second disposable database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE w3m_protocol_migration_order_test;"
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-attempts-fixture.sql
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-terms-reader-fixture.sql
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-prepare-policy-reader-fixture.sql
+          while IFS= read -r migration; do
+            echo "Applying timestamp-sorted migration: $migration"
+            psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f "$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*_w3m_protocol_v1_*.sql' -print | sort)
