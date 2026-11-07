@@ -105,6 +105,285 @@ grant select, insert, update on public.w3m_acquisition_terms_versions to service
 grant select, insert, update on public.w3m_agreement_challenges to service_role;
 grant select, insert on public.w3m_agreement_acceptances to service_role;
 
+create or replace function public.w3m_publish_acquisition_terms_version(
+  p_deal_id uuid,
+  p_terms_version bigint,
+  p_terms_hash text,
+  p_canonical_terms_json jsonb
+) returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $
+declare
+  v_max_version bigint;
+  v_id uuid;
+begin
+  if auth.role() is distinct from 'service_role' then
+    raise exception 'service_role_required' using errcode = '42501';
+  end if;
+  if p_deal_id is null or p_terms_version is null or p_terms_version < 1
+    or p_terms_hash !~ '^[0-9a-f]{64}
+  p_deal_id uuid,
+  p_project_id uuid,
+  p_audit_id uuid,
+  p_fingerprint_id uuid,
+  p_fingerprint_digest text,
+  p_binding_hash text,
+  p_terms_hash text,
+  p_terms_version bigint,
+  p_party_role text,
+  p_user_id uuid,
+  p_wallet_address text,
+  p_nonce text,
+  p_signature_deadline bigint
+) returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_id uuid;
+  v_now bigint := extract(epoch from clock_timestamp())::bigint;
+begin
+  if auth.role() is distinct from 'service_role' then
+    raise exception 'service_role_required' using errcode = '42501';
+  end if;
+  if p_deal_id is null or p_project_id is null or p_audit_id is null
+    or p_fingerprint_id is null or p_user_id is null
+    or p_party_role not in ('buyer','seller') or p_terms_version is null or p_terms_version < 1
+    or p_fingerprint_digest !~ '^[0-9a-f]{64}$'
+    or p_binding_hash !~ '^[0-9a-f]{64}$'
+    or p_terms_hash !~ '^[0-9a-f]{64}$'
+    or p_wallet_address !~ '^0x[0-9a-fA-F]{40}$'
+    or p_nonce !~ '^0x[0-9a-fA-F]{64}$'
+    or p_signature_deadline is null
+    or p_signature_deadline <= v_now
+    or p_signature_deadline > v_now + 900 then
+    raise exception 'invalid_challenge_parameters' using errcode = '22023';
+  end if;
+
+  if not exists (
+    select 1 from public.w3m_audit_fingerprints f
+    where f.audit_id = p_audit_id and f.id = p_fingerprint_id
+      and f.fingerprint_digest = p_fingerprint_digest
+  ) then
+    raise exception 'trusted_audit_fingerprint_not_found' using errcode = '23503';
+  end if;
+
+  if not exists (
+    select 1 from public.w3m_deal_audit_bindings b
+    where b.deal_id = p_deal_id and b.project_id = p_project_id
+      and b.audit_id = p_audit_id and b.fingerprint_id = p_fingerprint_id
+      and b.fingerprint_digest = p_fingerprint_digest and b.binding_hash = p_binding_hash
+  ) then
+    raise exception 'trusted_deal_audit_binding_not_found' using errcode = '23503';
+  end if;
+
+  if not exists (
+    select 1 from public.w3m_acquisition_terms_versions t
+    where t.deal_id = p_deal_id and t.terms_version = p_terms_version
+      and t.terms_hash = p_terms_hash and t.status = 'published'
+  ) then
+    raise exception 'current_terms_version_not_found' using errcode = '23503';
+  end if;
+
+  insert into public.w3m_agreement_challenges (
+    deal_id, project_id, audit_id, fingerprint_id, fingerprint_digest,
+    binding_hash, terms_hash, terms_version, party_role, user_id,
+    wallet_address, nonce, signature_deadline
+  ) values (
+    p_deal_id, p_project_id, p_audit_id, p_fingerprint_id, p_fingerprint_digest,
+    p_binding_hash, p_terms_hash, p_terms_version, p_party_role, p_user_id,
+    lower(p_wallet_address), lower(p_nonce), p_signature_deadline
+  ) returning id into v_id;
+  return v_id;
+end;
+$$;
+
+create or replace function public.w3m_record_agreement_acceptance(
+  p_challenge_id uuid,
+  p_user_id uuid,
+  p_party_role text,
+  p_wallet_address text,
+  p_recovered_signer text,
+  p_signature text,
+  p_accepted_at timestamptz
+) returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_challenge public.w3m_agreement_challenges%rowtype;
+  v_acceptance_id uuid;
+  v_now timestamptz := clock_timestamp();
+begin
+  if auth.role() is distinct from 'service_role' then
+    raise exception 'service_role_required' using errcode = '42501';
+  end if;
+  if p_challenge_id is null or p_user_id is null or p_party_role is null
+    or p_wallet_address is null or p_recovered_signer is null
+    or p_signature is null or p_accepted_at is null then
+    raise exception 'acceptance_parameters_required' using errcode = '22023';
+  end if;
+
+  select * into v_challenge
+    from public.w3m_agreement_challenges
+    where id = p_challenge_id
+    for update;
+  if not found then
+    raise exception 'challenge_not_found' using errcode = 'P0002';
+  end if;
+  if v_challenge.consumed_at is not null then
+    raise exception 'challenge_already_consumed' using errcode = '23505';
+  end if;
+
+  if v_challenge.user_id <> p_user_id or v_challenge.party_role <> p_party_role
+    or lower(v_challenge.wallet_address) <> lower(p_wallet_address)
+    or lower(v_challenge.wallet_address) <> lower(p_recovered_signer)
+    or p_signature !~ '^0x[0-9a-fA-F]{130}$'
+    or p_accepted_at > v_now
+    or p_accepted_at > to_timestamp(v_challenge.signature_deadline)
+    or p_accepted_at < v_challenge.created_at
+    or p_accepted_at < to_timestamp(v_challenge.signature_deadline - 900)
+    or v_now > to_timestamp(v_challenge.signature_deadline) then
+    raise exception 'challenge_acceptance_mismatch_or_expired' using errcode = '22023';
+  end if;
+
+  insert into public.w3m_agreement_acceptances (
+    challenge_id, deal_id, project_id, audit_id, fingerprint_id,
+    fingerprint_digest, binding_hash, terms_hash, terms_version, party_role,
+    user_id, wallet_address, signature, nonce, signature_deadline, accepted_at
+  ) values (
+    v_challenge.id, v_challenge.deal_id, v_challenge.project_id, v_challenge.audit_id,
+    v_challenge.fingerprint_id, v_challenge.fingerprint_digest, v_challenge.binding_hash,
+    v_challenge.terms_hash, v_challenge.terms_version, v_challenge.party_role,
+    v_challenge.user_id, v_challenge.wallet_address, lower(p_signature),
+    v_challenge.nonce, v_challenge.signature_deadline, p_accepted_at
+  ) returning id into v_acceptance_id;
+
+  update public.w3m_agreement_challenges
+    set consumed_at = v_now
+    where id = v_challenge.id and consumed_at is null;
+  if not found then
+    raise exception 'challenge_already_consumed' using errcode = '23505';
+  end if;
+  return v_acceptance_id;
+end;
+$$;
+
+create or replace function public.w3m_reject_protocol_mutation()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception 'w3m_protocol_evidence_is_immutable' using errcode = '55000';
+end;
+$$;
+
+create or replace function public.w3m_guard_terms_supersede()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if (to_jsonb(new) - 'status') is distinct from (to_jsonb(old) - 'status')
+    or old.status <> 'published' or new.status <> 'superseded' then
+    raise exception 'w3m_terms_only_allow_published_to_superseded' using errcode = '55000';
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.w3m_guard_challenge_consumption()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if (to_jsonb(new) - 'consumed_at') is distinct from (to_jsonb(old) - 'consumed_at')
+    or old.consumed_at is not null or new.consumed_at is null then
+    raise exception 'w3m_challenge_only_allows_single_consumption' using errcode = '55000';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists w3m_audit_fingerprints_no_mutation on public.w3m_audit_fingerprints;
+create trigger w3m_audit_fingerprints_no_mutation before update or delete
+  on public.w3m_audit_fingerprints for each row execute function public.w3m_reject_protocol_mutation();
+drop trigger if exists w3m_deal_audit_bindings_no_mutation on public.w3m_deal_audit_bindings;
+create trigger w3m_deal_audit_bindings_no_mutation before update or delete
+  on public.w3m_deal_audit_bindings for each row execute function public.w3m_reject_protocol_mutation();
+drop trigger if exists w3m_terms_guard_update on public.w3m_acquisition_terms_versions;
+create trigger w3m_terms_guard_update before update
+  on public.w3m_acquisition_terms_versions for each row execute function public.w3m_guard_terms_supersede();
+drop trigger if exists w3m_terms_no_delete on public.w3m_acquisition_terms_versions;
+create trigger w3m_terms_no_delete before delete
+  on public.w3m_acquisition_terms_versions for each row execute function public.w3m_reject_protocol_mutation();
+drop trigger if exists w3m_acceptances_no_mutation on public.w3m_agreement_acceptances;
+create trigger w3m_acceptances_no_mutation before update or delete
+  on public.w3m_agreement_acceptances for each row execute function public.w3m_reject_protocol_mutation();
+drop trigger if exists w3m_challenges_guard_consumption on public.w3m_agreement_challenges;
+create trigger w3m_challenges_guard_consumption before update
+  on public.w3m_agreement_challenges for each row execute function public.w3m_guard_challenge_consumption();
+drop trigger if exists w3m_challenges_no_delete on public.w3m_agreement_challenges;
+create trigger w3m_challenges_no_delete before delete
+  on public.w3m_agreement_challenges for each row execute function public.w3m_reject_protocol_mutation();
+
+revoke all on function public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)
+  from public, anon, authenticated;
+grant execute on function public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)
+  to service_role;
+revoke all on function public.w3m_issue_agreement_challenge(
+  uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint
+) from public, anon, authenticated;
+revoke all on function public.w3m_record_agreement_acceptance(
+  uuid,uuid,text,text,text,text,timestamptz
+) from public, anon, authenticated;
+grant execute on function public.w3m_issue_agreement_challenge(
+  uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint
+) to service_role;
+grant execute on function public.w3m_record_agreement_acceptance(
+  uuid,uuid,text,text,text,text,timestamptz
+) to service_role;
+
+comment on table public.w3m_audit_fingerprints is
+  'Immutable W3M V1 fingerprint manifest for a completed audit; server-only writes.';
+comment on table public.w3m_agreement_acceptances is
+  'Append-only W3M V1 EIP-712 agreement acceptance evidence; server-only writes.';
+comment on function public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz) is
+  'Atomically locks and consumes one issued challenge and inserts one acceptance row after server-side EIP-712 verification.';
+
+    or p_canonical_terms_json is null
+    or p_canonical_terms_json = '{}'::jsonb then
+    raise exception 'invalid_terms_version_parameters' using errcode = '22023';
+  end if;
+
+  -- Serialize all version changes for one deal, preventing two concurrent publishers.
+  perform pg_advisory_xact_lock(hashtextextended(p_deal_id::text, 0));
+  select coalesce(max(terms_version), 0) into v_max_version
+    from public.w3m_acquisition_terms_versions
+    where deal_id = p_deal_id;
+  if p_terms_version <> v_max_version + 1 then
+    raise exception 'terms_version_must_be_next_sequential' using errcode = '23505';
+  end if;
+
+  update public.w3m_acquisition_terms_versions
+    set status = 'superseded'
+    where deal_id = p_deal_id and status = 'published';
+
+  insert into public.w3m_acquisition_terms_versions (
+    deal_id, terms_version, terms_hash, canonical_terms_json, status
+  ) values (
+    p_deal_id, p_terms_version, lower(p_terms_hash), p_canonical_terms_json, 'published'
+  ) returning id into v_id;
+  return v_id;
+end;
+$;
+
 create or replace function public.w3m_issue_agreement_challenge(
   p_deal_id uuid,
   p_project_id uuid,
