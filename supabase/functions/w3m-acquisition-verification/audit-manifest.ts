@@ -25,6 +25,24 @@ export type PersistedAuditFinding = {
   recommendation: string | null; confidence: number | null;
 };
 
+function compareText(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function normalizeRepoPath(value: string): string {
+  if (typeof value !== "string" || value.length === 0 || value.includes("\0")) {
+    throw new Error("A manifest file path is empty or malformed.");
+  }
+  const path = value.replace(/\\/g, "/");
+  if (
+    path.startsWith("/") || /^[a-zA-Z]:/.test(path) ||
+    path.split("/").some((part) => part === "" || part === "." || part === "..")
+  ) {
+    throw new Error("Manifest paths must be normalized relative repository paths.");
+  }
+  return path;
+}
+
 export function buildW3MAuditManifest(
   audit: PersistedAudit,
   files: PersistedAuditFile[],
@@ -38,44 +56,72 @@ export function buildW3MAuditManifest(
   if (!audit.repo_owner || !audit.repo_name || !audit.engine_version || !audit.audit_type) {
     throw new Error("Audit identity and engine metadata are incomplete.");
   }
-  if (!Array.isArray(files) || !Array.isArray(findings)) throw new Error("Complete file and finding arrays are required.");
+  if (!Number.isSafeInteger(audit.files_scanned) || audit.files_scanned < 0) {
+    throw new Error("Audit scanned-file count is invalid.");
+  }
+  if (!Array.isArray(files) || !Array.isArray(findings)) {
+    throw new Error("Complete file and finding arrays are required.");
+  }
+
   const scanned = files.filter((file) => file.scanned === true);
   if (scanned.length !== audit.files_scanned) {
     throw new Error("Persisted scanned-file count does not match the audit summary.");
   }
+
+  const seenPaths = new Set<string>();
   const normalizedFiles = scanned.map((file) => {
+    const path = normalizeRepoPath(file.path);
+    if (seenPaths.has(path)) throw new Error("Duplicate scanned file paths are not allowed.");
+    seenPaths.add(path);
     const fileSha = String(file.sha || "");
-    if (!file.path || !/^[0-9a-f]{40,64}$/i.test(fileSha)) {
+    if (!/^[0-9a-f]{40,64}$/i.test(fileSha)) {
       throw new Error("A scanned file is missing its immutable Git blob SHA.");
     }
     return {
-      path: file.path.replace(/\\/g, "/"),
+      path,
       sha: fileSha.toLowerCase(),
       language: file.language,
       size_bytes: file.size_bytes,
       line_count: file.line_count,
       selected_tier: file.selected_tier,
     };
-  }).sort((a, b) => a.path.localeCompare(b.path));
+  }).sort((a, b) => compareText(a.path, b.path));
 
-  const normalizedFindings = findings.map((finding) => ({
-    severity: finding.severity,
-    category: finding.category,
-    title: finding.title,
-    status: finding.status,
-    file_path: finding.file_path ? finding.file_path.replace(/\\/g, "/") : null,
-    line_start: finding.line_start,
-    line_end: finding.line_end,
-    evidence: finding.evidence,
-    description: finding.description,
-    recommendation: finding.recommendation,
-    confidence: finding.confidence,
-  })).sort((a, b) =>
-    String(a.file_path || "").localeCompare(String(b.file_path || "")) ||
-    Number(a.line_start || 0) - Number(b.line_start || 0) ||
-    a.severity.localeCompare(b.severity) ||
-    a.title.localeCompare(b.title)
-  );
+  const normalizedFindings = findings.map((finding) => {
+    const filePath = finding.file_path === null ? null : normalizeRepoPath(finding.file_path);
+    if (filePath !== null && !seenPaths.has(filePath)) {
+      throw new Error("A finding references a file outside the scanned evidence set.");
+    }
+    if (
+      finding.line_start !== null &&
+      (!Number.isSafeInteger(finding.line_start) || finding.line_start < 1)
+    ) throw new Error("Finding start line must be a positive safe integer.");
+    if (
+      finding.line_end !== null &&
+      (!Number.isSafeInteger(finding.line_end) || finding.line_end < 1)
+    ) throw new Error("Finding end line must be a positive safe integer.");
+    if (
+      finding.line_start !== null && finding.line_end !== null &&
+      finding.line_end < finding.line_start
+    ) throw new Error("Finding line range is reversed.");
+    if (
+      finding.confidence !== null &&
+      (!Number.isFinite(finding.confidence) || finding.confidence < 0 || finding.confidence > 100)
+    ) throw new Error("Finding confidence must be between 0 and 100.");
+    return {
+      severity: finding.severity,
+      category: finding.category,
+      title: finding.title,
+      status: finding.status,
+      file_path: filePath,
+      line_start: finding.line_start,
+      line_end: finding.line_end,
+      evidence: finding.evidence,
+      description: finding.description,
+      recommendation: finding.recommendation,
+      confidence: finding.confidence,
+    };
+  }).sort((a, b) => compareText(JSON.stringify(a), JSON.stringify(b)));
 
   return {
     manifest_schema: "w3m.persisted-audit-manifest.v1",
