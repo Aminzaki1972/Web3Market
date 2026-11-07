@@ -433,3 +433,25 @@ The live `projects` schema has candidate descriptive fields such as `transfer_te
 - The current `deal_terms` unique constraint on `deal_id` supports only one mutable row, not immutable history.
 - A future V1 store must append versioned canonical terms and acceptance evidence in a private, server-owned persistence boundary. It must retain historical signed evidence even if a project, deal, or audit lifecycle later changes; foreign-key cascade deletion is not acceptable for the evidence record.
 - No production DDL, data writes, Edge Function invocations, deployment, Safe calls, or financial transfers were performed in this verification.
+
+
+## 16. Placeholder-policy fail-closed validation (2026-11-07)
+
+A further review of `acquisition-terms.ts` found that the validator accepted literal placeholders such as `Pending legal review`, `TBD`, and `Placeholder` in governing-law, dispute, escrow, and inspection policy fields. The test fixture itself used `Pending legal review` for governing-law and therefore demonstrated that a non-final policy value could pass the structural validator.
+
+The validator was hardened to:
+- Reject known placeholder values and phrases in required policy text.
+- Require non-empty string entries in delivery checklists, inspection acceptance criteria, and risk acknowledgements.
+- Apply the policy-text check to inspection window, dispute procedure/version, escrow funding/release conditions, and governing-law/process/language fields.
+- Keep all tests synthetic; this validation does not determine legal sufficiency or approve legal terms.
+
+Regression tests now explicitly reject placeholder governing-law, venue, dispute, escrow release, inspection window, and blank checklist/criterion/risk items.
+
+Verification:
+- Latest branch head before this documentation update: `297a903fcf7d6c118d47937ba5be0a5efdcf233e`
+- Pull-request workflow run: `42369272586` — success.
+- Push workflow run: `42369268901` — success.
+- Test result: **76 passed, 0 failed** across nine test files.
+- Deno type-check: success.
+
+This only closes a structural placeholder-validation gap. It does not establish the truth, enforceability, or legal adequacy of user-supplied terms. The production terms source remains unresolved and no terms can be published from the current live deal flow without an approved authoritative input contract.
