@@ -6,6 +6,7 @@ import {
 import { buildW3MAuditManifest, type PersistedAudit, type PersistedAuditFile, type PersistedAuditFinding } from "./audit-manifest.ts";
 import { computeW3MAuditFingerprint, deriveW3MAuditFingerprintId } from "./audit-fingerprint.ts";
 import { createW3MDealAuditBinding } from "./deal-audit-binding.ts";
+import { hashW3MAcquisitionTermsV1 } from "./acquisition-terms.ts";
 
 type W3MQuery = {
   select(columns: string): W3MQuery;
@@ -304,6 +305,59 @@ async function publishFingerprintBinding(
   };
 }
 
+
+async function publishAcquisitionTerms(
+  admin: W3MAdminClient,
+  userId: string,
+  body: Record<string, unknown>,
+): Promise<{ termsVersion: number; termsHash: string; termsRecordId: string }> {
+  const dealId = String(body.deal_id || "");
+  const terms = body.terms;
+  if (!UUID.test(dealId) || !terms || typeof terms !== "object" || Array.isArray(terms)) {
+    throw Object.assign(new Error("A valid deal_id and terms object are required."), { status: 400 });
+  }
+
+  const deal = await loadOne<{
+    id: string; project_id: string; buyer_id: string; seller_id: string;
+    status: string; dispute_status: string;
+  }>(admin, "deals", "id,project_id,buyer_id,seller_id,status,dispute_status", dealId);
+  if (!deal || deal.seller_id !== userId) {
+    throw Object.assign(new Error("Caller is not the deal seller."), { status: 403 });
+  }
+  if (!["pending", "accepted"].includes(deal.status) || deal.dispute_status !== "none") {
+    throw Object.assign(new Error("Deal is not eligible for terms publication."), { status: 409 });
+  }
+
+  const termsRecord = terms as Record<string, unknown>;
+  const termsDeal = termsRecord.deal as Record<string, unknown> | undefined;
+  if (!termsDeal || termsDeal.deal_id !== deal.id ||
+    termsDeal.project_id !== deal.project_id ||
+    termsDeal.buyer_id !== deal.buyer_id ||
+    termsDeal.seller_id !== deal.seller_id) {
+    throw Object.assign(new Error("Terms do not match the authenticated deal context."), { status: 409 });
+  }
+  const termsVersion = termsRecord.terms_version;
+  if (!Number.isSafeInteger(termsVersion) || Number(termsVersion) < 1) {
+    throw Object.assign(new Error("A positive integer terms_version is required."), { status: 400 });
+  }
+
+  const termsHash = await hashW3MAcquisitionTermsV1(terms);
+  const { data, error } = await admin.rpc("w3m_publish_acquisition_terms_version", {
+    p_deal_id: deal.id,
+    p_terms_version: Number(termsVersion),
+    p_terms_hash: termsHash,
+    p_canonical_terms_json: terms,
+  });
+  if (error) {
+    const status = rpcStatus(error);
+    throw Object.assign(new Error("Trusted acquisition terms publication was rejected."), { status });
+  }
+  if (typeof data !== "string" || !UUID.test(data)) {
+    throw new Error("Acquisition terms persistence could not be confirmed.");
+  }
+  return { termsVersion: Number(termsVersion), termsHash, termsRecordId: data };
+}
+
 function rpcStatus(error: { code?: string; message?: string } | null): number {
   const code = error?.code || "";
   if (code === "42501") return 403;
@@ -373,6 +427,33 @@ export function createW3MAcquisitionHandler(deps: HandlerDependencies) {
             error: status === 403 ? "Only the verified project seller can bind this audit" :
               status === 409 ? "Deal, project, or completed audit is not eligible for binding" :
                 "Unable to publish trusted audit fingerprint",
+          }, status);
+        }
+      }
+
+
+      if (body.action === "publish_terms") {
+        try {
+          const published = await publishAcquisitionTerms(admin, user.id, body);
+          return reply(origin, {
+            ok: true,
+            deal_id: String(body.deal_id),
+            terms_version: published.termsVersion,
+            terms_hash: published.termsHash,
+            terms_record_id: published.termsRecordId,
+          }, 201);
+        } catch (error) {
+          const status = typeof (error as { status?: unknown })?.status === "number"
+            ? (error as { status: number }).status : 500;
+          if (status >= 500) {
+            console.error("w3m acquisition terms publication failed", error instanceof Error ? error.message : "unknown error");
+          }
+          return reply(origin, {
+            ok: false,
+            error: status === 400 ? "Invalid acquisition terms payload" :
+              status === 403 ? "Only the deal seller can publish acquisition terms" :
+                status === 409 ? "Deal or terms are not eligible for publication" :
+                  "Unable to publish acquisition terms",
           }, status);
         }
       }
