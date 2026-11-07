@@ -93,18 +93,6 @@ jobs:
             v_signature text := '0x' || repeat('e',130);
             v_wallet text := '0x1111111111111111111111111111111111111111';
           begin
-            begin
-              perform public.w3m_issue_agreement_challenge(
-                v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
-                v_terms_hash,1,'buyer',
-                '76000000-0000-4000-8000-000000000006'::uuid,
-                '0x2222222222222222222222222222222222222222',
-                '0x' || repeat('9',64),v_deadline
-              );
-              raise exception 'expected_non_party_rejection';
-            exception when sqlstate '42501' then null;
-            end;
-
             insert into public.deals (id,project_id,buyer_id,seller_id,status,dispute_status)
             values
               (v_deal,v_project,v_user,'76000000-0000-4000-8000-000000000006','pending','none');
@@ -132,6 +120,18 @@ jobs:
             perform public.w3m_publish_acquisition_terms_version(
               v_deal,1,v_terms_hash,'{"schema":"w3m-terms-v1","approved":true}'::jsonb
             );
+
+            begin
+              perform public.w3m_issue_agreement_challenge(
+                v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
+                v_terms_hash,1,'buyer',
+                '76000000-0000-4000-8000-000000000006'::uuid,
+                '0x2222222222222222222222222222222222222222',
+                '0x' || repeat('9',64),v_deadline
+              );
+              raise exception 'expected_non_party_rejection';
+            exception when sqlstate '42501' then null;
+            end;
 
             v_challenge := public.w3m_issue_agreement_challenge(
               v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
