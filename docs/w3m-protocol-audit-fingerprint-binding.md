@@ -280,3 +280,159 @@ A final read-only check of the live data and Deal Room source found a prerequisi
 **Gate before the Edge Function:** define the authoritative acquisition agreement payload and its lifecycle. It must specify which server-owned values are included (at minimum deal/project identity, buyer and seller IDs, asset/scope being transferred, consideration and currency, platform fee, payment/escrow conditions, delivery obligations, inspection/acceptance, dispute procedure, and governing terms/version). The server must create or load this snapshot from trusted deal/project data, validate required fields, and persist the first version before issuing any EIP-712 challenge. Any revision must create a new version and invalidate outstanding challenges for older versions.
 
 Until that canonical terms source exists and is populated, the EIP-712 primitive can be tested in isolation, but a live acceptance endpoint would sign a digest without a trustworthy legal/commercial document behind it. This is a **hard implementation blocker**, not a reason to bypass the gate. No live deal rows, terms, timestamp agreements, or payment/escrow state were changed.
+
+
+## 20. Acquisition Agreement V1 — canonical payload specification (design only)
+
+This section defines the first canonical agreement contract. It is a protocol specification, not legal advice, not a published user-facing contract, and not a database migration. It must be reviewed for the platform's intended jurisdictions and business model before any buyer or seller is asked to sign.
+
+### 20.1 Server-owned identity and transaction fields
+
+The server constructs the snapshot from authenticated database rows. The browser may propose values during negotiation, but it cannot authoritatively set the final signed values.
+
+| Agreement field | Authoritative source / rule | Required before signing |
+|---|---|---|
+| `schema` | Constant, `w3m-acquisition-terms-v1` | Yes |
+| `terms_version` | Server-assigned monotonically increasing integer per deal | Yes |
+| `deal_id`, `project_id` | `deals.id`, `deals.project_id` | Yes |
+| `buyer_id`, `seller_id` | `deals.buyer_id`, `deals.seller_id` | Yes |
+| `project_title`, `project_category` | Current `projects.title`, `projects.category`, copied into immutable snapshot | Yes |
+| `repository`, `commit_sha`, `audit_id`, `fingerprint_digest` | Verified completed audit and fingerprint ledger; no browser-supplied override | Yes for protocol-certified acquisition |
+| `consideration.amount`, `consideration.currency` | Locked `deals.amount` and `deals.currency`; if a separately agreed token amount differs, both values and conversion/valuation rule must be explicit | Yes |
+| `platform_fee.percent` | Locked `deals.platform_fee_percent` | Yes |
+| `platform_fee.amount`, `seller_net.amount` | Server-computed from locked amount, percentage, and explicit currency precision/rounding rule; compare with persisted `platform_fee_amount` / `platform_fee` and `seller_net_amount` when present | Yes |
+| `payment.chain_id`, `payment.asset`, `payment.token_contract`, `payment.safe_address` | Locked deal payment configuration; chain ID 56 is the EIP-712 signing domain for BNB Smart Chain, and payment chain/asset must be separately stated | Yes before on-chain payment is enabled; otherwise explicitly mark payment method pending/not enabled |
+| `created_at`, `expires_at` | Server timestamps | Yes |
+
+If any authoritative amount, currency, participant, project, audit, or payment value is missing or inconsistent, the server returns `INCOMPLETE` / `BLOCKED`; it must not substitute zero, empty string, a UI default, or a value inferred from the listing's asking price. In particular, `projects.price` / `asking_price` is not a substitute for the negotiated `deals.amount`.
+
+### 20.2 Buyer/seller commercial declarations
+
+The signed snapshot must include a structured `transfer_scope` object, confirmed by both parties:
+
+- `included_assets[]`: each asset has a stable type, description, transfer method, and evidence/reference. Examples may include domain, source repository, deployed application, smart contracts, brand assets, documentation, customer records where lawful, and operating accounts.
+- `excluded_assets[]`: explicit list; use an empty array only after both parties affirm that nothing is excluded.
+- `access_and_credentials`: transfer method and timing, without storing passwords, private keys, seed phrases, API secrets, or other credentials in the agreement record.
+- `third_party_dependencies[]`: hosting, APIs, licenses, SaaS subscriptions, vendors, and other dependencies, including whether they are transferable and any required third-party consent.
+- `intellectual_property`: seller's declaration of ownership or authority to transfer, known third-party/open-source licenses, and any exceptions/disputes. A declaration is not independent proof of title.
+- `data_and_privacy`: categories of data included, lawful transfer basis/consents required, and exclusions. Personal data must not be transferred merely because the project is sold.
+
+The seller's declarations must be explicitly labelled as seller-provided statements, not independently verified facts, unless a distinct verification record supports them. AI audit results describe the scanned repository at the bound commit; they do not prove ownership, revenue, legal compliance, absence of vulnerabilities, or transferability of every asset.
+
+### 20.3 Delivery, inspection, and dispute conditions
+
+The snapshot must include:
+
+- `delivery.deadline` and a checklist of each deliverable, responsible party, and completion evidence.
+- `inspection.window` and objective acceptance criteria; inspection starts only after the defined delivery event.
+- `rejection_and_cure`: permitted reasons, notice channel, response/cure period, and what happens if a deliverable is incomplete.
+- `dispute.procedure`: the exact process and roles. It must not claim that Web3Market is a licensed arbitrator or court. The current UI phrase “Dispute Resolution — Model B” is not sufficient as the full procedure and must be replaced with the reviewed final text before signatures.
+- `escrow`: Safe address, chain, asset, signer threshold, funding condition, release condition, refund/dispute handling, and explicit statement that signing the agreement does not itself fund or release escrow.
+- `termination`: conditions, deadlines, and consequences, consistent with the actual deal state machine.
+
+A disputed deal, active dispute review, missing escrow configuration when escrow is required, or a contradictory payment state must block automated PASS and any release path. A report PASS is an evidence/acceptance result only; it is never an instruction to release funds.
+
+### 20.4 Governing terms and risk acknowledgements
+
+Required explicit fields:
+
+- `governing_law` and `venue_or_process`: must be selected by the platform's legal review and parties where applicable; never infer a jurisdiction from user location, project location, or server location.
+- `platform_role`: precise description of Web3Market's marketplace/technical role and what it does not guarantee.
+- `fees_and_refunds`: platform fee basis, when earned, whether refundable, and who bears network fees.
+- `risk_acknowledgements[]`: repository audit limitations, smart-contract/third-party risks, token/chain volatility and irreversible transactions, third-party transfer restrictions, and the distinction between wallet signature and legal identity.
+- `disclosures[]`: material seller disclosures and buyer acknowledgements, each with an author, timestamp, and text/version.
+- `language`: authoritative contract language and whether any translation is informational only.
+
+No governing law, arbitration promise, guarantee, refund right, tax treatment, or legal status may be invented by the protocol. Until these terms are reviewed and adopted, the V1 agreement remains a technical draft and must not be represented as an enforceable legal contract.
+
+### 20.5 Canonicalization and signing
+
+- Store the exact immutable snapshot JSONB plus canonical UTF-8 JSON bytes or a deterministic canonical representation. Canonicalization must reject undefined values, non-finite numbers, sparse arrays, duplicate/ambiguous key forms, and non-plain objects; object keys are sorted and array order is preserved.
+- Monetary values must be represented as decimal strings with explicit currency/token decimals, not JavaScript floating-point numbers. Define the rounding mode and scale per currency/asset before fee calculation.
+- Compute `terms_hash = keccak256(canonical_terms_bytes)` (or a separately versioned SHA-256 design, but choose exactly one algorithm and use it consistently); the EIP-712 typed data binds the selected hash, fingerprint digest, deal UUID bytes32 encoding, terms version, party role, verified wallet, chain ID, nonce, and expiry.
+- The EIP-712 domain's chain ID 56 binds the signature to BNB Smart Chain. Payment chain/asset fields remain explicit agreement fields and must not be inferred from the EIP-712 domain alone.
+- The server independently rebuilds the typed data from persisted state and recovers the signer. Any mismatch, expired challenge, changed terms, changed audit evidence, wrong wallet, wrong role, wrong chain/domain, or replay returns a fail-closed result.
+- A terms revision creates a new snapshot version and binding. It never overwrites an already signed version. Old unused challenges are invalidated, and existing signatures remain attached only to the exact historical version they signed.
+
+### 20.6 Illustrative JSON shape (not production data)
+
+```json
+{
+  "schema": "w3m-acquisition-terms-v1",
+  "terms_version": 1,
+  "deal": {
+    "deal_id": "<server UUID>",
+    "project_id": "<server UUID>",
+    "buyer_id": "<server UUID>",
+    "seller_id": "<server UUID>"
+  },
+  "project": {
+    "title": "<copied from project row>",
+    "category": "<copied from project row>"
+  },
+  "audit": {
+    "audit_id": "<verified audit UUID>",
+    "repository": "<normalized owner/repository>",
+    "commit_sha": "<40-character commit SHA>",
+    "fingerprint_digest": "<64-character digest>"
+  },
+  "consideration": {
+    "amount": "<decimal string>",
+    "currency": "<currency or token symbol>"
+  },
+  "platform_fee": {
+    "percent": "<decimal string>",
+    "amount": "<decimal string>"
+  },
+  "seller_net": {
+    "amount": "<decimal string>",
+    "currency": "<same currency or explicitly converted currency>"
+  },
+  "payment": {
+    "method": "safe_multisig",
+    "chain_id": 56,
+    "asset": "<explicit asset>",
+    "token_contract": "<verified contract or null>",
+    "safe_address": "<verified Safe or null>",
+    "status_at_signing": "configured_or_pending"
+  },
+  "transfer_scope": {
+    "included_assets": [],
+    "excluded_assets": [],
+    "access_and_credentials": {},
+    "third_party_dependencies": [],
+    "intellectual_property": {},
+    "data_and_privacy": {}
+  },
+  "delivery": {
+    "deadline": "<ISO-8601 timestamp>",
+    "checklist": []
+  },
+  "inspection": {
+    "window": "<duration>",
+    "acceptance_criteria": []
+  },
+  "dispute": {
+    "procedure_version": "<reviewed version>",
+    "text": "<reviewed procedure>"
+  },
+  "escrow": {
+    "funding_condition": "<explicit condition>",
+    "release_condition": "<explicit condition>",
+    "dispute_hold": true
+  },
+  "governing_terms": {
+    "governing_law": "<legally reviewed selection>",
+    "venue_or_process": "<legally reviewed selection>",
+    "language": "en"
+  },
+  "risk_acknowledgements": [],
+  "disclosures": [],
+  "created_at": "<server timestamp>",
+  "expires_at": "<server timestamp>"
+}
+```
+
+### 20.7 Build gate
+
+Before implementation, the team must decide and record: (1) the legally reviewed agreement text and jurisdiction model; (2) accepted asset and payment/currency types; (3) exact decimal and fee rounding rules; (4) required versus optional transfer evidence by project type; (5) escrow conditions and dispute workflow; (6) retention/deletion and account-erasure policy. Until those decisions are settled, implement only pure schema validation and canonicalization tests using synthetic fixtures. Do not create production terms, request wallet signatures, migrate the database, or alter live Deal Room behavior.
