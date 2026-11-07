@@ -46,6 +46,27 @@ begin
     raise exception 'Service role must have read-only table access and write only through the atomic RPC';
   end if;
 
+  -- PASS report inserts now require an active signer in the registry.
+  -- Seed one deterministic public test key for the legacy schema and RPC cases.
+  perform public.w3m_register_trusted_signer_key(
+    jsonb_build_object(
+      'key_id', 'test-key-v1',
+      'algorithm', 'ECDSA_SECP256K1_KECCAK256_RAW_DIGEST',
+      'public_address', '0x1111111111111111111111111111111111111111',
+      'valid_from', (now() - interval '1 hour')::text,
+      'valid_until', (now() + interval '1 day')::text,
+      'created_by', 'ci-test'
+    ),
+    jsonb_build_object(
+      'key_id', 'test-key-v1',
+      'event_type', 'ACTIVATED',
+      'actor_type', 'SYSTEM',
+      'actor_ref', 'ci-test',
+      'reason', 'active signer fixture for schema regression tests',
+      'event_hash', repeat('f', 64)
+    )
+  );
+
   insert into public.w3m_acquisition_reports (
     deal_id, project_id, report_version, status, engine_version,
     evidence_hash, report_hash, report_payload, signer_key_id,
