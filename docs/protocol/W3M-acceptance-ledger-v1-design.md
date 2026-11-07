@@ -284,3 +284,48 @@ A further catalog query confirmed the following production facts. This section r
 4. Use retention-safe foreign-key behavior for protocol evidence. A project/audit/deal deletion must not silently cascade-delete signed acceptance history.
 5. Resolve the offer-action endpoint mismatch and canonical terms source before writing the first persistent version or authorizing Safe deployment.
 6. Keep the production project read-only until an isolated migration and concurrency/security test suite passes and the user explicitly approves any production change.
+
+## 12. Live acceptance and settlement entry-point verification (read-only, 2026-11-07)
+
+The active Supabase Edge Function source was retrieved read-only from the production project. No function was invoked and no deployment was performed.
+
+### 12.1 Current offer acceptance route
+- The Deal Room browser helper calls RPC `act_on_marketplace_offer`, but a read-only `pg_proc` query returned no matching function in any non-system schema.
+- The active Edge Function `seller-offer-action-v2` is version 39. It authenticates the seller, loads a pending deal, verifies seller ownership, reads the single enabled BNB Chain payment configuration, and updates the deal to `accepted`. It does not publish W3M terms, bind an audit fingerprint, or collect buyer/seller EIP-712 agreement signatures.
+- The browser caller and active deployed offer function therefore do not yet establish one verified, canonical acceptance path. This mismatch must be resolved before protocol integration.
+
+### 12.2 Current agreement UI
+- The production `js/deal-room.js` loads `deal_party_agreements` and renders a button labelled “I Agree to Deal Terms”.
+- Clicking it directly upserts `deal_id`, `party_role`, `party_id`, and `agreed_at` from the browser. It does not request an EIP-712 signature or call a trusted W3M acceptance endpoint.
+- The UI text says “Deal Terms”, but the displayed content is the dispute-resolution notice; no canonical terms-version document is loaded by this section.
+- This legacy acknowledgement must not be interpreted as a W3M cryptographic acceptance.
+
+### 12.3 Current deployed Safe and release functions
+The following active production Edge Functions were retrieved for source inspection only:
+- `create-safe`, version 56, source SHA-256 `d888f48d48c87563e20e43318f9187c0f02d9a46fbe5e037cadbb5520b918e07`: verifies caller identity/participation, deal status `accepted`, BNB chain ID, verified buyer/seller wallets, distinct Safe owners and deployer configuration. It then can broadcast a Safe deployment transaction and persist the Safe/release policy. It does not check a W3M acceptance ledger or signed terms/fingerprint binding. This function is a direct transaction-producing entry point and must be gated server-side before any deployment transaction.
+- `prepare-deal-release`, version 43: checks participant identity, dispute state, releasable deal status, confirmed payment, Safe/token configuration, on-chain Safe owners/threshold/nonce and the existing release-policy RPC. No W3M acceptance-pair check is present in the inspected source.
+- `prepare-safe-release-tx`, version 37: checks deal/payment/escrow readiness, buyer delivery acceptance, Safe and release details before creating/updating a release transaction. No W3M acceptance-pair check is present.
+- `record-safe-release-signature`, version 24: verifies a Safe transaction typed-data signature against a current Safe owner and stores it; this is the Safe transaction signature, not the earlier buyer/seller W3M agreement acceptance.
+- `execute-safe-release`, version 28: checks dispute state, two Safe signatures, Safe owners/threshold/nonce and transaction hash before execution. No W3M acceptance-pair check is present.
+- `finalize-safe-release`, version 25: verifies the mined Safe transaction and exact token transfers before marking the deal completed. No W3M acceptance-pair check is present.
+
+### 12.4 Required V1 gate coverage
+The persisted, exact-version acceptance predicate must be enforced inside every direct server entry point that can:
+1. deploy the deal Safe (`create-safe`);
+2. prepare the release policy/transaction (`prepare-deal-release`, `prepare-safe-release-tx`);
+3. accept or record release signatures where a bypass could otherwise proceed (`record-safe-release-signature`);
+4. execute the Safe transaction (`execute-safe-release`);
+5. finalize the deal and mark the project sold (`finalize-safe-release`).
+
+The gate must reload evidence from trusted persistence and fail closed on missing, ambiguous, stale, mismatched or unreadable records. UI hiding/disablement is supplementary only.
+
+### 12.5 Terms revision history correction in pure policy
+A review of the V1 acceptance helper found that its first draft treated any prior acceptance for a deal/party role as a permanent block and required exactly two total rows per deal. That conflicts with the immutable terms-version lifecycle: a revised terms document must retain old signed acceptances as history while requiring a fresh buyer/seller pair for the new version.
+
+The helper and tests were corrected on this feature branch:
+- acceptance uniqueness is now scoped to deal + terms version + party role, while nonce reuse remains rejected;
+- reusing an existing version number with a different terms hash is rejected as a version conflict;
+- strict finalization filters the exact expected terms version, then requires exactly one buyer and one seller row with matching project/audit/fingerprint/binding/terms evidence;
+- older acceptance versions remain retained as historical evidence and do not invalidate the current pair.
+
+This is still pure TypeScript policy logic. It does not replace the required database uniqueness constraints, atomic RPC, trusted Edge Function integration, or integration tests.
