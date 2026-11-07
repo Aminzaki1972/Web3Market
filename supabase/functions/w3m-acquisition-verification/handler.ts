@@ -28,6 +28,7 @@ export type W3MAdminClient = {
     error: { code?: string; message?: string } | null;
   }>;
   from?(table: string): W3MQuery;
+  schema?(schema: string): { from(table: string): W3MQuery };
 };
 
 type ChallengeRow = {
@@ -358,6 +359,132 @@ async function publishAcquisitionTerms(
   return { termsVersion: Number(termsVersion), termsHash, termsRecordId: data };
 }
 
+async function prepareAgreement(
+  admin: W3MAdminClient,
+  userId: string,
+  body: Record<string, unknown>,
+  now: number,
+  randomBytes: (length: number) => Uint8Array,
+): Promise<Record<string, unknown>> {
+  const dealId = String(body.deal_id || "");
+  const requestedWallet = String(body.wallet_address || "");
+  if (!UUID.test(dealId) || !ADDRESS.test(requestedWallet)) {
+    throw Object.assign(new Error("A valid deal_id and connected wallet are required."), { status: 400 });
+  }
+  if (!admin.schema) throw new Error("Private protocol read access is unavailable.");
+
+  const deal = await loadOne<{
+    id: string; project_id: string; buyer_id: string; seller_id: string;
+    status: string; dispute_status: string;
+  }>(admin, "deals", "id,project_id,buyer_id,seller_id,status,dispute_status", dealId);
+  if (!deal) throw Object.assign(new Error("Deal was not found."), { status: 404 });
+  const partyRole = deal.buyer_id === userId ? "buyer" : deal.seller_id === userId ? "seller" : null;
+  if (!partyRole) throw Object.assign(new Error("Only a deal participant can prepare its agreement."), { status: 403 });
+  if (!deal.status || !["pending", "accepted"].includes(deal.status) || deal.dispute_status !== "none") {
+    throw Object.assign(new Error("Deal is not eligible for agreement acceptance."), { status: 409 });
+  }
+
+  const profile = await loadOne<{ id: string; wallet_address: string | null; wallet_verified: boolean }>(
+    admin, "profiles", "id,wallet_address,wallet_verified", userId,
+  );
+  const walletAddress = String(profile?.wallet_address || "");
+  if (!profile || profile.wallet_verified !== true || !ADDRESS.test(walletAddress) ||
+    walletAddress.toLowerCase() !== requestedWallet.toLowerCase()) {
+    throw Object.assign(new Error("Connected wallet does not match the verified profile wallet."), { status: 403 });
+  }
+
+  const privateDb = admin.schema("w3m_private");
+  const { data: bindingData, error: bindingError } = await privateDb.from("w3m_deal_audit_bindings")
+    .select("deal_id,project_id,audit_id,fingerprint_id,fingerprint_digest,repository,commit_sha,binding_hash")
+    .eq("deal_id", dealId).maybeSingle();
+  if (bindingError) throw bindingError;
+  const binding = bindingData as {
+    deal_id: string; project_id: string; audit_id: string; fingerprint_id: string;
+    fingerprint_digest: string; repository: string; commit_sha: string; binding_hash: string;
+  } | null;
+  if (!binding || binding.project_id !== deal.project_id) {
+    throw Object.assign(new Error("Immutable deal audit binding is not available."), { status: 409 });
+  }
+
+  const { data: termsData, error: termsError } = await privateDb.from("w3m_acquisition_terms_versions")
+    .select("id,terms_version,terms_hash,canonical_terms_json,status")
+    .eq("deal_id", dealId).eq("status", "published").maybeSingle();
+  if (termsError) throw termsError;
+  const terms = termsData as {
+    id: string; terms_version: number | string; terms_hash: string;
+    canonical_terms_json: Record<string, unknown>; status: string;
+  } | null;
+  if (!terms || terms.status !== "published") {
+    throw Object.assign(new Error("No published V1 acquisition terms exist for this deal."), { status: 409 });
+  }
+  const version = Number(terms.terms_version);
+  if (!Number.isSafeInteger(version) || version < 1 ||
+    Number(terms.canonical_terms_json?.terms_version) !== version ||
+    terms.canonical_terms_json?.deal === undefined ||
+    terms.canonical_terms_json?.audit === undefined) {
+    throw Object.assign(new Error("Published terms record is malformed."), { status: 409 });
+  }
+  const computedTermsHash = await hashW3MAcquisitionTermsV1(terms.canonical_terms_json);
+  if (computedTermsHash !== terms.terms_hash ||
+    String((terms.canonical_terms_json.audit as Record<string, unknown>).audit_id).toLowerCase() !== binding.audit_id.toLowerCase() ||
+    String((terms.canonical_terms_json.audit as Record<string, unknown>).fingerprint_digest).toLowerCase() !== binding.fingerprint_digest.toLowerCase() ||
+    String((terms.canonical_terms_json.audit as Record<string, unknown>).repository).toLowerCase() !== binding.repository.toLowerCase() ||
+    String((terms.canonical_terms_json.audit as Record<string, unknown>).commit_sha).toLowerCase() !== binding.commit_sha.toLowerCase()) {
+    throw Object.assign(new Error("Published terms hash or audit evidence does not match trusted records."), { status: 409 });
+  }
+
+  const random = randomBytes(32);
+  if (!(random instanceof Uint8Array) || random.length !== 32) {
+    throw new Error("Secure nonce generation failed.");
+  }
+  const nonce = "0x" + Array.from(random, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const deadline = now + 600;
+  const { data: challengeId, error: issueError } = await admin.rpc("w3m_issue_agreement_challenge", {
+    p_deal_id: deal.id,
+    p_project_id: deal.project_id,
+    p_audit_id: binding.audit_id,
+    p_fingerprint_id: binding.fingerprint_id,
+    p_fingerprint_digest: binding.fingerprint_digest,
+    p_binding_hash: binding.binding_hash,
+    p_terms_hash: terms.terms_hash,
+    p_terms_version: version,
+    p_party_role: partyRole,
+    p_user_id: userId,
+    p_wallet_address: walletAddress,
+    p_nonce: nonce,
+    p_signature_deadline: deadline,
+  });
+  if (issueError) throw Object.assign(new Error("Agreement challenge issuance was rejected."), { status: rpcStatus(issueError) });
+  if (typeof challengeId !== "string" || !UUID.test(challengeId)) {
+    throw new Error("Agreement challenge persistence could not be confirmed.");
+  }
+  const { data: challengeData, error: readError } = await admin.rpc(
+    "w3m_get_agreement_challenge_for_verification", { p_challenge_id: challengeId },
+  );
+  if (readError) throw readError;
+  const row = oneChallenge(challengeData);
+  if (!row || row.user_id !== userId || row.deal_id !== dealId || row.party_role !== partyRole ||
+    row.wallet_address.toLowerCase() !== walletAddress.toLowerCase() || row.nonce !== nonce ||
+    row.terms_hash !== terms.terms_hash || Number(row.terms_version) !== version ||
+    Number(row.signature_deadline) !== deadline || row.consumed_at !== null) {
+    throw new Error("Persisted challenge does not match trusted preparation context.");
+  }
+  return {
+    dealId: deal.id,
+    partyRole,
+    partyId: userId,
+    walletAddress,
+    fingerprintId: binding.fingerprint_id,
+    fingerprintDigest: binding.fingerprint_digest,
+    bindingHash: binding.binding_hash,
+    termsHash: terms.terms_hash,
+    termsVersion: String(version),
+    termsVersionId: terms.id,
+    challengeId,
+    typedData: typedDataFromRow(row, now),
+  };
+}
+
 function rpcStatus(error: { code?: string; message?: string } | null): number {
   const code = error?.code || "";
   if (code === "42501") return 403;
@@ -403,6 +530,24 @@ export function createW3MAcquisitionHandler(deps: HandlerDependencies) {
       const now = deps.nowSeconds?.() ?? Math.floor(Date.now() / 1000);
       if (!Number.isSafeInteger(now) || now < 0) {
         return reply(origin, { ok: false, error: "Verification clock unavailable" }, 503);
+      }
+
+      if (body.action === "prepare") {
+        try {
+          const prepared = await prepareAgreement(
+            admin, user.id, body, now,
+            deps.randomBytes || ((length) => crypto.getRandomValues(new Uint8Array(length))),
+          );
+          return reply(origin, { ok: true, result: prepared });
+        } catch (error) {
+          const status = typeof (error as { status?: unknown })?.status === "number"
+            ? (error as { status: number }).status : 500;
+          if (status >= 500) console.error("w3m agreement preparation failed", error instanceof Error ? error.message : "unknown error");
+          return reply(origin, { ok: false, error: status === 400 ? "Invalid agreement preparation request" :
+            status === 403 ? "Only the verified deal participant wallet can prepare acceptance" :
+              status === 404 ? "Deal not found" : status === 409 ? "Deal, audit binding, or published terms are not eligible" :
+                "Unable to prepare agreement acceptance" }, status);
+        }
       }
 
       if (body.action === "publish_fingerprint_binding") {
