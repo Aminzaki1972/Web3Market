@@ -31,7 +31,8 @@ export function buildW3MAuditManifest(
   findings: PersistedAuditFinding[],
 ): Record<string, unknown> {
   if (!audit || audit.status !== "completed") throw new Error("Only completed audits can be fingerprinted.");
-  if (!/^[0-9a-f]{40}$/i.test(String(audit.commit_sha || ""))) {
+  const commitSha = String(audit.commit_sha || "");
+  if (!/^[0-9a-f]{40}$/i.test(commitSha)) {
     throw new Error("Audit is missing its immutable 40-character commit SHA.");
   }
   if (!audit.repo_owner || !audit.repo_name || !audit.engine_version || !audit.audit_type) {
@@ -43,12 +44,13 @@ export function buildW3MAuditManifest(
     throw new Error("Persisted scanned-file count does not match the audit summary.");
   }
   const normalizedFiles = scanned.map((file) => {
-    if (!file.path || !/^[0-9a-f]{40,64}$/i.test(String(file.sha || ""))) {
+    const fileSha = String(file.sha || "");
+    if (!file.path || !/^[0-9a-f]{40,64}$/i.test(fileSha)) {
       throw new Error("A scanned file is missing its immutable Git blob SHA.");
     }
     return {
       path: file.path.replace(/\\/g, "/"),
-      sha: file.sha.toLowerCase(),
+      sha: fileSha.toLowerCase(),
       language: file.language,
       size_bytes: file.size_bytes,
       line_count: file.line_count,
@@ -80,7 +82,7 @@ export function buildW3MAuditManifest(
     audit: {
       id: audit.id,
       repository: `${audit.repo_owner}/${audit.repo_name}`.toLowerCase(),
-      commit_sha: audit.commit_sha.toLowerCase(),
+      commit_sha: commitSha.toLowerCase(),
       engine_version: audit.engine_version,
       audit_type: audit.audit_type,
       files_scanned: audit.files_scanned,
