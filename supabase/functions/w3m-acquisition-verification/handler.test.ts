@@ -237,8 +237,11 @@ Deno.test("accept action verifies exact persisted EIP-712 challenge before recor
   }));
   const body = await response.json();
 
-  if (response.status !== 200 || body.ok !== true || body.acceptance_id !== ACCEPTANCE_ID) {
-    throw new Error("Acceptance failed: " + JSON.stringify(body));
+  if (response.status !== 200 || body.ok !== true || body.acceptance_id !== ACCEPTANCE_ID ||
+    body.result?.dealId !== DEAL_ID || body.result?.partyRole !== "buyer" ||
+    body.result?.termsVersion !== "2" || body.result?.acceptanceId !== ACCEPTANCE_ID ||
+    body.result?.idempotentReplay !== false) {
+    throw new Error("Acceptance failed or returned a mismatched client contract: " + JSON.stringify(body));
   }
   const record = calls.find((call) => call.name === "w3m_record_agreement_acceptance");
   if (!record || record.args.p_user_id !== USER_ID ||
