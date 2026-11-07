@@ -441,15 +441,44 @@ drop trigger if exists w3m_challenges_no_delete on w3m_private.w3m_agreement_cha
 create trigger w3m_challenges_no_delete before delete on w3m_private.w3m_agreement_challenges
 for each row execute function w3m_private.w3m_reject_protocol_mutation();
 
+create or replace function public.w3m_get_agreement_challenge_for_verification(
+  p_challenge_id uuid
+) returns table (
+  id uuid, deal_id uuid, project_id uuid, audit_id uuid, fingerprint_id uuid,
+  fingerprint_digest text, binding_hash text, terms_hash text, terms_version bigint,
+  party_role text, user_id uuid, wallet_address text, nonce text,
+  signature_deadline bigint, created_at timestamptz, consumed_at timestamptz
+) language plpgsql security definer set search_path = ''
+as $w3m$
+begin
+  if (auth.jwt() ->> 'role') is distinct from 'service_role' then
+    raise exception 'service_role_required' using errcode = '42501';
+  end if;
+  if p_challenge_id is null then
+    raise exception 'challenge_id_required' using errcode = '22023';
+  end if;
+  return query
+    select c.id, c.deal_id, c.project_id, c.audit_id, c.fingerprint_id,
+      c.fingerprint_digest, c.binding_hash, c.terms_hash, c.terms_version,
+      c.party_role, c.user_id, c.wallet_address, c.nonce,
+      c.signature_deadline, c.created_at, c.consumed_at
+    from w3m_private.w3m_agreement_challenges c
+    where c.id = p_challenge_id;
+end;
+$w3m$;
+
 revoke all on function public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)
   from public, anon, authenticated;
 revoke all on function public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint)
   from public, anon, authenticated;
 revoke all on function public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz)
   from public, anon, authenticated;
+revoke all on function public.w3m_get_agreement_challenge_for_verification(uuid)
+  from public, anon, authenticated;
 grant execute on function public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb) to service_role;
 grant execute on function public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint) to service_role;
 grant execute on function public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz) to service_role;
+grant execute on function public.w3m_get_agreement_challenge_for_verification(uuid) to service_role;
 
 comment on table w3m_private.w3m_audit_fingerprints is 'Immutable W3M V1 fingerprint manifest for a completed audit; server-only writes.';
 comment on table w3m_private.w3m_agreement_acceptances is 'Append-only W3M V1 EIP-712 agreement acceptance evidence; server-only writes.';
