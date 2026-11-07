@@ -67,6 +67,24 @@ export interface AuditFingerprintInput {
   manifest: Record<string, unknown>;
 }
 
+/**
+ * Derive a stable UUIDv8 fingerprint record ID from the audit UUID.
+ * This keeps retries idempotent while the digest remains bound to the full manifest.
+ */
+export async function deriveW3MAuditFingerprintId(auditId: string): Promise<string> {
+  if (typeof auditId !== "string" || !AUDIT_ID.test(auditId)) {
+    throw new Error("A valid audit ID is required to derive a fingerprint ID.");
+  }
+  const payload = new TextEncoder().encode("w3m-audit-fingerprint-id:v1\\n" + auditId.toLowerCase());
+  const digest = await crypto.subtle.digest("SHA-256", payload);
+  const bytes = new Uint8Array(digest).slice(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x80;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytesToHex(bytes);
+  return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" +
+    hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20);
+}
+
 export async function computeW3MAuditFingerprint(input: AuditFingerprintInput): Promise<{
   algorithm: "sha-256";
   schemaVersion: string;
