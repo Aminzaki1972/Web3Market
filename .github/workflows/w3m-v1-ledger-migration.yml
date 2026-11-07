@@ -58,7 +58,15 @@ jobs:
           );
           create table public.code_audits (
             id uuid primary key, project_id uuid not null, status text not null,
-            repo_owner text not null, repo_name text not null, commit_sha text not null
+            repo_owner text not null, repo_name text not null, commit_sha text not null,
+            files_scanned integer not null
+          );
+          create table public.code_audit_files (
+            id uuid primary key default gen_random_uuid(), audit_id uuid not null,
+            path text not null, sha text, scanned boolean not null
+          );
+          create table public.code_audit_findings (
+            id uuid primary key default gen_random_uuid(), audit_id uuid not null
           );
           SQL
       - name: Apply W3M V1 ledger migration
@@ -100,9 +108,11 @@ jobs:
               ('76000000-0000-4000-8000-000000000006'::uuid,
                '0x2222222222222222222222222222222222222222',true);
             insert into public.code_audits
-              (id,project_id,status,repo_owner,repo_name,commit_sha)
+              (id,project_id,status,repo_owner,repo_name,commit_sha,files_scanned)
             values
-              (v_audit,v_project,'completed','Aminzaki1972','Web3Market',repeat('f',40));
+              (v_audit,v_project,'completed','Aminzaki1972','Web3Market',repeat('f',40),1);
+            insert into public.code_audit_files (audit_id,path,sha,scanned)
+              values (v_audit,'src/index.ts',repeat('a',40),true);
 
             insert into public.projects (id,owner_id) values (v_project,v_seller);
             v_manifest := jsonb_build_object(
