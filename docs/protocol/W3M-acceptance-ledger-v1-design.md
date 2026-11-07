@@ -204,3 +204,33 @@ Monetary amounts are decimal strings, never JavaScript floating-point numbers. T
 4. Add tests proving a changed term produces a different hash, a superseded version cannot be signed, an expired document cannot be signed, and one party's old acceptance cannot combine with another party's new-version acceptance.
 5. Do not label the current synthetic fixture as an actual marketplace agreement or use its sample legal fields in production.
 
+
+
+## 9. Follow-up read-only database verification (2026-11-07)
+
+The production Supabase schema and trigger/function definitions were inspected read-only. No schema or data was changed.
+
+### Confirmed deal and identity fields
+- `public.deals` contains `id`, `project_id`, `buyer_id`, `seller_id`, `status`, `dispute_status`, `payment_status`, `safe_address`, `chain_id`, and Safe/payment lifecycle fields.
+- `public.profiles` contains `wallet_address` and `wallet_verified`; the verified wallet is available as a trusted profile attribute but must be reloaded server-side at acceptance time.
+- `public.code_audits` contains `id`, `project_id`, repository owner/name, `commit_sha`, `status`, and completion metadata.
+- `public.deal_terms` exists and stores a mutable `terms_snapshot` plus acknowledgement/deadline fields. Its writer and canonical snapshot semantics still require review before it can be the signing source.
+- `public.deal_party_agreements` remains a timestamp acknowledgement only. Its update trigger protects identity and an existing `agreed_at` timestamp, but it does not bind an EIP-712 signature to an immutable terms version.
+
+### Critical settlement-path finding
+The current `public.enforce_deal_state_transition()` trigger permits `pending -> accepted` without requiring an EIP-712 acceptance pair. The inspected `public.validate_deal_release_policy(uuid)` checks dispute state, confirmed payment, buyer delivery approval, and Safe configuration, but it does not check the new W3M acceptance ledger. The inspected Deal Room code also invokes Safe deployment based on `deals.status = 'accepted'`.
+
+This means the existing `accepted` status is not cryptographic agreement proof and must not be treated as such. Before V1 can be activated, the actual Safe deployment and final release entry points must call a trusted server-side verification gate that reloads persisted acceptances and current evidence, and fail closed. The UI alone is not a security boundary.
+
+### Function lookup
+A read-only lookup for a public SQL function named `act_on_marketplace_offer` returned no match. The actual offer-acceptance path therefore remains unresolved and must be traced from the deployed frontend/RPC call and database function catalog before any cutover. Do not assume the earlier function name is accurate.
+
+### Revised blockers before implementation
+1. Inspect the exact `deal_terms` definition, writer, and RLS policies; define canonical terms bytes, versioning, and hash without inventing a version.
+2. Trace every deployed Safe deployment/release invocation and identify all callable bypass paths.
+3. Inspect `code_audit_files` and `code_audit_findings` constraints and RLS for complete trusted manifest loading.
+4. Design the append-only private tables and one atomic acceptance RPC/transaction; keep it as an unapplied migration on the feature branch until reviewed.
+5. Add a finalization predicate to every relevant server-side settlement entry point; legacy timestamp acknowledgements must never satisfy it.
+6. Add integration and concurrency tests for the actual database transaction and Safe gate before deployment.
+
+No production database migration, function deployment, Safe action, or financial transfer was performed.
