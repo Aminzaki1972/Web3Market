@@ -3,7 +3,21 @@
 // and wallet adapters so the production page cannot be changed accidentally.
 const ADDRESS = /^0x[0-9a-f]{40}$/i;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const BYTES32 = /^0x[0-9a-f]{64}$/i;
 const SIGNATURE = /^0x[0-9a-f]{130}$/i;
+const UINT = /^(0|[1-9][0-9]*)$/;
+const ACCEPTANCE_FIELDS = [
+  ["dealId", "bytes32"],
+  ["fingerprintId", "bytes32"],
+  ["fingerprintDigest", "bytes32"],
+  ["bindingHash", "bytes32"],
+  ["termsHash", "bytes32"],
+  ["termsVersion", "uint256"],
+  ["partyRole", "uint8"],
+  ["wallet", "address"],
+  ["nonce", "bytes32"],
+  ["deadline", "uint256"],
+];
 
 function record(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -14,6 +28,57 @@ function record(value, label) {
 function requiredText(value, label) {
   if (typeof value !== "string" || !value.trim()) throw new Error(label + " is missing.");
   return value;
+}
+function normalizeBytes32(value, label) {
+  if (typeof value !== "string") throw new Error(label + " is malformed.");
+  const normalized = value.startsWith("0x") ? value : "0x" + value;
+  if (!BYTES32.test(normalized)) throw new Error(label + " must be bytes32.");
+  return normalized.toLowerCase();
+}
+function uuidToBytes32(value) {
+  if (typeof value !== "string" || !UUID.test(value)) throw new Error("Deal ID is invalid.");
+  return "0x" + value.replaceAll("-", "").toLowerCase().padStart(64, "0");
+}
+function validateTypedData(typedData, dealId, partyRole, walletAddress, termsHash, termsVersion) {
+  const data = record(typedData, "EIP-712 typed data");
+  const domain = record(data.domain, "EIP-712 domain");
+  const message = record(data.message, "EIP-712 message");
+  const domainKeys = Object.keys(domain).sort().join(",");
+  if (domainKeys !== "chainId,name,version" ||
+      domain.name !== "Web3Market Deal Agreement" ||
+      domain.version !== "1" || domain.chainId !== 56) {
+    throw new Error("EIP-712 domain is not the fixed Web3Market BNB Chain domain.");
+  }
+  if (data.primaryType !== "DealTermsAcceptance") {
+    throw new Error("EIP-712 primary type is invalid.");
+  }
+  const types = record(data.types, "EIP-712 types");
+  const fields = types.DealTermsAcceptance;
+  if (!Array.isArray(fields) || fields.length !== ACCEPTANCE_FIELDS.length ||
+      fields.some((field, index) => !field || field.name !== ACCEPTANCE_FIELDS[index][0] ||
+        field.type !== ACCEPTANCE_FIELDS[index][1] ||
+        Object.keys(field).sort().join(",") !== "name,type")) {
+    throw new Error("EIP-712 acceptance field schema is invalid.");
+  }
+  if (Object.keys(types).some((key) => key !== "DealTermsAcceptance" && key !== "EIP712Domain")) {
+    throw new Error("EIP-712 contains an unexpected custom type.");
+  }
+  const expectedRole = partyRole === "buyer" ? 1 : 2;
+  if (message.dealId !== uuidToBytes32(dealId) ||
+      !BYTES32.test(message.fingerprintId) ||
+      !BYTES32.test(message.fingerprintDigest) ||
+      !BYTES32.test(message.bindingHash) ||
+      normalizeBytes32(message.termsHash, "Signed terms hash") !== termsHash ||
+      String(message.termsVersion) !== termsVersion ||
+      message.partyRole !== expectedRole ||
+      typeof message.wallet !== "string" ||
+      message.wallet.toLowerCase() !== walletAddress.toLowerCase() ||
+      !BYTES32.test(message.nonce) ||
+      typeof message.deadline !== "string" || !UINT.test(message.deadline) ||
+      !Number.isSafeInteger(Number(message.deadline)) || Number(message.deadline) <= 0) {
+    throw new Error("EIP-712 message is not fully bound to the expected deal, evidence, terms, role, wallet, nonce, and deadline.");
+  }
+  return data;
 }
 function validatePrepared(value, dealId, walletAddress) {
   const result = record(value, "Agreement preparation");
@@ -29,19 +94,10 @@ function validatePrepared(value, dealId, walletAddress) {
   }
   const version = requiredText(prepared.termsVersion, "Terms version");
   if (!/^[1-9][0-9]*$/.test(version)) throw new Error("Terms version is invalid.");
-  const typedData = record(prepared.typedData, "EIP-712 typed data");
-  const domain = record(typedData.domain, "EIP-712 domain");
-  const message = record(typedData.message, "EIP-712 message");
-  if (typedData.primaryType !== "DealTermsAcceptance" ||
-      Number(domain.chainId) !== 56 ||
-      domain.name !== "Web3Market Deal Agreement" ||
-      domain.version !== "1" ||
-      String(message.termsVersion) !== version ||
-      Number(message.partyRole) !== (prepared.partyRole === "buyer" ? 1 : 2) ||
-      typeof message.dealId !== "string" || !/^0x[0-9a-f]{64}$/i.test(message.dealId) ||
-      typeof message.termsHash !== "string" || !/^0x[0-9a-f]{64}$/i.test(message.termsHash)) {
-    throw new Error("EIP-712 payload is not bound to the expected Web3Market agreement domain and party.");
-  }
+  const termsHash = normalizeBytes32(prepared.termsHash, "Prepared terms hash");
+  const typedData = validateTypedData(
+    prepared.typedData, dealId, prepared.partyRole, wallet, termsHash, version,
+  );
   return { ...prepared, walletAddress: wallet, typedData };
 }
 
