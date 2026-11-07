@@ -281,14 +281,14 @@ jobs:
           SELLER_ID='76000000-0000-4000-8000-000000000006'
           SELLER_WALLET='0x2222222222222222222222222222222222222222'
           rm -f /tmp/w3m-lock-a-ready
-          CHALLENGE_ID=$(psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -Atq -c "set request.jwt.claims = '{\\"role\\":\\"service_role\\"}'; select public.w3m_issue_agreement_challenge('$DEAL_ID','$PROJECT_ID','$AUDIT_ID','$FINGERPRINT_ID',repeat('a',64),repeat('b',64),repeat('2',64),2,'seller','$SELLER_ID','$SELLER_WALLET','0x' || repeat('6',64),extract(epoch from clock_timestamp())::bigint+600);")
+          CHALLENGE_ID=$(psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -Atq -c "set request.jwt.claims = '{\"role\":\"service_role\"}'; select public.w3m_issue_agreement_challenge('$DEAL_ID','$PROJECT_ID','$AUDIT_ID','$FINGERPRINT_ID',repeat('a',64),repeat('b',64),repeat('2',64),2,'seller','$SELLER_ID','$SELLER_WALLET','0x' || repeat('6',64),extract(epoch from clock_timestamp())::bigint+600);")
           test -n "$CHALLENGE_ID"
 
           psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 > /tmp/w3m-lock-a.log 2>&1 <<'SQL' &
           begin;
           select id from public.deals
             where id='71000000-0000-4000-8000-000000000001' for update;
-          \\! touch /tmp/w3m-lock-a-ready
+          \! touch /tmp/w3m-lock-a-ready
           select pg_sleep(0.5);
           set request.jwt.claims='{"role":"service_role"}';
           select public.w3m_publish_acquisition_terms_version(
@@ -310,7 +310,7 @@ jobs:
           select id from w3m_private.w3m_agreement_challenges
             where id='$CHALLENGE_ID' for update;
           select pg_sleep(0.1);
-          do \\$\\$
+          do \$\$
           begin
             begin
               perform public.w3m_record_agreement_acceptance(
@@ -322,7 +322,7 @@ jobs:
               null;
             end;
           end;
-          \\$\\$;
+          \$\$;
           commit;
           SQL
           wait "$LOCK_A_PID"
