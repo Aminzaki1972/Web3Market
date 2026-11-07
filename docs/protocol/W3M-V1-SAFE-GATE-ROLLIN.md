@@ -103,3 +103,17 @@ On the PR merge ref containing the status endpoint, client adapter, and regressi
 - Profile-guard migration job: **passed**. All three workflow runs and all five jobs in this CI batch completed successfully.
 
 These are CI tests against the staged branch and disposable PostgreSQL, not a live Supabase integration test. No production migration or Edge Function deployment occurred.
+
+## Deal Room wallet-signing adapter review — 2026-11-07
+
+The Deal Room already loads the authenticated user's profile and checks `wallet_verified` plus the canonical `profiles.wallet_address`. The existing wallet manager exposes provider discovery and ownership verification, but it does **not** currently expose a typed-data signing method that binds the selected provider to that same canonical verified wallet. The V1 agreement client deliberately requires an injected `signTypedData(walletAddress, typedData)` callback.
+
+Therefore the remaining page integration must add a wallet-manager adapter that:
+- resolves the provider associated with the linked wallet, rather than blindly using `window.ethereum`;
+- confirms the currently selected account equals the server-verified profile wallet;
+- confirms BNB Smart Chain chain ID 56 before requesting EIP-712 signing;
+- signs only the exact server-returned typed data after the client validates domain and deal/audit/terms bindings;
+- submits the signature to the authenticated V1 endpoint and refreshes the participant-scoped status;
+- never requests a transaction, token approval, transfer, or Safe execution as part of agreement signing.
+
+The current Deal Room's legacy `deal_party_agreements` rows remain historical UI state only and must not be upgraded or represented as cryptographic V1 acceptance. Do not replace the existing page flow until the provider adapter and end-to-end wallet interaction are tested in a safe, free test environment. This is a V1 completion blocker, not a request for a new feature.
