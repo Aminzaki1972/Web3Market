@@ -255,7 +255,7 @@ Deno.test("publish action reloads seller, project, completed audit and every per
       ai_fit_score: 82, risk_level: "Moderate", summary: "Synthetic test audit",
     }],
     code_audit_files: [{
-      path: "src/index.ts", sha: "a".repeat(40), language: "TypeScript",
+      audit_id: AUDIT_ID, path: "src/index.ts", sha: "a".repeat(40), language: "TypeScript",
       size_bytes: 120, line_count: 12, selected_tier: 1, scanned: true,
     }],
     code_audit_findings: [],
@@ -343,7 +343,7 @@ Deno.test("publish action fails closed when any scanned file lacks a Git blob SH
       dependency_score: 89, testing_score: 80, documentation_score: 85, web3_score: 90,
       scalability_score: 88, ai_fit_score: 82, risk_level: "Moderate", summary: "Synthetic test audit",
     }],
-    code_audit_files: [{ path: "src/index.ts", sha: null, language: "TypeScript", size_bytes: 120, line_count: 12, selected_tier: 1, scanned: true }],
+    code_audit_files: [{ audit_id: AUDIT_ID, path: "src/index.ts", sha: null, language: "TypeScript", size_bytes: 120, line_count: 12, selected_tier: 1, scanned: true }],
     code_audit_findings: [],
   };
   class Query {
