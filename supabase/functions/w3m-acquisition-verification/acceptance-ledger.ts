@@ -13,6 +13,7 @@
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH32 = /^0x[0-9a-f]{64}$/i;
 const ADDRESS = /^0x[0-9a-f]{40}$/i;
+const SIGNATURE = /^0x[0-9a-f]{130}$/i;
 
 export type W3MAgreementPartyRole = "buyer" | "seller";
 
@@ -31,6 +32,7 @@ export type W3MAcceptanceCandidateInput = {
   sellerUserId: string;
   verifiedWalletAddress: string;
   recoveredSignerAddress: string;
+  signature: string;
   nonce: string;
   deadline: number;
   acceptedAt: string;
@@ -48,6 +50,7 @@ export type W3MAcceptanceRecord = Readonly<{
   party_role: W3MAgreementPartyRole;
   user_id: string;
   wallet_address: string;
+  signature: string;
   nonce: string;
   signature_deadline: number;
   accepted_at: string;
@@ -113,6 +116,9 @@ export function buildW3MAcceptanceRecord(
 
   const verifiedWallet = requireAddress(input.verifiedWalletAddress, "Verified wallet");
   const recoveredSigner = requireAddress(input.recoveredSignerAddress, "Recovered signer");
+  if (typeof input.signature !== "string" || !SIGNATURE.test(input.signature)) {
+    throw new Error("Verified EIP-712 signature must be a 65-byte hexadecimal value.");
+  }
   if (verifiedWallet !== recoveredSigner) {
     throw new Error("Recovered signer does not match the authenticated user's verified wallet.");
   }
@@ -144,6 +150,7 @@ export function buildW3MAcceptanceRecord(
     party_role: input.partyRole,
     user_id: userId,
     wallet_address: verifiedWallet,
+    signature: input.signature.toLowerCase(),
     nonce: requireHash(input.nonce, "Acceptance nonce"),
     signature_deadline: input.deadline,
     accepted_at: input.acceptedAt,
