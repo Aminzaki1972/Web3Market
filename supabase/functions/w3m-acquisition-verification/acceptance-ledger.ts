@@ -61,6 +61,39 @@ export type W3MAcceptanceLedgerRow = Pick<
   "deal_id" | "party_role" | "nonce" | "terms_hash" | "terms_version"
 >;
 
+function validateAcceptanceRecord(row: W3MAcceptanceRecord): void {
+  if (!row || typeof row !== "object") {
+    throw new Error("A persisted acceptance record is malformed.");
+  }
+  requireUuid(row.deal_id, "Persisted deal ID");
+  requireUuid(row.project_id, "Persisted project ID");
+  requireUuid(row.audit_id, "Persisted audit ID");
+  requireUuid(row.fingerprint_id, "Persisted fingerprint ID");
+  requireUuid(row.user_id, "Persisted accepting user ID");
+  requireDigest(row.fingerprint_digest, "Persisted fingerprint digest");
+  requireHash(row.binding_hash, "Persisted binding hash");
+  requireHash(row.terms_hash, "Persisted terms hash");
+  requireHash(row.nonce, "Persisted acceptance nonce");
+  requireAddress(row.wallet_address, "Persisted signer wallet");
+  if (row.party_role !== "buyer" && row.party_role !== "seller") {
+    throw new Error("Persisted acceptance party role is invalid.");
+  }
+  if (typeof row.terms_version !== "string" || !/^[1-9][0-9]*$/.test(row.terms_version)) {
+    throw new Error("Persisted acceptance terms version is invalid.");
+  }
+  if (typeof row.signature !== "string" || !SIGNATURE.test(row.signature)) {
+    throw new Error("Persisted acceptance signature is malformed.");
+  }
+  if (!Number.isSafeInteger(row.signature_deadline) || row.signature_deadline < 1) {
+    throw new Error("Persisted signature deadline is invalid.");
+  }
+  const acceptedAtMs = Date.parse(row.accepted_at);
+  if (!Number.isFinite(acceptedAtMs) || new Date(acceptedAtMs).toISOString() !== row.accepted_at ||
+    acceptedAtMs > row.signature_deadline * 1000) {
+    throw new Error("Persisted acceptance timestamp is invalid or later than its signature deadline.");
+  }
+}
+
 function requireUuid(value: string, label: string): string {
   if (typeof value !== "string" || !UUID.test(value)) {
     throw new Error(label + " must be a UUID.");
@@ -270,6 +303,7 @@ export function hasCompleteW3MAcceptancePair(
   if (!Array.isArray(rows)) {
     throw new Error("Persisted acceptance rows are required.");
   }
+  for (const row of rows) validateAcceptanceRecord(row);
   const dealId = requireUuid(expected.dealId, "Expected deal ID");
   const projectId = requireUuid(expected.projectId, "Expected project ID");
   const auditId = requireUuid(expected.auditId, "Expected audit ID");
