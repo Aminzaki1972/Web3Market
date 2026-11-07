@@ -33,9 +33,11 @@ on:
       - "supabase/functions/record-safe-release-signature/index.ts"
       - "supabase/functions/execute-safe-release/index.ts"
       - "supabase/functions/finalize-safe-release/index.ts"
-      - "supabase/functions/_shared/w3m-v1-safe-gate-source.test.ts"
+      - "supabase/functions/_shared/w3m-v1-safe-gate-source.test.ts js/wallet-manager.test.js"
       - "supabase/functions/w3m-acquisition-verification/deal-agreement-client.test.ts"
       - "js/w3m-deal-agreement-client.js"
+      - "js/wallet-manager.js"
+      - "js/wallet-manager.test.js"
       - ".github/workflows/w3m-audit-fingerprint-tests.yml"
   push:
     branches:
@@ -74,6 +76,8 @@ on:
       - "supabase/functions/_shared/w3m-v1-safe-gate-source.test.ts"
       - "supabase/functions/w3m-acquisition-verification/deal-agreement-client.test.ts"
       - "js/w3m-deal-agreement-client.js"
+      - "js/wallet-manager.js"
+      - "js/wallet-manager.test.js"
       - ".github/workflows/w3m-audit-fingerprint-tests.yml"
 
 permissions:
@@ -90,6 +94,6 @@ jobs:
         with:
           deno-version: v2.x
       - name: Run fingerprint and persisted-manifest tests
-        run: deno test --allow-env=WS_NO_BUFFER_UTIL,WS_NO_UTF_8_VALIDATE --allow-read=supabase/functions supabase/functions/w3m-acquisition-verification/audit-fingerprint.test.ts supabase/functions/w3m-acquisition-verification/audit-manifest.test.ts supabase/functions/w3m-acquisition-verification/agreement-signature.test.ts supabase/functions/w3m-acquisition-verification/acquisition-terms.test.ts supabase/functions/w3m-acquisition-verification/deal-audit-binding.test.ts supabase/functions/w3m-acquisition-verification/agreement-challenge.test.ts supabase/functions/w3m-acquisition-verification/acceptance-ledger.test.ts supabase/functions/w3m-acquisition-verification/terms-version-lifecycle.test.ts supabase/functions/w3m-acquisition-verification/finalization-acceptance.test.ts supabase/functions/w3m-acquisition-verification/handler.test.ts supabase/functions/w3m-acquisition-verification/deal-agreement-client.test.ts supabase/functions/_shared/w3m-v1-finalization-gate.test.ts supabase/functions/_shared/w3m-v1-safe-gate-source.test.ts
+        run: deno test --allow-env=WS_NO_BUFFER_UTIL,WS_NO_UTF_8_VALIDATE --allow-read=supabase/functions,js supabase/functions/w3m-acquisition-verification/audit-fingerprint.test.ts supabase/functions/w3m-acquisition-verification/audit-manifest.test.ts supabase/functions/w3m-acquisition-verification/agreement-signature.test.ts supabase/functions/w3m-acquisition-verification/acquisition-terms.test.ts supabase/functions/w3m-acquisition-verification/deal-audit-binding.test.ts supabase/functions/w3m-acquisition-verification/agreement-challenge.test.ts supabase/functions/w3m-acquisition-verification/acceptance-ledger.test.ts supabase/functions/w3m-acquisition-verification/terms-version-lifecycle.test.ts supabase/functions/w3m-acquisition-verification/finalization-acceptance.test.ts supabase/functions/w3m-acquisition-verification/handler.test.ts supabase/functions/w3m-acquisition-verification/deal-agreement-client.test.ts supabase/functions/_shared/w3m-v1-finalization-gate.test.ts supabase/functions/_shared/w3m-v1-safe-gate-source.test.ts
       - name: Type-check fingerprint and manifest modules
         run: deno check supabase/functions/w3m-acquisition-verification/audit-fingerprint.ts supabase/functions/w3m-acquisition-verification/audit-manifest.ts supabase/functions/w3m-acquisition-verification/agreement-signature.ts supabase/functions/w3m-acquisition-verification/acquisition-terms.ts supabase/functions/w3m-acquisition-verification/deal-audit-binding.ts supabase/functions/w3m-acquisition-verification/agreement-challenge.ts supabase/functions/w3m-acquisition-verification/acceptance-ledger.ts supabase/functions/w3m-acquisition-verification/terms-version-lifecycle.ts supabase/functions/w3m-acquisition-verification/finalization-acceptance.ts supabase/functions/w3m-acquisition-verification/handler.ts supabase/functions/w3m-acquisition-verification/index.ts supabase/functions/_shared/w3m-v1-finalization-gate.ts supabase/functions/_shared/w3m-v1-finalization-gate-client-typecheck.ts
