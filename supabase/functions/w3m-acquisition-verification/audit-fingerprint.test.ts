@@ -125,3 +125,28 @@ Deno.test("rejects non-plain objects in the manifest", async () => {
     ...base, manifest: { generatedAt: new Date("2026-11-07T00:00:00.000Z") },
   }));
 });
+
+
+Deno.test("rejects symbol keys and accessor properties in manifest objects", async () => {
+  const withSymbol: Record<PropertyKey, unknown> = { score: 91 };
+  withSymbol[Symbol("hidden")] = "not-json";
+  await assertRejects(() => computeW3MAuditFingerprint({
+    ...base, manifest: withSymbol as Record<string, unknown>,
+  }));
+
+  const withGetter = Object.defineProperty({}, "score", {
+    enumerable: true,
+    get() { return 91; },
+  });
+  await assertRejects(() => computeW3MAuditFingerprint({
+    ...base, manifest: withGetter,
+  }));
+
+  const withHidden = Object.defineProperty({ score: 91 }, "hidden", {
+    enumerable: false,
+    value: "not-json",
+  });
+  await assertRejects(() => computeW3MAuditFingerprint({
+    ...base, manifest: withHidden,
+  }));
+});
