@@ -206,3 +206,65 @@ export function hasBothW3MPartyAcceptances(
     matching.find((row) => row.party_role === "buyer")!.user_id !==
       matching.find((row) => row.party_role === "seller")!.user_id;
 }
+
+
+export type W3MCompleteAcceptanceExpectation = {
+  dealId: string;
+  projectId: string;
+  auditId: string;
+  fingerprintId: string;
+  fingerprintDigest: string;
+  bindingHash: string;
+  termsHash: string;
+  termsVersion: string;
+};
+
+/**
+ * Strict finalization predicate. It requires exactly two persisted rows for the
+ * deal (one buyer and one seller) and an exact match of every evidence/terms
+ * identifier. This is a pure consistency check, not signature verification,
+ * persistence, or a substitute for transaction-level database constraints.
+ */
+export function hasCompleteW3MAcceptancePair(
+  rows: readonly W3MAcceptanceRecord[],
+  expected: W3MCompleteAcceptanceExpectation,
+): boolean {
+  if (!Array.isArray(rows)) {
+    throw new Error("Persisted acceptance rows are required.");
+  }
+  const dealId = requireUuid(expected.dealId, "Expected deal ID");
+  const projectId = requireUuid(expected.projectId, "Expected project ID");
+  const auditId = requireUuid(expected.auditId, "Expected audit ID");
+  const fingerprintId = requireUuid(expected.fingerprintId, "Expected fingerprint ID");
+  const fingerprintDigest = requireHash(
+    "0x" + expected.fingerprintDigest.replace(/^0x/i, ""),
+    "Expected fingerprint digest",
+  );
+  const bindingHash = requireHash(expected.bindingHash, "Expected binding hash");
+  const termsHash = requireHash(expected.termsHash, "Expected terms hash");
+  if (typeof expected.termsVersion !== "string" ||
+    !/^[1-9][0-9]*$/.test(expected.termsVersion)) {
+    throw new Error("Expected terms version must be a positive decimal integer.");
+  }
+
+  const dealRows = rows.filter((row) => row.deal_id === dealId);
+  if (dealRows.length !== 2) return false;
+  const buyerRows = dealRows.filter((row) => row.party_role === "buyer");
+  const sellerRows = dealRows.filter((row) => row.party_role === "seller");
+  if (buyerRows.length !== 1 || sellerRows.length !== 1) return false;
+
+  const [buyer] = buyerRows;
+  const [seller] = sellerRows;
+  const matchesExpected = (row: W3MAcceptanceRecord) =>
+    row.project_id === projectId &&
+    row.audit_id === auditId &&
+    row.fingerprint_id === fingerprintId &&
+    row.fingerprint_digest === fingerprintDigest &&
+    row.binding_hash === bindingHash &&
+    row.terms_hash === termsHash &&
+    row.terms_version === expected.termsVersion;
+  return matchesExpected(buyer) &&
+    matchesExpected(seller) &&
+    buyer.user_id !== seller.user_id &&
+    buyer.nonce !== seller.nonce;
+}
