@@ -358,6 +358,14 @@ jobs:
               raise exception 'accepted_terms_version_must_remain_published';
             end if;
 
+            -- The second deal has no acceptances yet, so it may publish its
+            -- initial canonical terms and exercise the supersession race below.
+            perform public.w3m_publish_acquisition_terms_version(
+              '79000000-0000-4000-8000-000000000009',
+              1,repeat('c',64),
+              '{"schema":"w3m-terms-v1","approved":true,"revision":1}'::jsonb
+            );
+
             begin
               update w3m_private.w3m_agreement_acceptances
                 set signature='0x' || repeat('9',130) where deal_id=v_deal;
