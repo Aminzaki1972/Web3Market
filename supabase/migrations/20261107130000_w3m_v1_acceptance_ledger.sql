@@ -1482,9 +1482,9 @@ comment on table w3m_private.w3m_agreement_acceptances is 'Append-only W3M V1 EI
 
     or p_manifest is null or jsonb_typeof(p_manifest) <> 'object'
     or pg_column_size(p_manifest) > 8388608
-    or p_manifest ->> 'manifest_schema' <> 'w3m.persisted-audit-manifest.v1'
-    or jsonb_typeof(p_manifest -> 'files') <> 'array'
-    or jsonb_typeof(p_manifest -> 'findings') <> 'array'
+    or p_manifest ->> 'manifest_schema' is distinct from 'w3m.persisted-audit-manifest.v1'
+    or jsonb_typeof(p_manifest -> 'files') is distinct from 'array'
+    or jsonb_typeof(p_manifest -> 'findings') is distinct from 'array'
     or jsonb_array_length(p_manifest -> 'files') = 0 then
     raise exception 'invalid_fingerprint_publication_parameters' using errcode = '22023';
   end if;
@@ -1510,9 +1510,10 @@ comment on table w3m_private.w3m_agreement_acceptances is 'Append-only W3M V1 EI
     or v_audit.repo_owner is null or v_audit.repo_name is null
     or lower(v_audit.repo_owner || '/' || v_audit.repo_name) <> p_repository
     or lower(coalesce(v_audit.commit_sha,'')) <> p_commit_sha
-    or p_manifest #>> '{audit,id}' <> p_audit_id::text
+    or p_manifest #>> '{audit,id}' is distinct from p_audit_id::text
     or lower(coalesce(p_manifest #>> '{audit,repository}','')) <> p_repository
     or lower(coalesce(p_manifest #>> '{audit,commit_sha}','')) <> p_commit_sha
+    or p_manifest #>> '{audit,files_scanned}' is null
     or (p_manifest #>> '{audit,files_scanned}')::integer <> jsonb_array_length(p_manifest -> 'files') then
     raise exception 'persisted_audit_manifest_does_not_match_completed_audit' using errcode = '23503';
   end if;
