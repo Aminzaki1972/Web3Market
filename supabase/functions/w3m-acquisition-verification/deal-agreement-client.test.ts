@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
-import { signAndSubmitW3MDealAgreement } from "../../../js/w3m-deal-agreement-client.js";
+import { getW3MDealAgreementStatus, signAndSubmitW3MDealAgreement } from "../../../js/w3m-deal-agreement-client.js";
 
 const dealId = "71000000-0000-4000-8000-000000000001";
 const wallet = "0x5555555555555555555555555555555555555555";
@@ -132,4 +132,53 @@ Deno.test("client never submits a malformed wallet signature", async () => {
     submits++; return {};
   }, async () => "0x1234"));
   assertEquals(submits, 0);
+});
+
+Deno.test("status client requests the authenticated participant view and validates exact deal", async () => {
+  const calls: unknown[] = [];
+  const result = await getW3MDealAgreementStatus({
+    dealId, accessToken: "session",
+    request: async (body, token) => {
+      calls.push({ body, token });
+      return {
+        ok: true,
+        result: {
+          deal_id: dealId,
+          current_terms: {
+            terms_version: "3", terms_hash: "a".repeat(64),
+            canonical_terms: { schema: "w3m-acquisition-terms-v1", terms_version: 3 },
+          },
+          acceptances: {
+            buyer: { accepted: true, accepted_at: "2026-11-07T01:00:00Z" },
+            seller: { accepted: false },
+          },
+          both_accepted: false, deal_eligible: true,
+        },
+      };
+    },
+  });
+  assertEquals(calls, [{ body: { action: "status", deal_id: dealId }, token: "session" }]);
+  assertEquals(result.bothAccepted, false);
+  assertEquals(result.acceptances.buyer.accepted, true);
+  assertEquals(result.acceptances.seller.accepted, false);
+  assertEquals(result.currentTerms.terms_hash, "a".repeat(64));
+});
+Deno.test("status client rejects cross-deal and malformed acceptance responses", async () => {
+  await assertRejects(() => getW3MDealAgreementStatus({
+    dealId, accessToken: "session",
+    request: async () => ({ ok: true, result: {
+      deal_id: "71000000-0000-4000-8000-000000000099",
+      current_terms: null,
+      acceptances: { buyer: { accepted: false }, seller: { accepted: false } },
+      both_accepted: false, deal_eligible: true,
+    } }),
+  }));
+  await assertRejects(() => getW3MDealAgreementStatus({
+    dealId, accessToken: "session",
+    request: async () => ({ ok: true, result: {
+      deal_id: dealId, current_terms: null,
+      acceptances: { buyer: { accepted: "yes" }, seller: { accepted: false } },
+      both_accepted: false, deal_eligible: true,
+    } }),
+  }));
 });
