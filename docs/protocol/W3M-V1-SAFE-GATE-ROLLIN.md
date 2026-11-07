@@ -41,3 +41,17 @@ The new protocol modules and shared gate are included in Deno type-check. The si
 - The SQL migration has only been exercised in disposable PostgreSQL CI.
 - No Safe transaction, release, or financial transfer was executed. V1 uses Safe Wallet only; it does not introduce a separate escrow contract.
 - Canonical acquisition terms remain unpublished until their authoritative content is approved; this patch does not invent governing law, inspection criteria, or dispute rules.
+
+
+## Remaining V1 integration blockers — verified 2026-11-07
+
+The source review found that the browser acceptance coordinator is not yet wired into the live Deal Room page:
+
+- `js/w3m-deal-agreement-client.js` explicitly documents that it is not imported by the Deal Room.
+- `js/deal-room.js` still loads and writes the legacy `deal_party_agreements` rows directly through an upsert when a participant clicks “I Agree to Deal Terms”.
+- The new `w3m-acquisition-verification` Edge Function is not deployed in the production Supabase project, and its V1 acceptance-ledger migration is not applied there.
+- The V1 preparation handler rejects acceptance when no published canonical acquisition terms exist. The protocol documentation intentionally leaves those terms unpublished until their authoritative content is approved.
+
+Therefore the V1 acceptance path is tested in isolation but is **not yet the active Deal Room acceptance path**. Do not enable the new Safe finalization gates in production until the canonical terms are approved, the Deal Room displays the exact terms being signed, the browser client is integrated and tested, and the Edge Function plus migration are deployed in a separately approved release. This is a V1 completion dependency, not authorization to add scope or incur cost.
+
+The migration source review also confirms that protocol RPC execution is revoked from `public`, `anon`, and `authenticated`, then granted only to `service_role`; private protocol tables have RLS enabled and direct client mutation is blocked by grants and immutability triggers. These are source-level findings; the migration remains unapplied to production.
