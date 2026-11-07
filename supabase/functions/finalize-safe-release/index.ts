@@ -8,6 +8,15 @@ const SAFE=new ethers.Interface(["function getTransactionHash(address to,uint256
 const cors={"Access-Control-Allow-Origin":"https://web3market.xyz","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const json=(s:number,b:unknown)=>new Response(JSON.stringify(b),{status:s,headers:{...cors,"content-type":"application/json"}});
 const norm=(a:string)=>ethers.getAddress(a).toLowerCase();
+const TERMINAL_DISPUTE_STATES = new Set(["", "none", "resolved", "closed", "dismissed", "rejected", "cancelled", "canceled", "withdrawn"]);
+async function checkDisputeState(db: any, deal: any, dealId: string): Promise<"clear" | "open" | "unknown"> {
+ const state=String(deal?.dispute_status??"").trim().toLowerCase();
+ if(!TERMINAL_DISPUTE_STATES.has(state))return "open";
+ const {data,error}=await db.from("deal_disputes").select("status").eq("deal_id",dealId);
+ if(error)return "unknown";
+ if((data||[]).some((row:any)=>!TERMINAL_DISPUTE_STATES.has(String(row?.status||"open").trim().toLowerCase())))return "open";
+ return "clear";
+}
 Deno.serve(async req=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
  if(req.method!=="POST")return json(405,{ok:false,error:"POST required"});
@@ -26,6 +35,8 @@ Deno.serve(async req=>{
  } catch (error) {
   return json(409,{ok:false,error:"W3M V1 buyer and seller agreement acceptance is required before release finalization",code:error instanceof W3MFinalizationGateError?error.code:"W3M_FINALIZATION_EVIDENCE_UNAVAILABLE"});
  }
+ const disputeState=await checkDisputeState(sb,deal,dealId);
+ if(disputeState!=="clear")return json(409,{ok:false,error:disputeState==="open"?"Release is blocked while a dispute is open":"Unable to verify dispute status; release finalization blocked",code:disputeState==="open"?"DEAL_DISPUTE_OPEN":"DISPUTE_STATUS_UNAVAILABLE"});
  const {data:tx}=await sb.from("deal_multisig_transactions").select("*").eq("deal_id",dealId).eq("action","release_to_seller").maybeSingle();
  const {data:policy}=await sb.from("deal_release_policies").select("*").eq("deal_id",dealId).maybeSingle();
  if(!tx||!policy)return json(409,{ok:false,error:"Release records missing"});
