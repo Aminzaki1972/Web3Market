@@ -1,7 +1,8 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import {
   assertCanAppendW3MTermsVersion,
-  buildW3MTermsVersionAppendPlan,\n  verifyW3MTermsVersionDigest,
+  buildW3MTermsVersionAppendPlan,
+  verifyW3MTermsVersionDigest,
   filterCurrentW3MAcceptances,
   isW3MAcceptanceCurrentForTerms,
   type W3MTermsVersionRecord,
