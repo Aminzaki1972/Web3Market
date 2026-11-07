@@ -326,14 +326,58 @@
     return openWalletRoute(route.app, route.fallback, notice);
   }
 
-  // Sign only typed data for the already verified profile wallet. This path
-  // never submits a transaction and never silently switches the active account.
+  // Sign only the exact W3M V1 agreement schema for the verified profile wallet.
+  // This path never submits a transaction and never silently switches the active account.
   async function signTypedDataForVerifiedWallet(walletAddress, typedData) {
-    if (!/^0x[a-fA-F0-9]{40}$/.test(String(walletAddress || ""))) {
+    var addressPattern = /^0x[a-fA-F0-9]{40}$/;
+    var bytes32Pattern = /^0x[a-fA-F0-9]{64}$/;
+    var fields = [
+      ["dealId", "bytes32"], ["fingerprintId", "bytes32"],
+      ["fingerprintDigest", "bytes32"], ["bindingHash", "bytes32"],
+      ["termsHash", "bytes32"], ["termsVersion", "uint256"],
+      ["partyRole", "uint8"], ["wallet", "address"],
+      ["nonce", "bytes32"], ["deadline", "uint256"]
+    ];
+    if (!addressPattern.test(String(walletAddress || ""))) {
       throw new Error("A valid verified wallet address is required.");
     }
     if (!typedData || typeof typedData !== "object" || Array.isArray(typedData)) {
       throw new Error("Validated EIP-712 typed data is required.");
+    }
+    var domain = typedData.domain;
+    var message = typedData.message;
+    var types = typedData.types;
+    if (!domain || typeof domain !== "object" || Array.isArray(domain) ||
+        Object.keys(domain).sort().join(",") !== "chainId,name,version" ||
+        domain.name !== "Web3Market Deal Agreement" || domain.version !== "1" || domain.chainId !== 56 ||
+        typedData.primaryType !== "DealTermsAcceptance" ||
+        !types || typeof types !== "object" || !Array.isArray(types.DealTermsAcceptance) ||
+        types.DealTermsAcceptance.length !== fields.length ||
+        fields.some(function (field, index) {
+          var actual = types.DealTermsAcceptance[index];
+          return !actual || actual.name !== field[0] || actual.type !== field[1] ||
+            Object.keys(actual).sort().join(",") !== "name,type";
+        }) ||
+        Object.keys(types).some(function (key) {
+          return key !== "DealTermsAcceptance" && key !== "EIP712Domain";
+        })) {
+      throw new Error("EIP-712 data does not match the fixed Web3Market V1 agreement schema.");
+    }
+    var messageKeys = ["bindingHash","deadline","dealId","fingerprintDigest","fingerprintId","nonce","partyRole","termsHash","termsVersion","wallet"].sort().join(",");
+    if (!message || typeof message !== "object" || Array.isArray(message) ||
+        Object.keys(message).sort().join(",") !== messageKeys ||
+        fields.some(function (field) {
+          var value = message[field[0]];
+          if (field[1] === "bytes32") return typeof value === "string" && bytes32Pattern.test(value);
+          if (field[1] === "address") return typeof value === "string" && addressPattern.test(value);
+          return (typeof value === "string" && /^(0|[1-9][0-9]*)$/.test(value)) ||
+            (field[1] === "uint8" && Number.isInteger(value) && value >= 0 && value <= 255);
+        }) ||
+        message.wallet.toLowerCase() !== walletAddress.toLowerCase() ||
+        (message.partyRole !== 1 && message.partyRole !== 2) ||
+        !Number.isSafeInteger(Number(message.termsVersion)) || Number(message.termsVersion) < 1 ||
+        !Number.isSafeInteger(Number(message.deadline)) || Number(message.deadline) <= 0) {
+      throw new Error("EIP-712 message is incomplete or is not bound to the verified wallet.");
     }
     var route = getLinkedWalletForAddress(walletAddress);
     if (!route) throw new Error("The wallet provider route for this verified address is unavailable. Reconnect the verified wallet first.");
@@ -346,7 +390,7 @@
     }
     var accounts = await provider.request({method:"eth_accounts"});
     var selected = accounts && accounts[0];
-    if (!/^0x[a-fA-F0-9]{40}$/.test(String(selected || "")) ||
+    if (!addressPattern.test(String(selected || "")) ||
         selected.toLowerCase() !== walletAddress.toLowerCase()) {
       throw new Error("The active wallet account does not match your verified Web3Market profile wallet.");
     }
