@@ -11,6 +11,15 @@ const BSC_CHAIN_ID=56;
 const USDT_BSC="0x55d398326f99059ff775485246999027b3197955";
 const cors={"Access-Control-Allow-Origin":"https://web3market.xyz","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS","Access-Control-Max-Age":"86400","Vary":"Origin"};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,"Content-Type":"application/json"}});
+const TERMINAL_DISPUTE_STATES = new Set(["", "none", "resolved", "closed", "dismissed", "rejected", "cancelled", "canceled", "withdrawn"]);
+async function checkDisputeState(db: any, deal: any, dealId: string): Promise<"clear" | "open" | "unknown"> {
+ const state=String(deal?.dispute_status??"").trim().toLowerCase();
+ if(!TERMINAL_DISPUTE_STATES.has(state))return "open";
+ const {data,error}=await db.from("deal_disputes").select("status").eq("deal_id",dealId);
+ if(error)return "unknown";
+ if((data||[]).some((row:any)=>!TERMINAL_DISPUTE_STATES.has(String(row?.status||"open").trim().toLowerCase())))return "open";
+ return "clear";
+}
 const norm=(a:string)=>getAddress(a);
 const isPrivateKeyFormat=(value:string)=>/^0x[0-9a-fA-F]{64}$/.test(value);
 
@@ -37,6 +46,8 @@ Deno.serve(async(req)=>{
   if(!(caller&&(caller.id===deal.buyer_id||caller.id===deal.seller_id||String(caller.role||"").toLowerCase()==="admin")))return json({ok:false,error:"Not authorized for this deal"},403);
   try {
     await assertW3MFinalizationReady(db, dealId);
+  const disputeState=await checkDisputeState(db,deal,dealId);
+  if(disputeState!=="clear")return json({ok:false,error:disputeState==="open"?"Safe deployment is blocked while a dispute is open":"Unable to verify dispute status; Safe deployment blocked",code:disputeState==="open"?"DEAL_DISPUTE_OPEN":"DISPUTE_STATUS_UNAVAILABLE"},409);
   } catch (error) {
     return json({ok:false,error:"W3M V1 buyer and seller agreement acceptance is required before Safe deployment",code:error instanceof W3MFinalizationGateError?error.code:"W3M_FINALIZATION_EVIDENCE_UNAVAILABLE",usdt_moved:false},409);
   }
