@@ -33,11 +33,13 @@ on:
       - "supabase/functions/record-safe-release-signature/index.ts"
       - "supabase/functions/execute-safe-release/index.ts"
       - "supabase/functions/finalize-safe-release/index.ts"
-      - "supabase/functions/_shared/w3m-v1-safe-gate-source.test.ts js/wallet-manager.test.js"
+      - "supabase/functions/_shared/w3m-v1-safe-gate-source.test.ts js/wallet-manager.test.js js/w3m-deal-agreement-panel.test.js"
       - "supabase/functions/w3m-acquisition-verification/deal-agreement-client.test.ts"
       - "js/w3m-deal-agreement-client.js"
       - "js/wallet-manager.js"
       - "js/wallet-manager.test.js"
+      - "js/w3m-deal-agreement-panel.js"
+      - "js/w3m-deal-agreement-panel.test.js"
       - ".github/workflows/w3m-audit-fingerprint-tests.yml"
   push:
     branches:
@@ -78,6 +80,8 @@ on:
       - "js/w3m-deal-agreement-client.js"
       - "js/wallet-manager.js"
       - "js/wallet-manager.test.js"
+      - "js/w3m-deal-agreement-panel.js"
+      - "js/w3m-deal-agreement-panel.test.js"
       - ".github/workflows/w3m-audit-fingerprint-tests.yml"
 
 permissions:
