@@ -39,3 +39,28 @@ Deno.test("manifest rejects incomplete audits and missing immutable file SHAs", 
   assertThrows(() => buildW3MAuditManifest(audit, [{ ...files[0], sha: null }, files[1]], findings));
   assertThrows(() => buildW3MAuditManifest({ ...audit, commit_sha: null }, files, findings));
 });
+
+Deno.test("manifest rejects duplicate and unsafe repository paths", () => {
+  assertThrows(() => buildW3MAuditManifest(audit, [files[0], { ...files[1], path: files[0].path }], findings));
+  for (const path of ["../secret.txt", "/etc/passwd", "src/../secret.ts", "src//file.ts", "C:/repo/file.ts"]) {
+    assertThrows(() => buildW3MAuditManifest(audit, [{ ...files[0], path }, files[1]], findings));
+  }
+});
+
+Deno.test("manifest rejects findings outside scanned evidence", () => {
+  assertThrows(() => buildW3MAuditManifest(audit, files, [{ ...findings[0], file_path: "not-scanned.ts" }]));
+});
+
+Deno.test("manifest rejects invalid finding line ranges and confidence", () => {
+  assertThrows(() => buildW3MAuditManifest(audit, files, [{ ...findings[0], line_start: 0 }]));
+  assertThrows(() => buildW3MAuditManifest(audit, files, [{ ...findings[0], line_start: 9, line_end: 2 }]));
+  assertThrows(() => buildW3MAuditManifest(audit, files, [{ ...findings[0], confidence: 101 }]));
+});
+
+Deno.test("manifest sorts findings deterministically even when primary sort keys match", () => {
+  const first = { ...findings[0], title: "A", evidence: "z" };
+  const second = { ...findings[0], title: "A", evidence: "a" };
+  const a = buildW3MAuditManifest(audit, files, [first, second]);
+  const b = buildW3MAuditManifest(audit, files, [second, first]);
+  assertEquals(a, b);
+});
