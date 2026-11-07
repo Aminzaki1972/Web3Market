@@ -284,6 +284,9 @@ create or replace function public.w3m_record_agreement_acceptance(
 as $w3m$
 declare
   v_challenge w3m_private.w3m_agreement_challenges%rowtype;
+  v_deal public.deals%rowtype;
+  v_profile_wallet text;
+  v_wallet_verified boolean;
   v_acceptance_id uuid;
   v_now timestamptz := clock_timestamp();
 begin
@@ -311,6 +314,43 @@ begin
   if not found then
     raise exception 'challenge_terms_are_no_longer_current' using errcode = '22023';
   end if;
+  -- Revalidate deal state, party identity, and verified wallet at acceptance time.
+  select * into v_deal from public.deals where id = v_challenge.deal_id for update;
+  if not found or v_deal.project_id is distinct from v_challenge.project_id
+    or v_deal.status is null or v_deal.status not in ('pending','accepted')
+    or v_deal.dispute_status is distinct from 'none'
+    or (v_challenge.party_role = 'buyer' and v_deal.buyer_id is distinct from v_challenge.user_id)
+    or (v_challenge.party_role = 'seller' and v_deal.seller_id is distinct from v_challenge.user_id) then
+    raise exception 'deal_party_or_state_changed_after_challenge' using errcode = '42501';
+  end if;
+
+  select wallet_address, wallet_verified into v_profile_wallet, v_wallet_verified
+    from public.profiles where id = v_challenge.user_id for share;
+  if not found or v_wallet_verified is not true
+    or lower(coalesce(v_profile_wallet,'')) <> lower(v_challenge.wallet_address) then
+    raise exception 'verified_wallet_changed_after_challenge' using errcode = '42501';
+  end if;
+
+  if not exists (
+    select 1
+    from public.code_audits a
+    join w3m_private.w3m_audit_fingerprints f
+      on f.audit_id = a.id and f.id = v_challenge.fingerprint_id
+     and f.fingerprint_digest = v_challenge.fingerprint_digest
+    join w3m_private.w3m_deal_audit_bindings b
+      on b.audit_id = f.audit_id and b.fingerprint_id = f.id
+     and b.fingerprint_digest = f.fingerprint_digest
+     and b.repository = f.repository and b.commit_sha = f.commit_sha
+    where a.id = v_challenge.audit_id and a.project_id = v_challenge.project_id
+      and a.status = 'completed'
+      and lower(a.repo_owner || '/' || a.repo_name) = b.repository
+      and lower(a.commit_sha) = b.commit_sha
+      and b.deal_id = v_challenge.deal_id and b.project_id = v_challenge.project_id
+      and b.binding_hash = v_challenge.binding_hash
+  ) then
+    raise exception 'audit_binding_changed_after_challenge' using errcode = '23503';
+  end if;
+
   if v_challenge.user_id <> p_user_id or v_challenge.party_role <> p_party_role
     or lower(v_challenge.wallet_address) <> lower(p_wallet_address)
     or lower(v_challenge.wallet_address) <> lower(p_recovered_signer)
