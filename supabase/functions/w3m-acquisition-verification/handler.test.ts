@@ -91,16 +91,35 @@ function makeDeps(
 
 Deno.test("status action exposes only participant-scoped current terms and acceptance state", async () => {
   const sellerId = "76000000-0000-4000-8000-000000000006";
+  const canonicalTerms = {
+    schema: "w3m-acquisition-terms-v1", terms_version: 2,
+    deal: { deal_id: DEAL_ID, project_id: PROJECT_ID, buyer_id: USER_ID, seller_id: sellerId },
+    project: { title: "Synthetic project", category: "SaaS" },
+    audit: { audit_id: AUDIT_ID, repository: "aminzaki1972/web3market", commit_sha: "f".repeat(40), fingerprint_digest: DIGEST },
+    consideration: { amount: "1000.00", currency: "USDT" },
+    platform_fee: { percent: "7.50", amount: "75.00" },
+    seller_net: { amount: "925.00", currency: "USDT" },
+    payment: { method: "safe_multisig", chain_id: 56, asset: "USDT", token_contract: null, safe_address: null, status_at_signing: "configured_or_pending" },
+    transfer_scope: { included_assets: [{ type: "repository", description: "Source code" }], excluded_assets: [], access_and_credentials: { transfer_method: "Test-only handover" }, third_party_dependencies: [], intellectual_property: { declaration: "Test-only" }, data_and_privacy: { scope: "No personal data" } },
+    delivery: { deadline: "2027-01-01T00:00:00Z", checklist: ["Transfer repository"] },
+    inspection: { window: "5 days", acceptance_criteria: ["Access delivered"] },
+    dispute: { procedure_version: "test-v1", text: "Synthetic dispute text for automated tests only" },
+    escrow: { funding_condition: "Test Safe funding condition", release_condition: "Test release condition", dispute_hold: true },
+    governing_terms: { governing_law: "Synthetic law text for automated tests", venue_or_process: "Synthetic process for automated tests", language: "English" },
+    risk_acknowledgements: ["Audit is limited to scanned commit"], disclosures: [],
+    created_at: "2026-11-07T00:00:00Z", expires_at: "2026-11-08T00:00:00Z",
+  };
+  const statusTermsHash = await hashW3MAcquisitionTermsV1(canonicalTerms);
   const rows: Record<string, Array<Record<string, unknown>>> = {
     deals: [{ id: DEAL_ID, buyer_id: USER_ID, seller_id: sellerId, project_id: PROJECT_ID, status: "pending", dispute_status: "none" }],
     w3m_acquisition_terms_versions: [{
       id: "75000000-0000-4000-8000-000000000005", deal_id: DEAL_ID, terms_version: 2,
-      terms_hash: TERMS_HASH, canonical_terms_json: { schema: "w3m-acquisition-terms-v1", terms_version: 2 },
+      terms_hash: statusTermsHash, canonical_terms_json: canonicalTerms,
       status: "published", published_at: "2026-11-07T00:00:00Z",
     }],
     w3m_agreement_acceptances: [{
       deal_id: DEAL_ID, party_role: "buyer", user_id: USER_ID, terms_version: 2,
-      terms_hash: TERMS_HASH, accepted_at: "2026-11-07T01:00:00Z",
+      terms_hash: statusTermsHash, accepted_at: "2026-11-07T01:00:00Z",
       signature: "0x" + "f".repeat(130), nonce: "private-nonce",
     }],
   };
@@ -127,7 +146,7 @@ Deno.test("status action exposes only participant-scoped current terms and accep
       body.result?.acceptances?.buyer?.accepted !== true ||
       body.result?.acceptances?.seller?.accepted !== false ||
       body.result?.both_accepted !== false ||
-      body.result?.current_terms?.terms_hash !== TERMS_HASH) {
+      body.result?.current_terms?.terms_hash !== statusTermsHash) {
     throw new Error("Participant status response did not report the exact published terms and acceptance state");
   }
   const serialized = JSON.stringify(body);
