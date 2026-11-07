@@ -85,6 +85,19 @@ Deno.test("rejects a repository that differs from the authoritative project list
   assertEquals((calls as {name:string}[]).map(x=>x.name), ["w3m_read_deal_audit_snapshot_context"]);
 });
 
+Deno.test("rejects Code Audit scores outside the 0–100 range before persistence", async () => {
+  for (const score of [-1, 101]) {
+    const calls: unknown[] = [];
+    await assertRejects(() => prepareDealAuditSnapshot(
+      client(calls),
+      source({...audit, overall_score:score}),
+      dealId,
+      "83000000-0000-4000-8000-000000000003",
+    ));
+    assertEquals((calls as {name:string}[]).map(x=>x.name), ["w3m_read_deal_audit_snapshot_context"]);
+  }
+});
+
 Deno.test("rejects a completed audit owned by another project before persistence", async () => {
   const calls: unknown[] = [];
   await assertRejects(() => prepareDealAuditSnapshot(
