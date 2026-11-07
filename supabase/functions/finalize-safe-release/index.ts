@@ -41,6 +41,7 @@ Deno.serve(async req=>{
  const {data:policy}=await sb.from("deal_release_policies").select("*").eq("deal_id",dealId).maybeSingle();
  if(!tx||!policy)return json(409,{ok:false,error:"Release records missing"});
  if(!policy.safe_address||!deal.safe_address||norm(policy.safe_address)!==norm(deal.safe_address)||Number(policy.chain_id)!==CHAIN)return json(409,{ok:false,error:"Release policy Safe or chain does not match the deal"});
+ if(!tx.safe_address||norm(tx.safe_address)!==norm(policy.safe_address))return json(409,{ok:false,error:"Prepared Safe transaction address does not match the release policy"});
  if(!["signed","submitted","confirmed"].includes(String(tx.status))||Number(tx.confirmations_count)<2)return json(409,{ok:false,error:"Two Safe signatures are required and the transaction must be signed or submitted"});
  if(String(deal.release_tx_hash||"") && String(deal.release_tx_hash).toLowerCase()!==txHash.toLowerCase())return json(409,{ok:false,error:"A different release transaction is already finalized"});
  if(String(tx.tx_hash||"") && String(tx.tx_hash).toLowerCase()!==txHash.toLowerCase())return json(409,{ok:false,error:"Submitted transaction hash does not match the stored release transaction"});
