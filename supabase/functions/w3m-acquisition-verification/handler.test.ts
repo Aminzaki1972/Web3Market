@@ -193,7 +193,7 @@ Deno.test("prepare action derives role, wallet, audit binding, and published ter
   const handler = createW3MAcquisitionHandler(deps);
   const response = await handler(makeRequest({ action: "prepare", deal_id: DEAL_ID, wallet_address: wallet.address }));
   const body = await response.json();
-  if (response.status !== 200 || body.ok !== true) throw new Error("Preparation failed: " + JSON.stringify(body));
+  if (response.status !== 200 || body.ok !== true) throw new Error("Preparation failed: " + JSON.stringify(body) + " RPC calls: " + JSON.stringify(calls));
   const prepared = body.result;
   if (prepared.dealId !== DEAL_ID || prepared.partyRole !== "buyer" || prepared.walletAddress !== wallet.address ||
     prepared.termsHash !== termsHash || prepared.termsVersion !== "2" || prepared.challengeId !== CHALLENGE_ID ||
