@@ -37,6 +37,17 @@ function exceedsOneHundred(value: string): boolean {
   const integer = BigInt(whole);
   return integer > 100n || (integer === 100n && /[1-9]/.test(fraction));
 }
+
+// Exact base-10 arithmetic for monetary invariants. No JS floating-point math.
+function decimalToMinor(value: string, scale: number): bigint {
+  const [whole, fraction = ""] = value.split(".");
+  if (fraction.length > scale) fail("Monetary values must use the same declared precision.");
+  return BigInt(whole) * (10n ** BigInt(scale)) + BigInt((fraction + "0".repeat(scale)).slice(0, scale) || "0");
+}
+function decimalSumEquals(a: string, b: string, expected: string): boolean {
+  const scale = Math.max(a.split(".")[1]?.length ?? 0, b.split(".")[1]?.length ?? 0, expected.split(".")[1]?.length ?? 0);
+  return decimalToMinor(a, scale) + decimalToMinor(b, scale) === decimalToMinor(expected, scale);
+}
 function iso(value: unknown, label: string): string {
   const v = requiredString(value, label);
   if (!ISO_DATE.test(v) || !Number.isFinite(Date.parse(v))) fail(label + " must be a UTC ISO-8601 timestamp.");
@@ -99,13 +110,17 @@ export function validateW3MAcquisitionTermsV1(input: unknown): asserts input is 
   const fee = object(root.platform_fee, "platform_fee");
   const feePercent = decimal(fee.percent, "platform_fee.percent");
   if (exceedsOneHundred(feePercent)) fail("platform_fee.percent cannot exceed 100.");
-  decimal(fee.amount, "platform_fee.amount");
+  const feeAmount = decimal(fee.amount, "platform_fee.amount");
 
   const net = object(root.seller_net, "seller_net");
-  decimal(net.amount, "seller_net.amount");
+  const netAmount = decimal(net.amount, "seller_net.amount");
+  positiveDecimal(netAmount, "seller_net.amount");
   const netCurrency = requiredString(net.currency, "seller_net.currency");
   const considerationCurrency = requiredString(consideration.currency, "consideration.currency");
   if (netCurrency !== considerationCurrency) fail("seller_net.currency must match consideration.currency unless an explicit conversion schedule is added.");
+  if (!decimalSumEquals(feeAmount, netAmount, amount)) {
+    fail("platform_fee.amount plus seller_net.amount must equal consideration.amount exactly.");
+  }
 
   const payment = object(root.payment, "payment");
   if (payment.method !== "safe_multisig") fail("payment.method must explicitly identify the Safe multisig method.");
