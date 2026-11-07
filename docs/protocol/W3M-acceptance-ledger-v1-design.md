@@ -234,3 +234,21 @@ A read-only lookup for a public SQL function named `act_on_marketplace_offer` re
 6. Add integration and concurrency tests for the actual database transaction and Safe gate before deployment.
 
 No production database migration, function deployment, Safe action, or financial transfer was performed.
+
+
+## 10. Live Edge Function path review (read-only, 2026-11-07)
+
+The active Supabase Edge Functions were inspected without invoking their business operations or changing their deployments.
+
+- `create-safe` authenticates the caller and checks that `deals.status = 'accepted'`, then proceeds with Safe deployment and records the Safe address/policy. The inspected function does not check for a persisted W3M EIP-712 buyer/seller acceptance pair or a W3M audit fingerprint binding before deployment.
+- `prepare-deal-release` performs participant, dispute, payment, verified-wallet, Safe-owner/threshold, and release-policy checks. Its inspected source does not check a W3M acceptance ledger.
+- `prepare-safe-release-tx`, `record-safe-release-signature`, `execute-safe-release`, and `finalize-safe-release` perform Safe transaction, signer, nonce, receipt, and token-transfer checks in their respective stages. Their inspected source did not show a W3M EIP-712 acceptance-pair gate.
+- `finalize-safe-release` verifies Safe execution success and exact seller/platform token transfers before recording completion. This is valuable settlement evidence, but it is not a substitute for pre-deployment agreement verification.
+
+### Consequence for V1
+The protocol acceptance gate must be integrated into the earliest relevant server-side path, especially `create-safe`, and rechecked at the release preparation/finalization boundary. The acceptance pair must be loaded from trusted append-only storage and matched to the current deal, participants, terms version/hash, fingerprint, and binding. Until those integrations are implemented and tested in an isolated branch, the W3M protocol must remain non-production and the existing live flow must not be described as enforcing the new protocol.
+
+### Terms snapshot finding
+The live `public.deal_terms` table has a single `terms_snapshot jsonb` field, acknowledgement timestamps, deadlines, and created/updated timestamps; the inspected schema has no explicit terms version or terms hash. Its only listed RLS policy is participant SELECT. This does not establish immutable version history. The snapshot writer and all update paths must be traced before canonicalization; V1 must add its own versioned immutable terms record rather than assume the current mutable JSON is already a signed contract.
+
+No live Edge Function was invoked, updated, or redeployed during this inspection.
