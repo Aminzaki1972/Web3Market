@@ -98,7 +98,9 @@ A review of `js/deal-room.js` on this branch found that the current Deal Room:
 - Reads `deal_party_agreements` using only `party_role`, `party_id`, and `agreed_at`.
 - Writes acceptance through a browser-side Supabase `upsert` keyed by `deal_id,party_role,party_id`.
 - Displays a fixed dispute-resolution notice, but the inspected flow does not load a canonical, versioned acquisition-terms document or compute a terms hash before that upsert.
-- Uses `deals.status === 'accepted'` as a precondition for Safe deployment, so the existing acceptance/status transition must be traced before changing any acceptance semantics.
+- Uses `deals.status === 'accepted'` as a precondition for Safe deployment and checkout auto-deploys Safe for that status.
+- The inspected `js/offer-form-fix.js` creates a `deals` row with `status: 'pending'`; `js/offer-actions.js` delegates offer acceptance to the database RPC `act_on_marketplace_offer`. Its implementation and exact transition rules were not located in the reviewed source files.
+- The inspected `js/deal-checkout.js` reads the deal and triggers `create-safe` when status is `accepted`; it does not verify an EIP-712 acceptance pair before that Safe deployment call.
 
 Consequences:
 - The current timestamp row is a legacy UI acknowledgement only. It must not be treated as an EIP-712 signature or silently upgraded into cryptographic proof.
@@ -108,11 +110,12 @@ Consequences:
 
 ## 8. Revised implementation gates
 
-1. Identify the authoritative deal-terms source and any existing deal status transitions that set `accepted`.
-2. Define and review canonical terms V1 as an immutable server-owned artifact, including versioning and change policy.
-3. Inspect the exact database constraints and grants for `deal_party_agreements`, `deals`, profiles, and the private schema permissions before proposing migration SQL.
-4. Implement the atomic acceptance transaction in an isolated database only, with lock/unique-constraint concurrency tests and exact idempotent retry semantics.
-5. Integrate the server endpoint behind a disabled feature flag; do not wire the live Deal Room or Safe flow until legacy/new acceptance semantics and rollback are reviewed.
+1. Retrieve and review the database definition of `act_on_marketplace_offer` and the exact trigger/RPC path that sets `deals.status = 'accepted'`; confirm all callers and privilege grants.
+2. Trace the checkout-to-Safe path and specify a server-side cryptographic finalization gate before any new acceptance can authorize Safe deployment.
+3. Define and review canonical terms V1 as an immutable server-owned artifact, including versioning and change policy.
+4. Inspect the exact database constraints and grants for `deal_party_agreements`, `deals`, profiles, and the private schema permissions before proposing migration SQL.
+5. Implement the atomic acceptance transaction in an isolated database only, with lock/unique-constraint concurrency tests and exact idempotent retry semantics.
+6. Integrate the server endpoint behind a disabled feature flag; do not wire the live Deal Room or Safe flow until legacy/new acceptance semantics and rollback are reviewed.
 
 ## 9. Deployment gate
 
