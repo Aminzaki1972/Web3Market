@@ -45,7 +45,7 @@ jobs:
           create schema auth;
           create function auth.jwt() returns jsonb
             language sql stable
-            as $auth$ select jsonb_build_object('role', current_setting('request.jwt.claim.role', true)) $auth$;
+            as $auth$ select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $auth$;
           create table public.deals (
             id uuid primary key, project_id uuid not null, buyer_id uuid not null,
             seller_id uuid not null, status text not null, dispute_status text not null
@@ -67,7 +67,7 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
-          set request.jwt.claim.role = 'service_role';
+          set request.jwt.claims = '{"role":"service_role"}';
           do $$
           declare
             v_deal uuid := '71000000-0000-4000-8000-000000000001';
@@ -280,7 +280,7 @@ jobs:
           FINGERPRINT_ID='74000000-0000-4000-8000-000000000004'
           SELLER_ID='76000000-0000-4000-8000-000000000006'
           SELLER_WALLET='0x2222222222222222222222222222222222222222'
-          CHALLENGE_ID=$(psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -Atq -c "set request.jwt.claim.role='service_role'; select public.w3m_issue_agreement_challenge('$DEAL_ID','$PROJECT_ID','$AUDIT_ID','$FINGERPRINT_ID',repeat('a',64),repeat('b',64),repeat('2',64),2,'seller','$SELLER_ID','$SELLER_WALLET','0x' || repeat('6',64),extract(epoch from clock_timestamp())::bigint+600);")
+          CHALLENGE_ID=$(psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -Atq -c "set request.jwt.claims='{"role":"service_role"}'; select public.w3m_issue_agreement_challenge('$DEAL_ID','$PROJECT_ID','$AUDIT_ID','$FINGERPRINT_ID',repeat('a',64),repeat('b',64),repeat('2',64),2,'seller','$SELLER_ID','$SELLER_WALLET','0x' || repeat('6',64),extract(epoch from clock_timestamp())::bigint+600);")
           test -n "$CHALLENGE_ID"
 
           psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 > /tmp/w3m-lock-a.log 2>&1 <<'SQL' &
@@ -297,7 +297,7 @@ jobs:
           sleep 0.1
 
           psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<SQL
-          set request.jwt.claim.role='service_role';
+          set request.jwt.claims='{"role":"service_role"}';
           begin;
           select id from w3m_private.w3m_agreement_challenges
             where id='$CHALLENGE_ID' for update;
