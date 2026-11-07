@@ -2,6 +2,27 @@
 -- This file runs only against the disposable PostgreSQL database in CI.
 begin;
 
+-- PASS reports require a registered active signer, including in this SQL contract test.
+-- This is a public test key fixture only; no private key or secret is stored.
+select public.w3m_register_trusted_signer_key(
+  jsonb_build_object(
+    'key_id','test-signer-v1',
+    'algorithm','ECDSA_SECP256K1_KECCAK256_RAW_DIGEST',
+    'public_address','0x1111111111111111111111111111111111111111',
+    'valid_from',(clock_timestamp()-interval '1 day')::text,
+    'valid_until',(clock_timestamp()+interval '1 day')::text,
+    'created_by','ci-test'
+  ),
+  jsonb_build_object(
+    'key_id','test-signer-v1',
+    'event_type','ACTIVATED',
+    'actor_type','SYSTEM',
+    'actor_ref','ci-test',
+    'reason','agreement acceptance fixture',
+    'event_hash',repeat('f',64)
+  )
+);
+
 do $test$
 declare
   v_deal uuid := '81000000-0000-4000-8000-000000000001';
