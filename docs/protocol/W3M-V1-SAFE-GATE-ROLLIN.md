@@ -64,3 +64,21 @@ The canonical-terms validator currently requires an `escrow` JSON section for fu
 ## Canonical terms content still requiring approval
 
 The validator intentionally rejects placeholder policy text. Before any real party can sign, the authoritative V1 terms must contain approved values for delivery checklist/deadline, inspection window and acceptance criteria, dispute procedure/version, Safe funding and release conditions, dispute hold, governing law or agreed process, venue, language, risk acknowledgements, and disclosures. These values must not be guessed or silently populated from UI copy. No canonical terms have been published by this branch.
+
+## Deal Room integration contract — source review 2026-11-07
+
+The Deal Room integration must not treat the legacy `deal_party_agreements` table as V1 acceptance evidence. The V1 client coordinator can prepare and submit a typed-data signature, but the current Edge Function response contract does not expose a read-only acceptance-status action for the other party. The private acceptance ledger is intentionally inaccessible to browser roles.
+
+Required V1 integration sequence:
+
+1. The page obtains the authenticated Supabase access token and the already verified profile wallet. It must not accept a wallet address supplied only by page state as authoritative.
+2. Before signing, the page obtains the exact published canonical terms for the deal from a trusted server response and displays the complete terms/version/hash to the participant. No client-side invention or defaulting of policy fields is permitted.
+3. The page invokes `prepare`; the server derives the buyer/seller role, verified wallet, immutable audit binding, and currently published terms. The page validates the returned typed-data domain and every binding before opening the wallet signature request.
+4. The page invokes `accept` with the persisted challenge ID and signature. It displays success only after the server confirms the persisted acceptance ID.
+5. A read-only server action is required to expose the two parties' acceptance states and their common terms version/hash without granting browser access to private protocol tables. This action must be authorization-scoped to deal participants (and the permitted platform moderator view), return no private signature material, and be tested for cross-deal isolation.
+6. The Deal Room must distinguish legacy historical agreement rows from V1 cryptographic acceptances. It must not dual-write a legacy row and then present that row as a V1 signature.
+7. Safe creation, release preparation, signature recording, execution, and finalization remain blocked unless the server-side V1 finalization gate independently confirms the exact current buyer/seller acceptance pair and all existing Safe/payment/delivery/dispute checks.
+
+The current V1 browser coordinator's request/response shapes match the existing `prepare` and `accept` handler shapes in source review. This does not establish a complete page integration: the HTML page does not load the coordinator, the Deal Room still uses the legacy agreement table, there is no read-only acceptance-status action, and the page does not yet render the authoritative canonical terms. These are explicit V1 integration tasks.
+
+No production files, database records, Edge Functions, secrets, or DNS were changed by this review. No paid environment or service was used.
