@@ -164,18 +164,18 @@ begin
   end if;
 
   if not exists (
-    select 1 from public.w3m_audit_fingerprints f
+    select 1
+    from public.w3m_audit_fingerprints f
+    join public.w3m_deal_audit_bindings b
+      on b.audit_id = f.audit_id
+     and b.fingerprint_id = f.id
+     and b.fingerprint_digest = f.fingerprint_digest
+     and b.repository = f.repository
+     and b.commit_sha = f.commit_sha
     where f.audit_id = p_audit_id and f.id = p_fingerprint_id
       and f.fingerprint_digest = p_fingerprint_digest
-  ) then
-    raise exception 'trusted_audit_fingerprint_not_found' using errcode = '23503';
-  end if;
-
-  if not exists (
-    select 1 from public.w3m_deal_audit_bindings b
-    where b.deal_id = p_deal_id and b.project_id = p_project_id
-      and b.audit_id = p_audit_id and b.fingerprint_id = p_fingerprint_id
-      and b.fingerprint_digest = p_fingerprint_digest and b.binding_hash = p_binding_hash
+      and b.deal_id = p_deal_id and b.project_id = p_project_id
+      and b.binding_hash = p_binding_hash
   ) then
     raise exception 'trusted_deal_audit_binding_not_found' using errcode = '23503';
   end if;
