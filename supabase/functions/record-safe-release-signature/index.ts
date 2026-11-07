@@ -7,6 +7,15 @@ const cors={"Access-Control-Allow-Origin":"https://web3market.xyz","Access-Contr
 const ZERO=ethers.ZeroAddress;
 function json(status:number,body:unknown){return new Response(JSON.stringify(body),{status,headers:{...cors,"content-type":"application/json"}})}
 function norm(a:string){return ethers.getAddress(a).toLowerCase()}
+const TERMINAL_DISPUTE_STATES = new Set(["", "none", "resolved", "closed", "dismissed", "rejected", "cancelled", "canceled", "withdrawn"]);
+async function checkDisputeState(db: any, deal: any, dealId: string): Promise<"clear" | "open" | "unknown"> {
+ const state=String(deal?.dispute_status??"").trim().toLowerCase();
+ if(!TERMINAL_DISPUTE_STATES.has(state))return "open";
+ const {data,error}=await db.from("deal_disputes").select("status").eq("deal_id",dealId);
+ if(error)return "unknown";
+ if((data||[]).some((row:any)=>!TERMINAL_DISPUTE_STATES.has(String(row?.status||"open").trim().toLowerCase())))return "open";
+ return "clear";
+}
 Deno.serve(async(req)=>{
  if(req.method==="OPTIONS") return new Response(null,{status:204,headers:cors});
  if(req.method!=="POST") return json(405,{ok:false,error:"POST required"});
@@ -21,6 +30,8 @@ Deno.serve(async(req)=>{
  if(deal.buyer_id!==u.user.id&&deal.seller_id!==u.user.id)return json(403,{ok:false,error:"Not a participant"});
  try {
   await assertW3MFinalizationReady(sb, dealId);
+ const disputeState=await checkDisputeState(sb,deal,dealId);
+ if(disputeState!=="clear")return json(409,{ok:false,error:disputeState==="open"?"Release signatures are blocked while a dispute is open":"Unable to verify dispute status; signature recording blocked",code:disputeState==="open"?"DEAL_DISPUTE_OPEN":"DISPUTE_STATUS_UNAVAILABLE"});
  } catch (error) {
   return json(409,{ok:false,error:"W3M V1 buyer and seller agreement acceptance is required before recording Safe signatures",code:error instanceof W3MFinalizationGateError?error.code:"W3M_FINALIZATION_EVIDENCE_UNAVAILABLE"});
  }
