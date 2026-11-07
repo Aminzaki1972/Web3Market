@@ -57,6 +57,7 @@ jobs:
             id uuid primary key, project_id uuid not null, status text not null,
             repo_owner text not null, repo_name text not null, commit_sha text not null
           );
+          grant select, insert, update on public.deals, public.profiles, public.code_audits to service_role;
           SQL
       - name: Apply W3M V1 ledger migration
         env:
