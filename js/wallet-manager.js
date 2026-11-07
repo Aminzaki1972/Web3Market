@@ -326,8 +326,47 @@
     return openWalletRoute(route.app, route.fallback, notice);
   }
 
+  // Sign only typed data for the already verified profile wallet. This path
+  // never submits a transaction and never silently switches the active account.
+  async function signTypedDataForVerifiedWallet(walletAddress, typedData) {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(String(walletAddress || ""))) {
+      throw new Error("A valid verified wallet address is required.");
+    }
+    if (!typedData || typeof typedData !== "object" || Array.isArray(typedData)) {
+      throw new Error("Validated EIP-712 typed data is required.");
+    }
+    var route = getLinkedWalletForAddress(walletAddress);
+    if (!route) throw new Error("The wallet provider route for this verified address is unavailable. Reconnect the verified wallet first.");
+    var walletRow = listWallets().find(function (row) {
+      return String(row.name).toLowerCase() === String(route).toLowerCase();
+    });
+    var provider = walletRow && walletRow.provider;
+    if (!provider || typeof provider.request !== "function") {
+      throw new Error("The provider linked to the verified wallet is not available in this browser.");
+    }
+    var accounts = await provider.request({method:"eth_accounts"});
+    var selected = accounts && accounts[0];
+    if (!/^0x[a-fA-F0-9]{40}$/.test(String(selected || "")) ||
+        selected.toLowerCase() !== walletAddress.toLowerCase()) {
+      throw new Error("The active wallet account does not match your verified Web3Market profile wallet.");
+    }
+    var chainId = await provider.request({method:"eth_chainId"});
+    if (Number.parseInt(String(chainId), 16) !== 56) {
+      throw new Error("Switch your wallet to BNB Smart Chain (56) before signing the agreement.");
+    }
+    var signature = await provider.request({
+      method:"eth_signTypedData_v4",
+      params:[walletAddress, JSON.stringify(typedData)]
+    });
+    if (typeof signature !== "string" || !/^0x[a-fA-F0-9]{130}$/.test(signature)) {
+      throw new Error("The wallet returned an invalid EIP-712 signature.");
+    }
+    return signature;
+  }
+
   window.Web3MarketWalletManager = {
     connectAndVerify: connectAndVerify,
+    signTypedDataForVerifiedWallet: signTypedDataForVerifiedWallet,
     listWallets: listWallets,
     getDetected: getDetected,
     getLinkedWalletName: getLinkedWalletName,
