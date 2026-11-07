@@ -61,7 +61,8 @@ jobs:
       - name: Apply W3M V1 ledger migration
         env:
           PGPASSWORD: postgres
-        run: psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql
           psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
           grant update on w3m_private.w3m_audit_fingerprints,
             w3m_private.w3m_acquisition_terms_versions,
