@@ -82,6 +82,11 @@ Deno.serve(async req=>{
       return json(409,{ok:false,error:"Stale Safe release transaction: operation must be DELEGATECALL (1). Prepare a new release transaction first"});
     if(String(deal.release_tx_hash||"")) return json(409,{ok:false,error:"Release already finalized"});
 
+    if(String(deal.delivery_status||"").toLowerCase()!=="accepted"||!deal.buyer_approved_at)return json(409,{ok:false,transaction_sent:false,error:"Delivery is not accepted"});
+    if(String(deal.payment_status||"").toLowerCase()!=="confirmed"||!deal.payment_tx_hash)return json(409,{ok:false,transaction_sent:false,error:"Buyer payment is not confirmed"});
+    const {data:policy}=await sb.from("deal_release_policies").select("*").eq("deal_id",dealId).maybeSingle();
+    if(!policy) return json(409,{ok:false,error:"Release policy not found"});
+    if(String(policy.status||"").toLowerCase()!=="locked")return json(409,{ok:false,transaction_sent:false,error:"Release policy is not locked"});
     const {data:policy}=await sb.from("deal_release_policies").select("*").eq("deal_id",dealId).maybeSingle();
     if(!policy) return json(409,{ok:false,error:"Release policy not found"});
 
