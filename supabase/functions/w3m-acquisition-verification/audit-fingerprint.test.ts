@@ -73,6 +73,14 @@ Deno.test("array order is significant because manifest evidence order is explici
   }
 });
 
+Deno.test("rejects sparse arrays instead of producing invalid canonical JSON", async () => {
+  const sparse = new Array(2);
+  sparse[1] = "present";
+  await assertRejects(() => computeW3MAuditFingerprint({
+    ...base, manifest: { files: sparse },
+  }));
+});
+
 Deno.test("rejects non-plain objects in the manifest", async () => {
   await assertRejects(() => computeW3MAuditFingerprint({
     ...base, manifest: { generatedAt: new Date("2026-11-07T00:00:00.000Z") },
