@@ -110,3 +110,15 @@ Deno.test("rejects sparse arrays, undefined, non-finite values, and cycles", () 
   circular.loop = circular;
   assertThrows(() => validateW3MAcquisitionTermsV1(circular));
 });
+
+Deno.test("rejects fee percentages above 100 without floating-point rounding", () => {
+  const invalid = fixture();
+  invalid.platform_fee.percent = "100.00000000000000000000000000000001";
+  assertThrows(() => validateW3MAcquisitionTermsV1(invalid));
+});
+
+Deno.test("rejects a seller net currency mismatch", () => {
+  const invalid = fixture();
+  invalid.seller_net.currency = "BNB";
+  assertThrows(() => validateW3MAcquisitionTermsV1(invalid));
+});
