@@ -129,6 +129,14 @@ jobs:
               v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
               v_terms_hash,1,'buyer',v_user,v_wallet,v_nonce,v_deadline
             );
+            if not exists (
+              select 1 from public.w3m_get_agreement_challenge_for_verification(v_challenge) c
+              where c.user_id=v_user and c.party_role='buyer'
+                and c.deal_id=v_deal and c.terms_version=1 and c.nonce=v_nonce
+            ) then
+              raise exception 'trusted_challenge_lookup_mismatch';
+            end if;
+
             perform public.w3m_record_agreement_acceptance(
               v_challenge,v_user,'buyer',v_wallet,v_wallet,v_signature,clock_timestamp()
             );
@@ -327,7 +335,10 @@ jobs:
               or has_function_privilege('authenticated','public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz)','execute')
               or not has_function_privilege('service_role','public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)','execute')
               or not has_function_privilege('service_role','public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint)','execute')
-              or not has_function_privilege('service_role','public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz)','execute') then
+              or has_function_privilege('anon','public.w3m_get_agreement_challenge_for_verification(uuid)','execute')
+              or has_function_privilege('authenticated','public.w3m_get_agreement_challenge_for_verification(uuid)','execute')
+              or not has_function_privilege('service_role','public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz)','execute')
+              or not has_function_privilege('service_role','public.w3m_get_agreement_challenge_for_verification(uuid)','execute') then
               raise exception 'browser_role_has_protocol_table_privileges';
             end if;
           end;
