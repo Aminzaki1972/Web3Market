@@ -267,3 +267,16 @@ A further read-only schema review was completed before proposing any migration. 
 ### Implementation decision
 
 The exact table and function design is now sufficiently grounded to write a migration draft on the feature branch, but it is **not** approved for application to the connected production database. Before creating that draft, the remaining design review must settle retention/deletion behavior for audits, projects, deals, and accounts, and inspect the full deal-terms mutation path to confirm how revised terms are represented. No migration, SQL write, Edge Function deployment, or production data change has been performed.
+
+
+## 19. Canonical deal-terms blocker found in the live flow (2026-11-07)
+
+A final read-only check of the live data and Deal Room source found a prerequisite that must be resolved before implementing `prepare` / `accept`:
+
+- The connected production database currently has 2 deal rows, 0 `deal_terms` rows, 2 `deal_party_agreements` timestamp rows, and 0 deals currently marked disputed or under active dispute review. This was an aggregate count only; no deal content was read or changed.
+- The current `js/deal-room.js` `renderTerms()` renders a fixed “Dispute Resolution — Model B” notice and writes only `deal_party_agreements.agreed_at`. It does not load a `deal_terms.terms_snapshot`, and no `deal_terms` / `terms_snapshot` references were found in the current main-branch Deal Room or checkout JavaScript.
+- The table and JSONB column exist in the database, but there are no rows today. Therefore the protocol currently has no populated canonical terms snapshot to hash and sign. A server endpoint must not hash an invented/default empty object, nor treat the generic UI notice as the full commercial agreement.
+
+**Gate before the Edge Function:** define the authoritative acquisition agreement payload and its lifecycle. It must specify which server-owned values are included (at minimum deal/project identity, buyer and seller IDs, asset/scope being transferred, consideration and currency, platform fee, payment/escrow conditions, delivery obligations, inspection/acceptance, dispute procedure, and governing terms/version). The server must create or load this snapshot from trusted deal/project data, validate required fields, and persist the first version before issuing any EIP-712 challenge. Any revision must create a new version and invalidate outstanding challenges for older versions.
+
+Until that canonical terms source exists and is populated, the EIP-712 primitive can be tested in isolation, but a live acceptance endpoint would sign a digest without a trustworthy legal/commercial document behind it. This is a **hard implementation blocker**, not a reason to bypass the gate. No live deal rows, terms, timestamp agreements, or payment/escrow state were changed.
