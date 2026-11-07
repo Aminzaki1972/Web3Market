@@ -89,24 +89,10 @@ function makeDeps(
   };
 }
 
-Deno.test("challenge action persists server nonce before returning EIP-712 typed data", async () => {
-  const wallet = new Wallet("0x" + "1".repeat(64));
-  let stored: ReturnType<typeof challengeRow> | null = null;
-  const { deps, calls } = makeDeps(async (name, args) => {
-    if (name === "w3m_issue_agreement_challenge") {
-      stored = {
-        ...challengeRow(wallet.address),
-        nonce: String(args.p_nonce),
-        signature_deadline: Number(args.p_signature_deadline),
-      };
-      return { data: CHALLENGE_ID, error: null };
-    }
-    if (name === "w3m_get_agreement_challenge_for_verification") {
-      return { data: stored ? [stored] : [], error: null };
-    }
-    throw new Error("Unexpected RPC " + name);
-  }, { randomBytes: (length) => new Uint8Array(length).fill(0xab) });
-
+Deno.test("legacy caller-supplied challenge action is retired", async () => {
+  const { deps, calls } = makeDeps(async () => {
+    throw new Error("Retired challenge action must not reach persistence RPCs");
+  });
   const handler = createW3MAcquisitionHandler(deps);
   const response = await handler(makeRequest({
     action: "challenge",
@@ -119,21 +105,13 @@ Deno.test("challenge action persists server nonce before returning EIP-712 typed
     terms_hash: TERMS_HASH,
     terms_version: "2",
     party_role: "buyer",
-    wallet_address: wallet.address,
+    wallet_address: "0x" + "1".repeat(40),
   }));
   const body = await response.json();
-
-  if (response.status !== 200 || body.ok !== true) throw new Error("Challenge failed: " + JSON.stringify(body));
-  if (body.challenge_id !== CHALLENGE_ID) throw new Error("Challenge ID mismatch");
-  if (body.typed_data.message.nonce !== "0x" + "ab".repeat(32)) throw new Error("Nonce was not generated server-side");
-  if (calls.map((call) => call.name).join(",") !==
-    "w3m_issue_agreement_challenge,w3m_get_agreement_challenge_for_verification") {
-    throw new Error("Challenge must be persisted and then reloaded before typed data is returned");
+  if (response.status !== 410 || body.ok !== false) {
+    throw new Error("Legacy challenge action must be explicitly retired");
   }
-  const issueArgs = calls[0].args;
-  if (issueArgs.p_user_id !== USER_ID || issueArgs.p_nonce !== body.typed_data.message.nonce) {
-    throw new Error("Authenticated user or server nonce was not bound to the database challenge");
-  }
+  if (calls.length !== 0) throw new Error("Retired challenge action reached a persistence RPC");
 });
 
 Deno.test("prepare action derives role, wallet, audit binding, and published terms from trusted storage", async () => {
