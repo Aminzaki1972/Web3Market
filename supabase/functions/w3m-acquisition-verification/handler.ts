@@ -718,7 +718,17 @@ export function createW3MAcquisitionHandler(deps: HandlerDependencies) {
         if (typeof acceptanceId !== "string" || !UUID.test(acceptanceId)) {
           return reply(origin, { ok: false, error: "Acceptance persistence could not be confirmed" }, 503);
         }
-        return reply(origin, { ok: true, acceptance_id: acceptanceId });
+        return reply(origin, {
+          ok: true,
+          acceptance_id: acceptanceId,
+          result: {
+            dealId: row.deal_id,
+            partyRole: row.party_role,
+            termsVersion: String(row.terms_version),
+            acceptanceId,
+            idempotentReplay: false,
+          },
+        });
       }
 
       return reply(origin, { ok: false, error: "Unknown action" }, 400);
