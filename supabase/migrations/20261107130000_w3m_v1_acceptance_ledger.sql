@@ -309,21 +309,65 @@ declare
   v_max_version bigint;
   v_id uuid;
   v_deal public.deals%rowtype;
+  v_binding w3m_private.w3m_deal_audit_bindings%rowtype;
 begin
   if (auth.jwt() ->> 'role') is distinct from 'service_role' then
     raise exception 'service_role_required' using errcode = '42501';
   end if;
   if p_deal_id is null or p_terms_version is null or p_terms_version < 1
     or p_terms_hash is null or p_terms_hash !~ '^[0-9a-f]{64}$'
-    or p_canonical_terms_json is null or p_canonical_terms_json = '{}'::jsonb then
-    raise exception 'invalid_terms_version_parameters' using errcode = '22023';
+    or p_canonical_terms_json is null
+    or jsonb_typeof(p_canonical_terms_json) is distinct from 'object'
+    or p_canonical_terms_json ->> 'schema' is distinct from 'w3m-acquisition-terms-v1'
+    or p_canonical_terms_json ->> 'terms_version' is distinct from p_terms_version::text
+    or jsonb_typeof(p_canonical_terms_json -> 'deal') is distinct from 'object'
+    or jsonb_typeof(p_canonical_terms_json -> 'audit') is distinct from 'object'
+    or jsonb_typeof(p_canonical_terms_json -> 'payment') is distinct from 'object'
+    or jsonb_typeof(p_canonical_terms_json -> 'project') is distinct from 'object'
+    or jsonb_typeof(p_canonical_terms_json -> 'consideration') is distinct from 'object'
+    or jsonb_typeof(p_canonical_terms_json -> 'platform_fee') is distinct from 'object'
+    or jsonb_typeof(p_canonical_terms_json -> 'seller_net') is distinct from 'object'
+    or jsonb_typeof(p_canonical_terms_json -> 'transfer_scope') is distinct from 'object'
+    or jsonb_typeof(p_canonical_terms_json -> 'delivery') is distinct from 'object'
+    or jsonb_typeof(p_canonical_terms_json -> 'inspection') is distinct from 'object'
+    or jsonb_typeof(p_canonical_terms_json -> 'dispute') is distinct from 'object'
+    or jsonb_typeof(p_canonical_terms_json -> 'escrow') is distinct from 'object'
+    or jsonb_typeof(p_canonical_terms_json -> 'governing_terms') is distinct from 'object'
+    or jsonb_typeof(p_canonical_terms_json -> 'risk_acknowledgements') is distinct from 'array'
+    or jsonb_typeof(p_canonical_terms_json -> 'disclosures') is distinct from 'array'
+    or p_canonical_terms_json #>> '{payment,method}' is distinct from 'safe_multisig'
+    or p_canonical_terms_json #>> '{payment,chain_id}' is distinct from '56'
+    or p_canonical_terms_json #>> '{payment,status_at_signing}' is distinct from 'configured_or_pending' then
+    raise exception 'invalid_or_incomplete_canonical_terms_v1' using errcode = '22023';
   end if;
+
   -- Serialize terms publication with acceptance by locking the deal first.
   select * into v_deal from public.deals where id = p_deal_id for update;
   if not found or v_deal.status not in ('pending','accepted')
     or v_deal.dispute_status is distinct from 'none' then
     raise exception 'deal_not_eligible_for_terms_publication' using errcode = '22023';
   end if;
+
+  -- The signed terms must describe this exact deal and its immutable audit binding.
+  select * into v_binding
+    from w3m_private.w3m_deal_audit_bindings
+    where deal_id = p_deal_id
+    for share;
+  if not found then
+    raise exception 'deal_audit_binding_required_before_terms_publication' using errcode = '23503';
+  end if;
+
+  if lower(coalesce(p_canonical_terms_json #>> '{deal,deal_id}','')) <> v_deal.id::text
+    or lower(coalesce(p_canonical_terms_json #>> '{deal,project_id}','')) <> v_deal.project_id::text
+    or lower(coalesce(p_canonical_terms_json #>> '{deal,buyer_id}','')) <> v_deal.buyer_id::text
+    or lower(coalesce(p_canonical_terms_json #>> '{deal,seller_id}','')) <> v_deal.seller_id::text
+    or lower(coalesce(p_canonical_terms_json #>> '{audit,audit_id}','')) <> v_binding.audit_id::text
+    or lower(coalesce(p_canonical_terms_json #>> '{audit,fingerprint_digest}','')) <> v_binding.fingerprint_digest
+    or lower(coalesce(p_canonical_terms_json #>> '{audit,repository}','')) <> v_binding.repository
+    or lower(coalesce(p_canonical_terms_json #>> '{audit,commit_sha}','')) <> v_binding.commit_sha then
+    raise exception 'canonical_terms_do_not_match_deal_parties_or_audit_binding' using errcode = '23503';
+  end if;
+
   if exists (
     select 1 from w3m_private.w3m_agreement_acceptances a
     where a.deal_id = p_deal_id
