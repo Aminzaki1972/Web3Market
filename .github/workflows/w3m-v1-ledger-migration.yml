@@ -175,6 +175,54 @@ jobs:
               '0x2222222222222222222222222222222222222222',
               '0x' || repeat('1',64),v_deadline
             );
+            -- A challenge cannot be accepted after the participant wallet loses verification.
+            v_stale_challenge := public.w3m_issue_agreement_challenge(
+              v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
+              v_terms_hash,1,'seller',
+              '76000000-0000-4000-8000-000000000006'::uuid,
+              '0x2222222222222222222222222222222222222222',
+              '0x' || repeat('3',64),v_deadline
+            );
+            update public.profiles set wallet_verified=false
+              where id='76000000-0000-4000-8000-000000000006'::uuid;
+            begin
+              perform public.w3m_record_agreement_acceptance(
+                v_stale_challenge,
+                '76000000-0000-4000-8000-000000000006'::uuid,
+                'seller',
+                '0x2222222222222222222222222222222222222222',
+                '0x2222222222222222222222222222222222222222',
+                v_signature,clock_timestamp()
+              );
+              raise exception 'expected_wallet_verification_rejection';
+            exception when sqlstate '42501' then null;
+            end;
+            update public.profiles set wallet_verified=true
+              where id='76000000-0000-4000-8000-000000000006'::uuid;
+
+            -- A challenge cannot be accepted after the deal enters dispute.
+            v_stale_challenge := public.w3m_issue_agreement_challenge(
+              v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
+              v_terms_hash,1,'seller',
+              '76000000-0000-4000-8000-000000000006'::uuid,
+              '0x2222222222222222222222222222222222222222',
+              '0x' || repeat('4',64),v_deadline
+            );
+            update public.deals set dispute_status='disputed' where id=v_deal;
+            begin
+              perform public.w3m_record_agreement_acceptance(
+                v_stale_challenge,
+                '76000000-0000-4000-8000-000000000006'::uuid,
+                'seller',
+                '0x2222222222222222222222222222222222222222',
+                '0x2222222222222222222222222222222222222222',
+                v_signature,clock_timestamp()
+              );
+              raise exception 'expected_dispute_state_rejection';
+            exception when sqlstate '42501' then null;
+            end;
+            update public.deals set dispute_status='none' where id=v_deal;
+
             perform public.w3m_publish_acquisition_terms_version(
               v_deal,2,repeat('2',64),'{"schema":"w3m-terms-v1","approved":true,"revision":2}'::jsonb
             );
