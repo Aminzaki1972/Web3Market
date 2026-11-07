@@ -64,3 +64,21 @@ Deno.test("manifest sorts findings deterministically even when primary sort keys
   const b = buildW3MAuditManifest(audit, files, [second, first]);
   assertEquals(a, b);
 });
+
+
+Deno.test("manifest rejects malformed persisted audit identity and out-of-range summary metrics", () => {
+  assertThrows(() => buildW3MAuditManifest({ ...audit, id: "not-a-uuid" }, files, findings));
+  assertThrows(() => buildW3MAuditManifest({ ...audit, repo_owner: "../escape" }, files, findings));
+  assertThrows(() => buildW3MAuditManifest({ ...audit, lines_scanned: -1 }, files, findings));
+  assertThrows(() => buildW3MAuditManifest({ ...audit, security_score: 101 }, files, findings));
+  assertThrows(() => buildW3MAuditManifest({ ...audit, overall_score: Number.NaN }, files, findings));
+  assertThrows(() => buildW3MAuditManifest({ ...audit, files_scanned: 0 }, [], []));
+});
+
+Deno.test("manifest rejects malformed persisted file metadata and incomplete finding fields", () => {
+  assertThrows(() => buildW3MAuditManifest(audit, [{ ...files[0], size_bytes: -1 }, files[1]], findings));
+  assertThrows(() => buildW3MAuditManifest(audit, [{ ...files[0], line_count: 1.5 }, files[1]], findings));
+  assertThrows(() => buildW3MAuditManifest(audit, [{ ...files[0], language: 7 as unknown as string }, files[1]], findings));
+  assertThrows(() => buildW3MAuditManifest(audit, files, [{ ...findings[0], title: "" }]));
+  assertThrows(() => buildW3MAuditManifest(audit, files, [{ ...findings[0], confidence: Number.NaN }]));
+});
