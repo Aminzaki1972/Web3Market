@@ -65,12 +65,55 @@ function sameAddressSet(actual: readonly string[], expected: readonly string[]):
     a.every((value, index) => value === e[index]);
 }
 
-function safeConfigurationMatches(row: DealRoomTermsSnapshotRow, facts: DealRoomLiveSafeFacts): boolean {
-  return facts.chainId === 56 &&
+function verifiedWalletMatches(
+  wallet: unknown,
+  verified: unknown,
+  verifiedAt: unknown,
+  expectedWallet: string,
+  now: string,
+): boolean {
+  if (
+    verified !== "true" ||
+    typeof wallet !== "string" ||
+    !ADDRESS.test(wallet) ||
+    !ADDRESS.test(expectedWallet) ||
+    wallet.toLowerCase() !== expectedWallet.toLowerCase() ||
+    typeof verifiedAt !== "string"
+  ) return false;
+  const verifiedAtMs = Date.parse(verifiedAt);
+  const nowMs = Date.parse(now);
+  return Number.isFinite(verifiedAtMs) &&
+    Number.isFinite(nowMs) &&
+    verifiedAtMs <= nowMs;
+}
+
+function safeConfigurationMatches(
+  row: DealRoomTermsSnapshotRow,
+  facts: DealRoomLiveSafeFacts,
+  now: string,
+): boolean {
+  return verifiedWalletMatches(
+      row.buyer_wallet,
+      row.buyer_wallet_verified,
+      row.buyer_wallet_verified_at,
+      facts.expectedBuyerWallet,
+      now,
+    ) &&
+    verifiedWalletMatches(
+      row.seller_wallet,
+      row.seller_wallet_verified,
+      row.seller_wallet_verified_at,
+      facts.expectedSellerWallet,
+      now,
+    ) &&
+    typeof row.policy_seller_wallet === "string" &&
+    row.policy_seller_wallet.toLowerCase() === facts.expectedSellerWallet.toLowerCase() &&
+    row.project_owner_id === row.seller_id &&
+    facts.chainId === 56 &&
     facts.threshold === 2 &&
     facts.version === "1.4.1" &&
     typeof facts.nonce === "string" &&
-    /^(0|[1-9]\d*)$/.test(facts.nonce) &&
+    /^(0|[1-9]\\d*)$/.test(facts.nonce) &&
     facts.nonce === String(row.policy_safe_nonce) &&
     ADDRESS.test(facts.safeAddress) &&
     facts.safeAddress.toLowerCase() === String(row.deal_safe_address).toLowerCase() &&
@@ -83,7 +126,6 @@ function safeConfigurationMatches(row: DealRoomTermsSnapshotRow, facts: DealRoom
       PLATFORM_WALLET,
     ]);
 }
-
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -128,7 +170,7 @@ export async function evaluateDealRoomTermsSnapshotRow(
     codeAudit: input.codeAudit,
     stage: input.stage,
     now: input.now,
-    safeConfigurationMatches: safeConfigurationMatches(row, input.safeFacts),
+    safeConfigurationMatches: safeConfigurationMatches(row, input.safeFacts, input.now),
   }, recoverAndVerify);
 }
 
