@@ -32,6 +32,14 @@ function fail(message: string): never {
   throw new Error(message);
 }
 
+function assertContiguousVersions(versions: Set<number>, maxVersion: number): void {
+  for (let version = 1; version <= maxVersion; version++) {
+    if (!versions.has(version)) {
+      fail("Terms history contains a missing immutable version: " + version + ".");
+    }
+  }
+}
+
 function validateVersion(record: W3MTermsVersionRecord): void {
   if (!UUID.test(record.deal_id)) fail("deal_id must be a UUID.");
   if (!Number.isSafeInteger(record.terms_version) || record.terms_version < 1) {
@@ -75,6 +83,7 @@ export function assertCanAppendW3MTermsVersion(
     maxVersion = Math.max(maxVersion, record.terms_version);
   }
 
+  assertContiguousVersions(seenVersions, maxVersion);
   if (candidate.terms_version !== maxVersion + 1) {
     fail("A published terms version must be the next sequential version.");
   }
@@ -137,6 +146,7 @@ export function buildW3MTermsVersionAppendPlan(
     maxVersion = Math.max(maxVersion, record.terms_version);
     if (record.status === "published") current.push(record);
   }
+  assertContiguousVersions(versions, maxVersion);
   if (current.length > 1) fail("Terms history has more than one published version.");
   if (candidate.terms_version !== maxVersion + 1) fail("A published terms version must be the next sequential version.");
   if (hashes.has(candidate.terms_hash.toLowerCase())) fail("A new version must have a new terms hash.");
