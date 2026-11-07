@@ -96,6 +96,27 @@ Deno.test("rejects identical buyer and seller and invalid expiry", () => {
   assertThrows(() => validateW3MAcquisitionTermsV1(invalidExpiry));
 });
 
+Deno.test("rejects the same buyer and seller UUID with different letter casing", () => {
+  const samePartyDifferentCase = fixture();
+  samePartyDifferentCase.deal.buyer_id = "abcdefab-cdef-4abc-8def-abcdefabcdef";
+  samePartyDifferentCase.deal.seller_id = "ABCDEFAB-CDEF-4ABC-8DEF-ABCDEFABCDEF";
+  assertThrows(() => validateW3MAcquisitionTermsV1(samePartyDifferentCase));
+});
+
+Deno.test("rejects impossible UTC calendar dates and accepts leap days", () => {
+  const impossibleMonthDay = fixture();
+  impossibleMonthDay.delivery.deadline = "2026-02-30T00:00:00Z";
+  assertThrows(() => validateW3MAcquisitionTermsV1(impossibleMonthDay));
+
+  const nonLeapYear = fixture();
+  nonLeapYear.delivery.deadline = "2027-02-29T00:00:00Z";
+  assertThrows(() => validateW3MAcquisitionTermsV1(nonLeapYear));
+
+  const leapYear = fixture();
+  leapYear.delivery.deadline = "2028-02-29T00:00:00Z";
+  validateW3MAcquisitionTermsV1(leapYear);
+});
+
 Deno.test("rejects sparse arrays, undefined, non-finite values, and cycles", () => {
   const sparse = fixture();
   sparse.transfer_scope.included_assets = new Array(2);
