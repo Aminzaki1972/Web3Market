@@ -55,3 +55,12 @@ The source review found that the browser acceptance coordinator is not yet wired
 Therefore the V1 acceptance path is tested in isolation but is **not yet the active Deal Room acceptance path**. Do not enable the new Safe finalization gates in production until the canonical terms are approved, the Deal Room displays the exact terms being signed, the browser client is integrated and tested, and the Edge Function plus migration are deployed in a separately approved release. This is a V1 completion dependency, not authorization to add scope or incur cost.
 
 The migration source review also confirms that protocol RPC execution is revoked from `public`, `anon`, and `authenticated`, then granted only to `service_role`; private protocol tables have RLS enabled and direct client mutation is blocked by grants and immutability triggers. These are source-level findings; the migration remains unapplied to production.
+
+
+## Safe-only wording clarification
+
+The canonical-terms validator currently requires an `escrow` JSON section for funding condition, release condition, and dispute hold. In W3M V1 this section must be interpreted strictly as contractual descriptions of the **Safe Wallet multisig settlement process**. It must not identify, deploy, call, or imply a separate escrow smart contract. Payment method remains `safe_multisig` on BNB Smart Chain (56). Any user-facing terms renderer must say Safe Wallet / Safe multisig, not suggest that Web3Market operates an independent escrow contract.
+
+## Canonical terms content still requiring approval
+
+The validator intentionally rejects placeholder policy text. Before any real party can sign, the authoritative V1 terms must contain approved values for delivery checklist/deadline, inspection window and acceptance criteria, dispute procedure/version, Safe funding and release conditions, dispute hold, governing law or agreed process, venue, language, risk acknowledgements, and disclosures. These values must not be guessed or silently populated from UI copy. No canonical terms have been published by this branch.
