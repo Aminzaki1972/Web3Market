@@ -54,7 +54,7 @@ function decimalSumEquals(a: string, b: string, expected: string): boolean {
 }
 function iso(value: unknown, label: string): string {
   const v = requiredString(value, label);
-  const match = /^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})/.exec(v);
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/.exec(v);
   const parsed = new Date(v);
   if (
     !ISO_DATE.test(v) || !Number.isFinite(parsed.getTime()) || !match ||
