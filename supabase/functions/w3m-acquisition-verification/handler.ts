@@ -522,7 +522,15 @@ async function getAgreementStatus(
     canonical_terms_json: Record<string, unknown>; status: string; published_at: string;
   } | null;
 
-  const readAcceptance = async (role: "buyer" | "seller") => {
+  if (terms) {
+    const computedHash = await hashW3MAcquisitionTermsV1(terms.canonical_terms_json);
+    if (computedHash !== terms.terms_hash ||
+      String(terms.canonical_terms_json?.deal && (terms.canonical_terms_json.deal as Record<string, unknown>).deal_id) !== dealId) {
+      throw Object.assign(new Error("Published terms integrity check failed."), { status: 409 });
+    }
+  }
+
+  const readAcceptance = async (role: "buyer" | "seller", expectedUserId: string) => {
     const { data, error } = await privateDb.from("w3m_agreement_acceptances")
       .select("party_role,user_id,terms_version,terms_hash,accepted_at")
       .eq("deal_id", dealId).eq("party_role", role).maybeSingle();
@@ -533,7 +541,7 @@ async function getAgreementStatus(
     } | null;
     if (!row) return { accepted: false };
     // Never expose signature bytes, challenge IDs, nonces, or wallet metadata.
-    if (row.party_role !== role || row.terms_hash !== terms?.terms_hash ||
+    if (row.party_role !== role || row.user_id !== expectedUserId || row.terms_hash !== terms?.terms_hash ||
       String(row.terms_version) !== String(terms?.terms_version)) {
       return { accepted: false, stale: true };
     }
@@ -541,7 +549,7 @@ async function getAgreementStatus(
   };
 
   const [buyer, seller] = await Promise.all([
-    readAcceptance("buyer"), readAcceptance("seller"),
+    readAcceptance("buyer", deal.buyer_id), readAcceptance("seller", deal.seller_id),
   ]);
   return {
     deal_id: deal.id,
