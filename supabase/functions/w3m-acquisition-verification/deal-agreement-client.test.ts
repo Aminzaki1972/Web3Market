@@ -31,7 +31,7 @@ function prepared(overrides: Record<string, unknown> = {}) {
         ] },
         message: {
           dealId: "0x" + "71000000000040008000000000000001".padStart(64, "0"),
-          fingerprintId: bytes32("1"), fingerprintDigest: bytes32("2"),
+          fingerprintId: "0x" + "74000000000040008000000000000004".padStart(64, "0"), fingerprintDigest: bytes32("1"),
           bindingHash: bytes32("3"), termsHash: bytes32("2"), termsVersion: "3",
           partyRole: 1, wallet, nonce: bytes32("4"), deadline: "1800000300",
         },
