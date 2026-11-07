@@ -463,9 +463,16 @@ async function prepareAgreement(
   );
   if (readError) throw readError;
   const row = oneChallenge(challengeData);
-  if (!row || row.user_id !== userId || row.deal_id !== dealId || row.party_role !== partyRole ||
+  if (!row || row.user_id !== userId || row.deal_id.toLowerCase() !== dealId.toLowerCase() ||
+    row.project_id.toLowerCase() !== deal.project_id.toLowerCase() ||
+    row.audit_id.toLowerCase() !== binding.audit_id.toLowerCase() ||
+    row.fingerprint_id.toLowerCase() !== binding.fingerprint_id.toLowerCase() ||
+    row.fingerprint_digest.toLowerCase() !== binding.fingerprint_digest.toLowerCase() ||
+    row.binding_hash.toLowerCase() !== binding.binding_hash.toLowerCase() ||
+    row.party_role !== partyRole ||
     row.wallet_address.toLowerCase() !== walletAddress.toLowerCase() || row.nonce !== nonce ||
-    row.terms_hash !== terms.terms_hash || Number(row.terms_version) !== version ||
+    row.terms_hash.toLowerCase() !== terms.terms_hash.toLowerCase() ||
+    Number(row.terms_version) !== version ||
     Number(row.signature_deadline) !== deadline || row.consumed_at !== null) {
     throw new Error("Persisted challenge does not match trusted preparation context.");
   }
