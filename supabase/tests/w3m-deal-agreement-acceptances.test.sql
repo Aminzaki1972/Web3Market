@@ -265,6 +265,44 @@ begin
   end if;
   execute 'set constraints w3m_acquisition_report_requires_signed_deal_terms deferred';
 
+  -- A report with a valid pair of signatures but a mismatched manifest digest
+  -- must still be rejected; consent alone cannot bless altered audit evidence.
+  begin
+    execute 'set constraints w3m_acquisition_report_requires_signed_deal_terms immediate';
+    insert into public.w3m_acquisition_reports(
+      id,deal_id,project_id,report_version,buyer_id,seller_id,status,engine_version,
+      evidence_hash,report_hash,report_payload,signer_key_id,report_signature,issued_at,expires_at
+    ) values (
+      '86300000-0000-4000-8000-000000000006',v_deal::text,v_project::text,2,
+      v_buyer::text,v_seller::text,'PASS','w3m-acquisition-verification-1.0.0',
+      repeat('b',64),repeat('9',64),
+      jsonb_build_object('dealId',v_deal::text,'projectId',v_project::text,
+        'buyerId',v_buyer::text,'sellerId',v_seller::text,'dealTermsHash',v_hash,
+        'auditId','87000000-0000-4000-8000-000000000007','expectedCommitSha',repeat('a',40)),
+      'test-signer-v1','0x' || repeat('9',130),now(),now()+interval '1 day'
+    );
+    insert into public.w3m_acquisition_evidence(
+      report_id,evidence_type,source_table,source_record_id,source_version,evidence_hash,
+      result,mandatory,observed_at,valid_until,details
+    ) values (
+      '86300000-0000-4000-8000-000000000006','CODE_AUDIT','code_audits',
+      '87000000-0000-4000-8000-000000000007',repeat('a',40),repeat('9',64),
+      'PASS',true,now(),now()+interval '1 day',
+      jsonb_build_object(
+        'auditStatus','completed','auditType','code','commitSha',repeat('a',40),
+        'overallScore',90,'riskLevel','low','analysisMethod','gemini',
+        'repositoryOwner','Aminzaki1972','repositoryName','Web3Market',
+        'completedAt','2026-11-01T10:00:00.000Z',
+        'auditManifestVersion','w3m-audit-manifest-v1','auditManifestHash',repeat('9',64),
+        'auditFileCount',1,'auditFindingCount',0
+      )
+    );
+    execute 'set constraints w3m_acquisition_report_requires_signed_deal_terms immediate';
+    raise exception 'Report with a mismatched audit manifest digest was accepted';
+  exception when check_violation then null;
+  end;
+  execute 'set constraints w3m_acquisition_report_requires_signed_deal_terms deferred';
+
   begin
     perform public.w3m_insert_deal_agreement_acceptance(
       v_deal,1,'buyer',v_buyer,'0x5555555555555555555555555555555555555555',
