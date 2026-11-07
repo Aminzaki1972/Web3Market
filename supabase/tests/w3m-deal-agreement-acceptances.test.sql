@@ -268,7 +268,6 @@ begin
   -- A report with a valid pair of signatures but a mismatched manifest digest
   -- must still be rejected; consent alone cannot bless altered audit evidence.
   begin
-    execute 'set constraints w3m_acquisition_report_requires_signed_deal_terms immediate';
     insert into public.w3m_acquisition_reports(
       id,deal_id,project_id,report_version,buyer_id,seller_id,status,engine_version,
       evidence_hash,report_hash,report_payload,signer_key_id,report_signature,issued_at,expires_at
