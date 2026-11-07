@@ -1,5 +1,6 @@
 import { Wallet } from "npm:ethers@6.15.0";
 import { buildW3MAgreementTypedData } from "./agreement-signature.ts";
+import { hashW3MAcquisitionTermsV1 } from "./acquisition-terms.ts";
 import { createW3MAcquisitionHandler, type W3MAdminClient } from "./handler.ts";
 
 const USER_ID = "75000000-0000-4000-8000-000000000005";
@@ -58,6 +59,7 @@ function makeDeps(
     userId?: string;
     randomBytes?: (length: number) => Uint8Array;
     from?: NonNullable<W3MAdminClient["from"]>;
+    schema?: W3MAdminClient["schema"];
   } = {},
 ) {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
@@ -73,6 +75,7 @@ function makeDeps(
       return await rpc(name, args);
     },
     from: options.from,
+    schema: options.schema,
   };
   return {
     calls,
@@ -130,6 +133,73 @@ Deno.test("challenge action persists server nonce before returning EIP-712 typed
   const issueArgs = calls[0].args;
   if (issueArgs.p_user_id !== USER_ID || issueArgs.p_nonce !== body.typed_data.message.nonce) {
     throw new Error("Authenticated user or server nonce was not bound to the database challenge");
+  }
+});
+
+Deno.test("prepare action derives role, wallet, audit binding, and published terms from trusted storage", async () => {
+  const wallet = new Wallet("0x" + "6".repeat(64));
+  const sellerId = "76000000-0000-4000-8000-000000000006";
+  const terms = {
+    schema: "w3m-acquisition-terms-v1", terms_version: 2,
+    deal: { deal_id: DEAL_ID, project_id: PROJECT_ID, buyer_id: USER_ID, seller_id: sellerId },
+    project: { title: "Synthetic project", category: "SaaS" },
+    audit: { audit_id: AUDIT_ID, repository: "aminzaki1972/web3market", commit_sha: "f".repeat(40), fingerprint_digest: DIGEST },
+    consideration: { amount: "1000.00", currency: "USDT" },
+    platform_fee: { percent: "7.50", amount: "75.00" },
+    seller_net: { amount: "925.00", currency: "USDT" },
+    payment: { method: "safe_multisig", chain_id: 56, asset: "USDT", token_contract: null, safe_address: null, status_at_signing: "configured_or_pending" },
+    transfer_scope: { included_assets: [{ type: "repository", description: "Source code" }], excluded_assets: [], access_and_credentials: { transfer_method: "Test-only handover" }, third_party_dependencies: [], intellectual_property: { declaration: "Test-only" }, data_and_privacy: { scope: "No personal data" } },
+    delivery: { deadline: "2027-01-01T00:00:00Z", checklist: ["Transfer repository"] },
+    inspection: { window: "5 days", acceptance_criteria: ["Access delivered"] },
+    dispute: { procedure_version: "test-v1", text: "Synthetic dispute text for automated tests only" },
+    escrow: { funding_condition: "Test Safe funding condition", release_condition: "Test release condition", dispute_hold: true },
+    governing_terms: { governing_law: "Synthetic law text for automated tests", venue_or_process: "Synthetic process for automated tests", language: "English" },
+    risk_acknowledgements: ["Audit is limited to scanned commit"], disclosures: [],
+    created_at: "2026-11-07T00:00:00Z", expires_at: "2026-11-08T00:00:00Z",
+  };
+  const termsHash = await hashW3MAcquisitionTermsV1(terms);
+  const publicRows: Record<string, Array<Record<string, unknown>>> = {
+    deals: [{ id: DEAL_ID, project_id: PROJECT_ID, buyer_id: USER_ID, seller_id: sellerId, status: "pending", dispute_status: "none" }],
+    profiles: [{ id: USER_ID, wallet_address: wallet.address, wallet_verified: true }],
+  };
+  const privateRows: Record<string, Array<Record<string, unknown>>> = {
+    w3m_deal_audit_bindings: [{ deal_id: DEAL_ID, project_id: PROJECT_ID, audit_id: AUDIT_ID, fingerprint_id: FINGERPRINT_ID, fingerprint_digest: DIGEST, repository: "aminzaki1972/web3market", commit_sha: "f".repeat(40), binding_hash: BINDING_HASH }],
+    w3m_acquisition_terms_versions: [{ id: "75000000-0000-4000-8000-000000000005", terms_version: 2, terms_hash: termsHash, canonical_terms_json: terms, status: "published" }],
+  };
+  const makeQuery = (rows: Array<Record<string, unknown>>) => {
+    let selected = [...rows];
+    return {
+      select(_columns: string) { return this; },
+      eq(column: string, value: unknown) { selected = selected.filter((row) => row[column] === value); return this; },
+      order(_column: string) { return this; },
+      async range(from: number, to: number) { return { data: selected.slice(from, to + 1), error: null }; },
+      async maybeSingle() { return { data: selected[0] || null, error: null }; },
+    };
+  };
+  let stored: ReturnType<typeof challengeRow> | null = null;
+  const from = ((table: string) => makeQuery(publicRows[table] || [])) as NonNullable<W3MAdminClient["from"]>;
+  const schema = ((name: string) => {
+    if (name !== "w3m_private") throw new Error("Unexpected schema " + name);
+    return { from: (table: string) => makeQuery(privateRows[table] || []) };
+  }) as NonNullable<W3MAdminClient["schema"]>;
+  const { deps, calls } = makeDeps(async (name, args) => {
+    if (name === "w3m_issue_agreement_challenge") {
+      stored = { ...challengeRow(wallet.address), nonce: String(args.p_nonce), signature_deadline: Number(args.p_signature_deadline), terms_hash: termsHash };
+      return { data: CHALLENGE_ID, error: null };
+    }
+    if (name === "w3m_get_agreement_challenge_for_verification") return { data: stored ? [stored] : [], error: null };
+    throw new Error("Unexpected RPC " + name);
+  }, { from, schema, randomBytes: (length) => new Uint8Array(length).fill(0xcd) });
+  const handler = createW3MAcquisitionHandler(deps);
+  const response = await handler(makeRequest({ action: "prepare", deal_id: DEAL_ID, wallet_address: wallet.address }));
+  const body = await response.json();
+  if (response.status !== 200 || body.ok !== true) throw new Error("Preparation failed: " + JSON.stringify(body));
+  const prepared = body.result;
+  if (prepared.dealId !== DEAL_ID || prepared.partyRole !== "buyer" || prepared.walletAddress !== wallet.address ||
+    prepared.termsHash !== termsHash || prepared.termsVersion !== "2" || prepared.challengeId !== CHALLENGE_ID ||
+    prepared.typedData.message.termsHash !== "0x" + termsHash) throw new Error("Preparation did not return the exact trusted deal, terms, wallet, and challenge");
+  if (calls[0]?.args.p_user_id !== USER_ID || calls[0]?.args.p_party_role !== "buyer" || calls[0]?.args.p_terms_hash !== termsHash) {
+    throw new Error("Preparation RPC was not bound to the authenticated party and trusted published terms");
   }
 });
 
