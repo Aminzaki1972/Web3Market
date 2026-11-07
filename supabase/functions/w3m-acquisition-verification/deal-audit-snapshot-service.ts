@@ -83,7 +83,7 @@ export async function prepareDealAuditSnapshot(
   const repositoryName = text(audit.repo_name, "Audit repository name");
   const auditType = text(audit.audit_type, "Audit type");
   const overallScore = Number(audit.overall_score);
-  if (audit.overall_score === null || audit.overall_score === undefined || !Number.isFinite(overallScore) ||
+  if (audit.overall_score === null || audit.overall_score === undefined || !Number.isFinite(overallScore) || overallScore < 0 || overallScore > 100 ||
       !text(audit.risk_level, "Audit risk level") ||
       !text(audit.analysis_method, "Audit analysis method")) {
     throw new Error("The selected audit lacks the score, risk or analysis metadata required for report evidence.");
