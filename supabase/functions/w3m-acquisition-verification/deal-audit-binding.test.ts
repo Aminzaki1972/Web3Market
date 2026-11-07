@@ -83,7 +83,7 @@ Deno.test("rejects corrupted, duplicate, or malformed existing bindings", async 
     dealId: "55555555-5555-4555-8555-555555555555",
   }, [corrupted]));
   await assertRejects(() => createW3MDealAuditBinding(base, [binding, binding]));
-  await assertRejects(() => createW3MDealAuditBinding(base, [{ ...binding, schema: "wrong" } as W3MDealAuditBinding]));
+  await assertRejects(() => createW3MDealAuditBinding(base, [{ ...binding, schema: "wrong" } as unknown as W3MDealAuditBinding]));
 });
 
 Deno.test("rejects invalid identifiers, digests, repositories, and commit SHAs", async () => {
