@@ -93,6 +93,18 @@ jobs:
             v_signature text := '0x' || repeat('e',130);
             v_wallet text := '0x1111111111111111111111111111111111111111';
           begin
+            begin
+              perform public.w3m_issue_agreement_challenge(
+                v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
+                v_terms_hash,1,'buyer',
+                '76000000-0000-4000-8000-000000000006'::uuid,
+                '0x2222222222222222222222222222222222222222',
+                '0x' || repeat('9',64),v_deadline
+              );
+              raise exception 'expected_non_party_rejection';
+            exception when sqlstate '42501' then null;
+            end;
+
             insert into public.deals (id,project_id,buyer_id,seller_id,status,dispute_status)
             values
               (v_deal,v_project,v_user,'76000000-0000-4000-8000-000000000006','pending','none');
@@ -143,6 +155,17 @@ jobs:
               raise exception 'expected_replay_rejection';
             exception when sqlstate '23505' then
               null;
+            end;
+
+            begin
+              perform public.w3m_issue_agreement_challenge(
+                v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
+                v_terms_hash,1,'buyer',v_user,
+                '0x2222222222222222222222222222222222222222',
+                '0x' || repeat('8',64),v_deadline
+              );
+              raise exception 'expected_unverified_wallet_rejection';
+            exception when sqlstate '42501' then null;
             end;
 
             v_stale_challenge := public.w3m_issue_agreement_challenge(
@@ -214,7 +237,9 @@ jobs:
           psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
           do $$
           begin
-            if has_table_privilege('anon','w3m_private.w3m_agreement_acceptances','select')
+            if has_schema_privilege('anon','w3m_private','usage')
+              or has_schema_privilege('authenticated','w3m_private','usage')
+              or has_table_privilege('anon','w3m_private.w3m_agreement_acceptances','select')
               or has_table_privilege('authenticated','w3m_private.w3m_agreement_acceptances','insert')
               or has_table_privilege('authenticated','w3m_private.w3m_agreement_acceptances','select') then
               raise exception 'browser_role_has_protocol_table_privileges';
