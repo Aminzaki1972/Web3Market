@@ -61,6 +61,8 @@ Deno.test("every Safe deployment, release, signature, execution and finalization
       const safeBindingCheckIndex = source.indexOf("Prepared Safe transaction address does not match");
       assertEquals(safeBindingCheckIndex >= 0, true, item.file + " must bind the prepared Safe transaction to the locked policy");
       assertEquals(safeBindingCheckIndex < actionIndex, true, item.file + " must validate the Safe transaction address before the sensitive action");
+      assertEquals(source.includes("policy.token_contract"), true, item.file + " must verify the configured settlement token");
+      assertEquals(source.includes("USDT"), true, item.file + " must constrain the existing V1 settlement path to its configured BNB USDT asset");
     }
   }
 });
