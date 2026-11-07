@@ -1,0 +1,155 @@
+/**
+ * Pure validation and deterministic hashing for the W3M acquisition terms V1.
+ * This module does not load database rows, authorize users, persist terms, or sign.
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const COMMIT = /^[0-9a-f]{40}$/i;
+const HEX_DIGEST = /^[0-9a-f]{64}$/i;
+const DECIMAL = /^(0|[1-9][0-9]*)(\.[0-9]+)?$/;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?Z$/;
+
+function fail(message: string): never { throw new Error(message); }
+function object(value: unknown, label: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) fail(label + " must be an object.");
+  const proto = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null) fail(label + " must be a plain JSON object.");
+  return value as Record<string, unknown>;
+}
+function requiredString(value: unknown, label: string): string {
+  if (typeof value !== "string" || value.trim().length === 0) fail(label + " is required.");
+  return value;
+}
+function uuid(value: unknown, label: string): string {
+  const v = requiredString(value, label);
+  if (!UUID.test(v)) fail(label + " must be a UUID.");
+  return v.toLowerCase();
+}
+function decimal(value: unknown, label: string): string {
+  const v = requiredString(value, label);
+  if (!DECIMAL.test(v)) fail(label + " must be an exact decimal string (not a floating-point number).");
+  return v;
+}
+function iso(value: unknown, label: string): string {
+  const v = requiredString(value, label);
+  if (!ISO_DATE.test(v) || !Number.isFinite(Date.parse(v))) fail(label + " must be a UTC ISO-8601 timestamp.");
+  return v;
+}
+
+function canonical(value: unknown, seen = new Set<object>()): string {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return JSON.stringify(value) as string;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || !Number.isSafeInteger(value)) fail("Terms JSON numbers must be finite safe integers; monetary values must be strings.");
+    return JSON.stringify(value) as string;
+  }
+  if (typeof value !== "object") fail("Terms contain a non-JSON value.");
+  if (seen.has(value)) fail("Terms contain a circular reference.");
+  seen.add(value);
+  try {
+    if (Array.isArray(value)) {
+      const parts: string[] = [];
+      for (let i = 0; i < value.length; i++) {
+        if (!Object.prototype.hasOwnProperty.call(value, i)) fail("Terms arrays must not be sparse.");
+        parts.push(canonical(value[i], seen));
+      }
+      return "[" + parts.join(",") + "]";
+    }
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) fail("Terms objects must be plain JSON objects.");
+    const record = value as Record<string, unknown>;
+    return "{" + Object.keys(record).sort().map((key) => {
+      if (record[key] === undefined) fail("Terms must not contain undefined values.");
+      return JSON.stringify(key) + ":" + canonical(record[key], seen);
+    }).join(",") + "}";
+  } finally { seen.delete(value); }
+}
+
+export function validateW3MAcquisitionTermsV1(input: unknown): asserts input is Record<string, unknown> {
+  const root = object(input, "Terms");
+  if (root.schema !== "w3m-acquisition-terms-v1") fail("Unsupported acquisition terms schema.");
+  if (!Number.isSafeInteger(root.terms_version) || (root.terms_version as number) < 1) fail("Terms version must be a positive safe integer.");
+
+  const deal = object(root.deal, "deal");
+  uuid(deal.deal_id, "deal.deal_id"); uuid(deal.project_id, "deal.project_id");
+  uuid(deal.buyer_id, "deal.buyer_id"); uuid(deal.seller_id, "deal.seller_id");
+  if (deal.buyer_id === deal.seller_id) fail("Buyer and seller must be different accounts.");
+
+  const project = object(root.project, "project");
+  requiredString(project.title, "project.title"); requiredString(project.category, "project.category");
+
+  const audit = object(root.audit, "audit");
+  uuid(audit.audit_id, "audit.audit_id");
+  const repository = requiredString(audit.repository, "audit.repository");
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\/[a-z0-9_.-]+$/i.test(repository)) fail("audit.repository must be owner/repository.");
+  if (typeof audit.commit_sha !== "string" || !COMMIT.test(audit.commit_sha)) fail("audit.commit_sha must be a full 40-character commit SHA.");
+  if (typeof audit.fingerprint_digest !== "string" || !HEX_DIGEST.test(audit.fingerprint_digest)) fail("audit.fingerprint_digest must be a 32-byte SHA-256 digest.");
+
+  const consideration = object(root.consideration, "consideration");
+  const amount = decimal(consideration.amount, "consideration.amount");
+  if (Number(amount) <= 0) fail("consideration.amount must be greater than zero.");
+  requiredString(consideration.currency, "consideration.currency");
+
+  const fee = object(root.platform_fee, "platform_fee");
+  const feePercent = decimal(fee.percent, "platform_fee.percent");
+  if (Number(feePercent) > 100) fail("platform_fee.percent cannot exceed 100.");
+  decimal(fee.amount, "platform_fee.amount");
+
+  const net = object(root.seller_net, "seller_net");
+  decimal(net.amount, "seller_net.amount");
+  requiredString(net.currency, "seller_net.currency");
+
+  const payment = object(root.payment, "payment");
+  if (payment.method !== "safe_multisig") fail("payment.method must explicitly identify the Safe multisig method.");
+  if (payment.chain_id !== 56) fail("The W3M V1 signing/payment network must explicitly identify BNB Smart Chain (56).");
+  requiredString(payment.asset, "payment.asset");
+  if (payment.status_at_signing !== "configured_or_pending") fail("payment.status_at_signing is invalid.");
+  if (payment.token_contract !== null && (typeof payment.token_contract !== "string" || !/^0x[0-9a-f]{40}$/i.test(payment.token_contract))) fail("payment.token_contract must be a valid address or null.");
+  if (payment.safe_address !== null && (typeof payment.safe_address !== "string" || !/^0x[0-9a-f]{40}$/i.test(payment.safe_address))) fail("payment.safe_address must be a valid address or null.");
+
+  const scope = object(root.transfer_scope, "transfer_scope");
+  for (const key of ["included_assets", "excluded_assets", "third_party_dependencies"] as const) {
+    if (!Array.isArray(scope[key])) fail("transfer_scope." + key + " must be an array.");
+  }
+  for (const key of ["access_and_credentials", "intellectual_property", "data_and_privacy"] as const) object(scope[key], "transfer_scope." + key);
+
+  const delivery = object(root.delivery, "delivery");
+  iso(delivery.deadline, "delivery.deadline");
+  if (!Array.isArray(delivery.checklist) || delivery.checklist.length === 0) fail("delivery.checklist must contain at least one deliverable.");
+
+  const inspection = object(root.inspection, "inspection");
+  requiredString(inspection.window, "inspection.window");
+  if (!Array.isArray(inspection.acceptance_criteria) || inspection.acceptance_criteria.length === 0) fail("inspection.acceptance_criteria must not be empty.");
+
+  const dispute = object(root.dispute, "dispute");
+  requiredString(dispute.procedure_version, "dispute.procedure_version");
+  requiredString(dispute.text, "dispute.text");
+
+  const escrow = object(root.escrow, "escrow");
+  requiredString(escrow.funding_condition, "escrow.funding_condition");
+  requiredString(escrow.release_condition, "escrow.release_condition");
+  if (escrow.dispute_hold !== true) fail("Escrow must enforce a dispute hold.");
+
+  const governing = object(root.governing_terms, "governing_terms");
+  requiredString(governing.governing_law, "governing_terms.governing_law");
+  requiredString(governing.venue_or_process, "governing_terms.venue_or_process");
+  requiredString(governing.language, "governing_terms.language");
+
+  if (!Array.isArray(root.risk_acknowledgements) || root.risk_acknowledgements.length === 0) fail("At least one risk acknowledgement is required.");
+  if (!Array.isArray(root.disclosures)) fail("disclosures must be an array.");
+  const created = iso(root.created_at, "created_at");
+  const expires = iso(root.expires_at, "expires_at");
+  if (Date.parse(expires) <= Date.parse(created)) fail("expires_at must be later than created_at.");
+
+  // Validate the complete structure, including nested custom disclosures and evidence.
+  canonical(root);
+}
+
+export function canonicalizeW3MAcquisitionTermsV1(input: unknown): string {
+  validateW3MAcquisitionTermsV1(input);
+  return canonical(input);
+}
+
+export async function hashW3MAcquisitionTermsV1(input: unknown): Promise<string> {
+  const bytes = new TextEncoder().encode("w3m-acquisition-terms:v1\n" + canonicalizeW3MAcquisitionTermsV1(input));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
