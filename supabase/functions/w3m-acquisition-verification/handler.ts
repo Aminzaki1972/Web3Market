@@ -363,9 +363,11 @@ export function createW3MAcquisitionHandler(deps: HandlerDependencies) {
             files_fingerprinted: published.fileCount,
           }, 201);
         } catch (error) {
-          console.error("w3m fingerprint publication failed", error instanceof Error ? error.message : "unknown error");
           const status = typeof (error as { status?: unknown })?.status === "number"
             ? (error as { status: number }).status : 500;
+          if (status >= 500) {
+            console.error("w3m fingerprint publication failed", error instanceof Error ? error.message : "unknown error");
+          }
           return reply(origin, {
             ok: false,
             error: status === 403 ? "Only the verified project seller can bind this audit" :
