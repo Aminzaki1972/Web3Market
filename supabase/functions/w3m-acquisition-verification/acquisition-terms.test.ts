@@ -145,3 +145,14 @@ Deno.test("rejects a zero seller net", () => {
   invalid.seller_net.amount = "0.00";
   assertThrows(() => validateW3MAcquisitionTermsV1(invalid));
 });
+
+
+Deno.test("bounds decimal precision before exact arithmetic", () => {
+  const excessiveFraction = fixture();
+  excessiveFraction.consideration.amount = "1." + "1".repeat(37);
+  assertThrows(() => validateW3MAcquisitionTermsV1(excessiveFraction));
+
+  const excessiveInteger = fixture();
+  excessiveInteger.consideration.amount = "1".repeat(79);
+  assertThrows(() => validateW3MAcquisitionTermsV1(excessiveInteger));
+});
