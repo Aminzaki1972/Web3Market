@@ -32,6 +32,8 @@ Each function fails closed with HTTP 409 if the current W3M buyer/seller accepta
 
 Latest branch CI: 104 Deno tests passed; the PostgreSQL migration/concurrency/privilege suite passed; CDN integrity, profile-guard migration, and modified JavaScript syntax checks passed.
 
+The new protocol modules and shared gate are included in Deno type-check. The six staged Safe entrypoints are covered by source-order regression checks rather than full Deno type-check because their existing legacy source contains unrelated typing errors around Safe Protocol Kit initialization, ethers dynamic contract methods, and implicit/unknown error types. Those typing issues are not changed by this V1 gate patch.
+
 ## Important deployment boundary
 
 - These are branch snapshots, not live deployments.
