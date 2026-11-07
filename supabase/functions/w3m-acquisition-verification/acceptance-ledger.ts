@@ -58,7 +58,7 @@ export type W3MAcceptanceRecord = Readonly<{
 
 export type W3MAcceptanceLedgerRow = Pick<
   W3MAcceptanceRecord,
-  "deal_id" | "party_role" | "nonce"
+  "deal_id" | "party_role" | "nonce" | "terms_hash" | "terms_version"
 >;
 
 function requireUuid(value: string, label: string): string {
@@ -159,7 +159,7 @@ export function buildW3MAcceptanceRecord(
 
 export type W3MAcceptanceLedgerDecision =
   | { allowed: true; reason: "new_party_acceptance" }
-  | { allowed: false; reason: "nonce_already_used" | "party_role_already_accepted" };
+  | { allowed: false; reason: "nonce_already_used" | "party_role_already_accepted" | "terms_version_conflict" };
 
 /**
  * Advisory preflight only. Never use this read-only decision as the concurrency
@@ -175,10 +175,14 @@ export function evaluateW3MAcceptanceLedger(
   if (existingRows.some((row) => row.nonce.toLowerCase() === candidate.nonce)) {
     return { allowed: false, reason: "nonce_already_used" };
   }
-  if (existingRows.some((row) =>
+  const sameDealVersion = existingRows.filter((row) =>
     row.deal_id.toLowerCase() === candidate.deal_id &&
-    row.party_role === candidate.party_role
-  )) {
+    row.terms_version === candidate.terms_version
+  );
+  if (sameDealVersion.some((row) => row.terms_hash.toLowerCase() !== candidate.terms_hash)) {
+    return { allowed: false, reason: "terms_version_conflict" };
+  }
+  if (sameDealVersion.some((row) => row.party_role === candidate.party_role)) {
     return { allowed: false, reason: "party_role_already_accepted" };
   }
   return { allowed: true, reason: "new_party_acceptance" };
@@ -247,7 +251,11 @@ export function hasCompleteW3MAcceptancePair(
     throw new Error("Expected terms version must be a positive decimal integer.");
   }
 
-  const dealRows = rows.filter((row) => row.deal_id === dealId);
+  // Keep immutable acceptances for prior terms versions as historical evidence.
+  // Only the exact expected version participates in the current acceptance pair.
+  const dealRows = rows.filter((row) =>
+    row.deal_id === dealId && row.terms_version === expected.termsVersion
+  );
   if (dealRows.length !== 2) return false;
   const buyerRows = dealRows.filter((row) => row.party_role === "buyer");
   const sellerRows = dealRows.filter((row) => row.party_role === "seller");
