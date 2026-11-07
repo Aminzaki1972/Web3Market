@@ -94,6 +94,9 @@ export function buildW3MAcceptanceRecord(
   if (!input || typeof input !== "object") {
     throw new Error("Acceptance candidate is required.");
   }
+  if (!Number.isSafeInteger(nowSeconds) || nowSeconds < 0) {
+    throw new Error("Current acceptance time must be a non-negative safe integer.");
+  }
 
   const dealId = requireUuid(input.dealId, "Deal ID");
   const projectId = requireUuid(input.projectId, "Project ID");
@@ -123,8 +126,9 @@ export function buildW3MAcceptanceRecord(
     throw new Error("Recovered signer does not match the authenticated user's verified wallet.");
   }
 
-  if (!Number.isSafeInteger(input.deadline) || input.deadline <= nowSeconds) {
-    throw new Error("Acceptance signature deadline is expired or invalid.");
+  if (!Number.isSafeInteger(input.deadline) || input.deadline <= nowSeconds ||
+    input.deadline > nowSeconds + 15 * 60) {
+    throw new Error("Acceptance signature deadline is expired, invalid, or exceeds 15 minutes.");
   }
   const acceptedAtMs = Date.parse(input.acceptedAt);
   if (!Number.isFinite(acceptedAtMs) || new Date(acceptedAtMs).toISOString() !== input.acceptedAt) {
@@ -132,6 +136,9 @@ export function buildW3MAcceptanceRecord(
   }
   if (acceptedAtMs > nowSeconds * 1000 + 30_000) {
     throw new Error("Acceptance timestamp is too far in the future.");
+  }
+  if (acceptedAtMs > input.deadline * 1000) {
+    throw new Error("Acceptance timestamp must not be later than the signature deadline.");
   }
 
   if (typeof input.termsVersion !== "string" || !/^[1-9][0-9]*$/.test(input.termsVersion)) {
