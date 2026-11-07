@@ -19,6 +19,18 @@ function requiredString(value: unknown, label: string): string {
   if (typeof value !== "string" || value.trim().length === 0) fail(label + " is required.");
   return value;
 }
+function requiredPolicyText(value: unknown, label: string): string {
+  const text = requiredString(value, label).trim();
+  if (/^(?:pending|pending legal review|tbd|to be determined|not defined|not yet defined|n\\/a|na|placeholder|todo|unknown|draft(?:[-\\s].*)?)$/i.test(text) ||
+    /\\b(?:tbd|to be determined|pending legal review|not yet defined|placeholder)\\b/i.test(text)) {
+    fail(label + " must contain an approved, non-placeholder policy value.");
+  }
+  return text;
+}
+function requiredTextArray(value: unknown, label: string, minLength = 1): string[] {
+  if (!Array.isArray(value) || value.length < minLength) fail(label + " must contain at least " + minLength + " item(s).");
+  return value.map((item, index) => requiredString(item, label + "[" + index + "]").trim());
+}
 function uuid(value: unknown, label: string): string {
   const v = requiredString(value, label);
   if (!UUID.test(v)) fail(label + " must be a UUID.");
@@ -152,27 +164,27 @@ export function validateW3MAcquisitionTermsV1(input: unknown): asserts input is 
 
   const delivery = object(root.delivery, "delivery");
   iso(delivery.deadline, "delivery.deadline");
-  if (!Array.isArray(delivery.checklist) || delivery.checklist.length === 0) fail("delivery.checklist must contain at least one deliverable.");
+  requiredTextArray(delivery.checklist, "delivery.checklist");
 
   const inspection = object(root.inspection, "inspection");
-  requiredString(inspection.window, "inspection.window");
-  if (!Array.isArray(inspection.acceptance_criteria) || inspection.acceptance_criteria.length === 0) fail("inspection.acceptance_criteria must not be empty.");
+  requiredPolicyText(inspection.window, "inspection.window");
+  requiredTextArray(inspection.acceptance_criteria, "inspection.acceptance_criteria");
 
   const dispute = object(root.dispute, "dispute");
-  requiredString(dispute.procedure_version, "dispute.procedure_version");
-  requiredString(dispute.text, "dispute.text");
+  requiredPolicyText(dispute.procedure_version, "dispute.procedure_version");
+  requiredPolicyText(dispute.text, "dispute.text");
 
   const escrow = object(root.escrow, "escrow");
-  requiredString(escrow.funding_condition, "escrow.funding_condition");
-  requiredString(escrow.release_condition, "escrow.release_condition");
+  requiredPolicyText(escrow.funding_condition, "escrow.funding_condition");
+  requiredPolicyText(escrow.release_condition, "escrow.release_condition");
   if (escrow.dispute_hold !== true) fail("Escrow must enforce a dispute hold.");
 
   const governing = object(root.governing_terms, "governing_terms");
-  requiredString(governing.governing_law, "governing_terms.governing_law");
-  requiredString(governing.venue_or_process, "governing_terms.venue_or_process");
-  requiredString(governing.language, "governing_terms.language");
+  requiredPolicyText(governing.governing_law, "governing_terms.governing_law");
+  requiredPolicyText(governing.venue_or_process, "governing_terms.venue_or_process");
+  requiredPolicyText(governing.language, "governing_terms.language");
 
-  if (!Array.isArray(root.risk_acknowledgements) || root.risk_acknowledgements.length === 0) fail("At least one risk acknowledgement is required.");
+  requiredTextArray(root.risk_acknowledgements, "risk_acknowledgements");
   if (!Array.isArray(root.disclosures)) fail("disclosures must be an array.");
   const created = iso(root.created_at, "created_at");
   const expires = iso(root.expires_at, "expires_at");
