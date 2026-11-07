@@ -140,10 +140,16 @@ Deno.test("requires fee plus seller net to equal consideration exactly", () => {
   validateW3MAcquisitionTermsV1(exactLongDecimals);
 });
 
-Deno.test("rejects a zero seller net", () => {
-  const invalid = fixture();
-  invalid.seller_net.amount = "0.00";
-  assertThrows(() => validateW3MAcquisitionTermsV1(invalid));
+Deno.test("allows zero seller net only when the exact fee split reconciles", () => {
+  const fullFee = fixture();
+  fullFee.platform_fee.percent = "100";
+  fullFee.platform_fee.amount = "1000.00";
+  fullFee.seller_net.amount = "0.00";
+  validateW3MAcquisitionTermsV1(fullFee);
+
+  const inconsistentZeroNet = fixture();
+  inconsistentZeroNet.seller_net.amount = "0.00";
+  assertThrows(() => validateW3MAcquisitionTermsV1(inconsistentZeroNet));
 });
 
 
