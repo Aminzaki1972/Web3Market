@@ -57,26 +57,17 @@ jobs:
             id uuid primary key, project_id uuid not null, status text not null,
             repo_owner text not null, repo_name text not null, commit_sha text not null
           );
-          grant select, insert, update on public.deals, public.profiles, public.code_audits to service_role;
           SQL
       - name: Apply W3M V1 ledger migration
         env:
           PGPASSWORD: postgres
-        run: |
-          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql
-          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
-          grant update on w3m_private.w3m_audit_fingerprints,
-            w3m_private.w3m_acquisition_terms_versions,
-            w3m_private.w3m_agreement_challenges,
-            w3m_private.w3m_agreement_acceptances to service_role;
-          SQL
+        run: psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql
       - name: Verify atomic challenge consumption and immutable terms
         env:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
           set request.jwt.claim.role = 'service_role';
-          set role service_role;
           do $$
           declare
             v_deal uuid := '71000000-0000-4000-8000-000000000001';
@@ -277,7 +268,6 @@ jobs:
             end;
           end;
           $$;
-          reset role;
           SQL
       - name: Verify browser roles cannot access protocol evidence
         env:
@@ -290,7 +280,10 @@ jobs:
               or has_schema_privilege('authenticated','w3m_private','usage')
               or has_table_privilege('anon','w3m_private.w3m_agreement_acceptances','select')
               or has_table_privilege('authenticated','w3m_private.w3m_agreement_acceptances','insert')
-              or has_table_privilege('authenticated','w3m_private.w3m_agreement_acceptances','select') then
+              or has_table_privilege('authenticated','w3m_private.w3m_agreement_acceptances','select')
+              or has_table_privilege('service_role','w3m_private.w3m_agreement_acceptances','insert')
+              or has_table_privilege('service_role','w3m_private.w3m_agreement_challenges','insert')
+              or has_table_privilege('service_role','w3m_private.w3m_agreement_challenges','update') then
               raise exception 'browser_role_has_protocol_table_privileges';
             end if;
           end;
