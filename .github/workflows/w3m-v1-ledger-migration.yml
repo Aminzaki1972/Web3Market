@@ -1,0 +1,168 @@
+name: W3M V1 Ledger Migration Tests
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql"
+      - ".github/workflows/w3m-v1-ledger-migration.yml"
+  push:
+    branches:
+      - "feat/w3m-audit-fingerprint-binding-20261107"
+    paths:
+      - "supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql"
+      - ".github/workflows/w3m-v1-ledger-migration.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-migration-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: w3m_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d w3m_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Prepare Supabase role/auth stubs
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          create role anon nologin;
+          create role authenticated nologin;
+          create role service_role nologin bypassrls;
+          create schema auth;
+          create function auth.role() returns text
+            language sql stable
+            as $$ select current_setting('request.jwt.claim.role', true) $$;
+          SQL
+      - name: Apply W3M V1 ledger migration
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql
+      - name: Verify atomic challenge consumption and immutable terms
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          set request.jwt.claim.role = 'service_role';
+          set role service_role;
+          do $$
+          declare
+            v_deal uuid := '71000000-0000-4000-8000-000000000001';
+            v_project uuid := '72000000-0000-4000-8000-000000000002';
+            v_audit uuid := '73000000-0000-4000-8000-000000000003';
+            v_fingerprint uuid := '74000000-0000-4000-8000-000000000004';
+            v_user uuid := '75000000-0000-4000-8000-000000000005';
+            v_digest text := repeat('a',64);
+            v_binding_hash text := repeat('b',64);
+            v_terms_hash text := repeat('c',64);
+            v_challenge uuid;
+            v_stale_challenge uuid;
+            v_nonce text := '0x' || repeat('d',64);
+            v_deadline bigint := extract(epoch from clock_timestamp())::bigint + 600;
+            v_signature text := '0x' || repeat('e',130);
+            v_wallet text := '0x1111111111111111111111111111111111111111';
+          begin
+            insert into public.w3m_audit_fingerprints
+              (id,audit_id,fingerprint_digest,repository,commit_sha,manifest)
+            values
+              (v_fingerprint,v_audit,v_digest,'aminzaki1972/web3market',repeat('f',40),'{"schema":"test"}');
+
+            insert into public.w3m_deal_audit_bindings
+              (deal_id,project_id,audit_id,fingerprint_id,fingerprint_digest,repository,commit_sha,binding_hash)
+            values
+              (v_deal,v_project,v_audit,v_fingerprint,v_digest,
+               'aminzaki1972/web3market',repeat('f',40),v_binding_hash);
+
+            perform public.w3m_publish_acquisition_terms_version(
+              v_deal,1,v_terms_hash,'{"schema":"w3m-terms-v1","approved":true}'::jsonb
+            );
+
+            v_challenge := public.w3m_issue_agreement_challenge(
+              v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
+              v_terms_hash,1,'buyer',v_user,v_wallet,v_nonce,v_deadline
+            );
+            perform public.w3m_record_agreement_acceptance(
+              v_challenge,v_user,'buyer',v_wallet,v_wallet,v_signature,clock_timestamp()
+            );
+
+            if (select count(*) from public.w3m_agreement_acceptances where deal_id=v_deal) <> 1 then
+              raise exception 'acceptance_row_missing';
+            end if;
+            if (select consumed_at from public.w3m_agreement_challenges where id=v_challenge) is null then
+              raise exception 'challenge_not_consumed';
+            end if;
+
+            begin
+              perform public.w3m_record_agreement_acceptance(
+                v_challenge,v_user,'buyer',v_wallet,v_wallet,v_signature,clock_timestamp()
+              );
+              raise exception 'expected_replay_rejection';
+            exception when sqlstate '23505' then
+              null;
+            end;
+
+            v_stale_challenge := public.w3m_issue_agreement_challenge(
+              v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
+              v_terms_hash,1,'seller',
+              '76000000-0000-4000-8000-000000000006'::uuid,
+              '0x2222222222222222222222222222222222222222',
+              '0x' || repeat('1',64),v_deadline
+            );
+            perform public.w3m_publish_acquisition_terms_version(
+              v_deal,2,repeat('2',64),'{"schema":"w3m-terms-v1","approved":true,"revision":2}'::jsonb
+            );
+
+            begin
+              perform public.w3m_record_agreement_acceptance(
+                v_stale_challenge,
+                '76000000-0000-4000-8000-000000000006'::uuid,
+                'seller',
+                '0x2222222222222222222222222222222222222222',
+                '0x2222222222222222222222222222222222222222',
+                v_signature,clock_timestamp()
+              );
+              raise exception 'expected_superseded_terms_rejection';
+            exception when sqlstate '22023' then
+              null;
+            end;
+
+            if (select count(*) from public.w3m_acquisition_terms_versions
+                where deal_id=v_deal and status='published') <> 1 then
+              raise exception 'terms_current_version_invariant_broken';
+            end if;
+            if (select status from public.w3m_acquisition_terms_versions
+                where deal_id=v_deal and terms_version=1) <> 'superseded' then
+              raise exception 'old_terms_not_superseded';
+            end if;
+          end;
+          $$;
+          reset role;
+          SQL
+      - name: Verify browser roles cannot access protocol evidence
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+            if has_table_privilege('anon','public.w3m_agreement_acceptances','select')
+              or has_table_privilege('authenticated','public.w3m_agreement_acceptances','insert')
+              or has_table_privilege('authenticated','public.w3m_agreement_acceptances','select') then
+              raise exception 'browser_role_has_protocol_table_privileges';
+            end if;
+          end;
+          $$;
+          SQL
