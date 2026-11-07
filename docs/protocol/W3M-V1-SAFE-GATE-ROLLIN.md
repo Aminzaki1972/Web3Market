@@ -143,3 +143,11 @@ The signer resolves only the provider route stored for the verified wallet addre
 Added isolated provider-mock tests covering successful signing, wrong active account, wrong chain, altered domain/schema/wallet binding, malformed signatures, and missing provider route. The V1 fingerprint workflow now includes this test file and read permission limited to the repository's `js/` test source directory plus the existing Supabase function test directory.
 
 CI status must be read from the workflow run attached to this commit before treating these new tests as passed. Earlier successful V1 ledger/fingerprint/security runs predate this signer hardening and are not evidence that this new test file passed. No production page, Supabase project, Edge Function deployment, database migration, or Safe transaction was changed.
+
+## Isolated Deal Room agreement status renderer (2026-11-07)
+
+Added `js/w3m-deal-agreement-panel.js` as a read-only renderer for the server-authorized W3M V1 agreement status adapter. It builds DOM nodes and writes all server-provided terms and timestamps through `textContent`; canonical terms are displayed in a `pre` element, never injected through `innerHTML`. It shows the published terms version/hash, buyer/seller acceptance state, and the server's eligibility flag. It has no signing, payment, Safe, or transaction controls.
+
+The renderer is intentionally **not imported by `deal-room.html` or `js/deal-room.js`**. It remains isolated until the V1 Edge Function and migration are deployed under a separately approved release, and until the canonical legal/commercial terms are approved. Existing Deal Room and Safe flows remain unchanged.
+
+Provider-mock signer tests and renderer safety tests are included in the V1 Deno workflow. The workflow run `42417887737` completed successfully on commit `b9e6e5b1c0967533bfe36c4b139b3f3a22bc550e`, including the Deno test step and type-check step. This is isolated CI validation, not live browser-wallet/Supabase integration. No production page, database, Edge Function deployment, migration, or Safe transaction was changed.
