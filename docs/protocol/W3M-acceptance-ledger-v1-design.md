@@ -92,6 +92,28 @@ This evidence does not prove escrow funding, asset transfer, or settlement. Safe
 - Different buyer/seller terms or binding: finalization blocked.
 - Dispute/cancellation between challenge and acceptance: reject.
 
-## 7. Deployment gate
+## 7. Existing Deal Room integration findings (read-only)
+
+A review of `js/deal-room.js` on this branch found that the current Deal Room:
+- Reads `deal_party_agreements` using only `party_role`, `party_id`, and `agreed_at`.
+- Writes acceptance through a browser-side Supabase `upsert` keyed by `deal_id,party_role,party_id`.
+- Displays a fixed dispute-resolution notice, but the inspected flow does not load a canonical, versioned acquisition-terms document or compute a terms hash before that upsert.
+- Uses `deals.status === 'accepted'` as a precondition for Safe deployment, so the existing acceptance/status transition must be traced before changing any acceptance semantics.
+
+Consequences:
+- The current timestamp row is a legacy UI acknowledgement only. It must not be treated as an EIP-712 signature or silently upgraded into cryptographic proof.
+- The new acceptance ledger must remain separate from the legacy table until a reviewed cutover is designed. Do not change the existing browser upsert as part of this protocol-only work.
+- A server-side transaction must not invent a terms version or hash from a UI label. Before implementation, define a canonical terms source, stable version identifier, and exact canonicalization rules; then make the challenge and finalization gate consume that same immutable snapshot.
+- The current Safe status gate must be reviewed so that no new settlement/finalization path can interpret legacy `agreed_at` values as both-party cryptographic acceptance.
+
+## 8. Revised implementation gates
+
+1. Identify the authoritative deal-terms source and any existing deal status transitions that set `accepted`.
+2. Define and review canonical terms V1 as an immutable server-owned artifact, including versioning and change policy.
+3. Inspect the exact database constraints and grants for `deal_party_agreements`, `deals`, profiles, and the private schema permissions before proposing migration SQL.
+4. Implement the atomic acceptance transaction in an isolated database only, with lock/unique-constraint concurrency tests and exact idempotent retry semantics.
+5. Integrate the server endpoint behind a disabled feature flag; do not wire the live Deal Room or Safe flow until legacy/new acceptance semantics and rollback are reviewed.
+
+## 9. Deployment gate
 
 Design artifact only. No tables, functions, triggers, policies, migrations, or Edge Functions are created here. Before migration review, verify the actual profile-wallet flow, deal-term versioning source, audit ownership constraints, grants, and deployment identity. Test first in an isolated project with adversarial/concurrency tests. Production migration or deployment requires explicit approval.
