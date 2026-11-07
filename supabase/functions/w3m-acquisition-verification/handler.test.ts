@@ -362,3 +362,121 @@ Deno.test("publish action fails closed when any scanned file lacks a Git blob SH
   if (response.status !== 500) throw new Error("Missing Git blob SHA must fail closed");
   if (calls.length !== 0) throw new Error("Invalid audit manifest reached persistence RPC");
 });
+
+
+function validTermsPayload() {
+  return {
+    schema: "w3m-acquisition-terms-v1",
+    terms_version: 1,
+    deal: { deal_id: DEAL_ID, project_id: PROJECT_ID, buyer_id: USER_ID, seller_id: "76000000-0000-4000-8000-000000000006" },
+    project: { title: "Synthetic project", category: "SaaS" },
+    audit: { audit_id: AUDIT_ID, repository: "example/project", commit_sha: "a".repeat(40), fingerprint_digest: "b".repeat(64) },
+    consideration: { amount: "1000.00", currency: "USDT" },
+    platform_fee: { percent: "7.50", amount: "75.00" },
+    seller_net: { amount: "925.00", currency: "USDT" },
+    payment: { method: "safe_multisig", chain_id: 56, asset: "USDT", token_contract: null, safe_address: null, status_at_signing: "configured_or_pending" },
+    transfer_scope: {
+      included_assets: [{ type: "repository", description: "Source code" }],
+      excluded_assets: [],
+      access_and_credentials: { transfer_method: "Owner handover; no secrets in this record" },
+      third_party_dependencies: [],
+      intellectual_property: { seller_declaration: "Seller-provided declaration" },
+      data_and_privacy: { scope: "No personal data transfer included" },
+    },
+    delivery: { deadline: "2027-01-01T00:00:00Z", checklist: ["Transfer repository"] },
+    inspection: { window: "5 days", acceptance_criteria: ["Repository access delivered"] },
+    dispute: { procedure_version: "draft-1", text: "Synthetic procedure for tests only" },
+    escrow: { funding_condition: "Buyer funds verified Safe", release_condition: "Both parties complete conditions", dispute_hold: true },
+    governing_terms: { governing_law: "Synthetic governing-law policy for validator tests", venue_or_process: "Synthetic dispute venue for validator tests", language: "English" },
+    risk_acknowledgements: ["Audit is limited to the scanned commit."],
+    disclosures: [],
+    created_at: "2026-11-07T00:00:00Z",
+    expires_at: "2026-11-08T00:00:00Z",
+  };
+}
+
+Deno.test("publish_terms authenticates the seller, hashes validated terms, and calls the restricted publication RPC", async () => {
+  const sellerId = "76000000-0000-4000-8000-000000000006";
+  const dealRow = {
+    id: DEAL_ID, project_id: PROJECT_ID, buyer_id: USER_ID, seller_id: sellerId,
+    status: "pending", dispute_status: "none",
+  };
+  const from = ((table: string) => ({
+    rows: table === "deals" ? [dealRow] : [],
+    select() { return this; },
+    eq(column: string, value: unknown) {
+      this.rows = this.rows.filter((row: Record<string, unknown>) => row[column] === value);
+      return this;
+    },
+    async maybeSingle() { return { data: this.rows[0] || null, error: null }; },
+    order() { return this; },
+    async range() { return { data: this.rows, error: null }; },
+  })) as unknown as NonNullable<W3MAdminClient["from"]>;
+  const { deps, calls } = makeDeps(async (name, args) => {
+    if (name !== "w3m_publish_acquisition_terms_version") throw new Error("Unexpected RPC " + name);
+    if (args.p_deal_id !== DEAL_ID || args.p_terms_version !== 1 ||
+      !/^[0-9a-f]{64}$/.test(String(args.p_terms_hash)) ||
+      (args.p_canonical_terms_json as Record<string, unknown>).schema !== "w3m-acquisition-terms-v1") {
+      throw new Error("Terms publication RPC arguments were not canonical and bound");
+    }
+    return { data: "79000000-0000-4000-8000-000000000009", error: null };
+  }, { userId: sellerId, from });
+  const handler = createW3MAcquisitionHandler(deps);
+  const response = await handler(makeRequest({ action: "publish_terms", deal_id: DEAL_ID, terms: validTermsPayload() }));
+  const body = await response.json();
+  if (response.status !== 201 || body.ok !== true || body.terms_version !== 1 ||
+    !/^[0-9a-f]{64}$/.test(body.terms_hash)) {
+    throw new Error("Terms publication failed: " + JSON.stringify(body));
+  }
+  if (calls.length !== 1 || calls[0].name !== "w3m_publish_acquisition_terms_version") {
+    throw new Error("Validated terms must be published through the single restricted RPC");
+  }
+});
+
+Deno.test("publish_terms rejects a non-seller before calling the publication RPC", async () => {
+  const sellerId = "76000000-0000-4000-8000-000000000006";
+  const from = ((table: string) => ({
+    select() { return this; },
+    eq() { return this; },
+    async maybeSingle() {
+      return { data: table === "deals" ? {
+        id: DEAL_ID, project_id: PROJECT_ID, buyer_id: USER_ID, seller_id: sellerId,
+        status: "pending", dispute_status: "none",
+      } : null, error: null };
+    },
+    order() { return this; },
+    async range() { return { data: [], error: null }; },
+  })) as unknown as NonNullable<W3MAdminClient["from"]>;
+  const { deps, calls } = makeDeps(async () => ({ data: null, error: null }), {
+    userId: USER_ID, from,
+  });
+  const handler = createW3MAcquisitionHandler(deps);
+  const response = await handler(makeRequest({ action: "publish_terms", deal_id: DEAL_ID, terms: validTermsPayload() }));
+  if (response.status !== 403) throw new Error("Non-seller terms publication should return 403");
+  if (calls.length !== 0) throw new Error("Non-seller reached the terms publication RPC");
+});
+
+Deno.test("publish_terms rejects terms whose deal parties do not match the trusted deal", async () => {
+  const sellerId = "76000000-0000-4000-8000-000000000006";
+  const from = ((table: string) => ({
+    select() { return this; },
+    eq() { return this; },
+    async maybeSingle() {
+      return { data: table === "deals" ? {
+        id: DEAL_ID, project_id: PROJECT_ID, buyer_id: USER_ID, seller_id: sellerId,
+        status: "pending", dispute_status: "none",
+      } : null, error: null };
+    },
+    order() { return this; },
+    async range() { return { data: [], error: null }; },
+  })) as unknown as NonNullable<W3MAdminClient["from"]>;
+  const { deps, calls } = makeDeps(async () => ({ data: null, error: null }), {
+    userId: sellerId, from,
+  });
+  const terms = validTermsPayload();
+  terms.deal.buyer_id = "79000000-0000-4000-8000-000000000009";
+  const handler = createW3MAcquisitionHandler(deps);
+  const response = await handler(makeRequest({ action: "publish_terms", deal_id: DEAL_ID, terms }));
+  if (response.status !== 409) throw new Error("Mismatched deal party should be rejected");
+  if (calls.length !== 0) throw new Error("Mismatched terms reached the publication RPC");
+});
