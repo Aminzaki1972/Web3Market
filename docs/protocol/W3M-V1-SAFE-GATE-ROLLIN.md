@@ -117,3 +117,19 @@ Therefore the remaining page integration must add a wallet-manager adapter that:
 - never requests a transaction, token approval, transfer, or Safe execution as part of agreement signing.
 
 The current Deal Room's legacy `deal_party_agreements` rows remain historical UI state only and must not be upgraded or represented as cryptographic V1 acceptance. Do not replace the existing page flow until the provider adapter and end-to-end wallet interaction are tested in a safe, free test environment. This is a V1 completion blocker, not a request for a new feature.
+
+## Verified-wallet EIP-712 signing adapter — 2026-11-07
+
+Added `signTypedDataForVerifiedWallet(walletAddress, typedData)` to the existing browser wallet manager and exposed it through `window.Web3MarketWalletManager`.
+
+The adapter:
+- requires a valid address and typed-data object;
+- resolves the provider route saved for that exact verified address (no arbitrary `window.ethereum` fallback);
+- requires the provider's active `eth_accounts[0]` to equal the verified profile wallet;
+- requires the provider to already be on BNB Smart Chain chain ID 56 (it does not silently switch networks);
+- requests only `eth_signTypedData_v4` and validates the returned 65-byte ECDSA signature;
+- does not call `eth_sendTransaction`, approve tokens, transfer assets, or execute Safe operations.
+
+The agreement client remains responsible for validating the server-prepared EIP-712 domain, message fields, deal ID, audit fingerprint, binding hash, canonical terms hash/version, party role, wallet, nonce, and deadline before invoking the signer callback.
+
+**Integration status:** the adapter is added to the V1 branch but is not yet called by Deal Room. Dedicated provider-mock tests and full browser-wallet integration tests remain required before wiring it into the page. The production page and production services remain unchanged.
