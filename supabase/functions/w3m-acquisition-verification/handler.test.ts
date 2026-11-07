@@ -143,7 +143,7 @@ Deno.test("accept action verifies exact persisted EIP-712 challenge before recor
     nonce: row.nonce,
     deadline: DEADLINE,
   }, NOW);
-  const signature = await wallet.signTypedData(typed.domain, typed.types, typed.message);
+  const signature = await wallet.signTypedData(typed.domain, { DealTermsAcceptance: typed.types.DealTermsAcceptance.map((field) => ({ ...field })) }, typed.message);
   const { deps, calls } = makeDeps(async (name) => {
     if (name === "w3m_get_agreement_challenge_for_verification") {
       return { data: [row], error: null };
@@ -188,7 +188,7 @@ Deno.test("accept action rejects wrong-wallet signatures without calling persist
     nonce: row.nonce,
     deadline: DEADLINE,
   }, NOW);
-  const signature = await attacker.signTypedData(typed.domain, typed.types, typed.message);
+  const signature = await attacker.signTypedData(typed.domain, { DealTermsAcceptance: typed.types.DealTermsAcceptance.map((field) => ({ ...field })) }, typed.message);
   const { deps, calls } = makeDeps(async () => ({ data: [row], error: null }));
   const handler = createW3MAcquisitionHandler(deps);
   const response = await handler(makeRequest({
