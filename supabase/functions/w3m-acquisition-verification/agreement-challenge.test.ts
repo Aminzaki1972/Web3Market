@@ -2,6 +2,7 @@ import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import { Wallet } from "npm:ethers@6.15.0";
 import {
   buildW3MAgreementChallenge,
+  verifyW3MAgreementChallengeSignature,
   type W3MAgreementChallengeRequest,
 } from "./agreement-challenge.ts";
 import { createW3MDealAuditBinding } from "./deal-audit-binding.ts";
@@ -81,4 +82,53 @@ Deno.test("rejects invalid deadlines and nonce through the EIP-712 builder", asy
     ...base,
     nonce: "bad",
   }, NOW));
+});
+
+
+Deno.test("verifies a signature only after rebuilding the challenge from current binding and terms", async () => {
+  const base = await request();
+  const challenge = await buildW3MAgreementChallenge(base, NOW);
+  const signature = await wallet.signTypedData(
+    challenge.typedData.domain,
+    challenge.typedData.types,
+    challenge.typedData.message,
+  );
+  const verified = await verifyW3MAgreementChallengeSignature(base, signature, NOW);
+  assertEquals(verified.valid, true);
+  assertEquals(verified.recoveredAddress.toLowerCase(), wallet.address.toLowerCase());
+  assertEquals(verified.bindingHash, challenge.bindingHash);
+});
+
+Deno.test("rejects a previously valid signature after terms, nonce, deadline, or role changes", async () => {
+  const base = await request();
+  const challenge = await buildW3MAgreementChallenge(base, NOW);
+  const signature = await wallet.signTypedData(
+    challenge.typedData.domain,
+    challenge.typedData.types,
+    challenge.typedData.message,
+  );
+  const changedRequests: W3MAgreementChallengeRequest[] = [
+    { ...base, termsHash: "0x" + "e".repeat(64) },
+    { ...base, nonce: "0x" + "f".repeat(64) },
+    { ...base, deadline: NOW + 301 },
+    { ...base, partyRole: "seller" },
+  ];
+  for (const changed of changedRequests) {
+    await assertRejects(() => verifyW3MAgreementChallengeSignature(changed, signature, NOW));
+  }
+});
+
+Deno.test("rejects a challenge signature made by a wallet other than the expected verified wallet", async () => {
+  const base = await request();
+  const other = new Wallet("0x" + "32".repeat(32));
+  const challenge = await buildW3MAgreementChallenge({
+    ...base,
+    walletAddress: other.address,
+  }, NOW);
+  const signature = await other.signTypedData(
+    challenge.typedData.domain,
+    challenge.typedData.types,
+    challenge.typedData.message,
+  );
+  await assertRejects(() => verifyW3MAgreementChallengeSignature(base, signature, NOW));
 });
