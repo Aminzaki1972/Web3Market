@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import { Wallet } from "npm:ethers@6.15.0";
 import {
   buildW3MAgreementTypedData,
@@ -43,9 +43,7 @@ Deno.test("recovers the verified wallet from a valid typed agreement signature",
 Deno.test("rejects a signature from a different wallet", async () => {
   const typed = buildW3MAgreementTypedData({ ...base, walletAddress: otherWallet.address }, NOW);
   const signature = await otherWallet.signTypedData(typed.domain, typed.types, typed.message);
-  await assertRejects(() => Promise.resolve(
-    verifyW3MAgreementSignature({ ...base, walletAddress: wallet.address }, signature, NOW),
-  ));
+  assertThrows(() => verifyW3MAgreementSignature({ ...base, walletAddress: wallet.address }, signature, NOW));
 });
 
 Deno.test("rejects signatures replayed against another deal, fingerprint, digest, or terms hash", async () => {
