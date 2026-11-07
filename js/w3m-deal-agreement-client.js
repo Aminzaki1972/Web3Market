@@ -92,6 +92,8 @@ function validatePrepared(value, dealId, walletAddress) {
   if (prepared.partyRole !== "buyer" && prepared.partyRole !== "seller") {
     throw new Error("Agreement party role is invalid.");
   }
+  const challengeId = requiredText(prepared.challengeId, "Persisted agreement challenge ID");
+  if (!UUID.test(challengeId)) throw new Error("Persisted agreement challenge ID is invalid.");
   const version = requiredText(prepared.termsVersion, "Terms version");
   if (!/^[1-9][0-9]*$/.test(version)) throw new Error("Terms version is invalid.");
   if (typeof prepared.fingerprintId !== "string" || !UUID.test(prepared.fingerprintId)) {
@@ -104,7 +106,7 @@ function validatePrepared(value, dealId, walletAddress) {
   const typedData = validateTypedData(
     prepared.typedData, dealId, prepared.partyRole, wallet, fingerprintId, fingerprintDigest, bindingHash, termsHash, version,
   );
-  return { ...prepared, walletAddress: wallet, typedData };
+  return { ...prepared, challengeId, walletAddress: wallet, typedData };
 }
 
 /**
@@ -127,14 +129,14 @@ export async function signAndSubmitW3MDealAgreement(input) {
   if (typeof input.request !== "function" || typeof input.signTypedData !== "function") {
     throw new Error("Agreement request and wallet signing adapters are required.");
   }
-  const preparedResponse = await input.request({ mode: "prepare", deal_id: input.dealId }, input.accessToken);
+  const preparedResponse = await input.request({ action: "prepare", deal_id: input.dealId, wallet_address: input.walletAddress }, input.accessToken);
   const prepared = validatePrepared(preparedResponse, input.dealId, input.walletAddress);
   const signature = await input.signTypedData(prepared.walletAddress, prepared.typedData);
   if (typeof signature !== "string" || !SIGNATURE.test(signature)) {
     throw new Error("Wallet returned a malformed EIP-712 signature.");
   }
   const acceptedResponse = record(await input.request({
-    mode: "accept", deal_id: input.dealId, signature,
+    action: "accept", deal_id: input.dealId, challenge_id: prepared.challengeId, signature,
   }, input.accessToken), "Agreement acceptance");
   if (acceptedResponse.ok !== true) throw new Error("Agreement acceptance was rejected.");
   const accepted = record(acceptedResponse.result, "Agreement acceptance result");
