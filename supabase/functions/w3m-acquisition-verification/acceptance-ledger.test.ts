@@ -71,6 +71,8 @@ Deno.test("ledger preflight rejects a reused nonce and a second acceptance for t
     deal_id: "99999999-9999-4999-8999-999999999999",
     party_role: "seller",
     nonce: buyer.nonce,
+    terms_hash: buyer.terms_hash,
+    terms_version: buyer.terms_version,
   }]), { allowed: false, reason: "nonce_already_used" });
   assertEquals(evaluateW3MAcceptanceLedger({
     ...buyer,
@@ -108,6 +110,71 @@ Deno.test("requires both distinct parties to accept the same terms and audit bin
   }), false);
 });
 
+
+
+Deno.test("allows a new acceptance after a new immutable terms version while preserving old history", () => {
+  const versionOne = buildW3MAcceptanceRecord(base, NOW);
+  const versionTwo = buildW3MAcceptanceRecord({
+    ...base,
+    termsVersion: "2",
+    termsHash: "0x" + "f".repeat(64),
+    nonce: "0x" + "e".repeat(64),
+  }, NOW);
+  assertEquals(evaluateW3MAcceptanceLedger(versionTwo, [versionOne]), {
+    allowed: true,
+    reason: "new_party_acceptance",
+  });
+  assertEquals(evaluateW3MAcceptanceLedger({
+    ...versionTwo,
+    nonce: "0x" + "9".repeat(64),
+  }, [versionTwo]), {
+    allowed: false,
+    reason: "party_role_already_accepted",
+  });
+  assertEquals(evaluateW3MAcceptanceLedger({
+    ...versionTwo,
+    termsHash: "0x" + "8".repeat(64),
+    nonce: "0x" + "7".repeat(64),
+  }, [versionTwo]), {
+    allowed: false,
+    reason: "terms_version_conflict",
+  });
+});
+
+Deno.test("strict current acceptance pair ignores prior version history but rejects extra rows for the current version", () => {
+  const oldBuyer = buildW3MAcceptanceRecord(base, NOW);
+  const buyer = buildW3MAcceptanceRecord({
+    ...base,
+    termsVersion: "2",
+    termsHash: "0x" + "f".repeat(64),
+    nonce: "0x" + "e".repeat(64),
+  }, NOW);
+  const seller = buildW3MAcceptanceRecord({
+    ...base,
+    termsVersion: "2",
+    termsHash: "0x" + "f".repeat(64),
+    partyRole: "seller",
+    authenticatedUserId: base.sellerUserId,
+    verifiedWalletAddress: "0x" + "22".repeat(20),
+    recoveredSignerAddress: "0x" + "22".repeat(20),
+    nonce: "0x" + "9".repeat(64),
+  }, NOW);
+  const expected = {
+    dealId: base.dealId,
+    projectId: base.projectId,
+    auditId: base.auditId,
+    fingerprintId: base.fingerprintId,
+    fingerprintDigest: base.fingerprintDigest,
+    bindingHash: base.bindingHash,
+    termsHash: "0x" + "f".repeat(64),
+    termsVersion: "2",
+  };
+  assertEquals(hasCompleteW3MAcceptancePair([oldBuyer, buyer, seller], expected), true);
+  assertEquals(hasCompleteW3MAcceptancePair([oldBuyer, buyer, seller, {
+    ...seller,
+    nonce: "0x" + "a".repeat(64),
+  }], expected), false);
+});
 
 Deno.test("strict finalization requires exactly one buyer and seller on identical evidence and terms", () => {
   const buyer = buildW3MAcceptanceRecord(base, NOW);
