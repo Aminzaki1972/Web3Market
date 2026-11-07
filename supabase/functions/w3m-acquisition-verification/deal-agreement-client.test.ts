@@ -120,7 +120,7 @@ Deno.test("client refuses incomplete or mismatched evidence and terms bindings",
 });
 Deno.test("client rejects acceptance for changed terms version after signing", async () => {
   await assertRejects(() => runClient(async (body) =>
-    (body as {mode:string}).mode === "prepare" ? prepared() : ({
+    (body as {action:string}).action === "prepare" ? prepared() : ({
       ok: true, result: { dealId, partyRole: "buyer", termsVersion: "4",
         acceptanceId: "76000000-0000-4000-8000-000000000006", idempotentReplay: false },
     })));
@@ -128,7 +128,7 @@ Deno.test("client rejects acceptance for changed terms version after signing", a
 Deno.test("client never submits a malformed wallet signature", async () => {
   let submits = 0;
   await assertRejects(() => runClient(async (body) => {
-    if ((body as {mode:string}).mode === "prepare") return prepared();
+    if ((body as {action:string}).action === "prepare") return prepared();
     submits++; return {};
   }, async () => "0x1234"));
   assertEquals(submits, 0);
