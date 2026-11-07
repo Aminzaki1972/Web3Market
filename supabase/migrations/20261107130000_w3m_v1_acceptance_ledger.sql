@@ -205,7 +205,7 @@ begin
   end if;
   if p_deal_id is null or p_project_id is null or p_audit_id is null
     or p_fingerprint_id is null or p_user_id is null
-    or p_party_role not in ('buyer','seller') or p_terms_version is null or p_terms_version < 1
+    or p_party_role is null or p_party_role not in ('buyer','seller') or p_terms_version is null or p_terms_version < 1
     or p_fingerprint_digest is null or p_fingerprint_digest !~ '^[0-9a-f]{64}$'
     or p_binding_hash is null or p_binding_hash !~ '^[0-9a-f]{64}$'
     or p_terms_hash is null or p_terms_hash !~ '^[0-9a-f]{64}$'
@@ -220,7 +220,7 @@ begin
   if not found or v_deal.project_id <> p_project_id then
     raise exception 'deal_or_project_not_found' using errcode = 'P0002';
   end if;
-  if v_deal.status not in ('pending','accepted') or v_deal.dispute_status <> 'none' then
+  if v_deal.status is null or v_deal.status not in ('pending','accepted')\n    or v_deal.dispute_status is distinct from 'none' then
     raise exception 'deal_not_eligible_for_agreement' using errcode = '22023';
   end if;
   if (p_party_role = 'buyer' and v_deal.buyer_id <> p_user_id)
