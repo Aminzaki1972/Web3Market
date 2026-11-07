@@ -118,7 +118,6 @@ export function validateW3MAcquisitionTermsV1(input: unknown): asserts input is 
 
   const net = object(root.seller_net, "seller_net");
   const netAmount = decimal(net.amount, "seller_net.amount");
-  positiveDecimal(netAmount, "seller_net.amount");
   const netCurrency = requiredString(net.currency, "seller_net.currency");
   const considerationCurrency = requiredString(consideration.currency, "consideration.currency");
   if (netCurrency !== considerationCurrency) fail("seller_net.currency must match consideration.currency unless an explicit conversion schedule is added.");
