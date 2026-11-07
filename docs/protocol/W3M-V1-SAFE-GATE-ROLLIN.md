@@ -82,3 +82,13 @@ Required V1 integration sequence:
 The current V1 browser coordinator's request/response shapes match the existing `prepare` and `accept` handler shapes in source review. This does not establish a complete page integration: the HTML page does not load the coordinator, the Deal Room still uses the legacy agreement table, there is no read-only acceptance-status action, and the page does not yet render the authoritative canonical terms. These are explicit V1 integration tasks.
 
 No production files, database records, Edge Functions, secrets, or DNS were changed by this review. No paid environment or service was used.
+
+## Participant-scoped agreement status action — staged V1 implementation
+
+The `w3m-acquisition-verification` handler now includes a read-only `status` action. It authenticates the bearer token, reloads the deal, permits only its buyer or seller, reloads the currently published terms from the private protocol schema, recomputes the canonical terms hash before returning the terms, and checks each acceptance against the expected deal-party user ID, role, current terms hash, and version.
+
+The response contains the canonical terms needed for the Deal Room to display the exact published agreement, plus buyer/seller accepted flags and timestamps. It deliberately omits signatures, nonces, challenge IDs, and wallet metadata. A mismatched party or stale acceptance is not reported as accepted. The browser client now has a matching `getW3MDealAgreementStatus` adapter with response-shape and deal-ID validation.
+
+Regression coverage was added for participant-only access, cross-account denial, terms-hash integrity, same-version acceptance state, and absence of signature/challenge material in the response. These are source-level test additions on the feature branch; CI has not yet reported a run for the latest commits, so they are **not yet counted as passing tests**.
+
+The action and adapter are not yet connected to the live Deal Room page. That integration remains blocked on the approved canonical terms and a separately approved deployment of the migration and Edge Function. No production resources were changed.
