@@ -239,6 +239,17 @@ begin
     raise exception 'challenge_already_consumed' using errcode = '23505';
   end if;
 
+  -- A challenge for superseded terms must never become an acceptance.
+  if not exists (
+    select 1 from public.w3m_acquisition_terms_versions t
+    where t.deal_id = v_challenge.deal_id
+      and t.terms_version = v_challenge.terms_version
+      and t.terms_hash = v_challenge.terms_hash
+      and t.status = 'published'
+  ) then
+    raise exception 'challenge_terms_are_no_longer_current' using errcode = '22023';
+  end if;
+
   if v_challenge.user_id <> p_user_id or v_challenge.party_role <> p_party_role
     or lower(v_challenge.wallet_address) <> lower(p_wallet_address)
     or lower(v_challenge.wallet_address) <> lower(p_recovered_signer)
