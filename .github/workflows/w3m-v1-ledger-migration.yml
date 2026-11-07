@@ -310,22 +310,28 @@ jobs:
             end;
             update public.deals set dispute_status='none' where id=v_deal;
 
-            perform public.w3m_publish_acquisition_terms_version(
-              v_deal,2,repeat('2',64),'{"schema":"w3m-terms-v1","approved":true,"revision":2}'::jsonb
+            -- The seller completes the exact version-1 pair after the temporary
+            -- wallet/dispute rejection cases have been restored.
+            perform public.w3m_record_agreement_acceptance(
+              v_stale_challenge,
+              '76000000-0000-4000-8000-000000000006'::uuid,
+              'seller',
+              '0x2222222222222222222222222222222222222222',
+              '0x2222222222222222222222222222222222222222',
+              v_signature,clock_timestamp()
             );
+            if (select count(*) from w3m_private.w3m_agreement_acceptances
+                where deal_id=v_deal and terms_version=1) <> 2 then
+              raise exception 'complete_buyer_seller_acceptance_pair_not_persisted';
+            end if;
 
+            -- Once either party has accepted, the canonical terms are frozen.
             begin
-              perform public.w3m_record_agreement_acceptance(
-                v_stale_challenge,
-                '76000000-0000-4000-8000-000000000006'::uuid,
-                'seller',
-                '0x2222222222222222222222222222222222222222',
-                '0x2222222222222222222222222222222222222222',
-                v_signature,clock_timestamp()
+              perform public.w3m_publish_acquisition_terms_version(
+                v_deal,2,repeat('2',64),'{"schema":"w3m-terms-v1","approved":true,"revision":2}'::jsonb
               );
-              raise exception 'expected_superseded_terms_rejection';
-            exception when sqlstate '22023' then
-              null;
+              raise exception 'expected_terms_locked_after_acceptance';
+            exception when sqlstate '23505' then null;
             end;
 
             if (select count(*) from w3m_private.w3m_acquisition_terms_versions
@@ -333,8 +339,8 @@ jobs:
               raise exception 'terms_current_version_invariant_broken';
             end if;
             if (select status from w3m_private.w3m_acquisition_terms_versions
-                where deal_id=v_deal and terms_version=1) <> 'superseded' then
-              raise exception 'old_terms_not_superseded';
+                where deal_id=v_deal and terms_version=1) <> 'published' then
+              raise exception 'accepted_terms_version_must_remain_published';
             end if;
 
             begin
