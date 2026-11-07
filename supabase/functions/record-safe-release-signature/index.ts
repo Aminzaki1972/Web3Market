@@ -44,6 +44,7 @@ Deno.serve(async(req)=>{
  if(String(deal.release_tx_hash||""))return json(409,{ok:false,error:"Release already finalized"});
  const {data:tx}=await sb.from("deal_multisig_transactions").select("*").eq("deal_id",dealId).eq("action","release_to_seller").maybeSingle();
  if(!tx?.safe_tx_hash)return json(409,{ok:false,error:"Safe transaction is not prepared"});
+ if(!tx.safe_address||ethers.getAddress(tx.safe_address).toLowerCase()!==ethers.getAddress(policy.safe_address).toLowerCase())return json(409,{ok:false,error:"Prepared Safe transaction address does not match the locked release policy"});
  const {data:profile}=await sb.from("profiles").select("wallet_address,wallet_verified,role").eq("id",u.user.id).maybeSingle();
  if(!profile?.wallet_verified||!profile.wallet_address)return json(409,{ok:false,error:"Wallet is not verified"});
  const safe=ethers.getAddress(tx.safe_address);
