@@ -40,6 +40,7 @@ Deno.serve(async(req)=>{
  const {data:policy,error:policyError}=await sb.from("deal_release_policies").select("status,safe_address,token_contract,chain_id").eq("deal_id",dealId).maybeSingle();
  if(policyError||!policy)return json(409,{ok:false,error:"Locked release policy is unavailable"});
  if(String(policy.status||"").toLowerCase()!=="locked"||Number(policy.chain_id)!==CHAIN_ID)return json(409,{ok:false,error:"Release policy is not locked for BNB Smart Chain"});
+ if(!policy.safe_address||!deal.safe_address||ethers.getAddress(policy.safe_address).toLowerCase()!==ethers.getAddress(deal.safe_address).toLowerCase())return json(409,{ok:false,error:"Release policy Safe does not match the deal Safe"});
  if(String(deal.release_tx_hash||""))return json(409,{ok:false,error:"Release already finalized"});
  const {data:tx}=await sb.from("deal_multisig_transactions").select("*").eq("deal_id",dealId).eq("action","release_to_seller").maybeSingle();
  if(!tx?.safe_tx_hash)return json(409,{ok:false,error:"Safe transaction is not prepared"});
