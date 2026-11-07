@@ -138,7 +138,7 @@ begin
   if v_audit.project_id is distinct from v_deal.project_id
      or v_audit.status is distinct from 'completed'
      or v_audit.audit_type not in ('code','smart_contract','complete')
-     or v_audit.overall_score is null
+     or v_audit.overall_score is null or v_audit.overall_score < 0 or v_audit.overall_score > 100
      or coalesce(v_audit.risk_level,'') = ''
      or coalesce(v_audit.analysis_method,'') = ''
      or v_audit.completed_at is null
@@ -246,7 +246,7 @@ begin
    where a.project_id = v_project.id
      and a.status = 'completed'
      and a.audit_type in ('code','smart_contract','complete')
-     and a.overall_score is not null
+     and a.overall_score between 0 and 100
      and coalesce(a.risk_level,'') <> ''
      and coalesce(a.analysis_method,'') <> ''
      and a.completed_at is not null
