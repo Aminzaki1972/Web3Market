@@ -624,6 +624,102 @@ begin
 end;
 $w3m$;
 
+create or replace function public.w3m_get_deal_finalization_evidence(
+  p_deal_id uuid
+) returns table (
+  deal_id uuid, project_id uuid, buyer_id uuid, seller_id uuid,
+  deal_status text, dispute_status text, audit_id uuid, fingerprint_id uuid,
+  fingerprint_digest text, repository text, commit_sha text, binding_hash text,
+  terms_hash text, terms_version text, acceptance_rows jsonb
+) language plpgsql security definer set search_path = ''
+as $w3m$
+declare
+  v_deal public.deals%rowtype;
+  v_binding w3m_private.w3m_deal_audit_bindings%rowtype;
+  v_fingerprint w3m_private.w3m_audit_fingerprints%rowtype;
+  v_audit public.code_audits%rowtype;
+  v_terms w3m_private.w3m_acquisition_terms_versions%rowtype;
+  v_terms_count integer;
+  v_acceptance_rows jsonb;
+begin
+  if (auth.jwt() ->> 'role') is distinct from 'service_role' then
+    raise exception 'service_role_required' using errcode = '42501';
+  end if;
+  if p_deal_id is null then
+    raise exception 'deal_id_required' using errcode = '22023';
+  end if;
+
+  select * into v_deal from public.deals where id = p_deal_id;
+  if not found or v_deal.buyer_id is null or v_deal.seller_id is null
+    or v_deal.buyer_id = v_deal.seller_id then
+    raise exception 'finalization_deal_or_parties_invalid' using errcode = 'P0002';
+  end if;
+
+  select * into v_binding from w3m_private.w3m_deal_audit_bindings
+    where deal_id = p_deal_id;
+  if not found or v_binding.project_id is distinct from v_deal.project_id then
+    raise exception 'finalization_audit_binding_missing' using errcode = 'P0002';
+  end if;
+
+  select * into v_fingerprint from w3m_private.w3m_audit_fingerprints
+    where id = v_binding.fingerprint_id;
+  if not found or v_fingerprint.audit_id is distinct from v_binding.audit_id
+    or v_fingerprint.fingerprint_digest is distinct from v_binding.fingerprint_digest
+    or v_fingerprint.repository is distinct from v_binding.repository
+    or v_fingerprint.commit_sha is distinct from v_binding.commit_sha then
+    raise exception 'finalization_fingerprint_binding_mismatch' using errcode = '23503';
+  end if;
+
+  select * into v_audit from public.code_audits where id = v_binding.audit_id;
+  if not found or v_audit.project_id is distinct from v_deal.project_id
+    or v_audit.status is distinct from 'completed'
+    or lower(coalesce(v_audit.repo_owner || '/' || v_audit.repo_name,'')) <> v_binding.repository
+    or lower(coalesce(v_audit.commit_sha,'')) <> v_binding.commit_sha then
+    raise exception 'finalization_audit_no_longer_matches_binding' using errcode = '23503';
+  end if;
+
+  select count(*) into v_terms_count
+    from w3m_private.w3m_acquisition_terms_versions
+    where deal_id = p_deal_id and status = 'published';
+  if v_terms_count <> 1 then
+    raise exception 'finalization_current_terms_version_not_unique' using errcode = '23503';
+  end if;
+  select * into v_terms from w3m_private.w3m_acquisition_terms_versions
+    where deal_id = p_deal_id and status = 'published';
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'deal_id', a.deal_id::text,
+    'project_id', a.project_id::text,
+    'audit_id', a.audit_id::text,
+    'fingerprint_id', a.fingerprint_id::text,
+    'fingerprint_digest', '0x' || a.fingerprint_digest,
+    'binding_hash', '0x' || a.binding_hash,
+    'terms_hash', '0x' || a.terms_hash,
+    'terms_version', a.terms_version::text,
+    'party_role', a.party_role,
+    'user_id', a.user_id::text,
+    'wallet_address', a.wallet_address,
+    'signature', a.signature,
+    'nonce', a.nonce,
+    'signature_deadline', a.signature_deadline,
+    'accepted_at', to_char(a.accepted_at at time zone 'UTC',
+      'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+  ) order by a.terms_version, a.party_role), '[]'::jsonb)
+  into v_acceptance_rows
+  from w3m_private.w3m_agreement_acceptances a
+  where a.deal_id = p_deal_id;
+
+  return query select
+    v_deal.id, v_deal.project_id, v_deal.buyer_id, v_deal.seller_id,
+    v_deal.status, v_deal.dispute_status, v_binding.audit_id, v_binding.fingerprint_id,
+    '0x' || v_binding.fingerprint_digest, v_binding.repository, v_binding.commit_sha,
+    '0x' || v_binding.binding_hash, '0x' || v_terms.terms_hash,
+    v_terms.terms_version::text, v_acceptance_rows;
+end;
+$w3m$;
+
+revoke all on function public.w3m_get_deal_finalization_evidence(uuid)
+  from public, anon, authenticated;
 revoke all on function public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text)
   from public, anon, authenticated;
 revoke all on function public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)
@@ -635,6 +731,7 @@ revoke all on function public.w3m_record_agreement_acceptance(uuid,uuid,text,tex
 revoke all on function public.w3m_get_agreement_challenge_for_verification(uuid)
   from public, anon, authenticated;
 grant execute on function public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text) to service_role;
+grant execute on function public.w3m_get_deal_finalization_evidence(uuid) to service_role;
 grant execute on function public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb) to service_role;
 grant execute on function public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint) to service_role;
 grant execute on function public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz) to service_role;
