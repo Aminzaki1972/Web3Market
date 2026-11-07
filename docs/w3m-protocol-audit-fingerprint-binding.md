@@ -199,3 +199,18 @@ A future final-report table should be separate from these evidence records and s
 5. Add final-report issuance only after the independent acceptance records and all evidence checks are verified.
 
 No production schema change, migration, Edge Function deployment, deal update, signature request, Safe transaction or financial transfer was performed during this inspection.
+
+
+## 17. Isolated EIP-712 signature-verification primitive (2026-11-07)
+
+Added `agreement-signature.ts` and focused tests on this feature branch. The module pins `ethers@6.15.0`, consistent with the repository's existing pinned ethers asset, and constructs the typed-data payload on the server from expected values rather than accepting a client-provided domain or message as authoritative.
+
+The typed acceptance binds:
+- BNB Chain domain ID 56, domain name `Web3Market Deal Agreement`, version `1`;
+- deal ID, fingerprint record ID, fingerprint digest, and immutable terms hash;
+- terms version, buyer/seller role, expected wallet address, one-time nonce, and a short signature deadline (maximum 15 minutes);
+- 65-byte ECDSA signatures with high-s signatures rejected, followed by signer recovery and exact wallet comparison.
+
+Focused tests cover valid recovery, wrong-wallet rejection, replay/tampering across deal/fingerprint/digest/terms/role/nonce, expired or overlong deadlines, and malformed inputs. The focused workflow was expanded to run these tests and type-check this module. The previous workflow run #21 passed the fingerprint/manifest tests on its earlier commit; the new EIP-712 test suite is a separate, newly added gate and must not be described as passing until its own CI run completes successfully.
+
+**Important boundary:** this is a pure cryptographic primitive, not a live acceptance endpoint. It does not authenticate Supabase users, query trusted deal/fingerprint/terms rows, compare the recovered wallet with the participant's verified profile wallet, consume the nonce atomically, persist signatures, or issue the final report. The deployed wallet verification flow confirms ownership of a wallet using a personal-message challenge and stores a verified wallet on the profile; the acquisition endpoint must still re-check that stored wallet at request time. No Edge Function deployment, schema migration, production write, or settlement action was performed.
