@@ -76,7 +76,7 @@ jobs:
             v_deal uuid := '71000000-0000-4000-8000-000000000001';
             v_project uuid := '72000000-0000-4000-8000-000000000002';
             v_audit uuid := '73000000-0000-4000-8000-000000000003';
-            v_fingerprint uuid;
+            v_fingerprint uuid := '74000000-0000-8000-8000-000000000004';
             v_retry_fingerprint uuid;
             v_manifest jsonb;
             v_seller uuid := '76000000-0000-4000-8000-000000000006';
@@ -120,13 +120,13 @@ jobs:
             );
             select fingerprint_id into v_fingerprint
               from public.w3m_publish_audit_fingerprint_and_binding(
-                v_deal,v_project,v_audit,v_seller,'aminzaki1972/web3market',
+                v_deal,v_project,v_audit,v_fingerprint,v_seller,'aminzaki1972/web3market',
                 repeat('f',40),v_digest,v_manifest,v_binding_hash
               );
 
             select fingerprint_id into v_retry_fingerprint
               from public.w3m_publish_audit_fingerprint_and_binding(
-                v_deal,v_project,v_audit,v_seller,'aminzaki1972/web3market',
+                v_deal,v_project,v_audit,v_fingerprint,v_seller,'aminzaki1972/web3market',
                 repeat('f',40),v_digest,v_manifest,v_binding_hash
               );
             if v_retry_fingerprint is distinct from v_fingerprint then
@@ -135,7 +135,7 @@ jobs:
 
             begin
               perform public.w3m_publish_audit_fingerprint_and_binding(
-                v_deal,v_project,v_audit,v_user,'aminzaki1972/web3market',
+                v_deal,v_project,v_audit,v_fingerprint,v_user,'aminzaki1972/web3market',
                 repeat('f',40),v_digest,v_manifest,v_binding_hash
               );
               raise exception 'expected_non_seller_fingerprint_publication_rejection';
@@ -145,7 +145,7 @@ jobs:
 
             begin
               perform public.w3m_publish_audit_fingerprint_and_binding(
-                v_deal,v_project,v_audit,v_seller,'aminzaki1972/web3market',
+                v_deal,v_project,v_audit,v_fingerprint,v_seller,'aminzaki1972/web3market',
                 repeat('9',40),v_digest,v_manifest,v_binding_hash
               );
               raise exception 'expected_mismatched_audit_commit_rejection';
@@ -159,7 +159,7 @@ jobs:
             values ('79000000-0000-4000-8000-000000000009',v_project,v_user,
               '76000000-0000-4000-8000-000000000006','pending','none');
             perform public.w3m_publish_audit_fingerprint_and_binding(
-              '79000000-0000-4000-8000-000000000009',v_project,v_audit,v_seller,
+              '79000000-0000-4000-8000-000000000009',v_project,v_audit,v_fingerprint,v_seller,
               'aminzaki1972/web3market',repeat('f',40),v_digest,v_manifest,v_binding_hash
             );
             if (select count(*) from w3m_private.w3m_deal_audit_bindings
@@ -404,9 +404,9 @@ jobs:
               or has_table_privilege('service_role','w3m_private.w3m_agreement_challenges','update')
               or has_table_privilege('service_role','w3m_private.w3m_acquisition_terms_versions','insert')
               or has_table_privilege('service_role','w3m_private.w3m_acquisition_terms_versions','update')
-              or has_function_privilege('anon','public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,text,text,text,jsonb,text)','execute')
-              or has_function_privilege('authenticated','public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,text,text,text,jsonb,text)','execute')
-              or not has_function_privilege('service_role','public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,text,text,text,jsonb,text)','execute')
+              or has_function_privilege('anon','public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text)','execute')
+              or has_function_privilege('authenticated','public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text)','execute')
+              or not has_function_privilege('service_role','public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text)','execute')
               or has_function_privilege('anon','public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)','execute')
               or has_function_privilege('authenticated','public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)','execute')
               or has_function_privilege('anon','public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint)','execute')
