@@ -1,6 +1,7 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import {
-  assertCanAppendW3MTermsVersion,\n  buildW3MTermsVersionAppendPlan,\n  verifyW3MTermsVersionDigest,
+  assertCanAppendW3MTermsVersion,
+  buildW3MTermsVersionAppendPlan,\n  verifyW3MTermsVersionDigest,
   filterCurrentW3MAcceptances,
   isW3MAcceptanceCurrentForTerms,
   type W3MTermsVersionRecord,
@@ -91,7 +92,7 @@ Deno.test("rejects multiple current versions when planning a new publication", (
 
 Deno.test("verifies canonical stored JSON against the domain-separated digest", async () => {
   const canonicalTerms = '{"schema":"w3m-acquisition-terms-v1","terms_version":1}';
-  const bytes = new TextEncoder().encode("w3m-acquisition-terms:v1\\n" + canonicalTerms);
+  const bytes = new TextEncoder().encode("w3m-acquisition-terms:v1\n" + canonicalTerms);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   const termsHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
   const record = {
