@@ -87,10 +87,14 @@ function validateAcceptanceRecord(row: W3MAcceptanceRecord): void {
   if (!Number.isSafeInteger(row.signature_deadline) || row.signature_deadline < 1) {
     throw new Error("Persisted signature deadline is invalid.");
   }
+  if (typeof row.accepted_at !== "string") {
+    throw new Error("Persisted acceptance timestamp must be a canonical ISO-8601 UTC string.");
+  }
   const acceptedAtMs = Date.parse(row.accepted_at);
   if (!Number.isFinite(acceptedAtMs) || new Date(acceptedAtMs).toISOString() !== row.accepted_at ||
-    acceptedAtMs > row.signature_deadline * 1000) {
-    throw new Error("Persisted acceptance timestamp is invalid or later than its signature deadline.");
+    acceptedAtMs > row.signature_deadline * 1000 ||
+    row.signature_deadline - Math.floor(acceptedAtMs / 1000) > 15 * 60) {
+    throw new Error("Persisted acceptance timestamp or signature lifetime is invalid.");
   }
 }
 
