@@ -230,3 +230,44 @@ Deno.test("exact snapshot reader blocks live Safe chain, nonce, and owner mismat
     );
   }
 });
+
+
+Deno.test("exact snapshot gate binds Safe owners to currently verified Deal Room wallets", async () => {
+  const safeFacts = {
+    chainId: 56,
+    safeAddress: "0x2222222222222222222222222222222222222222",
+    owners: [
+      "0x4444444444444444444444444444444444444444",
+      "0x5555555555555555555555555555555555555555",
+      "0x2B15cC63eE3b833F502C065767695Fa2B584f8c9",
+    ],
+    threshold: 2,
+    version: "1.4.1",
+    nonce: "7",
+    expectedBuyerWallet: "0x5555555555555555555555555555555555555555",
+    expectedSellerWallet: "0x4444444444444444444444444444444444444444",
+  };
+  const variants = [
+    { ...row, buyer_wallet_verified: "false" },
+    { ...row, seller_wallet_verified: "false" },
+    { ...row, buyer_wallet: "0x6666666666666666666666666666666666666666" },
+    { ...row, seller_wallet: "0x6666666666666666666666666666666666666666" },
+    { ...row, policy_seller_wallet: "0x6666666666666666666666666666666666666666" },
+    { ...row, project_owner_id: "another-owner" },
+    { ...row, buyer_wallet_verified_at: "2026-11-07T00:00:00Z" },
+  ];
+  for (const invalidRow of variants) {
+    const result = await checkDealRoomFromExactSnapshot({
+      client: client([invalidRow]),
+      dealId: "deal-reader-1",
+      stage: "PREPARE",
+      now: "2026-11-06T20:00:00.000Z",
+      codeAudit: auditFixture,
+      safeFacts,
+    });
+    assertEquals(
+      result.decision.issues.some((issue) => issue.code === "SAFE_CONFIGURATION_MISMATCH"),
+      true,
+    );
+  }
+});
