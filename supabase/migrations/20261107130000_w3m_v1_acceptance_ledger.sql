@@ -166,7 +166,7 @@ declare
   v_max_version bigint;
   v_id uuid;
 begin
-  if auth.role() is distinct from 'service_role' then
+  if (auth.jwt() ->> 'role') is distinct from 'service_role' then
     raise exception 'service_role_required' using errcode = '42501';
   end if;
   if p_deal_id is null or p_terms_version is null or p_terms_version < 1
@@ -203,7 +203,7 @@ declare
   v_profile_wallet text;
   v_wallet_verified boolean;
 begin
-  if auth.role() is distinct from 'service_role' then
+  if (auth.jwt() ->> 'role') is distinct from 'service_role' then
     raise exception 'service_role_required' using errcode = '42501';
   end if;
   if p_deal_id is null or p_project_id is null or p_audit_id is null
@@ -294,7 +294,7 @@ declare
   v_acceptance_id uuid;
   v_now timestamptz := clock_timestamp();
 begin
-  if auth.role() is distinct from 'service_role' then
+  if (auth.jwt() ->> 'role') is distinct from 'service_role' then
     raise exception 'service_role_required' using errcode = '42501';
   end if;
   if p_challenge_id is null or p_user_id is null or p_party_role is null
