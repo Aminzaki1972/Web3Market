@@ -44,7 +44,7 @@ const fixture = () => ({
   inspection: { window: "5 days", acceptance_criteria: ["Repository access delivered"] },
   dispute: { procedure_version: "draft-1", text: "Synthetic procedure for tests only" },
   escrow: { funding_condition: "Buyer funds verified Safe", release_condition: "Both parties complete conditions", dispute_hold: true },
-  governing_terms: { governing_law: "Pending legal review", venue_or_process: "Pending legal review", language: "en" },
+  governing_terms: { governing_law: "Synthetic governing-law policy for validator tests", venue_or_process: "Synthetic dispute venue for validator tests", language: "English" },
   risk_acknowledgements: ["Audit is limited to the scanned commit."],
   disclosures: [],
   created_at: "2026-11-07T00:00:00Z",
@@ -182,4 +182,41 @@ Deno.test("bounds decimal precision before exact arithmetic", () => {
   const excessiveInteger = fixture();
   excessiveInteger.consideration.amount = "1".repeat(79);
   assertThrows(() => validateW3MAcquisitionTermsV1(excessiveInteger));
+});
+
+
+Deno.test("rejects placeholder legal, dispute, escrow, and inspection policy text", () => {
+  const governingPlaceholder = fixture();
+  governingPlaceholder.governing_terms.governing_law = "Pending legal review";
+  assertThrows(() => validateW3MAcquisitionTermsV1(governingPlaceholder));
+
+  const venuePlaceholder = fixture();
+  governingPlaceholder.governing_terms.venue_or_process = "TBD";
+  assertThrows(() => validateW3MAcquisitionTermsV1(venuePlaceholder));
+
+  const disputePlaceholder = fixture();
+  disputePlaceholder.dispute.text = "To be determined";
+  assertThrows(() => validateW3MAcquisitionTermsV1(disputePlaceholder));
+
+  const escrowPlaceholder = fixture();
+  escrowPlaceholder.escrow.release_condition = "Placeholder";
+  assertThrows(() => validateW3MAcquisitionTermsV1(escrowPlaceholder));
+
+  const inspectionPlaceholder = fixture();
+  inspectionPlaceholder.inspection.window = "Pending";
+  assertThrows(() => validateW3MAcquisitionTermsV1(inspectionPlaceholder));
+});
+
+Deno.test("rejects blank delivery, inspection, and risk acknowledgement items", () => {
+  const blankDelivery = fixture();
+  blankDelivery.delivery.checklist = [" "];
+  assertThrows(() => validateW3MAcquisitionTermsV1(blankDelivery));
+
+  const blankCriterion = fixture();
+  blankCriterion.inspection.acceptance_criteria = [""];
+  assertThrows(() => validateW3MAcquisitionTermsV1(blankCriterion));
+
+  const blankRisk = fixture();
+  blankRisk.risk_acknowledgements = [" "];
+  assertThrows(() => validateW3MAcquisitionTermsV1(blankRisk));
 });
