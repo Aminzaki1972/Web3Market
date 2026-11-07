@@ -368,10 +368,12 @@
         Object.keys(message).sort().join(",") !== messageKeys ||
         fields.some(function (field) {
           var value = message[field[0]];
-          if (field[1] === "bytes32") return typeof value === "string" && bytes32Pattern.test(value);
-          if (field[1] === "address") return typeof value === "string" && addressPattern.test(value);
-          return (typeof value === "string" && /^(0|[1-9][0-9]*)$/.test(value)) ||
+          var valid = false;
+          if (field[1] === "bytes32") valid = typeof value === "string" && bytes32Pattern.test(value);
+          else if (field[1] === "address") valid = typeof value === "string" && addressPattern.test(value);
+          else valid = (typeof value === "string" && /^(0|[1-9][0-9]*)$/.test(value)) ||
             (field[1] === "uint8" && Number.isInteger(value) && value >= 0 && value <= 255);
+          return !valid;
         }) ||
         message.wallet.toLowerCase() !== walletAddress.toLowerCase() ||
         (message.partyRole !== 1 && message.partyRole !== 2) ||
