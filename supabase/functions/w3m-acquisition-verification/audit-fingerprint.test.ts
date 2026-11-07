@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
-import { computeW3MAuditFingerprint } from "./audit-fingerprint.ts";
+import { computeW3MAuditFingerprint, deriveW3MAuditFingerprintId } from "./audit-fingerprint.ts";
 
 const base = {
   auditId: "71000000-0000-4000-8000-000000000001",
@@ -149,4 +149,15 @@ Deno.test("rejects symbol keys and accessor properties in manifest objects", asy
   await assertRejects(() => computeW3MAuditFingerprint({
     ...base, manifest: withHidden,
   }));
+});
+
+Deno.test("fingerprint record ID is deterministic UUIDv8 and scoped to the audit", async () => {
+  const first = await deriveW3MAuditFingerprintId(base.auditId);
+  const retry = await deriveW3MAuditFingerprintId(base.auditId.toUpperCase());
+  const other = await deriveW3MAuditFingerprintId("72000000-0000-4000-8000-000000000002");
+  assertEquals(first, retry);
+  if (first === other) throw new Error("Different audits must not share a fingerprint record ID.");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(first)) {
+    throw new Error("Fingerprint record ID must be a valid UUIDv8.");
+  }
 });
