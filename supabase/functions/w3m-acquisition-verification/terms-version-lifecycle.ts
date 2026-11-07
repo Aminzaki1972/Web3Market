@@ -145,7 +145,7 @@ export async function verifyW3MTermsVersionDigest(record: W3MTermsVersionRecord)
   let parsed: unknown;
   try { parsed = JSON.parse(record.canonical_terms_json); } catch { return false; }
   if (JSON.stringify(parsed) !== record.canonical_terms_json) return false;
-  const bytes = new TextEncoder().encode("w3m-acquisition-terms:v1\\n" + record.canonical_terms_json);
+  const bytes = new TextEncoder().encode("w3m-acquisition-terms:v1\n" + record.canonical_terms_json);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   const actual = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
   return actual === record.terms_hash.toLowerCase();
