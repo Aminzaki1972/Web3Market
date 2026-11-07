@@ -202,7 +202,9 @@ export function createW3MAcquisitionHandler(deps: HandlerDependencies) {
       if (body.action === "challenge") {
         const input = challengeInput(body);
         if (!input) return reply(origin, { ok: false, error: "Invalid agreement challenge parameters" }, 400);
-        const random = (deps.randomBytes || crypto.getRandomValues.bind(crypto))(new Uint8Array(32).length);
+        const random = deps.randomBytes
+          ? deps.randomBytes(32)
+          : crypto.getRandomValues(new Uint8Array(32));
         if (!(random instanceof Uint8Array) || random.length !== 32) {
           return reply(origin, { ok: false, error: "Secure nonce generation failed" }, 503);
         }
