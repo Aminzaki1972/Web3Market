@@ -24,7 +24,14 @@ function canonicalJson(value: unknown, seen = new Set<object>()): string {
   seen.add(value);
   try {
     if (Array.isArray(value)) {
-      return "[" + value.map((item) => canonicalJson(item, seen)).join(",") + "]";
+      const items: string[] = [];
+      for (let index = 0; index < value.length; index++) {
+        if (!Object.prototype.hasOwnProperty.call(value, index)) {
+          throw new Error("Manifest arrays must not contain sparse entries.");
+        }
+        items.push(canonicalJson(value[index], seen));
+      }
+      return "[" + items.join(",") + "]";
     }
     const prototype = Object.getPrototypeOf(value);
     if (prototype !== Object.prototype && prototype !== null) {
