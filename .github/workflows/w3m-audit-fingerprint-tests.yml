@@ -34,6 +34,8 @@ on:
       - "supabase/functions/w3m-acquisition-verification/deal-audit-binding.test.ts"
       - "supabase/functions/w3m-acquisition-verification/agreement-challenge.ts"
       - "supabase/functions/w3m-acquisition-verification/agreement-challenge.test.ts"
+      - "supabase/functions/w3m-acquisition-verification/acceptance-ledger.ts"
+      - "supabase/functions/w3m-acquisition-verification/acceptance-ledger.test.ts"
       - ".github/workflows/w3m-audit-fingerprint-tests.yml"
 
 permissions:
