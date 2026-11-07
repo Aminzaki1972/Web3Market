@@ -11,7 +11,7 @@ import type {
 } from "../w3m-acquisition-verification/deal-audit-binding.ts";
 
 export type W3MFinalizationGateClient = {
-  rpc(name: string, args: Record<string, unknown>): Promise<{
+  rpc(name: string, args: Record<string, unknown>): PromiseLike<{
     data: unknown;
     error: { code?: string; message?: string } | null;
   }>;
