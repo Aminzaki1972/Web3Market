@@ -109,6 +109,21 @@ jobs:
               (v_deal,v_project,v_audit,v_fingerprint,v_digest,
                'aminzaki1972/web3market',repeat('f',40),v_binding_hash);
 
+            -- The same immutable audit fingerprint may support another deal
+            -- only when every project/audit/commit evidence field is identical.
+            insert into public.deals (id,project_id,buyer_id,seller_id,status,dispute_status)
+            values ('79000000-0000-4000-8000-000000000009',v_project,v_user,
+              '76000000-0000-4000-8000-000000000006','pending','none');
+            insert into w3m_private.w3m_deal_audit_bindings
+              (deal_id,project_id,audit_id,fingerprint_id,fingerprint_digest,repository,commit_sha,binding_hash)
+            values
+              ('79000000-0000-4000-8000-000000000009',v_project,v_audit,v_fingerprint,v_digest,
+               'aminzaki1972/web3market',repeat('f',40),v_binding_hash);
+            if (select count(*) from w3m_private.w3m_deal_audit_bindings
+                where fingerprint_id=v_fingerprint and fingerprint_digest=v_digest) <> 2 then
+              raise exception 'same_fingerprint_exact_evidence_multi_deal_binding_failed';
+            end if;
+
             perform public.w3m_publish_acquisition_terms_version(
               v_deal,1,v_terms_hash,'{"schema":"w3m-terms-v1","approved":true}'::jsonb
             );
