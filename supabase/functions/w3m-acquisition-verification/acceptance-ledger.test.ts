@@ -22,6 +22,7 @@ const base: W3MAcceptanceCandidateInput = {
   sellerUserId: "66666666-6666-4666-8666-666666666666",
   verifiedWalletAddress: "0x" + "11".repeat(20),
   recoveredSignerAddress: "0x" + "11".repeat(20),
+  signature: "0x" + "ab".repeat(65),
   nonce: "0x" + "d".repeat(64),
   deadline: NOW + 120,
   acceptedAt: "2027-01-15T08:00:00.000Z",
@@ -50,6 +51,9 @@ Deno.test("rejects mismatched signer, malformed evidence, and expired challenge"
   });
   await assertRejects(async () => {
     buildW3MAcceptanceRecord({ ...base, bindingHash: "bad" }, NOW);
+  });
+  await assertRejects(async () => {
+    buildW3MAcceptanceRecord({ ...base, signature: "0x1234" }, NOW);
   });
   await assertRejects(async () => {
     buildW3MAcceptanceRecord({ ...base, deadline: NOW }, NOW);
