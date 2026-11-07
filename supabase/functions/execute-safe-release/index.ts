@@ -5,6 +5,7 @@ import { assertW3MFinalizationReady, W3MFinalizationGateError } from "../_shared
 
 const RPC = Deno.env.get("BSC_RPC_URL") || "https://bsc-rpc.publicnode.com";
 const CHAIN = 56;
+const USDT = "0x55d398326f99059ff775485246999027b3197955";
 const EXECUTOR = "0xCbd947146826aB5BBF9924105E69e9c6F5e9420C";
 const ZERO = ethers.ZeroAddress;
 const SAFE_ABI = [
@@ -88,6 +89,7 @@ Deno.serve(async req=>{
     if(!policy) return json(409,{ok:false,error:"Release policy not found"});
     if(String(policy.status||"").toLowerCase()!=="locked")return json(409,{ok:false,transaction_sent:false,error:"Release policy is not locked"});
     if(!policy.safe_address||!deal.safe_address||norm(policy.safe_address)!==norm(deal.safe_address))return json(409,{ok:false,transaction_sent:false,error:"Release policy Safe does not match the deal Safe"});
+    if(Number(policy.chain_id)!==CHAIN||!policy.token_contract||norm(policy.token_contract)!==norm(USDT))return json(409,{ok:false,transaction_sent:false,error:"Release policy chain or token is not the configured BNB USDT asset"});
     if(!tx.safe_address||norm(tx.safe_address)!==norm(policy.safe_address))return json(409,{ok:false,transaction_sent:false,error:"Prepared Safe transaction address does not match the locked release policy"});
 
     const provider=new ethers.JsonRpcProvider(RPC,CHAIN,{staticNetwork:true});
