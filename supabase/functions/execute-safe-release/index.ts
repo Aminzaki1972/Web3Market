@@ -87,6 +87,7 @@ Deno.serve(async req=>{
     const {data:policy}=await sb.from("deal_release_policies").select("*").eq("deal_id",dealId).maybeSingle();
     if(!policy) return json(409,{ok:false,error:"Release policy not found"});
     if(String(policy.status||"").toLowerCase()!=="locked")return json(409,{ok:false,transaction_sent:false,error:"Release policy is not locked"});
+    if(!policy.safe_address||!deal.safe_address||norm(policy.safe_address)!==norm(deal.safe_address))return json(409,{ok:false,transaction_sent:false,error:"Release policy Safe does not match the deal Safe"});
 
     const provider=new ethers.JsonRpcProvider(RPC,CHAIN,{staticNetwork:true});
     const safeAddress=ethers.getAddress(policy.safe_address);
