@@ -447,3 +447,16 @@ Added two isolated modules under `supabase/functions/w3m-acquisition-verificatio
 - Updated `.github/workflows/w3m-audit-fingerprint-tests.yml` to include the new module and tests in focused Deno test/type-check runs.
 
 This is deliberately a pure validation/hash layer. It does not create real terms, load deal data, calculate and persist fee snapshots, authenticate participants, store signatures, or authorize settlement. Synthetic fixture values are test-only and are not platform terms. CI must pass on the latest branch head before this module is considered verified.
+
+
+### 21.1 CI verification for the V1 terms validator (2026-11-07)
+
+The latest focused GitHub Actions run for commit `13b9fd1af9136912895e9ad8adf6b3136e24485b` completed successfully:
+
+- 9 audit-fingerprint tests
+- 3 persisted-manifest tests
+- 6 EIP-712 signature primitive tests
+- 9 acquisition-terms V1 validation/canonicalization tests
+- Total: **27 tests passed**, plus Deno type-check passed for all four modules.
+
+Run: `42345922797` (success). This validates the isolated pure modules only; no end-to-end Edge Function, database persistence, wallet session, or escrow workflow has been tested or deployed.
