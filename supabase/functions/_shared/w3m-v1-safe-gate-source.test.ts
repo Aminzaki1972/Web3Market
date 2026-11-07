@@ -45,5 +45,15 @@ Deno.test("every Safe deployment, release, signature, execution and finalization
       assertEquals(disputeCheckIndex >= 0, true, item.file + " must verify dispute state");
       assertEquals(disputeCheckIndex < actionIndex, true, item.file + " must verify dispute state before the sensitive action");
     }
+    if (item.file.endsWith("record-safe-release-signature/index.ts") ||
+      item.file.endsWith("execute-safe-release/index.ts")) {
+      const deliveryCheckIndex = source.indexOf('delivery_status||"").toLowerCase()!=="accepted"');
+      const paymentCheckIndex = source.indexOf('payment_status||"").toLowerCase()!=="confirmed"');
+      const policyCheckIndex = source.indexOf('String(policy.status||"").toLowerCase()!=="locked"');
+      assertEquals(deliveryCheckIndex >= 0, true, item.file + " must require buyer-approved delivery");
+      assertEquals(paymentCheckIndex >= 0, true, item.file + " must require confirmed buyer payment");
+      assertEquals(policyCheckIndex >= 0, true, item.file + " must require a locked release policy");
+      assertEquals(deliveryCheckIndex < actionIndex && paymentCheckIndex < actionIndex && policyCheckIndex < actionIndex, true, item.file + " must revalidate release prerequisites before the sensitive action");
+    }
   }
 });
