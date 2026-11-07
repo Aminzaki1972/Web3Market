@@ -32,6 +32,8 @@ Deno.test("every Safe deployment, release, signature, execution and finalization
     const source = await Deno.readTextFile(item.file);
     const importIndex = source.indexOf('../_shared/w3m-v1-finalization-gate.ts');
     const gateIndex = source.indexOf("assertW3MFinalizationReady(");
+    assertEquals(/if\\s*\\(\\s*!state\\s*\\)\\s*return\\s*["\x27]unknown["\x27]/.test(source), true, item.file + " must fail closed when dispute status is missing");
+    assertEquals(/new Set\\(\\s*\\[\\s*["\x27]none["\x27]/.test(source), true, item.file + " must not treat an empty dispute status as terminal");
     const actionIndex = source.indexOf(item.action);
     assertEquals(importIndex >= 0, true, item.file + " must import the shared W3M gate");
     assertEquals(gateIndex >= 0, true, item.file + " must call the shared W3M gate");
