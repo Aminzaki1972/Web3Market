@@ -38,7 +38,10 @@ function prepared(overrides: Record<string, unknown> = {}) {
     },
   };
 }
-async function runClient(\n  request: (body: object, token: string) => Promise<unknown>,\n  sign: (address: string, typedData: object) => Promise<string> = async () => signature,\n) {
+async function runClient(
+  request: (body: object, token: string) => Promise<unknown>,
+  sign: (address: string, typedData: object) => Promise<string> = async () => signature,
+) {
   return signAndSubmitW3MDealAgreement({
     dealId, accessToken: "session", walletAddress: wallet, request,
     signTypedData: sign,
