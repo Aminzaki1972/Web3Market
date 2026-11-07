@@ -135,3 +135,28 @@ Consequences:
 ## 9. Deployment gate
 
 Design artifact only. No tables, functions, triggers, policies, migrations, or Edge Functions are created here. Before migration review, verify the actual profile-wallet flow, deal-term versioning source, audit ownership constraints, grants, and deployment identity. Test first in an isolated project with adversarial/concurrency tests. Production migration or deployment requires explicit approval.
+
+
+## 7A. Additional live-path inspection: offer acceptance and Safe gates
+
+A second read-only inspection of the connected production project and this feature branch found:
+- The current branch's `js/offer-actions.js` calls the Postgres RPC `act_on_marketplace_offer`. A read-only catalog lookup in the connected production database returned no matching function in any non-system schema (`to_regprocedure` was NULL). This is an integration mismatch that must be resolved before relying on this browser path; do not assume the RPC exists or that an Edge Function is automatically called instead.
+- The production project has active `seller-offer-action` and `seller-offer-action-v2` Edge Functions. The inspected V2 handler authenticates the caller as the seller and updates `deals.status` directly to `accepted` after checking BNB payment configuration. It does not require buyer/seller EIP-712 acceptance rows, a terms version/hash, or an audit binding. The older handler also updates the status directly.
+- The production `create-safe` Edge Function checks the caller is a deal participant or admin, requires `status='accepted'`, BNB Chain 56, verified and distinct buyer/seller/platform wallets, and verifies the deployed Safe configuration. It does not load or require the new EIP-712 acceptance pair or a canonical terms hash before deploying the Safe.
+- The production `prepare-deal-release` Edge Function checks participant authorization, dispute state, funded/in-progress status, confirmed payment, verified buyer/seller wallets, Safe owners/threshold, and a release-policy RPC. It creates/updates release-policy and multisig records, but the inspected handler does not require the new acceptance ledger pair or signed terms evidence.
+- The live Deal Room browser path still stores only `deal_party_agreements.agreed_at`; the branch's `js/w3m-deal-agreement-client.js` is deliberately isolated and is not imported by the live Deal Room.
+
+Security interpretation:
+- Offer acceptance, Safe deployment, and release preparation are separate trust boundaries. Each server-side boundary that relies on contractual consent must load and verify the same persisted buyer/seller acceptance pair from trusted storage; a UI check or `deals.status` check is insufficient.
+- Safe deployment is not itself proof that both parties agreed to immutable terms. Likewise, release preparation must not infer signed consent from `accepted`, `funded`, or legacy timestamps.
+- The missing `act_on_marketplace_offer` database RPC is a production integration discrepancy, not permission to create a replacement function blindly. First identify the actual deployed caller and expected response contract; then reconcile the frontend with the active seller-offer Edge Function in a separately reviewed change.
+- These findings are read-only. No Edge Function, database object, Safe, deal, or production record was changed.
+
+## 8A. Updated implementation gates
+
+1. Resolve the frontend `act_on_marketplace_offer` RPC versus deployed seller-offer Edge Function mismatch. Confirm the canonical offer-action endpoint and its callers before editing either.
+2. Define canonical immutable terms V1 and a trusted terms source; do not assume `deal_terms.terms_snapshot` is currently populated or authoritative.
+3. Implement the acceptance transaction and persist exactly one immutable buyer and seller signature against the same deal, audit binding, fingerprint, and terms version/hash.
+4. Add server-side enforcement at offer acceptance where consent is asserted, Safe deployment before any deal-specific escrow creation, and release preparation/finalization before settlement. Each gate must verify persisted acceptance rows, not client claims.
+5. Preserve current production behavior while implementing behind an isolated test project/feature flag. Add negative tests proving legacy timestamps and status-only transitions cannot pass the new gates.
+6. Reconcile response contracts, auth, RLS/service-role scope, idempotency, race conditions, dispute races, and rollback before any live wiring.
