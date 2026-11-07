@@ -82,6 +82,32 @@ function requireAddress(value: string, label: string): string {
   return value.toLowerCase();
 }
 
+function requireDigest(value: unknown, label: string): string {
+  if (typeof value !== "string") {
+    throw new Error(label + " must be a SHA-256 hex digest.");
+  }
+  const normalized = value.replace(/^0x/i, "");
+  if (!/^[0-9a-f]{64}$/i.test(normalized)) {
+    throw new Error(label + " must be a SHA-256 hex digest.");
+  }
+  return "0x" + normalized.toLowerCase();
+}
+
+function validateLedgerRow(row: W3MAcceptanceLedgerRow): void {
+  if (!row || typeof row !== "object") {
+    throw new Error("An existing acceptance ledger row is malformed.");
+  }
+  requireUuid(row.deal_id, "Existing deal ID");
+  requireHash(row.nonce, "Existing acceptance nonce");
+  requireHash(row.terms_hash, "Existing terms hash");
+  if (row.party_role !== "buyer" && row.party_role !== "seller") {
+    throw new Error("Existing acceptance party role is invalid.");
+  }
+  if (typeof row.terms_version !== "string" || !/^[1-9][0-9]*$/.test(row.terms_version)) {
+    throw new Error("Existing acceptance terms version is invalid.");
+  }
+}
+
 /**
  * Creates a canonical acceptance row after the caller has verified the EIP-712
  * signature against freshly loaded trusted deal, binding, terms, nonce and wallet.
@@ -150,7 +176,7 @@ export function buildW3MAcceptanceRecord(
     project_id: projectId,
     audit_id: auditId,
     fingerprint_id: fingerprintId,
-    fingerprint_digest: requireHash("0x" + input.fingerprintDigest.replace(/^0x/i, ""), "Fingerprint digest"),
+    fingerprint_digest: requireDigest(input.fingerprintDigest, "Fingerprint digest"),
     binding_hash: requireHash(input.bindingHash, "Binding hash"),
     terms_hash: requireHash(input.termsHash, "Terms hash"),
     terms_version: input.termsVersion,
@@ -179,6 +205,7 @@ export function evaluateW3MAcceptanceLedger(
   if (!Array.isArray(existingRows)) {
     throw new Error("Existing acceptance ledger rows are required.");
   }
+  for (const row of existingRows) validateLedgerRow(row);
   if (existingRows.some((row) => row.nonce.toLowerCase() === candidate.nonce)) {
     return { allowed: false, reason: "nonce_already_used" };
   }
@@ -247,10 +274,7 @@ export function hasCompleteW3MAcceptancePair(
   const projectId = requireUuid(expected.projectId, "Expected project ID");
   const auditId = requireUuid(expected.auditId, "Expected audit ID");
   const fingerprintId = requireUuid(expected.fingerprintId, "Expected fingerprint ID");
-  const fingerprintDigest = requireHash(
-    "0x" + expected.fingerprintDigest.replace(/^0x/i, ""),
-    "Expected fingerprint digest",
-  );
+  const fingerprintDigest = requireDigest(expected.fingerprintDigest, "Expected fingerprint digest");
   const bindingHash = requireHash(expected.bindingHash, "Expected binding hash");
   const termsHash = requireHash(expected.termsHash, "Expected terms hash");
   if (typeof expected.termsVersion !== "string" ||
