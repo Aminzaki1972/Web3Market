@@ -603,60 +603,11 @@ export function createW3MAcquisitionHandler(deps: HandlerDependencies) {
         }
       }
 
+      // V1 accepts agreement preparation only from trusted server-side deal,
+      // verified-wallet, immutable audit-binding, and published-terms records.
+      // The legacy caller-supplied challenge action is intentionally retired.
       if (body.action === "challenge") {
-        const input = challengeInput(body);
-        if (!input) return reply(origin, { ok: false, error: "Invalid agreement challenge parameters" }, 400);
-        const random = deps.randomBytes
-          ? deps.randomBytes(32)
-          : crypto.getRandomValues(new Uint8Array(32));
-        if (!(random instanceof Uint8Array) || random.length !== 32) {
-          return reply(origin, { ok: false, error: "Secure nonce generation failed" }, 503);
-        }
-        const nonce = "0x" + Array.from(random, (byte) => byte.toString(16).padStart(2, "0")).join("");
-        const deadline = now + 600;
-        const { data: challengeId, error: issueError } = await admin.rpc(
-          "w3m_issue_agreement_challenge",
-          {
-            p_deal_id: input.dealId,
-            p_project_id: input.projectId,
-            p_audit_id: input.auditId,
-            p_fingerprint_id: input.fingerprintId,
-            p_fingerprint_digest: input.fingerprintDigest,
-            p_binding_hash: input.bindingHash,
-            p_terms_hash: input.termsHash,
-            p_terms_version: input.termsVersion,
-            p_party_role: input.partyRole,
-            p_user_id: user.id,
-            p_wallet_address: input.walletAddress,
-            p_nonce: nonce,
-            p_signature_deadline: deadline,
-          },
-        );
-        if (issueError) {
-          const status = rpcStatus(issueError);
-          return reply(origin, {
-            ok: false,
-            error: status === 403 ? "You are not authorized for this deal or verified wallet" :
-              status === 409 ? "Deal, audit binding, or current terms are not eligible" :
-                "Unable to issue agreement challenge",
-          }, status);
-        }
-        if (typeof challengeId !== "string" || !UUID.test(challengeId)) {
-          return reply(origin, { ok: false, error: "Challenge persistence could not be confirmed" }, 503);
-        }
-        const { data: challengeData, error: readError } = await admin.rpc(
-          "w3m_get_agreement_challenge_for_verification",
-          { p_challenge_id: challengeId },
-        );
-        if (readError) throw readError;
-        const row = oneChallenge(challengeData);
-        if (!row || row.user_id !== user.id || row.nonce !== nonce ||
-          row.terms_hash !== input.termsHash || Number(row.signature_deadline) !== deadline ||
-          row.consumed_at !== null) {
-          return reply(origin, { ok: false, error: "Persisted challenge did not match the request" }, 503);
-        }
-        const typedData = typedDataFromRow(row, now);
-        return reply(origin, { ok: true, challenge_id: challengeId, typed_data: typedData });
+        return reply(origin, { ok: false, error: "Legacy challenge action retired; use prepare" }, 410);
       }
 
       if (body.action === "accept") {
