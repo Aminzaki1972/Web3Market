@@ -89,6 +89,61 @@ function makeDeps(
   };
 }
 
+Deno.test("status action exposes only participant-scoped current terms and acceptance state", async () => {
+  const sellerId = "76000000-0000-4000-8000-000000000006";
+  const rows: Record<string, Array<Record<string, unknown>>> = {
+    deals: [{ id: DEAL_ID, buyer_id: USER_ID, seller_id: sellerId, project_id: PROJECT_ID, status: "pending", dispute_status: "none" }],
+    w3m_acquisition_terms_versions: [{
+      id: "75000000-0000-4000-8000-000000000005", deal_id: DEAL_ID, terms_version: 2,
+      terms_hash: TERMS_HASH, canonical_terms_json: { schema: "w3m-acquisition-terms-v1", terms_version: 2 },
+      status: "published", published_at: "2026-11-07T00:00:00Z",
+    }],
+    w3m_agreement_acceptances: [{
+      deal_id: DEAL_ID, party_role: "buyer", user_id: USER_ID, terms_version: 2,
+      terms_hash: TERMS_HASH, accepted_at: "2026-11-07T01:00:00Z",
+      signature: "0x" + "f".repeat(130), nonce: "private-nonce",
+    }],
+  };
+  const makeQuery = (table: string) => {
+    let selected = [...(rows[table] || [])];
+    return {
+      select(_columns: string) { return this; },
+      eq(column: string, value: unknown) { selected = selected.filter((row) => row[column] === value); return this; },
+      order(_column: string) { return this; },
+      async range(from: number, to: number) { return { data: selected.slice(from, to + 1), error: null }; },
+      async maybeSingle() { return { data: selected[0] || null, error: null }; },
+    };
+  };
+  const from = ((table: string) => makeQuery(table)) as NonNullable<W3MAdminClient["from"]>;
+  const schema = ((name: string) => {
+    if (name !== "w3m_private") throw new Error("Unexpected schema");
+    return { from: (table: string) => makeQuery(table) };
+  }) as NonNullable<W3MAdminClient["schema"]>;
+  const { deps } = makeDeps(async () => ({ data: null, error: null }), { from, schema });
+  const handler = createW3MAcquisitionHandler(deps);
+  const response = await handler(makeRequest({ action: "status", deal_id: DEAL_ID }));
+  const body = await response.json();
+  if (response.status !== 200 || body.ok !== true ||
+      body.result?.acceptances?.buyer?.accepted !== true ||
+      body.result?.acceptances?.seller?.accepted !== false ||
+      body.result?.both_accepted !== false ||
+      body.result?.current_terms?.terms_hash !== TERMS_HASH) {
+    throw new Error("Participant status response did not report the exact published terms and acceptance state");
+  }
+  const serialized = JSON.stringify(body);
+  if (serialized.includes("signature") || serialized.includes("private-nonce") || serialized.includes("challenge_id")) {
+    throw new Error("Private signature or challenge material leaked through status action");
+  }
+
+  const { deps: foreignDeps } = makeDeps(async () => ({ data: null, error: null }), {
+    from, schema, userId: "79000000-0000-4000-8000-000000000009",
+  });
+  const foreignResponse = await createW3MAcquisitionHandler(foreignDeps)(
+    makeRequest({ action: "status", deal_id: DEAL_ID }),
+  );
+  if (foreignResponse.status !== 403) throw new Error("Non-participant must not read agreement status");
+});
+
 Deno.test("legacy caller-supplied challenge action is retired", async () => {
   const { deps, calls } = makeDeps(async () => {
     throw new Error("Retired challenge action must not reach persistence RPCs");
