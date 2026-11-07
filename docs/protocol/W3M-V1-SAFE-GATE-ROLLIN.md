@@ -30,7 +30,7 @@ The following source files were retrieved read-only from the live Supabase proje
 
 Each function fails closed with HTTP 409 if the current W3M buyer/seller acceptance pair is absent, stale, incomplete, or cryptographically invalid. The static CI regression checks that the gate call appears before the corresponding sensitive action in all six staged sources. It also verifies dispute checks before Safe deployment, signature recording, and finalization; payment and buyer-approved delivery before signature recording/execution; locked release policy; and consistent Safe address, BNB chain, and configured BNB USDT asset before the settlement actions.
 
-Latest branch CI at the verified code head: 104 Deno tests passed; the PostgreSQL migration/concurrency/privilege suite passed; CDN integrity, profile-guard migration, and modified JavaScript syntax checks passed. New protocol modules and the shared gate pass Deno type-check.
+Latest branch CI at the verified code head: 107 Deno tests passed; the PostgreSQL migration/concurrency/privilege suite passed; CDN integrity, profile-guard migration, and modified JavaScript syntax checks passed. New protocol modules and the shared gate pass Deno type-check.
 
 The new protocol modules and shared gate are included in Deno type-check. The six staged Safe entrypoints are covered by source-order regression checks rather than full Deno type-check because their existing legacy source contains unrelated typing errors around Safe Protocol Kit initialization, ethers dynamic contract methods, and implicit/unknown error types. Those typing issues are not changed by this V1 gate patch.
 
@@ -39,5 +39,5 @@ The new protocol modules and shared gate are included in Deno type-check. The si
 - These are branch snapshots, not live deployments.
 - No production Edge Function has been updated.
 - The SQL migration has only been exercised in disposable PostgreSQL CI.
-- No Safe transaction, escrow deployment, release, or financial transfer was executed.
+- No Safe transaction, release, or financial transfer was executed. V1 uses Safe Wallet only; it does not introduce a separate escrow contract.
 - Canonical acquisition terms remain unpublished until their authoritative content is approved; this patch does not invent governing law, inspection criteria, or dispute rules.
