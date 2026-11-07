@@ -38,10 +38,18 @@ function canonicalJson(value: unknown, seen = new Set<object>()): string {
       throw new Error("Manifest objects must be plain JSON objects.");
     }
     const object = value as Record<string, unknown>;
-    const keys = Object.keys(object).sort();
-    return "{" + keys.map((key) =>
-      JSON.stringify(key) + ":" + canonicalJson(object[key], seen)
-    ).join(",") + "}";
+    const ownKeys = Reflect.ownKeys(object);
+    if (ownKeys.some((key) => typeof key !== "string")) {
+      throw new Error("Manifest objects must not contain symbol keys.");
+    }
+    const keys = (ownKeys as string[]).sort();
+    return "{" + keys.map((key) => {
+      const descriptor = Object.getOwnPropertyDescriptor(object, key);
+      if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) {
+        throw new Error("Manifest properties must be enumerable data properties, not accessors.");
+      }
+      return JSON.stringify(key) + ":" + canonicalJson(descriptor.value, seen);
+    }).join(",") + "}";
   } finally {
     seen.delete(value);
   }
