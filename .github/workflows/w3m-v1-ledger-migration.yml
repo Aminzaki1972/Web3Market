@@ -143,6 +143,32 @@ jobs:
               raise exception 'fingerprint_publication_retry_not_idempotent';
             end if;
 
+            insert into public.code_audit_files (audit_id,path,sha,scanned)
+              values (v_audit,'src/index.ts',repeat('9',40),true);
+            begin
+              perform public.w3m_publish_audit_fingerprint_and_binding(
+                v_deal,v_project,v_audit,v_fingerprint,v_seller,'aminzaki1972/web3market',
+                repeat('f',40),v_digest,v_manifest,v_binding_hash
+              );
+              raise exception 'expected_duplicate_scanned_path_rejection';
+            exception when sqlstate '23503' then null;
+            end;
+            delete from public.code_audit_files
+              where audit_id=v_audit and path='src/index.ts' and sha=repeat('9',40);
+
+            update public.code_audit_files set sha=null
+              where audit_id=v_audit and path='src/index.ts';
+            begin
+              perform public.w3m_publish_audit_fingerprint_and_binding(
+                v_deal,v_project,v_audit,v_fingerprint,v_seller,'aminzaki1972/web3market',
+                repeat('f',40),v_digest,v_manifest,v_binding_hash
+              );
+              raise exception 'expected_missing_git_blob_sha_rejection';
+            exception when sqlstate '23503' then null;
+            end;
+            update public.code_audit_files set sha=repeat('a',40)
+              where audit_id=v_audit and path='src/index.ts';
+
             begin
               perform public.w3m_publish_audit_fingerprint_and_binding(
                 v_deal,v_project,v_audit,v_fingerprint,v_user,'aminzaki1972/web3market',
