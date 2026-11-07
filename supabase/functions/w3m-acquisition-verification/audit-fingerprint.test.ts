@@ -20,7 +20,16 @@ const base = {
 Deno.test("fingerprint is stable when JSON object key order differs", async () => {
   const a = await computeW3MAuditFingerprint(base);
   const b = await computeW3MAuditFingerprint({
-    ...base, manifest: { score: 91, files: [{ sha256: "b".repeat(64), path: "src/a.ts" }] },
+    ...base,
+    manifest: {
+      score: 91,
+      files: [{ sha256: "b".repeat(64), path: "src/a.ts" }],
+      audit: {
+        commit_sha: "a".repeat(40),
+        repository: "Aminzaki1972/Web3Market",
+        id: "71000000-0000-4000-8000-000000000001",
+      },
+    },
   });
   assertEquals(a.digest, b.digest);
   assertEquals(a.canonicalPayload, b.canonicalPayload);
@@ -93,10 +102,10 @@ Deno.test("fingerprint digest is a lowercase SHA-256 hex string", async () => {
 
 Deno.test("array order is significant because manifest evidence order is explicit", async () => {
   const a = await computeW3MAuditFingerprint({
-    ...base, manifest: { files: ["a.ts", "b.ts"] },
+    ...base, manifest: { ...base.manifest, files: ["a.ts", "b.ts"] },
   });
   const b = await computeW3MAuditFingerprint({
-    ...base, manifest: { files: ["b.ts", "a.ts"] },
+    ...base, manifest: { ...base.manifest, files: ["b.ts", "a.ts"] },
   });
   if (a.digest === b.digest) {
     throw new Error("Reordering an evidence array must change the fingerprint.");
