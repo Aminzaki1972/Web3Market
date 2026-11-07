@@ -160,3 +160,47 @@ Security interpretation:
 4. Add server-side enforcement at offer acceptance where consent is asserted, Safe deployment before any deal-specific escrow creation, and release preparation/finalization before settlement. Each gate must verify persisted acceptance rows, not client claims.
 5. Preserve current production behavior while implementing behind an isolated test project/feature flag. Add negative tests proving legacy timestamps and status-only transitions cannot pass the new gates.
 6. Reconcile response contracts, auth, RLS/service-role scope, idempotency, race conditions, dispute races, and rollback before any live wiring.
+
+
+## 9. Canonical acquisition terms V1 — source-of-truth contract
+
+The branch already contains a pure validator/canonicalizer/hash implementation in `supabase/functions/w3m-acquisition-verification/acquisition-terms.ts`. It validates a complete synthetic V1 document and computes a domain-separated SHA-256 hash. It does not load, authorize, persist, version, or publish a real deal's terms.
+
+### 9.1 Required canonical document
+
+The V1 schema identifier is `w3m-acquisition-terms-v1`. The canonical document binds:
+- Deal, project, buyer, and seller identifiers.
+- Project title/category snapshot.
+- Audit ID, owner/repository, full commit SHA, and audit fingerprint digest.
+- Exact decimal-string consideration, currency, platform fee, and seller net; fee plus seller net must reconcile exactly to consideration.
+- Payment method, BNB Smart Chain ID 56, asset/token contract, and Safe address (which may be null before deployment).
+- Included/excluded transfer assets, credentials/access handover, intellectual-property declaration, third-party dependencies, and data/privacy scope.
+- Delivery deadline/checklist, inspection window/acceptance criteria, dispute procedure version/text, escrow funding/release conditions, dispute hold, governing-law/venue/language fields, risk acknowledgements, disclosures, creation time, and expiry time.
+
+Monetary amounts are decimal strings, never JavaScript floating-point numbers. The current validator enforces exact fee-plus-net reconciliation; the percentage-to-fee calculation and asset precision/rounding policy must be resolved from trusted payment-token metadata before production acceptance. Do not silently assume two decimal places or trust a client-provided token precision.
+
+### 9.2 Authority and immutability
+
+- The canonical document must be assembled server-side from trusted deal, project, audit-binding, and payment-configuration rows. Client-supplied terms may be proposed input only; they are not authoritative.
+- `deal_terms.terms_snapshot` is not authoritative until its writer, actual populated shape, mutation permissions, and update history are verified. No such writer was located in the reviewed frontend branch or the inspected database function catalog.
+- Persist the exact canonical JSON bytes (or an equivalently lossless canonical representation), schema identifier, positive version, SHA-256 hash, authoring actor/source, and timestamps in a private server-owned record.
+- Once published for signing, a version is immutable. Any material change creates a new version and a new hash; never update a published snapshot in place.
+- A new version invalidates outstanding challenges for the prior version. If either party has already accepted the prior version, do not carry that acceptance forward: void the incomplete signing round and require both parties to sign the new version. The safer initial policy is to restart the acceptance round rather than mutate old evidence.
+- Expired terms cannot receive new signatures. Expiry and challenge deadline are separate checks; both must be enforced server-side.
+- Keep a durable history of superseded versions and reasons without overwriting prior evidence.
+
+### 9.3 Hash and signing contract
+
+- Hash input is the canonical V1 JSON with the domain prefix `w3m-acquisition-terms:v1\n`, using the existing deterministic key ordering and strict JSON-value validation.
+- The EIP-712 challenge binds the resulting terms hash and version together with deal/audit fingerprint/binding, party role, expected wallet, one-time nonce, deadline, and BNB Chain 56 domain.
+- The server must reconstruct the challenge from the persisted immutable version and current trusted deal/binding state. It must never accept a client-supplied typed-data domain or a client-supplied hash as proof.
+- The canonical terms hash is not a legal opinion or a guarantee of enforceability. Governing law, venue, IP warranties, privacy disclosures, and dispute wording require qualified legal review before being presented as final contractual language.
+
+### 9.4 V1 implementation blockers
+
+1. Confirm trusted sources for every field, including project title/category, exact consideration and fee calculation, payment asset decimals, deadlines, transfer checklist, and dispute procedure.
+2. Decide the fee rounding rule using trusted token decimals; add tests for tiny amounts, long decimal values, and fee/net reconciliation.
+3. Add a private immutable terms-version store and transactional version publication in the isolated test project.
+4. Add tests proving a changed term produces a different hash, a superseded version cannot be signed, an expired document cannot be signed, and one party's old acceptance cannot combine with another party's new-version acceptance.
+5. Do not label the current synthetic fixture as an actual marketplace agreement or use its sample legal fields in production.
+
