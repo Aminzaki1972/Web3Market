@@ -272,3 +272,43 @@ Deno.test("rejects malformed persisted ledger rows during advisory preflight", a
     terms_version: "0",
   } as never]));
 });
+
+
+Deno.test("strict finalization rejects malformed persisted acceptance evidence", () => {
+  const buyer = buildW3MAcceptanceRecord(base, NOW);
+  const seller = buildW3MAcceptanceRecord({
+    ...base,
+    partyRole: "seller",
+    authenticatedUserId: base.sellerUserId,
+    verifiedWalletAddress: "0x" + "22".repeat(20),
+    recoveredSignerAddress: "0x" + "22".repeat(20),
+    nonce: "0x" + "e".repeat(64),
+  }, NOW);
+  const expected = {
+    dealId: base.dealId,
+    projectId: base.projectId,
+    auditId: base.auditId,
+    fingerprintId: base.fingerprintId,
+    fingerprintDigest: base.fingerprintDigest,
+    bindingHash: base.bindingHash,
+    termsHash: base.termsHash,
+    termsVersion: base.termsVersion,
+  };
+  const corruptions = [
+    { ...seller, signature: "0x1234" },
+    { ...seller, wallet_address: "not-a-wallet" },
+    { ...seller, signature_deadline: Number.NaN },
+    { ...seller, accepted_at: "not-a-date" },
+    { ...seller, fingerprint_digest: "bad" },
+    { ...seller, user_id: "not-a-uuid" },
+  ];
+  for (const corrupted of corruptions) {
+    let rejected = false;
+    try {
+      hasCompleteW3MAcceptancePair([buyer, corrupted as never], expected);
+    } catch {
+      rejected = true;
+    }
+    assertEquals(rejected, true);
+  }
+});
