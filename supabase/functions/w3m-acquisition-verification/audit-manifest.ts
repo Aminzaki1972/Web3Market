@@ -25,6 +25,33 @@ export type PersistedAuditFinding = {
   recommendation: string | null; confidence: number | null;
 };
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const REPOSITORY = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\/[a-z0-9_.-]+$/i;
+
+function requireNonNegativeInteger(value: unknown, label: string): void {
+  if (!Number.isSafeInteger(value) || (value as number) < 0) {
+    throw new Error(label + " must be a non-negative safe integer.");
+  }
+}
+function requireNullableNonNegativeInteger(value: unknown, label: string): void {
+  if (value !== null) requireNonNegativeInteger(value, label);
+}
+function requireNullableScore(value: unknown, label: string): void {
+  if (value !== null && (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 100)) {
+    throw new Error(label + " must be null or a number between 0 and 100.");
+  }
+}
+function requireNullableText(value: unknown, label: string): void {
+  if (value !== null && typeof value !== "string") {
+    throw new Error(label + " must be null or a string.");
+  }
+}
+function requireText(value: unknown, label: string): void {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(label + " must be a non-empty string.");
+  }
+}
+
 function compareText(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
@@ -53,12 +80,30 @@ export function buildW3MAuditManifest(
   if (!/^[0-9a-f]{40}$/i.test(commitSha)) {
     throw new Error("Audit is missing its immutable 40-character commit SHA.");
   }
-  if (!audit.repo_owner || !audit.repo_name || !audit.engine_version || !audit.audit_type) {
-    throw new Error("Audit identity and engine metadata are incomplete.");
+  if (typeof audit.id !== "string" || !UUID.test(audit.id)) {
+    throw new Error("Audit ID must be a UUID.");
   }
-  if (!Number.isSafeInteger(audit.files_scanned) || audit.files_scanned < 0) {
-    throw new Error("Audit scanned-file count is invalid.");
-  }
+  const repository = String(audit.repo_owner || "") + "/" + String(audit.repo_name || "");
+  if (!REPOSITORY.test(repository)) throw new Error("Audit repository identity is malformed.");
+  requireText(audit.engine_version, "Audit engine version");
+  requireText(audit.audit_type, "Audit type");
+  requireNonNegativeInteger(audit.files_scanned, "Audit scanned-file count");
+  if (audit.files_scanned === 0) throw new Error("An audit with no scanned files cannot be fingerprinted.");
+  requireNonNegativeInteger(audit.lines_scanned, "Audit scanned-line count");
+  for (const [label, value] of Object.entries({
+    overall_score: audit.overall_score,
+    security_score: audit.security_score,
+    architecture_score: audit.architecture_score,
+    code_quality_score: audit.code_quality_score,
+    dependency_score: audit.dependency_score,
+    testing_score: audit.testing_score,
+    documentation_score: audit.documentation_score,
+    web3_score: audit.web3_score,
+    scalability_score: audit.scalability_score,
+    ai_fit_score: audit.ai_fit_score,
+  })) requireNullableScore(value, "Audit " + label);
+  requireNullableText(audit.risk_level, "Audit risk level");
+  requireNullableText(audit.summary, "Audit summary");
   if (!Array.isArray(files) || !Array.isArray(findings)) {
     throw new Error("Complete file and finding arrays are required.");
   }
@@ -77,6 +122,10 @@ export function buildW3MAuditManifest(
     if (!/^[0-9a-f]{40,64}$/i.test(fileSha)) {
       throw new Error("A scanned file is missing its immutable Git blob SHA.");
     }
+    requireNullableText(file.language, "Scanned file language");
+    requireNullableNonNegativeInteger(file.size_bytes, "Scanned file size");
+    requireNullableNonNegativeInteger(file.line_count, "Scanned file line count");
+    requireNullableNonNegativeInteger(file.selected_tier, "Scanned file selected tier");
     return {
       path,
       sha: fileSha.toLowerCase(),
@@ -88,6 +137,16 @@ export function buildW3MAuditManifest(
   }).sort((a, b) => compareText(a.path, b.path));
 
   const normalizedFindings = findings.map((finding) => {
+    requireText(finding.severity, "Finding severity");
+    requireText(finding.category, "Finding category");
+    requireText(finding.title, "Finding title");
+    requireText(finding.status, "Finding status");
+    requireNullableText(finding.evidence, "Finding evidence");
+    requireNullableText(finding.description, "Finding description");
+    requireNullableText(finding.recommendation, "Finding recommendation");
+    if (finding.file_path !== null && typeof finding.file_path !== "string") {
+      throw new Error("Finding file path must be null or a string.");
+    }
     const filePath = finding.file_path === null ? null : normalizeRepoPath(finding.file_path);
     if (filePath !== null && !seenPaths.has(filePath)) {
       throw new Error("A finding references a file outside the scanned evidence set.");
