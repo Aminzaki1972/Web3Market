@@ -492,6 +492,71 @@ async function prepareAgreement(
   };
 }
 
+async function getAgreementStatus(
+  admin: W3MAdminClient,
+  userId: string,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const dealId = String(body.deal_id || "");
+  if (!UUID.test(dealId)) {
+    throw Object.assign(new Error("A valid deal_id is required."), { status: 400 });
+  }
+  if (!admin.schema) throw new Error("Private protocol read access is unavailable.");
+
+  const deal = await loadOne<{
+    id: string; buyer_id: string; seller_id: string; project_id: string;
+    status: string; dispute_status: string;
+  }>(admin, "deals", "id,buyer_id,seller_id,project_id,status,dispute_status", dealId);
+  if (!deal) throw Object.assign(new Error("Deal was not found."), { status: 404 });
+  if (deal.buyer_id !== userId && deal.seller_id !== userId) {
+    throw Object.assign(new Error("Only deal participants can view agreement status."), { status: 403 });
+  }
+
+  const privateDb = admin.schema("w3m_private");
+  const { data: termsData, error: termsError } = await privateDb.from("w3m_acquisition_terms_versions")
+    .select("id,terms_version,terms_hash,canonical_terms_json,status,published_at")
+    .eq("deal_id", dealId).eq("status", "published").maybeSingle();
+  if (termsError) throw termsError;
+  const terms = termsData as {
+    id: string; terms_version: number | string; terms_hash: string;
+    canonical_terms_json: Record<string, unknown>; status: string; published_at: string;
+  } | null;
+
+  const readAcceptance = async (role: "buyer" | "seller") => {
+    const { data, error } = await privateDb.from("w3m_agreement_acceptances")
+      .select("party_role,user_id,terms_version,terms_hash,accepted_at")
+      .eq("deal_id", dealId).eq("party_role", role).maybeSingle();
+    if (error) throw error;
+    const row = data as {
+      party_role: string; user_id: string; terms_version: number | string;
+      terms_hash: string; accepted_at: string;
+    } | null;
+    if (!row) return { accepted: false };
+    // Never expose signature bytes, challenge IDs, nonces, or wallet metadata.
+    if (row.party_role !== role || row.terms_hash !== terms?.terms_hash ||
+      String(row.terms_version) !== String(terms?.terms_version)) {
+      return { accepted: false, stale: true };
+    }
+    return { accepted: true, accepted_at: row.accepted_at };
+  };
+
+  const [buyer, seller] = await Promise.all([
+    readAcceptance("buyer"), readAcceptance("seller"),
+  ]);
+  return {
+    deal_id: deal.id,
+    current_terms: terms ? {
+      terms_version: String(terms.terms_version),
+      terms_hash: terms.terms_hash,
+      published_at: terms.published_at,
+      canonical_terms: terms.canonical_terms_json,
+    } : null,
+    acceptances: { buyer, seller },
+    both_accepted: buyer.accepted === true && seller.accepted === true,
+    deal_eligible: ["pending", "accepted"].includes(deal.status) && deal.dispute_status === "none",
+  };
+}
+
 function rpcStatus(error: { code?: string; message?: string } | null): number {
   const code = error?.code || "";
   if (code === "42501") return 403;
@@ -537,6 +602,20 @@ export function createW3MAcquisitionHandler(deps: HandlerDependencies) {
       const now = deps.nowSeconds?.() ?? Math.floor(Date.now() / 1000);
       if (!Number.isSafeInteger(now) || now < 0) {
         return reply(origin, { ok: false, error: "Verification clock unavailable" }, 503);
+      }
+
+      if (body.action === "status") {
+        try {
+          const status = await getAgreementStatus(admin, user.id, body);
+          return reply(origin, { ok: true, result: status });
+        } catch (error) {
+          const status = typeof (error as { status?: unknown })?.status === "number"
+            ? (error as { status: number }).status : 500;
+          if (status >= 500) console.error("w3m agreement status failed", error instanceof Error ? error.message : "unknown error");
+          return reply(origin, { ok: false, error: status === 400 ? "Invalid agreement status request" :
+            status === 403 ? "Only deal participants can view agreement status" :
+              status === 404 ? "Deal not found" : "Unable to load agreement status" }, status);
+        }
       }
 
       if (body.action === "prepare") {
