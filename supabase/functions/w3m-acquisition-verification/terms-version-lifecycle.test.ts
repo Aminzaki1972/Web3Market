@@ -108,3 +108,18 @@ Deno.test("verifies canonical stored JSON against the domain-separated digest", 
   assertEquals(await verifyW3MTermsVersionDigest({ ...record, canonical_terms_json: '{"terms_version":1,"schema":"w3m-acquisition-terms-v1"}' }), false);
   assertEquals(await verifyW3MTermsVersionDigest({ ...record, terms_hash: "f".repeat(64) }), false);
 });
+
+
+Deno.test("rejects gaps in append-only terms version history", () => {
+  const versionThree = { ...second(), terms_version: 3, terms_hash: "c".repeat(64) };
+  assertThrows(() => assertCanAppendW3MTermsVersion([first(), versionThree], {
+    ...second(),
+    terms_version: 4,
+    terms_hash: "d".repeat(64),
+  }));
+  assertThrows(() => buildW3MTermsVersionAppendPlan([first(), versionThree], {
+    ...second(),
+    terms_version: 4,
+    terms_hash: "d".repeat(64),
+  }));
+});
