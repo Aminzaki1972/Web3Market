@@ -235,3 +235,40 @@ Deno.test("rejects invalid acceptance clock, excessive signature lifetime, and a
     acceptedAt: new Date((NOW + 121) * 1000).toISOString(),
   }, NOW));
 });
+
+
+Deno.test("rejects non-string or malformed fingerprint digests without runtime type errors", async () => {
+  await assertRejects(async () => buildW3MAcceptanceRecord({
+    ...base,
+    fingerprintDigest: null as unknown as string,
+  }, NOW));
+  await assertRejects(async () => buildW3MAcceptanceRecord({
+    ...base,
+    fingerprintDigest: "not-a-digest",
+  }, NOW));
+});
+
+Deno.test("rejects malformed persisted ledger rows during advisory preflight", async () => {
+  const buyer = buildW3MAcceptanceRecord(base, NOW);
+  await assertRejects(async () => evaluateW3MAcceptanceLedger(buyer, [{
+    deal_id: "not-a-uuid",
+    party_role: "buyer",
+    nonce: buyer.nonce,
+    terms_hash: buyer.terms_hash,
+    terms_version: buyer.terms_version,
+  } as never]));
+  await assertRejects(async () => evaluateW3MAcceptanceLedger(buyer, [{
+    deal_id: base.dealId,
+    party_role: "buyer",
+    nonce: "malformed",
+    terms_hash: buyer.terms_hash,
+    terms_version: buyer.terms_version,
+  } as never]));
+  await assertRejects(async () => evaluateW3MAcceptanceLedger(buyer, [{
+    deal_id: base.dealId,
+    party_role: "buyer",
+    nonce: buyer.nonce,
+    terms_hash: buyer.terms_hash,
+    terms_version: "0",
+  } as never]));
+});
