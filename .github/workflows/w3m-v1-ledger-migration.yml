@@ -43,9 +43,9 @@ jobs:
           create role authenticated nologin;
           create role service_role nologin bypassrls;
           create schema auth;
-          create function auth.role() returns text
+          create function auth.jwt() returns jsonb
             language sql stable
-            as $auth$ select current_setting('request.jwt.claim.role', true) $auth$;
+            as $auth$ select jsonb_build_object('role', current_setting('request.jwt.claim.role', true)) $auth$;
           create table public.deals (
             id uuid primary key, project_id uuid not null, buyer_id uuid not null,
             seller_id uuid not null, status text not null, dispute_status text not null
