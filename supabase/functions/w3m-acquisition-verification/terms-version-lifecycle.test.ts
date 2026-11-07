@@ -15,7 +15,7 @@ const first = (): W3MTermsVersionRecord => ({
   terms_hash: "a".repeat(64),
   canonical_terms_json: '{"terms_version":1}',
   status: "superseded",
-  published_at: "2026-11-07T10:00:00Z",
+  published_at: "2026-11-07T10:00:00.000Z",
 });
 const second = (): W3MTermsVersionRecord => ({
   deal_id: dealId,
@@ -23,7 +23,7 @@ const second = (): W3MTermsVersionRecord => ({
   terms_hash: "b".repeat(64),
   canonical_terms_json: '{"terms_version":2}',
   status: "published",
-  published_at: "2026-11-07T11:00:00Z",
+  published_at: "2026-11-07T11:00:00.000Z",
 });
 
 Deno.test("allows only the next sequential immutable version", () => {
@@ -58,7 +58,7 @@ Deno.test("rejects mixed-deal and duplicate history", () => {
 Deno.test("rejects non-canonical or invalid persisted publication timestamps", () => {
   for (const publishedAt of [
     "2026-11-07T11:00:00+00:00",
-    "2026-11-07T11:00:00.000Z",
+    "2026-11-07T11:00:00Z",
     "not-a-date",
   ]) {
     const malformed = { ...first(), published_at: publishedAt };
@@ -114,7 +114,7 @@ Deno.test("verifies canonical stored JSON against the domain-separated digest", 
     terms_hash: termsHash,
     canonical_terms_json: canonicalTerms,
     status: "published" as const,
-    published_at: "2026-11-07T10:00:00Z",
+    published_at: "2026-11-07T10:00:00.000Z",
   };
   assertEquals(await verifyW3MTermsVersionDigest(record), true);
   assertEquals(await verifyW3MTermsVersionDigest({ ...record, canonical_terms_json: '{"terms_version":1,"schema":"w3m-acquisition-terms-v1"}' }), false);
