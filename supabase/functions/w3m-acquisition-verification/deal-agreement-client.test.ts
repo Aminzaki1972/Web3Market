@@ -10,7 +10,9 @@ function prepared(overrides: Record<string, unknown> = {}) {
     ok: true,
     result: {
       dealId, partyRole: "buyer", partyId: "73000000-0000-4000-8000-000000000003",
-      walletAddress: wallet, fingerprintId: "74000000-0000-4000-8000-000000000004",\n      fingerprintDigest: "1".repeat(64), bindingHash: "3".repeat(64),\n      termsHash: "2".repeat(64), termsVersion: "3",
+      walletAddress: wallet, fingerprintId: "74000000-0000-4000-8000-000000000004",
+      fingerprintDigest: "1".repeat(64), bindingHash: "3".repeat(64),
+      termsHash: "2".repeat(64), termsVersion: "3",
       termsVersionId: "75000000-0000-4000-8000-000000000005",
       typedData: {
         domain: { name: "Web3Market Deal Agreement", version: "1", chainId: 56 },
@@ -98,7 +100,9 @@ Deno.test("client refuses incomplete or mismatched evidence and terms bindings",
   const base = prepared().result.typedData;
   const badMessages = [
     { ...base.message, fingerprintId: undefined },
-    { ...base.message, fingerprintId: bytes32("f") },\n    { ...base.message, fingerprintDigest: bytes32("f") },\n    { ...base.message, bindingHash: bytes32("f") },
+    { ...base.message, fingerprintId: bytes32("f") },
+    { ...base.message, fingerprintDigest: bytes32("f") },
+    { ...base.message, bindingHash: bytes32("f") },
     { ...base.message, bindingHash: undefined },
     { ...base.message, termsHash: bytes32("f") },
     { ...base.message, wallet: "0x6666666666666666666666666666666666666666" },
