@@ -227,8 +227,8 @@ begin
     or v_deal.dispute_status is distinct from 'none' then
     raise exception 'deal_not_eligible_for_agreement' using errcode = '22023';
   end if;
-  if (p_party_role = 'buyer' and v_deal.buyer_id <> p_user_id)
-    or (p_party_role = 'seller' and v_deal.seller_id <> p_user_id) then
+  if (p_party_role = 'buyer' and v_deal.buyer_id is distinct from p_user_id)
+    or (p_party_role = 'seller' and v_deal.seller_id is distinct from p_user_id) then
     raise exception 'authenticated_user_is_not_deal_party' using errcode = '42501';
   end if;
 
