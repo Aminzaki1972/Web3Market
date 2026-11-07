@@ -220,3 +220,18 @@ Deno.test("strict finalization requires exactly one buyer and seller on identica
     nonce: buyer.nonce,
   }], expected), false);
 });
+
+
+Deno.test("rejects invalid acceptance clock, excessive signature lifetime, and acceptance after deadline", async () => {
+  for (const now of [Number.NaN, Number.POSITIVE_INFINITY, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    await assertRejects(async () => buildW3MAcceptanceRecord(base, now));
+  }
+  await assertRejects(async () => buildW3MAcceptanceRecord({
+    ...base,
+    deadline: NOW + 901,
+  }, NOW));
+  await assertRejects(async () => buildW3MAcceptanceRecord({
+    ...base,
+    acceptedAt: new Date((NOW + 121) * 1000).toISOString(),
+  }, NOW));
+});
