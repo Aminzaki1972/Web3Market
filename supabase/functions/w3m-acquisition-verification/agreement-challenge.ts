@@ -5,6 +5,7 @@
  */
 import {
   buildW3MAgreementTypedData,
+  verifyW3MAgreementSignature,
   type W3MAgreementTypedData,
 } from "./agreement-signature.ts";
 import {
@@ -65,4 +66,42 @@ export async function buildW3MAgreementChallenge(
     deadline: request.deadline,
   }, nowSeconds);
   return { bindingHash, typedData };
+}
+
+
+/**
+ * Rebuild the challenge from current trusted evidence, then verify the submitted
+ * signature against that exact message. This prevents a caller from verifying
+ * against client-supplied typed data or stale deal terms.
+ */
+export async function verifyW3MAgreementChallengeSignature(
+  request: W3MAgreementChallengeRequest,
+  signature: string,
+  nowSeconds = Math.floor(Date.now() / 1000),
+): Promise<{
+  valid: true;
+  recoveredAddress: string;
+  bindingHash: string;
+  typedData: W3MAgreementTypedData;
+}> {
+  const challenge = await buildW3MAgreementChallenge(request, nowSeconds);
+  const message = challenge.typedData.message;
+  const verified = verifyW3MAgreementSignature({
+    dealId: message.dealId,
+    fingerprintId: message.fingerprintId,
+    fingerprintDigest: message.fingerprintDigest,
+    bindingHash: message.bindingHash,
+    termsHash: message.termsHash,
+    termsVersion: message.termsVersion,
+    partyRole: request.partyRole,
+    walletAddress: request.walletAddress,
+    nonce: message.nonce,
+    deadline: Number(message.deadline),
+  }, signature, nowSeconds);
+  return {
+    valid: true,
+    recoveredAddress: verified.recoveredAddress,
+    bindingHash: challenge.bindingHash,
+    typedData: verified.typedData,
+  };
 }
