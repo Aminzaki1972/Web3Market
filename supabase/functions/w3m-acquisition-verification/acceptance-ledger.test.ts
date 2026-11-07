@@ -299,6 +299,8 @@ Deno.test("strict finalization rejects malformed persisted acceptance evidence",
     { ...seller, wallet_address: "not-a-wallet" },
     { ...seller, signature_deadline: Number.NaN },
     { ...seller, accepted_at: "not-a-date" },
+    { ...seller, accepted_at: 0 },
+    { ...seller, signature_deadline: Math.floor(Date.parse(seller.accepted_at) / 1000) + 901 },
     { ...seller, fingerprint_digest: "bad" },
     { ...seller, user_id: "not-a-uuid" },
   ];
