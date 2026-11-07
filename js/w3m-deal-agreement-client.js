@@ -39,7 +39,7 @@ function uuidToBytes32(value) {
   if (typeof value !== "string" || !UUID.test(value)) throw new Error("Deal ID is invalid.");
   return "0x" + value.replaceAll("-", "").toLowerCase().padStart(64, "0");
 }
-function validateTypedData(typedData, dealId, partyRole, walletAddress, termsHash, termsVersion) {
+function validateTypedData(typedData, dealId, partyRole, walletAddress, fingerprintId, fingerprintDigest, bindingHash, termsHash, termsVersion) {
   const data = record(typedData, "EIP-712 typed data");
   const domain = record(data.domain, "EIP-712 domain");
   const message = record(data.message, "EIP-712 message");
