@@ -684,8 +684,8 @@ begin
   if v_terms_count <> 1 then
     raise exception 'finalization_current_terms_version_not_unique' using errcode = '23503';
   end if;
-  select * into v_terms from w3m_private.w3m_acquisition_terms_versions
-    where deal_id = p_deal_id and status = 'published';
+  select * into v_terms from w3m_private.w3m_acquisition_terms_versions t
+    where t.deal_id = p_deal_id and t.status = 'published';
 
   select coalesce(jsonb_agg(jsonb_build_object(
     'deal_id', a.deal_id::text,
