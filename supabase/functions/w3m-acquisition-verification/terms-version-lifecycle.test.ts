@@ -55,6 +55,18 @@ Deno.test("rejects mixed-deal and duplicate history", () => {
   assertThrows(() => assertCanAppendW3MTermsVersion([first(), first()], second()));
 });
 
+Deno.test("rejects non-canonical or invalid persisted publication timestamps", () => {
+  for (const publishedAt of [
+    "2026-11-07T11:00:00+00:00",
+    "2026-11-07T11:00:00.000Z",
+    "not-a-date",
+  ]) {
+    const malformed = { ...first(), published_at: publishedAt };
+    assertThrows(() => assertCanAppendW3MTermsVersion([malformed], second()));
+    assertThrows(() => buildW3MTermsVersionAppendPlan([malformed], second()));
+  }
+});
+
 Deno.test("acceptance counts only when deal, version and hash match current terms", () => {
   const current = second();
   const currentAcceptance = { deal_id: dealId, terms_version: 2, terms_hash: "b".repeat(64) };
