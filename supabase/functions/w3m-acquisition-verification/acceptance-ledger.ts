@@ -14,6 +14,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const HASH32 = /^0x[0-9a-f]{64}$/i;
 const ADDRESS = /^0x[0-9a-f]{40}$/i;
 const SIGNATURE = /^0x[0-9a-f]{130}$/i;
+const MAX_UINT256 = (1n << 256n) - 1n;
 
 export type W3MAgreementPartyRole = "buyer" | "seller";
 
@@ -61,6 +62,14 @@ export type W3MAcceptanceLedgerRow = Pick<
   "deal_id" | "party_role" | "nonce" | "terms_hash" | "terms_version"
 >;
 
+function requireTermsVersion(value: unknown, label: string): string {
+  if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value) ||
+    BigInt(value) > MAX_UINT256) {
+    throw new Error(label + " must be a positive uint256 decimal integer.");
+  }
+  return value;
+}
+
 function validateAcceptanceRecord(row: W3MAcceptanceRecord): void {
   if (!row || typeof row !== "object") {
     throw new Error("A persisted acceptance record is malformed.");
@@ -78,9 +87,7 @@ function validateAcceptanceRecord(row: W3MAcceptanceRecord): void {
   if (row.party_role !== "buyer" && row.party_role !== "seller") {
     throw new Error("Persisted acceptance party role is invalid.");
   }
-  if (typeof row.terms_version !== "string" || !/^[1-9][0-9]*$/.test(row.terms_version)) {
-    throw new Error("Persisted acceptance terms version is invalid.");
-  }
+  requireTermsVersion(row.terms_version, "Persisted acceptance terms version");
   if (typeof row.signature !== "string" || !SIGNATURE.test(row.signature)) {
     throw new Error("Persisted acceptance signature is malformed.");
   }
@@ -140,9 +147,7 @@ function validateLedgerRow(row: W3MAcceptanceLedgerRow): void {
   if (row.party_role !== "buyer" && row.party_role !== "seller") {
     throw new Error("Existing acceptance party role is invalid.");
   }
-  if (typeof row.terms_version !== "string" || !/^[1-9][0-9]*$/.test(row.terms_version)) {
-    throw new Error("Existing acceptance terms version is invalid.");
-  }
+  requireTermsVersion(row.terms_version, "Existing acceptance terms version");
 }
 
 /**
@@ -204,9 +209,7 @@ export function buildW3MAcceptanceRecord(
     throw new Error("Acceptance timestamp must not be later than the signature deadline.");
   }
 
-  if (typeof input.termsVersion !== "string" || !/^[1-9][0-9]*$/.test(input.termsVersion)) {
-    throw new Error("Terms version must be a positive decimal integer.");
-  }
+  const termsVersion = requireTermsVersion(input.termsVersion, "Terms version");
 
   return Object.freeze({
     deal_id: dealId,
@@ -216,7 +219,7 @@ export function buildW3MAcceptanceRecord(
     fingerprint_digest: requireDigest(input.fingerprintDigest, "Fingerprint digest"),
     binding_hash: requireHash(input.bindingHash, "Binding hash"),
     terms_hash: requireHash(input.termsHash, "Terms hash"),
-    terms_version: input.termsVersion,
+    terms_version: termsVersion,
     party_role: input.partyRole,
     user_id: userId,
     wallet_address: verifiedWallet,
@@ -260,9 +263,10 @@ export function evaluateW3MAcceptanceLedger(
 }
 
 /**
- * A deal may proceed to final evidence issuance only when both distinct party
- * roles have persisted acceptances for the exact same terms hash and binding hash.
- * This remains a pure consistency check; the caller must reload persisted rows.
+ * @deprecated Advisory/legacy helper only. It does not validate the complete evidence
+ * tuple or exact row count and MUST NOT gate settlement or finalization. Use
+ * hasCompleteW3MAcceptancePair after reloading and cryptographically re-verifying
+ * persisted signatures in the trusted server transaction.
  */
 export function hasBothW3MPartyAcceptances(
   rows: readonly W3MAcceptanceRecord[],
@@ -315,15 +319,12 @@ export function hasCompleteW3MAcceptancePair(
   const fingerprintDigest = requireDigest(expected.fingerprintDigest, "Expected fingerprint digest");
   const bindingHash = requireHash(expected.bindingHash, "Expected binding hash");
   const termsHash = requireHash(expected.termsHash, "Expected terms hash");
-  if (typeof expected.termsVersion !== "string" ||
-    !/^[1-9][0-9]*$/.test(expected.termsVersion)) {
-    throw new Error("Expected terms version must be a positive decimal integer.");
-  }
+  const expectedTermsVersion = requireTermsVersion(expected.termsVersion, "Expected terms version");
 
   // Keep immutable acceptances for prior terms versions as historical evidence.
   // Only the exact expected version participates in the current acceptance pair.
   const dealRows = rows.filter((row) =>
-    row.deal_id === dealId && row.terms_version === expected.termsVersion
+    row.deal_id === dealId && row.terms_version === expectedTermsVersion
   );
   if (dealRows.length !== 2) return false;
   const buyerRows = dealRows.filter((row) => row.party_role === "buyer");
@@ -339,7 +340,7 @@ export function hasCompleteW3MAcceptancePair(
     row.fingerprint_digest === fingerprintDigest &&
     row.binding_hash === bindingHash &&
     row.terms_hash === termsHash &&
-    row.terms_version === expected.termsVersion;
+    row.terms_version === expectedTermsVersion;
   return matchesExpected(buyer) &&
     matchesExpected(seller) &&
     buyer.user_id !== seller.user_id &&
