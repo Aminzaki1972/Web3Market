@@ -542,7 +542,7 @@ export function createW3MAcquisitionHandler(deps: HandlerDependencies) {
         } catch (error) {
           const status = typeof (error as { status?: unknown })?.status === "number"
             ? (error as { status: number }).status : 500;
-          console.error("w3m agreement preparation rejected", status, error instanceof Error ? error.message : "unknown error");
+          if (status >= 500) console.error("w3m agreement preparation failed", error instanceof Error ? error.message : "unknown error");
           return reply(origin, { ok: false, error: status === 400 ? "Invalid agreement preparation request" :
             status === 403 ? "Only the verified deal participant wallet can prepare acceptance" :
               status === 404 ? "Deal not found" : status === 409 ? "Deal, audit binding, or published terms are not eligible" :
