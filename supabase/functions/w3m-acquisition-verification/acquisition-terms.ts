@@ -27,6 +27,10 @@ function uuid(value: unknown, label: string): string {
 function decimal(value: unknown, label: string): string {
   const v = requiredString(value, label);
   if (!DECIMAL.test(v)) fail(label + " must be an exact decimal string (not a floating-point number).");
+  const [whole, fraction = ""] = v.split(".");
+  if (whole.length > 78 || fraction.length > 36) {
+    fail(label + " exceeds the supported exact-decimal precision (78 integer digits, 36 fractional digits).");
+  }
   return v;
 }
 function positiveDecimal(value: string, label: string): void {
