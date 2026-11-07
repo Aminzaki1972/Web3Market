@@ -142,7 +142,7 @@ The persisted manifest builder now binds completed audit identity, exact commit 
 
 ## 14. CI follow-up
 
-An initial run of the expanded workflow passed the original fingerprint tests but failed in the new manifest test suite. Review found that asynchronous `assertRejects` calls in the manifest tests were not awaited; these assertions have now been corrected. A rerun for the correction commit has not yet appeared in the workflow-run listing, so the expanded suite remains unverified until a subsequent run reports success. Do not mark this branch CI-clean yet.
+An initial run of the expanded workflow passed the original fingerprint tests but failed in the new manifest test suite. Review found that asynchronous `assertRejects` calls in the manifest tests were not awaited; these assertions were corrected. The latest correction commit (`0d8b6d8be486b3f6b7ff6d14ce843d0365392845`) subsequently completed GitHub Actions run 20 with conclusion `success`. This confirms the focused fingerprint/manifest tests and type checks passed for that commit. It does not establish end-to-end protocol readiness.
 
 
 ## 15. Agreement trigger and policy review (2026-11-07)
@@ -156,3 +156,46 @@ A second read-only inspection queried the live trigger definitions, RLS policies
 - `deal_multisig_signers.signature` remains Safe transaction signature data and is not suitable as agreement-signature storage.
 
 Implementation consequence: retain the current timestamp protections and audit triggers. Do not replace or weaken them. The protocol needs a separate server-verified acceptance record that binds the deal ID, immutable terms snapshot hash/version, audit fingerprint ID/digest, party role and identity, signature scheme/domain, signer address, signature bytes, and verification timestamp. The server must validate the authenticated account-to-wallet relationship and recover/verify the signer before persisting acceptance. Any new append-only schema or function must be reviewed separately against the exact RLS and trigger definitions; no production migration is authorized or performed by this inspection.
+
+
+## 16. Follow-up verification and proposed persistence boundary (2026-11-07)
+
+The latest feature-branch commit `0d8b6d8be486b3f6b7ff6d14ce843d0365392845` completed GitHub Actions workflow run 20 with conclusion `success`. The workflow ran the focused fingerprint and persisted-manifest Deno tests and type checks. This is a verified focused CI pass, not a full acquisition-protocol integration test.
+
+A fresh read-only inspection of the connected production Supabase project verified the following details:
+
+- `code_audits.id` is a UUID primary key. `code_audits.project_id` is nullable and references `projects(id)` with `ON DELETE CASCADE`; `requested_by` also cascades on user deletion. Audit status is constrained to queued/scanning/analyzing/paused/completed/failed.
+- `code_audit_files.audit_id` and `code_audit_findings.audit_id` reference `code_audits(id)` with `ON DELETE CASCADE`. Scanned file Git object SHA is stored as nullable text in `code_audit_files.sha`.
+- `deals.id` is a UUID primary key. `deals.project_id` references `projects(id)` with `ON DELETE CASCADE`; buyer and seller references are restrictive.
+- `deal_terms` is unique per deal and stores a non-null JSONB `terms_snapshot`, but the inspected policy set exposes participant SELECT only.
+- `deal_party_agreements` has a unique (deal_id, party_role) constraint and its existing insert/update policies are participant scoped. Its existing timestamp trigger and audit-log trigger remain in place.
+- `deal_multisig_signers` is the Safe signer workflow, with one row per (deal_id, signer_role); it is not agreement acceptance evidence.
+- The production project has no deployed Edge Function named `w3m-acquisition-verification`. The browser-side `js/w3m-deal-agreement-client.js` exists but remains isolated and is not wired into the live Deal Room.
+
+### Persistence design proposal — review only, not migration SQL
+
+Use three separate append-only records rather than overloading the existing Safe signer or timestamp tables:
+
+1. **Audit fingerprint ledger** — one immutable row per verified audit snapshot. Proposed fields: UUID ID; audit ID; optional project ID; normalized repository; exact 40-character commit SHA; manifest schema; lowercase SHA-256 digest; canonical manifest JSONB; creation timestamp; creator/source metadata. The audit reference must use `ON DELETE RESTRICT`, not cascade, so a project/user deletion cannot silently erase evidence protected by the ledger. The record must only be inserted after the trusted server reloads all audit/file/finding rows, recomputes the manifest and digest, and confirms the audit is completed.
+2. **Deal-to-fingerprint binding** — immutable row tying one deal to one fingerprint and to a hash/version of the exact `deal_terms.terms_snapshot`. A deal must not silently switch to a different fingerprint after acceptance begins. If terms are revised, create a new explicitly versioned agreement/binding workflow; do not overwrite the old evidence.
+3. **Verified agreement acceptance** — one record per buyer/seller role, tied to the binding and containing the authenticated account ID, verified wallet address, chain ID, EIP-712 domain/version, terms version/hash, fingerprint digest, signature bytes, signature scheme, and server verification timestamp/result. The server must recover/verify the signer and compare it to the wallet address already verified for that authenticated account. Unique constraints must prevent multiple competing acceptances for the same binding and party role; exact identical retries may return the existing acceptance, while any changed digest/version/signature must fail closed.
+
+A future final-report table should be separate from these evidence records and should be append-only. It must contain the two acceptance references, binding/fingerprint IDs, digest, audited commit, decision, evidence-check result, and issuance timestamp. A `PASS` report must not imply escrow funding, asset transfer, or on-chain settlement unless those are independently verified.
+
+### Security and platform constraints
+
+- Do not weaken or replace the current `deal_party_agreements` trigger, RLS policies, or Safe signer workflow.
+- New ledger and acceptance tables must have RLS enabled and no direct browser INSERT/UPDATE/DELETE privileges. Prefer no browser access at all; the authenticated Edge Function should validate the caller and perform narrowly scoped server-side writes. Do not add a broadly callable `SECURITY DEFINER` function in `public`.
+- The audit ledger must use restrictive foreign keys so evidence cannot disappear through existing `ON DELETE CASCADE` chains. The precise FK graph and deletion behavior must be integration-tested before any migration.
+- Supabase announced that new `public` tables are no longer automatically exposed through the Data API by default (enforced across projects from 2026-10-30). These internal protocol tables should remain unexposed to browser roles; do not add grants merely to make them visible.
+- Supabase CLI v3 changed hosted database command defaults: database commands target local by default and hosted changes require explicit remote targeting/confirmation. Any future migration workflow must explicitly target the intended environment and be reviewed before execution.
+
+### Next implementation gates
+
+1. Implement and test the server-side read/prepare/accept endpoint on the isolated branch only.
+2. Use a pinned, reviewed EVM signature-recovery dependency and test EIP-712 domain, chain ID 56, deal ID, fingerprint digest, terms hash/version, party role, wallet, replay and cross-deal rejection.
+3. Add the append-only schema migration only after the table design, FK deletion behavior, RLS, grants and trigger definitions are reviewed together.
+4. Add tests for audit/project deletion restriction, unauthorized direct API access, immutable updates/deletes, terms changes after signature, dispute blocking and first-deal issuance.
+5. Add final-report issuance only after the independent acceptance records and all evidence checks are verified.
+
+No production schema change, migration, Edge Function deployment, deal update, signature request, Safe transaction or financial transfer was performed during this inspection.
