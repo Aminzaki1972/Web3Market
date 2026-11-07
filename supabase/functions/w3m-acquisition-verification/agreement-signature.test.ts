@@ -13,6 +13,7 @@ const base: W3MAgreementAcceptanceInput = {
   dealId: "0x" + "01".repeat(32),
   fingerprintId: "0x" + "02".repeat(32),
   fingerprintDigest: "0x" + "03".repeat(32),
+  bindingHash: "0x" + "0b".repeat(32),
   termsHash: "0x" + "04".repeat(32),
   termsVersion: "1",
   partyRole: "buyer",
@@ -29,6 +30,7 @@ Deno.test("builds the fixed BNB Chain EIP-712 agreement domain and complete bind
   assertEquals(typed.message.partyRole, 1);
   assertEquals(typed.message.fingerprintId, base.fingerprintId);
   assertEquals(typed.message.fingerprintDigest, base.fingerprintDigest);
+  assertEquals(typed.message.bindingHash, base.bindingHash);
   assertEquals(typed.message.termsHash, base.termsHash);
 });
 
@@ -53,6 +55,7 @@ Deno.test("rejects signatures replayed against another deal, fingerprint, digest
     { ...base, dealId: "0x" + "06".repeat(32) },
     { ...base, fingerprintId: "0x" + "07".repeat(32) },
     { ...base, fingerprintDigest: "0x" + "08".repeat(32) },
+    { ...base, bindingHash: "0x" + "0c".repeat(32) },
     { ...base, termsHash: "0x" + "09".repeat(32) },
     { ...base, termsVersion: "2" },
     { ...base, partyRole: "seller" },
