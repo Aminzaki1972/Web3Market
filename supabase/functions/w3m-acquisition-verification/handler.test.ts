@@ -54,7 +54,11 @@ function makeRequest(body: unknown, authorization = "Bearer valid-user-token") {
 
 function makeDeps(
   rpc: W3MAdminClient["rpc"],
-  options: { userId?: string; randomBytes?: (length: number) => Uint8Array } = {},
+  options: {
+    userId?: string;
+    randomBytes?: (length: number) => Uint8Array;
+    from?: NonNullable<W3MAdminClient["from"]>;
+  } = {},
 ) {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const client: W3MAdminClient = {
@@ -68,6 +72,7 @@ function makeDeps(
       calls.push({ name, args });
       return await rpc(name, args);
     },
+    from: options.from,
   };
   return {
     calls,
@@ -229,4 +234,131 @@ Deno.test("handler rejects untrusted origins and missing bearer tokens", async (
   const noAuth = makeRequest({ action: "challenge" }, "");
   if ((await handler(badOrigin)).status !== 403) throw new Error("Untrusted origin should be rejected");
   if ((await handler(noAuth)).status !== 401) throw new Error("Missing bearer token should be rejected");
+});
+
+Deno.test("publish action reloads seller, project, completed audit and every persisted evidence page", async () => {
+  const sellerId = "76000000-0000-4000-8000-000000000006";
+  const datasets: Record<string, Array<Record<string, unknown>>> = {
+    deals: [{
+      id: DEAL_ID, project_id: PROJECT_ID, buyer_id: USER_ID, seller_id: sellerId,
+      status: "pending", dispute_status: "none",
+    }],
+    projects: [{ id: PROJECT_ID, owner_id: sellerId }],
+    code_audits: [{
+      id: AUDIT_ID, project_id: PROJECT_ID, status: "completed",
+      repo_owner: "Aminzaki1972", repo_name: "Web3Market", commit_sha: "f".repeat(40),
+      engine_version: "w3m-code-audit-1.0", audit_type: "full",
+      files_scanned: 1, lines_scanned: 12,
+      overall_score: 91, security_score: 92, architecture_score: 90,
+      code_quality_score: 91, dependency_score: 89, testing_score: 80,
+      documentation_score: 85, web3_score: 90, scalability_score: 88,
+      ai_fit_score: 82, risk_level: "Moderate", summary: "Synthetic test audit",
+    }],
+    code_audit_files: [{
+      path: "src/index.ts", sha: "a".repeat(40), language: "TypeScript",
+      size_bytes: 120, line_count: 12, selected_tier: 1, scanned: true,
+    }],
+    code_audit_findings: [],
+  };
+  class Query {
+    private rows: Array<Record<string, unknown>>;
+    constructor(table: string) { this.rows = [...(datasets[table] || [])]; }
+    select(_columns: string) { return this; }
+    eq(column: string, value: unknown) {
+      this.rows = this.rows.filter((row) => row[column] === value);
+      return this;
+    }
+    order(column: string, options?: { ascending?: boolean }) {
+      this.rows.sort((a, b) => String(a[column] ?? "").localeCompare(String(b[column] ?? "")));
+      if (options?.ascending === false) this.rows.reverse();
+      return this;
+    }
+    async range(from: number, to: number) {
+      return { data: this.rows.slice(from, to + 1), error: null };
+    }
+    async maybeSingle() {
+      return { data: this.rows[0] || null, error: null };
+    }
+  }
+  const from = ((table: string) => new Query(table)) as NonNullable<W3MAdminClient["from"]>;
+  const { deps, calls } = makeDeps(async (name, args) => {
+    if (name !== "w3m_publish_audit_fingerprint_and_binding") {
+      throw new Error("Unexpected RPC " + name);
+    }
+    return {
+      data: [{ fingerprint_id: args.p_fingerprint_id, binding_hash: args.p_binding_hash }],
+      error: null,
+    };
+  }, { userId: sellerId, from });
+
+  const handler = createW3MAcquisitionHandler(deps);
+  const response = await handler(makeRequest({ action: "publish_fingerprint_binding", deal_id: DEAL_ID, audit_id: AUDIT_ID }));
+  const body = await response.json();
+  if (response.status !== 201 || body.ok !== true) {
+    throw new Error("Fingerprint publication failed: " + JSON.stringify(body));
+  }
+  if (body.files_fingerprinted !== 1 || !/^[0-9a-f]{64}$/.test(body.fingerprint_digest)) {
+    throw new Error("Persisted audit evidence was not fingerprinted correctly");
+  }
+  const call = calls.find((item) => item.name === "w3m_publish_audit_fingerprint_and_binding");
+  if (!call || call.args.p_user_id !== sellerId || call.args.p_deal_id !== DEAL_ID ||
+    call.args.p_project_id !== PROJECT_ID || call.args.p_audit_id !== AUDIT_ID) {
+    throw new Error("Trusted seller and deal context were not bound to the publication RPC");
+  }
+});
+
+Deno.test("publish action rejects non-owners before reading or persisting audit evidence", async () => {
+  const sellerId = "76000000-0000-4000-8000-000000000006";
+  const from = ((table: string) => ({
+    select() { return this; },
+    eq() { return this; },
+    order() { return this; },
+    async range() { return { data: [], error: null }; },
+    async maybeSingle() {
+      return {
+        data: table === "deals"
+          ? { id: DEAL_ID, project_id: PROJECT_ID, buyer_id: USER_ID, seller_id: sellerId, status: "pending", dispute_status: "none" }
+          : { id: PROJECT_ID, owner_id: "79000000-0000-4000-8000-000000000009" },
+        error: null,
+      };
+    },
+  })) as unknown as NonNullable<W3MAdminClient["from"]>;
+  const { deps, calls } = makeDeps(async () => ({ data: null, error: null }), { userId: sellerId, from });
+  const handler = createW3MAcquisitionHandler(deps);
+  const response = await handler(makeRequest({ action: "publish_fingerprint_binding", deal_id: DEAL_ID, audit_id: AUDIT_ID }));
+  if (response.status !== 403) throw new Error("Non-owner should be rejected");
+  if (calls.length !== 0) throw new Error("Non-owner reached a persistence RPC");
+});
+
+Deno.test("publish action fails closed when any scanned file lacks a Git blob SHA", async () => {
+  const sellerId = "76000000-0000-4000-8000-000000000006";
+  const datasets: Record<string, Array<Record<string, unknown>>> = {
+    deals: [{ id: DEAL_ID, project_id: PROJECT_ID, buyer_id: USER_ID, seller_id: sellerId, status: "pending", dispute_status: "none" }],
+    projects: [{ id: PROJECT_ID, owner_id: sellerId }],
+    code_audits: [{
+      id: AUDIT_ID, project_id: PROJECT_ID, status: "completed",
+      repo_owner: "Aminzaki1972", repo_name: "Web3Market", commit_sha: "f".repeat(40),
+      engine_version: "w3m-code-audit-1.0", audit_type: "full", files_scanned: 1, lines_scanned: 12,
+      overall_score: 91, security_score: 92, architecture_score: 90, code_quality_score: 91,
+      dependency_score: 89, testing_score: 80, documentation_score: 85, web3_score: 90,
+      scalability_score: 88, ai_fit_score: 82, risk_level: "Moderate", summary: "Synthetic test audit",
+    }],
+    code_audit_files: [{ path: "src/index.ts", sha: null, language: "TypeScript", size_bytes: 120, line_count: 12, selected_tier: 1, scanned: true }],
+    code_audit_findings: [],
+  };
+  class Query {
+    private rows: Array<Record<string, unknown>>;
+    constructor(table: string) { this.rows = [...(datasets[table] || [])]; }
+    select() { return this; }
+    eq(column: string, value: unknown) { this.rows = this.rows.filter((row) => row[column] === value); return this; }
+    order() { return this; }
+    async range(from: number, to: number) { return { data: this.rows.slice(from, to + 1), error: null }; }
+    async maybeSingle() { return { data: this.rows[0] || null, error: null }; }
+  }
+  const from = ((table: string) => new Query(table)) as NonNullable<W3MAdminClient["from"]>;
+  const { deps, calls } = makeDeps(async () => ({ data: null, error: null }), { userId: sellerId, from });
+  const handler = createW3MAcquisitionHandler(deps);
+  const response = await handler(makeRequest({ action: "publish_fingerprint_binding", deal_id: DEAL_ID, audit_id: AUDIT_ID }));
+  if (response.status !== 500) throw new Error("Missing Git blob SHA must fail closed");
+  if (calls.length !== 0) throw new Error("Invalid audit manifest reached persistence RPC");
 });
