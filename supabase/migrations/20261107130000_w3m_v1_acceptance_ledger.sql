@@ -612,8 +612,6 @@ $w3m$;
 
 revoke all on function public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text)
   from public, anon, authenticated;
-revoke all on function public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text)
-  from public, anon, authenticated;
 revoke all on function public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)
   from public, anon, authenticated;
 revoke all on function public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint)
@@ -622,7 +620,6 @@ revoke all on function public.w3m_record_agreement_acceptance(uuid,uuid,text,tex
   from public, anon, authenticated;
 revoke all on function public.w3m_get_agreement_challenge_for_verification(uuid)
   from public, anon, authenticated;
-grant execute on function public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text) to service_role;
 grant execute on function public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text) to service_role;
 grant execute on function public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb) to service_role;
 grant execute on function public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint) to service_role;
