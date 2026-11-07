@@ -6,7 +6,15 @@ const base = {
   repository: "Aminzaki1972/Web3Market",
   commitSha: "a".repeat(40),
   schemaVersion: "audit-manifest-v1",
-  manifest: { files: [{ path: "src/a.ts", sha256: "b".repeat(64) }], score: 91 },
+  manifest: {
+    audit: {
+      id: "71000000-0000-4000-8000-000000000001",
+      repository: "Aminzaki1972/Web3Market",
+      commit_sha: "a".repeat(40),
+    },
+    files: [{ path: "src/a.ts", sha256: "b".repeat(64) }],
+    score: 91,
+  },
 };
 
 Deno.test("fingerprint is stable when JSON object key order differs", async () => {
@@ -23,7 +31,14 @@ Deno.test("fingerprint changes when audit evidence or commit changes", async () 
   const evidenceChanged = await computeW3MAuditFingerprint({
     ...base, manifest: { ...base.manifest, score: 90 },
   });
-  const commitChanged = await computeW3MAuditFingerprint({ ...base, commitSha: "c".repeat(40) });
+  const commitChanged = await computeW3MAuditFingerprint({
+    ...base,
+    commitSha: "c".repeat(40),
+    manifest: {
+      ...base.manifest,
+      audit: { ...base.manifest.audit, commit_sha: "c".repeat(40) },
+    },
+  });
   if (a.digest === evidenceChanged.digest || a.digest === commitChanged.digest) {
     throw new Error("A changed evidence payload or commit must change the fingerprint.");
   }
@@ -32,6 +47,21 @@ Deno.test("fingerprint changes when audit evidence or commit changes", async () 
 Deno.test("rejects missing or malformed commit SHA", async () => {
   await assertRejects(() => computeW3MAuditFingerprint({ ...base, commitSha: "" }));
   await assertRejects(() => computeW3MAuditFingerprint({ ...base, commitSha: "abc" }));
+});
+
+Deno.test("rejects envelope identity that differs from persisted audit identity", async () => {
+  await assertRejects(() => computeW3MAuditFingerprint({
+    ...base,
+    auditId: "72000000-0000-4000-8000-000000000002",
+  }));
+  await assertRejects(() => computeW3MAuditFingerprint({
+    ...base,
+    repository: "someone-else/another-repo",
+  }));
+  await assertRejects(() => computeW3MAuditFingerprint({
+    ...base,
+    commitSha: "c".repeat(40),
+  }));
 });
 
 Deno.test("rejects non-JSON values instead of silently dropping them", async () => {
