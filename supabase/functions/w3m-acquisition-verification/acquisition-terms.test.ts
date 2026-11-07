@@ -122,3 +122,26 @@ Deno.test("rejects a seller net currency mismatch", () => {
   invalid.seller_net.currency = "BNB";
   assertThrows(() => validateW3MAcquisitionTermsV1(invalid));
 });
+
+
+Deno.test("requires fee plus seller net to equal consideration exactly", () => {
+  const invalidFeeSplit = fixture();
+  invalidFeeSplit.platform_fee.amount = "74.99";
+  assertThrows(() => validateW3MAcquisitionTermsV1(invalidFeeSplit));
+
+  const invalidNetSplit = fixture();
+  invalidNetSplit.seller_net.amount = "925.01";
+  assertThrows(() => validateW3MAcquisitionTermsV1(invalidNetSplit));
+
+  const exactLongDecimals = fixture();
+  exactLongDecimals.consideration.amount = "0.30000000000000000003";
+  exactLongDecimals.platform_fee.amount = "0.10000000000000000001";
+  exactLongDecimals.seller_net.amount = "0.20000000000000000002";
+  validateW3MAcquisitionTermsV1(exactLongDecimals);
+});
+
+Deno.test("rejects a zero seller net", () => {
+  const invalid = fixture();
+  invalid.seller_net.amount = "0.00";
+  assertThrows(() => validateW3MAcquisitionTermsV1(invalid));
+});
