@@ -392,3 +392,44 @@ Verification:
 - Workflow job: `fingerprint-tests`, conclusion success.
 
 This validates the pure browser coordinator and existing pure modules only. It does not validate a deployed Edge Function, authenticated database persistence, atomic nonce consumption, or Safe/release integration. The client remains isolated and is not imported by the live Deal Room. No production changes or transactions were made.
+
+
+## 15. Canonical deal-terms source and live schema verification (read-only, 2026-11-07)
+
+### 15.1 Browser-side offer creation is not a terms publisher
+
+The feature-branch `js/offer-form-fix.js` creates a `public.deals` row with only:
+- `project_id`, `buyer_id`, `seller_id`
+- `amount`, `currency`
+- `status = pending`
+
+It may separately add a free-form chat message to `deal_messages`. It does not create a `deal_terms` row, does not publish a canonical terms document, and does not bind a specific audit. The offer form is therefore not a canonical terms publisher.
+
+### 15.2 Checkout and Deal Room currently use different evidence models
+
+`js/deal-checkout.js` reads `deals` as the canonical deal record and, when status is `accepted`, can call `create-safe` automatically if the Safe is not yet deployed. It does not require a W3M acceptance pair before making that call.
+
+`js/deal-room.js` reads legacy `deal_party_agreements` rows and writes timestamp-only agreements from the browser using an upsert. The displayed copy is a short Model B dispute-resolution notice; it is not a complete versioned acquisition agreement and is not an EIP-712 signature.
+
+### 15.3 Production schema facts verified read-only
+
+The live `public.deal_terms` schema contains:
+`id`, `deal_id`, `buyer_agreed_at`, `seller_agreed_at`, `dispute_resolution_accepted`, `delivery_deadline`, `inspection_deadline`, `terms_snapshot` (JSONB, default empty object), and timestamps. It has no terms version or digest columns. No non-internal trigger exists on `deal_terms`, and a read-only function-definition scan found no database function referencing `deal_terms` or `terms_snapshot`.
+
+The live schema also has deal-level duplicates for some deadlines and agreement timestamps. The database currently contains two deals, zero `deal_terms` rows, zero legacy timestamp agreement rows in `deal_terms`, and two `deal_party_agreements` rows with `agreed_at` set. These two legacy rows are not cryptographic acceptance evidence and are not counted by the V1 ledger.
+
+### 15.4 Exact unresolved policy inputs
+
+The current V1 terms validator intentionally requires more than a price and a project identifier: project identity, a bound audit and commit fingerprint, exact consideration/fee/net amounts, payment method and chain, transfer scope, access/credentials, intellectual property, data/privacy, delivery checklist and deadline, inspection window and acceptance criteria, dispute procedure, escrow funding/release/hold conditions, governing law/process/language, risk acknowledgements, disclosures, creation and expiry timestamps.
+
+The live `projects` schema has candidate descriptive fields such as `transfer_terms`, `assets`, `domain_ownership`, `github_ownership`, `ownership_declaration`, and `reason_for_sale`; however, no verified application contract currently defines which fields are authoritative, how they are normalized, or whether the seller's declarations are frozen at offer time. The live deal and terms tables also do not define governing-law, inspection-criteria, or complete dispute-procedure policy sources.
+
+**V1 safety decision:** do not automatically copy mutable project metadata into a signed contract, do not infer legal terms from free-form descriptions, and do not fabricate governing-law or dispute clauses. The official V1 terms publisher must consume an explicitly approved, server-owned terms input contract. Until those required inputs have an authoritative source, publication must fail closed and no agreement challenge may be issued.
+
+### 15.5 Data integrity implications for the upcoming isolated persistence design
+
+- Existing `deal_party_agreements` timestamps are historical UI acknowledgements only; they cannot satisfy the V1 signature predicate.
+- Existing empty/missing `deal_terms` rows cannot be interpreted as an implicit default agreement.
+- The current `deal_terms` unique constraint on `deal_id` supports only one mutable row, not immutable history.
+- A future V1 store must append versioned canonical terms and acceptance evidence in a private, server-owned persistence boundary. It must retain historical signed evidence even if a project, deal, or audit lifecycle later changes; foreign-key cascade deletion is not acceptable for the evidence record.
+- No production DDL, data writes, Edge Function invocations, deployment, Safe calls, or financial transfers were performed in this verification.
