@@ -14,6 +14,21 @@ Inspection of the connected project found:
 
 Do not repurpose `deal_party_agreements` or `deal_multisig_signers` as legal-signature evidence.
 
+## 1A. Additional read-only findings: terms and state controls
+
+A read-only inspection of the production schema added important facts:
+- `public.deal_terms` already exists with `deal_id`, `terms_snapshot jsonb`, buyer/seller acknowledgement timestamps, dispute-resolution acknowledgement, delivery/inspection deadlines, and timestamps. It has no dedicated immutable terms version or stored cryptographic terms hash in the inspected columns.
+- The inspected RLS policy for `deal_terms` grants participant SELECT only; no participant INSERT/UPDATE policy was found in the policy listing.
+- `public.deal_party_agreements` stores only role, party ID, and `agreed_at`; participant INSERT/UPDATE policies exist. A trigger prevents changing its identity and prevents clearing/changing an already populated acknowledgement timestamp. This immutability is useful for the legacy timestamp record but does not make it a signed terms acceptance.
+- `public.deals` has a state-transition trigger allowing `pending -> accepted`; `accepted` can then transition to funded/cancelled/rejected/disputed. The transition trigger itself does not require an EIP-712 acceptance pair.
+- The reviewed frontend Deal Room currently writes `deal_party_agreements`; it does not read `deal_terms.terms_snapshot` to construct a canonical terms hash in the inspected acceptance handler.
+
+Implications:
+- `deal_terms.terms_snapshot` is a candidate source to investigate, not yet an authoritative versioned contract. Inspect its writer, content shape, and update history before adopting it.
+- Do not infer that `deals.status='accepted'` proves both parties signed terms cryptographically. The database state trigger permits that status transition independently of the new ledger.
+- A future server finalization/ Safe deployment gate must explicitly require the new persisted acceptance pair. Merely changing the UI or relying on the status string is insufficient.
+- Do not modify these production objects during this protocol branch work; all findings above are read-only.
+
 ## 2. Proposed private schema
 
 Create `w3m_private`, outside the exposed Data API schema.
