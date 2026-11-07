@@ -68,6 +68,38 @@ jobs:
           create table public.code_audit_findings (
             id uuid primary key default gen_random_uuid(), audit_id uuid not null
           );
+          create function public.w3m_test_terms(
+            p_deal uuid, p_project uuid, p_buyer uuid, p_seller uuid,
+            p_audit uuid, p_digest text, p_repository text, p_commit text, p_version bigint
+          ) returns jsonb language sql immutable as $test$
+            select jsonb_build_object(
+              'schema','w3m-acquisition-terms-v1',
+              'terms_version',p_version,
+              'deal',jsonb_build_object('deal_id',p_deal::text,'project_id',p_project::text,
+                'buyer_id',p_buyer::text,'seller_id',p_seller::text),
+              'project',jsonb_build_object('title','Synthetic project','category','SaaS'),
+              'audit',jsonb_build_object('audit_id',p_audit::text,'repository',p_repository,
+                'commit_sha',p_commit,'fingerprint_digest',p_digest),
+              'consideration',jsonb_build_object('amount','1000.00','currency','USDT'),
+              'platform_fee',jsonb_build_object('percent','7.50','amount','75.00'),
+              'seller_net',jsonb_build_object('amount','925.00','currency','USDT'),
+              'payment',jsonb_build_object('method','safe_multisig','chain_id',56,'asset','USDT',
+                'token_contract',null,'safe_address',null,'status_at_signing','configured_or_pending'),
+              'transfer_scope',jsonb_build_object('included_assets',jsonb_build_array(),
+                'excluded_assets',jsonb_build_array(),'third_party_dependencies',jsonb_build_array(),
+                'access_and_credentials',jsonb_build_object('transfer_method','test handover'),
+                'intellectual_property',jsonb_build_object('declaration','test'),
+                'data_and_privacy',jsonb_build_object('scope','test')),
+              'delivery',jsonb_build_object('deadline','2027-01-01T00:00:00Z','checklist',jsonb_build_array('handover')),
+              'inspection',jsonb_build_object('window','5 days','acceptance_criteria',jsonb_build_array('access delivered')),
+              'dispute',jsonb_build_object('procedure_version','test-v1','text','synthetic test procedure'),
+              'escrow',jsonb_build_object('funding_condition','test funding','release_condition','test release','dispute_hold',true),
+              'governing_terms',jsonb_build_object('governing_law','test-only policy','venue_or_process','test-only process','language','English'),
+              'risk_acknowledgements',jsonb_build_array('Test only; no real transaction.'),
+              'disclosures',jsonb_build_array(),
+              'created_at','2026-11-07T00:00:00Z','expires_at','2026-11-08T00:00:00Z'
+            );
+          $test$;
           SQL
       - name: Apply W3M V1 ledger migration
         env:
@@ -92,6 +124,8 @@ jobs:
             v_digest text := repeat('a',64);
             v_binding_hash text := repeat('b',64);
             v_terms_hash text := repeat('c',64);
+            v_terms jsonb;
+            v_bad_terms jsonb;
             v_challenge uuid;
             v_stale_challenge uuid;
             v_nonce text := '0x' || repeat('d',64);
@@ -203,9 +237,38 @@ jobs:
               raise exception 'same_fingerprint_exact_evidence_multi_deal_binding_failed';
             end if;
 
-            perform public.w3m_publish_acquisition_terms_version(
-              v_deal,1,v_terms_hash,'{"schema":"w3m-terms-v1","approved":true}'::jsonb
+            v_terms := public.w3m_test_terms(
+              v_deal,v_project,v_user,v_seller,v_audit,v_digest,
+              'aminzaki1972/web3market',repeat('f',40),1
             );
+
+            -- The database independently rejects fake/minimal terms and any
+            -- agreement whose embedded deal or audit identity differs from the locked rows.
+            begin
+              perform public.w3m_publish_acquisition_terms_version(
+                v_deal,1,v_terms_hash,'{"schema":"w3m-terms-v1","approved":true}'::jsonb
+              );
+              raise exception 'expected_incomplete_terms_schema_rejection';
+            exception when sqlstate '22023' then null;
+            end;
+
+            v_bad_terms := jsonb_set(v_terms,'{deal,project_id}',
+              to_jsonb('72000000-0000-4000-8000-000000000099'::text));
+            begin
+              perform public.w3m_publish_acquisition_terms_version(v_deal,1,v_terms_hash,v_bad_terms);
+              raise exception 'expected_terms_project_binding_rejection';
+            exception when sqlstate '23503' then null;
+            end;
+
+            v_bad_terms := jsonb_set(v_terms,'{audit,fingerprint_digest}',
+              to_jsonb(repeat('9',64)));
+            begin
+              perform public.w3m_publish_acquisition_terms_version(v_deal,1,v_terms_hash,v_bad_terms);
+              raise exception 'expected_terms_fingerprint_binding_rejection';
+            exception when sqlstate '23503' then null;
+            end;
+
+            perform public.w3m_publish_acquisition_terms_version(v_deal,1,v_terms_hash,v_terms);
 
             begin
               perform public.w3m_issue_agreement_challenge(
@@ -343,7 +406,9 @@ jobs:
             -- Once either party has accepted, the canonical terms are frozen.
             begin
               perform public.w3m_publish_acquisition_terms_version(
-                v_deal,2,repeat('2',64),'{"schema":"w3m-terms-v1","approved":true,"revision":2}'::jsonb
+                v_deal,2,repeat('2',64),
+                public.w3m_test_terms(v_deal,v_project,v_user,v_seller,v_audit,v_digest,
+                  'aminzaki1972/web3market',repeat('f',40),2)
               );
               raise exception 'expected_terms_locked_after_acceptance';
             exception when sqlstate '23505' then null;
@@ -363,7 +428,9 @@ jobs:
             perform public.w3m_publish_acquisition_terms_version(
               '79000000-0000-4000-8000-000000000009',
               1,repeat('c',64),
-              '{"schema":"w3m-terms-v1","approved":true,"revision":1}'::jsonb
+              public.w3m_test_terms('79000000-0000-4000-8000-000000000009'::uuid,
+                v_project,v_user,v_seller,v_audit,v_digest,
+                'aminzaki1972/web3market',repeat('f',40),1)
             );
 
             begin
@@ -416,7 +483,9 @@ jobs:
           set request.jwt.claims='{"role":"service_role"}';
           select public.w3m_publish_acquisition_terms_version(
             '79000000-0000-4000-8000-000000000009',2,repeat('3',64),
-            '{"schema":"w3m-terms-v1","approved":true,"revision":3}'::jsonb
+            public.w3m_test_terms('$DEAL_ID'::uuid,'$PROJECT_ID'::uuid,
+              '75000000-0000-4000-8000-000000000005'::uuid,'$SELLER_ID'::uuid,
+              '$AUDIT_ID'::uuid,repeat('a',64),'aminzaki1972/web3market',repeat('f',40),2)
           );
           commit;
           SQL
