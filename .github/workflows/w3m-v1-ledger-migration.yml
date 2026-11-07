@@ -45,7 +45,18 @@ jobs:
           create schema auth;
           create function auth.role() returns text
             language sql stable
-            as $$ select current_setting('request.jwt.claim.role', true) $$;
+            as $ select current_setting('request.jwt.claim.role', true) $;
+          create table public.deals (
+            id uuid primary key, project_id uuid not null, buyer_id uuid not null,
+            seller_id uuid not null, status text not null, dispute_status text not null
+          );
+          create table public.profiles (
+            id uuid primary key, wallet_address text, wallet_verified boolean
+          );
+          create table public.code_audits (
+            id uuid primary key, project_id uuid not null, status text not null,
+            repo_owner text not null, repo_name text not null, commit_sha text not null
+          );
           SQL
       - name: Apply W3M V1 ledger migration
         env:
@@ -75,12 +86,25 @@ jobs:
             v_signature text := '0x' || repeat('e',130);
             v_wallet text := '0x1111111111111111111111111111111111111111';
           begin
-            insert into public.w3m_audit_fingerprints
+            insert into public.deals (id,project_id,buyer_id,seller_id,status,dispute_status)
+            values
+              (v_deal,v_project,v_user,'76000000-0000-4000-8000-000000000006','pending','none');
+            insert into public.profiles (id,wallet_address,wallet_verified)
+            values
+              (v_user,v_wallet,true),
+              ('76000000-0000-4000-8000-000000000006'::uuid,
+               '0x2222222222222222222222222222222222222222',true);
+            insert into public.code_audits
+              (id,project_id,status,repo_owner,repo_name,commit_sha)
+            values
+              (v_audit,v_project,'completed','Aminzaki1972','Web3Market',repeat('f',40));
+
+            insert into w3m_private.w3m_audit_fingerprints
               (id,audit_id,fingerprint_digest,repository,commit_sha,manifest)
             values
               (v_fingerprint,v_audit,v_digest,'aminzaki1972/web3market',repeat('f',40),'{"schema":"test"}');
 
-            insert into public.w3m_deal_audit_bindings
+            insert into w3m_private.w3m_deal_audit_bindings
               (deal_id,project_id,audit_id,fingerprint_id,fingerprint_digest,repository,commit_sha,binding_hash)
             values
               (v_deal,v_project,v_audit,v_fingerprint,v_digest,
@@ -98,10 +122,10 @@ jobs:
               v_challenge,v_user,'buyer',v_wallet,v_wallet,v_signature,clock_timestamp()
             );
 
-            if (select count(*) from public.w3m_agreement_acceptances where deal_id=v_deal) <> 1 then
+            if (select count(*) from w3m_private.w3m_agreement_acceptances where deal_id=v_deal) <> 1 then
               raise exception 'acceptance_row_missing';
             end if;
-            if (select consumed_at from public.w3m_agreement_challenges where id=v_challenge) is null then
+            if (select consumed_at from w3m_private.w3m_agreement_challenges where id=v_challenge) is null then
               raise exception 'challenge_not_consumed';
             end if;
 
@@ -139,7 +163,7 @@ jobs:
               null;
             end;
 
-            if (select count(*) from public.w3m_acquisition_terms_versions
+            if (select count(*) from w3m_private.w3m_acquisition_terms_versions
                 where deal_id=v_deal and status='published') <> 1 then
               raise exception 'terms_current_version_invariant_broken';
             end if;
@@ -155,7 +179,7 @@ jobs:
             exception when sqlstate '55000' then null;
             end;
             begin
-              update public.w3m_audit_fingerprints set manifest='{"tampered":true}'::jsonb
+              update w3m_private.w3m_audit_fingerprints set manifest='{"tampered":true}'::jsonb
                 where id=v_fingerprint;
               raise exception 'expected_fingerprint_immutability_rejection';
             exception when sqlstate '55000' then null;
