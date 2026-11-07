@@ -1,0 +1,112 @@
+import { assertEquals, assertRejects, assertThrows } from "jsr:@std/assert@1.0.14";
+import {
+  canonicalizeW3MAcquisitionTermsV1,
+  hashW3MAcquisitionTermsV1,
+  validateW3MAcquisitionTermsV1,
+} from "./acquisition-terms.ts";
+
+const fixture = () => ({
+  schema: "w3m-acquisition-terms-v1",
+  terms_version: 1,
+  deal: {
+    deal_id: "11111111-1111-4111-8111-111111111111",
+    project_id: "22222222-2222-4222-8222-222222222222",
+    buyer_id: "33333333-3333-4333-8333-333333333333",
+    seller_id: "44444444-4444-4444-8444-444444444444",
+  },
+  project: { title: "Synthetic project", category: "SaaS" },
+  audit: {
+    audit_id: "55555555-5555-4555-8555-555555555555",
+    repository: "example/project",
+    commit_sha: "a".repeat(40),
+    fingerprint_digest: "b".repeat(64),
+  },
+  consideration: { amount: "1000.00", currency: "USDT" },
+  platform_fee: { percent: "7.50", amount: "75.00" },
+  seller_net: { amount: "925.00", currency: "USDT" },
+  payment: {
+    method: "safe_multisig",
+    chain_id: 56,
+    asset: "USDT",
+    token_contract: null,
+    safe_address: null,
+    status_at_signing: "configured_or_pending",
+  },
+  transfer_scope: {
+    included_assets: [{ type: "repository", description: "Source code" }],
+    excluded_assets: [],
+    access_and_credentials: { transfer_method: "Owner handover; no secrets in this record" },
+    third_party_dependencies: [],
+    intellectual_property: { seller_declaration: "Seller-provided declaration" },
+    data_and_privacy: { scope: "No personal data transfer included" },
+  },
+  delivery: { deadline: "2027-01-01T00:00:00Z", checklist: ["Transfer repository"] },
+  inspection: { window: "5 days", acceptance_criteria: ["Repository access delivered"] },
+  dispute: { procedure_version: "draft-1", text: "Synthetic procedure for tests only" },
+  escrow: { funding_condition: "Buyer funds verified Safe", release_condition: "Both parties complete conditions", dispute_hold: true },
+  governing_terms: { governing_law: "Pending legal review", venue_or_process: "Pending legal review", language: "en" },
+  risk_acknowledgements: ["Audit is limited to the scanned commit."],
+  disclosures: [],
+  created_at: "2026-11-07T00:00:00Z",
+  expires_at: "2026-11-08T00:00:00Z",
+});
+
+Deno.test("accepts a complete synthetic V1 agreement", () => {
+  validateW3MAcquisitionTermsV1(fixture());
+});
+
+Deno.test("canonical JSON is stable across object key insertion order", () => {
+  const a = fixture();
+  const b = fixture();
+  b.project = { category: "SaaS", title: "Synthetic project" };
+  assertEquals(canonicalizeW3MAcquisitionTermsV1(a), canonicalizeW3MAcquisitionTermsV1(b));
+});
+
+Deno.test("hash is a deterministic 32-byte SHA-256 hex digest", async () => {
+  const first = await hashW3MAcquisitionTermsV1(fixture());
+  const second = await hashW3MAcquisitionTermsV1(fixture());
+  assertEquals(first, second);
+  assertEquals(first.length, 64);
+});
+
+Deno.test("rejects missing audit evidence and incomplete commercial terms", () => {
+  const missingAudit = fixture();
+  missingAudit.audit.commit_sha = "short";
+  assertThrows(() => validateW3MAcquisitionTermsV1(missingAudit));
+  const missingDelivery = fixture();
+  missingDelivery.delivery.checklist = [];
+  assertThrows(() => validateW3MAcquisitionTermsV1(missingDelivery));
+});
+
+Deno.test("rejects floating-point monetary values and invalid network", () => {
+  const floatAmount = fixture();
+  (floatAmount.consideration as { amount: unknown }).amount = 1000.5;
+  assertThrows(() => validateW3MAcquisitionTermsV1(floatAmount));
+  const wrongChain = fixture();
+  wrongChain.payment.chain_id = 1;
+  assertThrows(() => validateW3MAcquisitionTermsV1(wrongChain));
+});
+
+Deno.test("rejects identical buyer and seller and invalid expiry", () => {
+  const sameParty = fixture();
+  sameParty.deal.seller_id = sameParty.deal.buyer_id;
+  assertThrows(() => validateW3MAcquisitionTermsV1(sameParty));
+  const invalidExpiry = fixture();
+  invalidExpiry.expires_at = invalidExpiry.created_at;
+  assertThrows(() => validateW3MAcquisitionTermsV1(invalidExpiry));
+});
+
+Deno.test("rejects sparse arrays, undefined, non-finite values, and cycles", () => {
+  const sparse = fixture();
+  sparse.transfer_scope.included_assets = new Array(2);
+  assertThrows(() => validateW3MAcquisitionTermsV1(sparse));
+  const undefinedValue = fixture();
+  (undefinedValue.disclosures as unknown[]).push(undefined);
+  assertThrows(() => validateW3MAcquisitionTermsV1(undefinedValue));
+  const nonFinite = fixture();
+  (nonFinite.disclosures as unknown[]).push({ metric: Number.NaN });
+  assertThrows(() => validateW3MAcquisitionTermsV1(nonFinite));
+  const circular = fixture() as Record<string, unknown>;
+  circular.loop = circular;
+  assertThrows(() => validateW3MAcquisitionTermsV1(circular));
+});
