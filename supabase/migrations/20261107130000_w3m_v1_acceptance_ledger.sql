@@ -179,8 +179,129 @@ begin
   if (auth.jwt() ->> 'role') is distinct from 'service_role' then
     raise exception 'service_role_required' using errcode = '42501';
   end if;
-  if p_deal_id is null or p_project_id is null or p_audit_id is null or p_fingerprint_id is null or p_user_id is null
-    or p_repository is null or p_repository !~ '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?/[a-z0-9_.-]+
+  if p_deal_id is null or p_project_id is null or p_audit_id is null
+    or p_fingerprint_id is null or p_user_id is null
+    or p_repository is null or p_repository !~ '^[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9_.-]+$'
+    or p_commit_sha is null or p_commit_sha !~ '^[0-9a-f]{40}$'
+    or p_fingerprint_digest is null or p_fingerprint_digest !~ '^[0-9a-f]{64}$'
+    or p_binding_hash is null or p_binding_hash !~ '^[0-9a-f]{64}$'
+    or p_manifest is null or jsonb_typeof(p_manifest) is distinct from 'object'
+    or pg_column_size(p_manifest) > 8388608
+    or p_manifest ->> 'manifest_schema' is distinct from 'w3m.persisted-audit-manifest.v1'
+    or jsonb_typeof(p_manifest -> 'files') is distinct from 'array'
+    or jsonb_typeof(p_manifest -> 'findings') is distinct from 'array'
+    or jsonb_array_length(p_manifest -> 'files') = 0 then
+    raise exception 'invalid_fingerprint_publication_parameters' using errcode = '22023';
+  end if;
+
+  -- All publication paths lock the deal first, then project and audit evidence.
+  select * into v_deal from public.deals where id = p_deal_id for update;
+  if not found or v_deal.project_id is distinct from p_project_id
+    or v_deal.seller_id is distinct from p_user_id
+    or v_deal.buyer_id is not distinct from p_user_id
+    or v_deal.status is null or v_deal.status not in ('pending','accepted')
+    or v_deal.dispute_status is distinct from 'none' then
+    raise exception 'caller_is_not_eligible_deal_seller' using errcode = '42501';
+  end if;
+
+  select owner_id into v_project_owner from public.projects
+    where id = p_project_id for share;
+  if not found or v_project_owner is distinct from p_user_id then
+    raise exception 'caller_does_not_own_project' using errcode = '42501';
+  end if;
+
+  select * into v_audit from public.code_audits where id = p_audit_id for share;
+  if not found or v_audit.project_id is distinct from p_project_id
+    or v_audit.status is distinct from 'completed'
+    or v_audit.repo_owner is null or v_audit.repo_name is null
+    or lower(v_audit.repo_owner || '/' || v_audit.repo_name) <> p_repository
+    or lower(coalesce(v_audit.commit_sha,'')) <> p_commit_sha
+    or p_manifest #>> '{audit,id}' is distinct from p_audit_id::text
+    or lower(coalesce(p_manifest #>> '{audit,repository}','')) <> p_repository
+    or lower(coalesce(p_manifest #>> '{audit,commit_sha}','')) <> p_commit_sha
+    or p_manifest #>> '{audit,files_scanned}' is null
+    or (p_manifest #>> '{audit,files_scanned}')::integer <> v_audit.files_scanned
+    or (p_manifest #>> '{audit,files_scanned}')::integer <> jsonb_array_length(p_manifest -> 'files') then
+    raise exception 'persisted_audit_manifest_does_not_match_completed_audit' using errcode = '23503';
+  end if;
+
+  select count(*) into v_scanned_file_count
+    from public.code_audit_files f
+    where f.audit_id = p_audit_id and f.scanned = true;
+  if v_scanned_file_count <> v_audit.files_scanned
+    or exists (
+      select 1 from public.code_audit_files f
+      where f.audit_id = p_audit_id and f.scanned = true
+        and (f.sha is null or f.sha !~ '^[0-9a-fA-F]{40,64}$')
+    )
+    or exists (
+      select 1 from public.code_audit_files f
+      where f.audit_id = p_audit_id and f.scanned = true
+      group by replace(f.path, chr(92), '/')
+      having count(*) > 1
+    ) then
+    raise exception 'persisted_scanned_file_evidence_is_incomplete_or_duplicated' using errcode = '23503';
+  end if;
+
+  select count(*) into v_manifest_file_match_count
+    from jsonb_array_elements(p_manifest -> 'files') as manifest_file(item)
+    join public.code_audit_files f
+      on f.audit_id = p_audit_id and f.scanned = true
+     and replace(f.path, chr(92), '/') = manifest_file.item ->> 'path'
+     and lower(f.sha) = manifest_file.item ->> 'sha';
+  if v_manifest_file_match_count <> v_scanned_file_count then
+    raise exception 'manifest_files_do_not_match_persisted_scan_rows' using errcode = '23503';
+  end if;
+
+  select count(*) into v_finding_count
+    from public.code_audit_findings f where f.audit_id = p_audit_id;
+  if v_finding_count <> jsonb_array_length(p_manifest -> 'findings') then
+    raise exception 'manifest_findings_do_not_match_persisted_audit_rows' using errcode = '23503';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(p_audit_id::text, 1));
+  select * into v_fingerprint from w3m_private.w3m_audit_fingerprints
+    where audit_id = p_audit_id for update;
+  if found then
+    if v_fingerprint.id <> p_fingerprint_id
+      or v_fingerprint.fingerprint_digest <> p_fingerprint_digest
+      or v_fingerprint.repository <> p_repository
+      or v_fingerprint.commit_sha <> p_commit_sha
+      or v_fingerprint.manifest <> p_manifest then
+      raise exception 'audit_already_has_different_immutable_fingerprint' using errcode = '23505';
+    end if;
+  else
+    insert into w3m_private.w3m_audit_fingerprints
+      (id, audit_id, fingerprint_digest, repository, commit_sha, manifest)
+    values (p_fingerprint_id, p_audit_id, p_fingerprint_digest, p_repository, p_commit_sha, p_manifest)
+    returning * into v_fingerprint;
+  end if;
+
+  select * into v_binding from w3m_private.w3m_deal_audit_bindings
+    where deal_id = p_deal_id for update;
+  if found then
+    if v_binding.project_id <> p_project_id or v_binding.audit_id <> p_audit_id
+      or v_binding.fingerprint_id <> v_fingerprint.id
+      or v_binding.fingerprint_digest <> p_fingerprint_digest
+      or v_binding.repository <> p_repository or v_binding.commit_sha <> p_commit_sha
+      or v_binding.binding_hash <> p_binding_hash then
+      raise exception 'deal_already_has_different_immutable_audit_binding' using errcode = '23505';
+    end if;
+  else
+    insert into w3m_private.w3m_deal_audit_bindings
+      (deal_id, project_id, audit_id, fingerprint_id, fingerprint_digest,
+       repository, commit_sha, binding_hash)
+    values
+      (p_deal_id, p_project_id, p_audit_id, v_fingerprint.id, p_fingerprint_digest,
+       p_repository, p_commit_sha, p_binding_hash)
+    returning * into v_binding;
+  end if;
+
+  return query select v_fingerprint.id, v_binding.binding_hash;
+end;
+$w3m$;
+
+create or replace function public.w3m_publish_acquisition_terms_version(
   p_deal_id uuid, p_terms_version bigint, p_terms_hash text, p_canonical_terms_json jsonb
 ) returns uuid language plpgsql security definer set search_path = ''
 as $w3m$
