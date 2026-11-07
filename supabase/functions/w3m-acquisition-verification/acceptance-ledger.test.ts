@@ -133,7 +133,7 @@ Deno.test("allows a new acceptance after a new immutable terms version while pre
   });
   assertEquals(evaluateW3MAcceptanceLedger({
     ...versionTwo,
-    termsHash: "0x" + "8".repeat(64),
+    terms_hash: "0x" + "8".repeat(64),
     nonce: "0x" + "7".repeat(64),
   }, [versionTwo]), {
     allowed: false,
