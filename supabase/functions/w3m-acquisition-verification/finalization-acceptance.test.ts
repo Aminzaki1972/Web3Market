@@ -43,7 +43,7 @@ async function fixture() {
   ): Promise<W3MAcceptanceRecord> => {
     const challenge = await buildW3MAgreementChallenge({
       binding, expectedBinding, termsHash, termsVersion: "1", partyRole: role,
-      walletAddress: wallet.address, nonce: "0x" + nonceByte.repeat(32),
+      walletAddress: wallet.address, nonce: "0x" + nonceByte.repeat(64),
       deadline: NOW + 300,
     }, NOW);
     const signature = await wallet.signTypedData(
@@ -57,7 +57,7 @@ async function fixture() {
       binding_hash: completeExpected.bindingHash, terms_hash: termsHash,
       terms_version: "1", party_role: role, user_id: userId,
       wallet_address: wallet.address.toLowerCase(), signature,
-      nonce: "0x" + nonceByte.repeat(32), signature_deadline: NOW + 300,
+      nonce: "0x" + nonceByte.repeat(64), signature_deadline: NOW + 300,
       accepted_at: acceptedAt,
     };
   };
