@@ -483,9 +483,12 @@ jobs:
           set request.jwt.claims='{"role":"service_role"}';
           select public.w3m_publish_acquisition_terms_version(
             '79000000-0000-4000-8000-000000000009',2,repeat('3',64),
-            public.w3m_test_terms('$DEAL_ID'::uuid,'$PROJECT_ID'::uuid,
-              '75000000-0000-4000-8000-000000000005'::uuid,'$SELLER_ID'::uuid,
-              '$AUDIT_ID'::uuid,repeat('a',64),'aminzaki1972/web3market',repeat('f',40),2)
+            public.w3m_test_terms('79000000-0000-4000-8000-000000000009'::uuid,
+              '72000000-0000-4000-8000-000000000002'::uuid,
+              '75000000-0000-4000-8000-000000000005'::uuid,
+              '76000000-0000-4000-8000-000000000006'::uuid,
+              '73000000-0000-4000-8000-000000000003'::uuid,
+              repeat('a',64),'aminzaki1972/web3market',repeat('f',40),2)
           );
           commit;
           SQL
