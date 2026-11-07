@@ -23,6 +23,7 @@ export const W3M_AGREEMENT_TYPES = {
     { name: "dealId", type: "bytes32" },
     { name: "fingerprintId", type: "bytes32" },
     { name: "fingerprintDigest", type: "bytes32" },
+    { name: "bindingHash", type: "bytes32" },
     { name: "termsHash", type: "bytes32" },
     { name: "termsVersion", type: "uint256" },
     { name: "partyRole", type: "uint8" },
@@ -45,6 +46,7 @@ export type W3MAgreementAcceptanceInput = {
   dealId: string;
   fingerprintId: string;
   fingerprintDigest: string;
+  bindingHash: string;
   termsHash: string;
   termsVersion: string;
   partyRole: "buyer" | "seller";
@@ -61,6 +63,7 @@ export type W3MAgreementTypedData = {
     dealId: string;
     fingerprintId: string;
     fingerprintDigest: string;
+    bindingHash: string;
     termsHash: string;
     termsVersion: string;
     partyRole: number;
@@ -111,6 +114,7 @@ export function buildW3MAgreementTypedData(
       dealId: requireBytes32(input.dealId, "Deal ID"),
       fingerprintId: requireBytes32(input.fingerprintId, "Fingerprint ID"),
       fingerprintDigest: requireBytes32(input.fingerprintDigest, "Fingerprint digest"),
+      bindingHash: requireBytes32(input.bindingHash, "Deal-audit binding hash"),
       termsHash: requireBytes32(input.termsHash, "Terms hash"),
       termsVersion: requireUint256(input.termsVersion, "Terms version"),
       partyRole: input.partyRole === "buyer" ? 1 : 2,
