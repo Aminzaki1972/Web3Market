@@ -325,6 +325,21 @@ jobs:
               raise exception 'complete_buyer_seller_acceptance_pair_not_persisted';
             end if;
 
+            if not exists (
+              select 1 from public.w3m_get_deal_finalization_evidence(v_deal) e
+              where e.buyer_id=v_user and e.seller_id=v_seller
+                and e.fingerprint_digest='0x' || v_digest
+                and e.binding_hash='0x' || v_binding_hash
+                and e.terms_hash='0x' || v_terms_hash
+                and e.terms_version='1'
+                and jsonb_array_length(e.acceptance_rows)=2
+                and e.acceptance_rows @> '[{"party_role":"buyer"}]'::jsonb
+                and e.acceptance_rows @> '[{"party_role":"seller"}]'::jsonb
+                and e.acceptance_rows->0->>'accepted_at' like '%Z'
+            ) then
+              raise exception 'finalization_evidence_rpc_did_not_return_exact_acceptance_pair';
+            end if;
+
             -- Once either party has accepted, the canonical terms are frozen.
             begin
               perform public.w3m_publish_acquisition_terms_version(
@@ -457,6 +472,9 @@ jobs:
               or has_function_privilege('authenticated','public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz)','execute')
               or not has_function_privilege('service_role','public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)','execute')
               or not has_function_privilege('service_role','public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint)','execute')
+              or has_function_privilege('anon','public.w3m_get_deal_finalization_evidence(uuid)','execute')
+              or has_function_privilege('authenticated','public.w3m_get_deal_finalization_evidence(uuid)','execute')
+              or not has_function_privilege('service_role','public.w3m_get_deal_finalization_evidence(uuid)','execute')
               or has_function_privilege('anon','public.w3m_get_agreement_challenge_for_verification(uuid)','execute')
               or has_function_privilege('authenticated','public.w3m_get_agreement_challenge_for_verification(uuid)','execute')
               or not has_function_privilege('service_role','public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz)','execute')
