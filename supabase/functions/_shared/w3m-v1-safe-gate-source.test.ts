@@ -37,5 +37,10 @@ Deno.test("every Safe deployment, release, signature, execution and finalization
     assertEquals(gateIndex >= 0, true, item.file + " must call the shared W3M gate");
     assertEquals(actionIndex >= 0, true, item.file + " action marker must exist");
     assertEquals(gateIndex < actionIndex, true, item.file + " must gate before its Safe action");
+    if (item.file.endsWith("finalize-safe-release/index.ts")) {
+      const disputeCheckIndex = source.indexOf("checkDisputeState(sb,deal,dealId)");
+      assertEquals(disputeCheckIndex >= 0, true, "finalization must verify dispute state");
+      assertEquals(disputeCheckIndex < actionIndex, true, "finalization must verify dispute state before writes");
+    }
   }
 });
