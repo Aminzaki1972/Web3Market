@@ -1493,6 +1493,7 @@ comment on table w3m_private.w3m_agreement_acceptances is 'Append-only W3M V1 EI
   select * into v_deal from public.deals where id = p_deal_id for update;
   if not found or v_deal.project_id is distinct from p_project_id
     or v_deal.seller_id is distinct from p_user_id
+    or v_deal.buyer_id is not distinct from p_user_id
     or v_deal.status is null or v_deal.status not in ('pending','accepted')
     or v_deal.dispute_status is distinct from 'none' then
     raise exception 'caller_is_not_eligible_deal_seller' using errcode = '42501';
