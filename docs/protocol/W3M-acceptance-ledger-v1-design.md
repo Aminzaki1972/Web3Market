@@ -329,3 +329,9 @@ The helper and tests were corrected on this feature branch:
 - older acceptance versions remain retained as historical evidence and do not invalidate the current pair.
 
 This is still pure TypeScript policy logic. It does not replace the required database uniqueness constraints, atomic RPC, trusted Edge Function integration, or integration tests.
+
+### 12.6 Regression verification after terms-history correction
+- The first test attempt exposed a TypeScript fixture typo (`termsHash` was used where a persisted record requires `terms_hash`). The fixture was corrected; the implementation itself was not weakened to satisfy the test.
+- Corrected feature-branch head: `e4f7b124ad928208c41a202935905a2ac06dd703`.
+- GitHub Actions run `42368675810` completed successfully: the complete configured Deno test step passed and the Deno type-check step passed.
+- This run verifies the pure module/test suite only. It does not verify a database transaction, production Edge Function, Safe deployment, or settlement flow.
