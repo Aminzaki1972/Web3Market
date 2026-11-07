@@ -25,9 +25,10 @@ create table if not exists w3m_private.w3m_deal_audit_bindings (
   repository text not null,
   commit_sha text not null check (commit_sha ~ '^[0-9a-f]{40}$'),
   binding_hash text not null check (binding_hash ~ '^[0-9a-f]{64}$'),
-  created_at timestamptz not null default now(),
-  unique (fingerprint_id, fingerprint_digest)
+  created_at timestamptz not null default now()
 );
+create index if not exists w3m_deal_audit_bindings_fingerprint_idx
+  on w3m_private.w3m_deal_audit_bindings (fingerprint_id, fingerprint_digest);
 
 create table if not exists w3m_private.w3m_acquisition_terms_versions (
   id uuid primary key default gen_random_uuid(),
