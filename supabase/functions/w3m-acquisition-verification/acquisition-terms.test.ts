@@ -191,7 +191,7 @@ Deno.test("rejects placeholder legal, dispute, escrow, and inspection policy tex
   assertThrows(() => validateW3MAcquisitionTermsV1(governingPlaceholder));
 
   const venuePlaceholder = fixture();
-  governingPlaceholder.governing_terms.venue_or_process = "TBD";
+  venuePlaceholder.governing_terms.venue_or_process = "TBD";
   assertThrows(() => validateW3MAcquisitionTermsV1(venuePlaceholder));
 
   const disputePlaceholder = fixture();
