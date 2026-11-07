@@ -486,6 +486,15 @@ jobs:
               or has_function_privilege('anon','public.w3m_get_agreement_challenge_for_verification(uuid)','execute')
               or has_function_privilege('authenticated','public.w3m_get_agreement_challenge_for_verification(uuid)','execute')
               or not has_function_privilege('service_role','public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz)','execute')
+              or has_function_privilege('anon','w3m_private.w3m_reject_protocol_mutation()','execute')
+              or has_function_privilege('authenticated','w3m_private.w3m_reject_protocol_mutation()','execute')
+              or has_function_privilege('service_role','w3m_private.w3m_reject_protocol_mutation()','execute')
+              or has_function_privilege('anon','w3m_private.w3m_guard_terms_supersede()','execute')
+              or has_function_privilege('authenticated','w3m_private.w3m_guard_terms_supersede()','execute')
+              or has_function_privilege('service_role','w3m_private.w3m_guard_terms_supersede()','execute')
+              or has_function_privilege('anon','w3m_private.w3m_guard_challenge_consumption()','execute')
+              or has_function_privilege('authenticated','w3m_private.w3m_guard_challenge_consumption()','execute')
+              or has_function_privilege('service_role','w3m_private.w3m_guard_challenge_consumption()','execute')
               or not has_function_privilege('service_role','public.w3m_get_agreement_challenge_for_verification(uuid)','execute') then
               raise exception 'browser_role_has_protocol_table_privileges';
             end if;
