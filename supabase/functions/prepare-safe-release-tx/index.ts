@@ -16,10 +16,11 @@ const SAFE = new ethers.Interface(["function getOwners() view returns (address[]
 const cors={"Access-Control-Allow-Origin":"https://web3market.xyz","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 function json(status:number, body:unknown){return new Response(JSON.stringify(body),{status,headers:{...cors,"content-type":"application/json"}})}
 function norm(a:string){return ethers.getAddress(a).toLowerCase()}
-const TERMINAL_DISPUTE_STATES = new Set(["", "none", "resolved", "closed", "dismissed", "rejected", "cancelled", "canceled", "withdrawn"]);
+const TERMINAL_DISPUTE_STATES = new Set(["none", "resolved", "closed", "dismissed", "rejected", "cancelled", "canceled", "withdrawn"]);
 async function checkDisputeState(db: any, deal: any, dealId: string): Promise<"clear" | "open" | "unknown"> {
   const state = String(deal?.dispute_status ?? "").trim().toLowerCase();
-  if (!TERMINAL_DISPUTE_STATES.has(state)) return "open";
+  if (!state) return "unknown";
+ if (!TERMINAL_DISPUTE_STATES.has(state)) return "open";
   const { data, error } = await db.from("deal_disputes").select("status").eq("deal_id", dealId);
   if (error) return "unknown";
   if ((data || []).some((row: any) => !TERMINAL_DISPUTE_STATES.has(String(row?.status || "open").trim().toLowerCase()))) return "open";
