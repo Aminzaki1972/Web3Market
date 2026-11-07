@@ -50,6 +50,9 @@ jobs:
             id uuid primary key, project_id uuid not null, buyer_id uuid not null,
             seller_id uuid not null, status text not null, dispute_status text not null
           );
+          create table public.projects (
+            id uuid primary key, owner_id uuid not null
+          );
           create table public.profiles (
             id uuid primary key, wallet_address text, wallet_verified boolean
           );
@@ -73,7 +76,9 @@ jobs:
             v_deal uuid := '71000000-0000-4000-8000-000000000001';
             v_project uuid := '72000000-0000-4000-8000-000000000002';
             v_audit uuid := '73000000-0000-4000-8000-000000000003';
-            v_fingerprint uuid := '74000000-0000-4000-8000-000000000004';
+            v_fingerprint uuid;
+            v_manifest jsonb;
+            v_seller uuid := '76000000-0000-4000-8000-000000000006';
             v_user uuid := '75000000-0000-4000-8000-000000000005';
             v_digest text := repeat('a',64);
             v_binding_hash text := repeat('b',64);
@@ -98,27 +103,35 @@ jobs:
             values
               (v_audit,v_project,'completed','Aminzaki1972','Web3Market',repeat('f',40));
 
-            insert into w3m_private.w3m_audit_fingerprints
-              (id,audit_id,fingerprint_digest,repository,commit_sha,manifest)
-            values
-              (v_fingerprint,v_audit,v_digest,'aminzaki1972/web3market',repeat('f',40),'{"schema":"test"}');
-
-            insert into w3m_private.w3m_deal_audit_bindings
-              (deal_id,project_id,audit_id,fingerprint_id,fingerprint_digest,repository,commit_sha,binding_hash)
-            values
-              (v_deal,v_project,v_audit,v_fingerprint,v_digest,
-               'aminzaki1972/web3market',repeat('f',40),v_binding_hash);
+            insert into public.projects (id,owner_id) values (v_project,v_seller);
+            v_manifest := jsonb_build_object(
+              'manifest_schema','w3m.persisted-audit-manifest.v1',
+              'audit',jsonb_build_object(
+                'id',v_audit::text,
+                'repository','aminzaki1972/web3market',
+                'commit_sha',repeat('f',40),
+                'files_scanned',1
+              ),
+              'files',jsonb_build_array(jsonb_build_object(
+                'path','src/index.ts','sha',repeat('a',40)
+              )),
+              'findings','[]'::jsonb
+            );
+            select fingerprint_id into v_fingerprint
+              from public.w3m_publish_audit_fingerprint_and_binding(
+                v_deal,v_project,v_audit,v_seller,'aminzaki1972/web3market',
+                repeat('f',40),v_digest,v_manifest,v_binding_hash
+              );
 
             -- The same immutable audit fingerprint may support another deal
             -- only when every project/audit/commit evidence field is identical.
             insert into public.deals (id,project_id,buyer_id,seller_id,status,dispute_status)
             values ('79000000-0000-4000-8000-000000000009',v_project,v_user,
               '76000000-0000-4000-8000-000000000006','pending','none');
-            insert into w3m_private.w3m_deal_audit_bindings
-              (deal_id,project_id,audit_id,fingerprint_id,fingerprint_digest,repository,commit_sha,binding_hash)
-            values
-              ('79000000-0000-4000-8000-000000000009',v_project,v_audit,v_fingerprint,v_digest,
-               'aminzaki1972/web3market',repeat('f',40),v_binding_hash);
+            perform public.w3m_publish_audit_fingerprint_and_binding(
+              '79000000-0000-4000-8000-000000000009',v_project,v_audit,v_seller,
+              'aminzaki1972/web3market',repeat('f',40),v_digest,v_manifest,v_binding_hash
+            );
             if (select count(*) from w3m_private.w3m_deal_audit_bindings
                 where fingerprint_id=v_fingerprint and fingerprint_digest=v_digest) <> 2 then
               raise exception 'same_fingerprint_exact_evidence_multi_deal_binding_failed';
