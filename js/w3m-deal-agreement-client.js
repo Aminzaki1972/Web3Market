@@ -65,9 +65,9 @@ function validateTypedData(typedData, dealId, partyRole, walletAddress, fingerpr
   }
   const expectedRole = partyRole === "buyer" ? 1 : 2;
   if (message.dealId !== uuidToBytes32(dealId) ||
-      !BYTES32.test(message.fingerprintId) ||
-      !BYTES32.test(message.fingerprintDigest) ||
-      !BYTES32.test(message.bindingHash) ||
+      normalizeBytes32(message.fingerprintId, "Signed fingerprint ID") !== fingerprintId ||
+      normalizeBytes32(message.fingerprintDigest, "Signed fingerprint digest") !== fingerprintDigest ||
+      normalizeBytes32(message.bindingHash, "Signed binding hash") !== bindingHash ||
       normalizeBytes32(message.termsHash, "Signed terms hash") !== termsHash ||
       String(message.termsVersion) !== termsVersion ||
       message.partyRole !== expectedRole ||
@@ -94,9 +94,15 @@ function validatePrepared(value, dealId, walletAddress) {
   }
   const version = requiredText(prepared.termsVersion, "Terms version");
   if (!/^[1-9][0-9]*$/.test(version)) throw new Error("Terms version is invalid.");
+  if (typeof prepared.fingerprintId !== "string" || !UUID.test(prepared.fingerprintId)) {
+    throw new Error("Prepared fingerprint ID is invalid.");
+  }
+  const fingerprintId = uuidToBytes32(prepared.fingerprintId);
+  const fingerprintDigest = normalizeBytes32(prepared.fingerprintDigest, "Prepared fingerprint digest");
+  const bindingHash = normalizeBytes32(prepared.bindingHash, "Prepared binding hash");
   const termsHash = normalizeBytes32(prepared.termsHash, "Prepared terms hash");
   const typedData = validateTypedData(
-    prepared.typedData, dealId, prepared.partyRole, wallet, termsHash, version,
+    prepared.typedData, dealId, prepared.partyRole, wallet, fingerprintId, fingerprintDigest, bindingHash, termsHash, version,
   );
   return { ...prepared, walletAddress: wallet, typedData };
 }
