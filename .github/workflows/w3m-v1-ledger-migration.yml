@@ -1,0 +1,575 @@
+name: W3M V1 Ledger Migration Tests
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql"
+      - ".github/workflows/w3m-v1-ledger-migration.yml"
+  push:
+    branches:
+      - "feat/w3m-audit-fingerprint-binding-20261107"
+    paths:
+      - "supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql"
+      - ".github/workflows/w3m-v1-ledger-migration.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-migration-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: w3m_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d w3m_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Prepare Supabase role/auth stubs
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          create role anon nologin;
+          create role authenticated nologin;
+          create role service_role nologin bypassrls;
+          create schema auth;
+          create function auth.jwt() returns jsonb
+            language sql stable
+            as $auth$ select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $auth$;
+          create table public.deals (
+            id uuid primary key, project_id uuid not null, buyer_id uuid not null,
+            seller_id uuid not null, status text not null, dispute_status text not null
+          );
+          create table public.projects (
+            id uuid primary key, owner_id uuid not null
+          );
+          create table public.profiles (
+            id uuid primary key, wallet_address text, wallet_verified boolean
+          );
+          create table public.code_audits (
+            id uuid primary key, project_id uuid not null, status text not null,
+            repo_owner text not null, repo_name text not null, commit_sha text not null,
+            files_scanned integer not null
+          );
+          create table public.code_audit_files (
+            id uuid primary key default gen_random_uuid(), audit_id uuid not null,
+            path text not null, sha text, scanned boolean not null
+          );
+          create table public.code_audit_findings (
+            id uuid primary key default gen_random_uuid(), audit_id uuid not null
+          );
+          create function public.w3m_test_terms(
+            p_deal uuid, p_project uuid, p_buyer uuid, p_seller uuid,
+            p_audit uuid, p_digest text, p_repository text, p_commit text, p_version bigint
+          ) returns jsonb language sql immutable as $test$
+            select jsonb_build_object(
+              'schema','w3m-acquisition-terms-v1',
+              'terms_version',p_version,
+              'deal',jsonb_build_object('deal_id',p_deal::text,'project_id',p_project::text,
+                'buyer_id',p_buyer::text,'seller_id',p_seller::text),
+              'project',jsonb_build_object('title','Synthetic project','category','SaaS'),
+              'audit',jsonb_build_object('audit_id',p_audit::text,'repository',p_repository,
+                'commit_sha',p_commit,'fingerprint_digest',p_digest),
+              'consideration',jsonb_build_object('amount','1000.00','currency','USDT'),
+              'platform_fee',jsonb_build_object('percent','7.50','amount','75.00'),
+              'seller_net',jsonb_build_object('amount','925.00','currency','USDT'),
+              'payment',jsonb_build_object('method','safe_multisig','chain_id',56,'asset','USDT',
+                'token_contract',null,'safe_address',null,'status_at_signing','configured_or_pending'),
+              'transfer_scope',jsonb_build_object('included_assets',jsonb_build_array(),
+                'excluded_assets',jsonb_build_array(),'third_party_dependencies',jsonb_build_array(),
+                'access_and_credentials',jsonb_build_object('transfer_method','test handover'),
+                'intellectual_property',jsonb_build_object('declaration','test'),
+                'data_and_privacy',jsonb_build_object('scope','test')),
+              'delivery',jsonb_build_object('deadline','2027-01-01T00:00:00Z','checklist',jsonb_build_array('handover')),
+              'inspection',jsonb_build_object('window','5 days','acceptance_criteria',jsonb_build_array('access delivered')),
+              'dispute',jsonb_build_object('procedure_version','test-v1','text','synthetic test procedure'),
+              'escrow',jsonb_build_object('funding_condition','test funding','release_condition','test release','dispute_hold',true),
+              'governing_terms',jsonb_build_object('governing_law','test-only policy','venue_or_process','test-only process','language','English'),
+              'risk_acknowledgements',jsonb_build_array('Test only; no real transaction.'),
+              'disclosures',jsonb_build_array(),
+              'created_at','2026-11-07T00:00:00Z','expires_at','2026-11-08T00:00:00Z'
+            );
+          $test$;
+          SQL
+      - name: Apply W3M V1 ledger migration
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql
+      - name: Verify atomic challenge consumption and immutable terms
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          set request.jwt.claims = '{"role":"service_role"}';
+          do $$
+          declare
+            v_deal uuid := '71000000-0000-4000-8000-000000000001';
+            v_project uuid := '72000000-0000-4000-8000-000000000002';
+            v_audit uuid := '73000000-0000-4000-8000-000000000003';
+            v_fingerprint uuid := '74000000-0000-8000-8000-000000000004';
+            v_retry_fingerprint uuid;
+            v_manifest jsonb;
+            v_seller uuid := '76000000-0000-4000-8000-000000000006';
+            v_user uuid := '75000000-0000-4000-8000-000000000005';
+            v_digest text := repeat('a',64);
+            v_binding_hash text := repeat('b',64);
+            v_terms_hash text := repeat('c',64);
+            v_terms jsonb;
+            v_bad_terms jsonb;
+            v_challenge uuid;
+            v_stale_challenge uuid;
+            v_nonce text := '0x' || repeat('d',64);
+            v_deadline bigint := extract(epoch from clock_timestamp())::bigint + 600;
+            v_signature text := '0x' || repeat('e',130);
+            v_wallet text := '0x1111111111111111111111111111111111111111';
+          begin
+            insert into public.deals (id,project_id,buyer_id,seller_id,status,dispute_status)
+            values
+              (v_deal,v_project,v_user,'76000000-0000-4000-8000-000000000006','pending','none');
+            insert into public.profiles (id,wallet_address,wallet_verified)
+            values
+              (v_user,v_wallet,true),
+              ('76000000-0000-4000-8000-000000000006'::uuid,
+               '0x2222222222222222222222222222222222222222',true);
+            insert into public.code_audits
+              (id,project_id,status,repo_owner,repo_name,commit_sha,files_scanned)
+            values
+              (v_audit,v_project,'completed','Aminzaki1972','Web3Market',repeat('f',40),1);
+            insert into public.code_audit_files (audit_id,path,sha,scanned)
+              values (v_audit,'src/index.ts',repeat('a',40),true);
+
+            insert into public.projects (id,owner_id) values (v_project,v_seller);
+            v_manifest := jsonb_build_object(
+              'manifest_schema','w3m.persisted-audit-manifest.v1',
+              'audit',jsonb_build_object(
+                'id',v_audit::text,
+                'repository','aminzaki1972/web3market',
+                'commit_sha',repeat('f',40),
+                'files_scanned',1
+              ),
+              'files',jsonb_build_array(jsonb_build_object(
+                'path','src/index.ts','sha',repeat('a',40)
+              )),
+              'findings','[]'::jsonb
+            );
+            select fingerprint_id into v_fingerprint
+              from public.w3m_publish_audit_fingerprint_and_binding(
+                v_deal,v_project,v_audit,v_fingerprint,v_seller,'aminzaki1972/web3market',
+                repeat('f',40),v_digest,v_manifest,v_binding_hash
+              );
+
+            select fingerprint_id into v_retry_fingerprint
+              from public.w3m_publish_audit_fingerprint_and_binding(
+                v_deal,v_project,v_audit,v_fingerprint,v_seller,'aminzaki1972/web3market',
+                repeat('f',40),v_digest,v_manifest,v_binding_hash
+              );
+            if v_retry_fingerprint is distinct from v_fingerprint then
+              raise exception 'fingerprint_publication_retry_not_idempotent';
+            end if;
+
+            insert into public.code_audit_files (audit_id,path,sha,scanned)
+              values (v_audit,'src/index.ts',repeat('9',40),true);
+            begin
+              perform public.w3m_publish_audit_fingerprint_and_binding(
+                v_deal,v_project,v_audit,v_fingerprint,v_seller,'aminzaki1972/web3market',
+                repeat('f',40),v_digest,v_manifest,v_binding_hash
+              );
+              raise exception 'expected_duplicate_scanned_path_rejection';
+            exception when sqlstate '23503' then null;
+            end;
+            delete from public.code_audit_files
+              where audit_id=v_audit and path='src/index.ts' and sha=repeat('9',40);
+
+            update public.code_audit_files set sha=null
+              where audit_id=v_audit and path='src/index.ts';
+            begin
+              perform public.w3m_publish_audit_fingerprint_and_binding(
+                v_deal,v_project,v_audit,v_fingerprint,v_seller,'aminzaki1972/web3market',
+                repeat('f',40),v_digest,v_manifest,v_binding_hash
+              );
+              raise exception 'expected_missing_git_blob_sha_rejection';
+            exception when sqlstate '23503' then null;
+            end;
+            update public.code_audit_files set sha=repeat('a',40)
+              where audit_id=v_audit and path='src/index.ts';
+
+            begin
+              perform public.w3m_publish_audit_fingerprint_and_binding(
+                v_deal,v_project,v_audit,v_fingerprint,v_user,'aminzaki1972/web3market',
+                repeat('f',40),v_digest,v_manifest,v_binding_hash
+              );
+              raise exception 'expected_non_seller_fingerprint_publication_rejection';
+            exception when sqlstate '42501' then
+              null;
+            end;
+
+            begin
+              perform public.w3m_publish_audit_fingerprint_and_binding(
+                v_deal,v_project,v_audit,v_fingerprint,v_seller,'aminzaki1972/web3market',
+                repeat('9',40),v_digest,v_manifest,v_binding_hash
+              );
+              raise exception 'expected_mismatched_audit_commit_rejection';
+            exception when sqlstate '23503' then
+              null;
+            end;
+
+            -- The same immutable audit fingerprint may support another deal
+            -- only when every project/audit/commit evidence field is identical.
+            insert into public.deals (id,project_id,buyer_id,seller_id,status,dispute_status)
+            values ('79000000-0000-4000-8000-000000000009',v_project,v_user,
+              '76000000-0000-4000-8000-000000000006','pending','none');
+            perform public.w3m_publish_audit_fingerprint_and_binding(
+              '79000000-0000-4000-8000-000000000009',v_project,v_audit,v_fingerprint,v_seller,
+              'aminzaki1972/web3market',repeat('f',40),v_digest,v_manifest,v_binding_hash
+            );
+            if (select count(*) from w3m_private.w3m_deal_audit_bindings
+                where fingerprint_id=v_fingerprint and fingerprint_digest=v_digest) <> 2 then
+              raise exception 'same_fingerprint_exact_evidence_multi_deal_binding_failed';
+            end if;
+
+            v_terms := public.w3m_test_terms(
+              v_deal,v_project,v_user,v_seller,v_audit,v_digest,
+              'aminzaki1972/web3market',repeat('f',40),1
+            );
+
+            -- The database independently rejects fake/minimal terms and any
+            -- agreement whose embedded deal or audit identity differs from the locked rows.
+            begin
+              perform public.w3m_publish_acquisition_terms_version(
+                v_deal,1,v_terms_hash,'{"schema":"w3m-terms-v1","approved":true}'::jsonb
+              );
+              raise exception 'expected_incomplete_terms_schema_rejection';
+            exception when sqlstate '22023' then null;
+            end;
+
+            v_bad_terms := jsonb_set(v_terms,'{deal,project_id}',
+              to_jsonb('72000000-0000-4000-8000-000000000099'::text));
+            begin
+              perform public.w3m_publish_acquisition_terms_version(v_deal,1,v_terms_hash,v_bad_terms);
+              raise exception 'expected_terms_project_binding_rejection';
+            exception when sqlstate '23503' then null;
+            end;
+
+            v_bad_terms := jsonb_set(v_terms,'{audit,fingerprint_digest}',
+              to_jsonb(repeat('9',64)));
+            begin
+              perform public.w3m_publish_acquisition_terms_version(v_deal,1,v_terms_hash,v_bad_terms);
+              raise exception 'expected_terms_fingerprint_binding_rejection';
+            exception when sqlstate '23503' then null;
+            end;
+
+            perform public.w3m_publish_acquisition_terms_version(v_deal,1,v_terms_hash,v_terms);
+
+            begin
+              perform public.w3m_issue_agreement_challenge(
+                v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
+                v_terms_hash,1,'buyer',
+                '76000000-0000-4000-8000-000000000006'::uuid,
+                '0x2222222222222222222222222222222222222222',
+                '0x' || repeat('9',64),v_deadline
+              );
+              raise exception 'expected_non_party_rejection';
+            exception when sqlstate '42501' then null;
+            end;
+
+            v_challenge := public.w3m_issue_agreement_challenge(
+              v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
+              v_terms_hash,1,'buyer',v_user,v_wallet,v_nonce,v_deadline
+            );
+            if not exists (
+              select 1 from public.w3m_get_agreement_challenge_for_verification(v_challenge) c
+              where c.user_id=v_user and c.party_role='buyer'
+                and c.deal_id=v_deal and c.terms_version=1 and c.nonce=v_nonce
+            ) then
+              raise exception 'trusted_challenge_lookup_mismatch';
+            end if;
+
+            perform public.w3m_record_agreement_acceptance(
+              v_challenge,v_user,'buyer',v_wallet,v_wallet,v_signature,clock_timestamp()
+            );
+
+            if (select count(*) from w3m_private.w3m_agreement_acceptances where deal_id=v_deal) <> 1 then
+              raise exception 'acceptance_row_missing';
+            end if;
+            if (select consumed_at from w3m_private.w3m_agreement_challenges where id=v_challenge) is null then
+              raise exception 'challenge_not_consumed';
+            end if;
+
+            begin
+              perform public.w3m_record_agreement_acceptance(
+                v_challenge,v_user,'buyer',v_wallet,v_wallet,v_signature,clock_timestamp()
+              );
+              raise exception 'expected_replay_rejection';
+            exception when sqlstate '23505' then
+              null;
+            end;
+
+            begin
+              perform public.w3m_issue_agreement_challenge(
+                v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
+                v_terms_hash,1,'buyer',v_user,
+                '0x2222222222222222222222222222222222222222',
+                '0x' || repeat('8',64),v_deadline
+              );
+              raise exception 'expected_unverified_wallet_rejection';
+            exception when sqlstate '42501' then null;
+            end;
+
+            -- A challenge cannot be accepted after the participant wallet loses verification.
+            v_stale_challenge := public.w3m_issue_agreement_challenge(
+              v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
+              v_terms_hash,1,'seller',
+              '76000000-0000-4000-8000-000000000006'::uuid,
+              '0x2222222222222222222222222222222222222222',
+              '0x' || repeat('3',64),v_deadline
+            );
+            update public.profiles set wallet_verified=false
+              where id='76000000-0000-4000-8000-000000000006'::uuid;
+            begin
+              perform public.w3m_record_agreement_acceptance(
+                v_stale_challenge,
+                '76000000-0000-4000-8000-000000000006'::uuid,
+                'seller',
+                '0x2222222222222222222222222222222222222222',
+                '0x2222222222222222222222222222222222222222',
+                v_signature,clock_timestamp()
+              );
+              raise exception 'expected_wallet_verification_rejection';
+            exception when sqlstate '42501' then null;
+            end;
+            update public.profiles set wallet_verified=true
+              where id='76000000-0000-4000-8000-000000000006'::uuid;
+
+            -- A challenge cannot be accepted after the deal enters dispute.
+            v_stale_challenge := public.w3m_issue_agreement_challenge(
+              v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
+              v_terms_hash,1,'seller',
+              '76000000-0000-4000-8000-000000000006'::uuid,
+              '0x2222222222222222222222222222222222222222',
+              '0x' || repeat('4',64),v_deadline
+            );
+            update public.deals set dispute_status='disputed' where id=v_deal;
+            begin
+              perform public.w3m_record_agreement_acceptance(
+                v_stale_challenge,
+                '76000000-0000-4000-8000-000000000006'::uuid,
+                'seller',
+                '0x2222222222222222222222222222222222222222',
+                '0x2222222222222222222222222222222222222222',
+                v_signature,clock_timestamp()
+              );
+              raise exception 'expected_dispute_state_rejection';
+            exception when sqlstate '42501' then null;
+            end;
+            update public.deals set dispute_status='none' where id=v_deal;
+
+            -- The seller completes the exact version-1 pair after the temporary
+            -- wallet/dispute rejection cases have been restored.
+            perform public.w3m_record_agreement_acceptance(
+              v_stale_challenge,
+              '76000000-0000-4000-8000-000000000006'::uuid,
+              'seller',
+              '0x2222222222222222222222222222222222222222',
+              '0x2222222222222222222222222222222222222222',
+              v_signature,clock_timestamp()
+            );
+            if (select count(*) from w3m_private.w3m_agreement_acceptances
+                where deal_id=v_deal and terms_version=1) <> 2 then
+              raise exception 'complete_buyer_seller_acceptance_pair_not_persisted';
+            end if;
+
+            if not exists (
+              select 1 from public.w3m_get_deal_finalization_evidence(v_deal) e
+              where e.buyer_id=v_user and e.seller_id=v_seller
+                and e.fingerprint_digest='0x' || v_digest
+                and e.binding_hash='0x' || v_binding_hash
+                and e.terms_hash='0x' || v_terms_hash
+                and e.terms_version='1'
+                and jsonb_array_length(e.acceptance_rows)=2
+                and e.acceptance_rows @> '[{"party_role":"buyer"}]'::jsonb
+                and e.acceptance_rows @> '[{"party_role":"seller"}]'::jsonb
+                and e.acceptance_rows->0->>'accepted_at' like '%Z'
+            ) then
+              raise exception 'finalization_evidence_rpc_did_not_return_exact_acceptance_pair';
+            end if;
+
+            -- Once either party has accepted, the canonical terms are frozen.
+            begin
+              perform public.w3m_publish_acquisition_terms_version(
+                v_deal,2,repeat('2',64),
+                public.w3m_test_terms(v_deal,v_project,v_user,v_seller,v_audit,v_digest,
+                  'aminzaki1972/web3market',repeat('f',40),2)
+              );
+              raise exception 'expected_terms_locked_after_acceptance';
+            exception when sqlstate '23505' then null;
+            end;
+
+            if (select count(*) from w3m_private.w3m_acquisition_terms_versions
+                where deal_id=v_deal and status='published') <> 1 then
+              raise exception 'terms_current_version_invariant_broken';
+            end if;
+            if (select status from w3m_private.w3m_acquisition_terms_versions
+                where deal_id=v_deal and terms_version=1) <> 'published' then
+              raise exception 'accepted_terms_version_must_remain_published';
+            end if;
+
+            -- The second deal has no acceptances yet, so it may publish its
+            -- initial canonical terms and exercise the supersession race below.
+            perform public.w3m_publish_acquisition_terms_version(
+              '79000000-0000-4000-8000-000000000009',
+              1,repeat('c',64),
+              public.w3m_test_terms('79000000-0000-4000-8000-000000000009'::uuid,
+                v_project,v_user,v_seller,v_audit,v_digest,
+                'aminzaki1972/web3market',repeat('f',40),1)
+            );
+
+            begin
+              update w3m_private.w3m_agreement_acceptances
+                set signature='0x' || repeat('9',130) where deal_id=v_deal;
+              raise exception 'expected_acceptance_immutability_rejection';
+            exception when sqlstate '55000' then null;
+            end;
+            begin
+              update w3m_private.w3m_audit_fingerprints set manifest='{"tampered":true}'::jsonb
+                where id=v_fingerprint;
+              raise exception 'expected_fingerprint_immutability_rejection';
+            exception when sqlstate '55000' then null;
+            end;
+            begin
+              update w3m_private.w3m_acquisition_terms_versions set canonical_terms_json='{"tampered":true}'::jsonb
+                where deal_id=v_deal and terms_version=1;
+              raise exception 'expected_terms_immutability_rejection';
+            exception when sqlstate '55000' then null;
+            end;
+            begin
+              update w3m_private.w3m_agreement_challenges set nonce='0x' || repeat('9',64)
+                where id=v_challenge;
+              raise exception 'expected_challenge_immutability_rejection';
+            exception when sqlstate '55000' then null;
+            end;
+          end;
+          $$;
+          SQL
+      - name: Verify concurrent terms publication and acceptance lock ordering
+        env:
+          PGPASSWORD: postgres
+        run: |
+          DEAL_ID='79000000-0000-4000-8000-000000000009'
+          PROJECT_ID='72000000-0000-4000-8000-000000000002'
+          AUDIT_ID='73000000-0000-4000-8000-000000000003'
+          FINGERPRINT_ID='74000000-0000-8000-8000-000000000004'
+          SELLER_ID='76000000-0000-4000-8000-000000000006'
+          SELLER_WALLET='0x2222222222222222222222222222222222222222'
+          rm -f /tmp/w3m-lock-a-ready
+          CHALLENGE_ID=$(psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -Atq -c "set request.jwt.claims = '{\"role\":\"service_role\"}'; select public.w3m_issue_agreement_challenge('$DEAL_ID','$PROJECT_ID','$AUDIT_ID','$FINGERPRINT_ID',repeat('a',64),repeat('b',64),repeat('c',64),1,'seller','$SELLER_ID','$SELLER_WALLET','0x' || repeat('6',64),extract(epoch from clock_timestamp())::bigint+600);")
+          test -n "$CHALLENGE_ID"
+
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 > /tmp/w3m-lock-a.log 2>&1 <<'SQL' &
+          begin;
+          select id from public.deals
+            where id='79000000-0000-4000-8000-000000000009' for update;
+          \! touch /tmp/w3m-lock-a-ready
+          select pg_sleep(0.5);
+          set request.jwt.claims='{"role":"service_role"}';
+          select public.w3m_publish_acquisition_terms_version(
+            '79000000-0000-4000-8000-000000000009',2,repeat('3',64),
+            public.w3m_test_terms('79000000-0000-4000-8000-000000000009'::uuid,
+              '72000000-0000-4000-8000-000000000002'::uuid,
+              '75000000-0000-4000-8000-000000000005'::uuid,
+              '76000000-0000-4000-8000-000000000006'::uuid,
+              '73000000-0000-4000-8000-000000000003'::uuid,
+              repeat('a',64),'aminzaki1972/web3market',repeat('f',40),2)
+          );
+          commit;
+          SQL
+          LOCK_A_PID=$!
+          for attempt in $(seq 1 50); do
+            test -f /tmp/w3m-lock-a-ready && break
+            sleep 0.05
+          done
+          test -f /tmp/w3m-lock-a-ready
+
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<SQL
+          set request.jwt.claims='{"role":"service_role"}';
+          begin;
+          select id from w3m_private.w3m_agreement_challenges
+            where id='$CHALLENGE_ID' for update;
+          select pg_sleep(0.1);
+          do \$\$
+          begin
+            begin
+              perform public.w3m_record_agreement_acceptance(
+                '$CHALLENGE_ID','$SELLER_ID','seller','$SELLER_WALLET','$SELLER_WALLET',
+                '0x' || repeat('7',130),clock_timestamp()
+              );
+              raise exception 'expected_superseded_terms_rejection';
+            exception when sqlstate '22023' then
+              null;
+            end;
+          end;
+          \$\$;
+          commit;
+          SQL
+          wait "$LOCK_A_PID"
+      - name: Verify restricted protocol privileges and immutable evidence
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+            if has_schema_privilege('anon','w3m_private','usage')
+              or has_schema_privilege('authenticated','w3m_private','usage')
+              or has_table_privilege('anon','w3m_private.w3m_agreement_acceptances','select')
+              or has_table_privilege('authenticated','w3m_private.w3m_agreement_acceptances','insert')
+              or has_table_privilege('authenticated','w3m_private.w3m_agreement_acceptances','select')
+              or has_table_privilege('service_role','w3m_private.w3m_audit_fingerprints','insert')
+              or has_table_privilege('service_role','w3m_private.w3m_deal_audit_bindings','insert')
+              or has_table_privilege('service_role','w3m_private.w3m_agreement_acceptances','insert')
+              or has_table_privilege('service_role','w3m_private.w3m_agreement_acceptances','update')
+              or has_table_privilege('service_role','w3m_private.w3m_agreement_challenges','insert')
+              or has_table_privilege('service_role','w3m_private.w3m_agreement_challenges','update')
+              or has_table_privilege('service_role','w3m_private.w3m_acquisition_terms_versions','insert')
+              or has_table_privilege('service_role','w3m_private.w3m_acquisition_terms_versions','update')
+              or has_function_privilege('anon','public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text)','execute')
+              or has_function_privilege('authenticated','public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text)','execute')
+              or not has_function_privilege('service_role','public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text)','execute')
+              or has_function_privilege('anon','public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)','execute')
+              or has_function_privilege('authenticated','public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)','execute')
+              or has_function_privilege('anon','public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint)','execute')
+              or has_function_privilege('authenticated','public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint)','execute')
+              or has_function_privilege('anon','public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz)','execute')
+              or has_function_privilege('authenticated','public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz)','execute')
+              or not has_function_privilege('service_role','public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb)','execute')
+              or not has_function_privilege('service_role','public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint)','execute')
+              or has_function_privilege('anon','public.w3m_get_deal_finalization_evidence(uuid)','execute')
+              or has_function_privilege('authenticated','public.w3m_get_deal_finalization_evidence(uuid)','execute')
+              or not has_function_privilege('service_role','public.w3m_get_deal_finalization_evidence(uuid)','execute')
+              or has_function_privilege('anon','public.w3m_get_agreement_challenge_for_verification(uuid)','execute')
+              or has_function_privilege('authenticated','public.w3m_get_agreement_challenge_for_verification(uuid)','execute')
+              or not has_function_privilege('service_role','public.w3m_record_agreement_acceptance(uuid,uuid,text,text,text,text,timestamptz)','execute')
+              or has_function_privilege('anon','w3m_private.w3m_reject_protocol_mutation()','execute')
+              or has_function_privilege('authenticated','w3m_private.w3m_reject_protocol_mutation()','execute')
+              or has_function_privilege('service_role','w3m_private.w3m_reject_protocol_mutation()','execute')
+              or has_function_privilege('anon','w3m_private.w3m_guard_terms_supersede()','execute')
+              or has_function_privilege('authenticated','w3m_private.w3m_guard_terms_supersede()','execute')
+              or has_function_privilege('service_role','w3m_private.w3m_guard_terms_supersede()','execute')
+              or has_function_privilege('anon','w3m_private.w3m_guard_challenge_consumption()','execute')
+              or has_function_privilege('authenticated','w3m_private.w3m_guard_challenge_consumption()','execute')
+              or has_function_privilege('service_role','w3m_private.w3m_guard_challenge_consumption()','execute')
+              or not has_function_privilege('service_role','public.w3m_get_agreement_challenge_for_verification(uuid)','execute') then
+              raise exception 'browser_role_has_protocol_table_privileges';
+            end if;
+          end;
+          $$;
+          SQL
