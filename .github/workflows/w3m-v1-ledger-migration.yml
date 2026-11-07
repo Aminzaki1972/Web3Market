@@ -372,7 +372,7 @@ jobs:
             end;
             begin
               update w3m_private.w3m_acquisition_terms_versions set canonical_terms_json='{"tampered":true}'::jsonb
-                where deal_id=v_deal and terms_version=2;
+                where deal_id=v_deal and terms_version=1;
               raise exception 'expected_terms_immutability_rejection';
             exception when sqlstate '55000' then null;
             end;
