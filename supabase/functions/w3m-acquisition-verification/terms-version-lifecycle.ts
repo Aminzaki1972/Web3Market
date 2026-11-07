@@ -14,7 +14,7 @@ export interface W3MTermsVersionRecord {
   published_at: string;
 }
 
-export interface W3MAcceptanceVersionReference {
+export interface W3MTermsVersionAppendPlan {\n  supersede_versions: number[];\n  publish: W3MTermsVersionRecord;\n}\n\nexport interface W3MAcceptanceVersionReference {
   deal_id: string;
   terms_version: number;
   terms_hash: string;
@@ -104,4 +104,49 @@ export function filterCurrentW3MAcceptances<T extends W3MAcceptanceVersionRefere
   current: W3MTermsVersionRecord,
 ): T[] {
   return acceptances.filter((acceptance) => isW3MAcceptanceCurrentForTerms(acceptance, current));
+}
+
+/**
+ * Build the complete state transition that a single database transaction must
+ * apply: supersede the sole current version (if any), then publish the next.
+ * The returned plan is advisory until persisted under a deal-row lock.
+ */
+export function buildW3MTermsVersionAppendPlan(
+  history: readonly W3MTermsVersionRecord[],
+  candidate: W3MTermsVersionRecord,
+): W3MTermsVersionAppendPlan {
+  validateVersion(candidate);
+  const versions = new Set<number>();
+  const hashes = new Set<string>();
+  const current: W3MTermsVersionRecord[] = [];
+  let maxVersion = 0;
+  for (const record of history) {
+    validateVersion(record);
+    if (record.deal_id.toLowerCase() !== candidate.deal_id.toLowerCase()) {
+      fail("Terms history cannot mix different deals.");
+    }
+    if (versions.has(record.terms_version)) fail("Terms history contains a duplicate version.");
+    if (hashes.has(record.terms_hash.toLowerCase())) fail("Terms history contains a duplicate terms hash.");
+    versions.add(record.terms_version);
+    hashes.add(record.terms_hash.toLowerCase());
+    maxVersion = Math.max(maxVersion, record.terms_version);
+    if (record.status === "published") current.push(record);
+  }
+  if (current.length > 1) fail("Terms history has more than one published version.");
+  if (candidate.terms_version !== maxVersion + 1) fail("A published terms version must be the next sequential version.");
+  if (hashes.has(candidate.terms_hash.toLowerCase())) fail("A new version must have a new terms hash.");
+  if (candidate.status !== "published") fail("A new terms version must enter the store as published.");
+  return { supersede_versions: current.map((record) => record.terms_version), publish: candidate };
+}
+
+/** Verify that the stored canonical document matches its domain-separated digest. */
+export async function verifyW3MTermsVersionDigest(record: W3MTermsVersionRecord): Promise<boolean> {
+  validateVersion(record);
+  let parsed: unknown;
+  try { parsed = JSON.parse(record.canonical_terms_json); } catch { return false; }
+  if (JSON.stringify(parsed) !== record.canonical_terms_json) return false;
+  const bytes = new TextEncoder().encode("w3m-acquisition-terms:v1\\n" + record.canonical_terms_json);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const actual = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return actual === record.terms_hash.toLowerCase();
 }
