@@ -54,7 +54,17 @@ function decimalSumEquals(a: string, b: string, expected: string): boolean {
 }
 function iso(value: unknown, label: string): string {
   const v = requiredString(value, label);
-  if (!ISO_DATE.test(v) || !Number.isFinite(Date.parse(v))) fail(label + " must be a UTC ISO-8601 timestamp.");
+  const match = /^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})/.exec(v);
+  const parsed = new Date(v);
+  if (
+    !ISO_DATE.test(v) || !Number.isFinite(parsed.getTime()) || !match ||
+    parsed.getUTCFullYear() !== Number(match[1]) ||
+    parsed.getUTCMonth() + 1 !== Number(match[2]) ||
+    parsed.getUTCDate() !== Number(match[3]) ||
+    parsed.getUTCHours() !== Number(match[4]) ||
+    parsed.getUTCMinutes() !== Number(match[5]) ||
+    parsed.getUTCSeconds() !== Number(match[6])
+  ) fail(label + " must be a real UTC ISO-8601 timestamp.");
   return v;
 }
 
@@ -93,8 +103,9 @@ export function validateW3MAcquisitionTermsV1(input: unknown): asserts input is 
 
   const deal = object(root.deal, "deal");
   uuid(deal.deal_id, "deal.deal_id"); uuid(deal.project_id, "deal.project_id");
-  uuid(deal.buyer_id, "deal.buyer_id"); uuid(deal.seller_id, "deal.seller_id");
-  if (deal.buyer_id === deal.seller_id) fail("Buyer and seller must be different accounts.");
+  const buyerId = uuid(deal.buyer_id, "deal.buyer_id");
+  const sellerId = uuid(deal.seller_id, "deal.seller_id");
+  if (buyerId === sellerId) fail("Buyer and seller must be different accounts.");
 
   const project = object(root.project, "project");
   requiredString(project.title, "project.title"); requiredString(project.category, "project.category");
