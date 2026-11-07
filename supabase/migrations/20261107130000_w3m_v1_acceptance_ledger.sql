@@ -544,60 +544,6 @@ begin
 end;
 $w3m$;
 
-create or replace function w3m_private.w3m_reject_protocol_mutation()
-returns trigger language plpgsql set search_path = ''
-as $w3m$
-begin
-  raise exception 'w3m_protocol_evidence_is_immutable' using errcode = '55000';
-end;
-$w3m$;
-
-create or replace function w3m_private.w3m_guard_terms_supersede()
-returns trigger language plpgsql set search_path = ''
-as $w3m$
-begin
-  if (to_jsonb(new) - 'status') is distinct from (to_jsonb(old) - 'status')
-    or old.status <> 'published' or new.status <> 'superseded' then
-    raise exception 'w3m_terms_only_allow_published_to_superseded' using errcode = '55000';
-  end if;
-  return new;
-end;
-$w3m$;
-
-create or replace function w3m_private.w3m_guard_challenge_consumption()
-returns trigger language plpgsql set search_path = ''
-as $w3m$
-begin
-  if (to_jsonb(new) - 'consumed_at') is distinct from (to_jsonb(old) - 'consumed_at')
-    or old.consumed_at is not null or new.consumed_at is null then
-    raise exception 'w3m_challenge_only_allows_single_consumption' using errcode = '55000';
-  end if;
-  return new;
-end;
-$w3m$;
-
-drop trigger if exists w3m_audit_fingerprints_no_mutation on w3m_private.w3m_audit_fingerprints;
-create trigger w3m_audit_fingerprints_no_mutation before update or delete on w3m_private.w3m_audit_fingerprints
-for each row execute function w3m_private.w3m_reject_protocol_mutation();
-drop trigger if exists w3m_bindings_no_mutation on w3m_private.w3m_deal_audit_bindings;
-create trigger w3m_bindings_no_mutation before update or delete on w3m_private.w3m_deal_audit_bindings
-for each row execute function w3m_private.w3m_reject_protocol_mutation();
-drop trigger if exists w3m_terms_guard_update on w3m_private.w3m_acquisition_terms_versions;
-create trigger w3m_terms_guard_update before update on w3m_private.w3m_acquisition_terms_versions
-for each row execute function w3m_private.w3m_guard_terms_supersede();
-drop trigger if exists w3m_terms_no_delete on w3m_private.w3m_acquisition_terms_versions;
-create trigger w3m_terms_no_delete before delete on w3m_private.w3m_acquisition_terms_versions
-for each row execute function w3m_private.w3m_reject_protocol_mutation();
-drop trigger if exists w3m_acceptances_no_mutation on w3m_private.w3m_agreement_acceptances;
-create trigger w3m_acceptances_no_mutation before update or delete on w3m_private.w3m_agreement_acceptances
-for each row execute function w3m_private.w3m_reject_protocol_mutation();
-drop trigger if exists w3m_challenges_guard_consumption on w3m_private.w3m_agreement_challenges;
-create trigger w3m_challenges_guard_consumption before update on w3m_private.w3m_agreement_challenges
-for each row execute function w3m_private.w3m_guard_challenge_consumption();
-drop trigger if exists w3m_challenges_no_delete on w3m_private.w3m_agreement_challenges;
-create trigger w3m_challenges_no_delete before delete on w3m_private.w3m_agreement_challenges
-for each row execute function w3m_private.w3m_reject_protocol_mutation();
-
 create or replace function public.w3m_get_agreement_challenge_for_verification(
   p_challenge_id uuid
 ) returns table (
