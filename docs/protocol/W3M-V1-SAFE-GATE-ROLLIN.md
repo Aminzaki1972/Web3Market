@@ -133,3 +133,13 @@ The adapter:
 The agreement client remains responsible for validating the server-prepared EIP-712 domain, message fields, deal ID, audit fingerprint, binding hash, canonical terms hash/version, party role, wallet, nonce, and deadline before invoking the signer callback.
 
 **Integration status:** the adapter is added to the V1 branch but is not yet called by Deal Room. Dedicated provider-mock tests and full browser-wallet integration tests remain required before wiring it into the page. The production page and production services remain unchanged.
+
+## Verified wallet signer hardening and isolated tests (2026-11-07)
+
+The browser wallet signer now independently validates the fixed W3M V1 EIP-712 envelope before making any wallet RPC call: the exact domain (Web3Market Deal Agreement / version 1 / chain 56), the exact DealTermsAcceptance field schema, the complete message key set, bytes32/address formats, buyer-or-seller role, positive numeric terms version/deadline, and equality between the signed wallet and the verified profile wallet. The agreement client remains responsible for binding those values to the server-prepared deal, audit fingerprint, evidence binding, and canonical terms.
+
+The signer resolves only the provider route stored for the verified wallet address, checks the active account and BNB Smart Chain ID, and calls only `eth_signTypedData_v4`. It does not switch networks, submit transactions, request token approvals, transfer funds, or execute Safe operations.
+
+Added isolated provider-mock tests covering successful signing, wrong active account, wrong chain, altered domain/schema/wallet binding, malformed signatures, and missing provider route. The V1 fingerprint workflow now includes this test file and read permission limited to the repository's `js/` test source directory plus the existing Supabase function test directory.
+
+CI status must be read from the workflow run attached to this commit before treating these new tests as passed. Earlier successful V1 ledger/fingerprint/security runs predate this signer hardening and are not evidence that this new test file passed. No production page, Supabase project, Edge Function deployment, database migration, or Safe transaction was changed.
