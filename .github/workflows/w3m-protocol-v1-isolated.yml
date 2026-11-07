@@ -460,6 +460,10 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE w3m_protocol_migration_order_test;"
+          # Minimal Supabase Auth schema for historical migrations that reference auth.users.
+          # This is a disposable CI database only; it is not a production auth schema.
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -c "CREATE SCHEMA auth;"
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -c "CREATE TABLE auth.users (id uuid PRIMARY KEY);"
           psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
           psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-attempts-fixture.sql
           psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-terms-reader-fixture.sql
