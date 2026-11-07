@@ -160,13 +160,6 @@ jobs:
             exception when sqlstate '42501' then null;
             end;
 
-            v_stale_challenge := public.w3m_issue_agreement_challenge(
-              v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
-              v_terms_hash,1,'seller',
-              '76000000-0000-4000-8000-000000000006'::uuid,
-              '0x2222222222222222222222222222222222222222',
-              '0x' || repeat('1',64),v_deadline
-            );
             -- A challenge cannot be accepted after the participant wallet loses verification.
             v_stale_challenge := public.w3m_issue_agreement_challenge(
               v_deal,v_project,v_audit,v_fingerprint,v_digest,v_binding_hash,
