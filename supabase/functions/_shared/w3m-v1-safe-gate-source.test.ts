@@ -55,5 +55,12 @@ Deno.test("every Safe deployment, release, signature, execution and finalization
       assertEquals(policyCheckIndex >= 0, true, item.file + " must require a locked release policy");
       assertEquals(deliveryCheckIndex < actionIndex && paymentCheckIndex < actionIndex && policyCheckIndex < actionIndex, true, item.file + " must revalidate release prerequisites before the sensitive action");
     }
+    if (item.file.endsWith("record-safe-release-signature/index.ts") ||
+      item.file.endsWith("execute-safe-release/index.ts") ||
+      item.file.endsWith("finalize-safe-release/index.ts")) {
+      const safeBindingCheckIndex = source.indexOf("Prepared Safe transaction address does not match");
+      assertEquals(safeBindingCheckIndex >= 0, true, item.file + " must bind the prepared Safe transaction to the locked policy");
+      assertEquals(safeBindingCheckIndex < actionIndex, true, item.file + " must validate the Safe transaction address before the sensitive action");
+    }
   }
 });
