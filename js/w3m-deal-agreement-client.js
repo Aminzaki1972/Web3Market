@@ -110,6 +110,59 @@ function validatePrepared(value, dealId, walletAddress) {
 }
 
 /**
+ * Read-only status adapter. The server authorizes the deal participant and
+ * deliberately returns no signature, nonce, or challenge material.
+ * @param {{dealId:string, accessToken:string, request:(body:object, accessToken:string)=>Promise<unknown>}} input
+ */
+export async function getW3MDealAgreementStatus(input) {
+  if (!input || !UUID.test(input.dealId)) throw new Error("A valid deal ID is required.");
+  if (typeof input.accessToken !== "string" || !input.accessToken.trim()) {
+    throw new Error("An authenticated session is required.");
+  }
+  if (typeof input.request !== "function") throw new Error("Agreement request adapter is required.");
+  const response = record(await input.request({
+    action: "status", deal_id: input.dealId,
+  }, input.accessToken), "Agreement status");
+  if (response.ok !== true) throw new Error("Agreement status was rejected.");
+  const result = record(response.result, "Agreement status result");
+  if (result.deal_id !== input.dealId) throw new Error("Agreement status belongs to another deal.");
+  if (typeof result.both_accepted !== "boolean" || typeof result.deal_eligible !== "boolean") {
+    throw new Error("Agreement status flags are malformed.");
+  }
+  const acceptances = record(result.acceptances, "Agreement acceptance states");
+  for (const role of ["buyer", "seller"]) {
+    const party = record(acceptances[role], role + " acceptance state");
+    if (typeof party.accepted !== "boolean" ||
+        (party.accepted && typeof party.accepted_at !== "string") ||
+        (party.stale !== undefined && typeof party.stale !== "boolean")) {
+      throw new Error("Agreement acceptance state is malformed.");
+    }
+  }
+  let currentTerms = null;
+  if (result.current_terms !== null) {
+    currentTerms = record(result.current_terms, "Current acquisition terms");
+    if (typeof currentTerms.terms_version !== "string" ||
+        !/^[1-9][0-9]*$/.test(currentTerms.terms_version) ||
+        typeof currentTerms.terms_hash !== "string" ||
+        !/^[0-9a-f]{64}$/i.test(currentTerms.terms_hash) ||
+        !currentTerms.canonical_terms || typeof currentTerms.canonical_terms !== "object" ||
+        Array.isArray(currentTerms.canonical_terms)) {
+      throw new Error("Current acquisition terms are malformed.");
+    }
+  }
+  return {
+    dealId: input.dealId,
+    currentTerms,
+    acceptances: {
+      buyer: { ...acceptances.buyer },
+      seller: { ...acceptances.seller },
+    },
+    bothAccepted: result.both_accepted,
+    dealEligible: result.deal_eligible,
+  };
+}
+
+/**
  * @param {{
  *   dealId: string,
  *   accessToken: string,
