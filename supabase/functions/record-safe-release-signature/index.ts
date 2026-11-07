@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { ethers } from "npm:ethers@6.15.0";
 import { assertW3MFinalizationReady, W3MFinalizationGateError } from "../_shared/w3m-v1-finalization-gate.ts";
 const CHAIN_ID=56;
+const USDT="0x55d398326f99059ff775485246999027b3197955";
 const cors={"Access-Control-Allow-Origin":"https://web3market.xyz","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const ZERO=ethers.ZeroAddress;
 function json(status:number,body:unknown){return new Response(JSON.stringify(body),{status,headers:{...cors,"content-type":"application/json"}})}
@@ -41,6 +42,7 @@ Deno.serve(async(req)=>{
  if(policyError||!policy)return json(409,{ok:false,error:"Locked release policy is unavailable"});
  if(String(policy.status||"").toLowerCase()!=="locked"||Number(policy.chain_id)!==CHAIN_ID)return json(409,{ok:false,error:"Release policy is not locked for BNB Smart Chain"});
  if(!policy.safe_address||!deal.safe_address||ethers.getAddress(policy.safe_address).toLowerCase()!==ethers.getAddress(deal.safe_address).toLowerCase())return json(409,{ok:false,error:"Release policy Safe does not match the deal Safe"});
+ if(!policy.token_contract||ethers.getAddress(policy.token_contract).toLowerCase()!==ethers.getAddress(USDT).toLowerCase())return json(409,{ok:false,error:"Release policy token is not the configured BNB USDT asset"});
  if(String(deal.release_tx_hash||""))return json(409,{ok:false,error:"Release already finalized"});
  const {data:tx}=await sb.from("deal_multisig_transactions").select("*").eq("deal_id",dealId).eq("action","release_to_seller").maybeSingle();
  if(!tx?.safe_tx_hash)return json(409,{ok:false,error:"Safe transaction is not prepared"});
