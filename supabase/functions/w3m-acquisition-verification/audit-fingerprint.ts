@@ -74,6 +74,21 @@ export async function computeW3MAuditFingerprint(input: AuditFingerprintInput): 
   if (!input.manifest || typeof input.manifest !== "object" || Array.isArray(input.manifest)) {
     throw new Error("A JSON object audit manifest is required.");
   }
+  const manifestAudit = input.manifest.audit;
+  if (!manifestAudit || typeof manifestAudit !== "object" || Array.isArray(manifestAudit)) {
+    throw new Error("The persisted manifest must contain its audit identity.");
+  }
+  const persistedAudit = manifestAudit as Record<string, unknown>;
+  if (
+    typeof persistedAudit.id !== "string" ||
+    persistedAudit.id.toLowerCase() !== input.auditId.toLowerCase() ||
+    typeof persistedAudit.repository !== "string" ||
+    persistedAudit.repository.toLowerCase() !== input.repository.toLowerCase() ||
+    typeof persistedAudit.commit_sha !== "string" ||
+    persistedAudit.commit_sha.toLowerCase() !== input.commitSha.toLowerCase()
+  ) {
+    throw new Error("Fingerprint envelope identity must match the persisted manifest audit identity.");
+  }
 
   const envelope = {
     schema_version: input.schemaVersion,
