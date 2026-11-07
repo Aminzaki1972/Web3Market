@@ -164,7 +164,7 @@ Deno.test("prepare action derives role, wallet, audit binding, and published ter
   };
   const privateRows: Record<string, Array<Record<string, unknown>>> = {
     w3m_deal_audit_bindings: [{ deal_id: DEAL_ID, project_id: PROJECT_ID, audit_id: AUDIT_ID, fingerprint_id: FINGERPRINT_ID, fingerprint_digest: DIGEST, repository: "aminzaki1972/web3market", commit_sha: "f".repeat(40), binding_hash: BINDING_HASH }],
-    w3m_acquisition_terms_versions: [{ id: "75000000-0000-4000-8000-000000000005", terms_version: 2, terms_hash: termsHash, canonical_terms_json: terms, status: "published" }],
+    w3m_acquisition_terms_versions: [{ id: "75000000-0000-4000-8000-000000000005", deal_id: DEAL_ID, terms_version: 2, terms_hash: termsHash, canonical_terms_json: terms, status: "published" }],
   };
   const makeQuery = (rows: Array<Record<string, unknown>>) => {
     let selected = [...rows];
@@ -193,7 +193,7 @@ Deno.test("prepare action derives role, wallet, audit binding, and published ter
   const handler = createW3MAcquisitionHandler(deps);
   const response = await handler(makeRequest({ action: "prepare", deal_id: DEAL_ID, wallet_address: wallet.address }));
   const body = await response.json();
-  if (response.status !== 200 || body.ok !== true) throw new Error("Preparation failed: " + JSON.stringify(body) + " RPC calls: " + JSON.stringify(calls));
+  if (response.status !== 200 || body.ok !== true) throw new Error("Preparation failed: " + JSON.stringify(body));
   const prepared = body.result;
   if (prepared.dealId !== DEAL_ID || prepared.partyRole !== "buyer" || prepared.walletAddress !== wallet.address ||
     prepared.termsHash !== termsHash || prepared.termsVersion !== "2" || prepared.challengeId !== CHALLENGE_ID ||
