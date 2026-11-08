@@ -4,6 +4,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { ethers } from "npm:ethers@6.15.0";
 import { assertW3MFinalizationReady, W3MFinalizationGateError } from "../_shared/w3m-v1-finalization-gate.ts";
 import { getW3MCanonicalSettlement, assertW3MSettlementPolicyMatches } from "../_shared/w3m-v1-settlement-evidence.ts";
+import { assertW3MV1SafeReleasePayloadMatchesPolicy } from "../_shared/w3m-v1-safe-payload.ts";
 const RPC=Deno.env.get("BSC_RPC_URL")||"https://bsc-rpc.publicnode.com",CHAIN=56,USDT="0x55d398326f99059ff775485246999027b3197955",EXECUTOR="0xCbd947146826aB5BBF9924105E69e9c6F5e9420C";
 const ERC20=new ethers.Interface(["event Transfer(address indexed from,address indexed to,uint256 amount)"]);
 const SAFE=new ethers.Interface(["function getTransactionHash(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 _nonce) view returns(bytes32)","function execTransaction(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,bytes signatures) payable returns(bool)","event ExecutionSuccess(bytes32 indexed txHash,uint256 payment)","event ExecutionFailure(bytes32 indexed txHash,uint256 payment)"]);
@@ -55,6 +56,12 @@ Deno.serve(async req=>{
  const {data:tx}=await sb.from("deal_multisig_transactions").select("*").eq("deal_id",dealId).eq("action","release_to_seller").maybeSingle();
  const {data:policy}=await sb.from("deal_release_policies").select("*").eq("deal_id",dealId).maybeSingle();
  if(!tx||!policy)return json(409,{ok:false,error:"Release records missing"});
+ if (protocolTrack === "v1") {
+  try { assertW3MV1SafeReleasePayloadMatchesPolicy(tx, policy); }
+  catch (error) {
+   return json(409,{ok:false,error:"Prepared Safe transaction does not match the exact signed W3M V1 settlement",code:"W3M_SAFE_PAYLOAD_MISMATCH",detail:error instanceof Error?error.message:String(error)});
+  }
+ }
  if (protocolTrack === "v1") {
   try {
    const settlement = await getW3MCanonicalSettlement(sb, dealId);
