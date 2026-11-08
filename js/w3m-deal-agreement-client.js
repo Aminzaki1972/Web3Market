@@ -150,10 +150,33 @@ export async function getW3MDealAgreementStatus(input) {
       throw new Error("Current acquisition terms are malformed.");
     }
   }
+  const finalRaw = record(result.final_delivery_confirmation, "Final delivery confirmation status");
+  if (typeof finalRaw.confirmed !== "boolean" || typeof finalRaw.stale !== "boolean" ||
+      (finalRaw.confirmation_id !== null && finalRaw.confirmation_id !== undefined &&
+        (typeof finalRaw.confirmation_id !== "string" || !UUID.test(finalRaw.confirmation_id))) ||
+      (finalRaw.asset_set_digest !== null && finalRaw.asset_set_digest !== undefined &&
+        (typeof finalRaw.asset_set_digest !== "string" || !/^[0-9a-f]{64}$/i.test(finalRaw.asset_set_digest))) ||
+      (finalRaw.asset_count !== null && finalRaw.asset_count !== undefined &&
+        (!Number.isSafeInteger(Number(finalRaw.asset_count)) || Number(finalRaw.asset_count) < 1))) {
+    throw new Error("Final delivery confirmation status is malformed.");
+  }
+  const finalDeliveryConfirmation = {
+    confirmed: finalRaw.confirmed,
+    stale: finalRaw.stale,
+    confirmationId: finalRaw.confirmation_id || null,
+    termsVersion: finalRaw.terms_version == null ? null : String(finalRaw.terms_version),
+    termsHash: finalRaw.terms_hash || null,
+    assetSetDigest: finalRaw.asset_set_digest || null,
+    assetCount: finalRaw.asset_count == null ? null : Number(finalRaw.asset_count),
+    currentAssetCount: finalRaw.current_asset_count == null ? null : Number(finalRaw.current_asset_count),
+    confirmedAt: finalRaw.confirmed_at || null,
+    reason: finalRaw.reason || null,
+  };
   return {
     dealId: input.dealId,
     viewerRole: result.viewer_role === "buyer" || result.viewer_role === "seller" ? result.viewer_role : null,
     currentTerms,
+    finalDeliveryConfirmation,
     acceptances: {
       buyer: { ...acceptances.buyer },
       seller: { ...acceptances.seller },
@@ -194,6 +217,39 @@ export async function getW3MDealAgreementStatus(input) {
     })(),
     bothAccepted: result.both_accepted,
     dealEligible: result.deal_eligible,
+  };
+}
+
+/**
+ * @param {{dealId:string, accessToken:string, request:(body:object, accessToken:string)=>Promise<unknown>}} input
+ */
+export async function confirmW3MDealDelivery(input) {
+  if (!input || !UUID.test(input.dealId)) throw new Error("A valid deal ID is required.");
+  if (typeof input.accessToken !== "string" || !input.accessToken.trim()) {
+    throw new Error("An authenticated session is required.");
+  }
+  if (typeof input.request !== "function") throw new Error("Agreement request adapter is required.");
+  const response = record(await input.request({
+    action: "confirm_delivery", deal_id: input.dealId,
+  }, input.accessToken), "Final delivery confirmation");
+  if (response.ok !== true) throw new Error("Final delivery confirmation was rejected.");
+  const result = record(response.result, "Final delivery confirmation result");
+  if (typeof result.confirmation_id !== "string" || !UUID.test(result.confirmation_id) ||
+      !/^[1-9][0-9]*$/.test(String(result.terms_version)) ||
+      typeof result.terms_hash !== "string" || !/^[0-9a-f]{64}$/i.test(result.terms_hash) ||
+      typeof result.asset_set_digest !== "string" || !/^[0-9a-f]{64}$/i.test(result.asset_set_digest) ||
+      !Number.isSafeInteger(Number(result.asset_count)) || Number(result.asset_count) < 1 ||
+      typeof result.confirmed_at !== "string" || typeof result.created !== "boolean") {
+    throw new Error("Final delivery confirmation record is malformed.");
+  }
+  return {
+    confirmationId: result.confirmation_id,
+    termsVersion: String(result.terms_version),
+    termsHash: result.terms_hash,
+    assetSetDigest: result.asset_set_digest,
+    assetCount: Number(result.asset_count),
+    confirmedAt: result.confirmed_at,
+    created: result.created,
   };
 }
 
