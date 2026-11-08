@@ -52,6 +52,10 @@ function minor(value: string, scale: number): bigint {
   return BigInt(whole) * (10n ** BigInt(scale)) +
     BigInt((fraction + "0".repeat(scale)).slice(0, scale) || "0");
 }
+function equalsDecimal(a: string, b: string): boolean {
+  const scale = Math.max(scaleOf(a), scaleOf(b));
+  return minor(a, scale) === minor(b, scale);
+}
 function normalizedAmount(value: unknown, label: string): string {
   const result = decimal(value, label);
   if (minor(result, scaleOf(result)) <= 0n) {
@@ -95,7 +99,7 @@ export async function getW3MCanonicalSettlement(
   const paymentAsset = String(payment.asset || "").trim().toUpperCase();
   const tokenContract = payment.token_contract == null ? null : String(payment.token_contract).toLowerCase();
 
-  if (feePercent !== "7.5" && feePercent !== "7.50" && feePercent !== "7.500") {
+  if (!equalsDecimal(feePercent, "7.5")) {
     throw new W3MSettlementEvidenceError("Signed platform fee percentage is not the approved W3M V1 rate.");
   }
   if (currency !== "USDT" || netCurrency !== currency || paymentAsset !== "USDT" ||
@@ -144,7 +148,7 @@ export function assertW3MSettlementPolicyMatches(
   if (minor(dealAmount, scale) !== minor(settlement.considerationAmount, scale) ||
       minor(feeAmount, scale) !== minor(settlement.feeAmount, scale) ||
       minor(sellerNetAmount, scale) !== minor(settlement.sellerNetAmount, scale) ||
-      feePercent !== "7.5" && feePercent !== "7.50" && feePercent !== "7.500") {
+      !equalsDecimal(feePercent, "7.5")) {
     throw new W3MSettlementEvidenceError("Locked Safe release policy does not match the exact signed W3M V1 consideration, platform fee, and seller net.");
   }
   if (String(policy.token_contract || "").toLowerCase() !== BSC_USDT ||
