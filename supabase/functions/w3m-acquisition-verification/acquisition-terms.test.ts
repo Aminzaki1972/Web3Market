@@ -43,7 +43,7 @@ const fixture = () => ({
   delivery: { deadline: "2027-01-01T00:00:00Z", checklist: ["Transfer repository"] },
   inspection: { enabled: true, window: "5 days", acceptance_criteria: ["Repository access delivered"] },
   dispute: { procedure_version: "draft-1", text: "Synthetic procedure for tests only" },
-  escrow: { funding_condition: "Buyer funds verified Safe", release_condition: "Both parties complete conditions", dispute_hold: true },
+  safe_settlement: { method: "safe_multisig", funding_condition: "Buyer funds verified Safe", release_condition: "Both parties complete conditions", dispute_hold: true },
   governing_terms: { governing_law: "Synthetic governing-law policy for validator tests", venue_or_process: "Synthetic dispute venue for validator tests", language: "English" },
   risk_acknowledgements: ["Audit is limited to the scanned commit."],
   disclosures: [],
@@ -208,7 +208,7 @@ Deno.test("bounds decimal precision before exact arithmetic", () => {
 });
 
 
-Deno.test("rejects placeholder legal, dispute, escrow, and inspection policy text", () => {
+Deno.test("rejects placeholder legal, dispute, Safe settlement, and inspection policy text", () => {
   const governingPlaceholder = fixture();
   governingPlaceholder.governing_terms.governing_law = "Pending legal review";
   assertThrows(() => validateW3MAcquisitionTermsV1(governingPlaceholder));
@@ -221,9 +221,18 @@ Deno.test("rejects placeholder legal, dispute, escrow, and inspection policy tex
   disputePlaceholder.dispute.text = "To be determined";
   assertThrows(() => validateW3MAcquisitionTermsV1(disputePlaceholder));
 
-  const escrowPlaceholder = fixture();
-  escrowPlaceholder.escrow.release_condition = "Placeholder";
-  assertThrows(() => validateW3MAcquisitionTermsV1(escrowPlaceholder));
+  const settlementPlaceholder = fixture();
+  settlementPlaceholder.safe_settlement.release_condition = "Placeholder";
+  assertThrows(() => validateW3MAcquisitionTermsV1(settlementPlaceholder));
+
+  const legacyEscrowField = fixture() as Record<string, unknown>;
+  legacyEscrowField.escrow = legacyEscrowField.safe_settlement;
+  delete legacyEscrowField.safe_settlement;
+  assertThrows(() => validateW3MAcquisitionTermsV1(legacyEscrowField));
+
+  const wrongSettlementMethod = fixture();
+  wrongSettlementMethod.safe_settlement.method = "escrow_contract";
+  assertThrows(() => validateW3MAcquisitionTermsV1(wrongSettlementMethod));
 
   const inspectionPlaceholder = fixture();
   inspectionPlaceholder.inspection.window = "Pending";
