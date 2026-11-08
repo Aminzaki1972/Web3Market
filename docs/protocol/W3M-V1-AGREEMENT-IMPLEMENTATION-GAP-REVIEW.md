@@ -155,7 +155,7 @@ The first isolated implementation slice is now present on the feature branch:
 
 A further read-only production-schema check established that `public.deal_party_agreements` has the unique key `(deal_id, party_role)`; `party_id` is a separate immutable identity field. Its database guard rejects changes to deal, role, party identity, or an already-recorded agreement timestamp.
 
-The feature-branch Deal Room was attempting an upsert with conflict target `(deal_id, party_role, party_id)`, which does not match the production unique key. The branch code now targets `(deal_id, party_role)`, while retaining the database's immutable identity guard. A regression assertion was added to `js/w3m-deal-room-legacy-gate.test.js`; the existing Deno workflow already includes that test file and the Deal Room source.
+The feature-branch Deal Room was attempting an upsert with conflict target `(deal_id, party_role, party_id)`, which does not match the production unique key. The branch code first corrected the conflict target, then moved to an insert-only acceptance write to avoid invoking the timestamp-immutability trigger on a duplicate race. A unique-violation response now reloads the row and treats it as success only when the authenticated party's existing agreement is already recorded. A regression assertion was added to `js/w3m-deal-room-legacy-gate.test.js`.
 
 This is a source-level correction on the feature branch only. No production file or database object was changed. CI for the latest commit has not yet been confirmed.
 
@@ -199,3 +199,10 @@ Final verified CI batch for code commit a2e70035f2a7e7638be83a1fa250c0d818dfbc83
 - W3M atomic free audit entitlement: all four jobs passed.
 
 All listed jobs in this batch completed successfully. These results are isolated CI tests only; no production migration, Edge Function deployment, live Safe action, financial transfer, or PR merge occurred.
+
+
+### Legacy acceptance duplicate-race hardening — 2026-11-08
+
+The Deal Room now uses INSERT rather than UPSERT for a first-time legacy agreement acceptance. This avoids attempting to rewrite an immutable agreed_at timestamp when two browser sessions submit concurrently. If the database returns unique violation 23505, the client reloads the agreement and treats the operation as successful only if the same authenticated party already has a recorded agreed_at value. All other errors remain visible and the action stays retryable.
+
+This matches the production INSERT RLS policy and immutable identity/timestamp trigger. No UPDATE, DELETE, RLS, trigger, or production database changes were made. Regression coverage is included in the existing Deno workflow.
