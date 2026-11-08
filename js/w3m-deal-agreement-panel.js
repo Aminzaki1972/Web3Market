@@ -168,6 +168,7 @@ export function renderW3MDealAgreementPanel(container, status, documentRef = glo
 
   const finalConfirmation = status.finalDeliveryConfirmation;
   const allAssetsAccepted = assets.length > 0 && assets.every((asset) => asset.status === "accepted");
+  const canConfirmFinalDelivery = status.bothAccepted === true && allAssetsAccepted;
   const finalSection = element(documentRef, "section", "w3m-v1-final-delivery-confirmation");
   finalSection.appendChild(element(documentRef, "h4", "", "Final buyer delivery confirmation"));
   if (finalConfirmation.confirmed) {
@@ -183,10 +184,12 @@ export function renderW3MDealAgreementPanel(container, status, documentRef = glo
     finalSection.appendChild(element(documentRef, "p", "w3m-v1-muted",
       finalConfirmation.stale
         ? "The previous final confirmation no longer matches the latest asset delivery. The buyer must confirm the complete asset set again."
-        : allAssetsAccepted
-          ? "Every included asset is accepted. The buyer can now confirm the complete delivery."
-          : "Final confirmation becomes available after every included asset is accepted."));
-    if (status.viewerRole === "buyer" && allAssetsAccepted &&
+        : allAssetsAccepted && !status.bothAccepted
+          ? "Every asset is accepted, but both parties must first accept the current published terms."
+          : canConfirmFinalDelivery
+            ? "Every included asset is accepted and both parties accepted the current terms. The buyer can now confirm the complete delivery."
+            : "Final confirmation becomes available after every included asset is accepted and both parties accept the current terms."));
+    if (status.viewerRole === "buyer" && canConfirmFinalDelivery &&
         typeof options.onFinalDeliveryConfirm === "function") {
       const confirmButton = element(documentRef, "button", "w3m-v1-final-confirm-button",
         "Confirm all delivered assets");
