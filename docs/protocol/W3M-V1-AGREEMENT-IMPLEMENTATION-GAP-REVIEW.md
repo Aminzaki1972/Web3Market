@@ -126,3 +126,27 @@ The branch helper `js/w3m-deal-room-legacy-gate.js` currently treats a confirmed
 ### Scope boundary
 
 This addendum is an implementation review only. Production inspection was read-only. No production data, schema, RLS policy, trigger, Edge Function, Safe, wallet, or transaction was changed. No migration or deployment is authorized by this addendum.
+
+
+## Protocol-track registry implementation — 2026-11-08
+
+The first isolated implementation slice is now present on the feature branch:
+
+- Migration: `supabase/migrations/20261108180000_w3m_deal_protocol_track_registry.sql`.
+- The migration locks `public.deals` while backfilling every existing row as `legacy` and installing an `AFTER INSERT` trigger. This prevents an insert from falling between the backfill and trigger installation.
+- Every deal created through the current direct-insert path is assigned `legacy` by the database trigger. The browser does not supply the track.
+- The registry is in `w3m_private`, with RLS and FORCE RLS enabled, and no direct table privileges for `anon`, `authenticated`, or `service_role`.
+- Track updates/deletes are rejected by an immutable trigger.
+- `public.w3m_get_deal_protocol_track(uuid)` is a service-role-only lookup RPC. Missing classification raises an explicit error; it does not fall back to legacy.
+- PostgreSQL 16 regression test and a dedicated GitHub Actions workflow were added:
+  - `tests/w3m-deal-protocol-track.sql`
+  - `.github/workflows/w3m-deal-protocol-track-tests.yml`
+
+### Deliberate limits of this slice
+
+- This migration does **not** create a V1 assignment path. All current inserts remain legacy until a separate trusted, atomic V1 deal-creation transaction is implemented and tested.
+- It does not yet change `create-safe`, `prepare-deal-release`, the acquisition status endpoint, or the Deal Room helper. Those paths must be updated together after the original legacy authorization checks are fully mapped.
+- The new workflow is configured to run on the feature-branch PR, but no successful run/status has been confirmed yet. Treat the PostgreSQL tests as pending, not passed.
+- This migration exists only on the unmerged feature branch. It has not been applied to production or the live Supabase project.
+
+**Current safety state:** no production migration, Edge Function deployment, Deal Room activation, Safe transaction, or PR merge was performed.
