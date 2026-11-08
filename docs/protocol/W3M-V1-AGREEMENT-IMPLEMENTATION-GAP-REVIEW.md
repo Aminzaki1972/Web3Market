@@ -94,3 +94,35 @@ There is also a legacy-compatibility blocker: the branch's Safe deployment and r
 6. Only after review and explicit approval, consider merge, migration, and production deployment.
 
 **Safety status:** This review is documentation only. It does not change the live Deal Room, database, Edge Functions, Cloudflare, Safe configuration, or any existing deal.
+
+
+## Production-schema read-only addendum — 2026-11-08
+
+This addendum records a read-only inspection of the connected production Supabase schema. No SQL write, migration, data update, or deployment was performed.
+
+### G2 — Additional verified database facts
+
+- The production `public.deals` table has no `protocol_track`, `protocol_track_assigned_at`, or equivalent immutable classification field.
+- RLS is enabled. The current authenticated INSERT policy requires a non-anonymous authenticated session and `buyer_id = auth.uid()`.
+- A separate restrictive INSERT policy also requires the buyer and seller to differ, a positive deal amount, the fixed platform fee percentage, the expected multisig defaults, pending payment state, no pre-populated Safe/payment/release fields, and a seller matching the current owner of the referenced project.
+- The production table has database triggers for fee locking/financial calculation, sensitive-field protection, state transitions, and deal lifecycle audit logging. Existing server and client paths depend on these controls.
+- The current authenticated INSERT policy means the browser offer form is not merely a UI convenience: it is an authorized direct-insert path guarded by RLS and database triggers. Replacing it with a server-only creation path requires an explicit privilege/RLS compatibility design and regression coverage; it must not silently revoke the current offer workflow.
+- The production schema currently has no durable server-side legacy/V1 classification. A missing V1 terms row therefore cannot be treated as a reliable legacy identity.
+
+### G2 — Revised implementation requirements
+
+1. Keep the current production INSERT policy and all deal triggers unchanged until a tested replacement is ready.
+2. Add a durable, server-controlled protocol classification in an isolated migration. Prefer a private one-to-one registry or a protected column with column-level privilege analysis; do not trust a browser-supplied track value.
+3. Ensure every deal INSERT receives `legacy` classification atomically by a database-side mechanism. Existing rows must be backfilled as `legacy` in the same reviewed migration.
+4. Keep V1 deal creation disabled. When V1 creation is eventually enabled, only a service-role-only transactional creation path may promote the newly inserted deal to `v1` within the same transaction. The client must never choose or update this value.
+5. Provide a server-side track lookup used by `create-safe`, `prepare-deal-release`, and the Deal Room status endpoint. Unknown, missing, duplicate, or unreadable classification must fail closed.
+6. Dispatch gates by the authoritative track: legacy deals retain the previously supported legacy checks; V1 deals require the full V1 acceptance/finalization gates.
+7. Add PostgreSQL tests for authenticated browser inserts, direct attempts to forge/change the track, backfill behavior, transactional V1 assignment, unknown-track behavior, and legacy/V1 Safe and release paths.
+
+### Additional UI observation
+
+The branch helper `js/w3m-deal-room-legacy-gate.js` currently treats a confirmed missing Edge Function / unsupported action, or a valid status response with `current_terms: null`, as permission to display the legacy agreement controls. This is a rollout UI signal, not a durable deal classification. It must be replaced with the authoritative server-returned `protocol_track` before V1 activation. The Safe and release Edge Functions must independently enforce the same server-side classification; the browser result is never an authorization decision.
+
+### Scope boundary
+
+This addendum is an implementation review only. Production inspection was read-only. No production data, schema, RLS policy, trigger, Edge Function, Safe, wallet, or transaction was changed. No migration or deployment is authorized by this addendum.
