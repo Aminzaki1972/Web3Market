@@ -264,13 +264,13 @@ Deno.test("requires a non-empty, uniquely named included-asset checklist", () =>
   assertThrows(() => validateW3MAcquisitionTermsV1(empty));
 
   const missingDescription = fixture();
-  missingDescription.transfer_scope.included_assets = [{ type: "repository", description: " " }];
+  missingDescription.transfer_scope.included_assets = [{ type: "repository", description: " ", transfer_method: "Transfer", responsible_party: "Seller", expected_evidence: "Buyer access record" }];
   assertThrows(() => validateW3MAcquisitionTermsV1(missingDescription));
 
   const duplicate = fixture();
   duplicate.transfer_scope.included_assets = [
     { type: "repository", description: "Source code", transfer_method: "Transfer repository ownership and access", responsible_party: "Seller", expected_evidence: "Repository ownership and buyer access are verified" },
-    { type: "REPOSITORY", description: " source CODE " },
+    { type: "REPOSITORY", description: " source CODE ", transfer_method: "Transfer", responsible_party: "Seller", expected_evidence: "Buyer access record" },
   ];
   assertThrows(() => validateW3MAcquisitionTermsV1(duplicate));
 });
@@ -310,7 +310,7 @@ Deno.test("requires signed asking-price and agreed-discount snapshots without ch
   assertThrows(() => validateW3MAcquisitionTermsV1(invalidDiscount));
 
   const noDiscount = fixture();
-  noDiscount.commercial_schedule.agreed_discount = null;
+  (noDiscount.commercial_schedule as unknown as Record<string, unknown>).agreed_discount = null;
   validateW3MAcquisitionTermsV1(noDiscount);
 
   const negotiatedFinalPrice = fixture();
