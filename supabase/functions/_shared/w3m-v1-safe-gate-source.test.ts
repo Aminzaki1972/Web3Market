@@ -285,7 +285,7 @@ Deno.test("V1 Safe signature, execution, and finalization verify exact MultiSend
     const source = await Deno.readTextFile(file);
     const guard = source.indexOf("assertW3MV1SafeReleasePayloadMatchesPolicy(");
     const action = file.includes("record-safe-release-signature")
-      ? source.indexOf("signTypedData(")
+      ? source.indexOf("const digest=ethers.TypedDataEncoder.hash")
       : file.includes("execute-safe-release")
       ? source.indexOf("execTransaction(...args")
       : source.indexOf("const seller=norm(policy.seller_wallet)");
