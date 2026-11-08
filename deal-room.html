@@ -112,13 +112,6 @@
     if(!sb)throw new Error('Secure session client is unavailable.');
     const {data:{session},error}=await sb.auth.getSession();
     if(error||!session?.access_token)throw new Error('Please sign in again to view V1 protocol status.');
-    const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/w3m-acquisition-verification',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI','Authorization':'Bearer '+session.access_token},
-      body:JSON.stringify({action:'status',deal_id:dealId})
-    });
-    const payload=await response.json().catch(()=>({}));
-    if(!response.ok||payload.ok!==true)throw new Error(payload.error||'V1 status is not available for this deal.');
     const [{getW3MDealAgreementStatus},{renderW3MDealAgreementPanel}]=await Promise.all([
       import('./js/w3m-deal-agreement-client.js'),
       import('./js/w3m-deal-agreement-panel.js')
