@@ -157,7 +157,17 @@ export async function getW3MDealAgreementStatus(input) {
       (finalRaw.asset_set_digest !== null && finalRaw.asset_set_digest !== undefined &&
         (typeof finalRaw.asset_set_digest !== "string" || !/^[0-9a-f]{64}$/i.test(finalRaw.asset_set_digest))) ||
       (finalRaw.asset_count !== null && finalRaw.asset_count !== undefined &&
-        (!Number.isSafeInteger(Number(finalRaw.asset_count)) || Number(finalRaw.asset_count) < 1))) {
+        (!Number.isSafeInteger(Number(finalRaw.asset_count)) || Number(finalRaw.asset_count) < 1)) ||
+      (finalRaw.terms_version !== null && finalRaw.terms_version !== undefined &&
+        !/^[1-9][0-9]*$/.test(String(finalRaw.terms_version))) ||
+      (finalRaw.terms_hash !== null && finalRaw.terms_hash !== undefined &&
+        (typeof finalRaw.terms_hash !== "string" || !/^[0-9a-f]{64}$/i.test(finalRaw.terms_hash))) ||
+      (finalRaw.confirmed === true && (
+        !UUID.test(String(finalRaw.confirmation_id || "")) ||
+        !/^[0-9a-f]{64}$/i.test(String(finalRaw.asset_set_digest || "")) ||
+        !Number.isSafeInteger(Number(finalRaw.asset_count)) ||
+        typeof finalRaw.confirmed_at !== "string"
+      ))) {
     throw new Error("Final delivery confirmation status is malformed.");
   }
   const finalDeliveryConfirmation = {
