@@ -12,7 +12,7 @@ create table w3m_private.w3m_deal_delivery_confirmations (
   confirmed_at timestamptz not null default clock_timestamp(),
   created_at timestamptz not null default clock_timestamp(),
   constraint w3m_deal_delivery_confirmations_unique_asset_set
-    unique (deal_id, terms_version, asset_set_digest)
+    unique (deal_id, buyer_user_id, terms_version, asset_set_digest)
 );
 
 alter table w3m_private.w3m_deal_delivery_confirmations enable row level security;
@@ -239,6 +239,7 @@ begin
     into v_confirmation_id, v_confirmation_digest, v_confirmation_count, v_confirmed_at
   from w3m_private.w3m_deal_delivery_confirmations c
   where c.deal_id = p_deal_id
+    and c.buyer_user_id = v_buyer_id
     and c.terms_version = v_terms_version
     and c.terms_hash = v_terms_hash
   order by c.confirmed_at desc, c.id desc
@@ -296,6 +297,7 @@ begin
   select c.asset_set_digest into v_confirmation_digest
   from w3m_private.w3m_deal_delivery_confirmations c
   where c.deal_id = p_deal_id
+    and c.buyer_user_id = p_buyer_id
     and c.terms_version = v_terms.terms_version
     and c.terms_hash = v_terms.terms_hash
   order by c.confirmed_at desc, c.id desc
