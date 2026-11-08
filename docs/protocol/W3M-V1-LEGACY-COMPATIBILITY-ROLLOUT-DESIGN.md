@@ -130,3 +130,23 @@ All listed jobs in this batch completed successfully. These results are isolated
 ### Legacy acceptance write-path hardening — 2026-11-08
 
 Production read-only inspection confirmed the deal_party_agreements unique key is (deal_id, party_role), while party_id and an existing agreed_at timestamp are immutable. The Deal Room therefore now uses an INSERT-only first-acceptance operation. A duplicate-key race is treated as idempotent success only after reloading and confirming the same party's accepted row; other errors remain blocked. This avoids an unnecessary UPSERT update against the timestamp immutability trigger.
+
+
+### Final protocol-track and legacy-flow CI verification — 2026-11-08
+
+The follow-up browser legacy-acceptance hardening is also verified on code commit 7dea807d4a288ff5c71648bc4622d5b4a4fe2bdd:
+
+- W3M Audit Fingerprint / handler / Safe source tests: 159 passed, 0 failed; Deno type-check passed.
+- W3M V1 Supabase Edge Integration: passed with the registry migration applied in isolated local Supabase. The test exercised a synthetic V1 deal and a separate legacy deal; the test-only V1 fixture override exists only in the disposable CI database.
+- W3M Deal Protocol Track Registry PostgreSQL 16 tests: passed.
+- W3M V1 Ledger PostgreSQL 16 migration/concurrency/privilege tests: passed.
+- W3M V1 Asset Delivery Evidence PostgreSQL 16 tests: passed.
+- Security remediation (CDN SRI, JavaScript syntax, profile guard): passed.
+- Isolated W3M trust badge checks: passed.
+- W3M atomic free audit entitlement: all jobs passed.
+
+The live Deal Room legacy acceptance now uses INSERT-only writes. On a duplicate-key race, it reloads and confirms the same party's existing accepted row before treating the result as success. This avoids updating an immutable acceptance timestamp.
+
+A separate architecture proposal, docs/protocol/W3M-V1-TRUSTED-DEAL-CREATION-DESIGN.md, documents the future atomic V1 creation boundary. It is design-only: no V1 creation RPC or Edge Function was added, no browser INSERT privilege was revoked, and current offer creation remains legacy.
+
+These checks are branch CI only. No production migration, deployment, Safe transaction, financial transfer, or PR merge occurred.
