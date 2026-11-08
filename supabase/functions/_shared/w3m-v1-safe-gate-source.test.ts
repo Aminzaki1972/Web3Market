@@ -273,3 +273,25 @@ Deno.test("every V1 Safe release stage binds its locked policy to the exact curr
   assertEquals(migration.includes("from public, anon, authenticated"), true,
     "canonical settlement evidence RPC must revoke client execution");
 });
+
+
+Deno.test("V1 Safe signature, execution, and finalization verify exact MultiSend transfers", async () => {
+  const cases = [
+    "supabase/functions/record-safe-release-signature/index.ts",
+    "supabase/functions/execute-safe-release/index.ts",
+    "supabase/functions/finalize-safe-release/index.ts",
+  ];
+  for (const file of cases) {
+    const source = await Deno.readTextFile(file);
+    const guard = source.indexOf("assertW3MV1SafeReleasePayloadMatchesPolicy(");
+    const action = file.includes("record-safe-release-signature")
+      ? source.indexOf("signTypedData(")
+      : file.includes("execute-safe-release")
+      ? source.indexOf("execTransaction(...args")
+      : source.indexOf("const seller=norm(policy.seller_wallet)");
+    assertEquals(source.includes("../_shared/w3m-v1-safe-payload.ts"), true,
+      file + " must import the Safe payload verifier");
+    assertEquals(guard >= 0 && action > guard, true,
+      file + " must verify the exact token transfers before signing, broadcasting, or finalizing");
+  }
+});
