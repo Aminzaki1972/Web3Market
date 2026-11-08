@@ -43,11 +43,6 @@ jobs:
             echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
             echo "W3M_LOCAL_DB_URL=$DB_URL"
           } >> "$GITHUB_ENV"
-          {
-            echo "SUPABASE_URL=$API_URL"
-            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
-          } > /tmp/w3m-edge.env
-          chmod 600 /tmp/w3m-edge.env
 
       - name: Prepare disposable baseline and apply W3M V1 migrations
         shell: bash
@@ -68,7 +63,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          supabase functions serve --env-file /tmp/w3m-edge.env > /tmp/w3m-edge-runtime.log 2>&1 &
+          supabase functions serve > /tmp/w3m-edge-runtime.log 2>&1 &
           echo $! > /tmp/w3m-edge-runtime.pid
           for attempt in $(seq 1 60); do
             code="$(curl -s -o /dev/null -w '%{http_code}' \
