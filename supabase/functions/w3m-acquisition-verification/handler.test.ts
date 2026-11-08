@@ -550,13 +550,18 @@ Deno.test("publish_terms authenticates the seller, hashes validated terms, and c
     async range() { return { data: this.rows, error: null }; },
   })) as unknown as NonNullable<W3MAdminClient["from"]>;
   const { deps, calls } = makeDeps(async (name, args) => {
-    if (name !== "w3m_publish_acquisition_terms_version") throw new Error("Unexpected RPC " + name);
-    if (args.p_deal_id !== DEAL_ID || args.p_terms_version !== 1 ||
-      !/^[0-9a-f]{64}$/.test(String(args.p_terms_hash)) ||
-      (args.p_canonical_terms_json as Record<string, unknown>).schema !== "w3m-acquisition-terms-v1") {
-      throw new Error("Terms publication RPC arguments were not canonical and bound");
+    if (name === "w3m_publish_acquisition_terms_version") {
+      if (args.p_deal_id !== DEAL_ID || args.p_terms_version !== 1 ||
+        !/^[0-9a-f]{64}$/.test(String(args.p_terms_hash)) ||
+        (args.p_canonical_terms_json as Record<string, unknown>).schema !== "w3m-acquisition-terms-v1") {
+        throw new Error("Terms publication RPC arguments were not canonical and bound");
+      }
+      return { data: "79000000-0000-4000-8000-000000000009", error: null };
     }
-    return { data: "79000000-0000-4000-8000-000000000009", error: null };
+    if (name === "w3m_sync_deal_assets_from_published_terms" && args.p_deal_id === DEAL_ID) {
+      return { data: 1, error: null };
+    }
+    throw new Error("Unexpected RPC " + name);
   }, { userId: sellerId, from });
   const handler = createW3MAcquisitionHandler(deps);
   const response = await handler(makeRequest({ action: "publish_terms", deal_id: DEAL_ID, terms: validTermsPayload() }));
@@ -565,8 +570,9 @@ Deno.test("publish_terms authenticates the seller, hashes validated terms, and c
     !/^[0-9a-f]{64}$/.test(body.terms_hash)) {
     throw new Error("Terms publication failed: " + JSON.stringify(body));
   }
-  if (calls.length !== 1 || calls[0].name !== "w3m_publish_acquisition_terms_version") {
-    throw new Error("Validated terms must be published through the single restricted RPC");
+  if (calls.length !== 2 || calls[0].name !== "w3m_publish_acquisition_terms_version" ||
+    calls[1].name !== "w3m_sync_deal_assets_from_published_terms") {
+    throw new Error("Validated terms must publish and synchronize the exact per-asset checklist");
   }
 });
 
