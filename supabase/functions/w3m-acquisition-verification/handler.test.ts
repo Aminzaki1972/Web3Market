@@ -161,6 +161,7 @@ Deno.test("status action exposes only participant-scoped current terms and accep
     ],
   };
   const { deps } = makeDeps(async (name) => {
+    if (name === "w3m_get_deal_protocol_track") return { data: { deal_id: DEAL_ID, protocol_track: "v1" }, error: null };
     if (name === "w3m_get_deal_agreement_context") return { data: agreementContext, error: null };
     if (name === "w3m_get_deal_asset_finalization_evidence") {
       return { data: [{
@@ -191,6 +192,7 @@ Deno.test("status action exposes only participant-scoped current terms and accep
   const response = await handler(makeRequest({ action: "status", deal_id: DEAL_ID }));
   const body = await response.json();
   if (response.status !== 200 || body.ok !== true ||
+      body.result?.protocol_track !== "v1" ||
       body.result?.acceptances?.buyer?.accepted !== true ||
       body.result?.acceptances?.seller?.accepted !== false ||
       body.result?.both_accepted !== false ||
