@@ -6,11 +6,11 @@
 
 ## Executive conclusion
 
-The branch contains substantial V1 building blocks: canonical terms validation and hashing, terms publication/versioning RPC calls, EIP-712 challenge/acceptance handlers, immutable acceptance evidence, per-asset delivery evidence, a separate final-delivery confirmation, and server-side Safe/release gates.
+The branch contains canonical terms validation and hashing, terms publication/versioning RPC calls, EIP-712 challenge/acceptance handlers, immutable acceptance evidence, per-asset delivery evidence, a separate final-delivery confirmation, and server-side Safe/release gates. The live Deal Room now loads authoritative protocol status, renders canonical terms/hash and per-asset evidence, wires seller delivery and buyer per-asset acceptance/rejection, and wires the buyer's separate final-delivery confirmation.
 
-However, the complete workflow is not yet ready to activate. The live Deal Room still uses the legacy timestamp acknowledgement when the rollout gate returns the legacy mode; when the gate reports V1, it currently displays a read-only notice that digital signing is disabled. The new agreement client and panel are separate modules and are not wired into the live Deal Room.
+The complete workflow is not yet ready to activate. The Deal Room intentionally keeps digital signing disabled pending final legal and commercial approval of the agreement text and canonical schedule. The verified-wallet EIP-712 signing adapter and agreement prepare/sign/accept client exist, but must remain gated until that approval and final activation review. V1 deal creation also remains disabled; current offer creation is classified legacy.
 
-There is also a legacy-compatibility blocker: the branch's Safe deployment and release-preparation functions invoke V1 cryptographic finalization gates without an evident legacy/V1 mode branch. Existing legacy deals that have no V1 acceptance rows and evidence may therefore be blocked if these branch changes are deployed as-is. This must be resolved before merge/deployment while preserving the old-deal path.
+Legacy compatibility has been addressed on the feature branch: server-authoritative protocol classification dispatches Safe and release checks to V1 gates only for explicitly V1-classified deals, preserves legacy checks for legacy deals, and fails closed for unknown classifications. Historical completed-release retries are constrained to read-only verification of the exact already-recorded transaction. These changes remain isolated to the unmerged branch and require current CI completion before any deployment.
 
 ## Verified alignment
 
@@ -35,17 +35,17 @@ There is also a legacy-compatibility blocker: the branch's Safe deployment and r
 
 ## Blocking gaps before live activation
 
-### G1 — Live Deal Room is not connected to the V1 signing experience
-**Evidence:** `js/deal-room.js` imports the legacy rollout gate, but its legacy branch still reads and upserts `deal_party_agreements.agreed_at`. When the gate returns `v1`, it renders a notice saying V1 digital signing is disabled. The new `js/w3m-deal-agreement-client.js` and `js/w3m-deal-agreement-panel.js` exist as isolated modules and are not imported by the live Deal Room.
+### G1 — Live Deal Room signing activation remains gated
 
-**Required resolution:** Integrate the read-only canonical terms/status panel and the wallet signing client behind the V1 gate, with explicit buyer/seller role checks and server responses as the only authority. Do not treat the legacy timestamp as a V1 signature.
+**Current branch state:** `deal-room.html` imports `js/w3m-deal-agreement-client.js` and `js/w3m-deal-agreement-panel.js` for authoritative V1 status. The live panel renders canonical terms/hash, buyer/seller acceptance state, and per-asset evidence. It wires seller delivery registration, buyer asset acceptance/rejection, and the separate final-delivery confirmation. `js/wallet-manager.js` contains a strict verified-wallet EIP-712 signing adapter, and the agreement client contains the prepare/sign/accept flow.
+
+**Remaining activation gate:** The live Deal Room deliberately does not expose or invoke the signing action yet. It continues to show a disabled-signing notice until agreement wording, jurisdiction/dispute inputs, and the canonical schedule receive final legal and commercial approval and an explicit activation review. Legacy timestamp acknowledgement is never treated as a V1 signature.
 
 ### G2 — Legacy deal compatibility at Safe and release gates
-**Evidence:** `create-safe/index.ts` unconditionally calls `assertW3MAgreementReady`. `prepare-deal-release/index.ts` unconditionally calls `assertW3MFinalizationReady`. The former requires V1 acceptance evidence; the latter additionally requires per-asset acceptance and final delivery confirmation. No explicit legacy/V1 rollout-mode branch is present in these call sites.
 
-**Risk:** Existing deals created before V1, with only legacy agreement timestamps and no V1 terms/acceptance/asset evidence, may be unable to deploy Safe or prepare release after this branch is deployed.
+**Resolution on the feature branch (not deployed):** The private immutable protocol-track registry backfills existing deals as legacy and classifies current browser-created deals as legacy at insert time. A trusted service-role-only lookup is authoritative. The Deal Room status endpoint and all six Safe/release Edge paths dispatch by this track: explicit V1 deals require V1 evidence gates, legacy deals retain their previous checks, and unknown/missing classifications fail closed. V1 creation remains disabled; the future trusted atomic creation path is design-only. PostgreSQL tests cover backfill, inserts, immutability, permissions, RLS, and fail-closed behavior. The Safe historical-completion retry is read-only and only accepts the exact already-recorded transaction hash.
 
-**Required resolution:** Define a trusted server-side deal rollout classification. For V1-classified deals, require the full V1 evidence gates. For pre-existing legacy deals, preserve their previously supported path under the legacy rules and clearly prevent that legacy path from being used to create new V1 deals. Do not infer the mode from client input or a client-visible label. Test both paths in an isolated environment before any production rollout.
+**Safety note:** These changes are isolated to PR #181. They have not been applied to production; current isolated CI must pass before merge/deployment.
 
 ### G3 — Safe settlement terminology in canonical terms
 **Evidence:** `acquisition-terms.ts` currently requires a top-level `escrow` object with `funding_condition`, `release_condition`, and `dispute_hold=true`, while the product decision is Safe multisig settlement and explicitly excludes a separate escrow contract.
@@ -63,9 +63,8 @@ There is also a legacy-compatibility blocker: the branch's Safe deployment and r
 **Resolution on the feature branch (not deployed):** Each canonical included asset now requires its own transfer method, responsible party, and expected-evidence description in addition to type and description. These fields are part of the immutable canonical terms JSON and therefore are covered by the agreement hash and both parties' signatures. The existing asset checklist sync continues to derive one delivery item per signed included asset; delivery events record the actual handover evidence separately. Regression tests reject missing or placeholder per-asset fields. No production schema or data was changed.
 
 ### G6 — Final delivery confirmation UI integration
-**Evidence:** The server action `confirm_delivery` and private confirmation RPCs exist. The agreement panel is a read-only renderer and exposes action hooks through options, but the reviewed live Deal Room does not wire the panel or buyer final-confirmation action.
 
-**Required resolution:** Add a buyer-only final confirmation action after all included assets are accepted. The server must recompute and bind the accepted asset-set digest and current terms version/hash; the browser must not supply authoritative digests or bypass the server checks.
+**Resolution on the feature branch (not deployed):** The live Deal Room panel exposes final confirmation only to the buyer, only after both parties accepted the current terms and every included asset is accepted. The callback invokes the server `confirm_delivery` action; the server recomputes and binds the accepted asset-set digest and current terms version/hash. The browser does not supply authoritative digests. UI and client regression tests exist; isolated Edge integration remains part of current CI verification.
 
 ## Required test matrix before activation
 
