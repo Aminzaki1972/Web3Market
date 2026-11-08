@@ -667,3 +667,28 @@ revoke all on function public.w3m_transition_deal_asset_v1(uuid,uuid,uuid,text,t
   from public, anon, authenticated;
 grant execute on function public.w3m_transition_deal_asset_v1(uuid,uuid,uuid,text,text,text)
   to service_role;
+
+
+-- Ensure the protection function is actually attached in every installation.
+-- Older deployments already have a trigger for this function; replace that
+-- attachment deterministically so the participant identity fields are always
+-- populated by the BEFORE UPDATE guard before the append-only event is written.
+do $w3m_trigger$
+declare
+  v_trigger record;
+begin
+  for v_trigger in
+    select t.tgname
+    from pg_catalog.pg_trigger t
+    where t.tgrelid = 'public.deal_assets'::regclass
+      and t.tgfoid = 'public.protect_deal_asset_updates()'::regprocedure
+      and not t.tgisinternal
+  loop
+    execute format('drop trigger %I on public.deal_assets', v_trigger.tgname);
+  end loop;
+end;
+$w3m_trigger$;
+
+create trigger w3m_protect_deal_asset_updates
+before update on public.deal_assets
+for each row execute function public.protect_deal_asset_updates();
