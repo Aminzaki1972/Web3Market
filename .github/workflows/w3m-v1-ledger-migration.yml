@@ -583,7 +583,7 @@ jobs:
           SQL
           wait "$LOCK_A_PID"
           psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
-          do $
+          DO $w3m_check$
           declare
             v_deal uuid := '79000000-0000-4000-8000-000000000009';
           begin
@@ -598,7 +598,7 @@ jobs:
               raise exception 'partial_round_supersession_did_not_advance_current_terms';
             end if;
           end;
-          $;
+          $w3m_check$;
           SQL
       - name: Verify restricted protocol privileges and immutable evidence
         env:
