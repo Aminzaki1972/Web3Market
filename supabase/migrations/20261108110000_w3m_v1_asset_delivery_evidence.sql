@@ -568,3 +568,102 @@ revoke all on function public.w3m_claim_safe_release(uuid,text,bigint)
   from public, anon, authenticated;
 grant execute on function public.w3m_claim_safe_release(uuid,text,bigint)
   to service_role;
+
+
+-- Authenticated Edge Function action for seller delivery and buyer response.
+-- This RPC is service-role-only; the handler supplies the user ID only after
+-- validating the caller's Supabase access token. The trigger still enforces
+-- participant role and allowed status transitions using auth.uid().
+create or replace function public.w3m_transition_deal_asset_v1(
+  p_deal_id uuid,
+  p_asset_id uuid,
+  p_actor_user_id uuid,
+  p_action text,
+  p_delivery_url text default null,
+  p_evidence text default null
+) returns jsonb
+language plpgsql security definer set search_path = ''
+as $w3m$
+declare
+  v_buyer uuid;
+  v_seller uuid;
+  v_asset public.deal_assets%rowtype;
+  v_attempt integer;
+begin
+  if (auth.jwt() ->> 'role') is distinct from 'service_role' then
+    raise exception 'service_role_required' using errcode = '42501';
+  end if;
+  if p_deal_id is null or p_asset_id is null or p_actor_user_id is null
+     or p_action not in ('deliver','accept','reject') then
+    raise exception 'invalid_asset_transition_request' using errcode = '22023';
+  end if;
+
+  perform 1 from public.deals d where d.id = p_deal_id for update;
+  if not found then
+    raise exception 'asset_transition_deal_not_found' using errcode = 'P0002';
+  end if;
+  select d.buyer_id,d.seller_id into v_buyer,v_seller
+    from public.deals d where d.id = p_deal_id;
+  select a.* into v_asset from public.deal_assets a
+    where a.id = p_asset_id and a.deal_id = p_deal_id for update;
+  if not found then
+    raise exception 'asset_transition_asset_not_found' using errcode = 'P0002';
+  end if;
+
+  if p_action = 'deliver' then
+    if p_actor_user_id is distinct from v_seller then
+      raise exception 'only_seller_can_deliver_asset' using errcode = '42501';
+    end if;
+    if p_delivery_url is null or length(p_delivery_url) > 2048
+       or p_delivery_url !~ '^https://[^[:space:]]+$'
+       or p_evidence is null or length(p_evidence) = 0 or length(p_evidence) > 16000 then
+      raise exception 'valid_https_delivery_url_and_evidence_required' using errcode = '22023';
+    end if;
+  else
+    if p_actor_user_id is distinct from v_buyer then
+      raise exception 'only_buyer_can_respond_to_asset' using errcode = '42501';
+    end if;
+    if p_delivery_url is not null or p_evidence is not null then
+      raise exception 'buyer_response_cannot_change_delivery_evidence' using errcode = '22023';
+    end if;
+    if v_asset.status is distinct from 'delivered' then
+      raise exception 'asset_must_be_delivered_before_buyer_response' using errcode = '55000';
+    end if;
+  end if;
+
+  -- Trigger authorization is intentionally re-evaluated as the authenticated
+  -- participant within this service-role-only transaction.
+  perform set_config('request.jwt.claim.sub',p_actor_user_id::text,true);
+
+  if p_action = 'deliver' then
+    if v_asset.status = 'delivered' then
+      update public.deal_assets set status='pending' where id=p_asset_id;
+    end if;
+    update public.deal_assets
+      set status='delivered',delivery_url=p_delivery_url,evidence=p_evidence
+      where id=p_asset_id;
+  elsif p_action = 'accept' then
+    update public.deal_assets set status='accepted' where id=p_asset_id;
+  else
+    update public.deal_assets set status='rejected' where id=p_asset_id;
+  end if;
+
+  select coalesce(max(e.attempt_number),0) into v_attempt
+    from w3m_private.w3m_deal_asset_events e
+    where e.asset_id=p_asset_id and e.event_type='delivered';
+  select a.* into v_asset from public.deal_assets a where a.id=p_asset_id;
+
+  return jsonb_build_object(
+    'asset_id',v_asset.id,
+    'status',v_asset.status,
+    'attempt_number',v_attempt,
+    'delivered_at',v_asset.delivered_at,
+    'accepted_at',v_asset.accepted_at
+  );
+end;
+$w3m$;
+
+revoke all on function public.w3m_transition_deal_asset_v1(uuid,uuid,uuid,text,text,text)
+  from public, anon, authenticated;
+grant execute on function public.w3m_transition_deal_asset_v1(uuid,uuid,uuid,text,text,text)
+  to service_role;
