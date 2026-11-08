@@ -597,6 +597,7 @@ async function getAgreementStatus(
 
   return {
     deal_id: deal.id,
+    viewer_role: deal.buyer_id === userId ? "buyer" : "seller",
     current_terms: terms ? {
       terms_version: String(terms.terms_version),
       terms_hash: terms.terms_hash,
