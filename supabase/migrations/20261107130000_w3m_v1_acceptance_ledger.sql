@@ -801,29 +801,6 @@ grant execute on function public.w3m_get_agreement_challenge_for_verification(uu
 comment on table w3m_private.w3m_audit_fingerprints is 'Immutable W3M V1 fingerprint manifest for a completed audit; server-only writes.';
 comment on table w3m_private.w3m_agreement_acceptances is 'Append-only W3M V1 EIP-712 agreement acceptance evidence; server-only writes.';
 
-    or v_now > to_timestamp(v_challenge.signature_deadline) then
-    raise exception 'challenge_acceptance_mismatch_or_expired' using errcode = '22023';
-  end if;
-  insert into w3m_private.w3m_agreement_acceptances
-    (challenge_id, deal_id, project_id, audit_id, fingerprint_id, fingerprint_digest,
-     binding_hash, terms_hash, terms_version, party_role, user_id, wallet_address,
-     signature, nonce, signature_deadline, accepted_at)
-  values
-    (v_challenge.id, v_challenge.deal_id, v_challenge.project_id, v_challenge.audit_id,
-     v_challenge.fingerprint_id, v_challenge.fingerprint_digest, v_challenge.binding_hash,
-     v_challenge.terms_hash, v_challenge.terms_version, v_challenge.party_role,
-     v_challenge.user_id, v_challenge.wallet_address, lower(p_signature),
-     v_challenge.nonce, v_challenge.signature_deadline, p_accepted_at)
-  returning id into v_acceptance_id;
-  update w3m_private.w3m_agreement_challenges set consumed_at = v_now
-    where id = v_challenge.id and consumed_at is null;
-  if not found then
-    raise exception 'challenge_already_consumed' using errcode = '23505';
-  end if;
-  return v_acceptance_id;
-end;
-$w3m$;
-
 create or replace function public.w3m_get_agreement_challenge_for_verification(
   p_challenge_id uuid
 ) returns table (
