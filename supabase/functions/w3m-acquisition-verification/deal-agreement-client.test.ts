@@ -163,6 +163,8 @@ Deno.test("status client requests the authenticated participant view and validat
             }],
           }],
           both_accepted: false, deal_eligible: true,
+      final_delivery_confirmation: { confirmed: false, stale: false },
+          final_delivery_confirmation: { confirmed: false, stale: false },
         },
       };
     },
