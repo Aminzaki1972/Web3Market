@@ -41,7 +41,7 @@ const fixture = () => ({
     data_and_privacy: { scope: "No personal data transfer included" },
   },
   delivery: { deadline: "2027-01-01T00:00:00Z", checklist: ["Transfer repository"] },
-  inspection: { window: "5 days", acceptance_criteria: ["Repository access delivered"] },
+  inspection: { enabled: true, window: "5 days", acceptance_criteria: ["Repository access delivered"] },
   dispute: { procedure_version: "draft-1", text: "Synthetic procedure for tests only" },
   escrow: { funding_condition: "Buyer funds verified Safe", release_condition: "Both parties complete conditions", dispute_hold: true },
   governing_terms: { governing_law: "Synthetic governing-law policy for validator tests", venue_or_process: "Synthetic dispute venue for validator tests", language: "English" },
@@ -156,21 +156,40 @@ Deno.test("requires fee plus seller net to equal consideration exactly", () => {
 
   const exactLongDecimals = fixture();
   exactLongDecimals.consideration.amount = "0.30000000000000000003";
-  exactLongDecimals.platform_fee.amount = "0.10000000000000000001";
-  exactLongDecimals.seller_net.amount = "0.20000000000000000002";
+  exactLongDecimals.platform_fee.amount = "0.02250000000000000000";
+  exactLongDecimals.seller_net.amount = "0.27750000000000000003";
   validateW3MAcquisitionTermsV1(exactLongDecimals);
 });
 
-Deno.test("allows zero seller net only when the exact fee split reconciles", () => {
-  const fullFee = fixture();
-  fullFee.platform_fee.percent = "100";
-  fullFee.platform_fee.amount = "1000.00";
-  fullFee.seller_net.amount = "0.00";
-  validateW3MAcquisitionTermsV1(fullFee);
+Deno.test("enforces the fixed 7.5% fee and exact fee amount", () => {
+  const wrongRate = fixture();
+  wrongRate.platform_fee.percent = "8";
+  assertThrows(() => validateW3MAcquisitionTermsV1(wrongRate));
 
-  const inconsistentZeroNet = fixture();
-  inconsistentZeroNet.seller_net.amount = "0.00";
-  assertThrows(() => validateW3MAcquisitionTermsV1(inconsistentZeroNet));
+  const wrongAmount = fixture();
+  wrongAmount.platform_fee.amount = "74.99";
+  wrongAmount.seller_net.amount = "925.01";
+  assertThrows(() => validateW3MAcquisitionTermsV1(wrongAmount));
+
+  const validRoundedFee = fixture();
+  validRoundedFee.consideration.amount = "10.01";
+  validRoundedFee.platform_fee.amount = "0.75";
+  validRoundedFee.seller_net.amount = "9.26";
+  validateW3MAcquisitionTermsV1(validRoundedFee);
+});
+
+Deno.test("supports an explicitly disabled optional inspection period", () => {
+  const noInspection = fixture();
+  noInspection.inspection = { enabled: false, window: null, acceptance_criteria: [] };
+  validateW3MAcquisitionTermsV1(noInspection);
+
+  const ambiguousInspection = fixture();
+  ambiguousInspection.inspection = { enabled: false, window: "5 days", acceptance_criteria: [] };
+  assertThrows(() => validateW3MAcquisitionTermsV1(ambiguousInspection));
+
+  const incompleteEnabledInspection = fixture();
+  incompleteEnabledInspection.inspection = { enabled: true, window: null, acceptance_criteria: [] };
+  assertThrows(() => validateW3MAcquisitionTermsV1(incompleteEnabledInspection));
 });
 
 
