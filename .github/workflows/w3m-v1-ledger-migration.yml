@@ -598,6 +598,7 @@ jobs:
           declare
             v_deal_dispute_first uuid := '81000000-0000-4000-8000-000000000001';
             v_deal_claim_first uuid := '82000000-0000-4000-8000-000000000002';
+            v_deal_resolved uuid := '85000000-0000-4000-8000-000000000005';
             v_claim_id uuid;
             v_status text;
             v_tx text;
@@ -610,7 +611,15 @@ jobs:
             insert into public.deals(id,project_id,buyer_id,seller_id,status,dispute_status)
             values
               (v_deal_dispute_first,'72000000-0000-4000-8000-000000000002',v_buyer,v_seller,'in_progress','none'),
-              (v_deal_claim_first,'72000000-0000-4000-8000-000000000002',v_buyer,v_seller,'in_progress','none');
+              (v_deal_claim_first,'72000000-0000-4000-8000-000000000002',v_buyer,v_seller,'in_progress','none'),
+              (v_deal_resolved,'72000000-0000-4000-8000-000000000002',v_buyer,v_seller,'in_progress','resolved');
+
+            -- Existing terminal dispute resolutions remain eligible for release.
+            insert into public.deal_disputes(deal_id,opened_by,reason,status)
+            values(v_deal_resolved,v_buyer,'Previously dismissed dispute','dismissed');
+            select claim_id into v_claim_id
+              from public.w3m_claim_safe_release(v_deal_resolved,'0x' || repeat('e',64),10);
+            if v_claim_id is null then raise exception 'resolved_dispute_must_not_block_safe_claim'; end if;
 
             -- Dispute wins first: the release claim must fail closed.
             insert into public.deal_disputes(deal_id,opened_by,reason,status)
