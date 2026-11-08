@@ -55,9 +55,14 @@ begin
   select jsonb_agg(jsonb_build_object(
     'asset_id', a.id,
     'asset_name', a.asset_name,
+    'delivery_url', a.delivery_url,
+    'delivered_by', a.delivered_by,
+    'delivered_at', a.delivered_at,
+    'accepted_by', a.accepted_by,
+    'accepted_at', a.accepted_at,
     'attempt_number', latest.attempt_number,
     'evidence_digest', latest.evidence_digest,
-    'accepted_at', latest.occurred_at
+    'accepted_event_at', latest.occurred_at
   ) order by lower(a.asset_name), a.id)
   into v_assets
   from public.deal_assets a
