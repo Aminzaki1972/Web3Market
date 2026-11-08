@@ -184,7 +184,7 @@ try {
       audit_id: auditId,
       repository: "integration-tests/w3m-fixture",
       commit_sha: commitSha,
-      fingerprint_digest: fingerprint.payload.result.digest,
+      fingerprint_digest: fingerprint.payload.fingerprint_digest,
     },
     consideration: { amount: "1000.00", currency: "USDT" },
     platform_fee: { percent: "7.5", amount: "75.00" },
