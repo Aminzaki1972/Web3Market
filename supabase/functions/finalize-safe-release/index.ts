@@ -8,7 +8,7 @@ const SAFE=new ethers.Interface(["function getTransactionHash(address to,uint256
 const cors={"Access-Control-Allow-Origin":"https://web3market.xyz","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const json=(s:number,b:unknown)=>new Response(JSON.stringify(b),{status:s,headers:{...cors,"content-type":"application/json"}});
 const norm=(a:string)=>ethers.getAddress(a).toLowerCase();
-const TERMINAL_DISPUTE_STATES = new Set(["none", "resolved", "closed", "dismissed", "rejected", "cancelled", "canceled", "withdrawn"]);
+const TERMINAL_DISPUTE_STATES = new Set(["none", "resolved", "resolved_buyer", "resolved_seller", "closed", "dismissed", "rejected", "cancelled", "canceled", "withdrawn"]);
 async function checkDisputeState(db: any, deal: any, dealId: string): Promise<"clear" | "open" | "unknown"> {
  const state=String(deal?.dispute_status??"").trim().toLowerCase();
  if (!state) return "unknown";
@@ -51,13 +51,32 @@ Deno.serve(async req=>{
  const safe=new ethers.Contract(safeAddress,SAFE,provider);
  const [onchainTx,receipt]=await Promise.all([provider.getTransaction(txHash),provider.getTransactionReceipt(txHash)]);
  if(!onchainTx||!receipt)return json(409,{ok:false,error:"Transaction is not mined yet"});
- if(receipt.status!==1)return json(409,{ok:false,error:"Safe execution reverted"});
  if(!onchainTx.to||norm(onchainTx.to)!==norm(safeAddress))return json(409,{ok:false,error:"Execution transaction was not sent to the configured Safe"});
  const recomputed=await safe.getTransactionHash(ethers.getAddress(tx.to_address),BigInt(tx.value_wei||0),String(tx.data||"0x"),Number(tx.operation),BigInt(tx.safe_tx_gas||0),BigInt(tx.base_gas||0),BigInt(tx.gas_price||0),ethers.getAddress(tx.gas_token||ethers.ZeroAddress),ethers.getAddress(tx.refund_receiver||ethers.ZeroAddress),BigInt(tx.safe_nonce));
  if(String(recomputed).toLowerCase()!==String(tx.safe_tx_hash).toLowerCase())return json(409,{ok:false,error:"Stored Safe transaction payload does not match its signed Safe transaction hash"});
+ if(receipt.status===0){
+  const {error:claimFailError}=await sb.rpc("w3m_mark_safe_release_failed",{
+   p_deal_id:dealId,p_safe_tx_hash:String(tx.safe_tx_hash),p_safe_nonce:Number(tx.safe_nonce),
+   p_transaction_hash:txHash,p_failure_code:"evm_revert"
+  });
+  if(claimFailError)return json(500,{ok:false,error:"EVM revert is confirmed but the durable release claim could not be closed; dispute remains blocked"});
+  return json(409,{ok:false,error:"Safe execution transaction reverted; the claim was closed after the confirmed chain receipt"});
+ }
+ if(receipt.status!==1)return json(409,{ok:false,error:"Safe execution receipt status is not confirmed"});
+ const {error:claimSubmitError}=await sb.rpc("w3m_mark_safe_release_submitted",{
+  p_deal_id:dealId,p_safe_tx_hash:String(tx.safe_tx_hash),p_safe_nonce:Number(tx.safe_nonce),p_transaction_hash:txHash
+ });
+ if(claimSubmitError)return json(500,{ok:false,error:"Could not persist the mined Safe transaction against its active release claim"});
  let executionMatched=false,executionFailure=false;
  for(const log of receipt.logs){if(norm(log.address)!==norm(safeAddress))continue;try{const p=SAFE.parseLog({topics:[...log.topics],data:log.data});if(!p)continue;const h=String(p.args[0]).toLowerCase();if(p.name==="ExecutionSuccess"&&h===String(tx.safe_tx_hash).toLowerCase())executionMatched=true;if(p.name==="ExecutionFailure"&&h===String(tx.safe_tx_hash).toLowerCase())executionFailure=true}catch{}}
- if(executionFailure)return json(409,{ok:false,error:"Safe emitted ExecutionFailure for the signed transaction"});
+ if(executionFailure){
+  const {error:claimFailError}=await sb.rpc("w3m_mark_safe_release_failed",{
+   p_deal_id:dealId,p_safe_tx_hash:String(tx.safe_tx_hash),p_safe_nonce:Number(tx.safe_nonce),
+   p_transaction_hash:txHash,p_failure_code:"safe_execution_failure"
+  });
+  if(claimFailError)return json(500,{ok:false,error:"Safe ExecutionFailure is confirmed but the durable release claim could not be closed"});
+  return json(409,{ok:false,error:"Safe emitted ExecutionFailure for the signed transaction; the claim was closed after on-chain confirmation"});
+ }
  if(!executionMatched)return json(409,{ok:false,error:"Receipt does not contain Safe ExecutionSuccess for the signed transaction hash"});
  const seller=norm(policy.seller_wallet),platform=norm(policy.platform_wallet),safeAddr=norm(policy.safe_address);
  let sellerOk=false,feeOk=false;
@@ -73,6 +92,10 @@ Deno.serve(async req=>{
     const {error:projectUpdateError}=await sb.from("projects").update({status:"sold",updated_at:now}).eq("id",deal.project_id);
     if(projectUpdateError)return json(500,{ok:false,error:"Deal completed but project sold-status update failed"});
   }
+ const {error:claimFinalizedError}=await sb.rpc("w3m_mark_safe_release_finalized",{
+  p_deal_id:dealId,p_safe_tx_hash:String(tx.safe_tx_hash),p_safe_nonce:Number(tx.safe_nonce),p_transaction_hash:txHash
+ });
+ if(claimFinalizedError)return json(500,{ok:false,error:"Deal settlement is recorded but the durable Safe release claim could not be finalized; keep the dispute hold active"});
  await sb.from("deal_audit_logs").insert({deal_id:dealId,actor_id:u.user.id,action:"safe_release_confirmed",metadata:{tx_hash:txHash,safe_tx_hash:String(tx.safe_tx_hash),safe_nonce:Number(tx.safe_nonce),seller_amount:String(policy.seller_net_amount),platform_fee:String(policy.fee_amount)}});
  return json(200,{ok:true,completed:true,release_tx_hash:txHash,safe_tx_hash:String(tx.safe_tx_hash),safe_nonce:Number(tx.safe_nonce),seller_amount:String(policy.seller_net_amount),platform_fee:String(policy.fee_amount),deal:finalDeal,transaction:updated});
 });
