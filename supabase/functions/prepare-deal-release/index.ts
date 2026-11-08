@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getW3MDealProtocolTrack } from "../_shared/w3m-deal-protocol-track.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { assertW3MFinalizationReady, W3MFinalizationGateError } from "../_shared/w3m-v1-finalization-gate.ts";
+import { getW3MCanonicalSettlement, assertW3MSettlementPolicyMatches, W3MSettlementEvidenceError } from "../_shared/w3m-v1-settlement-evidence.ts";
 const cors={"Access-Control-Allow-Origin":"https://web3market.xyz","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{...cors,"Content-Type":"application/json"}});
 const PW="0x2B15cC63eE3b833F502C065767695Fa2B584f8c9",CHAIN=56;
@@ -53,11 +54,37 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response(null,{stat
  if(!bw||!sw||!pw||!safe||!token||b.data?.wallet_verified!==true||s.data?.wallet_verified!==true)return json({error:"Verified buyer and seller wallets are required"},409);
  if(new Set([bw,sw,pw]).size!==3)return json({error:"Safe owner wallets must be distinct"},409);
  const sv=await safeCheck(Deno.env.get("BSC_RPC_URL")||"https://bsc-dataseed.binance.org",safe,[bw,sw,pw]);
- const v=await db.rpc("validate_deal_release_policy",{p_deal_id:dealId});if(v.error)return json({error:v.error.message},409);if(!v.data?.valid)return json({error:"Release policy validation failed",details:v.data},409);
+ let v: any;
+ let canonicalSettlement: Awaited<ReturnType<typeof getW3MCanonicalSettlement>> | null = null;
+ if (protocolTrack === "v1") {
+  try {
+   canonicalSettlement = await getW3MCanonicalSettlement(db, dealId);
+   if (token.toLowerCase() !== "0x55d398326f99059ff775485246999027b3197955") {
+    return json({error:"V1 Safe token must match the configured BNB USDT contract"},409);
+   }
+   v = { data: {
+    valid: true,
+    deal_amount: canonicalSettlement.considerationAmount,
+    fee_percent: canonicalSettlement.feePercent,
+    fee_amount: canonicalSettlement.feeAmount,
+    seller_net_amount: canonicalSettlement.sellerNetAmount,
+   }, error: null };
+  } catch (error) {
+   return json({error:"Canonical W3M V1 settlement evidence is unavailable or invalid",code:"W3M_SETTLEMENT_EVIDENCE_INVALID",detail:error instanceof Error?error.message:String(error)},409);
+  }
+ } else {
+  v = await db.rpc("validate_deal_release_policy",{p_deal_id:dealId});
+  if(v.error)return json({error:v.error.message},409);
+  if(!v.data?.valid)return json({error:"Release policy validation failed",details:v.data},409);
+ }
  const ex=await db.from("deal_multisig_transactions").select("*").eq("deal_id",d.id).eq("action","release_to_seller").maybeSingle();if(ex.error)return json({error:"Release transaction lookup failed: "+ex.error.message},409);
  if(ex.data&&(Boolean(ex.data.safe_tx_hash)||Boolean(ex.data.tx_hash)||["signed","submitted","confirmed"].includes(String(ex.data.status)))){
    const existingPolicy=await db.from("deal_release_policies").select("*").eq("deal_id",d.id).maybeSingle();
    if(existingPolicy.error||!existingPolicy.data)return json({error:"Existing release transaction is present but its release policy is missing; no transaction state was changed"},409);
+   if (canonicalSettlement) {
+    try { assertW3MSettlementPolicyMatches(canonicalSettlement, existingPolicy.data); }
+    catch (error) { return json({error:"Existing Safe release policy does not match the signed W3M V1 terms",code:"W3M_SETTLEMENT_POLICY_MISMATCH",detail:error instanceof Error?error.message:String(error)},409); }
+   }
    return json({ok:true,release_ready:true,already_prepared:true,policy:existingPolicy.data,safe_verification:{chain_id:CHAIN,address:safe,owners:sv.owners,threshold:sv.threshold,nonce:sv.nonce},multisig_transaction:ex.data,note:"Existing release transaction and signatures preserved. No funds moved."});
  }
  const now=new Date().toISOString(), policyPayload={deal_id:d.id,deal_amount:String(v.data.deal_amount),fee_percent:Number(v.data.fee_percent),fee_amount:String(v.data.fee_amount),seller_net_amount:String(v.data.seller_net_amount),seller_wallet:sw,platform_wallet:pw,safe_address:safe,token_contract:token,token_symbol:d.token_symbol||d.currency||"TOKEN",chain_id:CHAIN,safe_nonce:sv.nonce,status:"locked",locked_at:now,updated_at:now};
