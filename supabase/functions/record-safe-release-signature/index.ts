@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { getW3MDealProtocolTrack } from "../_shared/w3m-deal-protocol-track.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { ethers } from "npm:ethers@6.15.0";
 import { assertW3MFinalizationReady, W3MFinalizationGateError } from "../_shared/w3m-v1-finalization-gate.ts";
@@ -30,13 +31,21 @@ Deno.serve(async(req)=>{
  if(!/^[0-9a-f-]{36}$/i.test(dealId)||!/^0x[0-9a-fA-F]{130}$/.test(signature))return json(400,{ok:false,error:"Invalid request"});
  const {data:deal}=await sb.from("deals").select("*").eq("id",dealId).maybeSingle(); if(!deal)return json(404,{ok:false,error:"Deal not found"});
  if(deal.buyer_id!==u.user.id&&deal.seller_id!==u.user.id)return json(403,{ok:false,error:"Not a participant"});
+ let protocolTrack: "legacy" | "v1";
  try {
-  await assertW3MFinalizationReady(sb, dealId);
+  protocolTrack = await getW3MDealProtocolTrack(sb, dealId);
+ } catch {
+  return json(503,{ok:false,error:"Deal protocol classification is unavailable"});
+ }
+ if (protocolTrack === "v1") {
+  try {
+   await assertW3MFinalizationReady(sb, dealId);
+  } catch (error) {
+   return json(409,{ok:false,error:"W3M V1 buyer and seller agreement acceptance is required before recording Safe signatures",code:error instanceof W3MFinalizationGateError?error.code:"W3M_FINALIZATION_EVIDENCE_UNAVAILABLE"});
+  }
+ }
  const disputeState=await checkDisputeState(sb,deal,dealId);
  if(disputeState!=="clear")return json(409,{ok:false,error:disputeState==="open"?"Release signatures are blocked while a dispute is open":"Unable to verify dispute status; signature recording blocked",code:disputeState==="open"?"DEAL_DISPUTE_OPEN":"DISPUTE_STATUS_UNAVAILABLE"});
- } catch (error) {
-  return json(409,{ok:false,error:"W3M V1 buyer and seller agreement acceptance is required before recording Safe signatures",code:error instanceof W3MFinalizationGateError?error.code:"W3M_FINALIZATION_EVIDENCE_UNAVAILABLE"});
- }
  if(!["funded","in_progress"].includes(String(deal.status||"")))return json(409,{ok:false,error:"Deal is not in a releasable funded state"});
  if(String(deal.delivery_status||"").toLowerCase()!=="accepted"||!deal.buyer_approved_at)return json(409,{ok:false,error:"Delivery is not accepted"});
  if(String(deal.payment_status||"").toLowerCase()!=="confirmed"||!deal.payment_tx_hash)return json(409,{ok:false,error:"Buyer payment is not confirmed"});
