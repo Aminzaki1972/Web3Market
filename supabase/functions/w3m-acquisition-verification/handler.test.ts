@@ -147,11 +147,18 @@ Deno.test("status action exposes only participant-scoped current terms and accep
       terms_hash: statusTermsHash, canonical_terms_json: canonicalTerms,
       status: "published", published_at: "2026-11-07T00:00:00Z",
     },
-    acceptances: [{
-      party_role: "buyer", user_id: USER_ID, terms_version: 2,
-      terms_hash: statusTermsHash, accepted_at: "2026-11-07T01:00:00Z",
-      signature: "0x" + "f".repeat(130), nonce: "private-nonce",
-    }],
+    acceptances: [
+      {
+        party_role: "buyer", user_id: USER_ID, terms_version: 1,
+        terms_hash: "a".repeat(64), accepted_at: "2026-11-06T01:00:00Z",
+        signature: "0x" + "e".repeat(130), nonce: "stale-private-nonce",
+      },
+      {
+        party_role: "buyer", user_id: USER_ID, terms_version: 2,
+        terms_hash: statusTermsHash, accepted_at: "2026-11-07T01:00:00Z",
+        signature: "0x" + "f".repeat(130), nonce: "private-nonce",
+      },
+    ],
   };
   const { deps } = makeDeps(async (name) => {
     if (name === "w3m_get_deal_agreement_context") return { data: agreementContext, error: null };
