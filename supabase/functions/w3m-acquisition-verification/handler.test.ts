@@ -657,3 +657,70 @@ Deno.test("publish_terms rejects terms whose deal parties do not match the trust
   if (response.status !== 409) throw new Error("Mismatched deal party should be rejected");
   if (calls.length !== 0) throw new Error("Mismatched terms reached the publication RPC");
 });
+
+
+Deno.test("asset_transition authenticates the user and calls the restricted per-asset RPC", async () => {
+  const assetId = "7a000000-0000-4000-8000-00000000000a";
+  const sellerId = "76000000-0000-4000-8000-000000000006";
+  const { deps, calls } = makeDeps(async (name, args) => {
+    if (name !== "w3m_transition_deal_asset_v1" ||
+        args.p_actor_user_id !== sellerId || args.p_deal_id !== DEAL_ID ||
+        args.p_asset_id !== assetId || args.p_action !== "deliver" ||
+        args.p_delivery_url !== "https://example.invalid/repo" ||
+        args.p_evidence !== "synthetic delivery evidence") {
+      throw new Error("Asset transition RPC was not bound to authenticated seller input");
+    }
+    return { data: { asset_id: assetId, status: "delivered", attempt_number: 1 }, error: null };
+  }, { userId: sellerId });
+  const handler = createW3MAcquisitionHandler(deps);
+  const response = await handler(makeRequest({
+    action: "asset_transition", asset_action: "deliver", deal_id: DEAL_ID,
+    asset_id: assetId, delivery_url: "https://example.invalid/repo",
+    evidence: "synthetic delivery evidence",
+  }));
+  const body = await response.json();
+  if (response.status !== 200 || body.ok !== true ||
+      body.result?.asset_id !== assetId || body.result?.status !== "delivered" ||
+      calls.length !== 1) {
+    throw new Error("Authenticated per-asset delivery was not confirmed");
+  }
+});
+
+Deno.test("asset_transition rejects malformed delivery evidence before persistence", async () => {
+  const { deps, calls } = makeDeps(async () => ({ data: null, error: null }));
+  const handler = createW3MAcquisitionHandler(deps);
+  const response = await handler(makeRequest({
+    action: "asset_transition", asset_action: "deliver", deal_id: DEAL_ID,
+    asset_id: "7a000000-0000-4000-8000-00000000000a",
+    delivery_url: "http://insecure.invalid/repo", evidence: "test",
+  }));
+  if (response.status !== 400 || calls.length !== 0) {
+    throw new Error("Non-HTTPS delivery reference must be rejected before persistence");
+  }
+});
+
+Deno.test("asset_transition rejects buyer-supplied delivery fields", async () => {
+  const { deps, calls } = makeDeps(async () => ({ data: null, error: null }));
+  const handler = createW3MAcquisitionHandler(deps);
+  const response = await handler(makeRequest({
+    action: "asset_transition", asset_action: "accept", deal_id: DEAL_ID,
+    asset_id: "7a000000-0000-4000-8000-00000000000a",
+    delivery_url: "https://example.invalid/repo",
+  }));
+  if (response.status !== 400 || calls.length !== 0) {
+    throw new Error("Buyer response must not carry or modify seller delivery evidence");
+  }
+});
+
+Deno.test("asset_transition rejects a mismatched RPC result", async () => {
+  const { deps } = makeDeps(async () => ({
+    data: { asset_id: DEAL_ID, status: "accepted", attempt_number: 1 }, error: null,
+  }), { userId: USER_ID });
+  const handler = createW3MAcquisitionHandler(deps);
+  const response = await handler(makeRequest({
+    action: "asset_transition", asset_action: "deliver", deal_id: DEAL_ID,
+    asset_id: "7a000000-0000-4000-8000-00000000000a",
+    delivery_url: "https://example.invalid/repo", evidence: "test evidence",
+  }));
+  if (response.status !== 503) throw new Error("Mismatched RPC result must fail closed");
+});
