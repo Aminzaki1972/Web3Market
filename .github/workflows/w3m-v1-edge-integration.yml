@@ -7,6 +7,7 @@ on:
       - "supabase/functions/w3m-acquisition-verification/**"
       - "supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql"
       - "supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql"
+      - "supabase/migrations/20261108150000_w3m_v1_final_delivery_confirmation.sql"
       - "tests/w3m-v1-edge-integration/**"
       - ".github/workflows/w3m-v1-edge-integration.yml"
 
@@ -51,6 +52,7 @@ jobs:
           psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f tests/w3m-v1-edge-integration/schema.sql
           psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql
           psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql
+          psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261108150000_w3m_v1_final_delivery_confirmation.sql
           psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -c "NOTIFY pgrst, 'reload schema';"
           sleep 2
 
