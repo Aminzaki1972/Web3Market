@@ -163,7 +163,6 @@ Deno.test("status client requests the authenticated participant view and validat
             }],
           }],
           both_accepted: false, deal_eligible: true,
-      final_delivery_confirmation: { confirmed: false, stale: false },
           final_delivery_confirmation: { confirmed: false, stale: false },
         },
       };
@@ -186,6 +185,7 @@ Deno.test("status client rejects cross-deal and malformed acceptance responses",
       current_terms: null,
       acceptances: { buyer: { accepted: false }, seller: { accepted: false } },
       both_accepted: false, deal_eligible: true,
+      final_delivery_confirmation: { confirmed: false, stale: false },
     } }),
   }));
   await assertRejects(() => getW3MDealAgreementStatus({
@@ -194,6 +194,7 @@ Deno.test("status client rejects cross-deal and malformed acceptance responses",
       deal_id: dealId, current_terms: null,
       acceptances: { buyer: { accepted: "yes" }, seller: { accepted: false } },
       both_accepted: false, deal_eligible: true,
+      final_delivery_confirmation: { confirmed: false, stale: false },
     } }),
   }));
 });
