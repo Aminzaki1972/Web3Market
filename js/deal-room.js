@@ -323,7 +323,21 @@
   const mine=rows.find(x=>x.party_role===participant&&String(x.party_id)===String(user.id)),buyer=rows.find(x=>x.party_role==='buyer')?.agreed_at,seller=rows.find(x=>x.party_role==='seller')?.agreed_at;
   actions.innerHTML=`<div class="notice"><strong>Dispute Resolution — Model B</strong><br>Buyer and Seller agree that Web3Market acts as the dispute resolution party. Funds are held by the 2-of-3 Safe, not by Web3Market. ${buyer?'Buyer ✓':'Buyer pending'} · ${seller?'Seller ✓':'Seller pending'}</div>${participant==='platform'?'<div class="notice ok">Platform moderator view — monitoring and dispute resolution only.</div>':''}<button id="agreeBtn" class="btn primary" ${participant==='platform'||mine?.agreed_at?'disabled':''}>${mine?.agreed_at?'Terms Accepted':'I Agree to Deal Terms'}</button><button id="disputeBtn" class="btn" style="background:#fff7ed;color:#9a3412">Open Dispute</button>`;
   const agreeBtn=document.querySelector('#agreeBtn');
-  if(agreeBtn&&!mine?.agreed_at&&participant!=='platform')agreeBtn.onclick=async()=>{agreeBtn.disabled=true;const {error}=await sb.from('deal_party_agreements').upsert({deal_id:deal.id,party_role:participant,party_id:user.id,agreed_at:new Date().toISOString()},{onConflict:'deal_id,party_role'});if(error){alert(error.message||'Could not save agreement');agreeBtn.disabled=false;return}await renderTerms()};
+  if(agreeBtn&&!mine?.agreed_at&&participant!=='platform')agreeBtn.onclick=async()=>{
+   agreeBtn.disabled=true;
+   const {error}=await sb.from('deal_party_agreements').insert({
+    deal_id:deal.id,party_role:participant,party_id:user.id,agreed_at:new Date().toISOString()
+   });
+   if(error){
+    if(error.code==='23505'){
+     const refreshed=await loadAgreement();
+     const existing=refreshed.find(x=>x.party_role===participant&&String(x.party_id)===String(user.id));
+     if(existing?.agreed_at){await renderTerms();return;}
+    }
+    alert(error.message||'Could not save agreement');agreeBtn.disabled=false;return;
+   }
+   await renderTerms();
+  };
   const db=document.querySelector('#disputeBtn');
   if(db)db.onclick=()=>openDisputeModal();
  }
