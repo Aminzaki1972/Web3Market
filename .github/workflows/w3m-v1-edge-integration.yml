@@ -90,6 +90,22 @@ jobs:
           psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261108150000_w3m_v1_final_delivery_confirmation.sql
           psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -c "NOTIFY pgrst, 'reload schema';"
           sleep 2
+          psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          do $w3m_privileges$
+          begin
+            if not has_function_privilege('service_role',
+              'public.w3m_get_current_deal_settlement_terms(uuid)', 'EXECUTE') then
+              raise exception 'service_role_must_read_current_signed_settlement_terms';
+            end if;
+            if has_function_privilege('anon',
+              'public.w3m_get_current_deal_settlement_terms(uuid)', 'EXECUTE')
+              or has_function_privilege('authenticated',
+              'public.w3m_get_current_deal_settlement_terms(uuid)', 'EXECUTE') then
+              raise exception 'client_roles_must_not_read_private_settlement_terms_rpc';
+            end if;
+          end;
+          $w3m_privileges$;
+          SQL
 
       - name: Set up Deno
         uses: denoland/setup-deno@v2
@@ -117,8 +133,10 @@ jobs:
           echo "W3M Edge Function did not become ready"
           exit 1
 
-      - name: Test canonical signed settlement evidence guards
-        run: deno test --allow-env supabase/functions/_shared/w3m-v1-settlement-evidence.test.ts
+      - name: Test canonical signed settlement evidence and Safe gate guards
+        run: |
+          deno test --allow-env supabase/functions/_shared/w3m-v1-settlement-evidence.test.ts
+          deno test --allow-read supabase/functions/_shared/w3m-v1-safe-gate-source.test.ts
 
       - name: Exercise real Auth, PostgREST, RPC and Edge Function paths
         run: deno run --allow-net --allow-env tests/w3m-v1-edge-integration/run.ts
