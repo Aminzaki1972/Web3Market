@@ -342,6 +342,48 @@ try {
     finalStatus.payload.result?.final_delivery_confirmation?.asset_count === 1,
     "Final agreement, asset state, and buyer confirmation did not survive the real Edge Function/PostgREST round trip.");
 
+  // A later seller redelivery must invalidate the previous buyer confirmation.
+  // The buyer must accept the new delivery attempt and confirm the new asset set.
+  const redelivery = await call(seller, {
+    action: "asset_transition",
+    deal_id: dealId,
+    asset_id: asset.asset_id,
+    asset_action: "deliver",
+    delivery_url: "https://example.invalid/synthetic-repository-redelivery",
+    evidence: "Synthetic redelivery evidence only; no credentials or private keys.",
+  });
+  assert(redelivery.status === 200 && redelivery.payload.result?.status === "delivered",
+    "Seller redelivery after acceptance failed: " + JSON.stringify(redelivery.payload));
+
+  const staleConfirmationStatus = await call(buyer, { action: "status", deal_id: dealId });
+  assert(staleConfirmationStatus.status === 200 &&
+    staleConfirmationStatus.payload.result?.final_delivery_confirmation?.confirmed === false &&
+    staleConfirmationStatus.payload.result?.final_delivery_confirmation?.stale === true,
+    "A new delivery attempt did not invalidate the previous buyer final confirmation.");
+
+  const redeliveryAcceptance = await call(buyer, {
+    action: "asset_transition",
+    deal_id: dealId,
+    asset_id: asset.asset_id,
+    asset_action: "accept",
+  });
+  assert(redeliveryAcceptance.status === 200 && redeliveryAcceptance.payload.result?.status === "accepted",
+    "Buyer acceptance of the redelivered asset failed: " + JSON.stringify(redeliveryAcceptance.payload));
+
+  const reconfirmation = await call(buyer, {
+    action: "confirm_delivery",
+    deal_id: dealId,
+  });
+  assert(reconfirmation.status === 200 && reconfirmation.payload.result?.created === true &&
+    reconfirmation.payload.result?.confirmation_id !== finalConfirmation.payload.result?.confirmation_id,
+    "Buyer was not required to create a new final confirmation after redelivery.");
+
+  const reconfirmedStatus = await call(buyer, { action: "status", deal_id: dealId });
+  assert(reconfirmedStatus.status === 200 &&
+    reconfirmedStatus.payload.result?.final_delivery_confirmation?.confirmed === true &&
+    reconfirmedStatus.payload.result?.final_delivery_confirmation?.stale === false,
+    "The new buyer confirmation did not bind to the latest accepted delivery evidence.");
+
   const serialized = JSON.stringify(finalStatus.payload);
   assert(!serialized.includes(buyerAcceptance.signature) &&
     !serialized.includes(sellerAcceptance.signature) &&
