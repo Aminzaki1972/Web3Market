@@ -265,7 +265,8 @@ begin
     where c.deal_id=p_deal_id and lower(c.safe_tx_hash)=lower(p_safe_tx_hash)
       and c.safe_nonce=p_safe_nonce for update;
   if not found then raise exception 'safe_release_claim_not_found' using errcode = 'P0002'; end if;
-  if v_claim.status = 'submitted' and lower(v_claim.transaction_hash)=lower(p_transaction_hash) then
+  if v_claim.status in ('submitted','finalized','failed')
+    and lower(coalesce(v_claim.transaction_hash,''))=lower(p_transaction_hash) then
     return v_claim.status;
   end if;
   if v_claim.status <> 'claimed' then
