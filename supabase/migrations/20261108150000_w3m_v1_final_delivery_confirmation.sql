@@ -150,6 +150,21 @@ begin
       using errcode = '55000';
   end if;
 
+  if not exists (
+    select 1 from w3m_private.w3m_agreement_acceptances a
+    where a.deal_id = p_deal_id and a.party_role = 'buyer'
+      and a.user_id = v_deal.buyer_id
+      and a.terms_version = v_terms.terms_version and a.terms_hash = v_terms.terms_hash
+  ) or not exists (
+    select 1 from w3m_private.w3m_agreement_acceptances a
+    where a.deal_id = p_deal_id and a.party_role = 'seller'
+      and a.user_id = v_deal.seller_id
+      and a.terms_version = v_terms.terms_version and a.terms_hash = v_terms.terms_hash
+  ) then
+    raise exception 'both_parties_must_accept_current_terms_before_final_delivery_confirmation'
+      using errcode = '55000';
+  end if;
+
   select * into v_asset_set
   from w3m_private.w3m_current_accepted_asset_set(p_deal_id, v_deal.buyer_id);
 
