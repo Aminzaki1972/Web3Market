@@ -273,6 +273,21 @@ jobs:
             exception when sqlstate '22023' then null;
             end;
 
+            v_bad_terms := v_terms - 'safe_settlement';
+            begin
+              perform public.w3m_publish_acquisition_terms_version(v_deal,1,v_terms_hash,v_bad_terms);
+              raise exception 'expected_missing_safe_settlement_rejection';
+            exception when sqlstate '22023' then null;
+            end;
+
+            v_bad_terms := jsonb_set(v_terms,'{escrow}',
+              jsonb_build_object('funding_condition','legacy','release_condition','legacy','dispute_hold',true),true);
+            begin
+              perform public.w3m_publish_acquisition_terms_version(v_deal,1,v_terms_hash,v_bad_terms);
+              raise exception 'expected_legacy_escrow_field_rejection';
+            exception when sqlstate '22023' then null;
+            end;
+
             v_bad_terms := jsonb_set(v_terms,'{deal,project_id}',
               to_jsonb('72000000-0000-4000-8000-000000000099'::text));
             begin
