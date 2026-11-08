@@ -11,6 +11,8 @@ declare
   v_rls boolean;
   v_force_rls boolean;
 begin
+  perform set_config('request.jwt.claims','{"role":"service_role"}',true);
+
   -- The row inserted before the migration must be classified as legacy.
   select public.w3m_get_deal_protocol_track(v_backfilled)
     into v_result;
