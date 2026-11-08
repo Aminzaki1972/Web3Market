@@ -3,6 +3,7 @@ import { getW3MDealProtocolTrack } from "../_shared/w3m-deal-protocol-track.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { ethers } from "npm:ethers@6.15.0";
 import { assertW3MFinalizationReady, W3MFinalizationGateError } from "../_shared/w3m-v1-finalization-gate.ts";
+import { getW3MCanonicalSettlement, assertW3MSettlementPolicyMatches } from "../_shared/w3m-v1-settlement-evidence.ts";
 
 const RPC_URL = "https://bsc-rpc.publicnode.com";
 const CHAIN_ID = 56;
@@ -93,6 +94,14 @@ Deno.serve(async (req)=>{
     stage="policy_lookup";
     const {data:policy,error:policyError}=await supabase.from("deal_release_policies").select("*").eq("deal_id",dealId).maybeSingle();
     if(policyError||!policy) return json(409,{ok:false,error:"Release policy not found"});
+    if (protocolTrack === "v1") {
+      try {
+        const settlement = await getW3MCanonicalSettlement(supabase, dealId);
+        assertW3MSettlementPolicyMatches(settlement, policy);
+      } catch (error) {
+        return json(409,{ok:false,error:"Locked release policy does not match the signed W3M V1 settlement",code:"W3M_SETTLEMENT_POLICY_MISMATCH",detail:error instanceof Error?error.message:String(error)});
+      }
+    }
     if(String(policy.status||"").toLowerCase()!=="locked") return json(409,{ok:false,error:"Release policy is not locked"});
     if(String(deal.delivery_status||"").toLowerCase()!=="accepted" || !deal.buyer_approved_at) return json(409,{ok:false,error:"Delivery is not accepted"});
     if(String(deal.payment_status||"").toLowerCase()!=="confirmed" || !deal.payment_tx_hash) return json(409,{ok:false,error:"Payment is not confirmed"});
