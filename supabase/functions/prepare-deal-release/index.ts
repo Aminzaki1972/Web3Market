@@ -7,7 +7,7 @@ const PW="0x2B15cC63eE3b833F502C065767695Fa2B584f8c9",CHAIN=56;
 const SEL={owners:"0xa0e67e2b",threshold:"0xe75235b8",nonce:"0xaffed0e0"};
 const addr=(v:unknown)=>{const s=String(v||"").toLowerCase();return /^0x[0-9a-f]{40}$/.test(s)?s:""};
 const uint=(h:string)=>BigInt("0x"+h.slice(-64));
-const TERMINAL_DISPUTE_STATES = new Set(["none", "resolved", "closed", "dismissed", "rejected", "cancelled", "canceled", "withdrawn"]);
+const TERMINAL_DISPUTE_STATES = new Set(["none", "resolved", "resolved_buyer", "resolved_seller", "closed", "dismissed", "rejected", "cancelled", "canceled", "withdrawn"]);
 async function checkDisputeState(db: any, deal: any, dealId: string): Promise<"clear" | "open" | "unknown"> {
   const state = String(deal?.dispute_status ?? "").trim().toLowerCase();
   if (!state) return "unknown";
