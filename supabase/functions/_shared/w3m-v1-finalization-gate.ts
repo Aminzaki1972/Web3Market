@@ -78,9 +78,10 @@ function rawHash(value: string): string {
   return value.replace(/^0x/i, "").toLowerCase();
 }
 
-export async function assertW3MFinalizationReady(
+async function assertW3MFinalizationReadyInternal(
   admin: W3MFinalizationGateClient,
   dealId: string,
+  requireAssets: boolean,
 ): Promise<W3MFinalizationEvidence> {
   if (!UUID.test(dealId)) {
     throw new W3MFinalizationGateError("W3M_FINALIZATION_EVIDENCE_UNAVAILABLE", "Deal ID is invalid.");
@@ -173,67 +174,71 @@ export async function assertW3MFinalizationReady(
     );
   }
 
-  const assetEvidence = await admin.rpc("w3m_get_deal_asset_finalization_evidence", {
-    p_deal_id: dealId,
-  });
-  if (assetEvidence.error || !Array.isArray(assetEvidence.data) || assetEvidence.data.length !== 1) {
-    throw new W3MFinalizationGateError(
-      "W3M_FINALIZATION_EVIDENCE_UNAVAILABLE",
-      "Per-asset delivery evidence could not be loaded.",
-    );
-  }
-  const assetRow = assetEvidence.data[0] as Record<string, unknown>;
-  if (requiredUuid(assetRow.deal_id, "Asset evidence deal ID") !== deal ||
-      requiredUuid(assetRow.buyer_id, "Asset evidence buyer ID") !== buyer ||
-      !Array.isArray(assetRow.asset_rows) || assetRow.asset_rows.length === 0) {
-    throw new W3MFinalizationGateError(
-      "W3M_FINALIZATION_EVIDENCE_UNAVAILABLE",
-      "The deal has no verifiable asset delivery records.",
-    );
-  }
-
-  const seenAssetIds = new Set<string>();
-  const seenAssetNames = new Set<string>();
-  for (const rawAsset of assetRow.asset_rows) {
-    if (!rawAsset || typeof rawAsset !== "object" || Array.isArray(rawAsset)) {
+  let assetCount = 0;
+  if (requireAssets) {
+    const assetEvidence = await admin.rpc("w3m_get_deal_asset_finalization_evidence", {
+      p_deal_id: dealId,
+    });
+    if (assetEvidence.error || !Array.isArray(assetEvidence.data) || assetEvidence.data.length !== 1) {
       throw new W3MFinalizationGateError(
         "W3M_FINALIZATION_EVIDENCE_UNAVAILABLE",
-        "A per-asset delivery record is malformed.",
+        "Per-asset delivery evidence could not be loaded.",
       );
     }
-    const asset = rawAsset as Record<string, unknown>;
-    const assetId = requiredUuid(asset.asset_id, "Asset ID");
-    const assetName = requiredString(asset.asset_name, "Asset name").trim().toLowerCase();
-    if (seenAssetIds.has(assetId) || seenAssetNames.has(assetName) || assetName.length === 0 ||
-        asset.status !== "accepted" ||
-        requiredUuid(asset.accepted_by, "Asset accepting buyer") !== buyer ||
-        typeof asset.accepted_at !== "string" || !Number.isFinite(Date.parse(asset.accepted_at)) ||
-        !Array.isArray(asset.events) || asset.events.length < 2) {
+    const assetRow = assetEvidence.data[0] as Record<string, unknown>;
+    if (requiredUuid(assetRow.deal_id, "Asset evidence deal ID") !== deal ||
+        requiredUuid(assetRow.buyer_id, "Asset evidence buyer ID") !== buyer ||
+        !Array.isArray(assetRow.asset_rows) || assetRow.asset_rows.length === 0) {
       throw new W3MFinalizationGateError(
         "W3M_FINALIZATION_EVIDENCE_UNAVAILABLE",
-        "Every distinct deal asset must be accepted by the buyer after a recorded delivery.",
+        "The deal has no verifiable asset delivery records.",
       );
     }
-    seenAssetIds.add(assetId);
-    seenAssetNames.add(assetName);
-
-    const events = asset.events as unknown[];
-    const last = events[events.length - 1] as Record<string, unknown>;
-    const previous = events[events.length - 2] as Record<string, unknown>;
-    if (!last || !previous || last.event_type !== "accepted" ||
-        previous.event_type !== "delivered" ||
-        requiredUuid(last.actor_user_id, "Asset acceptance actor") !== buyer ||
-        typeof last.evidence_digest !== "string" || !/^[0-9a-f]{64}$/i.test(last.evidence_digest) ||
-        typeof previous.evidence_digest !== "string" || !/^[0-9a-f]{64}$/i.test(previous.evidence_digest) ||
-        last.evidence_digest.toLowerCase() !== previous.evidence_digest.toLowerCase() ||
-        last.attempt_number !== previous.attempt_number ||
-        typeof last.occurred_at !== "string" || typeof previous.occurred_at !== "string" ||
-        Date.parse(last.occurred_at) < Date.parse(previous.occurred_at)) {
-      throw new W3MFinalizationGateError(
-        "W3M_FINALIZATION_EVIDENCE_UNAVAILABLE",
-        "The latest event for each asset must be a buyer acceptance of its latest delivery attempt.",
-      );
+  
+    const seenAssetIds = new Set<string>();
+    const seenAssetNames = new Set<string>();
+    for (const rawAsset of assetRow.asset_rows) {
+      if (!rawAsset || typeof rawAsset !== "object" || Array.isArray(rawAsset)) {
+        throw new W3MFinalizationGateError(
+          "W3M_FINALIZATION_EVIDENCE_UNAVAILABLE",
+          "A per-asset delivery record is malformed.",
+        );
+      }
+      const asset = rawAsset as Record<string, unknown>;
+      const assetId = requiredUuid(asset.asset_id, "Asset ID");
+      const assetName = requiredString(asset.asset_name, "Asset name").trim().toLowerCase();
+      if (seenAssetIds.has(assetId) || seenAssetNames.has(assetName) || assetName.length === 0 ||
+          asset.status !== "accepted" ||
+          requiredUuid(asset.accepted_by, "Asset accepting buyer") !== buyer ||
+          typeof asset.accepted_at !== "string" || !Number.isFinite(Date.parse(asset.accepted_at)) ||
+          !Array.isArray(asset.events) || asset.events.length < 2) {
+        throw new W3MFinalizationGateError(
+          "W3M_FINALIZATION_EVIDENCE_UNAVAILABLE",
+          "Every distinct deal asset must be accepted by the buyer after a recorded delivery.",
+        );
+      }
+      seenAssetIds.add(assetId);
+      seenAssetNames.add(assetName);
+  
+      const events = asset.events as unknown[];
+      const last = events[events.length - 1] as Record<string, unknown>;
+      const previous = events[events.length - 2] as Record<string, unknown>;
+      if (!last || !previous || last.event_type !== "accepted" ||
+          previous.event_type !== "delivered" ||
+          requiredUuid(last.actor_user_id, "Asset acceptance actor") !== buyer ||
+          typeof last.evidence_digest !== "string" || !/^[0-9a-f]{64}$/i.test(last.evidence_digest) ||
+          typeof previous.evidence_digest !== "string" || !/^[0-9a-f]{64}$/i.test(previous.evidence_digest) ||
+          last.evidence_digest.toLowerCase() !== previous.evidence_digest.toLowerCase() ||
+          last.attempt_number !== previous.attempt_number ||
+          typeof last.occurred_at !== "string" || typeof previous.occurred_at !== "string" ||
+          Date.parse(last.occurred_at) < Date.parse(previous.occurred_at)) {
+        throw new W3MFinalizationGateError(
+          "W3M_FINALIZATION_EVIDENCE_UNAVAILABLE",
+          "The latest event for each asset must be a buyer acceptance of its latest delivery attempt.",
+        );
+      }
     }
+    assetCount = seenAssetIds.size;
   }
 
   return {
@@ -252,6 +257,22 @@ export async function assertW3MFinalizationReady(
     termsHash,
     termsVersion,
     acceptanceCount: acceptanceRows.length,
-    assetCount: seenAssetIds.size,
+    assetCount,
   };
+}
+
+export async function assertW3MAgreementReady(
+  admin: W3MFinalizationGateClient,
+  dealId: string,
+): Promise<Omit<W3MFinalizationEvidence, "assetCount">> {
+  const evidence = await assertW3MFinalizationReadyInternal(admin, dealId, false);
+  const { assetCount: _assetCount, ...agreement } = evidence;
+  return agreement;
+}
+
+export async function assertW3MFinalizationReady(
+  admin: W3MFinalizationGateClient,
+  dealId: string,
+): Promise<W3MFinalizationEvidence> {
+  return assertW3MFinalizationReadyInternal(admin, dealId, true);
 }
