@@ -3,6 +3,7 @@ import { getW3MDealProtocolTrack } from "../_shared/w3m-deal-protocol-track.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { ethers } from "npm:ethers@6.15.0";
 import { assertW3MFinalizationReady, W3MFinalizationGateError } from "../_shared/w3m-v1-finalization-gate.ts";
+import { getW3MCanonicalSettlement, assertW3MSettlementPolicyMatches } from "../_shared/w3m-v1-settlement-evidence.ts";
 const CHAIN_ID=56;
 const USDT="0x55d398326f99059ff775485246999027b3197955";
 const cors={"Access-Control-Allow-Origin":"https://web3market.xyz","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
@@ -49,7 +50,17 @@ Deno.serve(async(req)=>{
  if(!["funded","in_progress"].includes(String(deal.status||"")))return json(409,{ok:false,error:"Deal is not in a releasable funded state"});
  if(String(deal.delivery_status||"").toLowerCase()!=="accepted"||!deal.buyer_approved_at)return json(409,{ok:false,error:"Delivery is not accepted"});
  if(String(deal.payment_status||"").toLowerCase()!=="confirmed"||!deal.payment_tx_hash)return json(409,{ok:false,error:"Buyer payment is not confirmed"});
- const {data:policy,error:policyError}=await sb.from("deal_release_policies").select("status,safe_address,token_contract,chain_id").eq("deal_id",dealId).maybeSingle();
+ const {data:policy,error:policyError}=await sb.from("deal_release_policies").select("*").eq("deal_id",dealId).maybeSingle();
+ if (protocolTrack === "v1") {
+  try {
+   const {data:fullPolicy,error:fullPolicyError}=await sb.from("deal_release_policies").select("*").eq("deal_id",dealId).maybeSingle();
+   if (fullPolicyError || !fullPolicy) throw new Error("Locked release policy could not be loaded.");
+   const settlement = await getW3MCanonicalSettlement(sb, dealId);
+   assertW3MSettlementPolicyMatches(settlement, fullPolicy);
+  } catch (error) {
+   return json(409,{ok:false,error:"Locked release policy does not match the signed W3M V1 settlement",code:"W3M_SETTLEMENT_POLICY_MISMATCH",detail:error instanceof Error?error.message:String(error)});
+  }
+ }
  if(policyError||!policy)return json(409,{ok:false,error:"Locked release policy is unavailable"});
  if(String(policy.status||"").toLowerCase()!=="locked"||Number(policy.chain_id)!==CHAIN_ID)return json(409,{ok:false,error:"Release policy is not locked for BNB Smart Chain"});
  if(!policy.safe_address||!deal.safe_address||ethers.getAddress(policy.safe_address).toLowerCase()!==ethers.getAddress(deal.safe_address).toLowerCase())return json(409,{ok:false,error:"Release policy Safe does not match the deal Safe"});
