@@ -156,6 +156,8 @@ Deno.test("every release preparation and execution path requires a funded deal l
   const assetMigration = await Deno.readTextFile("supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql");
   assertEquals(claimMigration.includes("not in ('funded','in_progress')"), true,
     "the first Safe claim RPC must enforce the funded deal lifecycle");
+  assertEquals(claimMigration.includes("not in ('funded','in_progress','completed')"), true,
+    "an active claim must prevent the deal from leaving the funded lifecycle before completion");
   assertEquals(assetMigration.includes("not in ('funded','in_progress')"), true,
     "the final asset-aware Safe claim RPC must preserve the funded deal lifecycle gate");
 });
