@@ -219,6 +219,68 @@ Deno.test("status action exposes only participant-scoped current terms and accep
   if (foreignResponse.status !== 403) throw new Error("Non-participant must not read agreement status");
 });
 
+Deno.test("status action returns legacy track without querying V1 terms or evidence", async () => {
+  const sellerId = "76000000-0000-4000-8000-000000000006";
+  const from = ((table: string) => ({
+    select() { return this; },
+    eq() { return this; },
+    async maybeSingle() {
+      return { data: table === "deals"
+        ? { id: DEAL_ID, buyer_id: USER_ID, seller_id: sellerId, project_id: PROJECT_ID, status: "pending", dispute_status: "none" }
+        : null, error: null };
+    },
+    order() { return this; },
+    async range() { return { data: [], error: null }; },
+  })) as NonNullable<W3MAdminClient["from"]>;
+  const { deps, calls } = makeDeps(async (name) => {
+    if (name === "w3m_get_deal_protocol_track") {
+      return { data: { deal_id: DEAL_ID, protocol_track: "legacy" }, error: null };
+    }
+    throw new Error("Legacy status must not query V1 RPC " + name);
+  }, { from });
+  const response = await createW3MAcquisitionHandler(deps)(
+    makeRequest({ action: "status", deal_id: DEAL_ID }),
+  );
+  const body = await response.json();
+  if (response.status !== 200 || body.ok !== true ||
+      body.result?.deal_id !== DEAL_ID || body.result?.protocol_track !== "legacy" ||
+      calls.length !== 1 || calls[0].name !== "w3m_get_deal_protocol_track") {
+    throw new Error("Legacy status must be returned from the authoritative track without V1 evidence lookups");
+  }
+});
+
+Deno.test("status action fails closed when protocol classification is missing or unreadable", async () => {
+  const sellerId = "76000000-0000-4000-8000-000000000006";
+  const from = ((table: string) => ({
+    select() { return this; },
+    eq() { return this; },
+    async maybeSingle() {
+      return { data: table === "deals"
+        ? { id: DEAL_ID, buyer_id: USER_ID, seller_id: sellerId, project_id: PROJECT_ID, status: "pending", dispute_status: "none" }
+        : null, error: null };
+    },
+    order() { return this; },
+    async range() { return { data: [], error: null }; },
+  })) as NonNullable<W3MAdminClient["from"]>;
+  for (const rpcResult of [
+    { data: null, error: null },
+    { data: { deal_id: DEAL_ID, protocol_track: "unknown" }, error: null },
+    { data: null, error: { code: "55000", message: "deal_protocol_track_missing" } },
+  ]) {
+    const { deps, calls } = makeDeps(async (name) => {
+      if (name === "w3m_get_deal_protocol_track") return rpcResult;
+      throw new Error("Unclassified deal must not query V1 RPC " + name);
+    }, { from });
+    const response = await createW3MAcquisitionHandler(deps)(
+      makeRequest({ action: "status", deal_id: DEAL_ID }),
+    );
+    if (response.status !== 503 || calls.length !== 1 ||
+        calls[0].name !== "w3m_get_deal_protocol_track") {
+      throw new Error("Missing or unreadable protocol classification must fail closed");
+    }
+  }
+});
+
 Deno.test("legacy caller-supplied challenge action is retired", async () => {
   const { deps, calls } = makeDeps(async () => {
     throw new Error("Retired challenge action must not reach persistence RPCs");
