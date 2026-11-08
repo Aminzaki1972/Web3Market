@@ -610,6 +610,55 @@ async function getAgreementStatus(
   };
 }
 
+
+async function transitionDealAsset(
+  admin: W3MAdminClient,
+  userId: string,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const dealId = String(body.deal_id || "");
+  const assetId = String(body.asset_id || "");
+  const action = body.asset_action;
+  if (!UUID.test(dealId) || !UUID.test(assetId) ||
+      (action !== "deliver" && action !== "accept" && action !== "reject")) {
+    throw Object.assign(new Error("Invalid asset transition request."), { status: 400 });
+  }
+  let deliveryUrl: string | null = null;
+  let evidence: string | null = null;
+  if (action === "deliver") {
+    deliveryUrl = String(body.delivery_url || "");
+    evidence = String(body.evidence || "");
+    let parsed: URL;
+    try { parsed = new URL(deliveryUrl); } catch {
+      throw Object.assign(new Error("A valid HTTPS delivery URL is required."), { status: 400 });
+    }
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password ||
+        deliveryUrl.length > 2048 || !evidence.trim() || evidence.length > 16000) {
+      throw Object.assign(new Error("Delivery requires an HTTPS reference and bounded non-empty evidence."), { status: 400 });
+    }
+  } else if (body.delivery_url !== undefined || body.evidence !== undefined) {
+    throw Object.assign(new Error("Buyer response cannot include delivery evidence fields."), { status: 400 });
+  }
+  const { data, error } = await admin.rpc("w3m_transition_deal_asset_v1", {
+    p_deal_id: dealId,
+    p_asset_id: assetId,
+    p_actor_user_id: userId,
+    p_action: action,
+    p_delivery_url: deliveryUrl,
+    p_evidence: evidence,
+  });
+  if (error) {
+    const status = rpcStatus(error);
+    throw Object.assign(new Error("Per-asset transition was rejected."), { status });
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data) ||
+      (data as Record<string, unknown>).asset_id !== assetId ||
+      (data as Record<string, unknown>).status !== (action === "deliver" ? "delivered" : action === "accept" ? "accepted" : "rejected")) {
+    throw Object.assign(new Error("Per-asset transition persistence could not be confirmed."), { status: 503 });
+  }
+  return data as Record<string, unknown>;
+}
+
 function rpcStatus(error: { code?: string; message?: string } | null): number {
   const code = error?.code || "";
   if (code === "42501") return 403;
@@ -655,6 +704,21 @@ export function createW3MAcquisitionHandler(deps: HandlerDependencies) {
       const now = deps.nowSeconds?.() ?? Math.floor(Date.now() / 1000);
       if (!Number.isSafeInteger(now) || now < 0) {
         return reply(origin, { ok: false, error: "Verification clock unavailable" }, 503);
+      }
+
+      if (body.action === "asset_transition") {
+        try {
+          const result = await transitionDealAsset(admin, user.id, body);
+          return reply(origin, { ok: true, result });
+        } catch (error) {
+          const status = typeof (error as { status?: unknown })?.status === "number"
+            ? (error as { status: number }).status : 500;
+          if (status >= 500) console.error("w3m asset transition failed", error instanceof Error ? error.message : "unknown error");
+          return reply(origin, { ok: false, error: status === 400 ? "Invalid asset transition request" :
+            status === 403 ? "Only the authorized deal participant can perform this action" :
+              status === 404 ? "Deal asset not found" : status === 409 ? "Asset transition is not currently allowed" :
+                "Unable to record asset transition" }, status);
+        }
       }
 
       if (body.action === "status") {
