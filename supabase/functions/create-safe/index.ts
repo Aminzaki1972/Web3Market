@@ -4,7 +4,7 @@ import { createPublicClient, createWalletClient, http, getAddress, keccak256, to
 import { bsc } from "npm:viem@2.37.6/chains";
 import { privateKeyToAccount } from "npm:viem@2.37.6/accounts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import { assertW3MFinalizationReady, W3MFinalizationGateError } from "../_shared/w3m-v1-finalization-gate.ts";
+import { assertW3MAgreementReady, W3MFinalizationGateError } from "../_shared/w3m-v1-finalization-gate.ts";
 
 const PLATFORM_WALLET="0x2B15cC63eE3b833F502C065767695Fa2B584f8c9";
 const BSC_CHAIN_ID=56;
@@ -46,7 +46,7 @@ Deno.serve(async(req)=>{
   const {data:caller}=await db.from("profiles").select("id,role").eq("id",user.id).maybeSingle();
   if(!(caller&&(caller.id===deal.buyer_id||caller.id===deal.seller_id||String(caller.role||"").toLowerCase()==="admin")))return json({ok:false,error:"Not authorized for this deal"},403);
   try {
-    await assertW3MFinalizationReady(db, dealId);
+    await assertW3MAgreementReady(db, dealId);
   const disputeState=await checkDisputeState(db,deal,dealId);
   if(disputeState!=="clear")return json({ok:false,error:disputeState==="open"?"Safe deployment is blocked while a dispute is open":"Unable to verify dispute status; Safe deployment blocked",code:disputeState==="open"?"DEAL_DISPUTE_OPEN":"DISPUTE_STATUS_UNAVAILABLE"},409);
   } catch (error) {
