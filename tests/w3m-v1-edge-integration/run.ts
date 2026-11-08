@@ -231,7 +231,8 @@ try {
       procedure_version: "integration-test-v1",
       text: "Synthetic test-only dispute procedure; not legal terms.",
     },
-    escrow: {
+    safe_settlement: {
+      method: "safe_multisig",
       funding_condition: "Test-only Safe funding condition",
       release_condition: "Test-only Safe release condition",
       dispute_hold: true,
