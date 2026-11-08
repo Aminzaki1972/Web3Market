@@ -9,16 +9,6 @@ on:
       - "supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql"
       - "tests/w3m-v1-edge-integration/**"
       - ".github/workflows/w3m-v1-edge-integration.yml"
-  push:
-    branches:
-      - "feat/w3m-audit-fingerprint-binding-20261107"
-    paths:
-      - "supabase/config.toml"
-      - "supabase/functions/w3m-acquisition-verification/**"
-      - "supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql"
-      - "supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql"
-      - "tests/w3m-v1-edge-integration/**"
-      - ".github/workflows/w3m-v1-edge-integration.yml"
 
 permissions:
   contents: read
