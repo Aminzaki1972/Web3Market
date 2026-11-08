@@ -129,6 +129,7 @@ Deno.test("buyer can confirm the complete asset set only after every asset is ac
   };
   const panel = renderW3MDealAgreementPanel(container, status({
     viewerRole: "buyer",
+    bothAccepted: true,
     assets: [acceptedAsset],
   }), documentRef, {
     onFinalDeliveryConfirm: async () => { calls.push("confirm"); },
@@ -149,6 +150,7 @@ Deno.test("final delivery confirmation shows stale history and requires a fresh 
   };
   const panel = renderW3MDealAgreementPanel(container, status({
     viewerRole: "buyer",
+    bothAccepted: true,
     assets: [acceptedAsset],
     finalDeliveryConfirmation: { confirmed: false, stale: true },
   }), documentRef, {
