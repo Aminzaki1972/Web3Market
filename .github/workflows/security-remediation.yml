@@ -55,7 +55,7 @@ jobs:
           from pathlib import Path
           import re
           html = Path("deal-room.html").read_text()
-          scripts = re.findall(r'<script\\b(?=[^>]*\\btype=["\\']module["\\'])[^>]*>([\\s\\S]*?)</script>', html, re.I)
+          scripts = re.findall(r'<script\b(?=[^>]*\btype=["\']module["\'])[^>]*>([\s\S]*?)</script>', html, re.I)
           if not scripts:
               raise SystemExit("No inline Deal Room module script found")
           for index, source in enumerate(scripts):
