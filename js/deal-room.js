@@ -45,7 +45,7 @@
  const params=new URLSearchParams(location.search),dealId=params.get('deal')||params.get('id');
  if(!dealId){root.innerHTML='<div class="status">Deal not specified.</div>';return}
  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
- let deal=null,participant=null,channel=null,disposed=false,safeDeploymentError='',safeDeploymentBusy=false,safeDeploymentLog=[];
+ let deal=null,participant=null,channel=null,disposed=false,safeDeploymentError='',safeDeploymentBusy=false,safeDeploymentLog=[],termsRenderRequest=0;
 
  const setStatus=(text,kind='')=>{const el=document.querySelector('#dealStatus');if(el){el.textContent=text;el.className='status'+(kind?' '+kind:'')}};
  const safeLogBox=()=>document.querySelector('#safeStatus');
@@ -304,11 +304,13 @@
  }
  async function renderTerms(){
   if(!deal)return;
+  const renderId=++termsRenderRequest;
   const actions=document.querySelector('#actions');
   if(!actions)return;
   if(participant!=='platform'){
    actions.innerHTML='<div class="notice">Checking the current agreement status…</div>';
    const gate=await getW3MAgreementGate();
+   if(renderId!==termsRenderRequest)return;
    if(gate==='v1'){
     actions.innerHTML='<div class="notice"><strong>W3M Protocol V1 agreement published.</strong><br>The legacy agreement and Model B dispute controls are disabled for this deal. V1 digital signing remains disabled until the agreement wording receives final legal and commercial approval.</div>';
     return;
@@ -318,7 +320,9 @@
     return;
    }
   }
-  const rows=await loadAgreement(),mine=rows.find(x=>x.party_role===participant&&String(x.party_id)===String(user.id)),buyer=rows.find(x=>x.party_role==='buyer')?.agreed_at,seller=rows.find(x=>x.party_role==='seller')?.agreed_at;
+  const rows=await loadAgreement();
+  if(renderId!==termsRenderRequest)return;
+  const mine=rows.find(x=>x.party_role===participant&&String(x.party_id)===String(user.id)),buyer=rows.find(x=>x.party_role==='buyer')?.agreed_at,seller=rows.find(x=>x.party_role==='seller')?.agreed_at;
   actions.innerHTML=`<div class="notice"><strong>Dispute Resolution — Model B</strong><br>Buyer and Seller agree that Web3Market acts as the dispute resolution party. Funds are held by the 2-of-3 Safe, not by Web3Market. ${buyer?'Buyer ✓':'Buyer pending'} · ${seller?'Seller ✓':'Seller pending'}</div>${participant==='platform'?'<div class="notice ok">Platform moderator view — monitoring and dispute resolution only.</div>':''}<button id="agreeBtn" class="btn primary" ${participant==='platform'||mine?.agreed_at?'disabled':''}>${mine?.agreed_at?'Terms Accepted':'I Agree to Deal Terms'}</button><button id="disputeBtn" class="btn" style="background:#fff7ed;color:#9a3412">Open Dispute</button>`;
   const agreeBtn=document.querySelector('#agreeBtn');
   if(agreeBtn&&!mine?.agreed_at&&participant!=='platform')agreeBtn.onclick=async()=>{agreeBtn.disabled=true;const {error}=await sb.from('deal_party_agreements').upsert({deal_id:deal.id,party_role:participant,party_id:user.id,agreed_at:new Date().toISOString()},{onConflict:'deal_id,party_role,party_id'});if(error){alert(error.message||'Could not save agreement');agreeBtn.disabled=false;return}await renderTerms()};
