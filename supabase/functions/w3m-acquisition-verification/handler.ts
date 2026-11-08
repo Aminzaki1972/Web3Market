@@ -356,6 +356,23 @@ async function publishAcquisitionTerms(
   if (typeof data !== "string" || !UUID.test(data)) {
     throw new Error("Acquisition terms persistence could not be confirmed.");
   }
+
+  const transferScope = termsRecord.transfer_scope as Record<string, unknown> | undefined;
+  const includedAssets = transferScope?.included_assets;
+  if (!Array.isArray(includedAssets) || includedAssets.length === 0) {
+    throw Object.assign(new Error("At least one individually listed included asset is required."), { status: 400 });
+  }
+  const { data: syncedAssetCount, error: syncError } = await admin.rpc(
+    "w3m_sync_deal_assets_from_published_terms",
+    { p_deal_id: deal.id },
+  );
+  if (syncError || Number(syncedAssetCount) !== includedAssets.length) {
+    const status = syncError ? rpcStatus(syncError) : 409;
+    throw Object.assign(
+      new Error("Published included assets could not be synchronized with the per-asset delivery checklist."),
+      { status },
+    );
+  }
   return { termsVersion: Number(termsVersion), termsHash, termsRecordId: data };
 }
 
