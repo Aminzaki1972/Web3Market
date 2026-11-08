@@ -245,3 +245,31 @@ Deno.test("historical completed legacy Safe releases remain idempotently verifia
   assertEquals(finalize.includes('protocolTrack === "v1"'), true,
     "the historical exception must not bypass the V1 finalization gate");
 });
+
+
+Deno.test("every V1 Safe release stage binds its locked policy to the exact current signed settlement snapshot", async () => {
+  const cases = [
+    { file: "supabase/functions/prepare-deal-release/index.ts", action: '.upsert(policyPayload' },
+    { file: "supabase/functions/prepare-safe-release-tx/index.ts", action: 'stage="safe_rpc_init"' },
+    { file: "supabase/functions/record-safe-release-signature/index.ts", action: '.upsert(row' },
+    { file: "supabase/functions/execute-safe-release/index.ts", action: "execTransaction(...args,{gasLimit" },
+    { file: "supabase/functions/finalize-safe-release/index.ts", action: '.update({tx_hash:txHash,status:"confirmed"' },
+  ];
+  for (const item of cases) {
+    const source = await Deno.readTextFile(item.file);
+    const snapshot = source.indexOf("getW3MCanonicalSettlement(");
+    const policyMatch = source.indexOf("assertW3MSettlementPolicyMatches(");
+    const action = source.indexOf(item.action);
+    assertEquals(source.includes('../_shared/w3m-v1-settlement-evidence.ts'), true,
+      item.file + " must import canonical settlement evidence");
+    assertEquals(snapshot >= 0 && policyMatch >= 0, true,
+      item.file + " must load and compare the current signed settlement");
+    assertEquals(snapshot < action && policyMatch < action, true,
+      item.file + " must verify the signed settlement before its Safe action");
+  }
+  const migration = await Deno.readTextFile("supabase/migrations/20261108190000_w3m_v1_canonical_settlement_evidence.sql");
+  assertEquals(migration.includes("service_role_required"), true,
+    "canonical settlement evidence RPC must require service_role");
+  assertEquals(migration.includes("from public, anon, authenticated"), true,
+    "canonical settlement evidence RPC must revoke client execution");
+});
