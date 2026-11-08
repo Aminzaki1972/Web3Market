@@ -1,4 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1.0.14";
+import { getW3MDealProtocolTrack, W3MProtocolTrackError } from "./w3m-deal-protocol-track.ts";
 
 const cases = [
   {
@@ -32,11 +33,17 @@ Deno.test("every Safe deployment, release, signature, execution and finalization
   for (const item of cases) {
     const source = await Deno.readTextFile(item.file);
     const importIndex = source.indexOf('../_shared/w3m-v1-finalization-gate.ts');
+    const trackImportIndex = source.indexOf('../_shared/w3m-deal-protocol-track.ts');
+    const trackIndex = source.indexOf("await getW3MDealProtocolTrack(");
     const gateIndex = source.indexOf(item.gate || "assertW3MFinalizationReady(");
     assertEquals(/if\s*\(\s*!state\s*\)\s*return\s*["\x27]unknown["\x27]/.test(source), true, item.file + " must fail closed when dispute status is missing");
     assertEquals(/new Set\(\s*\[\s*["\x27]none["\x27]/.test(source), true, item.file + " must not treat an empty dispute status as terminal");
     const actionIndex = source.indexOf(item.action);
     assertEquals(importIndex >= 0, true, item.file + " must import the shared W3M gate");
+    assertEquals(trackImportIndex >= 0, true, item.file + " must import the authoritative protocol-track reader");
+    assertEquals(trackIndex >= 0, true, item.file + " must read the server-owned protocol track");
+    assertEquals(trackIndex < actionIndex, true, item.file + " must classify the deal before any Safe action");
+    assertEquals(/protocolTrack\\s*===\\s*"v1"/.test(source), true, item.file + " must apply the V1 evidence gate only to V1 deals");
     assertEquals(gateIndex >= 0, true, item.file + " must call the shared W3M gate");
     assertEquals(actionIndex >= 0, true, item.file + " action marker must exist");
     assertEquals(gateIndex < actionIndex, true, item.file + " must gate before its Safe action");
@@ -169,4 +176,54 @@ Deno.test("Safe deployment requires signed agreement but not pre-deployment asse
     "Safe deployment must verify both parties' exact V1 agreement signatures");
   assertEquals(createSafe.includes("assertW3MFinalizationReady("), false,
     "Safe deployment must not require delivery completion before funding");
+});
+
+
+Deno.test("protocol track reader accepts only consistent immutable server assignments", async () => {
+  const dealId = "71000000-0000-4000-8000-000000000001";
+  const assignedAt = "2026-11-08T12:00:00.000Z";
+  const validRows = [
+    { deal_id: dealId, protocol_track: "legacy", assignment_source: "legacy_backfill", assigned_at: assignedAt },
+    { deal_id: dealId, protocol_track: "legacy", assignment_source: "legacy_insert", assigned_at: assignedAt },
+    { deal_id: dealId, protocol_track: "v1", assignment_source: "trusted_v1_creation", assigned_at: assignedAt },
+  ];
+  for (const row of validRows) {
+    const track = await getW3MDealProtocolTrack({
+      async rpc(name, args) {
+        assertEquals(name, "w3m_get_deal_protocol_track");
+        assertEquals(args.p_deal_id, dealId);
+        return { data: row, error: null };
+      },
+    }, dealId);
+    assertEquals(track, row.protocol_track);
+  }
+});
+
+Deno.test("protocol track reader fails closed for missing, malformed, mismatched, or unreadable classification", async () => {
+  const dealId = "71000000-0000-4000-8000-000000000001";
+  const assignedAt = "2026-11-08T12:00:00.000Z";
+  const invalidResults = [
+    { data: null, error: null },
+    { data: { deal_id: dealId, protocol_track: "unknown", assignment_source: "legacy_insert", assigned_at: assignedAt }, error: null },
+    { data: { deal_id: dealId, protocol_track: "v1", assignment_source: "legacy_insert", assigned_at: assignedAt }, error: null },
+    { data: { deal_id: "72000000-0000-4000-8000-000000000002", protocol_track: "legacy", assignment_source: "legacy_insert", assigned_at: assignedAt }, error: null },
+    { data: { deal_id: dealId, protocol_track: "legacy", assignment_source: "legacy_backfill", assigned_at: "invalid" }, error: null },
+    { data: null, error: { code: "55000", message: "deal_protocol_track_missing" } },
+  ];
+  for (const result of invalidResults) {
+    let rejected = false;
+    try {
+      await getW3MDealProtocolTrack({ async rpc() { return result; } }, dealId);
+    } catch (error) {
+      rejected = error instanceof W3MProtocolTrackError;
+    }
+    assertEquals(rejected, true, "Invalid protocol-track evidence must be rejected");
+  }
+  let invalidIdRejected = false;
+  try {
+    await getW3MDealProtocolTrack({ async rpc() { throw new Error("must not be called"); } }, "not-a-uuid");
+  } catch (error) {
+    invalidIdRejected = error instanceof W3MProtocolTrackError;
+  }
+  assertEquals(invalidIdRejected, true, "Invalid deal IDs must be rejected before RPC");
 });
