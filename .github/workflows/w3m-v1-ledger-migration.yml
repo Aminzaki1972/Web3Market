@@ -582,6 +582,24 @@ jobs:
           commit;
           SQL
           wait "$LOCK_A_PID"
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $
+          declare
+            v_deal uuid := '79000000-0000-4000-8000-000000000009';
+          begin
+            if (select count(*) from w3m_private.w3m_agreement_acceptances
+                where deal_id=v_deal and terms_version=1 and party_role='buyer') <> 1 then
+              raise exception 'superseding_partial_round_must_preserve_old_acceptance';
+            end if;
+            if (select status from w3m_private.w3m_acquisition_terms_versions
+                where deal_id=v_deal and terms_version=1) <> 'superseded'
+              or (select status from w3m_private.w3m_acquisition_terms_versions
+                where deal_id=v_deal and terms_version=2) <> 'published' then
+              raise exception 'partial_round_supersession_did_not_advance_current_terms';
+            end if;
+          end;
+          $;
+          SQL
       - name: Verify restricted protocol privileges and immutable evidence
         env:
           PGPASSWORD: postgres
