@@ -35,7 +35,7 @@ There is intentionally no time-based expiry for `claimed` or `submitted`.
 
 If the Edge Function crashes, a provider times out, or the broadcast result is uncertain, the active claim remains in place. It must not be cleared merely because a timeout elapsed: a transaction may still be pending or may have been broadcast without the caller receiving its hash.
 
-Recovery requires checking BNB chain evidence and reconciling the exact Safe transaction. Only a confirmed mined EVM revert or confirmed Safe `ExecutionFailure` can move the claim to `failed`. If the result cannot be proven, the claim stays active and the deal remains blocked. This is intentionally fail-closed, even though manual reconciliation may be required.
+Recovery requires checking BNB chain evidence and reconciling the exact Safe transaction. The finalizer verifies the outer transaction was sent by the configured Web3Market executor to the configured Safe, decodes `execTransaction`, and compares its full Safe payload with the signed database transaction before considering either success or failure. Only a confirmed mined EVM revert of that exact call or confirmed Safe `ExecutionFailure` can move the claim to `failed`. If the result cannot be proven, the claim stays active and the deal remains blocked. This is intentionally fail-closed, even though manual reconciliation may be required.
 
 ## Permissions
 
