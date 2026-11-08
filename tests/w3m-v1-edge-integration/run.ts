@@ -259,6 +259,13 @@ try {
   });
   assert(replay.status === 409, "Consumed agreement challenge was not rejected on replay.");
 
+  // Test-only lifecycle transition: this disposable local fixture simulates
+  // the post-funding stage without creating or broadcasting any Safe transaction.
+  const fundedFixture = await admin.from("deals").update({ status: "funded" })
+    .eq("id", dealId).select("id").single();
+  assert(!fundedFixture.error && fundedFixture.data?.id === dealId,
+    "Unable to move the local-only fixture into its post-funding delivery stage.");
+
   const outsiderStatus = await call(outsider, { action: "status", deal_id: dealId });
   assert(outsiderStatus.status === 403, "Non-participant was able to read agreement status.");
 
