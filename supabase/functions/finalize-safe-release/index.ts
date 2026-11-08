@@ -31,6 +31,9 @@ Deno.serve(async req=>{
  const {data:deal}=await sb.from("deals").select("*").eq("id",dealId).maybeSingle();
  if(!deal)return json(404,{ok:false,error:"Deal not found"});
  if(deal.buyer_id!==u.user.id&&deal.seller_id!==u.user.id)return json(403,{ok:false,error:"Not a participant"});
+ const currentDealStatus=String(deal.status||"").toLowerCase();
+ const isSameCompletedRelease=currentDealStatus==="completed"&&String(deal.release_tx_hash||"").toLowerCase()===txHash.toLowerCase();
+ if(!["funded","in_progress"].includes(currentDealStatus)&&!isSameCompletedRelease)return json(409,{ok:false,error:"Deal is not in a releasable funded state"});
  try {
   await assertW3MFinalizationReady(sb, dealId);
  } catch (error) {
