@@ -74,6 +74,7 @@ Deno.serve(async req=>{
     }
     const disputeState=await checkDisputeState(sb,deal,dealId);
     if(disputeState!=="clear") return json(409,{ok:false,error:disputeState==="open"?"Release is blocked while a dispute is open":"Unable to verify dispute status; release blocked",code:disputeState==="open"?"DEAL_DISPUTE_OPEN":"DISPUTE_STATUS_UNAVAILABLE"});
+    if(!["funded","in_progress"].includes(String(deal.status||""))) return json(409,{ok:false,transaction_sent:false,error:"Deal is not in a releasable funded state"});
 
     const {data:tx}=await sb.from("deal_multisig_transactions").select("*").eq("deal_id",dealId).eq("action","release_to_seller").maybeSingle();
     if(!tx) return json(409,{ok:false,error:"Release transaction not found"});
