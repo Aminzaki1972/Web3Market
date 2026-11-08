@@ -69,7 +69,7 @@ create table public.code_audit_files (
   language text,
   size_bytes bigint,
   line_count integer,
-  selected_tier text,
+  selected_tier integer,
   scanned boolean not null default false
 );
 
