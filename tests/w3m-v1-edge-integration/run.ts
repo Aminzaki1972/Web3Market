@@ -12,6 +12,7 @@ const admin = createClient(url, serviceKey, {
 const endpoint = url + "/functions/v1/w3m-acquisition-verification";
 const projectId = "72000000-0000-4000-8000-000000000002";
 const dealId = "71000000-0000-4000-8000-000000000001";
+const legacyDealId = "71000000-0000-4000-8000-000000000011";
 const auditId = "73000000-0000-4000-8000-000000000003";
 const commitSha = "f".repeat(40);
 const sellerWallet = new Wallet("0x" + "1".repeat(64));
@@ -124,6 +125,18 @@ try {
     release_tx_hash: null,
   });
   assert(!deal.error, "Unable to seed test deal: " + (deal.error?.message || ""));
+
+  // A second deal is deliberately left on the database trigger's legacy path.
+  const legacyDeal = await admin.from("deals").insert({
+    id: legacyDealId,
+    project_id: projectId,
+    buyer_id: buyer.id,
+    seller_id: seller.id,
+    status: "pending",
+    dispute_status: "none",
+    release_tx_hash: null,
+  });
+  assert(!legacyDeal.error, "Unable to seed legacy test deal: " + (legacyDeal.error?.message || ""));
 
   const audit = await admin.from("code_audits").insert({
     id: auditId,
@@ -269,8 +282,16 @@ try {
   const outsiderStatus = await call(outsider, { action: "status", deal_id: dealId });
   assert(outsiderStatus.status === 403, "Non-participant was able to read agreement status.");
 
+  const legacyStatus = await call(buyer, { action: "status", deal_id: legacyDealId });
+  assert(legacyStatus.status === 200 &&
+    legacyStatus.payload.result?.protocol_track === "legacy" &&
+    !Object.prototype.hasOwnProperty.call(legacyStatus.payload.result, "current_terms"),
+    "Legacy deal status must use the authoritative legacy track without loading V1 terms.");
+
   const beforeDelivery = await call(buyer, { action: "status", deal_id: dealId });
-  assert(beforeDelivery.status === 200 && beforeDelivery.payload.result?.both_accepted === true,
+  assert(beforeDelivery.status === 200 &&
+    beforeDelivery.payload.result?.protocol_track === "v1" &&
+    beforeDelivery.payload.result?.both_accepted === true,
     "Buyer/seller acceptance pair was not visible through the real Edge Function.");
   const asset = beforeDelivery.payload.result.assets?.[0];
   assert(asset?.status === "pending" && asset.asset_id,
