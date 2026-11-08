@@ -44,6 +44,16 @@ Recovery requires checking BNB chain evidence and reconciling the exact Safe tra
 - Only the four service-role RPCs can claim, mark submitted, mark failed, or finalize.
 - Trigger helper functions are not directly executable by browser or service roles.
 
+## Production schema compatibility
+
+The migration was cross-checked read-only against the current production schema:
+
+- `deals.dispute_status` accepts `none`, `open`, `under_review`, `resolved_buyer`, `resolved_seller`, and `closed`.
+- `deal_disputes.status` accepts `open`, `under_review`, `resolved`, and `cancelled`.
+- `deal_disputes.deal_id` is unique and its foreign key cascades on deal deletion.
+
+The claim RPC and triggers use these actual state contracts. The dispute trigger also preserves the existing `ON DELETE CASCADE` behavior: when a parent deal is being deleted and is no longer visible to the child trigger, the cascading child delete is allowed. A direct dispute delete while the deal exists is still serialized and blocked during an active claim.
+
 ## Test coverage
 
 The branch CI workflow uses disposable PostgreSQL 16 and covers:
