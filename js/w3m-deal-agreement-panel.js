@@ -17,6 +17,9 @@ export function renderW3MDealAgreementPanel(container, status, documentRef = glo
   if (!status || typeof status !== "object" ||
       typeof status.bothAccepted !== "boolean" ||
       typeof status.dealEligible !== "boolean" ||
+      !status.finalDeliveryConfirmation || typeof status.finalDeliveryConfirmation !== "object" ||
+      typeof status.finalDeliveryConfirmation.confirmed !== "boolean" ||
+      typeof status.finalDeliveryConfirmation.stale !== "boolean" ||
       !status.acceptances || typeof status.acceptances !== "object") {
     throw new Error("W3M V1 agreement status is malformed.");
   }
@@ -163,8 +166,50 @@ export function renderW3MDealAgreementPanel(container, status, documentRef = glo
     panel.appendChild(card);
   }
 
-  const summary = status.bothAccepted && status.dealEligible
-    ? "Both parties accepted the current published terms. Server reports the deal as eligible for the next V1 gate."
+  const finalConfirmation = status.finalDeliveryConfirmation;
+  const allAssetsAccepted = assets.length > 0 && assets.every((asset) => asset.status === "accepted");
+  const finalSection = element(documentRef, "section", "w3m-v1-final-delivery-confirmation");
+  finalSection.appendChild(element(documentRef, "h4", "", "Final buyer delivery confirmation"));
+  if (finalConfirmation.confirmed) {
+    finalSection.appendChild(element(documentRef, "p", "w3m-v1-confirmed",
+      "Buyer confirmed the complete asset set" +
+      (finalConfirmation.confirmedAt ? " · " + finalConfirmation.confirmedAt : "") +
+      (finalConfirmation.assetCount ? " · " + finalConfirmation.assetCount + " assets" : "") + "."));
+    if (finalConfirmation.assetSetDigest) {
+      finalSection.appendChild(element(documentRef, "p", "w3m-v1-muted",
+        "Confirmed asset-set SHA-256: " + finalConfirmation.assetSetDigest));
+    }
+  } else {
+    finalSection.appendChild(element(documentRef, "p", "w3m-v1-muted",
+      finalConfirmation.stale
+        ? "The previous final confirmation no longer matches the latest asset delivery. The buyer must confirm the complete asset set again."
+        : allAssetsAccepted
+          ? "Every included asset is accepted. The buyer can now confirm the complete delivery."
+          : "Final confirmation becomes available after every included asset is accepted."));
+    if (status.viewerRole === "buyer" && allAssetsAccepted &&
+        typeof options.onFinalDeliveryConfirm === "function") {
+      const confirmButton = element(documentRef, "button", "w3m-v1-final-confirm-button",
+        "Confirm all delivered assets");
+      confirmButton.type = "button";
+      const notice = element(documentRef, "p", "w3m-v1-final-confirm-notice");
+      confirmButton.addEventListener("click", async () => {
+        confirmButton.disabled = true;
+        notice.textContent = "Recording final delivery confirmation…";
+        try {
+          await options.onFinalDeliveryConfirm();
+        } catch (error) {
+          notice.textContent = error?.message || "Final delivery confirmation could not be recorded.";
+          confirmButton.disabled = false;
+        }
+      });
+      finalSection.appendChild(confirmButton);
+      finalSection.appendChild(notice);
+    }
+  }
+  panel.appendChild(finalSection);
+
+  const summary = status.bothAccepted
+    ? "Both parties accepted the current published terms. Asset acceptance and the buyer's final delivery confirmation are separate required steps."
     : "The V1 agreement gate is not complete. No Safe operation or funds movement is initiated by this panel.";
   panel.appendChild(element(documentRef, "p", "w3m-v1-gate-state", summary));
   container.appendChild(panel);
