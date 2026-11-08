@@ -4,6 +4,8 @@ import { classifyW3MAgreementGate } from "./w3m-deal-room-legacy-gate.js";
 Deno.test("legacy acceptance remains available only when the V1 endpoint is absent", () => {
   assertEquals(classifyW3MAgreementGate(404, { message: "Function not found" }), "legacy");
   assertEquals(classifyW3MAgreementGate(404, { error: "Deal not found" }), "blocked");
+  assertEquals(classifyW3MAgreementGate(400, { error: "Unknown action" }), "legacy");
+  assertEquals(classifyW3MAgreementGate(400, { error: "Invalid deal_id" }), "blocked");
 });
 
 Deno.test("legacy acceptance remains available when the server confirms no V1 terms exist", () => {
