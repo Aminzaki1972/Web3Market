@@ -199,7 +199,11 @@ try {
       commit_sha: commitSha,
       fingerprint_digest: fingerprint.payload.fingerprint_digest,
     },
-    consideration: { amount: "1000.00", currency: "USDT" },
+    commercial_schedule: {
+    asking_price: { amount: "1200.00", currency: "USDT" },
+    agreed_discount: { amount: "200.00", currency: "USDT", description: "Agreed fixed-amount discount" },
+  },
+  consideration: { amount: "1000.00", currency: "USDT" },
     platform_fee: { percent: "7.5", amount: "75.00" },
     seller_net: { amount: "925.00", currency: "USDT" },
     payment: {
@@ -211,7 +215,7 @@ try {
       status_at_signing: "configured_or_pending",
     },
     transfer_scope: {
-      included_assets: [{ type: "repository", description: "Synthetic source repository" }],
+      included_assets: [{ type: "repository", description: "Synthetic source repository", transfer_method: "Synthetic repository handover", responsible_party: "Seller", expected_evidence: "Synthetic buyer access confirmation" }],
       excluded_assets: [],
       third_party_dependencies: [],
       access_and_credentials: { transfer_method: "Synthetic repository handover" },
