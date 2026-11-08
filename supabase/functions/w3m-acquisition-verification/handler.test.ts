@@ -784,6 +784,8 @@ Deno.test("confirm_delivery records one buyer-bound final confirmation for the a
     return {
       select(_columns: string) { return this; },
       eq(_column: string, _value: unknown) { return this; },
+      order(_column: string) { return this; },
+      async range(_from: number, _to: number) { return { data: row ? [row] : [], error: null }; },
       async maybeSingle() { return { data: row, error: null }; },
     };
   }) as NonNullable<W3MAdminClient["from"]>;
@@ -822,6 +824,8 @@ Deno.test("confirm_delivery cannot be initiated by the seller", async () => {
   const from = ((table: string) => ({
     select(_columns: string) { return this; },
     eq(_column: string, _value: unknown) { return this; },
+    order(_column: string) { return this; },
+    async range(_from: number, _to: number) { return { data: [], error: null }; },
     async maybeSingle() {
       return { data: table === "deals"
         ? { id: DEAL_ID, buyer_id: USER_ID, seller_id: sellerId } : null, error: null };
