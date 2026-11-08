@@ -95,13 +95,48 @@ async function evidenceFixture() {
   };
 }
 
-function client(data: unknown, error: { code?: string; message?: string } | null = null): W3MFinalizationGateClient {
+function assetEvidence(status = "accepted", includeEvents = true) {
+  return [{
+    deal_id: dealId,
+    buyer_id: buyerId,
+    asset_rows: [{
+      asset_id: "77000000-0000-4000-8000-000000000007",
+      asset_name: "Project source repository",
+      status,
+      accepted_by: status === "accepted" ? buyerId : null,
+      accepted_at: status === "accepted" ? new Date((NOW + 2) * 1000).toISOString() : null,
+      events: includeEvents ? [
+        {
+          event_type: "delivered",
+          attempt_number: 1,
+          actor_user_id: sellerId,
+          evidence_digest: "55".repeat(32),
+          occurred_at: new Date((NOW + 1) * 1000).toISOString(),
+        },
+        {
+          event_type: status === "accepted" ? "accepted" : "rejected",
+          attempt_number: 1,
+          actor_user_id: buyerId,
+          evidence_digest: "55".repeat(32),
+          occurred_at: new Date((NOW + 2) * 1000).toISOString(),
+        },
+      ] : [],
+    }],
+  }];
+}
+
+function client(
+  data: unknown,
+  error: { code?: string; message?: string } | null = null,
+  assets: unknown = assetEvidence(),
+  assetError: { code?: string; message?: string } | null = null,
+): W3MFinalizationGateClient {
   return {
     async rpc(name, args) {
-      if (name !== "w3m_get_deal_finalization_evidence" || args.p_deal_id !== dealId) {
-        throw new Error("Unexpected finalization evidence RPC call");
-      }
-      return { data, error };
+      if (args.p_deal_id !== dealId) throw new Error("Unexpected deal ID");
+      if (name === "w3m_get_deal_finalization_evidence") return { data, error };
+      if (name === "w3m_get_deal_asset_finalization_evidence") return { data: assets, error: assetError };
+      throw new Error("Unexpected finalization evidence RPC: " + name);
     },
   };
 }
@@ -113,6 +148,7 @@ Deno.test("shared finalization gate accepts the exact two-party persisted signat
   assertEquals(result.termsVersion, "1");
   assertEquals(result.buyerUserId, buyerId);
   assertEquals(result.sellerUserId, sellerId);
+  assertEquals(result.assetCount, 1);
 });
 
 Deno.test("shared finalization gate rejects altered persisted signatures", async () => {
@@ -141,4 +177,46 @@ Deno.test("shared finalization gate fails closed when the evidence RPC is unavai
   ).then(() => "unexpected-success", (error) => error);
   assertEquals(response instanceof W3MFinalizationGateError, true);
   assertEquals((response as W3MFinalizationGateError).code, "W3M_FINALIZATION_EVIDENCE_UNAVAILABLE");
+});
+
+
+Deno.test("shared finalization gate rejects an empty asset checklist", async () => {
+  const fixture = await evidenceFixture();
+  const response = await assertW3MFinalizationReady(
+    client([fixture.row], null, [{ deal_id: dealId, buyer_id: buyerId, asset_rows: [] }]), dealId,
+  ).then(() => "unexpected-success", (error) => error);
+  assertEquals(response instanceof W3MFinalizationGateError, true);
+  assertEquals((response as W3MFinalizationGateError).code, "W3M_FINALIZATION_EVIDENCE_UNAVAILABLE");
+});
+
+Deno.test("shared finalization gate rejects a rejected or unaccepted asset", async () => {
+  const fixture = await evidenceFixture();
+  const response = await assertW3MFinalizationReady(
+    client([fixture.row], null, assetEvidence("rejected")), dealId,
+  ).then(() => "unexpected-success", (error) => error);
+  assertEquals(response instanceof W3MFinalizationGateError, true);
+  assertEquals((response as W3MFinalizationGateError).code, "W3M_FINALIZATION_EVIDENCE_UNAVAILABLE");
+});
+
+Deno.test("shared finalization gate rejects acceptance without a delivery evidence event", async () => {
+  const fixture = await evidenceFixture();
+  const response = await assertW3MFinalizationReady(
+    client([fixture.row], null, assetEvidence("accepted", false)), dealId,
+  ).then(() => "unexpected-success", (error) => error);
+  assertEquals(response instanceof W3MFinalizationGateError, true);
+  assertEquals((response as W3MFinalizationGateError).code, "W3M_FINALIZATION_EVIDENCE_UNAVAILABLE");
+});
+
+Deno.test("shared finalization gate accepts a re-delivered asset only after its latest attempt is accepted", async () => {
+  const fixture = await evidenceFixture();
+  const assets = assetEvidence();
+  const events = assets[0].asset_rows[0].events;
+  assets[0].asset_rows[0].events = [
+    ...events,
+    { ...events[1], event_type: "rejected", occurred_at: new Date((NOW + 3) * 1000).toISOString() },
+    { ...events[0], attempt_number: 2, occurred_at: new Date((NOW + 4) * 1000).toISOString() },
+    { ...events[1], attempt_number: 2, occurred_at: new Date((NOW + 5) * 1000).toISOString() },
+  ];
+  const result = await assertW3MFinalizationReady(client([fixture.row], null, assets), dealId);
+  assertEquals(result.assetCount, 1);
 });
