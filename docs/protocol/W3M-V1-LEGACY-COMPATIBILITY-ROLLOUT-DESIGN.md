@@ -104,3 +104,24 @@ The first compatibility slice is now implemented on the isolated feature branch:
 The current CI batch on commit 27f4c2dae743d69afd609ee8d9d6c65a4439c820 has confirmed the Deno audit/handler suite, PostgreSQL 16 protocol-track registry tests, PostgreSQL 16 V1 ledger tests, PostgreSQL 16 asset-evidence tests, trust-badge tests, CDN integrity checks, and browser JavaScript syntax checks. The isolated Supabase Edge integration, profile-guard migration, and atomic audit-entitlement workflows were still running at the last status check; do not treat this batch as fully green until all are complete.
 
 This remains branch-only. No production migration, Edge Function deployment, live Safe action, financial transfer, or PR merge occurred.
+
+
+### CI verification correction — 2026-11-08
+
+The first Edge integration attempt exposed a test-harness omission: its disposable Supabase setup had not applied the new protocol-track registry migration. The handler correctly failed closed because the lookup RPC was absent. The integration workflow now applies that migration before starting the Edge Function.
+
+The local-only fixture then overrides the disposable database's deal-insert trigger for exactly one synthetic V1 test deal; every other inserted test deal remains legacy. This does not add or enable a production V1 creation path. The real Edge integration now verifies both paths:
+- V1 fixture: authenticated buyer/seller status returns the explicit v1 track and full agreement state; the test continues through signing, asset delivery, buyer acceptance, final confirmation, and redelivery/reconfirmation.
+- Legacy fixture: authenticated participant status returns legacy and does not load V1 terms or evidence.
+
+Final verified CI batch for code commit a2e70035f2a7e7638be83a1fa250c0d818dfbc83:
+- W3M Audit Fingerprint / handler / Safe source tests: 159 passed, 0 failed; Deno type-check passed.
+- W3M V1 Supabase Edge Integration: passed against isolated local Supabase Auth, PostgREST, RPC, and the actual Edge Function.
+- W3M Deal Protocol Track Registry PostgreSQL 16 tests: passed.
+- W3M V1 Ledger PostgreSQL 16 migration/concurrency/privilege tests: passed.
+- W3M V1 Asset Delivery Evidence PostgreSQL 16 tests: passed.
+- Security remediation checks: passed (CDN SRI, browser JavaScript syntax, profile-guard migration).
+- Isolated W3M trust badge checks: passed.
+- W3M atomic free audit entitlement: all four jobs passed.
+
+All listed jobs in this batch completed successfully. These results are isolated CI tests only; no production migration, Edge Function deployment, live Safe action, financial transfer, or PR merge occurred.
