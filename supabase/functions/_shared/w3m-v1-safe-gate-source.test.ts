@@ -127,6 +127,8 @@ Deno.test("Safe release execution revalidates the exact configured 2-of-3 owner 
     "release execution must require exactly three Safe owners");
   assertEquals(execute.includes('select("id,wallet_address,wallet_verified").in("id",[deal.buyer_id,deal.seller_id])'), true,
     "release execution must reload verified buyer and seller wallets");
+  assertEquals(execute.includes('expectedOwners.size!==3'), true,
+    "release execution must require three distinct expected owners");
   assertEquals(execute.includes('some(owner=>!actualOwners.has(owner))'), true,
     "release execution must require the buyer, seller and platform to remain the exact owner set");
 });
