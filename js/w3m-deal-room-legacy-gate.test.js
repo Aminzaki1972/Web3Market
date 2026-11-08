@@ -37,3 +37,9 @@ Deno.test("ambiguous, malformed, unauthorized and failed status responses fail c
   assertEquals(classifyW3MAgreementGate(500, { ok: false, error: "Database unavailable" }), "blocked");
   assertEquals(classifyW3MAgreementGate(404, { message: "Function route missing" }), "blocked");
 });
+
+Deno.test("legacy agreement upsert targets the database's actual unique key", async () => {
+  const source = await Deno.readTextFile(new URL("./deal-room.js", import.meta.url));
+  assertEquals(source.includes("onConflict:'deal_id,party_role'"), true);
+  assertEquals(source.includes("onConflict:'deal_id,party_role,party_id'"), false);
+});
