@@ -225,6 +225,7 @@ export async function assertW3MFinalizationReady(
         requiredUuid(last.actor_user_id, "Asset acceptance actor") !== buyer ||
         typeof last.evidence_digest !== "string" || !/^[0-9a-f]{64}$/i.test(last.evidence_digest) ||
         typeof previous.evidence_digest !== "string" || !/^[0-9a-f]{64}$/i.test(previous.evidence_digest) ||
+        last.evidence_digest.toLowerCase() !== previous.evidence_digest.toLowerCase() ||
         last.attempt_number !== previous.attempt_number ||
         typeof last.occurred_at !== "string" || typeof previous.occurred_at !== "string" ||
         Date.parse(last.occurred_at) < Date.parse(previous.occurred_at)) {
