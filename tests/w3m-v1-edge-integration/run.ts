@@ -260,6 +260,26 @@ try {
   assert(publishedTerms.status === 201 && publishedTerms.payload.ok === true,
     "Canonical terms publication or asset checklist sync failed: " + JSON.stringify(publishedTerms.payload));
 
+  const canonicalSettlement = await admin.rpc("w3m_get_current_deal_settlement_terms", {
+    p_deal_id: dealId,
+  });
+  assert(!canonicalSettlement.error &&
+    canonicalSettlement.data?.deal_id === dealId &&
+    canonicalSettlement.data?.terms_version === 1 &&
+    canonicalSettlement.data?.canonical_terms_json?.consideration?.amount === "1000.00" &&
+    canonicalSettlement.data?.canonical_terms_json?.platform_fee?.amount === "75.00" &&
+    canonicalSettlement.data?.canonical_terms_json?.seller_net?.amount === "925.00",
+    "Service role could not load the exact immutable current settlement snapshot.");
+
+  const publicClient = createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const publicSettlement = await publicClient.rpc("w3m_get_current_deal_settlement_terms", {
+    p_deal_id: dealId,
+  });
+  assert(Boolean(publicSettlement.error),
+    "Public anon role unexpectedly read private canonical settlement terms.");
+
   // The private schema must remain unavailable through PostgREST even to the
   // service-role API client. The Edge Function uses only its restricted RPC.
   const privateRead = await admin.schema("w3m_private")
