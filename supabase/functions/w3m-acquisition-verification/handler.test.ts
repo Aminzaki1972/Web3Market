@@ -59,7 +59,6 @@ function makeDeps(
     userId?: string;
     randomBytes?: (length: number) => Uint8Array;
     from?: NonNullable<W3MAdminClient["from"]>;
-    schema?: W3MAdminClient["schema"];
   } = {},
 ) {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
@@ -75,7 +74,6 @@ function makeDeps(
       return await rpc(name, args);
     },
     from: options.from,
-    schema: options.schema,
   };
   return {
     calls,
@@ -142,11 +140,21 @@ Deno.test("status action exposes only participant-scoped current terms and accep
     };
   };
   const from = ((table: string) => makeQuery(table)) as NonNullable<W3MAdminClient["from"]>;
-  const schema = ((name: string) => {
-    if (name !== "w3m_private") throw new Error("Unexpected schema");
-    return { from: (table: string) => makeQuery(table) };
-  }) as NonNullable<W3MAdminClient["schema"]>;
+  const agreementContext = {
+    binding: null,
+    terms: {
+      id: "75000000-0000-4000-8000-000000000005", terms_version: 2,
+      terms_hash: statusTermsHash, canonical_terms_json: canonicalTerms,
+      status: "published", published_at: "2026-11-07T00:00:00Z",
+    },
+    acceptances: [{
+      party_role: "buyer", user_id: USER_ID, terms_version: 2,
+      terms_hash: statusTermsHash, accepted_at: "2026-11-07T01:00:00Z",
+      signature: "0x" + "f".repeat(130), nonce: "private-nonce",
+    }],
+  };
   const { deps } = makeDeps(async (name) => {
+    if (name === "w3m_get_deal_agreement_context") return { data: agreementContext, error: null };
     if (name === "w3m_get_deal_asset_finalization_evidence") {
       return { data: [{
         deal_id: DEAL_ID,
@@ -168,7 +176,7 @@ Deno.test("status action exposes only participant-scoped current terms and accep
       }], error: null };
     }
     return { data: null, error: null };
-  }, { from, schema });
+  }, { from });
   const handler = createW3MAcquisitionHandler(deps);
   const response = await handler(makeRequest({ action: "status", deal_id: DEAL_ID }));
   const body = await response.json();
@@ -189,7 +197,7 @@ Deno.test("status action exposes only participant-scoped current terms and accep
   }
 
   const { deps: foreignDeps } = makeDeps(async () => ({ data: null, error: null }), {
-    from, schema, userId: "79000000-0000-4000-8000-000000000009",
+    from, userId: "79000000-0000-4000-8000-000000000009",
   });
   const foreignResponse = await createW3MAcquisitionHandler(foreignDeps)(
     makeRequest({ action: "status", deal_id: DEAL_ID }),
@@ -248,9 +256,18 @@ Deno.test("prepare action derives role, wallet, audit binding, and published ter
     deals: [{ id: DEAL_ID, project_id: PROJECT_ID, buyer_id: USER_ID, seller_id: sellerId, status: "pending", dispute_status: "none" }],
     profiles: [{ id: USER_ID, wallet_address: wallet.address, wallet_verified: true }],
   };
-  const privateRows: Record<string, Array<Record<string, unknown>>> = {
-    w3m_deal_audit_bindings: [{ deal_id: DEAL_ID, project_id: PROJECT_ID, audit_id: AUDIT_ID, fingerprint_id: FINGERPRINT_ID, fingerprint_digest: DIGEST, repository: "aminzaki1972/web3market", commit_sha: "f".repeat(40), binding_hash: BINDING_HASH }],
-    w3m_acquisition_terms_versions: [{ id: "75000000-0000-4000-8000-000000000005", deal_id: DEAL_ID, terms_version: 2, terms_hash: termsHash, canonical_terms_json: terms, status: "published" }],
+  const agreementContext = {
+    binding: {
+      deal_id: DEAL_ID, project_id: PROJECT_ID, audit_id: AUDIT_ID,
+      fingerprint_id: FINGERPRINT_ID, fingerprint_digest: DIGEST,
+      repository: "aminzaki1972/web3market", commit_sha: "f".repeat(40),
+      binding_hash: BINDING_HASH,
+    },
+    terms: {
+      id: "75000000-0000-4000-8000-000000000005", terms_version: 2,
+      terms_hash: termsHash, canonical_terms_json: terms, status: "published",
+    },
+    acceptances: [],
   };
   const makeQuery = (rows: Array<Record<string, unknown>>) => {
     let selected = [...rows];
@@ -265,11 +282,8 @@ Deno.test("prepare action derives role, wallet, audit binding, and published ter
   let stored: ReturnType<typeof challengeRow> | null = null;
   let corruptBindingEvidence = false;
   const from = ((table: string) => makeQuery(publicRows[table] || [])) as NonNullable<W3MAdminClient["from"]>;
-  const schema = ((name: string) => {
-    if (name !== "w3m_private") throw new Error("Unexpected schema " + name);
-    return { from: (table: string) => makeQuery(privateRows[table] || []) };
-  }) as NonNullable<W3MAdminClient["schema"]>;
   const { deps, calls } = makeDeps(async (name, args) => {
+    if (name === "w3m_get_deal_agreement_context") return { data: agreementContext, error: null };
     if (name === "w3m_issue_agreement_challenge") {
       stored = { ...challengeRow(wallet.address), nonce: String(args.p_nonce), signature_deadline: Number(args.p_signature_deadline), terms_hash: termsHash };
       if (corruptBindingEvidence) stored.binding_hash = "9".repeat(64);
@@ -277,7 +291,7 @@ Deno.test("prepare action derives role, wallet, audit binding, and published ter
     }
     if (name === "w3m_get_agreement_challenge_for_verification") return { data: stored ? [stored] : [], error: null };
     throw new Error("Unexpected RPC " + name);
-  }, { from, schema, randomBytes: (length) => new Uint8Array(length).fill(0xcd) });
+  }, { from, randomBytes: (length) => new Uint8Array(length).fill(0xcd) });
   const handler = createW3MAcquisitionHandler(deps);
   const response = await handler(makeRequest({ action: "prepare", deal_id: DEAL_ID, wallet_address: wallet.address }));
   const body = await response.json();
@@ -286,8 +300,10 @@ Deno.test("prepare action derives role, wallet, audit binding, and published ter
   if (prepared.dealId !== DEAL_ID || prepared.partyRole !== "buyer" || prepared.walletAddress !== wallet.address ||
     prepared.termsHash !== termsHash || prepared.termsVersion !== "2" || prepared.challengeId !== CHALLENGE_ID ||
     prepared.typedData.message.termsHash !== "0x" + termsHash) throw new Error("Preparation did not return the exact trusted deal, terms, wallet, and challenge");
-  if (calls[0]?.args.p_user_id !== USER_ID || calls[0]?.args.p_party_role !== "buyer" || calls[0]?.args.p_terms_hash !== termsHash) {
-    throw new Error("Preparation RPC was not bound to the authenticated party and trusted published terms");
+  const issueCall = calls.find((call) => call.name === "w3m_issue_agreement_challenge");
+  if (issueCall?.args.p_user_id !== USER_ID || issueCall?.args.p_party_role !== "buyer" || issueCall?.args.p_terms_hash !== termsHash ||
+      !calls.some((call) => call.name === "w3m_get_deal_agreement_context" && call.args.p_deal_id === DEAL_ID)) {
+    throw new Error("Preparation did not load private agreement context through the restricted RPC or bind the challenge to the authenticated party");
   }
 
   // The server must reject a persisted challenge whose binding evidence differs
