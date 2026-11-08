@@ -41,6 +41,7 @@ Deno.serve(async req=>{
  } catch {
   return json(503,{ok:false,error:"Deal protocol classification is unavailable"});
  }
+ const historicalLegacyCompleted = protocolTrack === "legacy" && isSameCompletedRelease;
  if (protocolTrack === "v1") {
   try {
    await assertW3MFinalizationReady(sb, dealId);
@@ -84,6 +85,7 @@ Deno.serve(async req=>{
  const recomputed=await safe.getTransactionHash(ethers.getAddress(tx.to_address),BigInt(tx.value_wei||0),String(tx.data||"0x"),Number(tx.operation),BigInt(tx.safe_tx_gas||0),BigInt(tx.base_gas||0),BigInt(tx.gas_price||0),ethers.getAddress(tx.gas_token||ethers.ZeroAddress),ethers.getAddress(tx.refund_receiver||ethers.ZeroAddress),BigInt(tx.safe_nonce));
  if(String(recomputed).toLowerCase()!==String(tx.safe_tx_hash).toLowerCase())return json(409,{ok:false,error:"Stored Safe transaction payload does not match its signed Safe transaction hash"});
  if(receipt.status===0){
+  if(historicalLegacyCompleted)return json(409,{ok:false,error:"A previously completed legacy release cannot be reclassified from a failed chain receipt"});
   const {error:claimFailError}=await sb.rpc("w3m_mark_safe_release_failed",{
    p_deal_id:dealId,p_safe_tx_hash:String(tx.safe_tx_hash),p_safe_nonce:Number(tx.safe_nonce),
    p_transaction_hash:txHash,p_failure_code:"evm_revert"
@@ -92,10 +94,12 @@ Deno.serve(async req=>{
   return json(409,{ok:false,error:"Safe execution transaction reverted; the claim was closed after the confirmed chain receipt"});
  }
  if(receipt.status!==1)return json(409,{ok:false,error:"Safe execution receipt status is not confirmed"});
- const {error:claimSubmitError}=await sb.rpc("w3m_mark_safe_release_submitted",{
-  p_deal_id:dealId,p_safe_tx_hash:String(tx.safe_tx_hash),p_safe_nonce:Number(tx.safe_nonce),p_transaction_hash:txHash
- });
- if(claimSubmitError)return json(500,{ok:false,error:"Could not persist the mined Safe transaction against its active release claim"});
+ if(!historicalLegacyCompleted){
+  const {error:claimSubmitError}=await sb.rpc("w3m_mark_safe_release_submitted",{
+   p_deal_id:dealId,p_safe_tx_hash:String(tx.safe_tx_hash),p_safe_nonce:Number(tx.safe_nonce),p_transaction_hash:txHash
+  });
+  if(claimSubmitError)return json(500,{ok:false,error:"Could not persist the mined Safe transaction against its active release claim"});
+ }
  let executionMatched=false,executionFailure=false;
  for(const log of receipt.logs){if(norm(log.address)!==norm(safeAddress))continue;try{const p=SAFE.parseLog({topics:[...log.topics],data:log.data});if(!p)continue;const h=String(p.args[0]).toLowerCase();if(p.name==="ExecutionSuccess"&&h===String(tx.safe_tx_hash).toLowerCase())executionMatched=true;if(p.name==="ExecutionFailure"&&h===String(tx.safe_tx_hash).toLowerCase())executionFailure=true}catch{}}
  if(executionFailure){
@@ -121,10 +125,12 @@ Deno.serve(async req=>{
     const {error:projectUpdateError}=await sb.from("projects").update({status:"sold",updated_at:now}).eq("id",deal.project_id);
     if(projectUpdateError)return json(500,{ok:false,error:"Deal completed but project sold-status update failed"});
   }
- const {error:claimFinalizedError}=await sb.rpc("w3m_mark_safe_release_finalized",{
-  p_deal_id:dealId,p_safe_tx_hash:String(tx.safe_tx_hash),p_safe_nonce:Number(tx.safe_nonce),p_transaction_hash:txHash
- });
- if(claimFinalizedError)return json(500,{ok:false,error:"Deal settlement is recorded but the durable Safe release claim could not be finalized; keep the dispute hold active"});
+ if(!historicalLegacyCompleted){
+  const {error:claimFinalizedError}=await sb.rpc("w3m_mark_safe_release_finalized",{
+   p_deal_id:dealId,p_safe_tx_hash:String(tx.safe_tx_hash),p_safe_nonce:Number(tx.safe_nonce),p_transaction_hash:txHash
+  });
+  if(claimFinalizedError)return json(500,{ok:false,error:"Deal settlement is recorded but the durable Safe release claim could not be finalized; keep the dispute hold active"});
+ }
  await sb.from("deal_audit_logs").insert({deal_id:dealId,actor_id:u.user.id,action:"safe_release_confirmed",metadata:{tx_hash:txHash,safe_tx_hash:String(tx.safe_tx_hash),safe_nonce:Number(tx.safe_nonce),seller_amount:String(policy.seller_net_amount),platform_fee:String(policy.fee_amount)}});
  return json(200,{ok:true,completed:true,release_tx_hash:txHash,safe_tx_hash:String(tx.safe_tx_hash),safe_nonce:Number(tx.safe_nonce),seller_amount:String(policy.seller_net_amount),platform_fee:String(policy.fee_amount),deal:finalDeal,transaction:updated});
 });
