@@ -54,12 +54,6 @@ function decimal(value: unknown, label: string): string {
 function positiveDecimal(value: string, label: string): void {
   if (!/[1-9]/.test(value)) fail(label + " must be greater than zero.");
 }
-function exceedsOneHundred(value: string): boolean {
-  const [whole, fraction = ""] = value.split(".");
-  const integer = BigInt(whole);
-  return integer > 100n || (integer === 100n && /[1-9]/.test(fraction));
-}
-
 // Exact base-10 arithmetic for monetary invariants. No JS floating-point math.
 function decimalToMinor(value: string, scale: number): bigint {
   const [whole, fraction = ""] = value.split(".");
