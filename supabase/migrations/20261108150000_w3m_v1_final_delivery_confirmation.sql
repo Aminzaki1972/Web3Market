@@ -11,7 +11,8 @@ create table w3m_private.w3m_deal_delivery_confirmations (
   asset_count integer not null check (asset_count > 0),
   confirmed_at timestamptz not null default clock_timestamp(),
   created_at timestamptz not null default clock_timestamp(),
-  unique (deal_id, terms_version, asset_set_digest)
+  constraint w3m_deal_delivery_confirmations_unique_asset_set
+    unique (deal_id, terms_version, asset_set_digest)
 );
 
 alter table w3m_private.w3m_deal_delivery_confirmations enable row level security;
@@ -159,7 +160,7 @@ begin
     p_deal_id, v_deal.buyer_id, v_terms.terms_version, v_terms.terms_hash,
     v_asset_set.asset_set_digest, v_asset_set.asset_count
   )
-  on conflict (deal_id, terms_version, asset_set_digest) do nothing
+  on conflict on constraint w3m_deal_delivery_confirmations_unique_asset_set do nothing
   returning id, w3m_deal_delivery_confirmations.confirmed_at
     into v_confirmation_id, v_confirmed_at;
 
