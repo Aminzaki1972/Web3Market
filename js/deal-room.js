@@ -307,18 +307,16 @@
   const renderId=++termsRenderRequest;
   const actions=document.querySelector('#actions');
   if(!actions)return;
-  if(participant!=='platform'){
-   actions.innerHTML='<div class="notice">Checking the current agreement status…</div>';
-   const gate=await getW3MAgreementGate();
-   if(renderId!==termsRenderRequest)return;
-   if(gate==='v1'){
-    actions.innerHTML='<div class="notice"><strong>W3M Protocol V1 agreement published.</strong><br>The legacy agreement and Model B dispute controls are disabled for this deal. V1 digital signing remains disabled until the agreement wording receives final legal and commercial approval.</div>';
-    return;
-   }
-   if(gate==='blocked'){
-    actions.innerHTML='<div class="notice warn"><strong>Agreement status could not be verified.</strong><br>For safety, agreement acceptance and dispute controls are temporarily disabled. Please refresh or contact support.</div>';
-    return;
-   }
+  actions.innerHTML='<div class="notice">Checking the current agreement status…</div>';
+  const gate=await getW3MAgreementGate();
+  if(renderId!==termsRenderRequest)return;
+  if(gate==='v1'){
+   actions.innerHTML='<div class="notice"><strong>W3M Protocol V1 agreement published.</strong><br>The legacy agreement and Model B dispute controls are disabled for this deal. V1 digital signing remains disabled until the agreement wording receives final legal and commercial approval.</div>';
+   return;
+  }
+  if(gate==='blocked'){
+   actions.innerHTML='<div class="notice warn"><strong>Agreement status could not be verified.</strong><br>For safety, agreement acceptance and dispute controls are temporarily disabled. Please refresh or contact support.</div>';
+   return;
   }
   const rows=await loadAgreement();
   if(renderId!==termsRenderRequest)return;
