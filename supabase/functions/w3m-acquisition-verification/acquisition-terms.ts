@@ -213,10 +213,13 @@ export function validateW3MAcquisitionTermsV1(input: unknown): asserts input is 
   requiredPolicyText(dispute.procedure_version, "dispute.procedure_version");
   requiredPolicyText(dispute.text, "dispute.text");
 
-  const escrow = object(root.escrow, "escrow");
-  requiredPolicyText(escrow.funding_condition, "escrow.funding_condition");
-  requiredPolicyText(escrow.release_condition, "escrow.release_condition");
-  if (escrow.dispute_hold !== true) fail("Escrow must enforce a dispute hold.");
+  // The canonical terms describe Safe multisig settlement only; no separate escrow contract or platform custody is implied.
+  const safeSettlement = object(root.safe_settlement, "safe_settlement");
+  if (safeSettlement.method !== "safe_multisig") fail("safe_settlement.method must explicitly identify Safe multisig settlement.");
+  requiredPolicyText(safeSettlement.funding_condition, "safe_settlement.funding_condition");
+  requiredPolicyText(safeSettlement.release_condition, "safe_settlement.release_condition");
+  if (safeSettlement.dispute_hold !== true) fail("Safe settlement must enforce a dispute hold.");
+  if (Object.prototype.hasOwnProperty.call(root, "escrow")) fail("The legacy escrow field is not accepted; use safe_settlement to describe the Safe-only workflow.");
 
   const governing = object(root.governing_terms, "governing_terms");
   requiredPolicyText(governing.governing_law, "governing_terms.governing_law");
