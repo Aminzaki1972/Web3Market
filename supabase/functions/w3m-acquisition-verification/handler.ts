@@ -781,7 +781,7 @@ export function createW3MAcquisitionHandler(deps: HandlerDependencies) {
           return reply(origin, { ok: true, result });
         } catch (error) {
           const status = typeof (error as { status?: unknown })?.status === "number"
-            ? (error as { status: number }).status : rpcStatus(error);
+            ? (error as { status: number }).status : rpcStatus(error as { code?: string; message?: string } | null);
           if (status >= 500) console.error("w3m final delivery confirmation failed", error instanceof Error ? error.message : "unknown error");
           return reply(origin, { ok: false, error: status === 400 ? "Invalid final delivery confirmation request" :
             status === 403 ? "Only the buyer can confirm final delivery" :
