@@ -374,7 +374,7 @@ jobs:
               '0x2222222222222222222222222222222222222222',
               '0x' || repeat('4',64),v_deadline
             );
-            update public.deals set dispute_status='disputed' where id=v_deal;
+            update public.deals set dispute_status='open' where id=v_deal;
             begin
               perform public.w3m_record_agreement_acceptance(
                 v_stale_challenge,
