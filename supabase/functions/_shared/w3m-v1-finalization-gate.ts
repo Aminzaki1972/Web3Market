@@ -239,6 +239,27 @@ async function assertW3MFinalizationReadyInternal(
       }
     }
     assetCount = seenAssetIds.size;
+
+    const finalConfirmation = await admin.rpc("w3m_get_deal_delivery_confirmation_status", {
+      p_deal_id: dealId,
+    });
+    const confirmation = finalConfirmation.data && typeof finalConfirmation.data === "object" &&
+      !Array.isArray(finalConfirmation.data)
+      ? finalConfirmation.data as Record<string, unknown> : null;
+    if (finalConfirmation.error || !confirmation ||
+        confirmation.confirmed !== true || confirmation.stale !== false ||
+        String(confirmation.terms_version) !== termsVersion ||
+        String(confirmation.terms_hash || "").replace(/^0x/i, "").toLowerCase() !== rawHash(termsHash) ||
+        !UUID.test(String(confirmation.confirmation_id || "")) ||
+        !/^[0-9a-f]{64}$/i.test(String(confirmation.asset_set_digest || "")) ||
+        Number(confirmation.asset_count) !== assetCount ||
+        typeof confirmation.confirmed_at !== "string" ||
+        !Number.isFinite(Date.parse(confirmation.confirmed_at))) {
+      throw new W3MFinalizationGateError(
+        "W3M_FINALIZATION_EVIDENCE_UNAVAILABLE",
+        "The buyer's final confirmation must match the exact current terms and complete accepted asset set.",
+      );
+    }
   }
 
   return {
