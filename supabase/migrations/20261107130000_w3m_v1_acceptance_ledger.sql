@@ -563,7 +563,13 @@ begin
   if v_challenge.user_id <> p_user_id or v_challenge.party_role <> p_party_role
     or lower(v_challenge.wallet_address) <> lower(p_wallet_address)
     or lower(v_challenge.wallet_address) <> lower(p_recovered_signer)
-    or p_signature !~ '^0x[0-9a-fA-F]{130}    (challenge_id, deal_id, project_id, audit_id, fingerprint_id, fingerprint_digest,
+    or p_signature !~ '^0x[0-9a-fA-F]{130}$'
+    or v_now > to_timestamp(v_challenge.signature_deadline) then
+    raise exception 'challenge_acceptance_mismatch_or_expired' using errcode = '22023';
+  end if;
+
+  insert into w3m_private.w3m_agreement_acceptances
+    (challenge_id, deal_id, project_id, audit_id, fingerprint_id, fingerprint_digest,
      binding_hash, terms_hash, terms_version, party_role, user_id, wallet_address,
      signature, nonce, signature_deadline, accepted_at)
   values
@@ -573,6 +579,7 @@ begin
      v_challenge.user_id, v_challenge.wallet_address, lower(p_signature),
      v_challenge.nonce, v_challenge.signature_deadline, v_now)
   returning id into v_acceptance_id;
+
   update w3m_private.w3m_agreement_challenges set consumed_at = v_now
     where id = v_challenge.id and consumed_at is null;
   if not found then
