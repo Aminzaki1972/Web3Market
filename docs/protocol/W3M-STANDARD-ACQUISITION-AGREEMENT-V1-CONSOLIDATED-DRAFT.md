@@ -10,7 +10,7 @@ The buyer and seller are the parties identified in the relevant Web3Market deal 
 The seller proposes to transfer and the buyer proposes to acquire only the project assets, rights, and deliverables expressly listed in the deal-specific Transaction Schedule. General project descriptions or mutable profile fields do not independently add assets to the transfer scope. Included items and exclusions must be identified clearly.
 
 ## Article 3 — Assets and Transfer Scope
-The schedule must itemize each asset with an identifier, description, transfer method, expected evidence, and acceptance status. Relevant items may include domains, source-code repositories and commits, hosting, applications, intellectual property, licences, accounts, documentation, and other deliverables. Credentials, private keys, and recovery phrases must never be placed in public notes or evidence URLs. Scope changes require agreement and, where canonical terms are affected, a new version and fresh acceptance.
+The schedule must itemize each asset with an identifier, description, responsible party, transfer method, expected evidence, and acceptance status. Relevant items may include domains, source-code repositories and commits, hosting, applications, intellectual property, licences, accounts, documentation, and other deliverables. Credentials, private keys, and recovery phrases must never be placed in public notes or evidence URLs. Scope changes require agreement and, where canonical terms are affected, a new version and fresh acceptance.
 
 ## Article 4 — Seller Responsibilities
 The seller must provide accurate deal information, identify included assets and exclusions, perform the transfers assigned to the seller in the accepted schedule, and provide the agreed evidence for each asset. The seller must disclose material ownership, authority, third-party consent, licence, restriction, or limitation issues relevant to included assets. Any warranties, remedies, and liability terms require explicit completion and legal review; this draft does not invent them.
@@ -60,9 +60,9 @@ The agreement presented to the parties must be a canonical server-published vers
 
 **A. Deal and parties:** deal identifier; project identifier/name; buyer and seller identities; verified wallets; server-assigned agreement version/hash.
 
-**B. Assets and delivery:** itemized asset identifiers/descriptions; included items and exclusions; transfer method and responsible party for each asset; expected evidence; any agreed deadlines and acceptance criteria; final delivery confirmation.
+**B. Assets and delivery:** itemized asset identifiers/descriptions; included items and exclusions; transfer method, responsible party, and expected evidence for each asset; any agreed deadlines and acceptance criteria; final delivery confirmation.
 
-**C. Commercial terms:** seller asking price; agreed discount, if any; final agreed consideration; currency; platform success-fee rate (**7.5%**); calculated platform-fee amount; seller net proceeds; buyer and seller approval states/timestamps. The platform fee is 7.5% of final consideration; seller net is final consideration less platform fee. Apply the deal currency and canonical decimal precision/rounding rules. No illustrative or hypothetical amounts belong in this Agreement.
+**C. Commercial terms:** signed seller asking-price snapshot; optional agreed fixed-amount discount snapshot; independently agreed final consideration; currency; platform success-fee rate (**7.5%**); calculated platform-fee amount; seller net proceeds; buyer and seller approval states/timestamps. The platform fee is 7.5% of final consideration; seller net is final consideration less platform fee. Apply the deal currency and canonical decimal precision/rounding rules. No illustrative or hypothetical amounts belong in this Agreement.
 
 **D. Settlement:** network and settlement asset; Safe address; verified Safe owners and threshold; funding and settlement route; required approvals; release conditions; transaction evidence references.
 
