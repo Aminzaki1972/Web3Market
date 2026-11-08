@@ -21,6 +21,10 @@ const fixture = () => ({
     commit_sha: "a".repeat(40),
     fingerprint_digest: "b".repeat(64),
   },
+  commercial_schedule: {
+    asking_price: { amount: "1200.00", currency: "USDT" },
+    agreed_discount: { amount: "200.00", currency: "USDT", description: "Agreed fixed-amount discount" },
+  },
   consideration: { amount: "1000.00", currency: "USDT" },
   platform_fee: { percent: "7.50", amount: "75.00" },
   seller_net: { amount: "925.00", currency: "USDT" },
@@ -33,7 +37,7 @@ const fixture = () => ({
     status_at_signing: "configured_or_pending",
   },
   transfer_scope: {
-    included_assets: [{ type: "repository", description: "Source code" }],
+    included_assets: [{ type: "repository", description: "Source code", transfer_method: "Transfer repository ownership and access", responsible_party: "Seller", expected_evidence: "Repository ownership and buyer access are verified" }],
     excluded_assets: [],
     access_and_credentials: { transfer_method: "Owner handover; no secrets in this record" },
     third_party_dependencies: [],
@@ -265,7 +269,7 @@ Deno.test("requires a non-empty, uniquely named included-asset checklist", () =>
 
   const duplicate = fixture();
   duplicate.transfer_scope.included_assets = [
-    { type: "repository", description: "Source code" },
+    { type: "repository", description: "Source code", transfer_method: "Transfer repository ownership and access", responsible_party: "Seller", expected_evidence: "Repository ownership and buyer access are verified" },
     { type: "REPOSITORY", description: " source CODE " },
   ];
   assertThrows(() => validateW3MAcquisitionTermsV1(duplicate));
