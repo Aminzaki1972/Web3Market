@@ -1,0 +1,194 @@
+name: W3M V1 Asset Delivery Evidence Tests
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql"
+      - ".github/workflows/w3m-v1-asset-delivery-tests.yml"
+  push:
+    branches:
+      - "feat/w3m-audit-fingerprint-binding-20261107"
+    paths:
+      - "supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql"
+      - ".github/workflows/w3m-v1-asset-delivery-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-asset-evidence-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: w3m_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d w3m_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare isolated Supabase-compatible schema
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          create role anon nologin;
+          create role authenticated nologin;
+          create role service_role nologin bypassrls;
+          create schema auth;
+          create schema w3m_private;
+          create schema extensions;
+          create extension if not exists pgcrypto with schema extensions;
+          create function auth.jwt() returns jsonb
+            language sql stable
+            as $auth$ select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $auth$;
+          create function auth.uid() returns uuid
+            language sql stable
+            as $auth$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $auth$;
+          create table public.admin_users(user_id uuid primary key);
+          create table public.deals(
+            id uuid primary key, buyer_id uuid not null, seller_id uuid not null
+          );
+          create table public.deal_assets(
+            id uuid primary key default gen_random_uuid(),
+            deal_id uuid not null references public.deals(id) on delete cascade,
+            asset_name text not null,
+            status text not null default 'pending'
+              check(status in ('pending','delivered','accepted','rejected')),
+            delivery_url text,
+            evidence text,
+            delivered_by uuid,
+            delivered_at timestamptz,
+            accepted_by uuid,
+            accepted_at timestamptz,
+            created_at timestamptz not null default now(),
+            updated_at timestamptz not null default now(),
+            unique(deal_id, asset_name)
+          );
+          alter table public.deal_assets enable row level security;
+          create policy deal_assets_participants_update on public.deal_assets
+            for update to authenticated using (true) with check (true);
+          create trigger protect_deal_asset_updates
+            before update on public.deal_assets
+            for each row execute function public.protect_deal_asset_updates();
+          SQL
+      - name: Apply W3M V1 per-asset evidence migration
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql
+      - name: Verify delivery, rejection, redelivery and acceptance evidence
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          declare
+            v_deal uuid := '71000000-0000-4000-8000-000000000001';
+            v_buyer uuid := '75000000-0000-4000-8000-000000000005';
+            v_seller uuid := '76000000-0000-4000-8000-000000000006';
+            v_asset uuid;
+            v_events integer;
+            v_attempt integer;
+            v_digest text;
+            v_status text;
+            v_actor uuid;
+            v_evidence jsonb;
+          begin
+            insert into public.deals(id,buyer_id,seller_id) values(v_deal,v_buyer,v_seller);
+            insert into public.deal_assets(deal_id,asset_name)
+              values(v_deal,'Project source repository') returning id into v_asset;
+
+            perform set_config('request.jwt.claim.sub',v_seller::text,false);
+            update public.deal_assets set status='delivered',
+              delivery_url='https://example.invalid/repo',evidence='synthetic-evidence-v1'
+              where id=v_asset;
+            select count(*) into v_events from w3m_private.w3m_deal_asset_events
+              where asset_id=v_asset and event_type='delivered' and attempt_number=1;
+            if v_events <> 1 then raise exception 'first_delivery_event_missing'; end if;
+            select evidence_digest into v_digest from w3m_private.w3m_deal_asset_events
+              where asset_id=v_asset and event_type='delivered';
+            if v_digest is null or length(v_digest) <> 64 then
+              raise exception 'delivery_evidence_digest_missing_or_invalid';
+            end if;
+
+            perform set_config('request.jwt.claim.sub',v_buyer::text,false);
+            update public.deal_assets set status='rejected' where id=v_asset;
+            select event_type,actor_user_id into v_status,v_actor
+              from w3m_private.w3m_deal_asset_events
+              where asset_id=v_asset order by occurred_at desc,id desc limit 1;
+            if v_status <> 'rejected' or v_actor <> v_buyer then
+              raise exception 'buyer_rejection_not_recorded';
+            end if;
+
+            perform set_config('request.jwt.claim.sub',v_seller::text,false);
+            update public.deal_assets set status='delivered',
+              delivery_url='https://example.invalid/repo-v2',evidence='synthetic-evidence-v2'
+              where id=v_asset;
+            select max(attempt_number) into v_attempt
+              from w3m_private.w3m_deal_asset_events
+              where asset_id=v_asset and event_type='delivered';
+            if v_attempt <> 2 then raise exception 'redelivery_attempt_not_incremented'; end if;
+            if (select accepted_by from public.deal_assets where id=v_asset) is not null
+              or (select accepted_at from public.deal_assets where id=v_asset) is not null then
+              raise exception 'previous_acceptance_not_cleared_on_redelivery';
+            end if;
+
+            perform set_config('request.jwt.claim.sub',v_buyer::text,false);
+            update public.deal_assets set status='accepted' where id=v_asset;
+            select count(*) into v_events from w3m_private.w3m_deal_asset_events
+              where asset_id=v_asset;
+            if v_events <> 4 then raise exception 'event_history_was_overwritten_or_duplicated'; end if;
+            select event_type,attempt_number into v_status,v_attempt
+              from w3m_private.w3m_deal_asset_events
+              where asset_id=v_asset order by occurred_at desc,id desc limit 1;
+            if v_status <> 'accepted' or v_attempt <> 2 then
+              raise exception 'latest_delivery_attempt_not_accepted';
+            end if;
+
+            begin
+              update w3m_private.w3m_deal_asset_events
+                set event_type='rejected' where asset_id=v_asset;
+              raise exception 'expected_append_only_update_rejection';
+            exception when sqlstate '55000' then null;
+            end;
+            begin
+              delete from w3m_private.w3m_deal_asset_events where asset_id=v_asset;
+              raise exception 'expected_append_only_delete_rejection';
+            exception when sqlstate '55000' then null;
+            end;
+
+            perform set_config('request.jwt.claims','{"role":"service_role"}',false);
+            select asset_rows into v_evidence
+              from public.w3m_get_deal_asset_finalization_evidence(v_deal);
+            if jsonb_array_length(v_evidence) <> 1
+              or v_evidence #>> '{0,status}' <> 'accepted'
+              or jsonb_array_length(v_evidence #> '{0,events}') <> 4 then
+              raise exception 'service_finalization_asset_evidence_incomplete';
+            end if;
+          end;
+          $$;
+          SQL
+      - name: Verify finalization evidence RPC is service-role only
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+            if has_function_privilege('anon','public.w3m_get_deal_asset_finalization_evidence(uuid)','execute')
+              or has_function_privilege('authenticated','public.w3m_get_deal_asset_finalization_evidence(uuid)','execute')
+              or not has_function_privilege('service_role','public.w3m_get_deal_asset_finalization_evidence(uuid)','execute')
+              or has_table_privilege('anon','w3m_private.w3m_deal_asset_events','select')
+              or has_table_privilege('authenticated','w3m_private.w3m_deal_asset_events','select')
+              or has_table_privilege('service_role','w3m_private.w3m_deal_asset_events','select') then
+              raise exception 'asset_delivery_evidence_privileges_are_not_least_privilege';
+            end if;
+          end;
+          $$;
+          SQL
