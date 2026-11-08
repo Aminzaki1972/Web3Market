@@ -51,6 +51,19 @@ jobs:
             wallet.js; do
             node --check "$file"
           done
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("deal-room.html").read_text()
+          scripts = re.findall(r'<script\\b(?=[^>]*\\btype=["\\']module["\\'])[^>]*>([\\s\\S]*?)</script>', html, re.I)
+          if not scripts:
+              raise SystemExit("No inline Deal Room module script found")
+          for index, source in enumerate(scripts):
+              Path(f"/tmp/deal-room-inline-{index}.mjs").write_text(source)
+          PY
+          for file in /tmp/deal-room-inline-*.mjs; do
+            node --check "$file"
+          done
           node tests/security/check-cdn-sri.mjs
 
   profile-guard-migration:
