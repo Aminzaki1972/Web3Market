@@ -243,3 +243,21 @@ Deno.test("rejects blank delivery, inspection, and risk acknowledgement items", 
   blankRisk.risk_acknowledgements = [" "];
   assertThrows(() => validateW3MAcquisitionTermsV1(blankRisk));
 });
+
+
+Deno.test("requires a non-empty, uniquely named included-asset checklist", () => {
+  const empty = fixture();
+  empty.transfer_scope.included_assets = [];
+  assertThrows(() => validateW3MAcquisitionTermsV1(empty));
+
+  const missingDescription = fixture();
+  missingDescription.transfer_scope.included_assets = [{ type: "repository", description: " " }];
+  assertThrows(() => validateW3MAcquisitionTermsV1(missingDescription));
+
+  const duplicate = fixture();
+  duplicate.transfer_scope.included_assets = [
+    { type: "repository", description: "Source code" },
+    { type: "REPOSITORY", description: " source CODE " },
+  ];
+  assertThrows(() => validateW3MAcquisitionTermsV1(duplicate));
+});
