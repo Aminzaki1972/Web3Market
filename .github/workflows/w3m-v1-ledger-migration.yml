@@ -809,3 +809,34 @@ jobs:
           end;
           $$;
           SQL
+      - name: Verify private agreement context RPC and least-privilege access
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          set request.jwt.claims = '{"role":"service_role"}';
+          do $$
+          declare
+            v_context jsonb;
+            v_deal uuid := '71000000-0000-4000-8000-000000000001';
+          begin
+            if has_function_privilege('anon','public.w3m_get_deal_agreement_context(uuid)','execute')
+              or has_function_privilege('authenticated','public.w3m_get_deal_agreement_context(uuid)','execute')
+              or not has_function_privilege('service_role','public.w3m_get_deal_agreement_context(uuid)','execute') then
+              raise exception 'private_agreement_context_rpc_privileges_are_not_least_privilege';
+            end if;
+
+            v_context := public.w3m_get_deal_agreement_context(v_deal);
+            if v_context->'binding'->>'deal_id' <> v_deal::text
+              or v_context->'binding'->>'project_id' <> '72000000-0000-4000-8000-000000000002'
+              or v_context->'terms'->>'status' <> 'published'
+              or jsonb_array_length(v_context->'acceptances') <> 2
+              or not (v_context->'acceptances' @> '[{"party_role":"buyer"}]'::jsonb)
+              or not (v_context->'acceptances' @> '[{"party_role":"seller"}]'::jsonb)
+              or v_context::text like '%signature%'
+              or v_context::text like '%nonce%' then
+              raise exception 'private_agreement_context_rpc_returned_incomplete_or_sensitive_data';
+            end if;
+          end;
+          $$;
+          SQL
