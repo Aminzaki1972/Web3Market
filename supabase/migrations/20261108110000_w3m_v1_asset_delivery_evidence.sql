@@ -2,6 +2,7 @@
 -- Draft branch migration. Do not apply to production without explicit approval.
 
 create table if not exists w3m_private.w3m_deal_asset_events (
+  event_no bigint generated always as identity unique,
   id uuid primary key default gen_random_uuid(),
   deal_id uuid not null,
   asset_id uuid not null,
@@ -14,7 +15,7 @@ create table if not exists w3m_private.w3m_deal_asset_events (
 );
 
 create index if not exists w3m_deal_asset_events_asset_order_idx
-  on w3m_private.w3m_deal_asset_events(asset_id, occurred_at, id);
+  on w3m_private.w3m_deal_asset_events(asset_id, event_no);
 create index if not exists w3m_deal_asset_events_deal_idx
   on w3m_private.w3m_deal_asset_events(deal_id, asset_id);
 
@@ -59,6 +60,11 @@ begin
     if new.status not in ('pending','delivered') then
       raise exception 'Seller may only set asset status to pending or delivered';
     end if;
+    if old.status = 'delivered' and new.status = 'delivered'
+       and (new.delivery_url is distinct from old.delivery_url
+         or new.evidence is distinct from old.evidence) then
+      raise exception 'Seller must restart the delivery attempt before changing delivery evidence';
+    end if;
     if new.status is distinct from old.status and old.status in ('accepted','rejected') then
       new.accepted_by := null;
       new.accepted_at := null;
@@ -66,13 +72,12 @@ begin
     if new.status = 'pending' then
       new.delivered_by := null;
       new.delivered_at := null;
-    else
+    elsif new.status is distinct from old.status then
       new.delivered_by := uid;
-      if new.status is distinct from old.status then
-        new.delivered_at := now();
-      else
-        new.delivered_at := coalesce(new.delivered_at, now());
-      end if;
+      new.delivered_at := now();
+    else
+      new.delivered_by := old.delivered_by;
+      new.delivered_at := old.delivered_at;
     end if;
     return new;
   end if;
@@ -200,7 +205,7 @@ begin
         'actor_user_id', e.actor_user_id::text,
         'evidence_digest', e.evidence_digest,
         'occurred_at', e.occurred_at
-      ) order by e.occurred_at, e.id)
+      ) order by e.event_no)
       from w3m_private.w3m_deal_asset_events e
       where e.asset_id = a.id and e.deal_id = a.deal_id
     ), '[]'::jsonb)
