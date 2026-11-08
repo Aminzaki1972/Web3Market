@@ -157,6 +157,40 @@ export async function getW3MDealAgreementStatus(input) {
       buyer: { ...acceptances.buyer },
       seller: { ...acceptances.seller },
     },
+    assets: (() => {
+      if (!Array.isArray(result.assets)) throw new Error("Deal asset status is malformed.");
+      return result.assets.map((raw) => {
+        const asset = record(raw, "Deal asset");
+        if (typeof asset.asset_id !== "string" || typeof asset.asset_name !== "string" ||
+            typeof asset.status !== "string" || !Array.isArray(asset.events)) {
+          throw new Error("Deal asset status is malformed.");
+        }
+        return {
+          assetId: asset.asset_id,
+          assetName: asset.asset_name,
+          status: asset.status,
+          deliveryUrl: typeof asset.delivery_url === "string" ? asset.delivery_url : null,
+          deliveredAt: typeof asset.delivered_at === "string" ? asset.delivered_at : null,
+          acceptedAt: typeof asset.accepted_at === "string" ? asset.accepted_at : null,
+          events: asset.events.map((entry) => {
+            const event = record(entry, "Deal asset event");
+            if (typeof event.event_type !== "string" ||
+                typeof event.attempt_number !== "number" ||
+                typeof event.evidence_digest !== "string" ||
+                !/^[0-9a-f]{64}$/i.test(event.evidence_digest) ||
+                typeof event.occurred_at !== "string") {
+              throw new Error("Deal asset event is malformed.");
+            }
+            return {
+              eventType: event.event_type,
+              attemptNumber: event.attempt_number,
+              evidenceDigest: event.evidence_digest,
+              occurredAt: event.occurred_at,
+            };
+          }),
+        };
+      });
+    })(),
     bothAccepted: result.both_accepted,
     dealEligible: result.deal_eligible,
   };
