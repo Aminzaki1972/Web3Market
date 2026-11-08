@@ -273,6 +273,126 @@ for each row execute function w3m_private.w3m_guard_deal_asset_insert();
 -- The Safe claim is the serialization boundary. It rechecks every asset while
 -- holding the deal row lock, so a delivery change cannot race between the
 -- application preflight and the durable claim.
+-- Canonical asset identity is derived from the signed terms object:
+-- "type: description". This prevents a seller from silently omitting an
+-- included asset or adding an unrelated asset to the delivery checklist.
+create or replace function w3m_private.w3m_asset_name_from_terms(p_asset jsonb)
+returns text language plpgsql immutable security definer set search_path = ''
+as $w3m$
+declare
+  v_type text;
+  v_description text;
+begin
+  if jsonb_typeof(p_asset) is distinct from 'object' then
+    raise exception 'included_asset_must_be_an_object' using errcode = '22023';
+  end if;
+  v_type := btrim(coalesce(p_asset ->> 'type',''));
+  v_description := btrim(coalesce(p_asset ->> 'description',''));
+  if v_type = '' or v_description = '' or length(v_type) > 100 or length(v_description) > 300 then
+    raise exception 'included_asset_type_and_description_required' using errcode = '22023';
+  end if;
+  return v_type || ': ' || v_description;
+end;
+$w3m$;
+
+revoke all on function w3m_private.w3m_asset_name_from_terms(jsonb)
+  from public, anon, authenticated, service_role;
+
+create or replace function public.w3m_sync_deal_assets_from_published_terms(p_deal_id uuid)
+returns integer language plpgsql security definer set search_path = ''
+as $w3m$
+declare
+  v_terms_count integer;
+  v_terms jsonb;
+  v_assets jsonb;
+  v_asset jsonb;
+  v_name text;
+  v_expected_count integer;
+  v_actual_count integer;
+  v_existing_mismatch boolean;
+begin
+  if (auth.jwt() ->> 'role') is distinct from 'service_role' then
+    raise exception 'service_role_required' using errcode = '42501';
+  end if;
+  if p_deal_id is null then
+    raise exception 'deal_id_required' using errcode = '22023';
+  end if;
+
+  perform 1 from public.deals d where d.id = p_deal_id for update;
+  if not found then
+    raise exception 'asset_sync_deal_not_found' using errcode = 'P0002';
+  end if;
+
+  select count(*), max(t.canonical_terms_json)
+    into v_terms_count, v_terms
+    from w3m_private.w3m_acquisition_terms_versions t
+    where t.deal_id = p_deal_id and t.status = 'published';
+  if v_terms_count <> 1 then
+    raise exception 'exactly_one_published_terms_version_required_for_asset_sync' using errcode = '55000';
+  end if;
+  v_assets := v_terms #> '{transfer_scope,included_assets}';
+  if jsonb_typeof(v_assets) is distinct from 'array' or jsonb_array_length(v_assets) = 0 then
+    raise exception 'published_terms_must_include_at_least_one_asset' using errcode = '22023';
+  end if;
+
+  v_expected_count := jsonb_array_length(v_assets);
+  for v_asset in select value from jsonb_array_elements(v_assets)
+  loop
+    v_name := w3m_private.w3m_asset_name_from_terms(v_asset);
+    if (select count(*) from jsonb_array_elements(v_assets) x
+        where lower(w3m_private.w3m_asset_name_from_terms(x.value)) = lower(v_name)) > 1 then
+      raise exception 'duplicate_included_asset_identity' using errcode = '22023';
+    end if;
+  end loop;
+
+  select count(*) into v_actual_count
+    from public.deal_assets a where a.deal_id = p_deal_id;
+  select exists (
+    select 1 from public.deal_assets a
+    where a.deal_id = p_deal_id
+      and not exists (
+        select 1 from jsonb_array_elements(v_assets) x
+        where lower(btrim(a.asset_name)) =
+          lower(w3m_private.w3m_asset_name_from_terms(x.value))
+      )
+  ) or exists (
+    select 1 from jsonb_array_elements(v_assets) x
+    where not exists (
+      select 1 from public.deal_assets a
+      where a.deal_id = p_deal_id
+        and lower(btrim(a.asset_name)) =
+          lower(w3m_private.w3m_asset_name_from_terms(x.value))
+    )
+  ) into v_existing_mismatch;
+
+  if v_actual_count <> v_expected_count or v_existing_mismatch then
+    if exists (
+      select 1 from public.deal_assets a
+      where a.deal_id = p_deal_id
+        and (a.status is distinct from 'pending' or exists (
+          select 1 from w3m_private.w3m_deal_asset_events e where e.asset_id = a.id
+        ))
+    ) then
+      raise exception 'signed_asset_checklist_differs_from_existing_delivery_history' using errcode = '55000';
+    end if;
+    delete from public.deal_assets a where a.deal_id = p_deal_id;
+    for v_asset in select value from jsonb_array_elements(v_assets)
+    loop
+      v_name := w3m_private.w3m_asset_name_from_terms(v_asset);
+      insert into public.deal_assets(deal_id, asset_name, status)
+      values(p_deal_id, v_name, 'pending');
+    end loop;
+  end if;
+
+  return v_expected_count;
+end;
+$w3m$;
+
+revoke all on function public.w3m_sync_deal_assets_from_published_terms(uuid)
+  from public, anon, authenticated;
+grant execute on function public.w3m_sync_deal_assets_from_published_terms(uuid)
+  to service_role;
+
 create or replace function w3m_private.w3m_assert_deal_assets_ready(
   p_deal_id uuid, p_buyer_id uuid
 ) returns void language plpgsql security definer set search_path = ''
@@ -281,8 +401,41 @@ declare
   v_asset record;
   v_latest record;
   v_previous record;
+  v_terms_count integer;
+  v_terms jsonb;
+  v_included_assets jsonb;
+  v_expected record;
+  v_actual_count integer;
   v_count integer := 0;
 begin
+  select count(*), max(t.canonical_terms_json)
+    into v_terms_count, v_terms
+    from w3m_private.w3m_acquisition_terms_versions t
+    where t.deal_id = p_deal_id and t.status = 'published';
+  if v_terms_count <> 1 then
+    raise exception 'exactly_one_published_terms_version_required_for_asset_finalization' using errcode = '55000';
+  end if;
+  v_included_assets := v_terms #> '{transfer_scope,included_assets}';
+  if jsonb_typeof(v_included_assets) is distinct from 'array'
+     or jsonb_array_length(v_included_assets) = 0 then
+    raise exception 'signed_terms_have_no_included_assets' using errcode = '55000';
+  end if;
+  select count(*) into v_actual_count from public.deal_assets a where a.deal_id = p_deal_id;
+  if v_actual_count <> jsonb_array_length(v_included_assets) then
+    raise exception 'deal_asset_records_do_not_match_signed_included_assets' using errcode = '55000';
+  end if;
+  for v_expected in select value from jsonb_array_elements(v_included_assets)
+  loop
+    if not exists (
+      select 1 from public.deal_assets a
+      where a.deal_id = p_deal_id
+        and lower(btrim(a.asset_name)) =
+          lower(w3m_private.w3m_asset_name_from_terms(v_expected.value))
+    ) then
+      raise exception 'signed_included_asset_missing_from_delivery_checklist' using errcode = '55000';
+    end if;
+  end loop;
+
   for v_asset in
     select a.id, a.asset_name, a.status, a.accepted_by, a.accepted_at
     from public.deal_assets a
