@@ -144,7 +144,7 @@ Deno.test("status action exposes only participant-scoped current terms and accep
   const from = ((table: string) => makeQuery(table)) as NonNullable<W3MAdminClient["from"]>;
   const schema = ((name: string) => {
     if (name !== "w3m_private") throw new Error("Unexpected schema");
-    return { from: (table: string) => makeQuery(table === "w3m_agreement_acceptances" ? rows.w3m_agreement_acceptances : []) };
+    return { from: (table: string) => makeQuery(table) };
   }) as NonNullable<W3MAdminClient["schema"]>;
   const { deps } = makeDeps(async (name) => {
     if (name === "w3m_get_deal_asset_finalization_evidence") {
