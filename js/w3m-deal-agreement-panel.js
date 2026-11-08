@@ -176,6 +176,10 @@ export function renderW3MDealAgreementPanel(container, status, documentRef = glo
       "Buyer confirmed the complete asset set" +
       (finalConfirmation.confirmedAt ? " · " + finalConfirmation.confirmedAt : "") +
       (finalConfirmation.assetCount ? " · " + finalConfirmation.assetCount + " assets" : "") + "."));
+    if (finalConfirmation.confirmationId) {
+      finalSection.appendChild(element(documentRef, "p", "w3m-v1-muted",
+        "Confirmation ID: " + finalConfirmation.confirmationId));
+    }
     if (finalConfirmation.assetSetDigest) {
       finalSection.appendChild(element(documentRef, "p", "w3m-v1-muted",
         "Confirmed asset-set SHA-256: " + finalConfirmation.assetSetDigest));
