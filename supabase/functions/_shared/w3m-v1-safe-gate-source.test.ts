@@ -238,6 +238,10 @@ Deno.test("historical completed legacy Safe releases remain idempotently verifia
     "historical completed legacy releases must not create or finalize a retroactive claim");
   assertEquals(finalize.includes('if(historicalLegacyCompleted)return json(409,{ok:false,error:"A previously completed legacy release cannot be reclassified from a failed chain receipt"});'), true,
     "a failed receipt must never rewrite historical completed legacy settlement evidence");
+  assertEquals(finalize.includes('if(historicalLegacyCompleted)return json(409,{ok:false,error:"A previously completed legacy release cannot be reclassified from a Safe ExecutionFailure event"});'), true,
+    "a Safe ExecutionFailure event must not create a retroactive failed claim for a historical legacy deal");
+  assertEquals(finalize.includes('if(historicalLegacyCompleted)return json(200,{ok:true,completed:true,already_finalized:true,release_tx_hash:txHash'), true,
+    "a verified historical legacy release retry must return read-only success without rewriting settlement records");
   assertEquals(finalize.includes('protocolTrack === "v1"'), true,
     "the historical exception must not bypass the V1 finalization gate");
 });
