@@ -94,11 +94,18 @@ declare
   v_deal_status text;
   v_dispute_status text;
 begin
-  if tg_op = 'UPDATE' and new.deal_id is distinct from old.deal_id then
-    raise exception 'w3m_dispute_deal_binding_is_immutable' using errcode = '55000';
+  if tg_op = 'UPDATE' then
+    if new.deal_id is distinct from old.deal_id then
+      raise exception 'w3m_dispute_deal_binding_is_immutable' using errcode = '55000';
+    end if;
   end if;
 
-  v_deal_id := case when tg_op = 'DELETE' then old.deal_id else new.deal_id end;
+  if tg_op = 'DELETE' then
+    v_deal_id := old.deal_id;
+  else
+    v_deal_id := new.deal_id;
+  end if;
+
   select d.status, d.dispute_status
     into v_deal_status, v_dispute_status
     from public.deals d
@@ -113,11 +120,20 @@ begin
     select 1 from w3m_private.w3m_safe_release_claims c
     where c.deal_id = v_deal_id and c.status in ('claimed','submitted')
   ) then
-    if tg_op = 'DELETE'
-      or lower(coalesce(new.status,'')) not in ('resolved','cancelled') then
+    if tg_op = 'DELETE' then
+      raise exception 'w3m_dispute_change_blocked_by_active_safe_release'
+        using errcode = '55000';
+    elsif lower(coalesce(new.status,'')) not in ('resolved','cancelled') then
       raise exception 'w3m_dispute_change_blocked_by_active_safe_release'
         using errcode = '55000';
     end if;
+  end if;
+
+  if tg_op <> 'DELETE'
+    and lower(coalesce(v_deal_status,'')) in ('completed','cancelled','rejected')
+    and lower(coalesce(new.status,'')) not in ('resolved','cancelled') then
+    raise exception 'w3m_dispute_cannot_be_opened_on_terminal_deal'
+      using errcode = '55000';
   end if;
 
   if tg_op = 'DELETE' then return old; end if;
