@@ -66,9 +66,22 @@ function decimalToMinor(value: string, scale: number): bigint {
   if (fraction.length > scale) fail("Monetary values must use the same declared precision.");
   return BigInt(whole) * (10n ** BigInt(scale)) + BigInt((fraction + "0".repeat(scale)).slice(0, scale) || "0");
 }
+function decimalScale(value: string): number {
+  return value.split(".")[1]?.length ?? 0;
+}
 function decimalSumEquals(a: string, b: string, expected: string): boolean {
-  const scale = Math.max(a.split(".")[1]?.length ?? 0, b.split(".")[1]?.length ?? 0, expected.split(".")[1]?.length ?? 0);
+  const scale = Math.max(decimalScale(a), decimalScale(b), decimalScale(expected));
   return decimalToMinor(a, scale) + decimalToMinor(b, scale) === decimalToMinor(expected, scale);
+}
+function equalsDecimal(a: string, b: string): boolean {
+  const scale = Math.max(decimalScale(a), decimalScale(b));
+  return decimalToMinor(a, scale) === decimalToMinor(b, scale);
+}
+function feeAmountAtDeclaredPrecision(consideration: string, fee: string, net: string): boolean {
+  const scale = Math.max(decimalScale(consideration), decimalScale(fee), decimalScale(net));
+  const totalMinor = decimalToMinor(consideration, scale);
+  const expectedFeeMinor = (totalMinor * 75n + 500n) / 1000n; // 7.5%, rounded half-up at the declared precision.
+  return decimalToMinor(fee, scale) === expectedFeeMinor;
 }
 function iso(value: unknown, label: string): string {
   const v = requiredString(value, label);
@@ -142,7 +155,7 @@ export function validateW3MAcquisitionTermsV1(input: unknown): asserts input is 
 
   const fee = object(root.platform_fee, "platform_fee");
   const feePercent = decimal(fee.percent, "platform_fee.percent");
-  if (exceedsOneHundred(feePercent)) fail("platform_fee.percent cannot exceed 100.");
+  if (!equalsDecimal(feePercent, "7.5")) fail("platform_fee.percent must be exactly 7.5 for W3M V1.");
   const feeAmount = decimal(fee.amount, "platform_fee.amount");
 
   const net = object(root.seller_net, "seller_net");
@@ -152,6 +165,9 @@ export function validateW3MAcquisitionTermsV1(input: unknown): asserts input is 
   if (netCurrency !== considerationCurrency) fail("seller_net.currency must match consideration.currency unless an explicit conversion schedule is added.");
   if (!decimalSumEquals(feeAmount, netAmount, amount)) {
     fail("platform_fee.amount plus seller_net.amount must equal consideration.amount exactly.");
+  }
+  if (!feeAmountAtDeclaredPrecision(amount, feeAmount, netAmount)) {
+    fail("platform_fee.amount must equal 7.5% of consideration.amount, rounded half-up at the declared decimal precision.");
   }
 
   const payment = object(root.payment, "payment");
@@ -173,8 +189,16 @@ export function validateW3MAcquisitionTermsV1(input: unknown): asserts input is 
   requiredTextArray(delivery.checklist, "delivery.checklist");
 
   const inspection = object(root.inspection, "inspection");
-  requiredPolicyText(inspection.window, "inspection.window");
-  requiredTextArray(inspection.acceptance_criteria, "inspection.acceptance_criteria");
+  if (typeof inspection.enabled !== "boolean") fail("inspection.enabled must be explicitly true or false.");
+  if (inspection.enabled === true) {
+    requiredPolicyText(inspection.window, "inspection.window");
+    requiredTextArray(inspection.acceptance_criteria, "inspection.acceptance_criteria");
+  } else {
+    if (inspection.window !== null) fail("inspection.window must be null when inspection is disabled.");
+    if (!Array.isArray(inspection.acceptance_criteria) || inspection.acceptance_criteria.length !== 0) {
+      fail("inspection.acceptance_criteria must be an empty array when inspection is disabled.");
+    }
+  }
 
   const dispute = object(root.dispute, "dispute");
   requiredPolicyText(dispute.procedure_version, "dispute.procedure_version");
