@@ -53,7 +53,23 @@ jobs:
             as $auth$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $auth$;
           create table public.admin_users(user_id uuid primary key);
           create table public.deals(
-            id uuid primary key, buyer_id uuid not null, seller_id uuid not null
+            id uuid primary key, buyer_id uuid not null, seller_id uuid not null,
+            status text not null default 'accepted', dispute_status text not null default 'none',
+            release_tx_hash text
+          );
+          create table public.deal_disputes(
+            id uuid primary key default gen_random_uuid(),
+            deal_id uuid not null references public.deals(id) on delete cascade,
+            status text not null default 'open'
+          );
+          create table w3m_private.w3m_safe_release_claims(
+            id uuid primary key default gen_random_uuid(),
+            deal_id uuid not null references public.deals(id) on delete restrict,
+            safe_tx_hash text not null,
+            safe_nonce bigint not null,
+            status text not null,
+            transaction_hash text,
+            unique(deal_id,safe_tx_hash,safe_nonce)
           );
           create function public.protect_deal_asset_updates()
             returns trigger language plpgsql as $stub$ begin return new; end $stub$;
@@ -172,6 +188,12 @@ jobs:
             end;
 
             perform set_config('request.jwt.claims','{"role":"service_role"}',false);
+            begin
+              perform public.w3m_claim_safe_release(v_deal,'0x' || repeat('a',64),7);
+              raise exception 'expected_safe_claim_rejection_for_unaccepted_asset';
+            exception when sqlstate '55000' then null;
+            end;
+
             select asset_rows into v_evidence
               from public.w3m_get_deal_asset_finalization_evidence(v_deal);
             if jsonb_array_length(v_evidence) <> 1
@@ -179,6 +201,14 @@ jobs:
               or jsonb_array_length(v_evidence #> '{0,events}') <> 4 then
               raise exception 'service_finalization_asset_evidence_incomplete';
             end if;
+
+            perform public.w3m_claim_safe_release(v_deal,'0x' || repeat('a',64),7);
+            perform set_config('request.jwt.claim.sub',v_seller::text,false);
+            begin
+              update public.deal_assets set status='pending' where id=v_asset;
+              raise exception 'expected_asset_mutation_rejection_after_safe_claim';
+            exception when sqlstate '55000' then null;
+            end;
           end;
           $$;
           SQL
