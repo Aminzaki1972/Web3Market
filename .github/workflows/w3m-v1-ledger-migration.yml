@@ -11,6 +11,7 @@ on:
       - "feat/w3m-audit-fingerprint-binding-20261107"
     paths:
       - "supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql"
+      - "supabase/migrations/20261108044500_w3m_v1_safe_release_claims.sql"
       - ".github/workflows/w3m-v1-ledger-migration.yml"
 
 permissions:
@@ -710,7 +711,7 @@ jobs:
           select id from public.deals where id='$CLAIM_FIRST' for update;
           set request.jwt.claims='{"role":"service_role"}';
           select * from public.w3m_claim_safe_release('$CLAIM_FIRST','0x' || repeat('1',64),21);
-          \\! touch /tmp/w3m-claim-first-ready
+          \! touch /tmp/w3m-claim-first-ready
           select pg_sleep(0.5);
           commit;
           SQL
@@ -721,7 +722,7 @@ jobs:
           done
           test -f /tmp/w3m-claim-first-ready
           psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<SQL
-          do \\$\\$
+          do \$\$
           begin
             begin
               insert into public.deal_disputes(deal_id,opened_by,reason,status)
@@ -730,7 +731,7 @@ jobs:
             exception when sqlstate '55000' then null;
             end;
           end;
-          \\$\\$;
+          \$\$;
           SQL
           wait "$CLAIM_PID"
 
@@ -740,7 +741,7 @@ jobs:
           select id from public.deals where id='$DISPUTE_FIRST' for update;
           insert into public.deal_disputes(deal_id,opened_by,reason,status)
           values('$DISPUTE_FIRST','$BUYER_ID','Concurrent dispute wins','open');
-          \\! touch /tmp/w3m-dispute-first-ready
+          \! touch /tmp/w3m-dispute-first-ready
           select pg_sleep(0.5);
           commit;
           SQL
@@ -752,7 +753,7 @@ jobs:
           test -f /tmp/w3m-dispute-first-ready
           psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<SQL
           set request.jwt.claims='{"role":"service_role"}';
-          do \\$\\$
+          do \$\$
           begin
             begin
               perform public.w3m_claim_safe_release('$DISPUTE_FIRST','0x' || repeat('2',64),22);
@@ -760,7 +761,7 @@ jobs:
             exception when sqlstate '55000' then null;
             end;
           end;
-          \\$\\$;
+          \$\$;
           SQL
           wait "$DISPUTE_PID"
       - name: Verify Safe release claim least-privilege grants
