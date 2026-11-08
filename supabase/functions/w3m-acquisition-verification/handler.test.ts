@@ -772,3 +772,69 @@ Deno.test("asset_transition maps stale or locked deal state to a conflict respon
     throw new Error("Locked or stale asset state must return a conflict, not an internal server error");
   }
 });
+
+Deno.test("confirm_delivery records one buyer-bound final confirmation for the accepted asset set", async () => {
+  const sellerId = "76000000-0000-4000-8000-000000000006";
+  const assetDigest = "b".repeat(64);
+  const confirmationId = "7b000000-0000-4000-8000-00000000000b";
+  const from = ((table: string) => {
+    const row = table === "deals"
+      ? { id: DEAL_ID, buyer_id: USER_ID, seller_id: sellerId }
+      : null;
+    return {
+      select(_columns: string) { return this; },
+      eq(_column: string, _value: unknown) { return this; },
+      async maybeSingle() { return { data: row, error: null }; },
+    };
+  }) as NonNullable<W3MAdminClient["from"]>;
+  const { deps, calls } = makeDeps(async (name, args) => {
+    if (name === "w3m_confirm_deal_delivery_v1") {
+      return { data: [{
+        confirmation_id: confirmationId,
+        terms_version: 2,
+        terms_hash: "c".repeat(64),
+        asset_set_digest: assetDigest,
+        asset_count: 3,
+        confirmed_at: "2026-11-08T10:00:00Z",
+        created: true,
+      }], error: null };
+    }
+    return { data: null, error: null };
+  }, { from, userId: USER_ID });
+  const response = await createW3MAcquisitionHandler(deps)(makeRequest({
+    action: "confirm_delivery", deal_id: DEAL_ID,
+  }));
+  const body = await response.json();
+  if (response.status !== 200 || body.ok !== true ||
+      body.result?.confirmation_id !== confirmationId ||
+      body.result?.asset_set_digest !== assetDigest ||
+      body.result?.asset_count !== 3 ||
+      calls.length !== 1 ||
+      calls[0].name !== "w3m_confirm_deal_delivery_v1" ||
+      calls[0].args.p_deal_id !== DEAL_ID ||
+      calls[0].args.p_buyer_user_id !== USER_ID) {
+    throw new Error("Final delivery confirmation must be bound to the authenticated buyer and current asset-set digest");
+  }
+});
+
+Deno.test("confirm_delivery cannot be initiated by the seller", async () => {
+  const sellerId = "76000000-0000-4000-8000-000000000006";
+  const from = ((table: string) => ({
+    select(_columns: string) { return this; },
+    eq(_column: string, _value: unknown) { return this; },
+    async maybeSingle() {
+      return { data: table === "deals"
+        ? { id: DEAL_ID, buyer_id: USER_ID, seller_id: sellerId } : null, error: null };
+    },
+  })) as NonNullable<W3MAdminClient["from"]>;
+  const { deps, calls } = makeDeps(async () => ({ data: null, error: null }), {
+    from, userId: sellerId,
+  });
+  const response = await createW3MAcquisitionHandler(deps)(makeRequest({
+    action: "confirm_delivery", deal_id: DEAL_ID,
+  }));
+  if (response.status !== 403 || calls.length !== 0) {
+    throw new Error("Only the authenticated buyer may create the final delivery confirmation");
+  }
+});
+
