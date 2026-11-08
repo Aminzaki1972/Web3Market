@@ -53,10 +53,9 @@ Deno.serve(async(req)=>{
  const {data:policy,error:policyError}=await sb.from("deal_release_policies").select("*").eq("deal_id",dealId).maybeSingle();
  if (protocolTrack === "v1") {
   try {
-   const {data:fullPolicy,error:fullPolicyError}=await sb.from("deal_release_policies").select("*").eq("deal_id",dealId).maybeSingle();
-   if (fullPolicyError || !fullPolicy) throw new Error("Locked release policy could not be loaded.");
+   if (policyError || !policy) throw new Error("Locked release policy could not be loaded.");
    const settlement = await getW3MCanonicalSettlement(sb, dealId);
-   assertW3MSettlementPolicyMatches(settlement, fullPolicy);
+   assertW3MSettlementPolicyMatches(settlement, policy);
   } catch (error) {
    return json(409,{ok:false,error:"Locked release policy does not match the signed W3M V1 settlement",code:"W3M_SETTLEMENT_POLICY_MISMATCH",detail:error instanceof Error?error.message:String(error)});
   }
