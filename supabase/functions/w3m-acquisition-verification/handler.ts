@@ -663,7 +663,7 @@ async function transitionDealAsset(
 function rpcStatus(error: { code?: string; message?: string } | null): number {
   const code = error?.code || "";
   if (code === "42501") return 403;
-  if (code === "22023" || code === "23503" || code === "23505" || code === "P0002") return 409;
+  if (code === "22023" || code === "23503" || code === "23505" || code === "P0002" || code === "55000") return 409;
   return 500;
 }
 
