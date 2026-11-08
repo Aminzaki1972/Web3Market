@@ -37,6 +37,7 @@ Deno.serve(async(req)=>{
  } catch (error) {
   return json(409,{ok:false,error:"W3M V1 buyer and seller agreement acceptance is required before recording Safe signatures",code:error instanceof W3MFinalizationGateError?error.code:"W3M_FINALIZATION_EVIDENCE_UNAVAILABLE"});
  }
+ if(!["funded","in_progress"].includes(String(deal.status||"")))return json(409,{ok:false,error:"Deal is not in a releasable funded state"});
  if(String(deal.delivery_status||"").toLowerCase()!=="accepted"||!deal.buyer_approved_at)return json(409,{ok:false,error:"Delivery is not accepted"});
  if(String(deal.payment_status||"").toLowerCase()!=="confirmed"||!deal.payment_tx_hash)return json(409,{ok:false,error:"Buyer payment is not confirmed"});
  const {data:policy,error:policyError}=await sb.from("deal_release_policies").select("status,safe_address,token_contract,chain_id").eq("deal_id",dealId).maybeSingle();
