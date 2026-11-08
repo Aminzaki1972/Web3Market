@@ -323,15 +323,20 @@ begin
     raise exception 'asset_sync_deal_not_found' using errcode = 'P0002';
   end if;
 
-  select count(*), max(t.canonical_terms_json)
-    into v_terms_count, v_terms
+  select count(*) into v_terms_count
     from w3m_private.w3m_acquisition_terms_versions t
     where t.deal_id = p_deal_id and t.status = 'published';
   if v_terms_count <> 1 then
     raise exception 'exactly_one_published_terms_version_required_for_asset_sync' using errcode = '55000';
   end if;
+  select t.canonical_terms_json into v_terms
+    from w3m_private.w3m_acquisition_terms_versions t
+    where t.deal_id = p_deal_id and t.status = 'published';
   v_assets := v_terms #> '{transfer_scope,included_assets}';
-  if jsonb_typeof(v_assets) is distinct from 'array' or jsonb_array_length(v_assets) = 0 then
+  if jsonb_typeof(v_assets) is distinct from 'array' then
+    raise exception 'published_terms_must_include_an_asset_array' using errcode = '22023';
+  end if;
+  if jsonb_array_length(v_assets) = 0 then
     raise exception 'published_terms_must_include_at_least_one_asset' using errcode = '22023';
   end if;
 
@@ -408,16 +413,20 @@ declare
   v_actual_count integer;
   v_count integer := 0;
 begin
-  select count(*), max(t.canonical_terms_json)
-    into v_terms_count, v_terms
+  select count(*) into v_terms_count
     from w3m_private.w3m_acquisition_terms_versions t
     where t.deal_id = p_deal_id and t.status = 'published';
   if v_terms_count <> 1 then
     raise exception 'exactly_one_published_terms_version_required_for_asset_finalization' using errcode = '55000';
   end if;
+  select t.canonical_terms_json into v_terms
+    from w3m_private.w3m_acquisition_terms_versions t
+    where t.deal_id = p_deal_id and t.status = 'published';
   v_included_assets := v_terms #> '{transfer_scope,included_assets}';
-  if jsonb_typeof(v_included_assets) is distinct from 'array'
-     or jsonb_array_length(v_included_assets) = 0 then
+  if jsonb_typeof(v_included_assets) is distinct from 'array' then
+    raise exception 'signed_terms_included_assets_are_malformed' using errcode = '55000';
+  end if;
+  if jsonb_array_length(v_included_assets) = 0 then
     raise exception 'signed_terms_have_no_included_assets' using errcode = '55000';
   end if;
   select count(*) into v_actual_count from public.deal_assets a where a.deal_id = p_deal_id;
