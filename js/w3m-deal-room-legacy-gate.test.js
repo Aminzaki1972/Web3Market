@@ -18,8 +18,10 @@ Deno.test("missing, malformed, unknown, unauthorized, and failed status response
   assertEquals(classifyW3MAgreementGate(500, { ok: false, error: "Database unavailable" }), "blocked");
 });
 
-Deno.test("legacy agreement upsert targets the database's actual unique key", async () => {
+Deno.test("legacy agreement acceptance uses insert-only writes and handles duplicate race safely", async () => {
   const source = await Deno.readTextFile(new URL("./deal-room.js", import.meta.url));
-  assertEquals(source.includes("onConflict:'deal_id,party_role'"), true);
-  assertEquals(source.includes("onConflict:'deal_id,party_role,party_id'"), false);
+  assertEquals(source.includes("sb.from('deal_party_agreements').insert({"), true);
+  assertEquals(source.includes("sb.from('deal_party_agreements').upsert("), false);
+  assertEquals(source.includes("error.code==='23505'"), true);
+  assertEquals(source.includes("existing?.agreed_at"), true);
 });
