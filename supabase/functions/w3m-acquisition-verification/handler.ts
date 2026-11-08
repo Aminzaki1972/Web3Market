@@ -522,6 +522,30 @@ async function getAgreementStatus(
     throw Object.assign(new Error("Only deal participants can view agreement status."), { status: 403 });
   }
 
+  // The immutable protocol track is the sole authority for choosing the
+  // legacy or V1 path. Never infer legacy from absent terms or missing routes.
+  const { data: trackData, error: trackError } = await admin.rpc(
+    "w3m_get_deal_protocol_track",
+    { p_deal_id: dealId },
+  );
+  if (trackError) {
+    throw Object.assign(new Error("Deal protocol classification is unavailable."), { status: 503 });
+  }
+  const trackRecord = trackData && typeof trackData === "object" && !Array.isArray(trackData)
+    ? trackData as Record<string, unknown> : null;
+  const protocolTrack = trackRecord?.protocol_track;
+  if (!trackRecord || trackRecord.deal_id !== dealId ||
+      (protocolTrack !== "legacy" && protocolTrack !== "v1")) {
+    throw Object.assign(new Error("Deal protocol classification is missing or malformed."), { status: 503 });
+  }
+  if (protocolTrack === "legacy") {
+    return {
+      deal_id: deal.id,
+      viewer_role: deal.buyer_id === userId ? "buyer" : "seller",
+      protocol_track: "legacy",
+    };
+  }
+
   const { data: contextData, error: contextError } = await admin.rpc(
     "w3m_get_deal_agreement_context",
     { p_deal_id: dealId },
@@ -606,6 +630,7 @@ async function getAgreementStatus(
   return {
     deal_id: deal.id,
     viewer_role: deal.buyer_id === userId ? "buyer" : "seller",
+    protocol_track: "v1",
     current_terms: terms ? {
       terms_version: String(terms.terms_version),
       terms_hash: terms.terms_hash,
