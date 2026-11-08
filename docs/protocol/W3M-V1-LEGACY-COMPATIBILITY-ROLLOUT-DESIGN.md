@@ -85,3 +85,22 @@ Safe creation is allowed before asset delivery where the existing V1 workflow in
 - It does not change legal terms or select governing law, arbitration, or remedies.
 - It does not apply a migration, update production data, deploy Edge Functions, or activate V1.
 - Do not delete legacy acceptance records or remove the legacy UI until all legacy deals are settled and a separate migration/retention plan is approved.
+
+
+## Implementation update — 2026-11-08
+
+The first compatibility slice is now implemented on the isolated feature branch:
+
+- w3m_private.w3m_deal_protocol_tracks stores one immutable server-owned classification per deal.
+- Existing deals are backfilled as legacy; all current browser inserts are assigned legacy by the database trigger.
+- The service-role-only w3m_get_deal_protocol_track(uuid) RPC is read by the shared Edge helper supabase/functions/_shared/w3m-deal-protocol-track.ts.
+- The helper validates the deal ID, returned deal ID, track, assignment source, and assignment timestamp. Any RPC error, missing row, malformed row, or inconsistent source fails closed.
+- The acquisition status action now returns protocol_track explicitly. For a legacy deal it returns the classification without querying V1 terms, signatures, asset evidence, or final delivery confirmation. For a v1 deal it continues to load and validate the complete V1 status.
+- The Deal Room browser gate now enables legacy acceptance only when the authenticated status response explicitly says protocol_track: legacy. Missing/unsupported routes, absent terms, malformed payloads, and all non-200 responses are blocked.
+- All six Safe Edge paths now read the authoritative track before proceeding: create-safe, prepare-deal-release, prepare-safe-release-tx, record-safe-release-signature, execute-safe-release, and finalize-safe-release.
+- The V1 signature/finalization gate runs only for v1 deals. Legacy deals skip only the newly introduced V1-specific acceptance/asset-evidence gate; their existing endpoint checks for participant authorization, dispute state, funded lifecycle, payment confirmation, buyer-approved delivery, locked release policy, Safe/token/chain binding, signatures, and on-chain settlement remain in place.
+- Unknown or unreadable track blocks all six paths. No client-supplied value can choose or upgrade the track.
+
+The current CI batch on commit 27f4c2dae743d69afd609ee8d9d6c65a4439c820 has confirmed the Deno audit/handler suite, PostgreSQL 16 protocol-track registry tests, PostgreSQL 16 V1 ledger tests, PostgreSQL 16 asset-evidence tests, trust-badge tests, CDN integrity checks, and browser JavaScript syntax checks. The isolated Supabase Edge integration, profile-guard migration, and atomic audit-entitlement workflows were still running at the last status check; do not treat this batch as fully green until all are complete.
+
+This remains branch-only. No production migration, Edge Function deployment, live Safe action, financial transfer, or PR merge occurred.
