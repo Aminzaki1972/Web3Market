@@ -118,6 +118,12 @@ jobs:
             if v_digest is null or length(v_digest) <> 64 then
               raise exception 'delivery_evidence_digest_missing_or_invalid';
             end if;
+            begin
+              update public.deal_assets set evidence='tampered-after-delivery'
+                where id=v_asset;
+              raise exception 'expected_delivery_evidence_mutation_rejection';
+            exception when sqlstate '55000' then null;
+            end;
 
             perform set_config('request.jwt.claim.sub',v_buyer::text,false);
             update public.deal_assets set status='rejected' where id=v_asset;
