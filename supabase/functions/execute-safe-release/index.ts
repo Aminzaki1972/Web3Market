@@ -4,6 +4,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { ethers } from "npm:ethers@6.15.0";
 import { assertW3MFinalizationReady, W3MFinalizationGateError } from "../_shared/w3m-v1-finalization-gate.ts";
 import { getW3MCanonicalSettlement, assertW3MSettlementPolicyMatches } from "../_shared/w3m-v1-settlement-evidence.ts";
+import { assertW3MV1SafeReleasePayloadMatchesPolicy } from "../_shared/w3m-v1-safe-payload.ts";
 
 const RPC = Deno.env.get("BSC_RPC_URL") || "https://bsc-rpc.publicnode.com";
 const CHAIN = 56;
@@ -99,6 +100,12 @@ Deno.serve(async req=>{
     if(String(deal.payment_status||"").toLowerCase()!=="confirmed"||!deal.payment_tx_hash)return json(409,{ok:false,transaction_sent:false,error:"Buyer payment is not confirmed"});
     const {data:policy}=await sb.from("deal_release_policies").select("*").eq("deal_id",dealId).maybeSingle();
     if(!policy) return json(409,{ok:false,error:"Release policy not found"});
+ if (protocolTrack === "v1") {
+  try { assertW3MV1SafeReleasePayloadMatchesPolicy(tx, policy); }
+  catch (error) {
+   return json(409,{ok:false,transaction_sent:false,error:"Prepared Safe transaction does not match the exact signed W3M V1 settlement",code:"W3M_SAFE_PAYLOAD_MISMATCH",detail:error instanceof Error?error.message:String(error)});
+  }
+ }
     if (protocolTrack === "v1") {
       try {
         const settlement = await getW3MCanonicalSettlement(sb, dealId);
