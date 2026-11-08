@@ -227,3 +227,17 @@ Deno.test("protocol track reader fails closed for missing, malformed, mismatched
   }
   assertEquals(invalidIdRejected, true, "Invalid deal IDs must be rejected before RPC");
 });
+
+Deno.test("historical completed legacy Safe releases remain idempotently verifiable without a V1 release claim", async () => {
+  const finalize = await Deno.readTextFile("supabase/functions/finalize-safe-release/index.ts");
+  assertEquals(finalize.includes('const historicalLegacyCompleted = protocolTrack === "legacy" && isSameCompletedRelease;'), true,
+    "only an already-completed legacy deal with the exact same release transaction may use the historical path");
+  assertEquals(finalize.includes('if(!historicalLegacyCompleted){\n  const {error:claimSubmitError}=await sb.rpc("w3m_mark_safe_release_submitted"'), true,
+    "historical completed legacy releases must not require a claim row created after their original settlement");
+  assertEquals(finalize.includes('if(!historicalLegacyCompleted){\n  const {error:claimFinalizedError}=await sb.rpc("w3m_mark_safe_release_finalized"'), true,
+    "historical completed legacy releases must not create or finalize a retroactive claim");
+  assertEquals(finalize.includes('if(historicalLegacyCompleted)return json(409,{ok:false,error:"A previously completed legacy release cannot be reclassified from a failed chain receipt"});'), true,
+    "a failed receipt must never rewrite historical completed legacy settlement evidence");
+  assertEquals(finalize.includes('protocolTrack === "v1"'), true,
+    "the historical exception must not bypass the V1 finalization gate");
+});
