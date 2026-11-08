@@ -92,6 +92,10 @@ jobs:
               'project',jsonb_build_object('title','Synthetic project','category','SaaS'),
               'audit',jsonb_build_object('audit_id',p_audit::text,'repository',p_repository,
                 'commit_sha',p_commit,'fingerprint_digest',p_digest),
+              'commercial_schedule',jsonb_build_object(
+                'asking_price',jsonb_build_object('amount','1000.00','currency','USDT'),
+                'agreed_discount',null
+              ),
               'consideration',jsonb_build_object('amount','1000.00','currency','USDT'),
               'platform_fee',jsonb_build_object('percent','7.50','amount','75.00'),
               'seller_net',jsonb_build_object('amount','925.00','currency','USDT'),
@@ -105,7 +109,8 @@ jobs:
               'delivery',jsonb_build_object('deadline','2027-01-01T00:00:00Z','checklist',jsonb_build_array('handover')),
               'inspection',jsonb_build_object('window','5 days','acceptance_criteria',jsonb_build_array('access delivered')),
               'dispute',jsonb_build_object('procedure_version','test-v1','text','synthetic test procedure'),
-              'escrow',jsonb_build_object('funding_condition','test funding','release_condition','test release','dispute_hold',true),
+              'safe_settlement',jsonb_build_object('method','safe_multisig',
+                'funding_condition','test funding','release_condition','test release','dispute_hold',true),
               'governing_terms',jsonb_build_object('governing_law','test-only policy','venue_or_process','test-only process','language','English'),
               'risk_acknowledgements',jsonb_build_array('Test only; no real transaction.'),
               'disclosures',jsonb_build_array(),
