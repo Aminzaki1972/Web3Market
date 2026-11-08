@@ -545,17 +545,19 @@ async function getAgreementStatus(
   }
 
   const readAcceptance = async (role: "buyer" | "seller", expectedUserId: string) => {
-    const row = acceptanceRows.find((item) => item.party_role === role) as {
+    const roleRows = acceptanceRows.filter((item) => item.party_role === role);
+    const current = roleRows.find((row) =>
+      row.user_id === expectedUserId &&
+      row.terms_hash === terms?.terms_hash &&
+      String(row.terms_version) === String(terms?.terms_version)
+    ) as {
       party_role: string; user_id: string; terms_version: number | string;
       terms_hash: string; accepted_at: string;
     } | undefined;
-    if (!row) return { accepted: false };
-    // Never expose signature bytes, challenge IDs, nonces, or wallet metadata.
-    if (row.party_role !== role || row.user_id !== expectedUserId || row.terms_hash !== terms?.terms_hash ||
-      String(row.terms_version) !== String(terms?.terms_version)) {
-      return { accepted: false, stale: true };
-    }
-    return { accepted: true, accepted_at: row.accepted_at };
+    if (current) return { accepted: true, accepted_at: current.accepted_at };
+    // Historical acceptance for an older terms version must never shadow a
+    // matching current acceptance, regardless of aggregate row order.
+    return roleRows.length ? { accepted: false, stale: true } : { accepted: false };
   };
 
   const [buyer, seller] = await Promise.all([
