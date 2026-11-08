@@ -144,13 +144,31 @@ Deno.test("status action exposes only participant-scoped current terms and accep
   const from = ((table: string) => makeQuery(table)) as NonNullable<W3MAdminClient["from"]>;
   const schema = ((name: string) => {
     if (name !== "w3m_private") throw new Error("Unexpected schema");
-    return { from: (table: string) => makeQuery(table === "w3m_deal_asset_events" ? [{
-      asset_id: "7a000000-0000-4000-8000-00000000000a",
-      event_type: "delivered", attempt_number: 1, actor_user_id: USER_ID,
-      evidence_digest: "e".repeat(64), occurred_at: "2026-11-07T02:00:00Z",
-    }] : table === "w3m_agreement_acceptances" ? rows.w3m_agreement_acceptances : []) };
+    return { from: (table: string) => makeQuery(table === "w3m_agreement_acceptances" ? rows.w3m_agreement_acceptances : []) };
   }) as NonNullable<W3MAdminClient["schema"]>;
-  const { deps } = makeDeps(async () => ({ data: null, error: null }), { from, schema });
+  const { deps } = makeDeps(async (name) => {
+    if (name === "w3m_get_deal_asset_finalization_evidence") {
+      return { data: [{
+        deal_id: DEAL_ID,
+        buyer_id: USER_ID,
+        asset_rows: [{
+          asset_id: "7a000000-0000-4000-8000-00000000000a",
+          asset_name: "repository: Source code",
+          status: "delivered",
+          delivery_url: "https://example.invalid/private-repo-reference",
+          delivered_by: USER_ID,
+          delivered_at: "2026-11-07T02:00:00Z",
+          accepted_by: null,
+          accepted_at: null,
+          events: [{
+            event_type: "delivered", attempt_number: 1, actor_user_id: USER_ID,
+            evidence_digest: "e".repeat(64), occurred_at: "2026-11-07T02:00:00Z",
+          }],
+        }],
+      }], error: null };
+    }
+    return { data: null, error: null };
+  }, { from, schema });
   const handler = createW3MAcquisitionHandler(deps);
   const response = await handler(makeRequest({ action: "status", deal_id: DEAL_ID }));
   const body = await response.json();
