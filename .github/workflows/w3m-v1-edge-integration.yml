@@ -76,7 +76,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          supabase functions serve w3m-acquisition-verification --env-file /tmp/w3m-edge.env > /tmp/w3m-edge-runtime.log 2>&1 &
+          supabase functions serve --env-file /tmp/w3m-edge.env > /tmp/w3m-edge-runtime.log 2>&1 &
           echo $! > /tmp/w3m-edge-runtime.pid
           for attempt in $(seq 1 60); do
             code="$(curl -s -o /dev/null -w '%{http_code}' \
