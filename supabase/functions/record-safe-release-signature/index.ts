@@ -4,6 +4,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { ethers } from "npm:ethers@6.15.0";
 import { assertW3MFinalizationReady, W3MFinalizationGateError } from "../_shared/w3m-v1-finalization-gate.ts";
 import { getW3MCanonicalSettlement, assertW3MSettlementPolicyMatches } from "../_shared/w3m-v1-settlement-evidence.ts";
+import { assertW3MV1SafeReleasePayloadMatchesPolicy } from "../_shared/w3m-v1-safe-payload.ts";
 const CHAIN_ID=56;
 const USDT="0x55d398326f99059ff775485246999027b3197955";
 const cors={"Access-Control-Allow-Origin":"https://web3market.xyz","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
@@ -67,6 +68,12 @@ Deno.serve(async(req)=>{
  if(String(deal.release_tx_hash||""))return json(409,{ok:false,error:"Release already finalized"});
  const {data:tx}=await sb.from("deal_multisig_transactions").select("*").eq("deal_id",dealId).eq("action","release_to_seller").maybeSingle();
  if(!tx?.safe_tx_hash)return json(409,{ok:false,error:"Safe transaction is not prepared"});
+ if (protocolTrack === "v1") {
+  try { assertW3MV1SafeReleasePayloadMatchesPolicy(tx, policy); }
+  catch (error) {
+   return json(409,{ok:false,error:"Prepared Safe transaction does not match the exact signed W3M V1 settlement",code:"W3M_SAFE_PAYLOAD_MISMATCH",detail:error instanceof Error?error.message:String(error)});
+  }
+ }
  if(!tx.safe_address||ethers.getAddress(tx.safe_address).toLowerCase()!==ethers.getAddress(policy.safe_address).toLowerCase())return json(409,{ok:false,error:"Prepared Safe transaction address does not match the locked release policy"});
  const {data:profile}=await sb.from("profiles").select("wallet_address,wallet_verified,role").eq("id",u.user.id).maybeSingle();
  if(!profile?.wallet_verified||!profile.wallet_address)return json(409,{ok:false,error:"Wallet is not verified"});
