@@ -45,6 +45,12 @@ jobs:
           create schema w3m_private;
           create schema extensions;
           create extension if not exists pgcrypto with schema extensions;
+          create table w3m_private.w3m_acquisition_terms_versions(
+            id uuid primary key default gen_random_uuid(),
+            deal_id uuid not null,
+            canonical_terms_json jsonb not null,
+            status text not null
+          );
           create function auth.jwt() returns jsonb
             language sql stable
             as $auth$ select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $auth$;
@@ -119,8 +125,22 @@ jobs:
             v_evidence jsonb;
           begin
             insert into public.deals(id,buyer_id,seller_id) values(v_deal,v_buyer,v_seller);
-            insert into public.deal_assets(deal_id,asset_name)
-              values(v_deal,'Project source repository') returning id into v_asset;
+            insert into w3m_private.w3m_acquisition_terms_versions(deal_id,canonical_terms_json,status)
+            values(v_deal,jsonb_build_object(
+              'transfer_scope',jsonb_build_object(
+                'included_assets',jsonb_build_array(jsonb_build_object(
+                  'type','repository','description','Project source repository'
+                ))
+              )
+            ),'published');
+            perform set_config('request.jwt.claims','{"role":"service_role"}',false);
+            if public.w3m_sync_deal_assets_from_published_terms(v_deal) <> 1
+              or public.w3m_sync_deal_assets_from_published_terms(v_deal) <> 1 then
+              raise exception 'signed_asset_checklist_sync_not_idempotent';
+            end if;
+            select id into v_asset from public.deal_assets
+              where deal_id=v_deal and asset_name='repository: Project source repository';
+            if v_asset is null then raise exception 'signed_asset_row_not_created'; end if;
 
             perform set_config('request.jwt.claim.sub',v_seller::text,false);
             update public.deal_assets set status='delivered',
