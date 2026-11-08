@@ -135,7 +135,7 @@ begin
     or exists (
       select 1 from public.deal_disputes d
       where d.deal_id = p_deal_id
-        and lower(d.status) not in ('resolved', 'closed', 'dismissed')
+        and coalesce(lower(d.status), 'open') not in ('resolved', 'closed', 'dismissed')
     ) then
     raise exception 'deal_not_eligible_for_final_delivery_confirmation'
       using errcode = '55000';
