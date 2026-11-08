@@ -124,7 +124,8 @@ jobs:
             v_actor uuid;
             v_evidence jsonb;
           begin
-            insert into public.deals(id,buyer_id,seller_id) values(v_deal,v_buyer,v_seller);
+            insert into public.deals(id,buyer_id,seller_id,status,dispute_status)
+              values(v_deal,v_buyer,v_seller,'in_progress','none');
             insert into w3m_private.w3m_acquisition_terms_versions(deal_id,canonical_terms_json,status)
             values(v_deal,jsonb_build_object(
               'transfer_scope',jsonb_build_object(
