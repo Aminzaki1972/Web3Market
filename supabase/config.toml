@@ -1,5 +1,12 @@
 project_id = "web3market-local-audit-test"
 
+# Keep protocol internals outside PostgREST; only the restricted public RPCs are exposed.
+[api]
+enabled = true
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
 # W3M Passport eligibility is enforced in the backend before identity issuance.
 [functions.external-passport-persist]
 verify_jwt = false
