@@ -21,16 +21,10 @@ Status: approved product rule for the staged W3M V1 implementation. This documen
 - The platform fee amount must equal 7.5% of `consideration.amount`, rounded half-up at the declared decimal precision. Existing exact-decimal validation enforces the arithmetic and rejects mismatched fee/net splits.
 - The asking price before discount is retained as listing/negotiation information only; it is not the fee base.
 
-### Example
+### No illustrative monetary amounts
 
-| Item | Amount |
-|---|---:|
-| Seller asking price | $30,000.00 |
-| Final agreed consideration paid by buyer | $20,000.00 |
-| W3M fee (7.5% of $20,000) | $1,500.00 |
-| Seller net from the consideration | $18,500.00 |
-
-No extra $1,500 is charged on top of the buyer's $20,000 consideration.
+- The agreement and this policy state the percentage and the parties' obligations only; they do not include illustrative dollar values, fixed transaction amounts, or sample payout figures.
+- The actual consideration, platform-fee amount, and seller-net amount are recorded only in the individual deal's transaction data and calculated from that deal's agreed consideration.
 
 ## 3. Implementation boundary
 
