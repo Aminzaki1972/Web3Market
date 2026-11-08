@@ -7,6 +7,7 @@ const RPC = Deno.env.get("BSC_RPC_URL") || "https://bsc-rpc.publicnode.com";
 const CHAIN = 56;
 const USDT = "0x55d398326f99059ff775485246999027b3197955";
 const EXECUTOR = "0xCbd947146826aB5BBF9924105E69e9c6F5e9420C";
+const PLATFORM = "0x2B15cC63eE3b833F502C065767695Fa2B584f8c9";
 const ZERO = ethers.ZeroAddress;
 const SAFE_ABI = [
   "function getOwners() view returns(address[])",
@@ -102,6 +103,17 @@ Deno.serve(async req=>{
       safe.getOwners(),safe.getThreshold(),safe.nonce(),provider.getCode(EXECUTOR)
     ]);
     if(Number(threshold)!==2) return json(409,{ok:false,error:"Safe threshold is not 2"});
+    if((owners as string[]).length!==3) return json(409,{ok:false,error:"Safe must have exactly three owners for the configured 2-of-3 V1 policy"});
+    const {data:profiles,error:profileError}=await sb.from("profiles").select("id,wallet_address,wallet_verified").in("id",[deal.buyer_id,deal.seller_id]);
+    if(profileError) return json(503,{ok:false,error:"Could not verify the buyer and seller wallet ownership"});
+    const buyerProfile=profiles?.find((profile:any)=>profile.id===deal.buyer_id);
+    const sellerProfile=profiles?.find((profile:any)=>profile.id===deal.seller_id);
+    if(!buyerProfile?.wallet_verified||!sellerProfile?.wallet_verified||!buyerProfile.wallet_address||!sellerProfile.wallet_address)
+      return json(409,{ok:false,error:"Buyer and seller verified wallets are required for Safe owner verification"});
+    const expectedOwners=new Set([norm(buyerProfile.wallet_address),norm(sellerProfile.wallet_address),norm(PLATFORM)]);
+    const actualOwners=new Set((owners as string[]).map(norm));
+    if(actualOwners.size!==3||[...expectedOwners].some(owner=>!actualOwners.has(owner)))
+      return json(409,{ok:false,error:"Safe owners no longer match the verified buyer, seller, and platform wallets"});
     if(Number(nonce)!==Number(tx.safe_nonce)) return json(409,{ok:false,error:"Safe nonce changed; do not execute this signed transaction"});
     if(code!=="0x") return json(409,{ok:false,error:"Configured executor is a contract, not an EOA"});
     
