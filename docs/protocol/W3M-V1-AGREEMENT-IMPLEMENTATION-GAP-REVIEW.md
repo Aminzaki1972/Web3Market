@@ -150,3 +150,12 @@ The first isolated implementation slice is now present on the feature branch:
 - This migration exists only on the unmerged feature branch. It has not been applied to production or the live Supabase project.
 
 **Current safety state:** no production migration, Edge Function deployment, Deal Room activation, Safe transaction, or PR merge was performed.
+
+
+### Legacy acceptance write-path correction — 2026-11-08
+
+A further read-only production-schema check established that `public.deal_party_agreements` has the unique key `(deal_id, party_role)`; `party_id` is a separate immutable identity field. Its database guard rejects changes to deal, role, party identity, or an already-recorded agreement timestamp.
+
+The feature-branch Deal Room was attempting an upsert with conflict target `(deal_id, party_role, party_id)`, which does not match the production unique key. The branch code now targets `(deal_id, party_role)`, while retaining the database's immutable identity guard. A regression assertion was added to `js/w3m-deal-room-legacy-gate.test.js`; the existing Deno workflow already includes that test file and the Deal Room source.
+
+This is a source-level correction on the feature branch only. No production file or database object was changed. CI for the latest commit has not yet been confirmed.
