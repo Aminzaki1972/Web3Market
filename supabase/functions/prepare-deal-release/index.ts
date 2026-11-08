@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getW3MDealProtocolTrack } from "../_shared/w3m-deal-protocol-track.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { assertW3MFinalizationReady, W3MFinalizationGateError } from "../_shared/w3m-v1-finalization-gate.ts";
-import { getW3MCanonicalSettlement, assertW3MSettlementPolicyMatches, W3MSettlementEvidenceError } from "../_shared/w3m-v1-settlement-evidence.ts";
+import { getW3MCanonicalSettlement, assertW3MSettlementPolicyMatches } from "../_shared/w3m-v1-settlement-evidence.ts";
 const cors={"Access-Control-Allow-Origin":"https://web3market.xyz","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{...cors,"Content-Type":"application/json"}});
 const PW="0x2B15cC63eE3b833F502C065767695Fa2B584f8c9",CHAIN=56;
