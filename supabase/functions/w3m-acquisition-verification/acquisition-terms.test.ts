@@ -51,6 +51,10 @@ const fixture = () => ({
   expires_at: "2026-11-08T00:00:00Z",
 });
 
+function setInspection(target: ReturnType<typeof fixture>, value: Record<string, unknown>): void {
+  (target as unknown as { inspection: Record<string, unknown> }).inspection = value;
+}
+
 Deno.test("accepts a complete synthetic V1 agreement", () => {
   validateW3MAcquisitionTermsV1(fixture());
 });
@@ -180,15 +184,15 @@ Deno.test("enforces the fixed 7.5% fee and exact fee amount", () => {
 
 Deno.test("supports an explicitly disabled optional inspection period", () => {
   const noInspection = fixture();
-  noInspection.inspection = { enabled: false, window: null, acceptance_criteria: [] };
+  setInspection(noInspection, { enabled: false, window: null, acceptance_criteria: [] });
   validateW3MAcquisitionTermsV1(noInspection);
 
   const ambiguousInspection = fixture();
-  ambiguousInspection.inspection = { enabled: false, window: "5 days", acceptance_criteria: [] };
+  setInspection(ambiguousInspection, { enabled: false, window: "5 days", acceptance_criteria: [] });
   assertThrows(() => validateW3MAcquisitionTermsV1(ambiguousInspection));
 
   const incompleteEnabledInspection = fixture();
-  incompleteEnabledInspection.inspection = { enabled: true, window: null, acceptance_criteria: [] };
+  setInspection(incompleteEnabledInspection, { enabled: true, window: null, acceptance_criteria: [] });
   assertThrows(() => validateW3MAcquisitionTermsV1(incompleteEnabledInspection));
 });
 
