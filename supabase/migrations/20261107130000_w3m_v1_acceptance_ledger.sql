@@ -662,7 +662,7 @@ begin
     'terms_version', a.terms_version,
     'terms_hash', a.terms_hash,
     'accepted_at', a.accepted_at
-  ) order by a.party_role), '[]'::jsonb)
+  ) order by a.party_role, a.terms_version desc, a.accepted_at desc), '[]'::jsonb)
   into v_acceptances
   from w3m_private.w3m_agreement_acceptances a
   where a.deal_id = p_deal_id;
