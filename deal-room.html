@@ -133,8 +133,12 @@
         body:JSON.stringify(body),
         cache:'no-store'
       });
-      const result=await response.json();
-      if(!response.ok||result?.ok!==true)throw new Error(result?.error||'W3M V1 request was rejected.');
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok||result?.ok!==true){
+        const failure=new Error(result?.error||result?.message||'W3M V1 request was rejected.');
+        failure.status=response.status;
+        throw failure;
+      }
       return result;
     };
     const render=async()=>{
@@ -145,6 +149,12 @@
           return result;
         }
       });
+      if(!status.currentTerms){
+        box.hidden=true;
+        box.replaceChildren();
+        return;
+      }
+      box.hidden=false;
       renderW3MDealAgreementPanel(box,status,document,{
         onAssetAction:async({assetId,action,deliveryUrl,evidence})=>{
           const body={
@@ -164,6 +174,11 @@
     };
     await render();
   }catch(error){
+    if(error?.status===404&&/function not found/i.test(String(error?.message||''))){
+      box.hidden=true;
+      box.replaceChildren();
+      return;
+    }
     showError(error?.message||'Unable to load W3M V1 status.');
   }
 })();
