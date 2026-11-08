@@ -25,7 +25,7 @@ const cors = {
 };
 const json=(s:number,b:unknown)=>new Response(JSON.stringify(b),{status:s,headers:{...cors,"content-type":"application/json"}});
 const norm=(a:string)=>ethers.getAddress(a).toLowerCase();
-const TERMINAL_DISPUTE_STATES = new Set(["none", "resolved", "closed", "dismissed", "rejected", "cancelled", "canceled", "withdrawn"]);
+const TERMINAL_DISPUTE_STATES = new Set(["none", "resolved", "resolved_buyer", "resolved_seller", "closed", "dismissed", "rejected", "cancelled", "canceled", "withdrawn"]);
 async function checkDisputeState(db: any, deal: any, dealId: string): Promise<"clear" | "open" | "unknown"> {
   const state = String(deal?.dispute_status ?? "").trim().toLowerCase();
   if (!state) return "unknown";
@@ -43,6 +43,7 @@ function packSignatures(rows:any[]){
 }
 
 Deno.serve(async req=>{
+  let releaseBroadcastAttempted=false;
   try{
     if(req.method==="OPTIONS") return new Response(null,{status:204,headers:cors});
     if(req.method!=="POST") return json(405,{ok:false,error:"POST required"});
@@ -179,18 +180,59 @@ Deno.serve(async req=>{
     const required=gasLimit*maxFee;
     if(executorBalance<required) return json(409,{ok:false,transaction_sent:false,error:"Executor BNB balance is insufficient for estimated gas",executor_bnb:ethers.formatEther(executorBalance),estimated_gas:gasEstimate.toString(),required_bnb:ethers.formatEther(required)});
 
-    const sent=await safe.connect(wallet).execTransaction(...args,{gasLimit,maxFeePerGas:feeData.maxFeePerGas??undefined,maxPriorityFeePerGas:feeData.maxPriorityFeePerGas??undefined});
-    const receipt=await sent.wait();
-    if(!receipt || receipt.status!==1){
-      return json(409,{...result,transaction_sent:true,tx_hash:receipt?.hash||sent.hash,receipt_status:receipt?.status??null,error:"Safe execution transaction was mined but did not succeed; finalization was not recorded"});
+    const {data:claimRows,error:claimError}=await sb.rpc("w3m_claim_safe_release",{
+      p_deal_id:dealId,p_safe_tx_hash:String(tx.safe_tx_hash),p_safe_nonce:Number(tx.safe_nonce)
+    });
+    const claim=Array.isArray(claimRows)?claimRows[0]:claimRows;
+    if(claimError||!claim){
+      return json(409,{...result,transaction_sent:false,error:"Could not acquire the durable W3M V1 Safe release claim; no new transaction was sent",code:"SAFE_RELEASE_CLAIM_UNAVAILABLE"});
+    }
+    if(claim.created!==true){
+      return json(409,{...result,transaction_sent:false,previous_attempt_may_have_broadcast:claim.claim_status==="claimed",
+        tx_hash:claim.transaction_hash||null,claim_status:claim.claim_status,
+        error:"A release claim already exists. Web3Market will not broadcast the same Safe release again; reconcile the existing attempt first",
+        code:"SAFE_RELEASE_CLAIM_ALREADY_EXISTS"});
     }
 
-    await sb.from("deal_multisig_transactions").update({
-      tx_hash:receipt?.hash||sent.hash,status:"submitted",updated_at:new Date().toISOString()
-    }).eq("id",tx.id);
+    releaseBroadcastAttempted=true;
+    const sent=await safe.connect(wallet).execTransaction(...args,{gasLimit,maxFeePerGas:feeData.maxFeePerGas??undefined,maxPriorityFeePerGas:feeData.maxPriorityFeePerGas??undefined});
+    const transactionHash=String(sent.hash);
+    const {error:claimSubmitError}=await sb.rpc("w3m_mark_safe_release_submitted",{
+      p_deal_id:dealId,p_safe_tx_hash:String(tx.safe_tx_hash),p_safe_nonce:Number(tx.safe_nonce),p_transaction_hash:transactionHash
+    });
+    if(claimSubmitError){
+      return json(500,{...result,transaction_sent:true,tx_hash:transactionHash,error:"Safe transaction was broadcast but its durable claim could not be updated; do not retry",code:"SAFE_RELEASE_CLAIM_SUBMISSION_FAILED"});
+    }
 
-    return json(200,{...result,transaction_sent:true,tx_hash:receipt?.hash||sent.hash,receipt_status:receipt?.status??null,gas_used:receipt?.gasUsed?.toString()??null});
+    const receipt=await sent.wait();
+    if(!receipt){
+      return json(409,{...result,transaction_sent:true,tx_hash:transactionHash,receipt_status:null,error:"Safe transaction was broadcast; its receipt is not available yet. The release claim remains active"});
+    }
+    if(receipt.status===0){
+      const {error:claimFailError}=await sb.rpc("w3m_mark_safe_release_failed",{
+        p_deal_id:dealId,p_safe_tx_hash:String(tx.safe_tx_hash),p_safe_nonce:Number(tx.safe_nonce),
+        p_transaction_hash:transactionHash,p_failure_code:"evm_revert"
+      });
+      if(claimFailError){
+        return json(500,{...result,transaction_sent:true,tx_hash:transactionHash,receipt_status:0,error:"EVM revert is confirmed but the claim could not be closed; dispute and release remain blocked"});
+      }
+      return json(409,{...result,transaction_sent:true,tx_hash:transactionHash,receipt_status:0,error:"Safe execution transaction reverted; the claim was closed after the confirmed chain receipt"});
+    }
+    if(receipt.status!==1){
+      return json(409,{...result,transaction_sent:true,tx_hash:transactionHash,receipt_status:receipt.status??null,error:"Safe transaction outcome is not confirmed; the release claim remains active"});
+    }
+
+    const {error:txUpdateError}=await sb.from("deal_multisig_transactions").update({
+      tx_hash:transactionHash,status:"submitted",updated_at:new Date().toISOString()
+    }).eq("id",tx.id);
+    if(txUpdateError){
+      return json(500,{...result,transaction_sent:true,tx_hash:transactionHash,receipt_status:1,error:"Safe transaction is mined but the multisig record update failed; the release claim remains active"});
+    }
+
+    return json(200,{...result,transaction_sent:true,tx_hash:transactionHash,receipt_status:1,gas_used:receipt.gasUsed?.toString()??null});
   }catch(e){
-    return json(500,{ok:false,transaction_sent:false,error:"Safe execution failed",detail:String(e?.message||e)});
+    return json(500,{ok:false,transaction_sent:releaseBroadcastAttempted,
+      error:releaseBroadcastAttempted?"Safe broadcast result is uncertain; the durable release claim remains active and must be reconciled before retry":"Safe execution failed",
+      code:releaseBroadcastAttempted?"SAFE_RELEASE_RESULT_UNCERTAIN":"SAFE_EXECUTION_FAILED",detail:String(e?.message||e)});
   }
 });
