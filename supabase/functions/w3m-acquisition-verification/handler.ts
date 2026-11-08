@@ -590,6 +590,19 @@ async function getAgreementStatus(
     };
   });
 
+  const { data: finalConfirmationData, error: finalConfirmationError } = await admin.rpc(
+    "w3m_get_deal_delivery_confirmation_status",
+    { p_deal_id: dealId },
+  );
+  if (finalConfirmationError) throw finalConfirmationError;
+  const finalConfirmation = finalConfirmationData && typeof finalConfirmationData === "object" &&
+    !Array.isArray(finalConfirmationData)
+    ? finalConfirmationData as Record<string, unknown> : null;
+  if (!finalConfirmation || typeof finalConfirmation.confirmed !== "boolean" ||
+      typeof finalConfirmation.stale !== "boolean") {
+    throw Object.assign(new Error("Final delivery confirmation status is malformed."), { status: 503 });
+  }
+
   return {
     deal_id: deal.id,
     viewer_role: deal.buyer_id === userId ? "buyer" : "seller",
@@ -601,8 +614,52 @@ async function getAgreementStatus(
     } : null,
     acceptances: { buyer, seller },
     assets,
+    final_delivery_confirmation: finalConfirmation,
     both_accepted: buyer.accepted === true && seller.accepted === true,
     deal_eligible: ["pending", "accepted"].includes(deal.status) && deal.dispute_status === "none",
+  };
+}
+
+
+async function confirmDealDelivery(
+  admin: W3MAdminClient,
+  userId: string,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const dealId = String(body.deal_id || "");
+  if (!UUID.test(dealId)) {
+    throw Object.assign(new Error("A valid deal_id is required."), { status: 400 });
+  }
+  const deal = await loadOne<{ id: string; buyer_id: string; seller_id: string }>(
+    admin, "deals", "id,buyer_id,seller_id", dealId,
+  );
+  if (!deal) throw Object.assign(new Error("Deal was not found."), { status: 404 });
+  if (deal.buyer_id !== userId) {
+    throw Object.assign(new Error("Only the buyer can confirm final delivery."), { status: 403 });
+  }
+
+  const { data, error } = await admin.rpc("w3m_confirm_deal_delivery_v1", {
+    p_deal_id: dealId,
+    p_buyer_user_id: userId,
+  });
+  if (error) throw error;
+  const rows = Array.isArray(data) ? data : [];
+  const row = rows[0] as Record<string, unknown> | undefined;
+  if (!row || !UUID.test(String(row.confirmation_id || "")) ||
+      !/^[0-9a-f]{64}$/.test(String(row.terms_hash || "")) ||
+      !/^[0-9a-f]{64}$/.test(String(row.asset_set_digest || "")) ||
+      !Number.isSafeInteger(Number(row.asset_count)) || Number(row.asset_count) < 1 ||
+      typeof row.confirmed_at !== "string") {
+    throw Object.assign(new Error("Final delivery confirmation RPC returned an invalid record."), { status: 503 });
+  }
+  return {
+    confirmation_id: row.confirmation_id,
+    terms_version: String(row.terms_version),
+    terms_hash: row.terms_hash,
+    asset_set_digest: row.asset_set_digest,
+    asset_count: Number(row.asset_count),
+    confirmed_at: row.confirmed_at,
+    created: row.created === true,
   };
 }
 
@@ -714,6 +771,21 @@ export function createW3MAcquisitionHandler(deps: HandlerDependencies) {
             status === 403 ? "Only the authorized deal participant can perform this action" :
               status === 404 ? "Deal asset not found" : status === 409 ? "Asset transition is not currently allowed" :
                 "Unable to record asset transition" }, status);
+        }
+      }
+
+      if (body.action === "confirm_delivery") {
+        try {
+          const result = await confirmDealDelivery(admin, user.id, body);
+          return reply(origin, { ok: true, result });
+        } catch (error) {
+          const status = typeof (error as { status?: unknown })?.status === "number"
+            ? (error as { status: number }).status : rpcStatus(error);
+          if (status >= 500) console.error("w3m final delivery confirmation failed", error instanceof Error ? error.message : "unknown error");
+          return reply(origin, { ok: false, error: status === 400 ? "Invalid final delivery confirmation request" :
+            status === 403 ? "Only the buyer can confirm final delivery" :
+              status === 404 ? "Deal not found" : status === 409 ? "All included assets must be accepted and the deal must be eligible" :
+                "Unable to record final delivery confirmation" }, status);
         }
       }
 
