@@ -117,7 +117,7 @@
     if(!sb)throw new Error('Secure session client is unavailable.');
     const {data:{session},error}=await sb.auth.getSession();
     if(error||!session?.access_token)throw new Error('Please sign in again to view V1 protocol status.');
-    const [{getW3MDealAgreementStatus},{renderW3MDealAgreementPanel}]=await Promise.all([
+    const [{getW3MDealAgreementStatus,confirmW3MDealDelivery},{renderW3MDealAgreementPanel}]=await Promise.all([
       import('./js/w3m-deal-agreement-client.js'),
       import('./js/w3m-deal-agreement-panel.js')
     ]);
@@ -171,7 +171,7 @@
           await render();
         },
         onFinalDeliveryConfirm:async()=>{
-          await request({action:'confirm_delivery',deal_id:dealId},session.access_token);
+          await confirmW3MDealDelivery({dealId,accessToken:session.access_token,request});
           await render();
         }
       });
