@@ -177,6 +177,6 @@ Deno.test("confirmed final delivery is displayed without exposing signatures", (
   const section = panel.children.find((node) => node.className === "w3m-v1-final-delivery-confirmation");
   const output = flatten(section);
   assertEquals(output.includes("Buyer confirmed the complete asset set"), true);
-  assertEquals(output.includes("SHA-256 " + "b".repeat(64)), true);
+  assertEquals(output.includes("SHA-256: " + "b".repeat(64)), true);
 });
 
