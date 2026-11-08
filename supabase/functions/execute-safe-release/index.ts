@@ -112,7 +112,7 @@ Deno.serve(async req=>{
       return json(409,{ok:false,error:"Buyer and seller verified wallets are required for Safe owner verification"});
     const expectedOwners=new Set([norm(buyerProfile.wallet_address),norm(sellerProfile.wallet_address),norm(PLATFORM)]);
     const actualOwners=new Set((owners as string[]).map(norm));
-    if(actualOwners.size!==3||[...expectedOwners].some(owner=>!actualOwners.has(owner)))
+    if(expectedOwners.size!==3||actualOwners.size!==3||[...expectedOwners].some(owner=>!actualOwners.has(owner)))
       return json(409,{ok:false,error:"Safe owners no longer match the verified buyer, seller, and platform wallets"});
     if(Number(nonce)!==Number(tx.safe_nonce)) return json(409,{ok:false,error:"Safe nonce changed; do not execute this signed transaction"});
     if(code!=="0x") return json(409,{ok:false,error:"Configured executor is a contract, not an EOA"});
