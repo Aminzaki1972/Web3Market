@@ -3,6 +3,7 @@ import { Wallet } from "npm:ethers@6.15.0";
 import { buildW3MAgreementChallenge } from "../w3m-acquisition-verification/agreement-challenge.ts";
 import { createW3MDealAuditBinding } from "../w3m-acquisition-verification/deal-audit-binding.ts";
 import {
+  assertW3MAgreementReady,
   assertW3MFinalizationReady,
   W3MFinalizationGateError,
   type W3MFinalizationGateClient,
@@ -140,6 +141,18 @@ function client(
     },
   };
 }
+
+
+Deno.test("agreement readiness does not wait for asset delivery or buyer acceptance", async () => {
+  const fixture = await evidenceFixture();
+  const result = await assertW3MAgreementReady(
+    client([fixture.row], null, []),
+    dealId,
+  );
+  assertEquals(result.acceptanceCount, 2);
+  assertEquals(result.termsVersion, "1");
+  assertEquals("assetCount" in result, false);
+});
 
 Deno.test("shared finalization gate accepts the exact two-party persisted signature pair", async () => {
   const fixture = await evidenceFixture();
