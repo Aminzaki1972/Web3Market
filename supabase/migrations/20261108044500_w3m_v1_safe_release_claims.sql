@@ -123,7 +123,7 @@ begin
     if tg_op = 'DELETE' then
       raise exception 'w3m_dispute_change_blocked_by_active_safe_release'
         using errcode = '55000';
-    elsif lower(coalesce(new.status,'')) not in ('resolved','resolved_buyer','resolved_seller','closed','dismissed','rejected','cancelled','canceled','withdrawn') then
+    elsif lower(coalesce(new.status,'')) not in ('resolved','cancelled') then
       raise exception 'w3m_dispute_change_blocked_by_active_safe_release'
         using errcode = '55000';
     end if;
@@ -200,7 +200,7 @@ begin
     raise exception 'safe_release_deal_not_found' using errcode = 'P0002';
   end if;
   if lower(coalesce(v_deal.status,'')) in ('completed','cancelled','rejected','disputed')
-    or lower(coalesce(v_deal.dispute_status,'')) not in ('none','resolved','resolved_buyer','resolved_seller','closed','dismissed','rejected','cancelled','canceled','withdrawn')
+    or lower(coalesce(v_deal.dispute_status,'')) not in ('none','resolved_buyer','resolved_seller','closed')
     or v_deal.release_tx_hash is not null then
     raise exception 'safe_release_deal_is_not_eligible' using errcode = '55000';
   end if;
