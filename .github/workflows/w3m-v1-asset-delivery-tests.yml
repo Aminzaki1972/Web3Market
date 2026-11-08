@@ -55,6 +55,8 @@ jobs:
           create table public.deals(
             id uuid primary key, buyer_id uuid not null, seller_id uuid not null
           );
+          create function public.protect_deal_asset_updates()
+            returns trigger language plpgsql as $stub$ begin return new; end $stub$;
           create table public.deal_assets(
             id uuid primary key default gen_random_uuid(),
             deal_id uuid not null references public.deals(id) on delete cascade,
