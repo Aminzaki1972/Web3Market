@@ -21,6 +21,7 @@ const status = (overrides = {}) => ({
     seller: { accepted: false },
   },
   bothAccepted: false, dealEligible: false,
+  finalDeliveryConfirmation: { confirmed: false, stale: false },
   assets: [{
     assetId: "79000000-0000-4000-8000-000000000009",
     assetName: "repository: Source code", status: "delivered",
@@ -70,7 +71,7 @@ Deno.test("agreement panel reports the server eligibility state without initiati
   }), documentRef);
   const output = flatten(panel);
   assertEquals(output.includes("Both parties accepted"), true);
-  assertEquals(output.includes("eligible for the next V1 gate"), true);
+  assertEquals(output.includes("separate required steps"), true);
   assertEquals(output.includes("Execute Safe"), false);
 });
 
@@ -117,3 +118,63 @@ Deno.test("buyer receives accept and reject controls only for delivered assets",
   assertEquals(calls.map((call) => call.action).join(","), "accept,reject");
   assertEquals(calls.every((call) => call.assetId === "79000000-0000-4000-8000-000000000009"), true);
 });
+
+Deno.test("buyer can confirm the complete asset set only after every asset is accepted", async () => {
+  const container = new FakeElement("div");
+  const calls = [];
+  const acceptedAsset = {
+    ...status().assets[0],
+    status: "accepted",
+    acceptedAt: "2026-11-08T10:00:00Z",
+  };
+  const panel = renderW3MDealAgreementPanel(container, status({
+    viewerRole: "buyer",
+    assets: [acceptedAsset],
+  }), documentRef, {
+    onFinalDeliveryConfirm: async () => { calls.push("confirm"); },
+  });
+  const section = panel.children.find((node) => node.className === "w3m-v1-final-delivery-confirmation");
+  const button = section.children.find((node) => node.tagName === "button");
+  assertEquals(button.textContent, "Confirm all delivered assets");
+  await button.listeners.click();
+  assertEquals(calls.join(","), "confirm");
+});
+
+Deno.test("final delivery confirmation shows stale history and requires a fresh buyer confirmation", () => {
+  const container = new FakeElement("div");
+  const acceptedAsset = {
+    ...status().assets[0],
+    status: "accepted",
+    acceptedAt: "2026-11-08T10:00:00Z",
+  };
+  const panel = renderW3MDealAgreementPanel(container, status({
+    viewerRole: "buyer",
+    assets: [acceptedAsset],
+    finalDeliveryConfirmation: { confirmed: false, stale: true },
+  }), documentRef, {
+    onFinalDeliveryConfirm: async () => {},
+  });
+  const section = panel.children.find((node) => node.className === "w3m-v1-final-delivery-confirmation");
+  const output = flatten(section);
+  assertEquals(output.includes("no longer matches the latest asset delivery"), true);
+  assertEquals(section.children.some((node) => node.tagName === "button"), true);
+});
+
+Deno.test("confirmed final delivery is displayed without exposing signatures", () => {
+  const container = new FakeElement("div");
+  const panel = renderW3MDealAgreementPanel(container, status({
+    finalDeliveryConfirmation: {
+      confirmed: true,
+      stale: false,
+      confirmationId: "7b000000-0000-4000-8000-00000000000b",
+      confirmedAt: "2026-11-08T10:00:00Z",
+      assetSetDigest: "b".repeat(64),
+      assetCount: 3,
+    },
+  }), documentRef);
+  const section = panel.children.find((node) => node.className === "w3m-v1-final-delivery-confirmation");
+  const output = flatten(section);
+  assertEquals(output.includes("Buyer confirmed the complete asset set"), true);
+  assertEquals(output.includes("SHA-256 " + "b".repeat(64)), true);
+});
+
