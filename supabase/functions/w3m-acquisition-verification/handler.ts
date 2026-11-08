@@ -28,7 +28,6 @@ export type W3MAdminClient = {
     error: { code?: string; message?: string } | null;
   }>;
   from?(table: string): W3MQuery;
-  schema?(schema: string): { from(table: string): W3MQuery };
 };
 
 type ChallengeRow = {
