@@ -21,7 +21,7 @@ revoke all on w3m_private.w3m_deal_delivery_confirmations
   from public, anon, authenticated, service_role;
 create index w3m_deal_delivery_confirmations_latest_idx
   on w3m_private.w3m_deal_delivery_confirmations
-  (deal_id, terms_version, confirmed_at desc);
+  (deal_id, buyer_user_id, terms_version, confirmed_at desc);
 
 create or replace function w3m_private.w3m_reject_delivery_confirmation_mutation()
 returns trigger language plpgsql security definer set search_path = ''
