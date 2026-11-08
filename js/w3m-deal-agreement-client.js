@@ -152,6 +152,7 @@ export async function getW3MDealAgreementStatus(input) {
   }
   return {
     dealId: input.dealId,
+    viewerRole: result.viewer_role === "buyer" || result.viewer_role === "seller" ? result.viewer_role : null,
     currentTerms,
     acceptances: {
       buyer: { ...acceptances.buyer },
