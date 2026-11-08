@@ -159,3 +159,17 @@ Provider-mock signer tests and renderer safety tests are included in the V1 Deno
 The first CI run after adding the provider-mock tests exposed a fail-closed validation predicate that rejected valid message fields. The predicate was corrected to reject invalid fields (rather than valid ones), and the workflow was corrected so both new test files are actually executed. The corrected run on commit `4355f31a490a771256256996357a1bb73d659c5c` reports **121 passed, 0 failed**, including all six wallet signer tests and all four agreement-panel tests. The Deno type-check also passed.
 
 The matching PR checks also completed successfully: PostgreSQL 16 V1 migration/concurrency/privilege tests passed; browser JavaScript syntax, CDN SRI, and profile-guard migration checks passed. This validates isolated CI only; it does not establish live browser wallet or live Supabase integration. No production resources were changed.
+
+## Final buyer delivery confirmation
+
+W3M V1 treats per-asset acceptance and final delivery confirmation as two separate steps:
+
+1. The seller submits delivery evidence for each included asset.
+2. The buyer accepts or rejects each asset individually.
+3. After every included asset is accepted, the buyer performs one final confirmation for the complete asset set.
+4. The confirmation is recorded append-only and bound to the published terms version/hash and a SHA-256 digest of the exact accepted asset set, including delivery URL, actors, timestamps, attempt number, and evidence digest.
+5. A later redelivery changes the asset-set digest. The earlier final confirmation remains in the audit history but is no longer current; the buyer must confirm the new complete asset set again.
+6. Safe release preparation and the atomic Safe claim both require a current final buyer confirmation. Missing or stale confirmation fails closed.
+
+The final confirmation is an authenticated buyer action through the W3M V1 Edge Function. It does not create an escrow contract, move funds, or execute a Safe transaction. Safe{Wallet} remains the only settlement mechanism in V1.
+
