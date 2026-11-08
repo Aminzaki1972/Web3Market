@@ -145,7 +145,26 @@ export function validateW3MAcquisitionTermsV1(input: unknown): asserts input is 
   const consideration = object(root.consideration, "consideration");
   const amount = decimal(consideration.amount, "consideration.amount");
   positiveDecimal(amount, "consideration.amount");
-  requiredString(consideration.currency, "consideration.currency");
+  const considerationCurrency = requiredString(consideration.currency, "consideration.currency");
+
+  // Signed commercial snapshot: asking price and any fixed-amount discount are historical deal inputs.
+  // The final consideration remains independently agreed and is the sole platform-fee basis.
+  const commercial = object(root.commercial_schedule, "commercial_schedule");
+  const askingPrice = object(commercial.asking_price, "commercial_schedule.asking_price");
+  const askingPriceAmount = decimal(askingPrice.amount, "commercial_schedule.asking_price.amount");
+  positiveDecimal(askingPriceAmount, "commercial_schedule.asking_price.amount");
+  if (requiredString(askingPrice.currency, "commercial_schedule.asking_price.currency") !== considerationCurrency) {
+    fail("commercial_schedule.asking_price.currency must match consideration.currency.");
+  }
+  if (commercial.agreed_discount !== null) {
+    const discount = object(commercial.agreed_discount, "commercial_schedule.agreed_discount");
+    const discountAmount = decimal(discount.amount, "commercial_schedule.agreed_discount.amount");
+    positiveDecimal(discountAmount, "commercial_schedule.agreed_discount.amount");
+    requiredPolicyText(discount.description, "commercial_schedule.agreed_discount.description");
+    if (requiredString(discount.currency, "commercial_schedule.agreed_discount.currency") !== considerationCurrency) {
+      fail("commercial_schedule.agreed_discount.currency must match consideration.currency.");
+    }
+  }
 
   const fee = object(root.platform_fee, "platform_fee");
   const feePercent = decimal(fee.percent, "platform_fee.percent");
@@ -155,7 +174,6 @@ export function validateW3MAcquisitionTermsV1(input: unknown): asserts input is 
   const net = object(root.seller_net, "seller_net");
   const netAmount = decimal(net.amount, "seller_net.amount");
   const netCurrency = requiredString(net.currency, "seller_net.currency");
-  const considerationCurrency = requiredString(consideration.currency, "consideration.currency");
   if (netCurrency !== considerationCurrency) fail("seller_net.currency must match consideration.currency unless an explicit conversion schedule is added.");
   if (!decimalSumEquals(feeAmount, netAmount, amount)) {
     fail("platform_fee.amount plus seller_net.amount must equal consideration.amount exactly.");
@@ -181,8 +199,14 @@ export function validateW3MAcquisitionTermsV1(input: unknown): asserts input is 
     const asset = object(rawAsset, "transfer_scope.included_assets[" + index + "]");
     const type = requiredString(asset.type, "transfer_scope.included_assets[" + index + "].type").trim();
     const description = requiredString(asset.description, "transfer_scope.included_assets[" + index + "].description").trim();
-    if (type.length > 100 || description.length > 300) {
-      fail("Included asset type or description exceeds the supported length.");
+    requiredPolicyText(asset.transfer_method, "transfer_scope.included_assets[" + index + "].transfer_method");
+    requiredPolicyText(asset.responsible_party, "transfer_scope.included_assets[" + index + "].responsible_party");
+    requiredPolicyText(asset.expected_evidence, "transfer_scope.included_assets[" + index + "].expected_evidence");
+    if (type.length > 100 || description.length > 300 ||
+      String(asset.transfer_method).length > 500 ||
+      String(asset.responsible_party).length > 200 ||
+      String(asset.expected_evidence).length > 500) {
+      fail("Included asset identity, transfer method, responsible party, or expected evidence exceeds the supported length.");
     }
     const key = (type + ": " + description).toLowerCase();
     if (includedAssetKeys.has(key)) fail("Included assets must not contain duplicate type and description pairs.");
