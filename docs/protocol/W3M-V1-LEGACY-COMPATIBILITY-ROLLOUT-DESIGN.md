@@ -125,3 +125,8 @@ Final verified CI batch for code commit a2e70035f2a7e7638be83a1fa250c0d818dfbc83
 - W3M atomic free audit entitlement: all four jobs passed.
 
 All listed jobs in this batch completed successfully. These results are isolated CI tests only; no production migration, Edge Function deployment, live Safe action, financial transfer, or PR merge occurred.
+
+
+### Legacy acceptance write-path hardening — 2026-11-08
+
+Production read-only inspection confirmed the deal_party_agreements unique key is (deal_id, party_role), while party_id and an existing agreed_at timestamp are immutable. The Deal Room therefore now uses an INSERT-only first-acceptance operation. A duplicate-key race is treated as idempotent success only after reloading and confirming the same party's accepted row; other errors remain blocked. This avoids an unnecessary UPSERT update against the timestamp immutability trigger.
