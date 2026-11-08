@@ -20,7 +20,7 @@ Status: product-owner-approved draft wording for inclusion in the W3M Standard A
 
 ## Transaction Schedule — Deal-specific data
 
-The transaction schedule records the actual values for the individual deal and contains these fields:
+The transaction schedule records the actual values for the individual deal and contains these fields. The asking price and any agreed fixed-amount discount are signed historical inputs; they do not mechanically determine the final consideration. The final consideration is separately agreed by both parties and remains the sole basis for the 7.5% fee:
 
 - Seller asking price.
 - Agreed discount, if any.
