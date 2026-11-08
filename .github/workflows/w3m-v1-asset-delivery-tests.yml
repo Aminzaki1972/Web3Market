@@ -55,6 +55,15 @@ jobs:
             canonical_terms_json jsonb not null,
             status text not null
           );
+          create table w3m_private.w3m_agreement_acceptances(
+            id uuid primary key default gen_random_uuid(),
+            deal_id uuid not null,
+            terms_version bigint not null,
+            terms_hash text not null,
+            party_role text not null,
+            user_id uuid not null,
+            accepted_at timestamptz not null
+          );
           create function auth.jwt() returns jsonb
             language sql stable
             as $auth$ select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $auth$;
@@ -148,6 +157,12 @@ jobs:
                 ))
               )
             ),'published');
+            -- Synthetic accepted-term rows for this isolated SQL-only asset lifecycle test.
+            insert into w3m_private.w3m_agreement_acceptances(
+              deal_id,terms_version,terms_hash,party_role,user_id,accepted_at
+            ) values
+              (v_deal,1,repeat('a',64),'buyer',v_buyer,now()),
+              (v_deal,1,repeat('a',64),'seller',v_seller,now());
             perform set_config('request.jwt.claims','{"role":"service_role"}',false);
             if public.w3m_sync_deal_assets_from_published_terms(v_deal) <> 1
               or public.w3m_sync_deal_assets_from_published_terms(v_deal) <> 1 then
