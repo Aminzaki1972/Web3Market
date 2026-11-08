@@ -20,6 +20,16 @@ const status = (overrides = {}) => ({
     seller: { accepted: false },
   },
   bothAccepted: false, dealEligible: false,
+  assets: [{
+    assetId: "79000000-0000-4000-8000-000000000009",
+    assetName: "repository: Source code", status: "delivered",
+    deliveryUrl: "https://example.invalid/repo",
+    deliveredAt: "2026-11-07T02:00:00Z", acceptedAt: null,
+    events: [{
+      eventType: "delivered", attemptNumber: 1,
+      evidenceDigest: "d".repeat(64), occurredAt: "2026-11-07T02:00:00Z",
+    }],
+  }],
   ...overrides,
 });
 
@@ -32,6 +42,9 @@ Deno.test("agreement panel renders canonical terms as text, never as HTML", () =
   assertEquals(output.includes("Canonical terms hash:"), true);
   assertEquals(output.includes("Buyer: Accepted"), true);
   assertEquals(output.includes("Seller: Not accepted"), true);
+  assertEquals(output.includes("Included assets and delivery evidence"), true);
+  assertEquals(output.includes("repository: Source code"), true);
+  assertEquals(output.includes("SHA-256 " + "d".repeat(64)), true);
   const details = panel.children.find((node) => node.tagName === "details");
   const pre = details.children.find((node) => node.tagName === "pre");
   assertEquals(pre.textContent.includes("<script>alert(1)</script>"), true);
