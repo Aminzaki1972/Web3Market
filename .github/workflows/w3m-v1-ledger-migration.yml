@@ -612,11 +612,11 @@ jobs:
             values
               (v_deal_dispute_first,'72000000-0000-4000-8000-000000000002',v_buyer,v_seller,'in_progress','none'),
               (v_deal_claim_first,'72000000-0000-4000-8000-000000000002',v_buyer,v_seller,'in_progress','none'),
-              (v_deal_resolved,'72000000-0000-4000-8000-000000000002',v_buyer,v_seller,'in_progress','resolved');
+              (v_deal_resolved,'72000000-0000-4000-8000-000000000002',v_buyer,v_seller,'in_progress','resolved_buyer');
 
             -- Existing terminal dispute resolutions remain eligible for release.
             insert into public.deal_disputes(deal_id,opened_by,reason,status)
-            values(v_deal_resolved,v_buyer,'Previously dismissed dispute','dismissed');
+            values(v_deal_resolved,v_buyer,'Previously resolved dispute','resolved');
             select claim_id into v_claim_id
               from public.w3m_claim_safe_release(v_deal_resolved,'0x' || repeat('e',64),10);
             if v_claim_id is null then raise exception 'resolved_dispute_must_not_block_safe_claim'; end if;
