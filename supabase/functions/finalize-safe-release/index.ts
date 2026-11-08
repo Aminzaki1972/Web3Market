@@ -103,6 +103,7 @@ Deno.serve(async req=>{
  let executionMatched=false,executionFailure=false;
  for(const log of receipt.logs){if(norm(log.address)!==norm(safeAddress))continue;try{const p=SAFE.parseLog({topics:[...log.topics],data:log.data});if(!p)continue;const h=String(p.args[0]).toLowerCase();if(p.name==="ExecutionSuccess"&&h===String(tx.safe_tx_hash).toLowerCase())executionMatched=true;if(p.name==="ExecutionFailure"&&h===String(tx.safe_tx_hash).toLowerCase())executionFailure=true}catch{}}
  if(executionFailure){
+  if(historicalLegacyCompleted)return json(409,{ok:false,error:"A previously completed legacy release cannot be reclassified from a Safe ExecutionFailure event"});
   const {error:claimFailError}=await sb.rpc("w3m_mark_safe_release_failed",{
    p_deal_id:dealId,p_safe_tx_hash:String(tx.safe_tx_hash),p_safe_nonce:Number(tx.safe_nonce),
    p_transaction_hash:txHash,p_failure_code:"safe_execution_failure"
@@ -115,6 +116,7 @@ Deno.serve(async req=>{
  let sellerOk=false,feeOk=false;
  for(const log of receipt.logs){if(norm(log.address)!==norm(USDT))continue;try{const p=ERC20.parseLog({topics:[...log.topics],data:log.data});if(!p||p.name!=="Transfer")continue;const from=norm(String(p.args[0])),to=norm(String(p.args[1])),amt=BigInt(p.args[2].toString());if(from===safeAddr&&to===seller&&amt===ethers.parseUnits(String(policy.seller_net_amount),18))sellerOk=true;if(from===safeAddr&&to===platform&&amt===ethers.parseUnits(String(policy.fee_amount),18))feeOk=true}catch{}}
  if(!sellerOk||!feeOk)return json(409,{ok:false,error:"On-chain receipt does not contain the exact Safe→seller and Safe→platform USDT transfers"});
+ if(historicalLegacyCompleted)return json(200,{ok:true,completed:true,already_finalized:true,release_tx_hash:txHash,safe_tx_hash:String(tx.safe_tx_hash),safe_nonce:Number(tx.safe_nonce),seller_amount:String(policy.seller_net_amount),platform_fee:String(policy.fee_amount),deal});
  const now=new Date().toISOString();
  const {data:updated,error:up}=await sb.from("deal_multisig_transactions").update({tx_hash:txHash,status:"confirmed",updated_at:now}).eq("id",tx.id).select("*").single();if(up)return json(500,{ok:false,error:"Could not finalize multisig record"});
  const {error:dp}=await sb.from("deal_release_policies").update({status:"released",released_at:now,release_tx_hash:txHash}).eq("id",policy.id);if(dp)return json(500,{ok:false,error:"Release policy update failed"});
