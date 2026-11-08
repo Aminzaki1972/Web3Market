@@ -162,6 +162,7 @@ Deno.test("status client requests the authenticated participant view and validat
               evidence_digest: "d".repeat(64), occurred_at: "2026-11-07T02:00:00Z",
             }],
           }],
+          assets: [{ asset_id: "79000000-0000-4000-8000-000000000009", asset_name: "repository: Source code", status: "delivered", delivery_url: "https://example.invalid/repo", delivered_at: "2026-11-07T02:00:00Z", accepted_at: null, events: [{ event_type: "delivered", attempt_number: 1, evidence_digest: "d".repeat(64), occurred_at: "2026-11-07T02:00:00Z" }] }],
           both_accepted: false, deal_eligible: true,
         },
       };
@@ -172,6 +173,9 @@ Deno.test("status client requests the authenticated participant view and validat
   assertEquals(result.acceptances.buyer.accepted, true);
   assertEquals(result.acceptances.seller.accepted, false);
   assertEquals(result.currentTerms.terms_hash, "a".repeat(64));
+  assertEquals(result.assets.length, 1);
+  assertEquals(result.assets[0].assetName, "repository: Source code");
+  assertEquals(result.assets[0].events[0].evidenceDigest, "d".repeat(64));
   assertEquals(result.assets.length, 1);
   assertEquals(result.assets[0].assetName, "repository: Source code");
   assertEquals(result.assets[0].events[0].evidenceDigest, "d".repeat(64));
