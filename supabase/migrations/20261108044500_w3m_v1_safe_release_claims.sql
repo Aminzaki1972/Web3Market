@@ -113,6 +113,9 @@ begin
     for update;
 
   if not found then
+    -- A parent deal deletion cascades to deal_disputes after the parent row
+    -- has become invisible. Preserve the existing ON DELETE CASCADE behavior.
+    if tg_op = 'DELETE' then return old; end if;
     raise exception 'w3m_dispute_deal_not_found' using errcode = '23503';
   end if;
 
