@@ -261,3 +261,20 @@ Deno.test("requires a non-empty, uniquely named included-asset checklist", () =>
   ];
   assertThrows(() => validateW3MAcquisitionTermsV1(duplicate));
 });
+
+Deno.test("calculates the 7.5% platform fee from the final buyer-paid consideration (discounted deal)", () => {
+  const discountedDeal = fixture();
+  discountedDeal.consideration.amount = "20000.00";
+  discountedDeal.platform_fee.percent = "7.50";
+  discountedDeal.platform_fee.amount = "1500.00";
+  discountedDeal.seller_net.amount = "18500.00";
+  validateW3MAcquisitionTermsV1(discountedDeal);
+
+  // A fee based on the seller's original $30,000 asking price is invalid:
+  // the agreed and buyer-paid consideration is $20,000, so the fee is $1,500.
+  const feeOnAskingPrice = fixture();
+  feeOnAskingPrice.consideration.amount = "20000.00";
+  feeOnAskingPrice.platform_fee.amount = "2250.00";
+  feeOnAskingPrice.seller_net.amount = "17750.00";
+  assertThrows(() => validateW3MAcquisitionTermsV1(feeOnAskingPrice));
+});
