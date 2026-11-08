@@ -178,7 +178,8 @@
     };
     await render();
   }catch(error){
-    if(error?.status===404&&/function not found/i.test(String(error?.message||''))){
+    if((error?.status===404&&/function not found/i.test(String(error?.message||'')))||
+      (error?.status===400&&/unknown action|unsupported action/i.test(String(error?.message||'')))){
       box.hidden=true;
       box.replaceChildren();
       return;
