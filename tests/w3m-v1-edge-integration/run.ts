@@ -296,11 +296,31 @@ try {
   assert(acceptance.status === 200 && acceptance.payload.result?.status === "accepted",
     "Buyer per-asset acceptance failed: " + JSON.stringify(acceptance.payload));
 
+  const finalConfirmation = await call(buyer, {
+    action: "confirm_delivery",
+    deal_id: dealId,
+  });
+  assert(finalConfirmation.status === 200 &&
+    finalConfirmation.payload.result?.asset_count === 1 &&
+    finalConfirmation.payload.result?.created === true,
+    "Buyer final delivery confirmation failed: " + JSON.stringify(finalConfirmation.payload));
+
+  const confirmationReplay = await call(buyer, {
+    action: "confirm_delivery",
+    deal_id: dealId,
+  });
+  assert(confirmationReplay.status === 200 &&
+    confirmationReplay.payload.result?.created === false &&
+    confirmationReplay.payload.result?.confirmation_id === finalConfirmation.payload.result?.confirmation_id,
+    "Final delivery confirmation retry was not idempotent.");
+
   const finalStatus = await call(buyer, { action: "status", deal_id: dealId });
   assert(finalStatus.status === 200 &&
     finalStatus.payload.result?.assets?.[0]?.status === "accepted" &&
-    finalStatus.payload.result?.both_accepted === true,
-    "Final agreement and asset state did not survive the real Edge Function/PostgREST round trip.");
+    finalStatus.payload.result?.both_accepted === true &&
+    finalStatus.payload.result?.final_delivery_confirmation?.confirmed === true &&
+    finalStatus.payload.result?.final_delivery_confirmation?.asset_count === 1,
+    "Final agreement, asset state, and buyer confirmation did not survive the real Edge Function/PostgREST round trip.");
 
   const serialized = JSON.stringify(finalStatus.payload);
   assert(!serialized.includes(buyerAcceptance.signature) &&
