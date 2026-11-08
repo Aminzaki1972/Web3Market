@@ -63,7 +63,7 @@ begin
     if old.status = 'delivered' and new.status = 'delivered'
        and (new.delivery_url is distinct from old.delivery_url
          or new.evidence is distinct from old.evidence) then
-      raise exception 'Seller must restart the delivery attempt before changing delivery evidence';
+      raise exception 'Seller must restart the delivery attempt before changing delivery evidence' using errcode = '55000';
     end if;
     if new.status is distinct from old.status and old.status in ('accepted','rejected') then
       new.accepted_by := null;
