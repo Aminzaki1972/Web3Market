@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { getW3MDealProtocolTrack } from "../_shared/w3m-deal-protocol-track.ts";
 import Safe from "npm:@safe-global/protocol-kit@8.0.7";
 import { createPublicClient, createWalletClient, http, getAddress, keccak256, toBytes } from "npm:viem@2.37.6";
 import { bsc } from "npm:viem@2.37.6/chains";
@@ -45,13 +46,21 @@ Deno.serve(async(req)=>{
   const {data:seller}=await db.from("profiles").select("id,wallet_address,wallet_verified").eq("id",deal.seller_id).maybeSingle();
   const {data:caller}=await db.from("profiles").select("id,role").eq("id",user.id).maybeSingle();
   if(!(caller&&(caller.id===deal.buyer_id||caller.id===deal.seller_id||String(caller.role||"").toLowerCase()==="admin")))return json({ok:false,error:"Not authorized for this deal"},403);
+  let protocolTrack: "legacy" | "v1";
   try {
-    await assertW3MAgreementReady(db, dealId);
+    protocolTrack = await getW3MDealProtocolTrack(db, dealId);
+  } catch {
+    return json({ok:false,error:"Deal protocol classification is unavailable",usdt_moved:false},503);
+  }
+  if (protocolTrack === "v1") {
+    try {
+      await assertW3MAgreementReady(db, dealId);
+    } catch (error) {
+      return json({ok:false,error:"W3M V1 buyer and seller agreement acceptance is required before Safe deployment",code:error instanceof W3MFinalizationGateError?error.code:"W3M_FINALIZATION_EVIDENCE_UNAVAILABLE",usdt_moved:false},409);
+    }
+  }
   const disputeState=await checkDisputeState(db,deal,dealId);
   if(disputeState!=="clear")return json({ok:false,error:disputeState==="open"?"Safe deployment is blocked while a dispute is open":"Unable to verify dispute status; Safe deployment blocked",code:disputeState==="open"?"DEAL_DISPUTE_OPEN":"DISPUTE_STATUS_UNAVAILABLE"},409);
-  } catch (error) {
-    return json({ok:false,error:"W3M V1 buyer and seller agreement acceptance is required before Safe deployment",code:error instanceof W3MFinalizationGateError?error.code:"W3M_FINALIZATION_EVIDENCE_UNAVAILABLE",usdt_moved:false},409);
-  }
   if(String(deal.status)!=="accepted")return json({ok:false,error:"Deal must be accepted before Safe deployment",status:deal.status},409);
   if(Number(deal.chain_id)!==BSC_CHAIN_ID)return json({ok:false,error:"Deal chain must be BNB Smart Chain (56)"},409);
   if(!buyer?.wallet_address||!seller?.wallet_address||buyer.wallet_verified!==true||seller.wallet_verified!==true)return json({ok:false,error:"Buyer and seller wallets must be verified"},409);
