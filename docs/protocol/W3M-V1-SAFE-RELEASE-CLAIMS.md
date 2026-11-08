@@ -76,3 +76,11 @@ This guard coordinates actions that pass through Web3Market's database and Edge 
 ## Deployment boundary
 
 This document and migration are branch-only. Do not apply the migration, deploy Edge Functions, connect the Deal Room UI, or perform a real Safe transaction without the user's explicit approval and a separate isolated integration test.
+
+## Historical legacy completion compatibility
+
+The branch finalizer preserves read-only verification for a legacy deal that was already marked completed before the release-claim ledger existed. The exception applies only when the deal is already completed and the submitted outer transaction hash exactly matches the stored `release_tx_hash`.
+
+The finalizer still verifies the participant, terminal dispute state, stored release policy and multisig transaction, configured Safe and BNB chain, executor sender, decoded Safe execution payload, recomputed Safe transaction hash, successful receipt, Safe `ExecutionSuccess` event, and exact seller/platform token transfers. If all checks pass, it returns an `already_finalized` response without inserting or mutating a release claim, deal, policy, or multisig record.
+
+A failed outer receipt or Safe `ExecutionFailure` event cannot rewrite historical completion or create a retroactive failed claim. This exception does not apply to funded/in-progress legacy deals or any V1 deal. It is covered by a branch source-regression test; it is not a live historical transaction test.
