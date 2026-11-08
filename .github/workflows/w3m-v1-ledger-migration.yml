@@ -56,7 +56,7 @@ jobs:
           );
           create table public.deal_disputes (
             id uuid primary key default gen_random_uuid(),
-            deal_id uuid not null unique references public.deals(id),
+            deal_id uuid not null unique references public.deals(id) on delete cascade,
             opened_by uuid not null,
             reason text not null,
             status text not null default 'open'
