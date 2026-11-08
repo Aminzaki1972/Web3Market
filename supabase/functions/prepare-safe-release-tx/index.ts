@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { getW3MDealProtocolTrack } from "../_shared/w3m-deal-protocol-track.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { ethers } from "npm:ethers@6.15.0";
 import { assertW3MFinalizationReady, W3MFinalizationGateError } from "../_shared/w3m-v1-finalization-gate.ts";
@@ -72,10 +73,18 @@ Deno.serve(async (req)=>{
     if(dealError||!deal) return json(404,{ok:false,error:"Deal not found"});
     const uid=userData.user.id;
     if(deal.buyer_id!==uid && deal.seller_id!==uid) return json(403,{ok:false,error:"Not a deal participant"});
+    let protocolTrack: "legacy" | "v1";
     try {
-      await assertW3MFinalizationReady(supabase, dealId);
-    } catch (error) {
-      return json(409,{ok:false,error:"W3M V1 buyer and seller agreement acceptance is required before Safe transaction preparation",code:error instanceof W3MFinalizationGateError?error.code:"W3M_FINALIZATION_EVIDENCE_UNAVAILABLE"});
+      protocolTrack = await getW3MDealProtocolTrack(supabase, dealId);
+    } catch {
+      return json(503,{ok:false,error:"Deal protocol classification is unavailable"});
+    }
+    if (protocolTrack === "v1") {
+      try {
+        await assertW3MFinalizationReady(supabase, dealId);
+      } catch (error) {
+        return json(409,{ok:false,error:"W3M V1 buyer and seller agreement acceptance is required before Safe transaction preparation",code:error instanceof W3MFinalizationGateError?error.code:"W3M_FINALIZATION_EVIDENCE_UNAVAILABLE"});
+      }
     }
     const disputeState=await checkDisputeState(supabase,deal,dealId);
     if(disputeState!=="clear") return json(409,{ok:false,error:disputeState==="open"?"Release is blocked while a dispute is open":"Unable to verify dispute status; release blocked",code:disputeState==="open"?"DEAL_DISPUTE_OPEN":"DISPUTE_STATUS_UNAVAILABLE"});
