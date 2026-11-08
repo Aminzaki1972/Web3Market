@@ -4,7 +4,7 @@
 create table w3m_private.w3m_deal_delivery_confirmations (
   id uuid primary key default gen_random_uuid(),
   deal_id uuid not null references public.deals(id) on delete restrict,
-  buyer_user_id uuid not null references auth.users(id) on delete restrict,
+  buyer_user_id uuid not null,
   terms_version bigint not null check (terms_version > 0),
   terms_hash text not null check (terms_hash ~ '^[0-9a-f]{64}$'),
   asset_set_digest text not null check (asset_set_digest ~ '^[0-9a-f]{64}$'),
