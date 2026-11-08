@@ -724,3 +724,23 @@ Deno.test("asset_transition rejects a mismatched RPC result", async () => {
   }));
   if (response.status !== 503) throw new Error("Mismatched RPC result must fail closed");
 });
+
+
+Deno.test("asset_transition maps stale or locked deal state to a conflict response", async () => {
+  const assetId = "7a000000-0000-4000-8000-00000000000a";
+  const sellerId = "76000000-0000-4000-8000-000000000006";
+  const { deps } = makeDeps(async () => ({
+    data: null,
+    error: { code: "55000", message: "asset_changes_blocked_by_safe_release_or_completed_deal" },
+  }), { userId: sellerId });
+  const handler = createW3MAcquisitionHandler(deps);
+  const response = await handler(makeRequest({
+    action: "asset_transition", asset_action: "deliver", deal_id: DEAL_ID,
+    asset_id: assetId, delivery_url: "https://example.invalid/repo",
+    evidence: "synthetic evidence",
+  }));
+  const body = await response.json();
+  if (response.status !== 409 || body.ok !== false) {
+    throw new Error("Locked or stale asset state must return a conflict, not an internal server error");
+  }
+});
