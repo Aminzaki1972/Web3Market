@@ -1,0 +1,100 @@
+name: W3M V1 Supabase Edge Integration
+
+on:
+  pull_request:
+    paths:
+      - "supabase/config.toml"
+      - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql"
+      - "supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql"
+      - "tests/w3m-v1-edge-integration/**"
+      - ".github/workflows/w3m-v1-edge-integration.yml"
+  push:
+    branches:
+      - "feat/w3m-audit-fingerprint-binding-20261107"
+    paths:
+      - "supabase/config.toml"
+      - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql"
+      - "supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql"
+      - "tests/w3m-v1-edge-integration/**"
+      - ".github/workflows/w3m-v1-edge-integration.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  edge-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Supabase CLI v2
+        uses: supabase/setup-cli@v1
+        with:
+          version: v2.stable
+
+      - name: Start isolated local Supabase services
+        run: supabase start -x studio,logflare,vector,supavisor,storage-api,realtime,imgproxy,mailpit,postgres-meta
+
+      - name: Load disposable local Supabase environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env > /tmp/w3m-local-supabase.env
+          set -a
+          source /tmp/w3m-local-supabase.env
+          set +a
+          {
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "W3M_LOCAL_DB_URL=$DB_URL"
+          } >> "$GITHUB_ENV"
+          {
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } > /tmp/w3m-edge.env
+          chmod 600 /tmp/w3m-edge.env
+
+      - name: Prepare disposable baseline and apply W3M V1 migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f tests/w3m-v1-edge-integration/schema.sql
+          psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql
+          psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Serve the actual W3M acquisition Edge Function
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase functions serve w3m-acquisition-verification --env-file /tmp/w3m-edge.env > /tmp/w3m-edge-runtime.log 2>&1 &
+          echo $! > /tmp/w3m-edge-runtime.pid
+          for attempt in $(seq 1 60); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' \
+              -H "apikey: $SUPABASE_ANON_KEY" \
+              -H 'Content-Type: application/json' \
+              -X POST -d '{}' \
+              http://127.0.0.1:54321/functions/v1/w3m-acquisition-verification || true)"
+            if [ "$code" = "401" ] || [ "$code" = "400" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/w3m-edge-runtime.log
+          echo "W3M Edge Function did not become ready"
+          exit 1
+
+      - name: Exercise real Auth, PostgREST, RPC and Edge Function paths
+        run: deno run --allow-net --allow-env tests/w3m-v1-edge-integration/run.ts
+
+      - name: Stop isolated Supabase services
+        if: always()
+        run: supabase stop
