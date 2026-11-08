@@ -568,6 +568,51 @@ async function getAgreementStatus(
   const [buyer, seller] = await Promise.all([
     readAcceptance("buyer", deal.buyer_id), readAcceptance("seller", deal.seller_id),
   ]);
+
+  // Read-only per-asset delivery view. Raw evidence text is deliberately not
+  // returned; participants receive the delivery reference and immutable digest
+  // history, while the finalization gate independently rechecks the ledger.
+  const { data: assetRows, error: assetError } = await admin.from!("deal_assets")
+    .select("id,asset_name,status,delivery_url,delivered_by,delivered_at,accepted_by,accepted_at,created_at")
+    .eq("deal_id", dealId).order("created_at", { ascending: true }).range(0, 499);
+  if (assetError) throw assetError;
+  const { data: eventRows, error: eventError } = await privateDb.from("w3m_deal_asset_events")
+    .select("asset_id,event_type,attempt_number,actor_user_id,evidence_digest,occurred_at")
+    .eq("deal_id", dealId).order("event_no", { ascending: true }).range(0, 1999);
+  if (eventError) throw eventError;
+
+  const eventsByAsset = new Map<string, Array<Record<string, unknown>>>();
+  for (const raw of eventRows || []) {
+    const event = raw as Record<string, unknown>;
+    const assetId = String(event.asset_id || "");
+    if (!assetId) continue;
+    const history = eventsByAsset.get(assetId) || [];
+    history.push({
+      event_type: event.event_type,
+      attempt_number: event.attempt_number,
+      actor_user_id: event.actor_user_id,
+      evidence_digest: event.evidence_digest,
+      occurred_at: event.occurred_at,
+    });
+    eventsByAsset.set(assetId, history);
+  }
+  const assets = (assetRows || []).map((raw) => {
+    const asset = raw as Record<string, unknown>;
+    const assetId = String(asset.id || "");
+    return {
+      asset_id: assetId,
+      asset_name: asset.asset_name,
+      status: asset.status,
+      delivery_url: asset.delivery_url,
+      delivered_by: asset.delivered_by,
+      delivered_at: asset.delivered_at,
+      accepted_by: asset.accepted_by,
+      accepted_at: asset.accepted_at,
+      created_at: asset.created_at,
+      events: eventsByAsset.get(assetId) || [],
+    };
+  });
+
   return {
     deal_id: deal.id,
     current_terms: terms ? {
@@ -577,6 +622,7 @@ async function getAgreementStatus(
       canonical_terms: terms.canonical_terms_json,
     } : null,
     acceptances: { buyer, seller },
+    assets,
     both_accepted: buyer.accepted === true && seller.accepted === true,
     deal_eligible: ["pending", "accepted"].includes(deal.status) && deal.dispute_status === "none",
   };
