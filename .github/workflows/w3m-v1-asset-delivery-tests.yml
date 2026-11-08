@@ -232,6 +232,86 @@ jobs:
           end;
           $$;
           SQL
+      - name: Verify authenticated per-asset transition RPC
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $
+          declare
+            v_deal uuid := '71100000-0000-4000-8000-000000000001';
+            v_buyer uuid := '75100000-0000-4000-8000-000000000005';
+            v_seller uuid := '76100000-0000-4000-8000-000000000006';
+            v_asset uuid;
+            v_result jsonb;
+          begin
+            insert into public.deals(id,buyer_id,seller_id) values(v_deal,v_buyer,v_seller);
+            insert into public.deal_assets(deal_id,asset_name,status)
+              values(v_deal,'repository: RPC test','pending') returning id into v_asset;
+            perform set_config('request.jwt.claims','{"role":"service_role"}',false);
+            v_result := public.w3m_transition_deal_asset_v1(
+              v_deal,v_asset,v_seller,'deliver','https://example.invalid/repo','synthetic-evidence'
+            );
+            if v_result->>'status' <> 'delivered' or (v_result->>'attempt_number')::int <> 1 then
+              raise exception 'authenticated_seller_delivery_rpc_failed';
+            end if;
+            begin
+              perform public.w3m_transition_deal_asset_v1(
+                v_deal,v_asset,v_seller,'accept',null,null
+              );
+              raise exception 'seller_must_not_accept_own_delivery';
+            exception when sqlstate '42501' then null;
+            end;
+            begin
+              perform public.w3m_transition_deal_asset_v1(
+                v_deal,v_asset,v_seller,'deliver','http://insecure.invalid/repo','bad'
+              );
+              raise exception 'insecure_delivery_url_must_be_rejected';
+            exception when sqlstate '22023' then null;
+            end;
+            v_result := public.w3m_transition_deal_asset_v1(
+              v_deal,v_asset,v_buyer,'reject',null,null
+            );
+            if v_result->>'status' <> 'rejected' then
+              raise exception 'buyer_rejection_rpc_failed';
+            end if;
+            v_result := public.w3m_transition_deal_asset_v1(
+              v_deal,v_asset,v_seller,'deliver','https://example.invalid/repo-v2','synthetic-evidence-v2'
+            );
+            if v_result->>'status' <> 'delivered' or (v_result->>'attempt_number')::int <> 2 then
+              raise exception 'seller_redelivery_rpc_failed';
+            end if;
+            v_result := public.w3m_transition_deal_asset_v1(
+              v_deal,v_asset,v_buyer,'accept',null,null
+            );
+            if v_result->>'status' <> 'accepted' then
+              raise exception 'buyer_acceptance_rpc_failed';
+            end if;
+            begin
+              perform public.w3m_transition_deal_asset_v1(
+                v_deal,v_asset,'79100000-0000-4000-8000-000000000009'::uuid,'reject',null,null
+              );
+              raise exception 'nonparticipant_must_not_change_asset';
+            exception when sqlstate '42501' then null;
+            end;
+          end;
+          $;
+          SQL
+      - name: Verify per-asset transition RPC is service-role only
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $
+          begin
+            if has_function_privilege('anon','public.w3m_transition_deal_asset_v1(uuid,uuid,uuid,text,text,text)','execute')
+              or has_function_privilege('authenticated','public.w3m_transition_deal_asset_v1(uuid,uuid,uuid,text,text,text)','execute')
+              or not has_function_privilege('service_role','public.w3m_transition_deal_asset_v1(uuid,uuid,uuid,text,text,text)','execute') then
+              raise exception 'asset_transition_rpc_privileges_are_not_least_privilege';
+            end if;
+          end;
+          $;
+          SQL
       - name: Verify finalization evidence RPC is service-role only
         env:
           PGPASSWORD: postgres
