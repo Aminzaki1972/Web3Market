@@ -594,7 +594,7 @@ begin
     raise exception 'service_role_required' using errcode = '42501';
   end if;
   if p_deal_id is null or p_asset_id is null or p_actor_user_id is null
-     or p_action not in ('deliver','accept','reject') then
+     or p_action is null or p_action not in ('deliver','accept','reject') then
     raise exception 'invalid_asset_transition_request' using errcode = '22023';
   end if;
 
