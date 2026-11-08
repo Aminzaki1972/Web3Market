@@ -450,14 +450,15 @@ jobs:
               raise exception 'finalization_evidence_rpc_did_not_return_exact_acceptance_pair';
             end if;
 
-            -- Once either party has accepted, the canonical terms are frozen.
+            -- Once both distinct parties have accepted the same current version,
+            -- that fully agreed version is frozen against unilateral publication.
             begin
               perform public.w3m_publish_acquisition_terms_version(
                 v_deal,2,repeat('2',64),
                 public.w3m_test_terms(v_deal,v_project,v_user,v_seller,v_audit,v_digest,
                   'aminzaki1972/web3market',repeat('f',40),2)
               );
-              raise exception 'expected_terms_locked_after_acceptance';
+              raise exception 'expected_terms_locked_after_complete_acceptance_pair';
             exception when sqlstate '23505' then null;
             end;
 
@@ -470,8 +471,9 @@ jobs:
               raise exception 'accepted_terms_version_must_remain_published';
             end if;
 
-            -- The second deal has no acceptances yet, so it may publish its
-            -- initial canonical terms and exercise the supersession race below.
+            -- The second deal starts with version 1 and one buyer acceptance.
+            -- A later version may supersede this incomplete round without deleting
+            -- or rewriting its historical acceptance evidence.
             perform public.w3m_publish_acquisition_terms_version(
               '79000000-0000-4000-8000-000000000009',
               1,repeat('c',64),
@@ -479,6 +481,18 @@ jobs:
                 v_project,v_user,v_seller,v_audit,v_digest,
                 'aminzaki1972/web3market',repeat('f',40),1)
             );
+            v_stale_challenge := public.w3m_issue_agreement_challenge(
+              '79000000-0000-4000-8000-000000000009',v_project,v_audit,v_fingerprint,
+              v_digest,v_binding_hash,repeat('c',64),1,'buyer',v_user,v_wallet,
+              '0x' || repeat('5',64),v_deadline
+            );
+            perform public.w3m_record_agreement_acceptance(
+              v_stale_challenge,v_user,'buyer',v_wallet,v_wallet,v_signature,clock_timestamp()
+            );
+            if (select count(*) from w3m_private.w3m_agreement_acceptances
+                where deal_id='79000000-0000-4000-8000-000000000009' and terms_version=1) <> 1 then
+              raise exception 'partial_round_historical_acceptance_missing';
+            end if;
 
             begin
               update w3m_private.w3m_agreement_acceptances
