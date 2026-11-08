@@ -388,8 +388,6 @@ async function prepareAgreement(
   if (!UUID.test(dealId) || !ADDRESS.test(requestedWallet)) {
     throw Object.assign(new Error("A valid deal_id and connected wallet are required."), { status: 400 });
   }
-  if (!admin.schema) throw new Error("Private protocol read access is unavailable.");
-
   const deal = await loadOne<{
     id: string; project_id: string; buyer_id: string; seller_id: string;
     status: string; dispute_status: string;
@@ -410,24 +408,22 @@ async function prepareAgreement(
     throw Object.assign(new Error("Connected wallet does not match the verified profile wallet."), { status: 403 });
   }
 
-  const privateDb = admin.schema("w3m_private");
-  const { data: bindingData, error: bindingError } = await privateDb.from("w3m_deal_audit_bindings")
-    .select("deal_id,project_id,audit_id,fingerprint_id,fingerprint_digest,repository,commit_sha,binding_hash")
-    .eq("deal_id", dealId).maybeSingle();
-  if (bindingError) throw bindingError;
-  const binding = bindingData as {
+  const { data: contextData, error: contextError } = await admin.rpc(
+    "w3m_get_deal_agreement_context",
+    { p_deal_id: dealId },
+  );
+  if (contextError) throw contextError;
+  const context = contextData && typeof contextData === "object" && !Array.isArray(contextData)
+    ? contextData as Record<string, unknown> : {};
+  const binding = context.binding as {
     deal_id: string; project_id: string; audit_id: string; fingerprint_id: string;
     fingerprint_digest: string; repository: string; commit_sha: string; binding_hash: string;
   } | null;
-  if (!binding || binding.project_id !== deal.project_id) {
+  if (!binding || binding.project_id !== deal.project_id || binding.deal_id !== dealId) {
     throw Object.assign(new Error("Immutable deal audit binding is not available."), { status: 409 });
   }
 
-  const { data: termsData, error: termsError } = await privateDb.from("w3m_acquisition_terms_versions")
-    .select("id,terms_version,terms_hash,canonical_terms_json,status")
-    .eq("deal_id", dealId).eq("status", "published").maybeSingle();
-  if (termsError) throw termsError;
-  const terms = termsData as {
+  const terms = context.terms as {
     id: string; terms_version: number | string; terms_hash: string;
     canonical_terms_json: Record<string, unknown>; status: string;
   } | null;
@@ -518,8 +514,6 @@ async function getAgreementStatus(
   if (!UUID.test(dealId)) {
     throw Object.assign(new Error("A valid deal_id is required."), { status: 400 });
   }
-  if (!admin.schema) throw new Error("Private protocol read access is unavailable.");
-
   const deal = await loadOne<{
     id: string; buyer_id: string; seller_id: string; project_id: string;
     status: string; dispute_status: string;
@@ -529,15 +523,19 @@ async function getAgreementStatus(
     throw Object.assign(new Error("Only deal participants can view agreement status."), { status: 403 });
   }
 
-  const privateDb = admin.schema("w3m_private");
-  const { data: termsData, error: termsError } = await privateDb.from("w3m_acquisition_terms_versions")
-    .select("id,terms_version,terms_hash,canonical_terms_json,status,published_at")
-    .eq("deal_id", dealId).eq("status", "published").maybeSingle();
-  if (termsError) throw termsError;
-  const terms = termsData as {
+  const { data: contextData, error: contextError } = await admin.rpc(
+    "w3m_get_deal_agreement_context",
+    { p_deal_id: dealId },
+  );
+  if (contextError) throw contextError;
+  const context = contextData && typeof contextData === "object" && !Array.isArray(contextData)
+    ? contextData as Record<string, unknown> : {};
+  const terms = context.terms as {
     id: string; terms_version: number | string; terms_hash: string;
     canonical_terms_json: Record<string, unknown>; status: string; published_at: string;
   } | null;
+  const acceptanceRows = Array.isArray(context.acceptances)
+    ? context.acceptances as Array<Record<string, unknown>> : [];
 
   if (terms) {
     const computedHash = await hashW3MAcquisitionTermsV1(terms.canonical_terms_json);
@@ -548,14 +546,10 @@ async function getAgreementStatus(
   }
 
   const readAcceptance = async (role: "buyer" | "seller", expectedUserId: string) => {
-    const { data, error } = await privateDb.from("w3m_agreement_acceptances")
-      .select("party_role,user_id,terms_version,terms_hash,accepted_at")
-      .eq("deal_id", dealId).eq("party_role", role).maybeSingle();
-    if (error) throw error;
-    const row = data as {
+    const row = acceptanceRows.find((item) => item.party_role === role) as {
       party_role: string; user_id: string; terms_version: number | string;
       terms_hash: string; accepted_at: string;
-    } | null;
+    } | undefined;
     if (!row) return { accepted: false };
     // Never expose signature bytes, challenge IDs, nonces, or wallet metadata.
     if (row.party_role !== role || row.user_id !== expectedUserId || row.terms_hash !== terms?.terms_hash ||
