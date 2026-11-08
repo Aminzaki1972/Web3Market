@@ -145,9 +145,8 @@ The first isolated implementation slice is now present on the feature branch:
 ### Deliberate limits of this slice
 
 - This migration does **not** create a V1 assignment path. All current inserts remain legacy until a separate trusted, atomic V1 deal-creation transaction is implemented and tested.
-- It does not yet change `create-safe`, `prepare-deal-release`, the acquisition status endpoint, or the Deal Room helper. Those paths must be updated together after the original legacy authorization checks are fully mapped.
-- The new workflow is configured to run on the feature-branch PR, but no successful run/status has been confirmed yet. Treat the PostgreSQL tests as pending, not passed.
-- This migration exists only on the unmerged feature branch. It has not been applied to production or the live Supabase project.
+- The shared track reader, acquisition status response, Deal Room browser gate, and all six Safe Edge paths now use authoritative server-side classification. V1-specific gates are conditional on an explicit v1 track; legacy checks remain in place.
+- The registry migration and all branch changes remain isolated to the unmerged feature branch. The migration has not been applied to production or the live Supabase project.
 
 **Current safety state:** no production migration, Edge Function deployment, Deal Room activation, Safe transaction, or PR merge was performed.
 
@@ -159,3 +158,23 @@ A further read-only production-schema check established that `public.deal_party_
 The feature-branch Deal Room was attempting an upsert with conflict target `(deal_id, party_role, party_id)`, which does not match the production unique key. The branch code now targets `(deal_id, party_role)`, while retaining the database's immutable identity guard. A regression assertion was added to `js/w3m-deal-room-legacy-gate.test.js`; the existing Deno workflow already includes that test file and the Deal Room source.
 
 This is a source-level correction on the feature branch only. No production file or database object was changed. CI for the latest commit has not yet been confirmed.
+
+
+### Protocol-track dispatch and legacy database guard review — 2026-11-08
+
+The production deal_party_agreements schema was inspected read-only:
+
+- RLS is enabled; FORCE RLS is not enabled.
+- Authenticated users have SELECT, INSERT, and UPDATE table privileges. The anon role has no table grant in the inspected role-grant output; service_role has its normal broad table privileges.
+- SELECT policy permits admins and the deal's buyer/seller (plus the row's own party ID).
+- INSERT policy binds party_id to auth.uid() and requires party_role to match the caller's buyer/seller role on that deal.
+- UPDATE has owner/participant restrictions in both permissive and restrictive policies.
+- Unique index is exactly (deal_id, party_role); party_id is a separate immutable identity field.
+- trg_prevent_deal_agreement_tampering prevents changing deal ID, role, party ID, removing an existing acceptance, or changing an existing agreed_at timestamp.
+- An audit trigger records INSERT/UPDATE/DELETE activity.
+
+The Deal Room legacy upsert target was corrected to the real unique key on the branch. The original identity and timestamp trigger remains unchanged. No production policies, grants, triggers, or table data were modified.
+
+The six Safe paths now branch on the shared, service-role-only protocol-track reader. For legacy deals, only the new V1-specific acceptance/final-delivery gate is skipped; existing participant, dispute, payment, delivery, release-policy, Safe, chain, token, signature, and on-chain checks remain. An unknown track fails closed.
+
+CI on 27f4c2dae743d69afd609ee8d9d6c65a4439c820: Deno suite and PostgreSQL registry, ledger, and asset-evidence tests passed; trust-badge, CDN SRI, and browser syntax checks passed. Supabase Edge integration, profile guard, and audit entitlement jobs were still in progress at the last check.
