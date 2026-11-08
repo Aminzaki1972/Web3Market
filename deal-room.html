@@ -141,7 +141,9 @@
       }
       return result;
     };
+    let renderGeneration=0;
     const render=async()=>{
+      const generation=++renderGeneration;
       const status=await getW3MDealAgreementStatus({
         dealId,accessToken:session.access_token,
         request:async(body,token)=>{
@@ -149,6 +151,7 @@
           return result;
         }
       });
+      if(generation!==renderGeneration)return;
       if(!status.currentTerms){
         box.hidden=true;
         box.replaceChildren();
