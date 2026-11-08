@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql"
+      - "supabase/migrations/20261108044500_w3m_v1_safe_release_claims.sql"
       - ".github/workflows/w3m-v1-ledger-migration.yml"
   push:
     branches:
@@ -48,7 +49,15 @@ jobs:
             as $auth$ select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $auth$;
           create table public.deals (
             id uuid primary key, project_id uuid not null, buyer_id uuid not null,
-            seller_id uuid not null, status text not null, dispute_status text not null
+            seller_id uuid not null, status text not null, dispute_status text not null,
+            release_tx_hash text
+          );
+          create table public.deal_disputes (
+            id uuid primary key default gen_random_uuid(),
+            deal_id uuid not null unique references public.deals(id),
+            opened_by uuid not null,
+            reason text not null,
+            status text not null default 'open'
           );
           create table public.projects (
             id uuid primary key, owner_id uuid not null
@@ -105,6 +114,10 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql
+      - name: Apply W3M V1 Safe release claim migration
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261108044500_w3m_v1_safe_release_claims.sql
       - name: Verify atomic challenge consumption and immutable terms
         env:
           PGPASSWORD: postgres
@@ -569,6 +582,207 @@ jobs:
               or has_function_privilege('service_role','w3m_private.w3m_guard_challenge_consumption()','execute')
               or not has_function_privilege('service_role','public.w3m_get_agreement_challenge_for_verification(uuid)','execute') then
               raise exception 'browser_role_has_protocol_table_privileges';
+            end if;
+          end;
+          $$;
+          SQL
+
+      - name: Verify Safe release claim and dispute serialization
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          set request.jwt.claims = '{"role":"service_role"}';
+          do $$
+          declare
+            v_deal_dispute_first uuid := '81000000-0000-4000-8000-000000000001';
+            v_deal_claim_first uuid := '82000000-0000-4000-8000-000000000002';
+            v_claim_id uuid;
+            v_status text;
+            v_tx text;
+            v_created boolean;
+            v_buyer uuid := '75000000-0000-4000-8000-000000000005';
+            v_seller uuid := '76000000-0000-4000-8000-000000000006';
+            v_tx_hash text := '0x' || repeat('a',64);
+            v_chain_tx text := '0x' || repeat('b',64);
+          begin
+            insert into public.deals(id,project_id,buyer_id,seller_id,status,dispute_status)
+            values
+              (v_deal_dispute_first,'72000000-0000-4000-8000-000000000002',v_buyer,v_seller,'in_progress','none'),
+              (v_deal_claim_first,'72000000-0000-4000-8000-000000000002',v_buyer,v_seller,'in_progress','none');
+
+            -- Dispute wins first: the release claim must fail closed.
+            insert into public.deal_disputes(deal_id,opened_by,reason,status)
+            values(v_deal_dispute_first,v_buyer,'Synthetic dispute-first race','open');
+            begin
+              perform public.w3m_claim_safe_release(v_deal_dispute_first,v_tx_hash,11);
+              raise exception 'expected_claim_rejection_after_open_dispute';
+            exception when sqlstate '55000' then null;
+            end;
+
+            -- Claim wins first: a new dispute row and deal-level dispute state are blocked.
+            select claim_id,claim_status,transaction_hash,created
+              into v_claim_id,v_status,v_tx,v_created
+              from public.w3m_claim_safe_release(v_deal_claim_first,v_tx_hash,12);
+            if v_status <> 'claimed' or v_created is not true then
+              raise exception 'first_safe_release_claim_not_created';
+            end if;
+            select claim_id,claim_status,transaction_hash,created
+              into v_claim_id,v_status,v_tx,v_created
+              from public.w3m_claim_safe_release(v_deal_claim_first,v_tx_hash,12);
+            if v_status <> 'claimed' or v_created is not false then
+              raise exception 'safe_release_claim_retry_not_idempotent';
+            end if;
+            begin
+              insert into public.deal_disputes(deal_id,opened_by,reason,status)
+              values(v_deal_claim_first,v_buyer,'Synthetic claim-first race','open');
+              raise exception 'expected_dispute_rejection_after_claim';
+            exception when sqlstate '55000' then null;
+            end;
+            begin
+              update public.deals set dispute_status='open' where id=v_deal_claim_first;
+              raise exception 'expected_deal_dispute_state_rejection_after_claim';
+            exception when sqlstate '55000' then null;
+            end;
+
+            perform public.w3m_mark_safe_release_submitted(
+              v_deal_claim_first,v_tx_hash,12,v_chain_tx
+            );
+            perform public.w3m_mark_safe_release_failed(
+              v_deal_claim_first,v_tx_hash,12,v_chain_tx,'evm_revert'
+            );
+            if (select status from w3m_private.w3m_safe_release_claims
+                where id=v_claim_id) <> 'failed' then
+              raise exception 'confirmed_failure_did_not_release_active_claim';
+            end if;
+
+            -- A chain-confirmed failed attempt is terminal; dispute can now be opened.
+            insert into public.deal_disputes(deal_id,opened_by,reason,status)
+            values(v_deal_claim_first,v_buyer,'Dispute after confirmed failed attempt','open');
+            begin
+              perform public.w3m_claim_safe_release(v_deal_claim_first,'0x' || repeat('c',64),13);
+              raise exception 'expected_claim_rejection_while_dispute_open';
+            exception when sqlstate '55000' then null;
+            end;
+            update public.deal_disputes set status='cancelled' where deal_id=v_deal_claim_first;
+
+            -- A fresh Safe nonce/hash may be claimed after a confirmed failure and closed dispute.
+            select claim_id into v_claim_id
+              from public.w3m_claim_safe_release(v_deal_claim_first,'0x' || repeat('c',64),13);
+            perform public.w3m_mark_safe_release_submitted(
+              v_deal_claim_first,'0x' || repeat('c',64),13,'0x' || repeat('d',64)
+            );
+            perform public.w3m_mark_safe_release_finalized(
+              v_deal_claim_first,'0x' || repeat('c',64),13,'0x' || repeat('d',64)
+            );
+            update public.deals set status='completed',
+              release_tx_hash='0x' || repeat('d',64)
+              where id=v_deal_claim_first;
+            begin
+              update public.deal_disputes set status='open'
+                where deal_id=v_deal_claim_first;
+              raise exception 'expected_no_reopen_after_terminal_deal';
+            exception when sqlstate '55000' then null;
+            end;
+          end;
+          $$;
+          SQL
+      - name: Verify concurrent claim-first and dispute-first races
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          BUYER_ID='75000000-0000-4000-8000-000000000005'
+          SELLER_ID='76000000-0000-4000-8000-000000000006'
+          PROJECT_ID='72000000-0000-4000-8000-000000000002'
+          CLAIM_FIRST='83000000-0000-4000-8000-000000000003'
+          DISPUTE_FIRST='84000000-0000-4000-8000-000000000004'
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<SQL
+          insert into public.deals(id,project_id,buyer_id,seller_id,status,dispute_status)
+          values
+            ('$CLAIM_FIRST','$PROJECT_ID','$BUYER_ID','$SELLER_ID','in_progress','none'),
+            ('$DISPUTE_FIRST','$PROJECT_ID','$BUYER_ID','$SELLER_ID','in_progress','none');
+          SQL
+
+          rm -f /tmp/w3m-claim-first-ready
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 >/tmp/w3m-claim-first.log 2>&1 <<SQL &
+          begin;
+          select id from public.deals where id='$CLAIM_FIRST' for update;
+          set request.jwt.claims='{"role":"service_role"}';
+          select * from public.w3m_claim_safe_release('$CLAIM_FIRST','0x' || repeat('1',64),21);
+          \\! touch /tmp/w3m-claim-first-ready
+          select pg_sleep(0.5);
+          commit;
+          SQL
+          CLAIM_PID=$!
+          for attempt in $(seq 1 50); do
+            test -f /tmp/w3m-claim-first-ready && break
+            sleep 0.05
+          done
+          test -f /tmp/w3m-claim-first-ready
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<SQL
+          do \\$\\$
+          begin
+            begin
+              insert into public.deal_disputes(deal_id,opened_by,reason,status)
+              values('$CLAIM_FIRST','$BUYER_ID','Concurrent dispute after claim','open');
+              raise exception 'expected_concurrent_dispute_rejection';
+            exception when sqlstate '55000' then null;
+            end;
+          end;
+          \\$\\$;
+          SQL
+          wait "$CLAIM_PID"
+
+          rm -f /tmp/w3m-dispute-first-ready
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 >/tmp/w3m-dispute-first.log 2>&1 <<SQL &
+          begin;
+          select id from public.deals where id='$DISPUTE_FIRST' for update;
+          insert into public.deal_disputes(deal_id,opened_by,reason,status)
+          values('$DISPUTE_FIRST','$BUYER_ID','Concurrent dispute wins','open');
+          \\! touch /tmp/w3m-dispute-first-ready
+          select pg_sleep(0.5);
+          commit;
+          SQL
+          DISPUTE_PID=$!
+          for attempt in $(seq 1 50); do
+            test -f /tmp/w3m-dispute-first-ready && break
+            sleep 0.05
+          done
+          test -f /tmp/w3m-dispute-first-ready
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<SQL
+          set request.jwt.claims='{"role":"service_role"}';
+          do \\$\\$
+          begin
+            begin
+              perform public.w3m_claim_safe_release('$DISPUTE_FIRST','0x' || repeat('2',64),22);
+              raise exception 'expected_concurrent_claim_rejection';
+            exception when sqlstate '55000' then null;
+            end;
+          end;
+          \\$\\$;
+          SQL
+          wait "$DISPUTE_PID"
+      - name: Verify Safe release claim least-privilege grants
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+            if has_table_privilege('anon','w3m_private.w3m_safe_release_claims','select')
+              or has_table_privilege('authenticated','w3m_private.w3m_safe_release_claims','insert')
+              or has_table_privilege('service_role','w3m_private.w3m_safe_release_claims','select')
+              or has_function_privilege('anon','public.w3m_claim_safe_release(uuid,text,bigint)','execute')
+              or has_function_privilege('authenticated','public.w3m_claim_safe_release(uuid,text,bigint)','execute')
+              or not has_function_privilege('service_role','public.w3m_claim_safe_release(uuid,text,bigint)','execute')
+              or has_function_privilege('anon','public.w3m_mark_safe_release_submitted(uuid,text,bigint,text)','execute')
+              or has_function_privilege('authenticated','public.w3m_mark_safe_release_failed(uuid,text,bigint,text,text)','execute')
+              or not has_function_privilege('service_role','public.w3m_mark_safe_release_finalized(uuid,text,bigint,text)','execute')
+              or has_function_privilege('anon','w3m_private.w3m_guard_dispute_against_safe_release()','execute')
+              or has_function_privilege('authenticated','w3m_private.w3m_guard_deal_state_against_safe_release()','execute')
+              or has_function_privilege('service_role','w3m_private.w3m_guard_safe_release_claim()','execute') then
+              raise exception 'safe_release_claim_privileges_are_not_least_privilege';
             end if;
           end;
           $$;
