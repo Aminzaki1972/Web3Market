@@ -373,11 +373,26 @@ begin
     raise exception 'canonical_terms_do_not_match_deal_parties_or_audit_binding' using errcode = '23503';
   end if;
 
+  -- A partially signed round may be superseded: old acceptance evidence remains
+  -- immutable, while the new published version requires both parties to sign again.
+  -- Once both distinct parties accepted the same current version/hash, freeze it.
   if exists (
-    select 1 from w3m_private.w3m_agreement_acceptances a
-    where a.deal_id = p_deal_id
+    select 1
+    from w3m_private.w3m_acquisition_terms_versions t
+    where t.deal_id = p_deal_id
+      and t.status = 'published'
+      and exists (
+        select 1 from w3m_private.w3m_agreement_acceptances a
+        where a.deal_id = t.deal_id and a.terms_version = t.terms_version
+          and a.terms_hash = t.terms_hash and a.party_role = 'buyer'
+      )
+      and exists (
+        select 1 from w3m_private.w3m_agreement_acceptances a
+        where a.deal_id = t.deal_id and a.terms_version = t.terms_version
+          and a.terms_hash = t.terms_hash and a.party_role = 'seller'
+      )
   ) then
-    raise exception 'terms_locked_after_first_party_acceptance' using errcode = '23505';
+    raise exception 'terms_locked_after_complete_acceptance_pair' using errcode = '23505';
   end if;
 
   perform pg_advisory_xact_lock(hashtextextended(p_deal_id::text, 0));
