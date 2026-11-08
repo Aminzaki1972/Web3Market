@@ -43,10 +43,21 @@ declare
   uid uuid := auth.uid();
   buyer_id uuid;
   seller_id uuid;
+  deal_status text;
   is_admin boolean := exists (select 1 from public.admin_users a where a.user_id = uid);
 begin
-  select d.buyer_id, d.seller_id into buyer_id, seller_id
-    from public.deals d where d.id = new.deal_id;
+  select d.buyer_id, d.seller_id, d.status into buyer_id, seller_id, deal_status
+    from public.deals d where d.id = new.deal_id for update;
+  if not found then
+    raise exception 'asset_deal_not_found' using errcode = 'P0002';
+  end if;
+  if lower(coalesce(deal_status,'')) = 'completed'
+     or exists (
+       select 1 from w3m_private.w3m_safe_release_claims c
+       where c.deal_id = new.deal_id and c.status in ('claimed','submitted')
+     ) then
+    raise exception 'asset_changes_blocked_by_safe_release_or_completed_deal' using errcode = '55000';
+  end if;
 
   if is_admin then return new; end if;
 
@@ -225,3 +236,170 @@ grant execute on function public.w3m_get_deal_asset_finalization_evidence(uuid)
 
 comment on table w3m_private.w3m_deal_asset_events is
   'Append-only W3M V1 per-asset delivery, acceptance, rejection and redelivery evidence; evidence is SHA-256 digested and raw evidence is not copied.';
+
+
+-- New assets must start as pending; this prevents a seller from inserting a
+-- pre-delivered/pre-accepted row that has no delivery transition evidence.
+create or replace function w3m_private.w3m_guard_deal_asset_insert()
+returns trigger language plpgsql security definer set search_path = ''
+as $w3m$
+declare
+  v_status text;
+begin
+  select d.status into v_status from public.deals d
+    where d.id = new.deal_id for update;
+  if not found then
+    raise exception 'asset_deal_not_found' using errcode = 'P0002';
+  end if;
+  if lower(coalesce(v_status,'')) = 'completed'
+     or exists (
+       select 1 from w3m_private.w3m_safe_release_claims c
+       where c.deal_id = new.deal_id and c.status in ('claimed','submitted')
+     ) then
+    raise exception 'asset_insert_blocked_by_safe_release_or_completed_deal' using errcode = '55000';
+  end if;
+  if new.status is distinct from 'pending' then
+    raise exception 'new_deal_assets_must_start_pending' using errcode = '23514';
+  end if;
+  return new;
+end;
+$w3m$;
+
+drop trigger if exists w3m_guard_deal_asset_insert on public.deal_assets;
+create trigger w3m_guard_deal_asset_insert
+before insert on public.deal_assets
+for each row execute function w3m_private.w3m_guard_deal_asset_insert();
+
+-- The Safe claim is the serialization boundary. It rechecks every asset while
+-- holding the deal row lock, so a delivery change cannot race between the
+-- application preflight and the durable claim.
+create or replace function w3m_private.w3m_assert_deal_assets_ready(
+  p_deal_id uuid, p_buyer_id uuid
+) returns void language plpgsql security definer set search_path = ''
+as $w3m$
+declare
+  v_asset record;
+  v_latest record;
+  v_previous record;
+  v_count integer := 0;
+begin
+  for v_asset in
+    select a.id, a.asset_name, a.status, a.accepted_by, a.accepted_at
+    from public.deal_assets a
+    where a.deal_id = p_deal_id
+    order by a.id
+  loop
+    v_count := v_count + 1;
+    if v_asset.status is distinct from 'accepted'
+       or v_asset.accepted_by is distinct from p_buyer_id
+       or v_asset.accepted_at is null then
+      raise exception 'all_deal_assets_must_be_accepted_by_buyer' using errcode = '55000';
+    end if;
+
+    select e.event_type, e.attempt_number, e.actor_user_id, e.evidence_digest
+      into v_latest
+      from w3m_private.w3m_deal_asset_events e
+      where e.asset_id = v_asset.id and e.deal_id = p_deal_id
+      order by e.event_no desc limit 1;
+    if not found then
+      raise exception 'asset_acceptance_event_missing' using errcode = '55000';
+    end if;
+
+    select e.event_type, e.attempt_number, e.actor_user_id, e.evidence_digest
+      into v_previous
+      from w3m_private.w3m_deal_asset_events e
+      where e.asset_id = v_asset.id and e.deal_id = p_deal_id
+      order by e.event_no desc offset 1 limit 1;
+    if not found
+       or v_latest.event_type is distinct from 'accepted'
+       or v_latest.actor_user_id is distinct from p_buyer_id
+       or v_previous.event_type is distinct from 'delivered'
+       or v_latest.attempt_number is distinct from v_previous.attempt_number
+       or v_latest.evidence_digest is distinct from v_previous.evidence_digest then
+      raise exception 'latest_asset_delivery_attempt_not_accepted' using errcode = '55000';
+    end if;
+  end loop;
+
+  if v_count = 0 then
+    raise exception 'deal_requires_at_least_one_asset_record' using errcode = '55000';
+  end if;
+end;
+$w3m$;
+
+revoke all on function w3m_private.w3m_assert_deal_assets_ready(uuid,uuid)
+  from public, anon, authenticated, service_role;
+revoke all on function w3m_private.w3m_guard_deal_asset_insert()
+  from public, anon, authenticated, service_role;
+
+create or replace function public.w3m_claim_safe_release(
+  p_deal_id uuid, p_safe_tx_hash text, p_safe_nonce bigint
+) returns table (
+  claim_id uuid, claim_status text, transaction_hash text, created boolean
+)
+language plpgsql security definer set search_path = ''
+as $w3m$
+declare
+  v_deal public.deals%rowtype;
+  v_claim w3m_private.w3m_safe_release_claims%rowtype;
+begin
+  if (auth.jwt() ->> 'role') is distinct from 'service_role' then
+    raise exception 'service_role_required' using errcode = '42501';
+  end if;
+  if p_deal_id is null or p_safe_tx_hash is null
+    or p_safe_tx_hash !~* '^0x[0-9a-f]{64}$'
+    or p_safe_nonce is null or p_safe_nonce < 0 then
+    raise exception 'invalid_safe_release_claim_parameters' using errcode = '22023';
+  end if;
+
+  select * into v_deal from public.deals d where d.id = p_deal_id for update;
+  if not found then
+    raise exception 'safe_release_deal_not_found' using errcode = 'P0002';
+  end if;
+  if lower(coalesce(v_deal.status,'')) in ('completed','cancelled','rejected','disputed')
+    or lower(coalesce(v_deal.dispute_status,'')) not in ('none','resolved_buyer','resolved_seller','closed')
+    or v_deal.release_tx_hash is not null then
+    raise exception 'safe_release_deal_is_not_eligible' using errcode = '55000';
+  end if;
+  if exists (
+    select 1 from public.deal_disputes d
+    where d.deal_id = p_deal_id
+      and lower(coalesce(d.status,'open')) not in ('resolved','cancelled')
+  ) then
+    raise exception 'safe_release_dispute_is_open' using errcode = '55000';
+  end if;
+
+  perform w3m_private.w3m_assert_deal_assets_ready(p_deal_id, v_deal.buyer_id);
+
+  select * into v_claim
+    from w3m_private.w3m_safe_release_claims c
+    where c.deal_id = p_deal_id and c.status in ('claimed','submitted')
+    for update;
+  if found then
+    if lower(v_claim.safe_tx_hash) <> lower(p_safe_tx_hash)
+      or v_claim.safe_nonce <> p_safe_nonce then
+      raise exception 'another_safe_release_claim_is_active' using errcode = '23505';
+    end if;
+    return query select v_claim.id, v_claim.status, v_claim.transaction_hash, false;
+    return;
+  end if;
+
+  if exists (
+    select 1 from w3m_private.w3m_safe_release_claims c
+    where c.deal_id = p_deal_id and c.status = 'finalized'
+  ) then
+    raise exception 'safe_release_already_finalized' using errcode = '23505';
+  end if;
+
+  insert into w3m_private.w3m_safe_release_claims
+    (deal_id, safe_tx_hash, safe_nonce, status)
+  values (p_deal_id, lower(p_safe_tx_hash), p_safe_nonce, 'claimed')
+  returning * into v_claim;
+
+  return query select v_claim.id, v_claim.status, v_claim.transaction_hash, true;
+end;
+$w3m$;
+
+revoke all on function public.w3m_claim_safe_release(uuid,text,bigint)
+  from public, anon, authenticated;
+grant execute on function public.w3m_claim_safe_release(uuid,text,bigint)
+  to service_role;
