@@ -601,6 +601,7 @@ jobs:
             v_deal_dispute_first uuid := '81000000-0000-4000-8000-000000000001';
             v_deal_claim_first uuid := '82000000-0000-4000-8000-000000000002';
             v_deal_resolved uuid := '85000000-0000-4000-8000-000000000005';
+            v_deal_cascade uuid := '86000000-0000-4000-8000-000000000006';
             v_claim_id uuid;
             v_status text;
             v_tx text;
@@ -614,7 +615,8 @@ jobs:
             values
               (v_deal_dispute_first,'72000000-0000-4000-8000-000000000002',v_buyer,v_seller,'in_progress','none'),
               (v_deal_claim_first,'72000000-0000-4000-8000-000000000002',v_buyer,v_seller,'in_progress','none'),
-              (v_deal_resolved,'72000000-0000-4000-8000-000000000002',v_buyer,v_seller,'in_progress','resolved_buyer');
+              (v_deal_resolved,'72000000-0000-4000-8000-000000000002',v_buyer,v_seller,'in_progress','resolved_buyer'),
+              (v_deal_cascade,'72000000-0000-4000-8000-000000000002',v_buyer,v_seller,'in_progress','none');
 
             -- Existing terminal dispute resolutions remain eligible for release.
             insert into public.deal_disputes(deal_id,opened_by,reason,status)
@@ -677,6 +679,14 @@ jobs:
             exception when sqlstate '55000' then null;
             end;
             update public.deal_disputes set status='cancelled' where deal_id=v_deal_claim_first;
+
+            -- Preserve the production FK's ON DELETE CASCADE behavior.
+            insert into public.deal_disputes(deal_id,opened_by,reason,status)
+            values(v_deal_cascade,v_buyer,'Synthetic cascade test','open');
+            delete from public.deals where id=v_deal_cascade;
+            if exists(select 1 from public.deal_disputes where deal_id=v_deal_cascade) then
+              raise exception 'deal_dispute_cascade_delete_was_blocked';
+            end if;
 
             -- A fresh Safe nonce/hash may be claimed after a confirmed failure and closed dispute.
             select claim_id into v_claim_id
