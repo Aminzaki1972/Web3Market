@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { getW3MDealProtocolTrack } from "../_shared/w3m-deal-protocol-track.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { ethers } from "npm:ethers@6.15.0";
 import { assertW3MFinalizationReady, W3MFinalizationGateError } from "../_shared/w3m-v1-finalization-gate.ts";
@@ -65,7 +66,13 @@ Deno.serve(async req=>{
     if(!deal) return json(404,{ok:false,error:"Deal not found"});
     if(deal.buyer_id!==userData.user.id&&deal.seller_id!==userData.user.id)
       return json(403,{ok:false,error:"Not a deal participant"});
-    if(mode==="execute"){
+    let protocolTrack: "legacy" | "v1";
+    try {
+      protocolTrack = await getW3MDealProtocolTrack(sb, dealId);
+    } catch {
+      return json(503,{ok:false,transaction_sent:false,error:"Deal protocol classification is unavailable"});
+    }
+    if(mode==="execute" && protocolTrack==="v1"){
       try {
         await assertW3MFinalizationReady(sb, dealId);
       } catch (error) {
