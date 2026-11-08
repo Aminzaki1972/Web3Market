@@ -207,6 +207,9 @@ begin
     'asset_id', a.id::text,
     'asset_name', a.asset_name,
     'status', a.status,
+    'delivery_url', a.delivery_url,
+    'delivered_by', a.delivered_by::text,
+    'delivered_at', a.delivered_at,
     'accepted_by', a.accepted_by::text,
     'accepted_at', a.accepted_at,
     'events', coalesce((
