@@ -173,7 +173,22 @@ export function validateW3MAcquisitionTermsV1(input: unknown): asserts input is 
   if (payment.safe_address !== null && (typeof payment.safe_address !== "string" || !/^0x[0-9a-f]{40}$/i.test(payment.safe_address))) fail("payment.safe_address must be a valid address or null.");
 
   const scope = object(root.transfer_scope, "transfer_scope");
-  for (const key of ["included_assets", "excluded_assets", "third_party_dependencies"] as const) {
+  if (!Array.isArray(scope.included_assets) || scope.included_assets.length === 0) {
+    fail("transfer_scope.included_assets must list at least one individually transferable asset.");
+  }
+  const includedAssetKeys = new Set<string>();
+  scope.included_assets.forEach((rawAsset, index) => {
+    const asset = object(rawAsset, "transfer_scope.included_assets[" + index + "]");
+    const type = requiredString(asset.type, "transfer_scope.included_assets[" + index + "].type").trim();
+    const description = requiredString(asset.description, "transfer_scope.included_assets[" + index + "].description").trim();
+    if (type.length > 100 || description.length > 300) {
+      fail("Included asset type or description exceeds the supported length.");
+    }
+    const key = (type + ": " + description).toLowerCase();
+    if (includedAssetKeys.has(key)) fail("Included assets must not contain duplicate type and description pairs.");
+    includedAssetKeys.add(key);
+  });
+  for (const key of ["excluded_assets", "third_party_dependencies"] as const) {
     if (!Array.isArray(scope[key])) fail("transfer_scope." + key + " must be an array.");
   }
   for (const key of ["access_and_credentials", "intellectual_property", "data_and_privacy"] as const) object(scope[key], "transfer_scope." + key);
