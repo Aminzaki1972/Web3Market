@@ -122,6 +122,14 @@ Deno.test("status action exposes only participant-scoped current terms and accep
       terms_hash: statusTermsHash, accepted_at: "2026-11-07T01:00:00Z",
       signature: "0x" + "f".repeat(130), nonce: "private-nonce",
     }],
+    deal_assets: [{
+      id: "7a000000-0000-4000-8000-00000000000a",
+      deal_id: DEAL_ID, asset_name: "repository: Source code", status: "delivered",
+      delivery_url: "https://example.invalid/private-repo-reference",
+      delivered_by: USER_ID, delivered_at: "2026-11-07T02:00:00Z",
+      accepted_by: null, accepted_at: null, created_at: "2026-11-07T00:30:00Z",
+      evidence: "must-not-be-returned",
+    }],
   };
   const makeQuery = (table: string) => {
     let selected = [...(rows[table] || [])];
@@ -136,7 +144,11 @@ Deno.test("status action exposes only participant-scoped current terms and accep
   const from = ((table: string) => makeQuery(table)) as NonNullable<W3MAdminClient["from"]>;
   const schema = ((name: string) => {
     if (name !== "w3m_private") throw new Error("Unexpected schema");
-    return { from: (table: string) => makeQuery(table) };
+    return { from: (table: string) => makeQuery(table === "w3m_deal_asset_events" ? [{
+      asset_id: "7a000000-0000-4000-8000-00000000000a",
+      event_type: "delivered", attempt_number: 1, actor_user_id: USER_ID,
+      evidence_digest: "e".repeat(64), occurred_at: "2026-11-07T02:00:00Z",
+    }] : table === "w3m_agreement_acceptances" ? rows.w3m_agreement_acceptances : []) };
   }) as NonNullable<W3MAdminClient["schema"]>;
   const { deps } = makeDeps(async () => ({ data: null, error: null }), { from, schema });
   const handler = createW3MAcquisitionHandler(deps);
@@ -146,11 +158,15 @@ Deno.test("status action exposes only participant-scoped current terms and accep
       body.result?.acceptances?.buyer?.accepted !== true ||
       body.result?.acceptances?.seller?.accepted !== false ||
       body.result?.both_accepted !== false ||
-      body.result?.current_terms?.terms_hash !== statusTermsHash) {
-    throw new Error("Participant status response did not report the exact published terms and acceptance state");
+      body.result?.current_terms?.terms_hash !== statusTermsHash ||
+      !Array.isArray(body.result?.assets) || body.result.assets.length !== 1 ||
+      body.result.assets[0]?.status !== "delivered" ||
+      body.result.assets[0]?.events?.[0]?.evidence_digest !== "e".repeat(64)) {
+    throw new Error("Participant status response did not report the exact published terms, acceptance state, and asset delivery history");
   }
   const serialized = JSON.stringify(body);
-  if (serialized.includes("signature") || serialized.includes("private-nonce") || serialized.includes("challenge_id")) {
+  if (serialized.includes("signature") || serialized.includes("private-nonce") ||
+      serialized.includes("challenge_id") || serialized.includes("must-not-be-returned")) {
     throw new Error("Private signature or challenge material leaked through status action");
   }
 
