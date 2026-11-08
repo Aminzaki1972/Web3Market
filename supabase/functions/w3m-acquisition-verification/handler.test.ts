@@ -182,6 +182,9 @@ Deno.test("status action exposes only participant-scoped current terms and accep
         }],
       }], error: null };
     }
+    if (name === "w3m_get_deal_delivery_confirmation_status") {
+      return { data: { confirmed: false, stale: false, terms_version: 2, terms_hash: statusTermsHash }, error: null };
+    }
     return { data: null, error: null };
   }, { from });
   const handler = createW3MAcquisitionHandler(deps);
@@ -192,6 +195,8 @@ Deno.test("status action exposes only participant-scoped current terms and accep
       body.result?.acceptances?.seller?.accepted !== false ||
       body.result?.both_accepted !== false ||
       body.result?.current_terms?.terms_hash !== statusTermsHash ||
+      body.result?.final_delivery_confirmation?.confirmed !== false ||
+      body.result?.final_delivery_confirmation?.stale !== false ||
       !Array.isArray(body.result?.assets) || body.result.assets.length !== 1 ||
       body.result.assets[0]?.status !== "delivered" ||
       body.result.assets[0]?.events?.[0]?.evidence_digest !== "e".repeat(64)) {
