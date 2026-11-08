@@ -169,6 +169,10 @@
           }
           await request(body,session.access_token);
           await render();
+        },
+        onFinalDeliveryConfirm:async()=>{
+          await request({action:'confirm_delivery',deal_id:dealId},session.access_token);
+          await render();
         }
       });
     };
