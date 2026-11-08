@@ -43,7 +43,7 @@ Deno.test("every Safe deployment, release, signature, execution and finalization
     assertEquals(trackImportIndex >= 0, true, item.file + " must import the authoritative protocol-track reader");
     assertEquals(trackIndex >= 0, true, item.file + " must read the server-owned protocol track");
     assertEquals(trackIndex < actionIndex, true, item.file + " must classify the deal before any Safe action");
-    assertEquals(/protocolTrack\\s*===\\s*"v1"/.test(source), true, item.file + " must apply the V1 evidence gate only to V1 deals");
+    assertEquals(/protocolTrack\s*===\s*"v1"/.test(source), true, item.file + " must apply the V1 evidence gate only to V1 deals");
     assertEquals(gateIndex >= 0, true, item.file + " must call the shared W3M gate");
     assertEquals(actionIndex >= 0, true, item.file + " action marker must exist");
     assertEquals(gateIndex < actionIndex, true, item.file + " must gate before its Safe action");
