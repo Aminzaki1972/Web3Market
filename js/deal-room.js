@@ -145,15 +145,15 @@
   addSafeLog('Starting Safe deployment flow.');
   const createBtn=document.querySelector('#createSafeBtn');
   if(createBtn){createBtn.disabled=true;createBtn.textContent='Creating Safe…'}
-  if(!deal || String(deal.status||'').toLowerCase()!=='accepted'){addSafeLog('Stopped: deal is not in accepted status.');return false;}
-  addSafeLog('Deal verified: accepted / BNB Smart Chain (56).');
+  try{
+   if(!deal || String(deal.status||'').toLowerCase()!=='accepted'){addSafeLog('Stopped: deal is not in accepted status.');return false;}
+   addSafeLog('Deal verified: accepted / BNB Smart Chain (56).');
   if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && /^0x[a-fA-F0-9]{40}$/.test(String(deal.safe_address||''))){addSafeLog('Safe is already deployed: '+deal.safe_address);return true;}
   const box=document.querySelector('#safeStatus');
   addSafeLog('Preparing a dedicated 2-of-3 Safe for this deal.');
   addSafeLog('The platform wallet is intended to pay the BNB deployment gas.');
   addSafeLog('No USDT is moved during Safe creation.');
   if(canonicalWalletAddress)addSafeLog('Current verified profile wallet: '+canonicalWalletAddress);
-  try{
    let session=null;
    try{
     const current=await sb.auth.getSession();
