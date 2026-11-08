@@ -79,6 +79,7 @@ Deno.serve(async (req)=>{
     }
     const disputeState=await checkDisputeState(supabase,deal,dealId);
     if(disputeState!=="clear") return json(409,{ok:false,error:disputeState==="open"?"Release is blocked while a dispute is open":"Unable to verify dispute status; release blocked",code:disputeState==="open"?"DEAL_DISPUTE_OPEN":"DISPUTE_STATUS_UNAVAILABLE"});
+    if(!["funded","in_progress"].includes(String(deal.status||""))) return json(409,{ok:false,error:"Deal is not in a releasable funded state"});
 
     stage="policy_lookup";
     const {data:policy,error:policyError}=await supabase.from("deal_release_policies").select("*").eq("deal_id",dealId).maybeSingle();
