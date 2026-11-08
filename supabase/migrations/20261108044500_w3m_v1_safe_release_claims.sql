@@ -157,7 +157,7 @@ set search_path = ''
 as $w3m$
 begin
   if (new.status is distinct from old.status or new.dispute_status is distinct from old.dispute_status)
-    and (lower(coalesce(new.status,'')) = 'disputed'
+    and (lower(coalesce(new.status,'')) not in ('funded','in_progress','completed')
       or lower(coalesce(new.dispute_status,'')) not in ('none','resolved_buyer','resolved_seller','closed'))
     and exists (
       select 1 from w3m_private.w3m_safe_release_claims c
@@ -202,7 +202,7 @@ begin
   if not found then
     raise exception 'safe_release_deal_not_found' using errcode = 'P0002';
   end if;
-  if lower(coalesce(v_deal.status,'')) in ('completed','cancelled','rejected','disputed')
+  if lower(coalesce(v_deal.status,'')) not in ('funded','in_progress')
     or lower(coalesce(v_deal.dispute_status,'')) not in ('none','resolved_buyer','resolved_seller','closed')
     or v_deal.release_tx_hash is not null then
     raise exception 'safe_release_deal_is_not_eligible' using errcode = '55000';
