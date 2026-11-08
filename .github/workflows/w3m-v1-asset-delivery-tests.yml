@@ -411,3 +411,24 @@ jobs:
           end;
           $$;
           SQL
+      - name: Verify final delivery confirmation RPC and table privileges
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+            if has_function_privilege('anon','public.w3m_confirm_deal_delivery_v1(uuid,uuid)','execute')
+              or has_function_privilege('authenticated','public.w3m_confirm_deal_delivery_v1(uuid,uuid)','execute')
+              or not has_function_privilege('service_role','public.w3m_confirm_deal_delivery_v1(uuid,uuid)','execute')
+              or has_function_privilege('anon','public.w3m_get_deal_delivery_confirmation_status(uuid)','execute')
+              or has_function_privilege('authenticated','public.w3m_get_deal_delivery_confirmation_status(uuid)','execute')
+              or not has_function_privilege('service_role','public.w3m_get_deal_delivery_confirmation_status(uuid)','execute')
+              or has_table_privilege('anon','w3m_private.w3m_deal_delivery_confirmations','select')
+              or has_table_privilege('authenticated','w3m_private.w3m_deal_delivery_confirmations','select')
+              or has_table_privilege('service_role','w3m_private.w3m_deal_delivery_confirmations','select') then
+              raise exception 'final_delivery_confirmation_privileges_are_not_least_privilege';
+            end if;
+          end;
+          $$;
+          SQL
