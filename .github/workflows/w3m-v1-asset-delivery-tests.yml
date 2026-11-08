@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - "supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql"
+      - "supabase/migrations/20261108150000_w3m_v1_final_delivery_confirmation.sql"
       - ".github/workflows/w3m-v1-asset-delivery-tests.yml"
   push:
     branches:
       - "feat/w3m-audit-fingerprint-binding-20261107"
     paths:
       - "supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql"
+      - "supabase/migrations/20261108150000_w3m_v1_final_delivery_confirmation.sql"
       - ".github/workflows/w3m-v1-asset-delivery-tests.yml"
 
 permissions:
@@ -48,6 +50,8 @@ jobs:
           create table w3m_private.w3m_acquisition_terms_versions(
             id uuid primary key default gen_random_uuid(),
             deal_id uuid not null,
+            terms_version bigint not null default 1,
+            terms_hash text not null default repeat('a',64),
             canonical_terms_json jsonb not null,
             status text not null
           );
@@ -106,6 +110,10 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql
+      - name: Apply W3M V1 final delivery confirmation migration
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261108150000_w3m_v1_final_delivery_confirmation.sql
       - name: Verify delivery, rejection, redelivery and acceptance evidence
         env:
           PGPASSWORD: postgres
