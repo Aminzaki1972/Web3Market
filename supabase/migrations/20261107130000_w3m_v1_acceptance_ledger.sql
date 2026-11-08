@@ -614,6 +614,67 @@ begin
 end;
 $w3m$;
 
+create or replace function public.w3m_get_deal_agreement_context(
+  p_deal_id uuid
+) returns jsonb language plpgsql security definer set search_path = ''
+as $w3m$
+declare
+  v_binding jsonb;
+  v_terms jsonb;
+  v_acceptances jsonb;
+begin
+  if (auth.jwt() ->> 'role') is distinct from 'service_role' then
+    raise exception 'service_role_required' using errcode = '42501';
+  end if;
+  if p_deal_id is null then
+    raise exception 'deal_id_required' using errcode = '22023';
+  end if;
+
+  -- Keep w3m_private outside the Data API. Return only the minimum trusted
+  -- agreement context through this service-role-only public RPC.
+  select jsonb_build_object(
+    'deal_id', b.deal_id,
+    'project_id', b.project_id,
+    'audit_id', b.audit_id,
+    'fingerprint_id', b.fingerprint_id,
+    'fingerprint_digest', b.fingerprint_digest,
+    'repository', b.repository,
+    'commit_sha', b.commit_sha,
+    'binding_hash', b.binding_hash
+  ) into v_binding
+  from w3m_private.w3m_deal_audit_bindings b
+  where b.deal_id = p_deal_id;
+
+  select jsonb_build_object(
+    'id', t.id,
+    'terms_version', t.terms_version,
+    'terms_hash', t.terms_hash,
+    'canonical_terms_json', t.canonical_terms_json,
+    'status', t.status,
+    'published_at', t.published_at
+  ) into v_terms
+  from w3m_private.w3m_acquisition_terms_versions t
+  where t.deal_id = p_deal_id and t.status = 'published';
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'party_role', a.party_role,
+    'user_id', a.user_id,
+    'terms_version', a.terms_version,
+    'terms_hash', a.terms_hash,
+    'accepted_at', a.accepted_at
+  ) order by a.party_role), '[]'::jsonb)
+  into v_acceptances
+  from w3m_private.w3m_agreement_acceptances a
+  where a.deal_id = p_deal_id;
+
+  return jsonb_build_object(
+    'binding', v_binding,
+    'terms', v_terms,
+    'acceptances', coalesce(v_acceptances, '[]'::jsonb)
+  );
+end;
+$w3m$;
+
 create or replace function public.w3m_get_deal_finalization_evidence(
   p_deal_id uuid
 ) returns table (
@@ -708,6 +769,8 @@ begin
 end;
 $w3m$;
 
+revoke all on function public.w3m_get_deal_agreement_context(uuid)
+  from public, anon, authenticated;
 revoke all on function public.w3m_get_deal_finalization_evidence(uuid)
   from public, anon, authenticated;
 revoke all on function public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text)
@@ -727,6 +790,7 @@ revoke all on function w3m_private.w3m_guard_terms_supersede()
 revoke all on function w3m_private.w3m_guard_challenge_consumption()
   from public, anon, authenticated;
 grant execute on function public.w3m_publish_audit_fingerprint_and_binding(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb,text) to service_role;
+grant execute on function public.w3m_get_deal_agreement_context(uuid) to service_role;
 grant execute on function public.w3m_get_deal_finalization_evidence(uuid) to service_role;
 grant execute on function public.w3m_publish_acquisition_terms_version(uuid,bigint,text,jsonb) to service_role;
 grant execute on function public.w3m_issue_agreement_challenge(uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid,text,text,bigint) to service_role;
