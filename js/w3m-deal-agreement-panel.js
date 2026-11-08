@@ -6,7 +6,7 @@ function element(documentRef, tag, className, text) {
   return node;
 }
 
-export function renderW3MDealAgreementPanel(container, status, documentRef = globalThis.document) {
+export function renderW3MDealAgreementPanel(container, status, documentRef = globalThis.document, options = {}) {
   if (!container || typeof container.replaceChildren !== "function" ||
       typeof container.appendChild !== "function") {
     throw new Error("A valid agreement panel container is required.");
@@ -97,6 +97,69 @@ export function renderW3MDealAgreementPanel(container, status, documentRef = glo
         " · SHA-256 " + event.evidenceDigest));
     }
     card.appendChild(history);
+
+    if (typeof options.onAssetAction === "function" && status.viewerRole === "seller" &&
+        ["pending", "delivered", "accepted", "rejected"].includes(asset.status)) {
+      const form = element(documentRef, "form", "w3m-v1-asset-delivery-form");
+      const urlInput = element(documentRef, "input", "w3m-v1-delivery-url");
+      urlInput.type = "url";
+      urlInput.required = true;
+      urlInput.maxLength = 2048;
+      urlInput.placeholder = "HTTPS delivery reference";
+      const evidenceInput = element(documentRef, "textarea", "w3m-v1-delivery-evidence");
+      evidenceInput.required = true;
+      evidenceInput.maxLength = 16000;
+      evidenceInput.placeholder = "Describe the delivery evidence (do not paste passwords or private keys)";
+      const submit = element(documentRef, "button", "w3m-v1-deliver-button",
+        asset.status === "delivered" ? "Submit a new delivery attempt" : "Register delivery");
+      submit.type = "submit";
+      const notice = element(documentRef, "p", "w3m-v1-asset-action-notice");
+      form.appendChild(urlInput);
+      form.appendChild(evidenceInput);
+      form.appendChild(submit);
+      form.appendChild(notice);
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        submit.disabled = true;
+        notice.textContent = "Recording delivery…";
+        try {
+          await options.onAssetAction({
+            assetId: asset.assetId,
+            action: "deliver",
+            deliveryUrl: urlInput.value,
+            evidence: evidenceInput.value,
+          });
+        } catch (error) {
+          notice.textContent = error?.message || "Delivery could not be recorded.";
+          submit.disabled = false;
+        }
+      });
+      card.appendChild(form);
+    }
+
+    if (typeof options.onAssetAction === "function" && status.viewerRole === "buyer" &&
+        asset.status === "delivered") {
+      const actions = element(documentRef, "div", "w3m-v1-buyer-asset-actions");
+      const notice = element(documentRef, "p", "w3m-v1-asset-action-notice");
+      for (const action of ["accept", "reject"]) {
+        const button = element(documentRef, "button", "w3m-v1-" + action + "-button",
+          action === "accept" ? "Accept this asset" : "Reject this asset");
+        button.type = "button";
+        button.addEventListener("click", async () => {
+          button.disabled = true;
+          notice.textContent = action === "accept" ? "Recording acceptance…" : "Recording rejection…";
+          try {
+            await options.onAssetAction({ assetId: asset.assetId, action });
+          } catch (error) {
+            notice.textContent = error?.message || "Your response could not be recorded.";
+            button.disabled = false;
+          }
+        });
+        actions.appendChild(button);
+      }
+      actions.appendChild(notice);
+      card.appendChild(actions);
+    }
     panel.appendChild(card);
   }
 
