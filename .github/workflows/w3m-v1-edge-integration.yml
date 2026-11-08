@@ -56,6 +56,8 @@ jobs:
           psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f tests/w3m-v1-edge-integration/schema.sql
           psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql
           psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql
+          psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -c "NOTIFY pgrst, 'reload schema';"
+          sleep 2
 
       - name: Set up Deno
         uses: denoland/setup-deno@v2
@@ -85,6 +87,13 @@ jobs:
 
       - name: Exercise real Auth, PostgREST, RPC and Edge Function paths
         run: deno run --allow-net --allow-env tests/w3m-v1-edge-integration/run.ts
+
+      - name: Print local Edge Function diagnostics on failure
+        if: failure()
+        run: |
+          if [ -f /tmp/w3m-edge-runtime.log ]; then
+            cat /tmp/w3m-edge-runtime.log
+          fi
 
       - name: Stop isolated Supabase services
         if: always() && steps.supabase-cli.outcome == 'success'
