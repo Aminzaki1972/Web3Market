@@ -6,6 +6,10 @@ export function classifyW3MAgreementGate(httpStatus, payload) {
     const message = String(payload?.message || payload?.error || "");
     return /function not found/i.test(message) ? "legacy" : "blocked";
   }
+  if (httpStatus === 400) {
+    const message = String(payload?.message || payload?.error || "");
+    return /unknown action|unsupported action/i.test(message) ? "legacy" : "blocked";
+  }
   if (httpStatus !== 200 || !payload || payload.ok !== true ||
       !payload.result || typeof payload.result !== "object" ||
       Array.isArray(payload.result) ||
