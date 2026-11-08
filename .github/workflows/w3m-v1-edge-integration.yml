@@ -31,7 +31,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Supabase CLI v2
-        uses: supabase/setup-cli@v1
+        id: supabase-cli
+        uses: supabase/setup-cli@v3
         with:
           version: v2.stable
 
@@ -96,5 +97,5 @@ jobs:
         run: deno run --allow-net --allow-env tests/w3m-v1-edge-integration/run.ts
 
       - name: Stop isolated Supabase services
-        if: always()
+        if: always() && steps.supabase-cli.outcome == 'success'
         run: supabase stop
