@@ -2,9 +2,9 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { ethers } from "npm:ethers@6.15.0";
 import { assertW3MFinalizationReady, W3MFinalizationGateError } from "../_shared/w3m-v1-finalization-gate.ts";
-const RPC=Deno.env.get("BSC_RPC_URL")||"https://bsc-rpc.publicnode.com",CHAIN=56,USDT="0x55d398326f99059ff775485246999027b3197955";
+const RPC=Deno.env.get("BSC_RPC_URL")||"https://bsc-rpc.publicnode.com",CHAIN=56,USDT="0x55d398326f99059ff775485246999027b3197955",EXECUTOR="0xCbd947146826aB5BBF9924105E69e9c6F5e9420C";
 const ERC20=new ethers.Interface(["event Transfer(address indexed from,address indexed to,uint256 amount)"]);
-const SAFE=new ethers.Interface(["function getTransactionHash(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 _nonce) view returns(bytes32)","event ExecutionSuccess(bytes32 indexed txHash,uint256 payment)","event ExecutionFailure(bytes32 indexed txHash,uint256 payment)"]);
+const SAFE=new ethers.Interface(["function getTransactionHash(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 _nonce) view returns(bytes32)","function execTransaction(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,bytes signatures) payable returns(bool)","event ExecutionSuccess(bytes32 indexed txHash,uint256 payment)","event ExecutionFailure(bytes32 indexed txHash,uint256 payment)"]);
 const cors={"Access-Control-Allow-Origin":"https://web3market.xyz","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const json=(s:number,b:unknown)=>new Response(JSON.stringify(b),{status:s,headers:{...cors,"content-type":"application/json"}});
 const norm=(a:string)=>ethers.getAddress(a).toLowerCase();
@@ -52,6 +52,23 @@ Deno.serve(async req=>{
  const [onchainTx,receipt]=await Promise.all([provider.getTransaction(txHash),provider.getTransactionReceipt(txHash)]);
  if(!onchainTx||!receipt)return json(409,{ok:false,error:"Transaction is not mined yet"});
  if(!onchainTx.to||norm(onchainTx.to)!==norm(safeAddress))return json(409,{ok:false,error:"Execution transaction was not sent to the configured Safe"});
+ if(!onchainTx.from||norm(onchainTx.from)!==norm(EXECUTOR))return json(409,{ok:false,error:"Execution transaction sender does not match the configured Web3Market executor"});
+ let decodedExecution;
+ try { decodedExecution=SAFE.parseTransaction({data:onchainTx.data,value:onchainTx.value}); }
+ catch { return json(409,{ok:false,error:"Outer transaction calldata is not a valid Safe execTransaction"}); }
+ if(!decodedExecution||decodedExecution.name!=="execTransaction")return json(409,{ok:false,error:"Outer transaction did not call Safe execTransaction"});
+ const executionArgs=decodedExecution.args;
+ const sameExecutionPayload=
+  norm(String(executionArgs[0]))===norm(tx.to_address) &&
+  BigInt(executionArgs[1].toString())===BigInt(tx.value_wei||0) &&
+  String(executionArgs[2]).toLowerCase()===String(tx.data||"0x").toLowerCase() &&
+  Number(executionArgs[3])===Number(tx.operation) &&
+  BigInt(executionArgs[4].toString())===BigInt(tx.safe_tx_gas||0) &&
+  BigInt(executionArgs[5].toString())===BigInt(tx.base_gas||0) &&
+  BigInt(executionArgs[6].toString())===BigInt(tx.gas_price||0) &&
+  norm(String(executionArgs[7]))===norm(tx.gas_token||ethers.ZeroAddress) &&
+  norm(String(executionArgs[8]))===norm(tx.refund_receiver||ethers.ZeroAddress);
+ if(!sameExecutionPayload)return json(409,{ok:false,error:"Outer Safe execTransaction payload does not match the signed database transaction"});
  const recomputed=await safe.getTransactionHash(ethers.getAddress(tx.to_address),BigInt(tx.value_wei||0),String(tx.data||"0x"),Number(tx.operation),BigInt(tx.safe_tx_gas||0),BigInt(tx.base_gas||0),BigInt(tx.gas_price||0),ethers.getAddress(tx.gas_token||ethers.ZeroAddress),ethers.getAddress(tx.refund_receiver||ethers.ZeroAddress),BigInt(tx.safe_nonce));
  if(String(recomputed).toLowerCase()!==String(tx.safe_tx_hash).toLowerCase())return json(409,{ok:false,error:"Stored Safe transaction payload does not match its signed Safe transaction hash"});
  if(receipt.status===0){
