@@ -646,10 +646,11 @@ async function confirmDealDelivery(
   const rows = Array.isArray(data) ? data : [];
   const row = rows[0] as Record<string, unknown> | undefined;
   if (!row || !UUID.test(String(row.confirmation_id || "")) ||
+      !/^[1-9][0-9]*$/.test(String(row.terms_version || "")) ||
       !/^[0-9a-f]{64}$/.test(String(row.terms_hash || "")) ||
       !/^[0-9a-f]{64}$/.test(String(row.asset_set_digest || "")) ||
       !Number.isSafeInteger(Number(row.asset_count)) || Number(row.asset_count) < 1 ||
-      typeof row.confirmed_at !== "string") {
+      typeof row.confirmed_at !== "string" || typeof row.created !== "boolean") {
     throw Object.assign(new Error("Final delivery confirmation RPC returned an invalid record."), { status: 503 });
   }
   return {
