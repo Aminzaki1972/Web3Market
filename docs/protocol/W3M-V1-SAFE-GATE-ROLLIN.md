@@ -2,7 +2,9 @@
 
 This is a **staged source patch only**. It does not change any deployed Supabase Edge Function.
 
-The shared gate is `supabase/functions/_shared/w3m-v1-finalization-gate.ts`. It calls the service-only `w3m_get_deal_finalization_evidence` RPC, reloads the current deal, audit binding, fingerprint, current terms version, and persisted acceptance rows, then independently verifies the exact buyer/seller EIP-712 signatures using the V1 verifier.
+The shared gate module is `supabase/functions/_shared/w3m-v1-finalization-gate.ts`. It exposes two deliberately separate checks:
+- `assertW3MAgreementReady` reloads the current deal, audit binding, fingerprint, current terms version, and persisted acceptance rows, then independently verifies the exact buyer/seller EIP-712 signatures. Safe deployment uses this agreement-only check because deployment precedes funding and asset delivery.
+- `assertW3MFinalizationReady` performs the same signature verification and additionally requires the complete signed asset checklist to have valid per-asset delivery evidence and buyer acceptance. Release preparation, signature recording, execution, and finalization use this stricter check.
 
 The database now freezes acquisition terms after the first party acceptance. This prevents a later terms publication from invalidating or racing the accepted terms. The finalization evidence RPC returns normalized hashes and canonical UTC acceptance timestamps for independent signature verification.
 
@@ -21,14 +23,14 @@ The following source files were retrieved read-only from the live Supabase proje
 
 ## Gate placement
 
-- `create-safe`: before Safe deployment and database policy writes.
+- `create-safe`: agreement-only signature gate before Safe deployment and database policy writes; it does not require asset delivery to have happened.
 - `prepare-deal-release`: before release policy preparation.
 - `prepare-safe-release-tx`: before Safe release transaction preparation.
 - `record-safe-release-signature`: before recording Safe signatures.
 - `execute-safe-release`: before the actual on-chain execution path (read-only/check mode remains available).
 - `finalize-safe-release`: before marking a release complete; it also independently blocks finalization when a dispute is open or dispute status cannot be verified.
 
-Each function fails closed with HTTP 409 if the current W3M buyer/seller acceptance pair is absent, stale, incomplete, or cryptographically invalid. The static CI regression checks that the gate call appears before the corresponding sensitive action in all six staged sources. It also verifies dispute checks before Safe deployment, signature recording, and finalization; payment and buyer-approved delivery before signature recording/execution; locked release policy; and consistent Safe address, BNB chain, and configured BNB USDT asset before the settlement actions.
+Each function fails closed with HTTP 409 if the required W3M buyer/seller acceptance pair is absent, stale, incomplete, or cryptographically invalid. The five release-stage functions also fail closed until every signed asset has been delivered and accepted. The static CI regression checks that the appropriate agreement or finalization gate appears before the corresponding sensitive action in all six staged sources. It also verifies dispute checks before Safe deployment, signature recording, and finalization; payment and buyer-approved delivery before signature recording/execution; locked release policy; and consistent Safe address, BNB chain, and configured BNB USDT asset before the settlement actions.
 
 Latest branch CI at the verified code head: 107 Deno tests passed; the PostgreSQL migration/concurrency/privilege suite passed; CDN integrity, profile-guard migration, and modified JavaScript syntax checks passed. New protocol modules and the shared gate pass Deno type-check.
 
