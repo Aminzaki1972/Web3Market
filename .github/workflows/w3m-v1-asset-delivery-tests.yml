@@ -237,7 +237,7 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
-          do $
+          do $asset_transition_test$
           declare
             v_deal uuid := '71100000-0000-4000-8000-000000000001';
             v_buyer uuid := '75100000-0000-4000-8000-000000000005';
@@ -295,14 +295,14 @@ jobs:
             exception when sqlstate '42501' then null;
             end;
           end;
-          $;
+          $asset_transition_test$;
           SQL
       - name: Verify per-asset transition RPC is service-role only
         env:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
-          do $
+          do $asset_transition_test$
           begin
             if has_function_privilege('anon','public.w3m_transition_deal_asset_v1(uuid,uuid,uuid,text,text,text)','execute')
               or has_function_privilege('authenticated','public.w3m_transition_deal_asset_v1(uuid,uuid,uuid,text,text,text)','execute')
@@ -310,7 +310,7 @@ jobs:
               raise exception 'asset_transition_rpc_privileges_are_not_least_privilege';
             end if;
           end;
-          $;
+          $asset_transition_test$;
           SQL
       - name: Verify finalization evidence RPC is service-role only
         env:
