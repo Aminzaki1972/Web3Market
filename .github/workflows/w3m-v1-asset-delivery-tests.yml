@@ -131,6 +131,12 @@ jobs:
             v_status text;
             v_actor uuid;
             v_evidence jsonb;
+            v_confirmation_id uuid;
+            v_replay_id uuid;
+            v_confirmation_digest text;
+            v_confirmation_created boolean;
+            v_confirmation_asset_count integer;
+            v_final_status jsonb;
           begin
             insert into public.deals(id,buyer_id,seller_id,status,dispute_status)
               values(v_deal,v_buyer,v_seller,'in_progress','none');
@@ -229,6 +235,72 @@ jobs:
               or v_evidence #>> '{0,status}' <> 'accepted'
               or jsonb_array_length(v_evidence #> '{0,events}') <> 4 then
               raise exception 'service_finalization_asset_evidence_incomplete';
+            end if;
+
+            -- Every asset is accepted, but Safe release still requires a separate final buyer confirmation.
+            begin
+              perform public.w3m_claim_safe_release(v_deal,'0x' || repeat('a',64),7);
+              raise exception 'safe_claim_must_wait_for_buyer_final_delivery_confirmation';
+            exception when sqlstate '55000' then null;
+            end;
+
+            select confirmation_id,asset_set_digest,asset_count,created
+              into v_confirmation_id,v_confirmation_digest,v_confirmation_asset_count,v_confirmation_created
+              from public.w3m_confirm_deal_delivery_v1(v_deal,v_buyer);
+            if v_confirmation_id is null or v_confirmation_created is not true
+              or v_confirmation_asset_count <> 1 or length(v_confirmation_digest) <> 64 then
+              raise exception 'buyer_final_delivery_confirmation_not_recorded';
+            end if;
+            v_final_status := public.w3m_get_deal_delivery_confirmation_status(v_deal);
+            if v_final_status->>'confirmed' <> 'true' or v_final_status->>'stale' <> 'false' then
+              raise exception 'final_delivery_confirmation_status_not_current';
+            end if;
+
+            select confirmation_id,created into v_replay_id,v_confirmation_created
+              from public.w3m_confirm_deal_delivery_v1(v_deal,v_buyer);
+            if v_replay_id <> v_confirmation_id or v_confirmation_created is not false then
+              raise exception 'final_delivery_confirmation_retry_not_idempotent';
+            end if;
+            begin
+              update w3m_private.w3m_deal_delivery_confirmations
+                set asset_count=2 where id=v_confirmation_id;
+              raise exception 'expected_final_confirmation_append_only_update_rejection';
+            exception when sqlstate '55000' then null;
+            end;
+            begin
+              delete from w3m_private.w3m_deal_delivery_confirmations where id=v_confirmation_id;
+              raise exception 'expected_final_confirmation_append_only_delete_rejection';
+            exception when sqlstate '55000' then null;
+            end;
+
+            -- A later seller redelivery invalidates the previous final confirmation.
+            perform set_config('request.jwt.claim.sub',v_seller::text,false);
+            update public.deal_assets set status='delivered',
+              delivery_url='https://example.invalid/repo-v3',evidence='synthetic-evidence-v3'
+              where id=v_asset;
+            perform set_config('request.jwt.claim.sub',v_buyer::text,false);
+            update public.deal_assets set status='accepted' where id=v_asset;
+            perform set_config('request.jwt.claims','{"role":"service_role"}',false);
+            v_final_status := public.w3m_get_deal_delivery_confirmation_status(v_deal);
+            if v_final_status->>'confirmed' <> 'false' or v_final_status->>'stale' <> 'true' then
+              raise exception 'redelivery_did_not_invalidate_previous_final_confirmation';
+            end if;
+            begin
+              perform public.w3m_claim_safe_release(v_deal,'0x' || repeat('a',64),7);
+              raise exception 'safe_claim_must_wait_for_reconfirmed_asset_set';
+            exception when sqlstate '55000' then null;
+            end;
+
+            select confirmation_id,asset_set_digest,created
+              into v_replay_id,v_confirmation_digest,v_confirmation_created
+              from public.w3m_confirm_deal_delivery_v1(v_deal,v_buyer);
+            if v_replay_id is null or v_replay_id = v_confirmation_id
+              or v_confirmation_created is not true or v_confirmation_digest = v_final_status->>'asset_set_digest' then
+              raise exception 'new_asset_set_was_not_reconfirmed';
+            end if;
+            v_final_status := public.w3m_get_deal_delivery_confirmation_status(v_deal);
+            if v_final_status->>'confirmed' <> 'true' or v_final_status->>'stale' <> 'false' then
+              raise exception 'reconfirmed_asset_set_not_current';
             end if;
 
             perform public.w3m_claim_safe_release(v_deal,'0x' || repeat('a',64),7);
