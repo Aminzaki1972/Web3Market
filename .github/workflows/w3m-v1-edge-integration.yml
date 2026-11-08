@@ -136,6 +136,7 @@ jobs:
       - name: Test canonical signed settlement evidence and Safe gate guards
         run: |
           deno test --allow-env supabase/functions/_shared/w3m-v1-settlement-evidence.test.ts
+          deno test supabase/functions/_shared/w3m-v1-safe-payload.test.ts
           deno test --allow-read supabase/functions/_shared/w3m-v1-safe-gate-source.test.ts
 
       - name: Exercise real Auth, PostgREST, RPC and Edge Function paths
