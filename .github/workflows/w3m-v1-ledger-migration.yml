@@ -50,7 +50,8 @@ jobs:
             as $auth$ select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $auth$;
           create table public.deals (
             id uuid primary key, project_id uuid not null, buyer_id uuid not null,
-            seller_id uuid not null, status text not null, dispute_status text not null,
+            seller_id uuid not null, status text not null, dispute_status text not null
+              check (dispute_status in ('none','open','under_review','resolved_buyer','resolved_seller','closed')),
             release_tx_hash text
           );
           create table public.deal_disputes (
@@ -59,6 +60,7 @@ jobs:
             opened_by uuid not null,
             reason text not null,
             status text not null default 'open'
+              check (status in ('open','under_review','resolved','cancelled'))
           );
           create table public.projects (
             id uuid primary key, owner_id uuid not null
