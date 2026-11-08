@@ -131,12 +131,26 @@ function client(
   error: { code?: string; message?: string } | null = null,
   assets: unknown = assetEvidence(),
   assetError: { code?: string; message?: string } | null = null,
+  finalConfirmation: unknown = {
+    confirmed: true,
+    stale: false,
+    confirmation_id: "7b000000-0000-4000-8000-00000000000b",
+    terms_version: "1",
+    terms_hash: "33".repeat(32),
+    asset_set_digest: "66".repeat(32),
+    asset_count: 1,
+    confirmed_at: new Date((NOW + 3) * 1000).toISOString(),
+  },
+  finalConfirmationError: { code?: string; message?: string } | null = null,
 ): W3MFinalizationGateClient {
   return {
     async rpc(name, args) {
       if (args.p_deal_id !== dealId) throw new Error("Unexpected deal ID");
       if (name === "w3m_get_deal_finalization_evidence") return { data, error };
       if (name === "w3m_get_deal_asset_finalization_evidence") return { data: assets, error: assetError };
+      if (name === "w3m_get_deal_delivery_confirmation_status") {
+        return { data: finalConfirmation, error: finalConfirmationError };
+      }
       throw new Error("Unexpected finalization evidence RPC: " + name);
     },
   };
@@ -233,3 +247,30 @@ Deno.test("shared finalization gate accepts a re-delivered asset only after its 
   const result = await assertW3MFinalizationReady(client([fixture.row], null, assets), dealId);
   assertEquals(result.assetCount, 1);
 });
+
+Deno.test("shared finalization gate rejects missing, stale, or mismatched buyer final confirmation", async () => {
+  const fixture = await evidenceFixture();
+  const invalidConfirmations = [
+    { confirmed: false, stale: false, terms_version: "1", terms_hash: "33".repeat(32), confirmation_id: "7b000000-0000-4000-8000-00000000000b", asset_set_digest: "66".repeat(32), asset_count: 1, confirmed_at: new Date((NOW + 3) * 1000).toISOString() },
+    { confirmed: true, stale: true, terms_version: "1", terms_hash: "33".repeat(32), confirmation_id: "7b000000-0000-4000-8000-00000000000b", asset_set_digest: "66".repeat(32), asset_count: 1, confirmed_at: new Date((NOW + 3) * 1000).toISOString() },
+    { confirmed: true, stale: false, terms_version: "2", terms_hash: "33".repeat(32), confirmation_id: "7b000000-0000-4000-8000-00000000000b", asset_set_digest: "66".repeat(32), asset_count: 1, confirmed_at: new Date((NOW + 3) * 1000).toISOString() },
+  ];
+  for (const confirmation of invalidConfirmations) {
+    const response = await assertW3MFinalizationReady(
+      client([fixture.row], null, assetEvidence(), null, confirmation), dealId,
+    ).then(() => "unexpected-success", (error) => error);
+    assertEquals(response instanceof W3MFinalizationGateError, true);
+    assertEquals((response as W3MFinalizationGateError).code, "W3M_FINALIZATION_EVIDENCE_UNAVAILABLE");
+  }
+});
+
+Deno.test("shared finalization gate fails closed when final confirmation status RPC is unavailable", async () => {
+  const fixture = await evidenceFixture();
+  const response = await assertW3MFinalizationReady(
+    client([fixture.row], null, assetEvidence(), null, null, { code: "PGRST301", message: "permission denied" }),
+    dealId,
+  ).then(() => "unexpected-success", (error) => error);
+  assertEquals(response instanceof W3MFinalizationGateError, true);
+  assertEquals((response as W3MFinalizationGateError).code, "W3M_FINALIZATION_EVIDENCE_UNAVAILABLE");
+});
+
