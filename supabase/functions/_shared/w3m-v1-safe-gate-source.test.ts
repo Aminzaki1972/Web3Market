@@ -132,3 +132,30 @@ Deno.test("Safe release execution revalidates the exact configured 2-of-3 owner 
   assertEquals(execute.includes('some(owner=>!actualOwners.has(owner))'), true,
     "release execution must require the buyer, seller and platform to remain the exact owner set");
 });
+
+
+Deno.test("every release preparation and execution path requires a funded deal lifecycle state", async () => {
+  const releaseFiles = [
+    "supabase/functions/prepare-deal-release/index.ts",
+    "supabase/functions/prepare-safe-release-tx/index.ts",
+    "supabase/functions/record-safe-release-signature/index.ts",
+    "supabase/functions/execute-safe-release/index.ts",
+  ];
+  for (const file of releaseFiles) {
+    const source = await Deno.readTextFile(file);
+    assertEquals(source.includes('["funded","in_progress"]'), true,
+      file + " must reject release actions outside funded/in_progress");
+  }
+  const finalize = await Deno.readTextFile("supabase/functions/finalize-safe-release/index.ts");
+  assertEquals(finalize.includes('["funded","in_progress"]'), true,
+    "finalization must require a funded deal unless this exact release is already completed");
+  assertEquals(finalize.includes("isSameCompletedRelease"), true,
+    "only an idempotent retry for the same completed release may finalize an already-completed deal");
+
+  const claimMigration = await Deno.readTextFile("supabase/migrations/20261108044500_w3m_v1_safe_release_claims.sql");
+  const assetMigration = await Deno.readTextFile("supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql");
+  assertEquals(claimMigration.includes("not in ('funded','in_progress')"), true,
+    "the first Safe claim RPC must enforce the funded deal lifecycle");
+  assertEquals(assetMigration.includes("not in ('funded','in_progress')"), true,
+    "the final asset-aware Safe claim RPC must preserve the funded deal lifecycle gate");
+});
