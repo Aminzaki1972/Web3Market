@@ -90,12 +90,12 @@ Deno.test("Safe finalization reconciles durable release claims only after chain 
   const receiptCheck = finalize.indexOf("provider.getTransactionReceipt(txHash)");
   const safeHashCheck = finalize.indexOf("Stored Safe transaction payload does not match");
   const markSubmitted = finalize.indexOf('sb.rpc("w3m_mark_safe_release_submitted"');
-  const markFailed = finalize.indexOf('sb.rpc("w3m_mark_safe_release_failed"');
+  const safeFailure = finalize.indexOf('p_failure_code:"safe_execution_failure"');
   const markFinalized = finalize.indexOf('sb.rpc("w3m_mark_safe_release_finalized"');
   assertEquals(receiptCheck >= 0 && safeHashCheck >= 0, true, "chain receipt and Safe payload must be verified");
   assertEquals(markSubmitted > safeHashCheck, true, "mined transaction must be bound to the claim after Safe hash verification");
-  assertEquals(markFailed > markSubmitted, true, "Safe failure must close the claim only after chain evidence");
-  assertEquals(markFinalized > markFailed, true, "successful claim finalization must follow exact transfer and deal settlement checks");
+  assertEquals(safeFailure > markSubmitted, true, "Safe ExecutionFailure must close the claim only after the mined transaction is bound");
+  assertEquals(markFinalized > safeFailure, true, "successful claim finalization must follow exact transfer and deal settlement checks");
 });
 
 Deno.test("all Safe endpoints recognize the database's resolved dispute states", async () => {
