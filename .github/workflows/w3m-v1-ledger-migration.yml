@@ -310,8 +310,11 @@ jobs:
               raise exception 'trusted_challenge_lookup_mismatch';
             end if;
 
+            -- Simulate a small Edge Runtime / PostgreSQL clock skew. The database
+            -- must record its own acceptance time and must not reject the valid signature.
             perform public.w3m_record_agreement_acceptance(
-              v_challenge,v_user,'buyer',v_wallet,v_wallet,v_signature,clock_timestamp()
+              v_challenge,v_user,'buyer',v_wallet,v_wallet,v_signature,
+              clock_timestamp() - interval '1 minute'
             );
 
             if (select count(*) from w3m_private.w3m_agreement_acceptances where deal_id=v_deal) <> 1 then
@@ -319,6 +322,14 @@ jobs:
             end if;
             if (select consumed_at from w3m_private.w3m_agreement_challenges where id=v_challenge) is null then
               raise exception 'challenge_not_consumed';
+            end if;
+
+            if exists (
+              select 1 from w3m_private.w3m_agreement_acceptances a
+              join w3m_private.w3m_agreement_challenges c on c.id=a.challenge_id
+              where a.challenge_id=v_challenge and a.accepted_at < c.created_at
+            ) then
+              raise exception 'database_acceptance_timestamp_must_not_precede_challenge_creation';
             end if;
 
             begin
