@@ -291,3 +291,49 @@ Deno.test("calculates the 7.5% platform fee from the final buyer-paid considerat
   feeOnAskingPrice.seller_net.amount = "17750.00";
   assertThrows(() => validateW3MAcquisitionTermsV1(feeOnAskingPrice));
 });
+
+Deno.test("requires signed asking-price and agreed-discount snapshots without changing the fee basis", () => {
+  const missingSchedule = fixture() as Record<string, unknown>;
+  delete missingSchedule.commercial_schedule;
+  assertThrows(() => validateW3MAcquisitionTermsV1(missingSchedule));
+
+  const wrongAskingCurrency = fixture();
+  wrongAskingCurrency.commercial_schedule.asking_price.currency = "BNB";
+  assertThrows(() => validateW3MAcquisitionTermsV1(wrongAskingCurrency));
+
+  const invalidDiscount = fixture();
+  invalidDiscount.commercial_schedule.agreed_discount = {
+    amount: "200.00",
+    currency: "BNB",
+    description: "Agreed discount",
+  };
+  assertThrows(() => validateW3MAcquisitionTermsV1(invalidDiscount));
+
+  const noDiscount = fixture();
+  noDiscount.commercial_schedule.agreed_discount = null;
+  validateW3MAcquisitionTermsV1(noDiscount);
+
+  const negotiatedFinalPrice = fixture();
+  negotiatedFinalPrice.consideration.amount = "950.00";
+  negotiatedFinalPrice.platform_fee.amount = "71.25";
+  negotiatedFinalPrice.seller_net.amount = "878.75";
+  validateW3MAcquisitionTermsV1(negotiatedFinalPrice);
+});
+
+Deno.test("requires transfer method, responsible party, and expected evidence for every included asset", () => {
+  const missingMethod = fixture();
+  delete (missingMethod.transfer_scope.included_assets[0] as Record<string, unknown>).transfer_method;
+  assertThrows(() => validateW3MAcquisitionTermsV1(missingMethod));
+
+  const missingResponsibleParty = fixture();
+  delete (missingResponsibleParty.transfer_scope.included_assets[0] as Record<string, unknown>).responsible_party;
+  assertThrows(() => validateW3MAcquisitionTermsV1(missingResponsibleParty));
+
+  const missingEvidence = fixture();
+  delete (missingEvidence.transfer_scope.included_assets[0] as Record<string, unknown>).expected_evidence;
+  assertThrows(() => validateW3MAcquisitionTermsV1(missingEvidence));
+
+  const placeholderEvidence = fixture();
+  placeholderEvidence.transfer_scope.included_assets[0].expected_evidence = "TBD";
+  assertThrows(() => validateW3MAcquisitionTermsV1(placeholderEvidence));
+});
