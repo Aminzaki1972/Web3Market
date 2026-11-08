@@ -68,3 +68,49 @@ Deno.test("every Safe deployment, release, signature, execution and finalization
     }
   }
 });
+
+Deno.test("Safe release execution is durably claimed before broadcast and never retries an uncertain attempt", async () => {
+  const execute = await Deno.readTextFile("supabase/functions/execute-safe-release/index.ts");
+  const claim = execute.indexOf('sb.rpc("w3m_claim_safe_release"');
+  const broadcast = execute.indexOf("execTransaction(...args,{gasLimit");
+  const submitted = execute.indexOf('sb.rpc("w3m_mark_safe_release_submitted"');
+  const wait = execute.indexOf("sent.wait()");
+  const failed = execute.indexOf('sb.rpc("w3m_mark_safe_release_failed"');
+  assertEquals(claim >= 0, true, "execution must acquire a database release claim");
+  assertEquals(broadcast >= 0, true, "Safe broadcast marker must exist");
+  assertEquals(claim < broadcast, true, "claim must be committed before Safe broadcast");
+  assertEquals(submitted > broadcast && submitted < wait, true, "broadcast hash must be persisted before waiting for the receipt");
+  assertEquals(failed > wait, true, "a claim may be released only after a confirmed receipt failure");
+  assertEquals(execute.includes("previous_attempt_may_have_broadcast"), true, "an existing uncertain claim must not be rebroadcast");
+  assertEquals(execute.includes("releaseBroadcastAttempted"), true, "uncertain send outcomes must be reported as possibly broadcast");
+});
+
+Deno.test("Safe finalization reconciles durable release claims only after chain evidence", async () => {
+  const finalize = await Deno.readTextFile("supabase/functions/finalize-safe-release/index.ts");
+  const receiptCheck = finalize.indexOf("provider.getTransactionReceipt(txHash)");
+  const safeHashCheck = finalize.indexOf("Stored Safe transaction payload does not match");
+  const markSubmitted = finalize.indexOf('sb.rpc("w3m_mark_safe_release_submitted"');
+  const markFailed = finalize.indexOf('sb.rpc("w3m_mark_safe_release_failed"');
+  const markFinalized = finalize.indexOf('sb.rpc("w3m_mark_safe_release_finalized"');
+  assertEquals(receiptCheck >= 0 && safeHashCheck >= 0, true, "chain receipt and Safe payload must be verified");
+  assertEquals(markSubmitted > safeHashCheck, true, "mined transaction must be bound to the claim after Safe hash verification");
+  assertEquals(markFailed > markSubmitted, true, "Safe failure must close the claim only after chain evidence");
+  assertEquals(markFinalized > markFailed, true, "successful claim finalization must follow exact transfer and deal settlement checks");
+});
+
+Deno.test("all Safe endpoints recognize the database's resolved dispute states", async () => {
+  const files = [
+    "supabase/functions/create-safe/index.ts",
+    "supabase/functions/prepare-deal-release/index.ts",
+    "supabase/functions/prepare-safe-release-tx/index.ts",
+    "supabase/functions/record-safe-release-signature/index.ts",
+    "supabase/functions/execute-safe-release/index.ts",
+    "supabase/functions/finalize-safe-release/index.ts",
+  ];
+  for (const file of files) {
+    const source = await Deno.readTextFile(file);
+    assertEquals(source.includes('"resolved_buyer"'), true, file + " must recognize resolved_buyer as terminal");
+    assertEquals(source.includes('"resolved_seller"'), true, file + " must recognize resolved_seller as terminal");
+  }
+});
+
