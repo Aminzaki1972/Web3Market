@@ -3,6 +3,7 @@ import { assertEquals } from "jsr:@std/assert@1.0.14";
 const cases = [
   {
     file: "supabase/functions/create-safe/index.ts",
+    gate: "assertW3MAgreementReady(",
     action: "sendTransaction(",
   },
   {
@@ -31,7 +32,7 @@ Deno.test("every Safe deployment, release, signature, execution and finalization
   for (const item of cases) {
     const source = await Deno.readTextFile(item.file);
     const importIndex = source.indexOf('../_shared/w3m-v1-finalization-gate.ts');
-    const gateIndex = source.indexOf("assertW3MFinalizationReady(");
+    const gateIndex = source.indexOf(item.gate || "assertW3MFinalizationReady(");
     assertEquals(/if\s*\(\s*!state\s*\)\s*return\s*["\x27]unknown["\x27]/.test(source), true, item.file + " must fail closed when dispute status is missing");
     assertEquals(/new Set\(\s*\[\s*["\x27]none["\x27]/.test(source), true, item.file + " must not treat an empty dispute status as terminal");
     const actionIndex = source.indexOf(item.action);
@@ -160,4 +161,12 @@ Deno.test("every release preparation and execution path requires a funded deal l
     "an active claim must prevent the deal from leaving the funded lifecycle before completion");
   assertEquals(assetMigration.includes("not in ('funded','in_progress')"), true,
     "the final asset-aware Safe claim RPC must preserve the funded deal lifecycle gate");
+});
+
+Deno.test("Safe deployment requires signed agreement but not pre-deployment asset delivery", async () => {
+  const createSafe = await Deno.readTextFile("supabase/functions/create-safe/index.ts");
+  assertEquals(createSafe.includes("assertW3MAgreementReady("), true,
+    "Safe deployment must verify both parties' exact V1 agreement signatures");
+  assertEquals(createSafe.includes("assertW3MFinalizationReady("), false,
+    "Safe deployment must not require delivery completion before funding");
 });
