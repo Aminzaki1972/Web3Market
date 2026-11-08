@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { getW3MDealProtocolTrack } from "../_shared/w3m-deal-protocol-track.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { assertW3MFinalizationReady, W3MFinalizationGateError } from "../_shared/w3m-v1-finalization-gate.ts";
 const cors={"Access-Control-Allow-Origin":"https://web3market.xyz","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
@@ -28,10 +29,18 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response(null,{stat
  const body=await req.json(),dealId=String(body.deal_id||"");if(!dealId)return json({error:"deal_id is required"},400);
  const db=createClient(url,service);const q=await db.from("deals").select("id,buyer_id,seller_id,amount,currency,status,payment_status,payment_tx_hash,chain_id,safe_address,token_contract,token_symbol,dispute_status,disputed_at").eq("id",dealId).maybeSingle();if(q.error)return json({error:q.error.message},400);const d=q.data;if(!d)return json({error:"Deal not found"},404);
  if(String(d.buyer_id)!==String(user.id)&&String(d.seller_id)!==String(user.id))return json({error:"Only deal participants can prepare release"},403);
+ let protocolTrack: "legacy" | "v1";
  try {
-  await assertW3MFinalizationReady(db, dealId);
- } catch (error) {
-  return json({ok:false,error:"W3M V1 buyer and seller agreement acceptance is required before release preparation",code:error instanceof W3MFinalizationGateError?error.code:"W3M_FINALIZATION_EVIDENCE_UNAVAILABLE"},409);
+  protocolTrack = await getW3MDealProtocolTrack(db, dealId);
+ } catch {
+  return json({ok:false,error:"Deal protocol classification is unavailable"},503);
+ }
+ if (protocolTrack === "v1") {
+  try {
+   await assertW3MFinalizationReady(db, dealId);
+  } catch (error) {
+   return json({ok:false,error:"W3M V1 buyer and seller agreement acceptance is required before release preparation",code:error instanceof W3MFinalizationGateError?error.code:"W3M_FINALIZATION_EVIDENCE_UNAVAILABLE"},409);
+  }
  }
  const disputeState=await checkDisputeState(db,d,dealId);
  if(disputeState!=="clear")return json({error:disputeState==="open"?"Release is blocked while a dispute is open":"Unable to verify dispute status; release blocked",code:disputeState==="open"?"DEAL_DISPUTE_OPEN":"DISPUTE_STATUS_UNAVAILABLE"},409);
