@@ -300,10 +300,30 @@ try {
     action: "confirm_delivery",
     deal_id: dealId,
   });
-  assert(finalConfirmation.status === 200 &&
-    finalConfirmation.payload.result?.asset_count === 1 &&
+  if (finalConfirmation.status !== 200) {
+    const [rpcDiagnostic, assetDiagnostic] = await Promise.all([
+      admin.rpc("w3m_confirm_deal_delivery_v1", {
+        p_deal_id: dealId,
+        p_buyer_user_id: buyer.id,
+      }),
+      admin.rpc("w3m_get_deal_asset_finalization_evidence", {
+        p_deal_id: dealId,
+      }),
+    ]);
+    throw new Error(
+      "Buyer final delivery confirmation failed: " + JSON.stringify({
+        response: finalConfirmation.payload,
+        rpc_error: rpcDiagnostic.error?.message || null,
+        rpc_code: rpcDiagnostic.error?.code || null,
+        asset_evidence: assetDiagnostic.data || null,
+        asset_evidence_error: assetDiagnostic.error?.message || null,
+      }),
+    );
+  }
+  assert(finalConfirmation.payload.result?.asset_count === 1 &&
     finalConfirmation.payload.result?.created === true,
-    "Buyer final delivery confirmation failed: " + JSON.stringify(finalConfirmation.payload));
+    "Buyer final delivery confirmation returned an unexpected record: " +
+      JSON.stringify(finalConfirmation.payload));
 
   const confirmationReplay = await call(buyer, {
     action: "confirm_delivery",
