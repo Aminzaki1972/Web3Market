@@ -1,5 +1,4 @@
-// Isolated, read-only renderer for the W3M V1 canonical agreement status.
-// Deliberately not imported by Deal Room until the V1 endpoint and terms are deployed.
+// Read-only renderer for the W3M V1 canonical agreement and per-asset status.
 function element(documentRef, tag, className, text) {
   const node = documentRef.createElement(tag);
   if (className) node.className = className;
@@ -65,6 +64,40 @@ export function renderW3MDealAgreementPanel(container, status, documentRef = glo
       : "Not accepted";
     panel.appendChild(element(documentRef, "p", "w3m-v1-party-state",
       role.charAt(0).toUpperCase() + role.slice(1) + ": " + state));
+  }
+
+  const assetHeading = element(documentRef, "h4", "", "Included assets and delivery evidence");
+  panel.appendChild(assetHeading);
+  const assets = Array.isArray(status.assets) ? status.assets : [];
+  if (!assets.length) {
+    panel.appendChild(element(documentRef, "p", "w3m-v1-muted", "No synchronized asset checklist is available."));
+  }
+  for (const asset of assets) {
+    const card = element(documentRef, "article", "w3m-v1-asset");
+    card.appendChild(element(documentRef, "strong", "", asset.assetName));
+    card.appendChild(element(documentRef, "p", "", "Status: " + asset.status));
+    if (asset.deliveryUrl) {
+      const link = element(documentRef, "a", "", "Open delivery reference");
+      try {
+        const url = new URL(asset.deliveryUrl);
+        if (url.protocol === "https:" && !url.username && !url.password) {
+          link.href = url.href;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          card.appendChild(link);
+        }
+      } catch (_) { /* malformed links are omitted */ }
+    }
+    if (asset.deliveredAt) card.appendChild(element(documentRef, "p", "", "Last delivered: " + asset.deliveredAt));
+    if (asset.acceptedAt) card.appendChild(element(documentRef, "p", "", "Accepted: " + asset.acceptedAt));
+    const history = element(documentRef, "ol", "w3m-v1-asset-history");
+    for (const event of asset.events || []) {
+      history.appendChild(element(documentRef, "li", "",
+        event.eventType + " · attempt " + event.attemptNumber + " · " + event.occurredAt +
+        " · SHA-256 " + event.evidenceDigest));
+    }
+    card.appendChild(history);
+    panel.appendChild(card);
   }
 
   const summary = status.bothAccepted && status.dealEligible
