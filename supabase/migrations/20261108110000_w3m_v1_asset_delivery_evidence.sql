@@ -520,7 +520,7 @@ begin
   if not found then
     raise exception 'safe_release_deal_not_found' using errcode = 'P0002';
   end if;
-  if lower(coalesce(v_deal.status,'')) in ('completed','cancelled','rejected','disputed')
+  if lower(coalesce(v_deal.status,'')) not in ('funded','in_progress')
     or lower(coalesce(v_deal.dispute_status,'')) not in ('none','resolved_buyer','resolved_seller','closed')
     or v_deal.release_tx_hash is not null then
     raise exception 'safe_release_deal_is_not_eligible' using errcode = '55000';
