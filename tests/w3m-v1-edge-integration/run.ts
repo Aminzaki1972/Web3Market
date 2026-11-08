@@ -157,7 +157,7 @@ try {
     language: "TypeScript",
     size_bytes: 128,
     line_count: 12,
-    selected_tier: "full",
+    selected_tier: 0,
     scanned: true,
   });
   assert(!auditFile.error, "Unable to seed scanned audit file: " + (auditFile.error?.message || ""));
