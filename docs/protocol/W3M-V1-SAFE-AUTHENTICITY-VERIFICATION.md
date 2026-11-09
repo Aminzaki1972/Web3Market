@@ -76,6 +76,25 @@ The Safe v1.4.1 release source and changelog confirm compiler 0.7.6 and optimize
 
 **Until the SafeProxy hash provenance is complete, the authenticity gate is not production-ready.** Do not substitute a guessed hash, a creation-bytecode hash, the factory hash, a proxy address, or a test fixture such as `0x60006000`.
 
+
+
+### Reproducible SafeProxy build inputs now pinned
+
+The immutable upstream Safe Smart Account tag resolves to commit:
+`bf943f80fec5ac647159d26161446ac5d716a294`.
+
+The exact v1.4.1 SafeProxy source was retrieved from that tag:
+- Source path: `contracts/proxies/SafeProxy.sol`
+- Git blob SHA: `eb21260363a19f1a35ef34e323761e63cf5600e3`
+
+The same tag provides these build inputs:
+- `package.json` blob SHA: `60d3217a6faebb34481fc14283c090f708f96438`; pins `solc` to `0.7.6`.
+- `yarn.lock` blob SHA: `65b6b01c4461f9c129a5eeb8b0b3fe0ba43d97e9`.
+- `hardhat.config.ts` blob SHA: `b8b99ba8b4117d3a8ae06e944535d650e8ce6e60`; compiler defaults to `0.7.6`, and artifact output is configured under `build/artifacts`.
+- `.github/workflows/ci.yml` blob SHA: `da5282541de801f9e420d98219245370654c0174`; upstream CI uses Node `16.7.0`, `yarn --frozen-lockfile`, then `yarn build`.
+
+The release tree does not expose a committed `build/artifacts` directory at the expected path. The source and build recipe are now pinned, but that alone is not a compiled runtime artifact or an independently reproduced hash. The exact compiler metadata defaults, emitted deployed-bytecode artifact, and BNB Chain runtime comparison still need to be captured and reviewed before any proxy hash can be approved.
+
 ## 5. Required negative tests
 
 The isolated verifier test suite must include:
