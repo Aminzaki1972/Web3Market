@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 import { createPublicClient, http, getAddress } from "npm:viem@2.37.6";
 import { bsc } from "npm:viem@2.37.6/chains";
-import { assessSafeConfiguration } from "../../../js/w3m-safe-configuration.js";
+import { assessSafeConfiguration } from "../_shared/w3m-safe-configuration.js";
 
 const PLATFORM_WALLET = "0x2B15cC63eE3b833F502C065767695Fa2B584f8c9";
 const BSC_CHAIN_ID = 56;
