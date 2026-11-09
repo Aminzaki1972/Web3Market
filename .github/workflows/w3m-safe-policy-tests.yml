@@ -22,6 +22,7 @@ on:
       - "js/w3m-safe-deployment-response.test.js"
       - "js/deal-room.js"
       - "scripts/w3m-safe-testnet-readonly-check.mjs"
+      - "scripts/w3m-safe-proxy-authenticity-readonly-check.ts"
       - "docs/protocol/W3M-V1-SAFE-MULTISIG-POLICY.md"
       - ".github/workflows/w3m-safe-policy-tests.yml"
   pull_request:
@@ -40,6 +41,7 @@ on:
       - "js/w3m-safe-configuration.js"
       - "js/w3m-safe-configuration.test.js"
       - "scripts/w3m-safe-testnet-readonly-check.mjs"
+      - "scripts/w3m-safe-proxy-authenticity-readonly-check.ts"
       - ".github/workflows/w3m-safe-policy-tests.yml"
 
 permissions:
@@ -62,3 +64,5 @@ jobs:
         run: deno check supabase/functions/_shared/w3m-safe-policy.ts supabase/functions/_shared/w3m-safe-configuration.js supabase/functions/_shared/w3m-safe-chain.ts supabase/functions/_shared/w3m-safe-verification-context.ts supabase/functions/w3m-safe-verify/index.ts js/w3m-safe-configuration.js js/w3m-safe-deployment-response.js
       - name: Verify BNB Testnet Safe references (read-only)
         run: node scripts/w3m-safe-testnet-readonly-check.mjs
+      - name: Verify BNB Mainnet SafeProxy authenticity candidate (read-only)
+        run: deno run --allow-net scripts/w3m-safe-proxy-authenticity-readonly-check.ts
