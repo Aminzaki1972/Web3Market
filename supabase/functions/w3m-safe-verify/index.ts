@@ -35,6 +35,12 @@ export async function handleW3MSafeVerify(req: Request): Promise<Response> {
     const authorization = req.headers.get("Authorization") || "";
     if (!authorization.startsWith("Bearer ")) return fail("authentication_required", 401);
 
+    const body = await req.json().catch(() => null);
+    const dealId = String(body?.deal_id || "");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(dealId)) {
+      return fail("invalid_deal_id", 400);
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -46,12 +52,6 @@ export async function handleW3MSafeVerify(req: Request): Promise<Response> {
     });
     const { data: { user }, error: authError } = await authClient.auth.getUser();
     if (authError || !user) return fail("invalid_session", 401);
-
-    const body = await req.json().catch(() => ({}));
-    const dealId = String(body?.deal_id || "");
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(dealId)) {
-      return fail("invalid_deal_id", 400);
-    }
 
     const db = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
