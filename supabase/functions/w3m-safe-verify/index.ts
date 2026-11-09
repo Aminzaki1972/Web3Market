@@ -112,14 +112,13 @@ Deno.serve(async (req) => {
       return json({
         ok: false, verified: false, safe_policy_verified: false, reason: assessment.reason,
         owner_count: assessment.ownerCount, threshold: assessment.threshold,
-        contract_exists: Boolean(code && code !== "0x"), release_allowed: false,
+        contract_exists: Boolean(code && code !== "0x"),
       }, 409);
     }
     return json({
       ok: true, verified: true, safe_policy_verified: true, reason: "valid",
       owner_count: assessment.ownerCount, threshold: assessment.threshold,
       nonce: nonce.toString(), contract_exists: true, chain_id: BSC_CHAIN_ID,
-      release_allowed: true,
     });
   } catch (error) {
     console.error("W3M Safe verification failed:", error instanceof Error ? error.name : "unknown");
