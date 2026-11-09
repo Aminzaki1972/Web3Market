@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 import { createPublicClient, http } from "npm:viem@2.37.6";
 import { bsc } from "npm:viem@2.37.6/chains";
-import { isW3MBscMainnetChain, W3M_BSC_MAINNET_CHAIN_ID } from "../_shared/w3m-safe-chain.ts";
+import { isW3MBscMainnetChain } from "../_shared/w3m-safe-chain.ts";
 import { assessSafeVerificationContext } from "../_shared/w3m-safe-verification-context.ts";
 
 const cors = {
@@ -73,7 +73,6 @@ function createDefaultDependencies(authorization: string): W3MSafeVerifyDependen
       return { records: { buyer, seller, policy } as OwnerRecords };
     },
     getRpcChainId: () => rpc.getChainId(),
-
   };
 }
 
@@ -121,8 +120,6 @@ export async function handleW3MSafeVerify(
     // verified against BNB Chain, and pinned in this source. A non-empty bytecode check
     // is not proof that this address is an authentic SafeProxy deployment.
     return fail("SAFE_AUTHENTICITY_UNVERIFIED", 503);
-
-
   } catch (error) {
     console.error("W3M Safe verification failed:", error instanceof Error ? error.name : "unknown");
     return fail("safe_verification_unavailable", 503);
