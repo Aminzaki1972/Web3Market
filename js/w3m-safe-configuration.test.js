@@ -7,16 +7,12 @@ const C = "0x" + "3".repeat(40);
 const LETTER_ADDRESS = "0x" + "abcdef".repeat(6) + "abcd";
 const CODE = "0x60006000";
 
-Deno.test("accepts valid Safe configurations with different owner counts and thresholds", () => {
-  assertEquals(assessSafeConfiguration({ owners: [A, B], threshold: 1n, code: CODE }), {
-    ok: true, ownerCount: 2, threshold: "1", reason: "valid",
-  });
+Deno.test("accepts only the approved 2-of-3 Safe configuration", () => {
   assertEquals(assessSafeConfiguration({ owners: [A, B, C], threshold: 2n, code: CODE }), {
     ok: true, ownerCount: 3, threshold: "2", reason: "valid",
   });
-  assertEquals(assessSafeConfiguration({ owners: [A, B, C], threshold: 3n, code: CODE }), {
-    ok: true, ownerCount: 3, threshold: "3", reason: "valid",
-  });
+  assertEquals(assessSafeConfiguration({ owners: [A, B, C], threshold: 3n, code: CODE }).reason, "threshold_must_be_two_of_three");
+  assertEquals(assessSafeConfiguration({ owners: [A, B], threshold: 1n, code: CODE }).reason, "owner_count_must_be_three");
 });
 
 Deno.test("rejects absent contract code, empty owners, and malformed owner addresses", () => {
@@ -35,7 +31,7 @@ Deno.test("rejects duplicate owners regardless of address casing", () => {
 });
 
 Deno.test("rejects zero, negative, excessive, and non-numeric thresholds", () => {
-  for (const threshold of [0n, -1n, 3n, "not-a-number"]) {
+  for (const threshold of [0n, -1n, 1n, 3n, "not-a-number"]) {
     assertEquals(assessSafeConfiguration({ owners: [A, B], threshold, code: CODE }).ok, false);
   }
 });
