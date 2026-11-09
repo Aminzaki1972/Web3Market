@@ -48,6 +48,7 @@ This is the approved V1 default and is not an invitation to select a different t
 - [ ] Unit tests reject malformed or duplicate owner addresses.
 - [ ] Deployment uses the shared policy module.
 - [ ] Deployment verification confirms the exact on-chain owner set and 2-of-3 threshold.
-- [ ] Deal Room validates live Safe bytecode, owners, and threshold before allowing release.
+- [ ] Deal Room validates live Safe bytecode, exact buyer/seller/platform wallet identities, and threshold before allowing release.
+- [ ] If verified participant wallets or the persisted release policy cannot be loaded, Deal Room fails closed and keeps release blocked.
 - [ ] Relevant CI checks pass on the reviewed commit.
 - [ ] No production deployment or fund movement is performed as part of this code change.
