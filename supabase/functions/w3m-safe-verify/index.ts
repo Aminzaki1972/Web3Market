@@ -7,6 +7,7 @@ import { isW3MBscMainnetChain } from "../_shared/w3m-safe-chain.ts";
 import {
   assessW3MSafeAuthenticity,
   W3M_SAFE_AUTHENTICITY_CONSTANTS,
+  type W3MSafeAuthenticityExpected,
 } from "../_shared/w3m-safe-authenticity.ts";
 import { assessSafeVerificationContext } from "../_shared/w3m-safe-verification-context.ts";
 
@@ -64,6 +65,7 @@ export type W3MSafeVerifyDependencies = {
   getRpcChainId: () => Promise<number>;
   readSafeAuthenticity: (safeAddress: string) => Promise<SafeAuthenticityRecords>;
   readSafePolicy: (safeAddress: string) => Promise<SafePolicyRecords>;
+  expectedAuthenticity?: W3MSafeAuthenticityExpected; // Test-only override; production dependencies never set this.
 };
 
 function createDefaultDependencies(authorization: string): W3MSafeVerifyDependencies | null {
@@ -184,7 +186,7 @@ export async function handleW3MSafeVerify(
       chainId: rpcChainId,
       safeAddress: deal.safe_address,
       ...authenticityRecords,
-    });
+    }, deps.expectedAuthenticity);
     if (!authenticity.ok) return fail(authenticity.reason, 503);
 
     // Only after proxy/singleton/factory authenticity passes, inspect the Safe policy.
