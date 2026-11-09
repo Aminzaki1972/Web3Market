@@ -2,11 +2,9 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 import { createPublicClient, http, getAddress } from "npm:viem@2.37.6";
 import { bsc } from "npm:viem@2.37.6/chains";
-import { assessSafeConfiguration } from "../_shared/w3m-safe-configuration.js";
 import { isW3MBscMainnetChain, W3M_BSC_MAINNET_CHAIN_ID } from "../_shared/w3m-safe-chain.ts";
 import { assessSafeVerificationContext } from "../_shared/w3m-safe-verification-context.ts";
 
-const BSC_CHAIN_ID = W3M_BSC_MAINNET_CHAIN_ID;
 const SAFE_ABI = [
   { type: "function", name: "getOwners", stateMutability: "view", inputs: [], outputs: [{ type: "address[]" }] },
   { type: "function", name: "getThreshold", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
@@ -140,25 +138,7 @@ export async function handleW3MSafeVerify(
     // is not proof that this address is an authentic SafeProxy deployment.
     return fail("SAFE_AUTHENTICITY_UNVERIFIED", 503);
 
-    const safe = await deps.readSafe(String(deal.safe_address));
-    const assessment = assessSafeConfiguration({
-      owners: safe.owners,
-      threshold: safe.threshold,
-      code: safe.code || "0x",
-      expectedOwners: [...context.expectedOwners],
-    });
-    if (!assessment.ok) {
-      return json({
-        ok: false, verified: false, safe_policy_verified: false, reason: assessment.reason,
-        owner_count: assessment.ownerCount, threshold: assessment.threshold,
-        contract_exists: Boolean(safe.code && safe.code !== "0x"),
-      }, 409);
-    }
-    return json({
-      ok: true, verified: true, safe_policy_verified: true, reason: "valid",
-      owner_count: assessment.ownerCount, threshold: assessment.threshold,
-      nonce: safe.nonce.toString(), contract_exists: true, chain_id: BSC_CHAIN_ID,
-    });
+
   } catch (error) {
     console.error("W3M Safe verification failed:", error instanceof Error ? error.name : "unknown");
     return fail("safe_verification_unavailable", 503);
