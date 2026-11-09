@@ -1,15 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import { createPublicClient, http, getAddress } from "npm:viem@2.37.6";
+import { createPublicClient, http } from "npm:viem@2.37.6";
 import { bsc } from "npm:viem@2.37.6/chains";
 import { isW3MBscMainnetChain, W3M_BSC_MAINNET_CHAIN_ID } from "../_shared/w3m-safe-chain.ts";
 import { assessSafeVerificationContext } from "../_shared/w3m-safe-verification-context.ts";
 
-const SAFE_ABI = [
-  { type: "function", name: "getOwners", stateMutability: "view", inputs: [], outputs: [{ type: "address[]" }] },
-  { type: "function", name: "getThreshold", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "nonce", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-] as const;
 const cors = {
   "Access-Control-Allow-Origin": "https://web3market.xyz",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -31,13 +26,11 @@ type OwnerRecords = {
   seller: { wallet_address: unknown; wallet_verified: unknown };
   policy: { seller_wallet: unknown; platform_wallet: unknown; safe_address: unknown; chain_id: unknown };
 };
-type SafeRead = { code: string | undefined; owners: string[]; threshold: bigint; nonce: bigint };
 export type W3MSafeVerifyDependencies = {
   authenticate: () => Promise<{ userId: string | null; error?: boolean }>;
   loadDeal: (dealId: string) => Promise<{ deal: Deal | null; error?: boolean }>;
   loadOwnerRecords: (deal: Deal) => Promise<{ records: OwnerRecords | null; error?: boolean }>;
   getRpcChainId: () => Promise<number>;
-  readSafe: (address: string) => Promise<SafeRead>;
 };
 
 function createDefaultDependencies(authorization: string): W3MSafeVerifyDependencies | null {
@@ -80,16 +73,7 @@ function createDefaultDependencies(authorization: string): W3MSafeVerifyDependen
       return { records: { buyer, seller, policy } as OwnerRecords };
     },
     getRpcChainId: () => rpc.getChainId(),
-    readSafe: async (address) => {
-      const safeAddress = getAddress(address);
-      const [code, owners, threshold, nonce] = await Promise.all([
-        rpc.getBytecode({ address: safeAddress }),
-        rpc.readContract({ address: safeAddress, abi: SAFE_ABI, functionName: "getOwners" }),
-        rpc.readContract({ address: safeAddress, abi: SAFE_ABI, functionName: "getThreshold" }),
-        rpc.readContract({ address: safeAddress, abi: SAFE_ABI, functionName: "nonce" }),
-      ]);
-      return { code, owners: [...owners], threshold, nonce };
-    },
+
   };
 }
 
