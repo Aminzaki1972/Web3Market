@@ -20,8 +20,9 @@ Deno.test({
       rpcMethods: [] as string[],
       rpcCallData: [] as string[],
     };
-    const mockListener = Deno.listen({ hostname: "127.0.0.1", port: 0 });
-    const mockPort = (mockListener.addr as Deno.NetAddr).port;
+    const mockPortProbe = Deno.listen({ hostname: "127.0.0.1", port: 0 });
+    const mockPort = (mockPortProbe.addr as Deno.NetAddr).port;
+    mockPortProbe.close();
     const mockBase = `http://127.0.0.1:${mockPort}`;
     const deal = {
       id: DEAL_ID,
@@ -32,7 +33,7 @@ Deno.test({
       safe_deployment_tx_hash: null,
     };
 
-    const mockServer = Deno.serve({ listener: mockListener, onListen() {} }, async (req) => {
+    const mockServer = Deno.serve({ hostname: "127.0.0.1", port: mockPort, onListen() {} }, async (req: Request) => {
       const url = new URL(req.url);
       if (url.pathname === "/auth/v1/user") {
         const token = req.headers.get("Authorization") || "";
