@@ -12,6 +12,8 @@ on:
       - "js/w3m-safe-configuration.test.js"
       - "js/w3m-safe-deployment-response.js"
       - "js/w3m-safe-deployment-response.test.js"
+      - "js/deal-room.js"
+      - "docs/protocol/W3M-V1-SAFE-MULTISIG-POLICY.md"
       - ".github/workflows/w3m-safe-policy-tests.yml"
   pull_request:
     paths:
