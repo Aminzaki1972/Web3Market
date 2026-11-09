@@ -263,7 +263,7 @@
    box.innerHTML='<div class="safe-panel warn"><strong>Safe not configured.</strong><br>Payment and release remain disabled until a verified Safe is attached.</div>';return
   }
   if(chain!==56){box.innerHTML=`<div class="safe-panel warn"><strong>Chain mismatch.</strong><br>Expected BNB Smart Chain (56), got ${esc(chain||'unknown')}.</div>`;return}
-  box.innerHTML='<div class="safe-panel warn"><strong>Verifying Safe configuration…</strong><br>Checking the live owner set and 2-of-3 threshold.</div>';
+  box.innerHTML='<div class="safe-panel warn"><strong>Verifying Safe configuration…</strong><br>Checking SafeProxy authenticity, singleton identity, and the live 2-of-3 owner policy.</div>';
   try{
    // The server reads counterparties' verified wallet records with service-role access.
    // Browser RLS intentionally exposes each profile only to its owner.
@@ -280,7 +280,7 @@
     return;
    }
    const safeSummary=`Verified Safe multisig · ${ownerCount} owners · threshold ${threshold}-of-${ownerCount}`;
-   box.innerHTML=`<div class="safe-panel ok"><strong>Safe configuration verified</strong><br>Contract detected · ${esc(safeSummary)}<br>Nonce: ${esc(payload.nonce??'unavailable')}<div class="safe-note">The server verified the live Safe owner set against the verified buyer, seller, and platform records. No single owner can execute alone.</div><a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:${encodeURIComponent(safe)}" target="_blank" rel="noopener noreferrer">Open Safe Queue</a></div>`;
+   box.innerHTML=`<div class="safe-panel ok"><strong>Safe authenticity and configuration verified</strong><br>SafeProxy identity confirmed · ${esc(safeSummary)}<div class="safe-note">The server verified the SafeProxy runtime and canonical singleton, then matched the live owner set against the verified buyer, seller, and platform records. No single owner can execute alone.</div><a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:${encodeURIComponent(safe)}" target="_blank" rel="noopener noreferrer">Open Safe Queue</a></div>`;
   }catch(e){
    console.error('Safe server verification',e);
    box.innerHTML='<div class="safe-panel warn"><strong>Safe could not be verified.</strong><br>Server verification is unavailable. Release remains blocked.</div>';
