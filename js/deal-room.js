@@ -188,7 +188,8 @@
    let invokeError=invokeResult?.error||null;
    addSafeLog('create-safe SDK invocation completed.');
    console.error('create-safe response',invokeError,result);
-   if(invokeError || !result.success){
+   const {isW3MSafeDeploymentSuccess}=await import('/js/w3m-safe-deployment-response.js');
+   if(invokeError || !isW3MSafeDeploymentSuccess(result)){
     const detail=[
      invokeError?.name ? 'name='+invokeError.name : '',
      invokeError?.message ? 'message='+invokeError.message : '',
@@ -215,7 +216,7 @@
       try{parsed=raw?JSON.parse(raw):{};}catch(_){}
       addSafeLog('Direct create-safe HTTP status: '+direct.status+' '+direct.statusText);
       addSafeLog('Direct response: '+(parsed?.error||parsed?.message||raw||'(empty response)'));
-      if(direct.ok && parsed?.success){
+      if(direct.ok && isW3MSafeDeploymentSuccess(parsed)){
        result=parsed; invokeError=null;
       }else{
        safeDeploymentError=String(parsed?.error||parsed?.message||('HTTP '+direct.status));
@@ -232,7 +233,7 @@
      return false;
     }
    }
-   if(!result.success){
+   if(!isW3MSafeDeploymentSuccess(result)){
     safeDeploymentError=String(result.error||result.message||'create-safe returned an error');
     addSafeLog('ERROR: '+safeDeploymentError);
     return false;
