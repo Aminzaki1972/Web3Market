@@ -121,10 +121,13 @@ Deno.test("Safe verifier rejects a missing deal ID before dependency initializat
 });
 
 Deno.test("Safe verifier rejects a malformed deal ID before dependency initialization", async () => {
-  const response = await handleW3MSafeVerify(request(), makeDeps({
-    loadDeal: async () => ({ deal: null }),
-  }));
-  assertEquals(response.status, 404);
+  const response = await handleW3MSafeVerify(new Request("https://local.test", {
+    method: "POST",
+    headers: { Authorization: "Bearer test-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ deal_id: "not-a-uuid" }),
+  }), makeDeps());
+  assertEquals(response.status, 400);
+  assertEquals((await response.json()).reason, "invalid_deal_id");
 });
 
 Deno.test("Safe verifier rejects an invalid authenticated session", async () => {
