@@ -96,7 +96,7 @@ Deno.serve(async(req)=>{
    const owners=(await kit.getOwners()).map(norm).map(a=>a.toLowerCase()).sort();
    const expected=[buyerWallet,sellerWallet,platformWallet].map(a=>a.toLowerCase()).sort();
    const threshold=await kit.getThreshold();
-   if(threshold!==BigInt(safeConfig.threshold)||JSON.stringify(owners)!==JSON.stringify(expected))throw new Error("Safe owners/threshold verification failed");
+   if(String(threshold)!==String(safeConfig.threshold)||JSON.stringify(owners)!==JSON.stringify(expected))throw new Error("Safe owners/threshold verification failed");
   };
   if(existingCode&&existingCode!=="0x"){
    const connected=await predicted.connect({safeAddress});await verify(connected);
