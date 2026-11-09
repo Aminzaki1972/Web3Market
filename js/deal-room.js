@@ -277,13 +277,29 @@
    if(!verification)throw new Error('All BNB RPC verification endpoints failed: '+String(lastRpcError?.message||lastRpcError||'unknown RPC error'));
    const {assessSafeConfiguration}=await import('/js/w3m-safe-configuration.js');
    const {owners,threshold,nonce,code}=verification;
-   const assessment=assessSafeConfiguration({owners,threshold,code});
+   // Build the expected owner set from server-governed deal records, never from browser input.
+   const [partyResult,releasePolicyResult]=await Promise.all([
+    sb.from('profiles').select('id,wallet_address,wallet_verified').in('id',[deal.buyer_id,deal.seller_id]),
+    sb.from('deal_release_policies').select('seller_wallet,platform_wallet').eq('deal_id',deal.id).maybeSingle()
+   ]);
+   if(partyResult.error||releasePolicyResult.error||!releasePolicyResult.data)throw new Error('Expected Safe owner set could not be loaded; verification blocked');
+   const buyerProfile=(partyResult.data||[]).find(p=>String(p.id)===String(deal.buyer_id));
+   const sellerProfile=(partyResult.data||[]).find(p=>String(p.id)===String(deal.seller_id));
+   if(!buyerProfile?.wallet_verified||!sellerProfile?.wallet_verified||
+      !/^0x[a-fA-F0-9]{40}$/.test(String(buyerProfile.wallet_address||''))||
+      !/^0x[a-fA-F0-9]{40}$/.test(String(sellerProfile.wallet_address||''))||
+      String(sellerProfile.wallet_address).toLowerCase()!==String(releasePolicyResult.data.seller_wallet||'').toLowerCase()||
+      !/^0x[a-fA-F0-9]{40}$/.test(String(releasePolicyResult.data.platform_wallet||''))) {
+    throw new Error('Buyer, seller, or platform owner identity does not match the approved deal records');
+   }
+   const expectedOwners=[buyerProfile.wallet_address,sellerProfile.wallet_address,releasePolicyResult.data.platform_wallet];
+   const assessment=assessSafeConfiguration({owners,threshold,code,expectedOwners});
    const ok=assessment.ok;
    const thresholdLabel=assessment.threshold===null?'invalid':assessment.threshold;
    const safeSummary=ok
     ? `Verified Safe multisig · ${assessment.ownerCount} owner(s) · threshold ${thresholdLabel}-of-${assessment.ownerCount}`
     : `Safe verification failed: ${assessment.reason} · ${assessment.ownerCount} owner(s) · threshold ${thresholdLabel}`;
-   box.innerHTML=`<div class="safe-panel ${ok?'ok':'warn'}"><strong>${ok?'Safe configuration verified':'Safe could not be verified'}</strong><br>${code!=='0x'?'Contract detected':'Not a contract'} · ${esc(safeSummary)}<br>Nonce: ${esc(nonce)}<div class="safe-note">${ok?'The live Safe owner set and signing threshold are valid. Web3Market cannot release funds alone.':'The Safe configuration is invalid or incomplete. Release remains blocked.'}</div>${ok?`<a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:${encodeURIComponent(safe)}" target="_blank" rel="noopener noreferrer">Open Safe Queue</a>`:''}</div>`;
+   box.innerHTML=`<div class="safe-panel ${ok?'ok':'warn'}"><strong>${ok?'Safe configuration verified':'Safe could not be verified'}</strong><br>${code!=='0x'?'Contract detected':'Not a contract'} · ${esc(safeSummary)}<br>Nonce: ${esc(nonce)}<div class="safe-note">${ok?'The live Safe owners match the verified buyer, seller, and platform wallets; the 2-of-3 threshold is valid. Web3Market cannot release funds alone.':'The Safe configuration is invalid or incomplete. Release remains blocked.'}</div>${ok?`<a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:${encodeURIComponent(safe)}" target="_blank" rel="noopener noreferrer">Open Safe Queue</a>`:''}</div>`;
   }catch(e){console.error('safe verification',e);box.innerHTML='<div class="safe-panel warn"><strong>Safe could not be verified.</strong><br>No release action will be enabled.</div>'}
  }
  async function getW3MAgreementGate(){
