@@ -23,6 +23,7 @@ on:
       - "js/deal-room.js"
       - "scripts/w3m-safe-testnet-readonly-check.mjs"
       - "scripts/w3m-safe-proxy-authenticity-readonly-check.ts"
+      - "scripts/w3m-safe-proxy-source-repro-check.mjs"
       - "docs/protocol/W3M-V1-SAFE-MULTISIG-POLICY.md"
       - ".github/workflows/w3m-safe-policy-tests.yml"
   pull_request:
@@ -66,3 +67,7 @@ jobs:
         run: node scripts/w3m-safe-testnet-readonly-check.mjs
       - name: Verify BNB Mainnet SafeProxy authenticity candidate (read-only)
         run: deno run --allow-net scripts/w3m-safe-proxy-authenticity-readonly-check.ts
+      - name: Install pinned SafeProxy source-build dependencies
+        run: npm install --no-save --no-package-lock solc@0.7.6 viem@2.37.6
+      - name: Reproduce SafeProxy runtime from immutable Safe v1.4.1 source
+        run: node scripts/w3m-safe-proxy-source-repro-check.mjs
