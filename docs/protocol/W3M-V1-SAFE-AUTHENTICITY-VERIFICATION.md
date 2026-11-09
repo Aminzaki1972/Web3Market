@@ -184,7 +184,7 @@ The approved hash must now be integrated into the server verifier with runtime h
 
 ### Latest Safe authenticity CI result
 
-On code head `16daca4c1361c4dfe589db666354c1b3ca4d282f`, GitHub Actions completed successfully:
+On code head `fd3669ac791484de959b5417a6eede08a531993c`, GitHub Actions completed successfully:
 - 56 tests passed, 0 failed.
 - Safe policy/authenticity type-check passed.
 - BNB Testnet Safe reference check passed (read-only).
@@ -192,8 +192,9 @@ On code head `16daca4c1361c4dfe589db666354c1b3ca4d282f`, GitHub Actions complete
 - Proxy storage slot 0 and `masterCopy()` both matched the official v1.4.1 Singleton.
 - Full Safe v1.4.1 upstream build reproduced the exact 171-byte SafeProxy runtime and approved hash.
 - The verifier's authenticity-before-owner-policy sequence and optional factory creation-event rejection tests passed.
+- Deal Room status copy now reflects SafeProxy authenticity and singleton verification, and no longer displays an unavailable nonce field.
 
-Run: https://github.com/Aminzaki1972/Web3Market/actions/runs/42608629053
+Run: https://github.com/Aminzaki1972/Web3Market/actions/runs/42609007881
 
 ## 5. Required negative tests
 
@@ -225,7 +226,8 @@ Accordingly:
 - The official singleton and factory hashes are documented from the Safe Deployments registry.
 - SafeProxy runtime identity, singleton storage/getter agreement, and singleton/factory runtime hashes now have reproducible evidence and a successful read-only BNB Mainnet CI check.
 - The current verifier implementation now performs the authenticity checks before reading owner and threshold state; factory creation provenance is checked when the deployment transaction hash is available.
-- On code head `16daca4c1361c4dfe589db666354c1b3ca4d282f`, the latest Safe CI run completed successfully: 56 tests passed, 0 failed; type-check passed; BNB Testnet read-only reference check passed; BNB Mainnet read-only proxy/singleton/factory hash, slot(0), and `masterCopy()` checks passed; and the full pinned Safe v1.4.1 upstream build reproduced the approved proxy hash.
-- The server implementation now performs authenticity checks before reading the exact 2-of-3 owner policy. Production deployment remains unauthorized; Deal Room end-to-end integration and production readiness still require separate review and approval.
+- On code head `fd3669ac791484de959b5417a6eede08a531993c`, the latest Safe CI run completed successfully: 56 tests passed, 0 failed; type-check passed; BNB Testnet read-only reference check passed; BNB Mainnet read-only proxy/singleton/factory hash, slot(0), and `masterCopy()` checks passed; and the full pinned Safe v1.4.1 upstream build reproduced the approved proxy hash.
+- Deal Room's Safe status messaging was aligned with the new authenticity result contract and passed the same CI run.
+- The server implementation now performs authenticity checks before reading the exact 2-of-3 owner policy. Production deployment remains unauthorized; end-to-end live deal testing and production readiness still require separate review and approval.
 - No production deployment, Safe deployment, wallet signing, transaction, or fund movement is authorized.
 - No production deployment, Safe deployment, wallet signing, transaction, or fund movement is authorized.
