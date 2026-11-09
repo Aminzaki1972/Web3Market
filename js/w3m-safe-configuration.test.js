@@ -39,6 +39,7 @@ Deno.test("rejects a live owner set that differs from the buyer, seller, and pla
 Deno.test("fails closed when the expected owner set is unavailable or invalid", () => {
   assertEquals(assessSafeConfiguration({ owners: [A, B, C], threshold: 2n, code: CODE }).reason, "expected_owner_set_unavailable");
   assertEquals(assessSafeConfiguration({ owners: [A, B, C], threshold: 2n, code: CODE, expectedOwners: [A, B, A] }).reason, "expected_owner_set_invalid");
+  assertEquals(assessSafeConfiguration({ owners: [A, B, C], threshold: 2n, code: CODE, expectedOwners: [A, B, "invalid"] }).reason, "expected_owner_set_invalid");
 });
 Deno.test("rejects zero, negative, excessive, and non-numeric thresholds", () => {
   for (const threshold of [0n, -1n, 1n, 3n, "not-a-number"]) {
