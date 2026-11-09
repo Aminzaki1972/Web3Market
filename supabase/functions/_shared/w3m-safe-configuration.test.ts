@@ -20,3 +20,39 @@ Deno.test("server Safe validator rejects missing code, duplicate owners, and una
   assertEquals(assessSafeConfiguration({ owners: [A, A, C], threshold: 2n, code: CODE, expectedOwners: EXPECTED }).reason, "duplicate_owners");
   assertEquals(assessSafeConfiguration({ owners: [A, B, C], threshold: 2n, code: CODE }).reason, "expected_owner_set_unavailable");
 });
+
+Deno.test("server Safe validator is order-independent and case-insensitive", () => {
+  assertEquals(
+    assessSafeConfiguration({
+      owners: [C.toUpperCase().replace("0X", "0x"), A, B],
+      threshold: "2",
+      code: CODE,
+      expectedOwners: [A.toLowerCase(), B.toLowerCase(), C.toLowerCase()],
+    }).ok,
+    true,
+  );
+});
+
+Deno.test("server Safe validator rejects extra owners and zero addresses", () => {
+  const D = "0x" + "4".repeat(40);
+  assertEquals(
+    assessSafeConfiguration({ owners: [A, B, C, D], threshold: 2n, code: CODE, expectedOwners: EXPECTED }).reason,
+    "owner_count_must_be_three",
+  );
+  assertEquals(
+    assessSafeConfiguration({
+      owners: [A, B, "0x" + "0".repeat(40)],
+      threshold: 2n,
+      code: CODE,
+      expectedOwners: EXPECTED,
+    }).reason,
+    "zero_owner_address",
+  );
+});
+
+Deno.test("server Safe validator rejects malformed thresholds", () => {
+  assertEquals(
+    assessSafeConfiguration({ owners: [A, B, C], threshold: "not-a-number", code: CODE, expectedOwners: EXPECTED }).reason,
+    "invalid_threshold",
+  );
+});
