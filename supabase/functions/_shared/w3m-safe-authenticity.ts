@@ -9,7 +9,14 @@ export const W3M_SAFE_AUTHENTICITY_CONSTANTS = Object.freeze({
   factoryRuntimeHash: "0x50c3cdc4074750a7a974204a716c999edd37482f907608d960b2b025ee0b3317",
 });
 
-export type W3MSafeAuthenticityExpected = typeof W3M_SAFE_AUTHENTICITY_CONSTANTS;
+export type W3MSafeAuthenticityExpected = {
+  chainId: number;
+  proxyRuntimeHash: string;
+  singletonAddress: string;
+  singletonRuntimeHash: string;
+  factoryAddress: string;
+  factoryRuntimeHash: string;
+};
 
 export type W3MSafeAuthenticityInput = {
   chainId: number;
