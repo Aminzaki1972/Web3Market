@@ -89,3 +89,8 @@ Deno.test("rejects malformed storage and getter words", () => {
   assertEquals(assessW3MSafeAuthenticity(validInput({ singletonStorage: "0x1234" }), expected).reason, "safe_singleton_storage_mismatch");
   assertEquals(assessW3MSafeAuthenticity(validInput({ masterCopy: "0x1234" }), expected).reason, "safe_master_copy_mismatch");
 });
+
+Deno.test("rejects an available factory creation record that does not prove this proxy", () => {
+  const result = assessW3MSafeAuthenticity(validInput({ factoryProvenanceVerified: false }), expected);
+  assertEquals(result.reason, "safe_proxy_factory_provenance_mismatch");
+});
