@@ -116,11 +116,14 @@ Use a stable fail-closed status such as `SAFE_AUTHENTICITY_UNVERIFIED` for any m
 
 ## 7. Current implementation status
 
-The existing V1 verifier checks deployed code presence, owners, threshold, nonce, chain, and expected deal context. Its current positive unit fixture is not authentic Safe bytecode. Proxy runtime identity, singleton runtime hash enforcement, and factory provenance are not yet enforced.
+The verifier in the isolated W3M branch has now been changed to fail closed with `SAFE_AUTHENTICITY_UNVERIFIED` after authentication, deal-participant, owner-record context, and BNB mainnet chain checks. It no longer reads Safe owners, threshold, nonce, or arbitrary bytecode and cannot return `verified: true` while the approved SafeProxy runtime hash is missing.
+
+The prior positive integration fixture (`0x60006000`) was removed from the verifier tests. A regression test now confirms that the endpoint returns HTTP 503, `verified: false`, and `safe_policy_verified: false` until the authenticity artifact is approved. This is an intentional V1 safety block, not completed Safe verification.
 
 Accordingly:
-- Safe 2-of-3 policy enforcement remains a separate implemented check.
-- The official singleton and factory hashes are now documented from the Safe Deployments registry.
-- SafeProxy runtime identity remains an open V1 security requirement.
-- This document records verified references and requirements; it does not claim the code change is implemented or tested.
+- Safe 2-of-3 policy construction and its separate unit tests remain implemented.
+- The official singleton and factory hashes are documented from the Safe Deployments registry.
+- SafeProxy runtime identity, singleton storage/getter cross-checks, singleton runtime hash enforcement, and factory provenance remain open V1 security requirements.
+- Safe verification is currently deliberately unavailable; the Deal Room must keep the Safe verification-dependent flow blocked.
+- CI has been triggered for the isolated PR head; its result must be checked before this change is described as tested.
 - No production deployment, Safe deployment, wallet signing, transaction, or fund movement is authorized.
