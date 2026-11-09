@@ -1,8 +1,13 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import { createPublicClient, http } from "npm:viem@2.37.6";
+import { createPublicClient, http, type Address } from "npm:viem@2.37.6";
 import { bsc } from "npm:viem@2.37.6/chains";
+import { assessSafeConfiguration } from "../../../js/w3m-safe-configuration.js";
 import { isW3MBscMainnetChain } from "../_shared/w3m-safe-chain.ts";
+import {
+  assessW3MSafeAuthenticity,
+  W3M_SAFE_AUTHENTICITY_CONSTANTS,
+} from "../_shared/w3m-safe-authenticity.ts";
 import { assessSafeVerificationContext } from "../_shared/w3m-safe-verification-context.ts";
 
 const cors = {
@@ -26,11 +31,39 @@ type OwnerRecords = {
   seller: { wallet_address: unknown; wallet_verified: unknown };
   policy: { seller_wallet: unknown; platform_wallet: unknown; safe_address: unknown; chain_id: unknown };
 };
+type SafeAuthenticityRecords = {
+  proxyCode: unknown;
+  singletonCode: unknown;
+  factoryCode: unknown;
+  singletonStorage: unknown;
+  masterCopy: unknown;
+};
+type SafePolicyRecords = { owners: unknown; threshold: unknown };
+
+const SAFE_POLICY_ABI = [
+  {
+    type: "function",
+    name: "getOwners",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "owners", type: "address[]" }],
+  },
+  {
+    type: "function",
+    name: "getThreshold",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "threshold", type: "uint256" }],
+  },
+] as const;
+
 export type W3MSafeVerifyDependencies = {
   authenticate: () => Promise<{ userId: string | null; error?: boolean }>;
   loadDeal: (dealId: string) => Promise<{ deal: Deal | null; error?: boolean }>;
   loadOwnerRecords: (deal: Deal) => Promise<{ records: OwnerRecords | null; error?: boolean }>;
   getRpcChainId: () => Promise<number>;
+  readSafeAuthenticity: (safeAddress: string) => Promise<SafeAuthenticityRecords>;
+  readSafePolicy: (safeAddress: string) => Promise<SafePolicyRecords>;
 };
 
 function createDefaultDependencies(authorization: string): W3MSafeVerifyDependencies | null {
@@ -48,6 +81,7 @@ function createDefaultDependencies(authorization: string): W3MSafeVerifyDependen
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const rpc = createPublicClient({ chain: bsc, transport: http(rpcUrl) });
+
   return {
     authenticate: async () => {
       const { data: { user }, error } = await authClient.auth.getUser();
@@ -73,6 +107,33 @@ function createDefaultDependencies(authorization: string): W3MSafeVerifyDependen
       return { records: { buyer, seller, policy } as OwnerRecords };
     },
     getRpcChainId: () => rpc.getChainId(),
+    readSafeAuthenticity: async (safeAddress) => {
+      const safe = safeAddress as Address;
+      const singleton = W3M_SAFE_AUTHENTICITY_CONSTANTS.singletonAddress as Address;
+      const factory = W3M_SAFE_AUTHENTICITY_CONSTANTS.factoryAddress as Address;
+      const [proxyCode, singletonCode, factoryCode, singletonStorage, masterCopyResult] = await Promise.all([
+        rpc.getBytecode({ address: safe }),
+        rpc.getBytecode({ address: singleton }),
+        rpc.getBytecode({ address: factory }),
+        rpc.getStorageAt({ address: safe, slot: "0x0" }),
+        rpc.call({ to: safe, data: "0xa619486e" }),
+      ]);
+      return {
+        proxyCode: proxyCode ?? "0x",
+        singletonCode: singletonCode ?? "0x",
+        factoryCode: factoryCode ?? "0x",
+        singletonStorage: singletonStorage ?? "0x",
+        masterCopy: masterCopyResult.data ?? "0x",
+      };
+    },
+    readSafePolicy: async (safeAddress) => {
+      const safe = safeAddress as Address;
+      const [owners, threshold] = await Promise.all([
+        rpc.readContract({ address: safe, abi: SAFE_POLICY_ABI, functionName: "getOwners" }),
+        rpc.readContract({ address: safe, abi: SAFE_POLICY_ABI, functionName: "getThreshold" }),
+      ]);
+      return { owners, threshold };
+    },
   };
 }
 
@@ -116,10 +177,41 @@ export async function handleW3MSafeVerify(
     const rpcChainId = await deps.getRpcChainId();
     if (!isW3MBscMainnetChain(rpcChainId)) return fail("bsc_rpc_chain_mismatch", 503);
 
-    // Fail closed until the SafeProxy runtime hash is reproducibly derived, independently
-    // verified against BNB Chain, and pinned in this source. A non-empty bytecode check
-    // is not proof that this address is an authentic SafeProxy deployment.
-    return fail("SAFE_AUTHENTICITY_UNVERIFIED", 503);
+    // Authenticate contract identity before reading owners or threshold.
+    const safeAddress = String(deal.safe_address);
+    const authenticityRecords = await deps.readSafeAuthenticity(safeAddress);
+    const authenticity = assessW3MSafeAuthenticity({
+      chainId: rpcChainId,
+      safeAddress: deal.safe_address,
+      ...authenticityRecords,
+    });
+    if (!authenticity.ok) return fail(authenticity.reason, 503);
+
+    // Only after proxy/singleton/factory authenticity passes, inspect the Safe policy.
+    const safePolicyRecords = await deps.readSafePolicy(safeAddress);
+    const safePolicy = assessSafeConfiguration({
+      owners: safePolicyRecords.owners,
+      threshold: safePolicyRecords.threshold,
+      code: authenticityRecords.proxyCode,
+      expectedOwners: context.expectedOwners,
+    });
+    if (!safePolicy.ok) return fail(safePolicy.reason, 409);
+
+    return json({
+      ok: true,
+      verified: true,
+      safe_policy_verified: true,
+      safe_address: safeAddress,
+      chain_id: 56,
+      owner_count: safePolicy.ownerCount,
+      threshold: safePolicy.threshold,
+      authenticity: {
+        proxy_runtime_hash: authenticity.proxyRuntimeHash,
+        singleton_runtime_hash: authenticity.singletonRuntimeHash,
+        factory_runtime_hash: authenticity.factoryRuntimeHash,
+        singleton_address: authenticity.singletonAddress,
+      },
+    });
   } catch (error) {
     console.error("W3M Safe verification failed:", error instanceof Error ? error.name : "unknown");
     return fail("safe_verification_unavailable", 503);
