@@ -93,7 +93,7 @@ The same tag provides these build inputs:
 - `hardhat.config.ts` blob SHA: `b8b99ba8b4117d3a8ae06e944535d650e8ce6e60`; compiler defaults to `0.7.6`, and artifact output is configured under `build/artifacts`.
 - `.github/workflows/ci.yml` blob SHA: `da5282541de801f9e420d98219245370654c0174`; upstream CI uses Node `16.7.0`, `yarn --frozen-lockfile`, then `yarn build`.
 
-The release tree does not expose a committed `build/artifacts` directory at the expected path. The source and build recipe are now pinned, but that alone is not a compiled runtime artifact or an independently reproduced hash. The exact compiler metadata defaults, emitted deployed-bytecode artifact, and BNB Chain runtime comparison still need to be captured and reviewed before any proxy hash can be approved.
+The release tree does not expose a committed `build/artifacts` directory at the expected path. The source and build recipe are now pinned. A direct BNB Mainnet RPC comparison has since confirmed the explorer-derived proxy runtime hash, but a full upstream build is still required to reproduce the exact compiler metadata and deployed-bytecode artifact before the hash can be approved.
 
 ### Independent explorer bytecode candidate — not yet approved
 
@@ -106,7 +106,7 @@ This is a useful candidate for a cross-check, but it is **not** accepted as the 
 - it is not a BNB Chain runtime observation;
 - the source/build metadata has not yet been independently matched byte-for-byte to the pinned Safe v1.4.1 source commit;
 - its runtime code hash has not been independently calculated and reproduced;
-- no matching BNB Chain proxy runtime has yet been read from a trusted RPC.
+- a separate BNB Chain candidate has now been read directly from a public BNB Mainnet RPC; see the next section.
 
 Reference: Routescan source-verified SafeProxy explorer result. <https://routescan.io/address/0xDce3902B257025A120771d46aF16cE8988fc81C1/contract/1/code>
 
@@ -154,6 +154,35 @@ Explorer references:
 - the candidate hash has not yet been reproduced by a second independent Keccak implementation.
 
 Therefore this candidate hash must not yet be pinned into the production verifier. Keep `SAFE_AUTHENTICITY_UNVERIFIED` and the Deal Room fail-closed behavior unchanged.
+
+### BNB Mainnet RPC confirmation — runtime candidate matched
+
+A BNB Mainnet SafeProxy candidate at
+`0x91F10950303c6fdAC09c957ac7B1aae9A4B7F2e7` was identified from BscScan. Its parent creation transaction is attributed by the explorer to Safe Proxy Factory 1.4.1. BscScan displays the same runtime bytecode for multiple SafeProxy records created through the v1.4.1 factory.
+
+The candidate runtime hash was computed from the 171-byte explorer-rendered runtime as:
+`0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c`.
+
+A new read-only GitHub Actions check then independently queried BNB Mainnet RPC and confirmed:
+- chain ID is `56`;
+- `eth_getCode(proxy)` Keccak-256 equals the candidate hash above;
+- the Safe singleton runtime hash equals the official registry hash `0x1fe2df852ba3299d6534ef416eefa406e56ced995bca886ab7a553e6d0c5e1c4`;
+- the SafeProxyFactory runtime hash equals the official registry hash `0x50c3cdc4074750a7a974204a716c999edd37482f907608d960b2b025ee0b3317`;
+- `eth_getStorageAt(proxy, 0x0)` resolves to the official Safe v1.4.1 singleton `0x41675C099F32341bf84BFc5382aF534df5C7461a`;
+- `masterCopy()` (`0xa619486e`) returns the same singleton address.
+
+The check used only `eth_chainId`, `eth_getCode`, `eth_getStorageAt`, and `eth_call`. No transaction was signed or broadcast.
+
+Read-only check:
+- Workflow run: https://github.com/Aminzaki1972/Web3Market/actions/runs/42607447961
+- A later run repeated the same BNB RPC check successfully: https://github.com/Aminzaki1972/Web3Market/actions/runs/42607586148
+
+The hash was also calculated with a standalone Ethereum Keccak-256 implementation and cross-checked against the canonical empty-input Keccak-256 vector. The GitHub Actions read-only script uses viem's Keccak implementation and produced the same hash from live RPC bytecode.
+
+**Remaining blocker:** an isolated compile of only `SafeProxy.sol` using solc 0.7.6 and optimizer disabled produced a different runtime hash (`0xf610a0cf56feb200b1e77c7ae36745e643d11e1fc4fc04742f9e864e89e5db8b`). This does not invalidate the live RPC observation; it shows that the minimal compile has not reproduced the exact upstream metadata/build input. The current CI run is rebuilding the complete pinned Safe v1.4.1 repository and will compare its emitted deployed runtime with the BNB RPC hash:
+https://github.com/Aminzaki1972/Web3Market/actions/runs/42607768554
+
+Until that full-source reproduction passes, the proxy hash remains a **confirmed on-chain candidate but not yet an approved verifier constant**. Keep `SAFE_AUTHENTICITY_UNVERIFIED` and the Deal Room fail-closed behavior unchanged.
 
 ### Latest fail-closed CI result
 
