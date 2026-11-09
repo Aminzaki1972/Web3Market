@@ -215,15 +215,16 @@ Use a stable fail-closed status such as `SAFE_AUTHENTICITY_UNVERIFIED` for any m
 
 ## 7. Current implementation status
 
-The verifier in the isolated W3M branch still deliberately fails closed with `SAFE_AUTHENTICITY_UNVERIFIED` after authentication, deal-participant, owner-record context, and BNB mainnet chain checks. The approved SafeProxy hash is now available, but the endpoint does not yet execute the complete runtime, singleton, factory, owner, and threshold verification path.
+The isolated W3M branch now integrates the approved SafeProxy runtime hash, canonical singleton and factory runtime hashes, storage slot 0, and `masterCopy()` agreement into `w3m-safe-verify`. It checks a stored `safe_deployment_tx_hash` for a matching `ProxyCreation(address,address)` event from the canonical factory when that transaction hash is available; a supplied but mismatched creation record is rejected. If no deployment transaction hash is stored, factory creation provenance is reported as unavailable rather than falsely claimed.
 
-The prior positive integration fixture (`0x60006000`) was removed from the verifier tests. A regression test confirms that the endpoint returns HTTP 503, `verified: false`, and `safe_policy_verified: false` until the complete authenticity implementation is added and tested. This remains an intentional V1 safety block.
+Only after authenticity checks pass does the server read `getOwners()` and `getThreshold()` and compare them with the exact buyer, seller, and platform owner set and threshold 2. The response does not include a release authorization flag. The previous arbitrary positive fixture (`0x60006000`) remains rejected; new tests cover genuine proxy runtime identity, counterfeit code, singleton/factory hash mismatch, storage/getter mismatch, and policy mismatch.
 
 Accordingly:
 - Safe 2-of-3 policy construction and its separate unit tests remain implemented.
 - The official singleton and factory hashes are documented from the Safe Deployments registry.
 - SafeProxy runtime identity, singleton storage/getter agreement, and singleton/factory runtime hashes now have reproducible evidence and a successful read-only BNB Mainnet CI check.
-- Remaining implementation work: integrate these checks into `w3m-safe-verify`, then verify the exact three owners and threshold 2 only after authenticity passes; add positive and negative tests using the approved runtime fixture.
-- Safe verification remains deliberately unavailable until that implementation is complete; the Deal Room must keep the Safe verification-dependent flow blocked.
-- The latest Safe authenticity CI run completed successfully on its tested code head; the document-only follow-up commit does not change that code.
+- The current verifier implementation now performs the authenticity checks before reading owner and threshold state; factory creation provenance is checked when the deployment transaction hash is available.
+- On the preceding implementation head, 55 tests passed and type-check passed; the latest follow-up run also completed the 55-test suite, type-check, BNB Testnet check, and BNB Mainnet read-only authenticity check. Its full upstream Safe build stage is still running and must complete successfully before the latest head is called fully validated.
+- Safe verification must remain blocked in production until the current CI run is fully green and the Deal Room integration is confirmed against the new response contract.
+- No production deployment, Safe deployment, wallet signing, transaction, or fund movement is authorized.
 - No production deployment, Safe deployment, wallet signing, transaction, or fund movement is authorized.
