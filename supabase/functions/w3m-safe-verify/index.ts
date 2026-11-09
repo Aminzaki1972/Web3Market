@@ -3,9 +3,10 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 import { createPublicClient, http, getAddress } from "npm:viem@2.37.6";
 import { bsc } from "npm:viem@2.37.6/chains";
 import { assessSafeConfiguration } from "../_shared/w3m-safe-configuration.js";
+import { isW3MBscMainnetChain, W3M_BSC_MAINNET_CHAIN_ID } from "../_shared/w3m-safe-chain.ts";
 
 const PLATFORM_WALLET = "0x2B15cC63eE3b833F502C065767695Fa2B584f8c9";
-const BSC_CHAIN_ID = 56;
+const BSC_CHAIN_ID = W3M_BSC_MAINNET_CHAIN_ID;
 const SAFE_ABI = [
   { type: "function", name: "getOwners", stateMutability: "view", inputs: [], outputs: [{ type: "address[]" }] },
   { type: "function", name: "getThreshold", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
@@ -96,7 +97,7 @@ Deno.serve(async (req) => {
     if (!rpcUrl) return fail("bsc_rpc_unavailable", 503);
     const client = createPublicClient({ chain: bsc, transport: http(rpcUrl) });
     const rpcChainId = await client.getChainId();
-    if (rpcChainId !== BSC_CHAIN_ID) return fail("bsc_rpc_chain_mismatch", 503);
+    if (!isW3MBscMainnetChain(rpcChainId)) return fail("bsc_rpc_chain_mismatch", 503);
 
     const safeAddress = getAddress(deal.safe_address);
     const [code, owners, threshold, nonce] = await Promise.all([
