@@ -95,6 +95,9 @@ Deno.serve(async (req) => {
     const rpcUrl = Deno.env.get("BSC_RPC_URL") || Deno.env.get("SAFE_BSC_RPC_URL");
     if (!rpcUrl) return fail("bsc_rpc_unavailable", 503);
     const client = createPublicClient({ chain: bsc, transport: http(rpcUrl) });
+    const rpcChainId = await client.getChainId();
+    if (rpcChainId !== BSC_CHAIN_ID) return fail("bsc_rpc_chain_mismatch", 503);
+
     const safeAddress = getAddress(deal.safe_address);
     const [code, owners, threshold, nonce] = await Promise.all([
       client.getBytecode({ address: safeAddress }),
