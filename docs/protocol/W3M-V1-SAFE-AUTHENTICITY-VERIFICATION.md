@@ -40,7 +40,7 @@ Upstream references:
 - https://github.com/safe-global/safe-deployments/blob/main/src/assets/v1.4.1/safe_proxy_factory.json
 - https://docs.safe.global/reference-smart-account/deployment/SafeProxy
 
-**Important distinction:** The published singleton and factory hashes are registry-backed. The SafeProxy runtime hash is not published in these two registry assets and remains unapproved. Do not treat the factory hash as the proxy hash.
+**Important distinction:** The official registry publishes the singleton and factory hashes, not the SafeProxy runtime hash. W3M has independently derived the SafeProxy runtime hash from the full pinned Safe v1.4.1 build and matched it against BNB Mainnet RPC. The W3M-derived proxy hash is recorded below; it is distinct from the factory hash.
 
 ## 3. Required authenticity checks
 
@@ -58,11 +58,11 @@ The verifier must fail closed unless all checks pass:
 
 The slot value is a 32-byte word; decode the low 20 bytes as the EVM address. The getter and storage value must agree exactly after address normalization.
 
-## 4. Remaining hash provenance blocker — SafeProxy
+## 4. SafeProxy runtime hash provenance — resolved
 
-The singleton hash and factory hash are now backed by the official Safe Deployments v1.4.1 registry. The SafeProxy runtime hash is still unresolved.
+The singleton hash and factory hash are backed by the official Safe Deployments v1.4.1 registry. The SafeProxy runtime hash has now been reproduced from the full pinned upstream source build and matched against live BNB Mainnet runtime bytecode.
 
-Before approving a proxy hash, the derivation record must include:
+The approved proxy hash derivation record includes:
 - immutable Safe Smart Account tag and commit;
 - exact compiler version and build metadata;
 - optimizer and metadata settings;
@@ -72,9 +72,13 @@ Before approving a proxy hash, the derivation record must include:
 - independently reproduced hash;
 - comparison against deployed bytecode from a trusted BNB Chain RPC and/or verified explorer source.
 
-The Safe v1.4.1 release source and changelog confirm compiler 0.7.6 and optimizer disabled, but the tag does not contain compiled Hardhat artifacts at the expected artifact paths. No SafeProxy runtime hash is approved yet.
+The full Safe v1.4.1 repository was checked out at immutable commit `bf943f80fec5ac647159d26161446ac5d716a294`, installed with its pinned Yarn lockfile, and built using the upstream `yarn build` command. The emitted SafeProxy deployed runtime is 171 bytes and its Keccak-256 hash is:
 
-**Until the SafeProxy hash provenance is complete, the authenticity gate is not production-ready.** Do not substitute a guessed hash, a creation-bytecode hash, the factory hash, a proxy address, or a test fixture such as `0x60006000`.
+`0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c`.
+
+The full upstream build used Solidity `0.7.6+commit.7338295f`, optimizer disabled, and the pinned SafeProxy source blob `eb21260363a19f1a35ef34e323761e63cf5600e3`. The full-build runtime hash matches the value returned by `eth_getCode` from BNB Mainnet for the SafeProxy sample below. A standalone Keccak implementation and viem's Keccak implementation also agree on this hash.
+
+**W3M V1 SafeProxy runtime hash is approved as the expected runtime identity for Safe v1.4.1.** This approval is limited to this exact version/build profile and does not yet mean the production verifier has implemented the complete authenticity checks. Do not substitute a creation-bytecode hash, factory hash, or arbitrary test fixture such as `0x60006000`.
 
 
 
@@ -93,7 +97,7 @@ The same tag provides these build inputs:
 - `hardhat.config.ts` blob SHA: `b8b99ba8b4117d3a8ae06e944535d650e8ce6e60`; compiler defaults to `0.7.6`, and artifact output is configured under `build/artifacts`.
 - `.github/workflows/ci.yml` blob SHA: `da5282541de801f9e420d98219245370654c0174`; upstream CI uses Node `16.7.0`, `yarn --frozen-lockfile`, then `yarn build`.
 
-The release tree does not expose a committed `build/artifacts` directory at the expected path. The source and build recipe are now pinned. A direct BNB Mainnet RPC comparison has since confirmed the explorer-derived proxy runtime hash, but a full upstream build is still required to reproduce the exact compiler metadata and deployed-bytecode artifact before the hash can be approved.
+The release tree does not commit generated Hardhat artifacts. To reproduce the deployed runtime, CI checks out the complete upstream repository at the pinned commit, installs dependencies with `yarn --frozen-lockfile`, runs `yarn build`, then inspects the emitted build-info record. This reproduced the exact 171-byte runtime and hash.
 
 ### Independent explorer bytecode candidate — not yet approved
 
@@ -110,7 +114,7 @@ This is a useful candidate for a cross-check, but it is **not** accepted as the 
 
 Reference: Routescan source-verified SafeProxy explorer result. <https://routescan.io/address/0xDce3902B257025A120771d46aF16cE8988fc81C1/contract/1/code>
 
-### BNB Chain explorer runtime candidate — hash computed, approval pending
+### BNB Chain explorer runtime candidate — confirmed and approved by RPC + full build
 
 A BscScan-indexed BNB Smart Chain SafeProxy candidate was found at:
 `0x91F10950303c6fdAC09c957ac7B1aae9A4B7F2e7`.
@@ -147,13 +151,7 @@ Explorer references:
 - https://bscscan.com/address/0x5e2faa3184244e2986cc31f3fd9cbeb79cfa9a93
 - https://bscscan.com/address/0xcaf15ea620c9158cd3214e00a204cf3f32e45363
 
-**Status: candidate only — not approved for enforcement.** This improves provenance because the candidate is indexed on BNB Chain and its creation is attributed to Safe Proxy Factory 1.4.1. However:
-- the bytecode was obtained from explorer-rendered data, not yet independently fetched with `eth_getCode` from a trusted BNB RPC;
-- the pinned v1.4.1 source has not yet been compiled in an independent reproducible build and byte-for-byte compared with this runtime;
-- the storage slot 0 and `masterCopy()` value of this sample have not yet been independently queried and compared;
-- the candidate hash has not yet been reproduced by a second independent Keccak implementation.
-
-Therefore this candidate hash must not yet be pinned into the production verifier. Keep `SAFE_AUTHENTICITY_UNVERIFIED` and the Deal Room fail-closed behavior unchanged.
+**Status: runtime identity confirmed and approved for the v1.4.1 build profile.** The BNB Mainnet read-only check independently confirmed the runtime hash, official singleton hash, official factory hash, storage slot 0, and `masterCopy()` agreement. The full upstream build independently reproduced the same runtime hash. This approves the expected SafeProxy runtime hash as an authenticity input; the server verifier still needs to implement and test the complete checks before it may return a successful verification result.
 
 ### BNB Mainnet RPC confirmation — runtime candidate matched
 
@@ -179,20 +177,22 @@ Read-only check:
 
 The hash was also calculated with a standalone Ethereum Keccak-256 implementation and cross-checked against the canonical empty-input Keccak-256 vector. The GitHub Actions read-only script uses viem's Keccak implementation and produced the same hash from live RPC bytecode.
 
-**Remaining blocker:** an isolated compile of only `SafeProxy.sol` using solc 0.7.6 and optimizer disabled produced a different runtime hash (`0xf610a0cf56feb200b1e77c7ae36745e643d11e1fc4fc04742f9e864e89e5db8b`). This does not invalidate the live RPC observation; it shows that the minimal compile has not reproduced the exact upstream metadata/build input. The current CI run is rebuilding the complete pinned Safe v1.4.1 repository and will compare its emitted deployed runtime with the BNB RPC hash:
+The isolated single-file compile produced a different metadata-dependent hash and is not used as the approved artifact. The complete pinned upstream build resolved this difference and passed. Full build + RPC verification run:
 https://github.com/Aminzaki1972/Web3Market/actions/runs/42607768554
 
-Until that full-source reproduction passes, the proxy hash remains a **confirmed on-chain candidate but not yet an approved verifier constant**. Keep `SAFE_AUTHENTICITY_UNVERIFIED` and the Deal Room fail-closed behavior unchanged.
+The approved hash must now be integrated into the server verifier with runtime hash, singleton slot/getter, singleton code hash, and owner/threshold checks. Until that implementation and its negative/positive tests pass, keep `SAFE_AUTHENTICITY_UNVERIFIED` and the Deal Room fail-closed behavior unchanged.
 
-### Latest fail-closed CI result
+### Latest Safe authenticity CI result
 
-On head `870ed6a045c221df5d9a567c7aa7fbdd8350d110`, GitHub Actions Safe policy workflow completed successfully:
+On code head `7caa7d1b4069c58e9cd4c35fa28d45c7c792f666`, GitHub Actions completed successfully:
 - 42 tests passed, 0 failed.
 - Safe policy/configuration type-check passed.
-- BNB Testnet reference check (read-only) passed.
+- BNB Testnet Safe reference check passed (read-only).
+- BNB Mainnet SafeProxy runtime hash, Singleton hash, and Factory hash matched on-chain.
+- Proxy storage slot 0 and `masterCopy()` both matched the official v1.4.1 Singleton.
+- Full Safe v1.4.1 upstream build reproduced the exact 171-byte SafeProxy runtime and approved hash.
 
-This validates the fail-closed implementation and the existing Safe policy suite. It does not validate SafeProxy authenticity or live BNB mainnet Safe verification.
-Run: https://github.com/Aminzaki1972/Web3Market/actions/runs/42606862028
+Run: https://github.com/Aminzaki1972/Web3Market/actions/runs/42607768554
 
 ## 5. Required negative tests
 
@@ -215,14 +215,15 @@ Use a stable fail-closed status such as `SAFE_AUTHENTICITY_UNVERIFIED` for any m
 
 ## 7. Current implementation status
 
-The verifier in the isolated W3M branch has now been changed to fail closed with `SAFE_AUTHENTICITY_UNVERIFIED` after authentication, deal-participant, owner-record context, and BNB mainnet chain checks. It no longer reads Safe owners, threshold, nonce, or arbitrary bytecode and cannot return `verified: true` while the approved SafeProxy runtime hash is missing.
+The verifier in the isolated W3M branch still deliberately fails closed with `SAFE_AUTHENTICITY_UNVERIFIED` after authentication, deal-participant, owner-record context, and BNB mainnet chain checks. The approved SafeProxy hash is now available, but the endpoint does not yet execute the complete runtime, singleton, factory, owner, and threshold verification path.
 
-The prior positive integration fixture (`0x60006000`) was removed from the verifier tests. A regression test now confirms that the endpoint returns HTTP 503, `verified: false`, and `safe_policy_verified: false` until the authenticity artifact is approved. This is an intentional V1 safety block, not completed Safe verification.
+The prior positive integration fixture (`0x60006000`) was removed from the verifier tests. A regression test confirms that the endpoint returns HTTP 503, `verified: false`, and `safe_policy_verified: false` until the complete authenticity implementation is added and tested. This remains an intentional V1 safety block.
 
 Accordingly:
 - Safe 2-of-3 policy construction and its separate unit tests remain implemented.
 - The official singleton and factory hashes are documented from the Safe Deployments registry.
-- SafeProxy runtime identity, singleton storage/getter cross-checks, singleton runtime hash enforcement, and factory provenance remain open V1 security requirements.
-- Safe verification is currently deliberately unavailable; the Deal Room must keep the Safe verification-dependent flow blocked.
-- CI has been triggered for the isolated PR head; its result must be checked before this change is described as tested.
+- SafeProxy runtime identity, singleton storage/getter agreement, and singleton/factory runtime hashes now have reproducible evidence and a successful read-only BNB Mainnet CI check.
+- Remaining implementation work: integrate these checks into `w3m-safe-verify`, then verify the exact three owners and threshold 2 only after authenticity passes; add positive and negative tests using the approved runtime fixture.
+- Safe verification remains deliberately unavailable until that implementation is complete; the Deal Room must keep the Safe verification-dependent flow blocked.
+- The latest Safe authenticity CI run completed successfully on its tested code head; the document-only follow-up commit does not change that code.
 - No production deployment, Safe deployment, wallet signing, transaction, or fund movement is authorized.
