@@ -224,7 +224,7 @@ Deno.test("Safe verifier confirms only a live-read-equivalent exact 2-of-3 conte
   assertEquals(body.verified, true);
   assertEquals(body.safe_policy_verified, true);
   assertEquals(body.owner_count, 3);
-  assertEquals(body.threshold, 2);
+  assertEquals(body.threshold, "2");
   assertEquals(body.nonce, "7");
   assertEquals(body.chain_id, 56);
 });
