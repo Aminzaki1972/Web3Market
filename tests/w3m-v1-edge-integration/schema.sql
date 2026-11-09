@@ -21,7 +21,18 @@ create table public.deals (
   seller_id uuid not null,
   status text not null default 'pending',
   dispute_status text not null default 'none',
-  release_tx_hash text
+  release_tx_hash text,
+  chain_id bigint,
+  safe_address text,
+  safe_deployment_tx_hash text
+);
+
+create table public.deal_release_policies (
+  deal_id uuid primary key references public.deals(id) on delete cascade,
+  seller_wallet text not null,
+  platform_wallet text not null,
+  safe_address text not null,
+  chain_id bigint not null
 );
 
 create table public.deal_disputes (
