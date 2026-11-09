@@ -27,7 +27,7 @@ const fail = (reason: string, status = 409) => json({
 const isAddress = (value: unknown): value is string =>
   typeof value === "string" && /^0x[a-fA-F0-9]{40}$/.test(value) && !/^0x0{40}$/i.test(value);
 
-Deno.serve(async (req) => {
+export async function handleW3MSafeVerify(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   if (req.method !== "POST") return fail("method_not_allowed", 405);
 
@@ -128,4 +128,6 @@ Deno.serve(async (req) => {
     console.error("W3M Safe verification failed:", error instanceof Error ? error.name : "unknown");
     return fail("safe_verification_unavailable", 503);
   }
-});
+}
+
+if (import.meta.main) Deno.serve(handleW3MSafeVerify);
