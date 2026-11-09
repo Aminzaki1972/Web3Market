@@ -26,7 +26,7 @@ Deno.test("Safe context rejects a deal on the wrong chain", () => {
 Deno.test("Safe context rejects unverified or missing participant wallets", () => {
   const unverified = base(); unverified.buyer.wallet_verified = false;
   assertEquals(assessSafeVerificationContext(unverified).reason, "verified_owner_identity_missing");
-  const missing = base(); missing.seller.wallet_address = null;
+  const missing = base(); missing.seller.wallet_address = "";
   assertEquals(assessSafeVerificationContext(missing).reason, "verified_owner_identity_missing");
 });
 
