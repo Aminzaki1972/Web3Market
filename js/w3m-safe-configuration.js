@@ -1,5 +1,5 @@
 // Validate the live Safe configuration against the approved W3M V1 2-of-3 policy.
-export function assessSafeConfiguration({ owners, threshold, code }) {
+export function assessSafeConfiguration({ owners, threshold, code, expectedOwners }) {
   const result = {
     ok: false,
     ownerCount: Array.isArray(owners) ? owners.length : 0,
@@ -34,6 +34,27 @@ export function assessSafeConfiguration({ owners, threshold, code }) {
   }
   if (new Set(normalized).size !== normalized.length) {
     result.reason = "duplicate_owners";
+    return result;
+  }
+
+  if (!Array.isArray(expectedOwners) || expectedOwners.length !== 3) {
+    result.reason = "expected_owner_set_unavailable";
+    return result;
+  }
+  const normalizedExpected = [];
+  for (const owner of expectedOwners) {
+    if (typeof owner !== "string" || !/^0x[0-9a-f]{40}$/i.test(owner) || /^0x0{40}$/i.test(owner)) {
+      result.reason = "expected_owner_set_invalid";
+      return result;
+    }
+    normalizedExpected.push(owner.toLowerCase());
+  }
+  if (new Set(normalizedExpected).size !== 3) {
+    result.reason = "expected_owner_set_invalid";
+    return result;
+  }
+  if (normalized.slice().sort().join(":") !== normalizedExpected.slice().sort().join(":")) {
+    result.reason = "owner_set_mismatch";
     return result;
   }
 
