@@ -1,6 +1,16 @@
 name: W3M Safe V1 Policy Tests
 
 on:
+  push:
+    branches:
+      - "fix/w3m-safe-dynamic-threshold-20261109"
+    paths:
+      - "supabase/functions/_shared/w3m-safe-policy.ts"
+      - "supabase/functions/_shared/w3m-safe-policy.test.ts"
+      - "supabase/functions/create-safe/index.ts"
+      - "js/w3m-safe-configuration.js"
+      - "js/w3m-safe-configuration.test.js"
+      - ".github/workflows/w3m-safe-policy-tests.yml"
   pull_request:
     paths:
       - "supabase/functions/_shared/w3m-safe-policy.ts"
