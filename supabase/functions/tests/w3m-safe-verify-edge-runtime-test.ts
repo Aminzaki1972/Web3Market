@@ -18,6 +18,7 @@ Deno.test({
     const state = {
       chainId: "0x38",
       rpcMethods: [] as string[],
+      rpcCallData: [] as string[],
     };
     const mockListener = Deno.listen({ hostname: "127.0.0.1", port: 0 });
     const mockPort = (mockListener.addr as Deno.NetAddr).port;
@@ -74,6 +75,7 @@ Deno.test({
           if (call.method === "eth_getStorageAt") result = word(SINGLETON);
           if (call.method === "eth_call") {
             const data = String((call.params?.[0] as { data?: string } | undefined)?.data || "").toLowerCase();
+            state.rpcCallData.push(data);
             if (data.startsWith("0xa619486e")) result = word(SINGLETON);
           }
           return { jsonrpc: "2.0", id: call.id, result };
@@ -129,8 +131,8 @@ Deno.test({
       assertEquals(counterfeitBody.verified, false);
       assert(state.rpcMethods.includes("eth_getCode"), "expected real RPC adapter calls");
       assert(
-        !state.rpcMethods.includes("eth_call") || state.rpcMethods.every((method) => method !== "eth_call"),
-        "owner-policy reads must not run after counterfeit proxy detection",
+        state.rpcCallData.length > 0 && state.rpcCallData.every((data) => data.startsWith("0xa619486e")),
+        "only masterCopy() identity call may run; getOwners()/getThreshold() must remain blocked",
       );
 
       const outsider = await call("outsider-token");
@@ -144,6 +146,7 @@ Deno.test({
       assertEquals(invalidSessionBody.reason, "invalid_session");
 
       state.rpcMethods.length = 0;
+      state.rpcCallData.length = 0;
       state.chainId = "0x61";
       const wrongChain = await call("test-token");
       const wrongChainBody = await wrongChain.json();
