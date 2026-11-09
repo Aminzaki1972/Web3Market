@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import { createPublicClient, http, type Address } from "npm:viem@2.37.6";
+import { createPublicClient, http, keccak256, toBytes, type Address, type Hex } from "npm:viem@2.37.6";
 import { bsc } from "npm:viem@2.37.6/chains";
 import { assessSafeConfiguration } from "../../../js/w3m-safe-configuration.js";
 import { isW3MBscMainnetChain } from "../_shared/w3m-safe-chain.ts";
@@ -26,6 +26,7 @@ const fail = (reason: string, status = 409) => json({
 
 type Deal = {
   id: string; buyer_id: string; seller_id: string; chain_id: unknown; safe_address: unknown;
+  safe_deployment_tx_hash?: unknown;
 };
 type OwnerRecords = {
   buyer: { wallet_address: unknown; wallet_verified: unknown };
@@ -38,6 +39,7 @@ type SafeAuthenticityRecords = {
   factoryCode: unknown;
   singletonStorage: unknown;
   masterCopy: unknown;
+  factoryProvenanceVerified?: unknown;
 };
 type SafePolicyRecords = { owners: unknown; threshold: unknown };
 
@@ -63,7 +65,7 @@ export type W3MSafeVerifyDependencies = {
   loadDeal: (dealId: string) => Promise<{ deal: Deal | null; error?: boolean }>;
   loadOwnerRecords: (deal: Deal) => Promise<{ records: OwnerRecords | null; error?: boolean }>;
   getRpcChainId: () => Promise<number>;
-  readSafeAuthenticity: (safeAddress: string) => Promise<SafeAuthenticityRecords>;
+  readSafeAuthenticity: (safeAddress: string, deploymentTxHash?: unknown) => Promise<SafeAuthenticityRecords>;
   readSafePolicy: (safeAddress: string) => Promise<SafePolicyRecords>;
   expectedAuthenticity?: W3MSafeAuthenticityExpected; // Test-only override; production dependencies never set this.
 };
@@ -91,7 +93,7 @@ function createDefaultDependencies(authorization: string): W3MSafeVerifyDependen
     },
     loadDeal: async (dealId) => {
       const { data, error } = await db.from("deals")
-        .select("id,buyer_id,seller_id,chain_id,safe_address")
+        .select("id,buyer_id,seller_id,chain_id,safe_address,safe_deployment_tx_hash")
         .eq("id", dealId).maybeSingle();
       return { deal: data as Deal | null, error: Boolean(error) };
     },
@@ -109,7 +111,7 @@ function createDefaultDependencies(authorization: string): W3MSafeVerifyDependen
       return { records: { buyer, seller, policy } as OwnerRecords };
     },
     getRpcChainId: () => rpc.getChainId(),
-    readSafeAuthenticity: async (safeAddress) => {
+    readSafeAuthenticity: async (safeAddress, deploymentTxHash) => {
       const safe = safeAddress as Address;
       const singleton = W3M_SAFE_AUTHENTICITY_CONSTANTS.singletonAddress as Address;
       const factory = W3M_SAFE_AUTHENTICITY_CONSTANTS.factoryAddress as Address;
@@ -120,12 +122,31 @@ function createDefaultDependencies(authorization: string): W3MSafeVerifyDependen
         rpc.getStorageAt({ address: safe, slot: "0x0" }),
         rpc.call({ to: safe, data: "0xa619486e" }),
       ]);
+
+      let factoryProvenanceVerified: boolean | null = null;
+      if (deploymentTxHash !== null && deploymentTxHash !== undefined && deploymentTxHash !== "") {
+        if (typeof deploymentTxHash !== "string" || !/^0x[0-9a-f]{64}$/i.test(deploymentTxHash)) {
+          factoryProvenanceVerified = false;
+        } else {
+          const receipt = await rpc.getTransactionReceipt({ hash: deploymentTxHash as Hex });
+          const eventTopic = keccak256(toBytes("ProxyCreation(address,address)")).toLowerCase();
+          const proxyTopic = `0x${safeAddress.slice(2).toLowerCase().padStart(64, "0")}`;
+          factoryProvenanceVerified = receipt.status === "success" && receipt.logs.some((log) =>
+            log.address.toLowerCase() === factory.toLowerCase() &&
+            log.topics[0]?.toLowerCase() === eventTopic &&
+            log.topics[1]?.toLowerCase() === proxyTopic &&
+            log.data.toLowerCase().endsWith(singleton.slice(2).toLowerCase())
+          );
+        }
+      }
+
       return {
         proxyCode: proxyCode ?? "0x",
         singletonCode: singletonCode ?? "0x",
         factoryCode: factoryCode ?? "0x",
         singletonStorage: singletonStorage ?? "0x",
         masterCopy: masterCopyResult.data ?? "0x",
+        factoryProvenanceVerified,
       };
     },
     readSafePolicy: async (safeAddress) => {
@@ -181,7 +202,7 @@ export async function handleW3MSafeVerify(
 
     // Authenticate contract identity before reading owners or threshold.
     const safeAddress = String(deal.safe_address);
-    const authenticityRecords = await deps.readSafeAuthenticity(safeAddress);
+    const authenticityRecords = await deps.readSafeAuthenticity(safeAddress, deal.safe_deployment_tx_hash);
     const authenticity = assessW3MSafeAuthenticity({
       chainId: rpcChainId,
       safeAddress: deal.safe_address,
@@ -212,6 +233,7 @@ export async function handleW3MSafeVerify(
         singleton_runtime_hash: authenticity.singletonRuntimeHash,
         factory_runtime_hash: authenticity.factoryRuntimeHash,
         singleton_address: authenticity.singletonAddress,
+        factory_provenance_verified: authenticity.factoryProvenanceVerified,
       },
     });
   } catch (error) {
