@@ -1,6 +1,11 @@
 // Server-side copy of the W3M V1 Safe configuration validator.
 // Keep behavior aligned with js/w3m-safe-configuration.js; parity is covered by CI tests.
-export function assessSafeConfiguration({ owners, threshold, code, expectedOwners }) {
+/**
+ * @param {{ owners: unknown, threshold: string | number | bigint | boolean, code: unknown, expectedOwners?: unknown }} input
+ */
+export function assessSafeConfiguration(input) {
+  const { owners, threshold, code, expectedOwners } = input;
+  /** @type {{ ok: boolean, ownerCount: number, threshold: string | null, reason: string }} */
   const result = {
     ok: false,
     ownerCount: Array.isArray(owners) ? owners.length : 0,
