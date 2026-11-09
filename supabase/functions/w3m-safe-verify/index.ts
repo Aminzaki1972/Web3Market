@@ -160,4 +160,4 @@ export async function handleW3MSafeVerify(
   }
 }
 
-if (import.meta.main) Deno.serve(handleW3MSafeVerify);
+if (import.meta.main) Deno.serve((req) => handleW3MSafeVerify(req));
