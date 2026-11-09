@@ -12,8 +12,6 @@ on:
       - "supabase/functions/_shared/w3m-safe-configuration.js"
       - "supabase/functions/_shared/w3m-safe-configuration.test.ts"
       - "supabase/functions/_shared/w3m-safe-chain.ts"
-      - "supabase/functions/_shared/w3m-safe-authenticity.ts"
-      - "supabase/functions/_shared/w3m-safe-authenticity.test.ts"
       - "supabase/functions/_shared/w3m-safe-verification-context.ts"
       - "supabase/functions/_shared/w3m-safe-verification-context.test.ts"
       - "supabase/functions/_shared/w3m-safe-chain.test.ts"
@@ -32,6 +30,8 @@ on:
       - ".github/workflows/w3m-safe-policy-tests.yml"
   pull_request:
     paths:
+      - "supabase/functions/_shared/w3m-safe-authenticity.ts"
+      - "supabase/functions/_shared/w3m-safe-authenticity.test.ts"
       - "supabase/functions/_shared/w3m-safe-verification-context.ts"
       - "supabase/functions/_shared/w3m-safe-verification-context.test.ts"
       - "supabase/functions/_shared/w3m-safe-chain.ts"
@@ -47,6 +47,7 @@ on:
       - "js/w3m-safe-configuration.test.js"
       - "scripts/w3m-safe-testnet-readonly-check.mjs"
       - "scripts/w3m-safe-proxy-authenticity-readonly-check.ts"
+      - "scripts/w3m-safe-proxy-source-repro-check.mjs"
       - ".github/workflows/w3m-safe-policy-tests.yml"
 
 permissions:
