@@ -67,7 +67,21 @@ jobs:
         run: node scripts/w3m-safe-testnet-readonly-check.mjs
       - name: Verify BNB Mainnet SafeProxy authenticity candidate (read-only)
         run: deno run --allow-net scripts/w3m-safe-proxy-authenticity-readonly-check.ts
-      - name: Install pinned SafeProxy source-build dependencies
-        run: npm install --no-save --no-package-lock solc@0.7.6 viem@2.37.6
-      - name: Reproduce SafeProxy runtime from immutable Safe v1.4.1 source
-        run: node scripts/w3m-safe-proxy-source-repro-check.mjs
+      - name: Check out immutable Safe v1.4.1 upstream source
+        uses: actions/checkout@v4
+        with:
+          repository: safe-fndn/safe-smart-account
+          ref: bf943f80fec5ac647159d26161446ac5d716a294
+          path: safe-upstream
+      - name: Set up Safe upstream build Node version
+        uses: actions/setup-node@v4
+        with:
+          node-version: 16.7.0
+      - name: Install pinned Safe upstream dependencies
+        run: yarn --frozen-lockfile
+        working-directory: safe-upstream
+      - name: Build the complete pinned Safe v1.4.1 source tree
+        run: yarn build
+        working-directory: safe-upstream
+      - name: Verify SafeProxy runtime from full upstream build
+        run: node scripts/w3m-safe-proxy-source-repro-check.mjs safe-upstream
