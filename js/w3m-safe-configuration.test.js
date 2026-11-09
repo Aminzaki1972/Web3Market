@@ -18,14 +18,14 @@ Deno.test("accepts only the approved 2-of-3 Safe configuration", () => {
 Deno.test("rejects absent contract code, empty owners, and malformed owner addresses", () => {
   assertEquals(assessSafeConfiguration({ owners: [A], threshold: 1n, code: "0x" }).reason, "safe_contract_not_found");
   assertEquals(assessSafeConfiguration({ owners: [], threshold: 1n, code: CODE }).reason, "owners_missing");
-  assertEquals(assessSafeConfiguration({ owners: ["not-an-address"], threshold: 1n, code: CODE }).reason, "invalid_owner_address");
-  assertEquals(assessSafeConfiguration({ owners: ["0x" + "0".repeat(40)], threshold: 1n, code: CODE }).reason, "zero_owner_address");
+  assertEquals(assessSafeConfiguration({ owners: ["not-an-address", B, C], threshold: 2n, code: CODE }).reason, "invalid_owner_address");
+  assertEquals(assessSafeConfiguration({ owners: ["0x" + "0".repeat(40), B, C], threshold: 2n, code: CODE }).reason, "zero_owner_address");
 });
 
 Deno.test("rejects duplicate owners regardless of address casing", () => {
   assertEquals(assessSafeConfiguration({
-    owners: [LETTER_ADDRESS, LETTER_ADDRESS.toUpperCase().replace("0X", "0x")],
-    threshold: 1n,
+    owners: [LETTER_ADDRESS, LETTER_ADDRESS.toUpperCase().replace("0X", "0x"), C],
+    threshold: 2n,
     code: CODE,
   }).reason, "duplicate_owners");
 });
