@@ -7,7 +7,7 @@ export function assessSafeConfiguration({ owners, threshold, code }) {
     reason: "invalid_configuration",
   };
 
-  if (typeof code !== "string" || !/^0x[0-9a-f]*$/i.test(code) || code === "0x" || code === "0x0") {
+  if (typeof code !== "string" || !/^0x[0-9a-f]*$/i.test(code) || !/[1-9a-f]/i.test(code.slice(2))) {
     result.reason = "safe_contract_not_found";
     return result;
   }
@@ -20,6 +20,10 @@ export function assessSafeConfiguration({ owners, threshold, code }) {
   for (const owner of owners) {
     if (typeof owner !== "string" || !/^0x[0-9a-f]{40}$/i.test(owner)) {
       result.reason = "invalid_owner_address";
+      return result;
+    }
+    if (/^0x0{40}$/i.test(owner)) {
+      result.reason = "zero_owner_address";
       return result;
     }
     normalized.push(owner.toLowerCase());
