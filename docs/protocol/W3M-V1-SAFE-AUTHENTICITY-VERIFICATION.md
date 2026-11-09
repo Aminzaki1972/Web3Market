@@ -110,6 +110,51 @@ This is a useful candidate for a cross-check, but it is **not** accepted as the 
 
 Reference: Routescan source-verified SafeProxy explorer result. <https://routescan.io/address/0xDce3902B257025A120771d46aF16cE8988fc81C1/contract/1/code>
 
+### BNB Chain explorer runtime candidate — hash computed, approval pending
+
+A BscScan-indexed BNB Smart Chain SafeProxy candidate was found at:
+`0x91F10950303c6fdAC09c957ac7B1aae9A4B7F2e7`.
+
+BscScan reports its parent creation transaction as originating from **Safe: Proxy Factory 1.4.1**, and reports:
+- Contract label: `SafeProxy`
+- Compiler: `0.7.6+commit.7338295f`
+- Optimizer: disabled (explorer UI also displays the default 200-runs field)
+- Deployed bytecode: 171 bytes
+- ABI: constructor(address _singleton) and payable fallback
+
+The explorer-rendered deployed runtime bytecode is:
+
+```text
+0x608060405273ffffffffffffffffffffffffffffffffffffffff600054167fa619486e0000000000000000000000000000000000000000000000000000000060003514156050578060005260206000f35b3660008037600080366000845af43d6000803e60008114156070573d6000fd5b3d6000f3fea264697066735822122003d1488ee65e08fa41e58e888a9865554c535f2c77126a82cb4c0f917f31441364736f6c63430007060033
+```
+
+A standalone Ethereum Keccak-256 implementation calculated the candidate runtime hash as:
+
+`0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c`
+
+The implementation was sanity-checked against the canonical Keccak-256 empty-input vector:
+`0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470`.
+This is Keccak-256, not FIPS SHA3-256.
+
+Additional BNB explorer records show the same 171-byte runtime output and compiler profile for other SafeProxy contracts, including:
+- `0x43101C27c4ea517cE195fdc752042396E5732328`
+- `0x5e2faa3184244e2986cc31f3fd9cbeb79cfa9a93`
+- `0xcAf15Ea620C9158Cd3214E00a204Cf3F32e45363`
+
+Explorer references:
+- https://bscscan.com/address/0x91f10950303c6fdac09c957ac7b1aae9a4b7f2e7
+- https://bscscan.com/address/0x43101c27c4ea517ce195fdc752042396e5732328
+- https://bscscan.com/address/0x5e2faa3184244e2986cc31f3fd9cbeb79cfa9a93
+- https://bscscan.com/address/0xcaf15ea620c9158cd3214e00a204cf3f32e45363
+
+**Status: candidate only — not approved for enforcement.** This improves provenance because the candidate is indexed on BNB Chain and its creation is attributed to Safe Proxy Factory 1.4.1. However:
+- the bytecode was obtained from explorer-rendered data, not yet independently fetched with `eth_getCode` from a trusted BNB RPC;
+- the pinned v1.4.1 source has not yet been compiled in an independent reproducible build and byte-for-byte compared with this runtime;
+- the storage slot 0 and `masterCopy()` value of this sample have not yet been independently queried and compared;
+- the candidate hash has not yet been reproduced by a second independent Keccak implementation.
+
+Therefore this candidate hash must not yet be pinned into the production verifier. Keep `SAFE_AUTHENTICITY_UNVERIFIED` and the Deal Room fail-closed behavior unchanged.
+
 ### Latest fail-closed CI result
 
 On head `870ed6a045c221df5d9a567c7aa7fbdd8350d110`, GitHub Actions Safe policy workflow completed successfully:
