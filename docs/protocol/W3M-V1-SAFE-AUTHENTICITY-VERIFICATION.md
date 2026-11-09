@@ -224,7 +224,7 @@ Accordingly:
 - The official singleton and factory hashes are documented from the Safe Deployments registry.
 - SafeProxy runtime identity, singleton storage/getter agreement, and singleton/factory runtime hashes now have reproducible evidence and a successful read-only BNB Mainnet CI check.
 - The current verifier implementation now performs the authenticity checks before reading owner and threshold state; factory creation provenance is checked when the deployment transaction hash is available.
-- On the preceding implementation head, 55 tests passed and type-check passed; the latest follow-up run also completed the 55-test suite, type-check, BNB Testnet check, and BNB Mainnet read-only authenticity check. Its full upstream Safe build stage is still running and must complete successfully before the latest head is called fully validated.
-- Safe verification must remain blocked in production until the current CI run is fully green and the Deal Room integration is confirmed against the new response contract.
+- On code head `16daca4c1361c4dfe589db666354c1b3ca4d282f`, the latest Safe CI run completed successfully: 56 tests passed, 0 failed; type-check passed; BNB Testnet read-only reference check passed; BNB Mainnet read-only proxy/singleton/factory hash, slot(0), and `masterCopy()` checks passed; and the full pinned Safe v1.4.1 upstream build reproduced the approved proxy hash.
+- The server implementation now performs authenticity checks before reading the exact 2-of-3 owner policy. Production deployment remains unauthorized; Deal Room end-to-end integration and production readiness still require separate review and approval.
 - No production deployment, Safe deployment, wallet signing, transaction, or fund movement is authorized.
 - No production deployment, Safe deployment, wallet signing, transaction, or fund movement is authorized.
