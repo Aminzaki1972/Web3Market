@@ -150,7 +150,7 @@
    addSafeLog('Deal verified: accepted / BNB Smart Chain (56).');
   if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && /^0x[a-fA-F0-9]{40}$/.test(String(deal.safe_address||''))){addSafeLog('Safe is already deployed: '+deal.safe_address);return true;}
   const box=document.querySelector('#safeStatus');
-  addSafeLog('Preparing a dedicated 2-of-3 Safe for this deal.');
+  addSafeLog('Preparing a dedicated Safe multisig for this deal.');
   addSafeLog('The platform wallet is intended to pay the BNB deployment gas.');
   addSafeLog('No USDT is moved during Safe creation.');
   if(canonicalWalletAddress)addSafeLog('Current verified profile wallet: '+canonicalWalletAddress);
@@ -274,8 +274,15 @@
     }catch(error){lastRpcError=error;try{provider.destroy()}catch(_){}}
    }
    if(!verification)throw new Error('All BNB RPC verification endpoints failed: '+String(lastRpcError?.message||lastRpcError||'unknown RPC error'));
-   const {owners,threshold,nonce,code}=verification,ok=code!=='0x'&&owners.length===3&&Number(threshold)===2;
-   box.innerHTML=`<div class="safe-panel ${ok?'ok':'warn'}"><strong>Safe 2-of-3 verification</strong><br>${code!=='0x'?'Contract detected':'Not a contract'} · ${owners.length} owner(s) · threshold ${Number(threshold)}<br>Nonce: ${esc(nonce)}<div class="safe-note">${ok?'The Safe configuration is valid. Web3Market cannot release funds alone.':'Expected exactly 3 owners with a 2-signature threshold.'}</div>${ok?`<a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:${encodeURIComponent(safe)}" target="_blank" rel="noopener noreferrer">Open Safe Queue</a>`:''}</div>`;
+   const {assessSafeConfiguration}=await import('/js/w3m-safe-configuration.js');
+   const {owners,threshold,nonce,code}=verification;
+   const assessment=assessSafeConfiguration({owners,threshold,code});
+   const ok=assessment.ok;
+   const thresholdLabel=assessment.threshold===null?'invalid':assessment.threshold;
+   const safeSummary=ok
+    ? `Verified Safe multisig · ${assessment.ownerCount} owner(s) · threshold ${thresholdLabel}-of-${assessment.ownerCount}`
+    : `Safe verification failed: ${assessment.reason} · ${assessment.ownerCount} owner(s) · threshold ${thresholdLabel}`;
+   box.innerHTML=`<div class="safe-panel ${ok?'ok':'warn'}"><strong>${ok?'Safe configuration verified':'Safe could not be verified'}</strong><br>${code!=='0x'?'Contract detected':'Not a contract'} · ${esc(safeSummary)}<br>Nonce: ${esc(nonce)}<div class="safe-note">${ok?'The live Safe owner set and signing threshold are valid. Web3Market cannot release funds alone.':'The Safe configuration is invalid or incomplete. Release remains blocked.'}</div>${ok?`<a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:${encodeURIComponent(safe)}" target="_blank" rel="noopener noreferrer">Open Safe Queue</a>`:''}</div>`;
   }catch(e){console.error('safe verification',e);box.innerHTML='<div class="safe-panel warn"><strong>Safe could not be verified.</strong><br>No release action will be enabled.</div>'}
  }
  async function getW3MAgreementGate(){
