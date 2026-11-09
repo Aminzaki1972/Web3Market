@@ -45,6 +45,7 @@ on:
       - "supabase/functions/tests/w3m-safe-verify-test.ts"
       - "js/w3m-safe-configuration.js"
       - "js/w3m-safe-configuration.test.js"
+      - "js/deal-room.js"
       - "scripts/w3m-safe-testnet-readonly-check.mjs"
       - "scripts/w3m-safe-proxy-authenticity-readonly-check.ts"
       - "scripts/w3m-safe-proxy-source-repro-check.mjs"
