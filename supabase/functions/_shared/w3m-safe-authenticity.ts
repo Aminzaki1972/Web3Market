@@ -26,6 +26,7 @@ export type W3MSafeAuthenticityInput = {
   factoryCode: unknown;
   singletonStorage: unknown;
   masterCopy: unknown;
+  factoryProvenanceVerified?: unknown;
 };
 
 const isAddress = (value: unknown): value is string =>
@@ -83,6 +84,9 @@ export function assessW3MSafeAuthenticity(
   if (storageAddress !== getterAddress) {
     return { ok: false, reason: "safe_singleton_reference_disagreement" } as const;
   }
+  if (input.factoryProvenanceVerified === false) {
+    return { ok: false, reason: "safe_proxy_factory_provenance_mismatch" } as const;
+  }
 
   return {
     ok: true,
@@ -91,5 +95,6 @@ export function assessW3MSafeAuthenticity(
     singletonRuntimeHash: keccak256(input.singletonCode).toLowerCase(),
     factoryRuntimeHash: keccak256(input.factoryCode).toLowerCase(),
     singletonAddress: storageAddress,
+    factoryProvenanceVerified: input.factoryProvenanceVerified === true ? true : null,
   } as const;
 }
