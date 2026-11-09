@@ -4,6 +4,7 @@ import {
   assessW3MSafeAuthenticity,
   W3M_SAFE_AUTHENTICITY_CONSTANTS,
   type W3MSafeAuthenticityExpected,
+  type W3MSafeAuthenticityInput,
 } from "./w3m-safe-authenticity.ts";
 
 const SAFE = "0x3333333333333333333333333333333333333333";
@@ -23,7 +24,7 @@ const expected: W3MSafeAuthenticityExpected = {
   factoryRuntimeHash: keccak256(FACTORY_CODE),
 };
 
-function validInput(overrides: Record<string, unknown> = {}) {
+function validInput(overrides: Partial<W3MSafeAuthenticityInput> = {}) {
   return {
     chainId: 56,
     safeAddress: SAFE,
