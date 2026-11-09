@@ -17,7 +17,7 @@ on:
       - "js/w3m-safe-configuration.js"
       - "js/w3m-safe-configuration.test.js"
       - "js/w3m-safe-deployment-response.js"
-      - "js/w3m-safe-deployment-response.test.js supabase/functions/tests/w3m-safe-verify-test.ts"
+      - "js/w3m-safe-deployment-response.test.js"
       - "js/deal-room.js"
       - "scripts/w3m-safe-testnet-readonly-check.mjs"
       - "docs/protocol/W3M-V1-SAFE-MULTISIG-POLICY.md"
@@ -53,7 +53,7 @@ jobs:
         with:
           deno-version: v2.x
       - name: Test approved W3M V1 Safe deployment policy
-        run: deno test supabase/functions/_shared/w3m-safe-policy.test.ts supabase/functions/_shared/w3m-safe-configuration.test.ts supabase/functions/_shared/w3m-safe-chain.test.ts js/w3m-safe-configuration.test.js js/w3m-safe-deployment-response.test.js
+        run: deno test supabase/functions/_shared/w3m-safe-policy.test.ts supabase/functions/_shared/w3m-safe-configuration.test.ts supabase/functions/_shared/w3m-safe-chain.test.ts js/w3m-safe-configuration.test.js js/w3m-safe-deployment-response.test.js supabase/functions/tests/w3m-safe-verify-test.ts
       - name: Type-check Safe policy and live configuration modules
         run: deno check supabase/functions/_shared/w3m-safe-policy.ts supabase/functions/_shared/w3m-safe-configuration.js supabase/functions/_shared/w3m-safe-chain.ts supabase/functions/w3m-safe-verify/index.ts js/w3m-safe-configuration.js js/w3m-safe-deployment-response.js
       - name: Verify BNB Testnet Safe references (read-only)
