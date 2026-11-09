@@ -135,6 +135,11 @@ export async function handleW3MSafeVerify(
     const rpcChainId = await deps.getRpcChainId();
     if (!isW3MBscMainnetChain(rpcChainId)) return fail("bsc_rpc_chain_mismatch", 503);
 
+    // Fail closed until the SafeProxy runtime hash is reproducibly derived, independently
+    // verified against BNB Chain, and pinned in this source. A non-empty bytecode check
+    // is not proof that this address is an authentic SafeProxy deployment.
+    return fail("SAFE_AUTHENTICITY_UNVERIFIED", 503);
+
     const safe = await deps.readSafe(String(deal.safe_address));
     const assessment = assessSafeConfiguration({
       owners: safe.owners,
