@@ -26,6 +26,8 @@ on:
       - ".github/workflows/w3m-safe-policy-tests.yml"
   pull_request:
     paths:
+      - "supabase/functions/_shared/w3m-safe-verification-context.ts"
+      - "supabase/functions/_shared/w3m-safe-verification-context.test.ts"
       - "supabase/functions/_shared/w3m-safe-chain.ts"
       - "supabase/functions/_shared/w3m-safe-chain.test.ts"
       - "supabase/functions/_shared/w3m-safe-configuration.js"
