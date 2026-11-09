@@ -6,6 +6,8 @@ on:
       - "supabase/functions/_shared/w3m-safe-policy.ts"
       - "supabase/functions/_shared/w3m-safe-policy.test.ts"
       - "supabase/functions/create-safe/index.ts"
+      - "js/w3m-safe-configuration.js"
+      - "js/w3m-safe-configuration.test.js"
       - ".github/workflows/w3m-safe-policy-tests.yml"
 
 permissions:
@@ -23,6 +25,6 @@ jobs:
         with:
           deno-version: v2.x
       - name: Test approved W3M V1 Safe deployment policy
-        run: deno test --no-check supabase/functions/_shared/w3m-safe-policy.test.ts
-      - name: Type-check Safe policy module
-        run: deno check supabase/functions/_shared/w3m-safe-policy.ts
+        run: deno test supabase/functions/_shared/w3m-safe-policy.test.ts js/w3m-safe-configuration.test.js
+      - name: Type-check Safe policy and live configuration modules
+        run: deno check supabase/functions/_shared/w3m-safe-policy.ts js/w3m-safe-configuration.js
