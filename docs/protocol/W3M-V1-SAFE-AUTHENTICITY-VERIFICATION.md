@@ -95,6 +95,31 @@ The same tag provides these build inputs:
 
 The release tree does not expose a committed `build/artifacts` directory at the expected path. The source and build recipe are now pinned, but that alone is not a compiled runtime artifact or an independently reproduced hash. The exact compiler metadata defaults, emitted deployed-bytecode artifact, and BNB Chain runtime comparison still need to be captured and reviewed before any proxy hash can be approved.
 
+### Independent explorer bytecode candidate — not yet approved
+
+A Routescan explorer result exposes a source-verified contract named `SafeProxy` at:
+`https://routescan.io/address/0xDce3902B257025A120771d46aF16cE8988fc81C1/contract/1/code`
+
+The explorer result reports exact-match source verification, Solidity `0.7.6+commit.7338295f`, optimizer disabled, and a deployed-runtime-bytecode field. The URL's network identifier is `1` (Ethereum), not BNB Chain. The page also cannot currently be independently re-opened through the automated browser because it presents a JavaScript/anti-bot interstitial.
+
+This is a useful candidate for a cross-check, but it is **not** accepted as the W3M SafeProxy runtime artifact because:
+- it is not a BNB Chain runtime observation;
+- the source/build metadata has not yet been independently matched byte-for-byte to the pinned Safe v1.4.1 source commit;
+- its runtime code hash has not been independently calculated and reproduced;
+- no matching BNB Chain proxy runtime has yet been read from a trusted RPC.
+
+Reference: Routescan source-verified SafeProxy explorer result. <https://routescan.io/address/0xDce3902B257025A120771d46aF16cE8988fc81C1/contract/1/code>
+
+### Latest fail-closed CI result
+
+On head `870ed6a045c221df5d9a567c7aa7fbdd8350d110`, GitHub Actions Safe policy workflow completed successfully:
+- 42 tests passed, 0 failed.
+- Safe policy/configuration type-check passed.
+- BNB Testnet reference check (read-only) passed.
+
+This validates the fail-closed implementation and the existing Safe policy suite. It does not validate SafeProxy authenticity or live BNB mainnet Safe verification.
+Run: https://github.com/Aminzaki1972/Web3Market/actions/runs/42606862028
+
 ## 5. Required negative tests
 
 The isolated verifier test suite must include:
