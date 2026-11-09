@@ -1,4 +1,4 @@
-// Validate the live Safe multisig configuration without assuming a fixed owner count or threshold.
+// Validate the live Safe configuration against the approved W3M V1 2-of-3 policy.
 export function assessSafeConfiguration({ owners, threshold, code }) {
   const result = {
     ok: false,
@@ -13,6 +13,10 @@ export function assessSafeConfiguration({ owners, threshold, code }) {
   }
   if (!Array.isArray(owners) || owners.length === 0) {
     result.reason = "owners_missing";
+    return result;
+  }
+  if (owners.length !== 3) {
+    result.reason = "owner_count_must_be_three";
     return result;
   }
 
@@ -40,8 +44,8 @@ export function assessSafeConfiguration({ owners, threshold, code }) {
     result.reason = "invalid_threshold";
     return result;
   }
-  if (parsedThreshold <= 0n || parsedThreshold > BigInt(owners.length)) {
-    result.reason = "threshold_out_of_range";
+  if (parsedThreshold !== 2n) {
+    result.reason = "threshold_must_be_two_of_three";
     return result;
   }
 
