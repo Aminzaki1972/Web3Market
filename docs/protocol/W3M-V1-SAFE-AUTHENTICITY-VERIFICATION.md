@@ -184,15 +184,16 @@ The approved hash must now be integrated into the server verifier with runtime h
 
 ### Latest Safe authenticity CI result
 
-On code head `7caa7d1b4069c58e9cd4c35fa28d45c7c792f666`, GitHub Actions completed successfully:
-- 42 tests passed, 0 failed.
-- Safe policy/configuration type-check passed.
+On code head `16daca4c1361c4dfe589db666354c1b3ca4d282f`, GitHub Actions completed successfully:
+- 56 tests passed, 0 failed.
+- Safe policy/authenticity type-check passed.
 - BNB Testnet Safe reference check passed (read-only).
 - BNB Mainnet SafeProxy runtime hash, Singleton hash, and Factory hash matched on-chain.
 - Proxy storage slot 0 and `masterCopy()` both matched the official v1.4.1 Singleton.
 - Full Safe v1.4.1 upstream build reproduced the exact 171-byte SafeProxy runtime and approved hash.
+- The verifier's authenticity-before-owner-policy sequence and optional factory creation-event rejection tests passed.
 
-Run: https://github.com/Aminzaki1972/Web3Market/actions/runs/42607768554
+Run: https://github.com/Aminzaki1972/Web3Market/actions/runs/42608629053
 
 ## 5. Required negative tests
 
