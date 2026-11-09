@@ -269,7 +269,7 @@
    // Browser RLS intentionally exposes each profile only to its owner.
    const {data,result,error}=await sb.functions.invoke('w3m-safe-verify',{body:{deal_id:deal.id}});
    const payload=data||result||{};
-   if(error||payload.verified!==true||payload.release_allowed!==true){
+   if(error||payload.verified!==true||payload.safe_policy_verified!==true){
     const reason=String(payload.reason||error?.message||'verification_unavailable').replace(/[^a-zA-Z0-9_-]/g,' ');
     box.innerHTML='<div class="safe-panel warn"><strong>Safe could not be verified.</strong><br>'+esc(reason)+'<div class="safe-note">Release remains blocked. No USDT was moved.</div></div>';
     return;
