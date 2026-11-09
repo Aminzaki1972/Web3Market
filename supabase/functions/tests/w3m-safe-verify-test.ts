@@ -12,7 +12,6 @@ const OTHER_ID = "unrelated-user";
 const BUYER_WALLET = "0x1111111111111111111111111111111111111111";
 const SELLER_WALLET = "0x2222222222222222222222222222222222222222";
 const SAFE_ADDRESS = "0x3333333333333333333333333333333333333333";
-const VALID_CODE = "0x60006000";
 
 function makeDeps(overrides: Partial<W3MSafeVerifyDependencies> = {}): W3MSafeVerifyDependencies {
   const deal = {
@@ -34,12 +33,6 @@ function makeDeps(overrides: Partial<W3MSafeVerifyDependencies> = {}): W3MSafeVe
     loadDeal: async () => ({ deal }),
     loadOwnerRecords: async () => ({ records }),
     getRpcChainId: async () => 56,
-    readSafe: async () => ({
-      code: VALID_CODE,
-      owners: [BUYER_WALLET, SELLER_WALLET, W3M_PLATFORM_WALLET],
-      threshold: 2n,
-      nonce: 7n,
-    }),
     ...overrides,
   };
 }
@@ -177,43 +170,12 @@ Deno.test("Safe verifier fails closed when RPC is unavailable", async () => {
   assertEquals((await response.json()).reason, "safe_verification_unavailable");
 });
 
-Deno.test("Safe verifier blocks before Safe reads while the authentic proxy hash is unapproved", async () => {
-  let safeReadCalled = false;
-  const response = await handleW3MSafeVerify(request(), makeDeps({
-    readSafe: async () => {
-      safeReadCalled = true;
-      return {
-        code: VALID_CODE,
-        owners: [BUYER_WALLET, SELLER_WALLET, W3M_PLATFORM_WALLET],
-        threshold: 2n,
-        nonce: 7n,
-      };
-    },
-  }));
+Deno.test("Safe verifier blocks until the authentic SafeProxy runtime hash is approved", async () => {
+  const response = await handleW3MSafeVerify(request(), makeDeps());
   const body = await response.json();
   assertEquals(response.status, 503);
   assertEquals(body.ok, false);
   assertEquals(body.verified, false);
   assertEquals(body.safe_policy_verified, false);
   assertEquals(body.reason, "SAFE_AUTHENTICITY_UNVERIFIED");
-  assertEquals(safeReadCalled, false);
-});
-
-Deno.test("Safe verifier never treats arbitrary non-empty bytecode as an authentic Safe", async () => {
-  let safeReadCalled = false;
-  const response = await handleW3MSafeVerify(request(), makeDeps({
-    readSafe: async () => {
-      safeReadCalled = true;
-      return {
-        code: VALID_CODE,
-        owners: [BUYER_WALLET, SELLER_WALLET, W3M_PLATFORM_WALLET],
-        threshold: 2n,
-        nonce: 7n,
-      };
-    },
-  }));
-  const body = await response.json();
-  assertEquals(response.status, 503);
-  assertEquals(body.reason, "SAFE_AUTHENTICITY_UNVERIFIED");
-  assertEquals(safeReadCalled, false);
 });
