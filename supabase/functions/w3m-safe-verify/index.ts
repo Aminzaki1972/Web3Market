@@ -21,7 +21,7 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 const fail = (reason: string, status = 409) => json({
-  ok: false, verified: false, reason, release_allowed: false,
+  ok: false, verified: false, safe_policy_verified: false, reason,
 }, status);
 const isAddress = (value: unknown): value is string =>
   typeof value === "string" && /^0x[a-fA-F0-9]{40}$/.test(value) && !/^0x0{40}$/i.test(value);
@@ -110,13 +110,13 @@ Deno.serve(async (req) => {
     });
     if (!assessment.ok) {
       return json({
-        ok: false, verified: false, reason: assessment.reason,
+        ok: false, verified: false, safe_policy_verified: false, reason: assessment.reason,
         owner_count: assessment.ownerCount, threshold: assessment.threshold,
         contract_exists: Boolean(code && code !== "0x"), release_allowed: false,
       }, 409);
     }
     return json({
-      ok: true, verified: true, reason: "valid",
+      ok: true, verified: true, safe_policy_verified: true, reason: "valid",
       owner_count: assessment.ownerCount, threshold: assessment.threshold,
       nonce: nonce.toString(), contract_exists: true, chain_id: BSC_CHAIN_ID,
       release_allowed: true,
