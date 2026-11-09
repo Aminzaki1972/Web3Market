@@ -10,6 +10,8 @@ on:
       - "supabase/functions/create-safe/index.ts"
       - "js/w3m-safe-configuration.js"
       - "js/w3m-safe-configuration.test.js"
+      - "js/w3m-safe-deployment-response.js"
+      - "js/w3m-safe-deployment-response.test.js"
       - ".github/workflows/w3m-safe-policy-tests.yml"
   pull_request:
     paths:
@@ -35,6 +37,6 @@ jobs:
         with:
           deno-version: v2.x
       - name: Test approved W3M V1 Safe deployment policy
-        run: deno test supabase/functions/_shared/w3m-safe-policy.test.ts js/w3m-safe-configuration.test.js
+        run: deno test supabase/functions/_shared/w3m-safe-policy.test.ts js/w3m-safe-configuration.test.js js/w3m-safe-deployment-response.test.js
       - name: Type-check Safe policy and live configuration modules
-        run: deno check supabase/functions/_shared/w3m-safe-policy.ts js/w3m-safe-configuration.js
+        run: deno check supabase/functions/_shared/w3m-safe-policy.ts js/w3m-safe-configuration.js js/w3m-safe-deployment-response.js
