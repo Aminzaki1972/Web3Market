@@ -50,5 +50,7 @@ This is the approved V1 default and is not an invitation to select a different t
 - [ ] Deployment verification confirms the exact on-chain owner set and 2-of-3 threshold.
 - [ ] Deal Room validates live Safe bytecode, exact buyer/seller/platform wallet identities, and threshold before allowing release.
 - [ ] If verified participant wallets or the persisted release policy cannot be loaded, Deal Room fails closed and keeps release blocked.
+- [ ] Verify under production-equivalent RLS that only authorized deal participants can read the minimum buyer/seller wallet-verification fields and the deal's release-policy owner fields; do not broaden profile or release-policy visibility merely to make the browser check pass.
+- [ ] Verify non-participants cannot read participant wallet addresses or release-policy owner addresses.
 - [ ] Relevant CI checks pass on the reviewed commit.
 - [ ] No production deployment or fund movement is performed as part of this code change.
