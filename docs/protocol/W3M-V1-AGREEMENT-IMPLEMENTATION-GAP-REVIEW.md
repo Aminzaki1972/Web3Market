@@ -225,3 +225,44 @@ The live Deal Room legacy acceptance now uses INSERT-only writes. On a duplicate
 A separate architecture proposal, docs/protocol/W3M-V1-TRUSTED-DEAL-CREATION-DESIGN.md, documents the future atomic V1 creation boundary. It is design-only: no V1 creation RPC or Edge Function was added, no browser INSERT privilege was revoked, and current offer creation remains legacy.
 
 These checks are branch CI only. No production migration, deployment, Safe transaction, financial transfer, or PR merge occurred.
+
+
+---
+
+## Re-verification addendum — 2026-11-11
+
+**Reviewed branch head:** `1dcced7a2a671fb0a5f68cfc2395e6d9f2e65408`  
+**Review mode:** read-only source inspection plus review of the completed GitHub Actions runs associated with this branch. This addendum changes documentation only; it does not activate V1 or authorize deployment.
+
+### Confirmed Deal Room wiring boundary
+
+- `deal-room.html` imports the read-only agreement status client and panel. The panel displays published canonical terms/hash, party acceptance state, per-asset delivery history, seller delivery registration, buyer per-asset accept/reject, and buyer final-delivery confirmation.
+- The live Deal Room does **not** invoke `signAndSubmitW3MDealAgreement`. The EIP-712 prepare/sign/accept coordinator exists in `js/w3m-deal-agreement-client.js`, but the page's legacy-gate path deliberately renders a disabled-signing notice for an explicitly V1-classified deal until legal/commercial approval and activation review.
+- Legacy timestamp acceptance remains confined to the server-classified legacy path. A missing, malformed, unavailable, or unknown protocol-track response is blocked; the browser helper does not choose the track itself.
+- The browser status/panel integration is therefore partial and intentionally gated, not a completed live V1 signing journey.
+
+### Protocol-track and deal-creation boundary
+
+- The isolated registry migration backfills existing deals as `legacy` and assigns `legacy` to every ordinary browser-created deal through a database trigger.
+- The migration contains no trusted V1 creation transaction. V1 deal creation remains disabled; a future trusted atomic creation path is still a separate implementation requirement.
+- The server-side track lookup is service-role-only, and missing classification fails closed. This protects the rollout boundary without silently treating an unknown deal as legacy.
+
+### Rechecked CI evidence
+
+The completed branch runs inspected on 2026-11-11 report:
+
+- Acquisition/fingerprint and related browser/server regression suite: **164 passed, 0 failed**; Deno type-check passed.
+- Safe policy/authenticity suite: **57 passed, 0 failed**; Deno type-check passed; BNB Testnet read-only check passed.
+- Local Supabase Edge integration: passed with isolated Auth, PostgREST, RPC, and the actual Edge Function process. The job log explicitly reports Auth, audit binding, terms publication, private RPC, EIP-712 acceptance, replay rejection, participant authorization, and per-asset delivery/acceptance.
+- PostgreSQL 16 migration/concurrency/privilege checks and the protocol-track and asset-evidence jobs in the associated CI batch were reported successful in the branch review record.
+- These are CI/disposable-environment results. They do not establish production migration, production Edge deployment, live wallet signing, Safe deployment, or an on-chain deal settlement.
+
+### Remaining V1 release blockers — unchanged
+
+1. Final legal/commercial approval of the consolidated acquisition agreement and deal-specific schedule, including the still-unresolved jurisdiction and dispute inputs. No missing legal terms are invented here.
+2. A reviewed and tested Deal Room EIP-712 signing activation that uses the current verified wallet and server-issued challenge, and that cannot fall back to timestamp consent for V1 deals.
+3. Trusted atomic V1 deal creation, with all existing browser-created deals remaining legacy until that path is separately implemented and tested.
+4. A complete isolated end-to-end acceptance run that proves the full sequence, including final delivery confirmation, dispute/release serialization, exact Safe settlement evidence, and recovery behavior.
+5. Deliberate review of the large stacked PR history/diff before any merge consideration.
+
+**Safety boundary:** PR #181 remains a draft and unmerged. No production migration, Edge Function deployment, Cloudflare change, Safe deployment, wallet signature, transaction, or funds movement was performed. No independent escrow contract is introduced; settlement remains Safe-only. No V2 work is included.
