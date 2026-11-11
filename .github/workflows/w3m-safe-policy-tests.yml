@@ -1,0 +1,94 @@
+name: W3M Safe V1 Policy Tests
+
+on:
+  push:
+    branches:
+      - "fix/w3m-safe-dynamic-threshold-20261109"
+    paths:
+      - "supabase/functions/_shared/w3m-safe-authenticity.ts"
+      - "supabase/functions/_shared/w3m-safe-authenticity.test.ts"
+      - "supabase/functions/_shared/w3m-safe-policy.ts"
+      - "supabase/functions/_shared/w3m-safe-policy.test.ts"
+      - "supabase/functions/_shared/w3m-safe-configuration.js"
+      - "supabase/functions/_shared/w3m-safe-configuration.test.ts"
+      - "supabase/functions/_shared/w3m-safe-chain.ts"
+      - "supabase/functions/_shared/w3m-safe-verification-context.ts"
+      - "supabase/functions/_shared/w3m-safe-verification-context.test.ts"
+      - "supabase/functions/_shared/w3m-safe-chain.test.ts"
+      - "supabase/functions/create-safe/index.ts"
+      - "supabase/functions/w3m-safe-verify/index.ts"
+      - "supabase/functions/tests/w3m-safe-verify-test.ts"
+      - "supabase/functions/tests/w3m-safe-verify-edge-runtime-test.ts"
+      - "js/w3m-safe-configuration.js"
+      - "js/w3m-safe-configuration.test.js"
+      - "js/w3m-safe-deployment-response.js"
+      - "js/w3m-safe-deployment-response.test.js"
+      - "js/deal-room.js"
+      - "scripts/w3m-safe-testnet-readonly-check.mjs"
+      - "scripts/w3m-safe-proxy-authenticity-readonly-check.ts"
+      - "scripts/w3m-safe-proxy-source-repro-check.mjs"
+      - "docs/protocol/W3M-V1-SAFE-MULTISIG-POLICY.md"
+      - ".github/workflows/w3m-safe-policy-tests.yml"
+  pull_request:
+    paths:
+      - "supabase/functions/_shared/w3m-safe-authenticity.ts"
+      - "supabase/functions/_shared/w3m-safe-authenticity.test.ts"
+      - "supabase/functions/_shared/w3m-safe-verification-context.ts"
+      - "supabase/functions/_shared/w3m-safe-verification-context.test.ts"
+      - "supabase/functions/_shared/w3m-safe-chain.ts"
+      - "supabase/functions/_shared/w3m-safe-chain.test.ts"
+      - "supabase/functions/_shared/w3m-safe-configuration.js"
+      - "supabase/functions/_shared/w3m-safe-configuration.test.ts"
+      - "supabase/functions/_shared/w3m-safe-policy.ts"
+      - "supabase/functions/_shared/w3m-safe-policy.test.ts"
+      - "supabase/functions/create-safe/index.ts"
+      - "supabase/functions/w3m-safe-verify/index.ts"
+      - "supabase/functions/tests/w3m-safe-verify-test.ts"
+      - "js/w3m-safe-configuration.js"
+      - "js/w3m-safe-configuration.test.js"
+      - "js/deal-room.js"
+      - "scripts/w3m-safe-testnet-readonly-check.mjs"
+      - "scripts/w3m-safe-proxy-authenticity-readonly-check.ts"
+      - "scripts/w3m-safe-proxy-source-repro-check.mjs"
+      - ".github/workflows/w3m-safe-policy-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  safe-policy-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Test approved W3M V1 Safe deployment policy
+        run: deno test --allow-all supabase/functions/tests/w3m-safe-verify-edge-runtime-test.ts supabase/functions/_shared/w3m-safe-policy.test.ts supabase/functions/_shared/w3m-safe-authenticity.test.ts supabase/functions/_shared/w3m-safe-configuration.test.ts supabase/functions/_shared/w3m-safe-chain.test.ts supabase/functions/_shared/w3m-safe-verification-context.test.ts js/w3m-safe-configuration.test.js js/w3m-safe-deployment-response.test.js supabase/functions/tests/w3m-safe-verify-test.ts
+      - name: Type-check Safe policy and live configuration modules
+        run: deno check supabase/functions/_shared/w3m-safe-policy.ts supabase/functions/_shared/w3m-safe-authenticity.ts supabase/functions/_shared/w3m-safe-configuration.js supabase/functions/_shared/w3m-safe-chain.ts supabase/functions/_shared/w3m-safe-verification-context.ts supabase/functions/w3m-safe-verify/index.ts js/w3m-safe-configuration.js js/w3m-safe-deployment-response.js
+      - name: Verify BNB Testnet Safe references (read-only)
+        run: node scripts/w3m-safe-testnet-readonly-check.mjs
+      - name: Verify BNB Mainnet SafeProxy authenticity candidate (read-only)
+        run: deno run --allow-net scripts/w3m-safe-proxy-authenticity-readonly-check.ts
+      - name: Check out immutable Safe v1.4.1 upstream source
+        uses: actions/checkout@v4
+        with:
+          repository: safe-fndn/safe-smart-account
+          ref: bf943f80fec5ac647159d26161446ac5d716a294
+          path: safe-upstream
+      - name: Set up Safe upstream build Node version
+        uses: actions/setup-node@v4
+        with:
+          node-version: 16.7.0
+      - name: Install pinned Safe upstream dependencies
+        run: yarn --frozen-lockfile
+        working-directory: safe-upstream
+      - name: Build the complete pinned Safe v1.4.1 source tree
+        run: yarn build
+        working-directory: safe-upstream
+      - name: Verify SafeProxy runtime from full upstream build
+        run: node scripts/w3m-safe-proxy-source-repro-check.mjs safe-upstream

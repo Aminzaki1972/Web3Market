@@ -1,0 +1,84 @@
+# W3M Protocol V1 — Safe Multisig Policy
+
+**Status:** Approved product and protocol decision  
+**Version:** V1  
+**Decision:** Dedicated deal Safe with three owners and a 2-of-3 execution threshold
+
+## 1. Owner set
+
+Every V1 deal Safe is created with exactly these three distinct owners:
+
+1. **Buyer** — the buyer's verified wallet.
+2. **Seller** — the seller's verified wallet.
+3. **Platform** — the designated Web3Market platform wallet.
+
+The deployment account must be separate from all three Safe owners.
+
+## 2. Signing threshold
+
+The approved V1 default is **2-of-3**. Any Safe transaction requiring execution must receive valid confirmations from at least two of the three owners.
+
+No single owner can execute a transaction alone. The third owner does not need to sign every transaction when the other two valid confirmations are present.
+
+## 3. Deployment and verification requirements
+
+- Resolve buyer and seller wallets from verified server-side profile records; do not trust owner addresses supplied by the browser.
+- Validate that all three owner addresses are valid and distinct, case-insensitively.
+- Create the Safe with the exact approved owner set and threshold 2.
+- Verify deployed bytecode, exact on-chain owner set, and on-chain threshold before marking deployment as successful.
+- Fail closed: if deployment or verification cannot be completed, block the release path and do not represent the Safe as verified.
+- Display the actual on-chain owner count and threshold in Deal Room; do not substitute hard-coded display values for live verification.
+- Record the Safe address and deployment transaction reference with the deal.
+
+## 4. Funds and scope
+
+- Deal funds move through the deal's Safe only.
+- V1 does not introduce a separate W3M escrow smart contract.
+- Safe deployment itself must not transfer deal USDT.
+- Release and refund transactions remain subject to Safe permissions and the required Safe confirmations.
+- The platform fee and seller share are governed by the separately approved V1 settlement policy; this document does not change the 7.5% platform fee.
+
+## 5. Change control
+
+This is the approved V1 default and is not an invitation to select a different threshold per deal. Any change to the owner set or threshold policy requires a separately recorded, explicit product approval and a versioned protocol change.
+
+## 6. Acceptance criteria
+
+- [ ] Unit tests prove owner role ordering and the 2-of-3 default.
+- [ ] Unit tests reject malformed or duplicate owner addresses.
+- [ ] Deployment uses the shared policy module.
+- [ ] Deployment verification confirms the exact on-chain owner set and 2-of-3 threshold.
+- [ ] Deal Room validates live Safe bytecode, exact buyer/seller/platform wallet identities, and threshold before allowing release.
+- [ ] If verified participant wallets or the persisted release policy cannot be loaded, Deal Room fails closed and keeps release blocked.
+- [ ] Verify under production-equivalent RLS that only authorized deal participants can read the minimum buyer/seller wallet-verification fields and the deal's release-policy owner fields; do not broaden profile or release-policy visibility merely to make the browser check pass.
+- [ ] Verify non-participants cannot read participant wallet addresses or release-policy owner addresses.
+- [ ] Relevant CI checks pass on the reviewed commit.
+- [ ] No production deployment or fund movement is performed as part of this code change.
+
+## 7. Testnet validation boundary (non-production)
+
+The production W3M V1 chain remains **BNB Smart Chain Mainnet (chain ID 56)**. Testnet checks must be isolated from production configuration and must never change the production chain ID, platform wallet, or deployed Safe.
+
+For a future read-only integration rehearsal, BNB Smart Chain Testnet uses **chain ID 97** and the official BNB RPC endpoint:
+
+- RPC: `https://bsc-testnet-dataseed.bnbchain.org`
+- Chain ID: `97`
+- Explorer: `https://testnet.bscscan.com/`
+
+Safe's official supported-networks registry lists BNB Smart Chain Testnet with Safe Smart Account **v1.4.1**. The registry publishes these reference contract addresses for that test network:
+
+| Contract | BNB Testnet v1.4.1 address |
+|---|---|
+| Safe singleton | `0x41675C099F32341bf84BFc5382aF534df5C7461a` |
+| Safe L2 singleton | `0x29fcB43b46531BcA003ddC8FCB67FFE91900C762` |
+| Safe Proxy Factory | `0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67` |
+| Compatibility Fallback Handler | `0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99` |
+| MultiSend | `0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526` |
+| MultiSend Call Only | `0x9641d764fc13c8B624c04430C7356C1C7C8102e2` |
+| Sign Message Library | `0xd53cd0aB83D845Ac265BE939c57F53AD838012c9` |
+| Simulate Tx Accessor | `0x3d4BA2E0884aa488718476ca2FB8Efc291A46199` |
+| Create Call | `0x9b35Af71d77eaf8d7e40252370304687390A1A52` |
+
+Sources: [BNB Chain RPC endpoints](https://docs.bnbchain.org/bnb-smart-chain/developers/json_rpc/json-rpc-endpoint/) and [Safe supported networks — BNB Smart Chain Testnet](https://docs.safe.global/advanced/smart-account-supported-networks?expand=97&service=Transaction+Service).
+
+**Important:** These addresses are reference data for a future Testnet-only check, not authorization to deploy. Before any test Safe deployment, wallet signature, or transaction, obtain explicit approval and use test tokens only. No Testnet Safe has been deployed by this change. The production verifier remains fixed to chain ID 56.

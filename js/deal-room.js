@@ -150,7 +150,7 @@
    addSafeLog('Deal verified: accepted / BNB Smart Chain (56).');
   if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && /^0x[a-fA-F0-9]{40}$/.test(String(deal.safe_address||''))){addSafeLog('Safe is already deployed: '+deal.safe_address);return true;}
   const box=document.querySelector('#safeStatus');
-  addSafeLog('Preparing a dedicated 2-of-3 Safe for this deal.');
+  addSafeLog('Preparing a dedicated Safe multisig for this deal.');
   addSafeLog('The platform wallet is intended to pay the BNB deployment gas.');
   addSafeLog('No USDT is moved during Safe creation.');
   if(canonicalWalletAddress)addSafeLog('Current verified profile wallet: '+canonicalWalletAddress);
@@ -188,7 +188,8 @@
    let invokeError=invokeResult?.error||null;
    addSafeLog('create-safe SDK invocation completed.');
    console.error('create-safe response',invokeError,result);
-   if(invokeError || !result.success){
+   const {isW3MSafeDeploymentSuccess}=await import('/js/w3m-safe-deployment-response.js');
+   if(invokeError || !isW3MSafeDeploymentSuccess(result)){
     const detail=[
      invokeError?.name ? 'name='+invokeError.name : '',
      invokeError?.message ? 'message='+invokeError.message : '',
@@ -215,7 +216,7 @@
       try{parsed=raw?JSON.parse(raw):{};}catch(_){}
       addSafeLog('Direct create-safe HTTP status: '+direct.status+' '+direct.statusText);
       addSafeLog('Direct response: '+(parsed?.error||parsed?.message||raw||'(empty response)'));
-      if(direct.ok && parsed?.success){
+      if(direct.ok && isW3MSafeDeploymentSuccess(parsed)){
        result=parsed; invokeError=null;
       }else{
        safeDeploymentError=String(parsed?.error||parsed?.message||('HTTP '+direct.status));
@@ -232,7 +233,7 @@
      return false;
     }
    }
-   if(!result.success){
+   if(!isW3MSafeDeploymentSuccess(result)){
     safeDeploymentError=String(result.error||result.message||'create-safe returned an error');
     addSafeLog('ERROR: '+safeDeploymentError);
     return false;
@@ -259,24 +260,31 @@
   if(!/^0x[a-fA-F0-9]{40}$/.test(safe)){
    if(safeDeploymentLog.length)return;
    if(safeDeploymentError){box.innerHTML='<div class="safe-panel warn"><strong>Safe deployment diagnostic</strong><br>'+esc(safeDeploymentError)+'<br><small>No payment is enabled and no USDT was moved.</small></div>';return}
-   box.innerHTML='<div class="safe-panel warn"><strong>Safe not configured.</strong><br>Payment and release remain disabled until a verified Safe is attached.</div>';return}
+   box.innerHTML='<div class="safe-panel warn"><strong>Safe not configured.</strong><br>Payment and release remain disabled until a verified Safe is attached.</div>';return
+  }
   if(chain!==56){box.innerHTML=`<div class="safe-panel warn"><strong>Chain mismatch.</strong><br>Expected BNB Smart Chain (56), got ${esc(chain||'unknown')}.</div>`;return}
+  box.innerHTML='<div class="safe-panel warn"><strong>Verifying Safe configuration…</strong><br>Checking SafeProxy authenticity, singleton identity, and the live 2-of-3 owner policy.</div>';
   try{
-   if(!window.ethers?.JsonRpcProvider)throw new Error('Safe verification library unavailable');
-   const rpcUrls=['https://bsc-dataseed.binance.org','https://bsc-dataseed1.binance.org','https://bsc.publicnode.com'];
-   let verification=null,lastRpcError=null;
-   for(const rpcUrl of rpcUrls){
-    const provider=new ethers.JsonRpcProvider(rpcUrl,56,{staticNetwork:true});
-    try{
-     const contract=new ethers.Contract(safe,['function getOwners() view returns (address[])','function getThreshold() view returns (uint256)','function nonce() view returns (uint256)'],provider);
-     const [owners,threshold,nonce,code]=await Promise.all([contract.getOwners(),contract.getThreshold(),contract.nonce(),provider.getCode(safe)]);
-     verification={owners,threshold,nonce,code};break;
-    }catch(error){lastRpcError=error;try{provider.destroy()}catch(_){}}
+   // The server reads counterparties' verified wallet records with service-role access.
+   // Browser RLS intentionally exposes each profile only to its owner.
+   const {data,result,error}=await sb.functions.invoke('w3m-safe-verify',{body:{deal_id:deal.id}});
+   const payload=data||result||{};
+   if(error||payload.verified!==true||payload.safe_policy_verified!==true){
+    const reason=String(payload.reason||error?.message||'verification_unavailable').replace(/[^a-zA-Z0-9_-]/g,' ');
+    box.innerHTML='<div class="safe-panel warn"><strong>Safe could not be verified.</strong><br>'+esc(reason)+'<div class="safe-note">Release remains blocked. No USDT was moved.</div></div>';
+    return;
    }
-   if(!verification)throw new Error('All BNB RPC verification endpoints failed: '+String(lastRpcError?.message||lastRpcError||'unknown RPC error'));
-   const {owners,threshold,nonce,code}=verification,ok=code!=='0x'&&owners.length===3&&Number(threshold)===2;
-   box.innerHTML=`<div class="safe-panel ${ok?'ok':'warn'}"><strong>Safe 2-of-3 verification</strong><br>${code!=='0x'?'Contract detected':'Not a contract'} · ${owners.length} owner(s) · threshold ${Number(threshold)}<br>Nonce: ${esc(nonce)}<div class="safe-note">${ok?'The Safe configuration is valid. Web3Market cannot release funds alone.':'Expected exactly 3 owners with a 2-signature threshold.'}</div>${ok?`<a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:${encodeURIComponent(safe)}" target="_blank" rel="noopener noreferrer">Open Safe Queue</a>`:''}</div>`;
-  }catch(e){console.error('safe verification',e);box.innerHTML='<div class="safe-panel warn"><strong>Safe could not be verified.</strong><br>No release action will be enabled.</div>'}
+   const ownerCount=Number(payload.owner_count),threshold=String(payload.threshold);
+   if(ownerCount!==3||threshold!=='2'||Number(payload.chain_id)!==56){
+    box.innerHTML='<div class="safe-panel warn"><strong>Safe policy mismatch.</strong><br>Expected exactly three owners and a 2-of-3 threshold. Release remains blocked.</div>';
+    return;
+   }
+   const safeSummary=`Verified Safe multisig · ${ownerCount} owners · threshold ${threshold}-of-${ownerCount}`;
+   box.innerHTML=`<div class="safe-panel ok"><strong>Safe authenticity and configuration verified</strong><br>SafeProxy identity confirmed · ${esc(safeSummary)}<div class="safe-note">The server verified the SafeProxy runtime and canonical singleton, then matched the live owner set against the verified buyer, seller, and platform records. No single owner can execute alone.</div><a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:${encodeURIComponent(safe)}" target="_blank" rel="noopener noreferrer">Open Safe Queue</a></div>`;
+  }catch(e){
+   console.error('Safe server verification',e);
+   box.innerHTML='<div class="safe-panel warn"><strong>Safe could not be verified.</strong><br>Server verification is unavailable. Release remains blocked.</div>';
+  }
  }
  async function getW3MAgreementGate(){
   try{
@@ -321,7 +329,7 @@
   const rows=await loadAgreement();
   if(renderId!==termsRenderRequest)return;
   const mine=rows.find(x=>x.party_role===participant&&String(x.party_id)===String(user.id)),buyer=rows.find(x=>x.party_role==='buyer')?.agreed_at,seller=rows.find(x=>x.party_role==='seller')?.agreed_at;
-  actions.innerHTML=`<div class="notice"><strong>Dispute Resolution — Model B</strong><br>Buyer and Seller agree that Web3Market acts as the dispute resolution party. Funds are held by the 2-of-3 Safe, not by Web3Market. ${buyer?'Buyer ✓':'Buyer pending'} · ${seller?'Seller ✓':'Seller pending'}</div>${participant==='platform'?'<div class="notice ok">Platform moderator view — monitoring and dispute resolution only.</div>':''}<button id="agreeBtn" class="btn primary" ${participant==='platform'||mine?.agreed_at?'disabled':''}>${mine?.agreed_at?'Terms Accepted':'I Agree to Deal Terms'}</button><button id="disputeBtn" class="btn" style="background:#fff7ed;color:#9a3412">Open Dispute</button>`;
+  actions.innerHTML=`<div class="notice"><strong>Dispute Resolution — Model B</strong><br>Buyer and Seller agree that Web3Market acts as the dispute resolution party. Funds are held by the deal's Safe multisig, not by Web3Market. ${buyer?'Buyer ✓':'Buyer pending'} · ${seller?'Seller ✓':'Seller pending'}</div>${participant==='platform'?'<div class="notice ok">Platform moderator view — monitoring and dispute resolution only.</div>':''}<button id="agreeBtn" class="btn primary" ${participant==='platform'||mine?.agreed_at?'disabled':''}>${mine?.agreed_at?'Terms Accepted':'I Agree to Deal Terms'}</button><button id="disputeBtn" class="btn" style="background:#fff7ed;color:#9a3412">Open Dispute</button>`;
   const agreeBtn=document.querySelector('#agreeBtn');
   if(agreeBtn&&!mine?.agreed_at&&participant!=='platform')agreeBtn.onclick=async()=>{
    agreeBtn.disabled=true;

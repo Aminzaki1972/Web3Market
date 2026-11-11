@@ -7,6 +7,8 @@ import { privateKeyToAccount } from "npm:viem@2.37.6/accounts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 import { assertW3MAgreementReady, W3MFinalizationGateError } from "../_shared/w3m-v1-finalization-gate.ts";
 
+import { buildW3MSafeConfiguration } from "../_shared/w3m-safe-policy.ts";
+
 const PLATFORM_WALLET="0x2B15cC63eE3b833F502C065767695Fa2B584f8c9";
 const BSC_CHAIN_ID=56;
 const USDT_BSC="0x55d398326f99059ff775485246999027b3197955";
@@ -65,7 +67,12 @@ Deno.serve(async(req)=>{
   if(Number(deal.chain_id)!==BSC_CHAIN_ID)return json({ok:false,error:"Deal chain must be BNB Smart Chain (56)"},409);
   if(!buyer?.wallet_address||!seller?.wallet_address||buyer.wallet_verified!==true||seller.wallet_verified!==true)return json({ok:false,error:"Buyer and seller wallets must be verified"},409);
   const buyerWallet=norm(buyer.wallet_address),sellerWallet=norm(seller.wallet_address),platformWallet=norm(PLATFORM_WALLET);
-  if(new Set([buyerWallet.toLowerCase(),sellerWallet.toLowerCase(),platformWallet.toLowerCase()]).size!==3)return json({ok:false,error:"Safe owners must be three distinct addresses"},409);
+  let safeConfig: ReturnType<typeof buildW3MSafeConfiguration>;
+  try {
+    safeConfig = buildW3MSafeConfiguration({ buyerWallet, sellerWallet, platformWallet });
+  } catch (error) {
+    return json({ok:false,error:error instanceof Error ? error.message : "Safe owner policy validation failed"},409);
+  }
   const pk=Deno.env.get("SAFE_DEPLOYER_PRIVATE_KEY"),rpc=Deno.env.get("BSC_RPC_URL")||Deno.env.get("SAFE_BSC_RPC_URL");
   if(!pk)return json({ok:false,error:"SAFE_DEPLOYER_PRIVATE_KEY is not configured"},500);
   if(!isPrivateKeyFormat(pk))return json({ok:false,error:"SAFE_DEPLOYER_PRIVATE_KEY format invalid",detail:"Expected 0x followed by exactly 64 hexadecimal characters. No transaction was created."},500);
@@ -80,7 +87,7 @@ Deno.serve(async(req)=>{
   if(balance===0n)return json({ok:false,error:"Deployer has no BNB for Safe deployment",deployer_wallet:deployer.address,bnb_balance_wei:"0"},409);
   const saltHash=keccak256(toBytes(dealId));
   const saltNonce=(BigInt(saltHash)%1000000000000000000000000000000000000n).toString();
-  const predicted=await Safe.init({provider:rpc,signer:pk,predictedSafe:{safeAccountConfig:{owners:[buyerWallet,sellerWallet,platformWallet],threshold:2},safeDeploymentConfig:{saltNonce}}});
+  const predicted=await Safe.init({provider:rpc,signer:pk,predictedSafe:{safeAccountConfig:{owners:safeConfig.owners,threshold:safeConfig.threshold},safeDeploymentConfig:{saltNonce}}});
   const safeAddress=norm(await predicted.getAddress());
   const existingCode=await publicClient.getCode({address:safeAddress});
   let deploymentTxHash:string|null=null;
@@ -89,7 +96,7 @@ Deno.serve(async(req)=>{
    const owners=(await kit.getOwners()).map(norm).map(a=>a.toLowerCase()).sort();
    const expected=[buyerWallet,sellerWallet,platformWallet].map(a=>a.toLowerCase()).sort();
    const threshold=await kit.getThreshold();
-   if(threshold!==2||JSON.stringify(owners)!==JSON.stringify(expected))throw new Error("Safe owners/threshold verification failed");
+   if(String(threshold)!==String(safeConfig.threshold)||JSON.stringify(owners)!==JSON.stringify(expected))throw new Error("Safe owners/threshold verification failed");
   };
   if(existingCode&&existingCode!=="0x"){
    const connected=await predicted.connect({safeAddress});await verify(connected);
@@ -107,6 +114,6 @@ Deno.serve(async(req)=>{
   const feePercent=Number(deal.platform_fee_percent??7.5),amount=Number(deal.expected_amount??deal.amount??0),fee=Number(deal.platform_fee_amount??deal.platform_fee??amount*feePercent/100),sellerNet=Number(deal.seller_net_amount??amount-fee);
   const {error:policyError}=await db.from("deal_release_policies").upsert({deal_id:dealId,deal_amount:amount,fee_percent:feePercent,fee_amount:fee,seller_net_amount:sellerNet,seller_wallet:sellerWallet,platform_wallet:platformWallet,safe_address:safeAddress,token_contract:deal.token_contract||USDT_BSC,token_symbol:deal.token_symbol||"USDT",chain_id:BSC_CHAIN_ID,status:"pending"},{onConflict:"deal_id"});
   if(policyError)return json({ok:false,error:"Safe deployed but release policy update failed",safe_address:safeAddress,deployment_tx_hash:deploymentTxHash,detail:policyError.message},500);
-  return json({ok:true,stage:"safe_deployed_and_verified",deal_id:dealId,safe_address:safeAddress,salt_nonce:saltNonce,owners:[buyerWallet,sellerWallet,platformWallet],threshold:2,deployer_wallet:deployer.address,deployment_tx_hash:deploymentTxHash,bnb_balance_wei:balance.toString(),payment_status:"pending",usdt_moved:false});
+  return json({ok:true,stage:"safe_deployed_and_verified",deal_id:dealId,safe_address:safeAddress,salt_nonce:saltNonce,owners:safeConfig.owners,threshold:safeConfig.threshold,owner_roles:safeConfig.ownerRoles,deployer_wallet:deployer.address,deployment_tx_hash:deploymentTxHash,bnb_balance_wei:balance.toString(),payment_status:"pending",usdt_moved:false});
  }catch(e){return json({ok:false,error:"Safe deployment failed",stage:"exception",detail:e instanceof Error?e.message:String(e),error_name:e instanceof Error?e.name:"UnknownError",stack:e instanceof Error?e.stack?.slice(0,1200):undefined,usdt_moved:false},500);}
 });
