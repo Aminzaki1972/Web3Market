@@ -302,3 +302,30 @@ The seller-release path protects the 7.5% platform fee by requiring the signed c
 7. Run the complete isolated suite and record the results before any merge or deployment review.
 
 **Release status:** Seller/platform split and dispute-vs-release serialization have meaningful isolated implementation and test coverage. Buyer refund and commission treatment within dispute outcomes remain release-blocking gaps. No refund transaction was constructed or sent in this review. No production database, Safe, wallet, deployment, or funds were touched.
+
+---
+
+## Safe 2-of-3 signer-path consistency gap — 2026-11-11
+
+### On-chain checks present, but signer authorization is incomplete
+
+The Safe functions do read on-chain state through `getOwners()`, `getThreshold()`, and `nonce()`. The current implementation also deliberately creates the approved default Safe with buyer, seller, and platform as its three owners and threshold 2. However, the end-to-end signing authorization does not currently implement the approved “any two of these three owners” policy:
+
+- `create-safe/index.ts` constructs and verifies the three-owner, threshold-2 default.
+- `prepare-deal-release-tx/index.ts` reads the actual owners and threshold, but rejects anything other than exactly three owners and threshold 2.
+- `record-safe-release-signature/index.ts` rejects every caller who is not the deal buyer or seller before checking the connected verified wallet against the live Safe owner list. The platform Safe owner therefore cannot submit a signature through this endpoint.
+- The same signature handler assigns signer roles only as buyer or seller and updates the transaction confirmation count from those stored signers. The execution path then requires at least two signatures and confirms each stored signer is a current Safe owner.
+- `execute-safe-release/index.ts` again hardcodes threshold 2 and exactly three owners rather than deriving the required signature count from the verified live Safe threshold.
+
+As implemented, the release API can collect signatures from the buyer and seller only; it does not support the platform owner as the second signer in a buyer+platform or seller+platform pair. This is not equivalent to the approved 2-of-3 multisig rule, even though the Safe contract itself is deployed with three owners.
+
+### Required isolated correction and tests
+
+1. Preserve the default deployment configuration of buyer + seller + platform with threshold 2.
+2. Make each signing and execution step compare the current on-chain owner set and threshold with the deal's approved Safe configuration, and derive the required signature count from the verified threshold. Do not trust a browser-supplied threshold or owner list.
+3. Define a narrowly authenticated platform-owner signing identity/path. Do not treat any admin account as the platform owner merely because it has an admin role; prove that the signing wallet is the configured platform Safe owner and bind its signature to the exact Safe transaction hash, chain, Safe address, and nonce.
+4. Store and count distinct valid Safe owner signatures, not merely buyer/seller role rows. Reject duplicate owners, non-owners, stale nonce, changed owner set/threshold, and malformed or mismatched signatures.
+5. Add isolated tests for buyer+seller, buyer+platform, seller+platform success; duplicate signer rejection; non-owner rejection; threshold changes; owner-set changes; and insufficient signatures. Confirm that the on-chain Safe threshold remains the final execution authority.
+6. Review the signer table constraints and all six Safe functions together before changing the schema or endpoint authorization.
+
+**Release status:** The default Safe deployment shape is implemented, and the endpoints do read live Safe owner/threshold data. The complete three-owner signing policy is not yet implemented end-to-end because the current signature endpoint authorizes only buyer/seller callers. This is a V1 release blocker. No Safe was deployed or called during this review; no signatures or transactions were created or sent.
