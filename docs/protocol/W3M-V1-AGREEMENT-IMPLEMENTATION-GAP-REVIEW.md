@@ -266,3 +266,39 @@ The completed branch runs inspected on 2026-11-11 report:
 5. Deliberate review of the large stacked PR history/diff before any merge consideration.
 
 **Safety boundary:** PR #181 remains a draft and unmerged. No production migration, Edge Function deployment, Cloudflare change, Safe deployment, wallet signature, transaction, or funds movement was performed. No independent escrow contract is introduced; settlement remains Safe-only. No V2 work is included.
+
+
+---
+
+## Safe settlement, dispute serialization, and buyer-refund gap — 2026-11-11
+
+### What the current isolated implementation proves
+
+- The release path loads the unique current published canonical terms snapshot through a service-role-only RPC.
+- The settlement verifier enforces BNB Smart Chain (chain 56), USDT, Safe multisig, a dispute hold, the approved 7.5% fee, exact fee arithmetic, and seller-net reconciliation against final consideration.
+- Safe payload validation accepts exactly two ordered inner USDT transfers: seller net first and platform fee second. It rejects extra calls and mismatched amounts/recipients.
+- The release preparation, signature-recording, execution, and finalization handlers check deal/dispute state and fail closed when dispute state cannot be verified.
+- The durable Safe release claim serializes a release attempt against dispute changes by locking the deal row; an active `claimed` or `submitted` release blocks conflicting dispute mutations. The claim is retained through confirmed execution or failure.
+- The finalization path verifies the Safe execution event and exact on-chain USDT Transfer events for both seller and platform recipients before marking the release complete.
+
+### Critical V1 gap: buyer refund after a buyer-favorable dispute
+
+The inspected release payload and its tests explicitly support **exactly two transfers** (seller net + platform fee). The inspected settlement handlers are all named and scoped for `release_to_seller`. No corresponding buyer-refund Safe transaction builder, refund-specific claim lifecycle, partial/full refund decision record, or refund receipt verifier was found in the reviewed V1 changed-file set or current source search.
+
+Consequently, the previously approved buyer-favorable dispute outcome — a Safe USDT transfer request to the buyer for the approved full or partial refund, with Safe owner permissions/signatures and durable decision/chain evidence — is **not implemented or proven by these release tests**. It must not be represented as complete.
+
+### Commission protection boundary
+
+The seller-release path protects the 7.5% platform fee by requiring the signed canonical fee and seller net to reconcile and by verifying both exact transfers in the Safe execution receipt. That proves the ordinary seller-release split only. It does not yet prove how the 7.5% platform entitlement is calculated, retained, or included in a buyer-favorable full/partial refund or other dispute settlement. The existing tests do not exercise those dispute settlement outcomes.
+
+### Required isolated V1 work before release approval
+
+1. Specify the refund decision record: authorized decision-maker/source, deal and terms binding, buyer destination wallet, USDT chain/token, approved amount, full/partial classification, rationale/evidence reference, and immutable decision identifier. Do not invent an adjudicator or decision authority; this must match the already approved agreement and dispute workflow.
+2. Add a distinct Safe-only buyer refund transaction path. It must never call an escrow contract, must not reuse or mutate a seller-release transaction, and must require the actual Safe owners/threshold and the required Safe signatures.
+3. Define and enforce the platform-fee treatment for each dispute outcome, including full and partial buyer refunds, without allowing the parties to bypass the 7.5% entitlement. The calculation basis must come from the accepted agreement and the recorded dispute decision; no unapproved fee-on-refund rule is assumed here.
+4. Serialize refund claims, seller-release claims, and dispute state changes on the same deal-level lock so that no seller release and buyer refund can both execute for the same decision/amount.
+5. Verify the exact Safe transaction hash, nonce, token contract, buyer recipient, amount, Safe execution event, and on-chain USDT Transfer receipt before recording refund completion. Uncertain broadcast/receipt outcomes must remain blocked for reconciliation and must never be blindly retried.
+6. Add disposable PostgreSQL and local Edge integration tests for buyer wins/full refund, buyer wins/partial refund, seller wins/release, open dispute, concurrent release-vs-refund claims, duplicate requests, altered recipient/amount, wrong token/network, missing decision evidence, failed/uncertain receipts, and fee reconciliation.
+7. Run the complete isolated suite and record the results before any merge or deployment review.
+
+**Release status:** Seller/platform split and dispute-vs-release serialization have meaningful isolated implementation and test coverage. Buyer refund and commission treatment within dispute outcomes remain release-blocking gaps. No refund transaction was constructed or sent in this review. No production database, Safe, wallet, deployment, or funds were touched.
