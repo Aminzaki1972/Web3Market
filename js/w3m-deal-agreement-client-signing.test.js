@@ -8,7 +8,8 @@ const FINGERPRINT_ID = "74000000-0000-4000-8000-000000000004";
 const WALLET = "0x" + "1".repeat(40);
 const SIGNATURE = "0x" + "a".repeat(130);
 const HEX = (char) => "0x" + char.repeat(64);
-const UUID_BYTES32 = "0x" + DEAL_ID.replaceAll("-", "");
+const uuidToBytes32 = (value) => "0x" + value.replaceAll("-", "").toLowerCase().padStart(64, "0");
+const UUID_BYTES32 = uuidToBytes32(DEAL_ID);
 
 function preparedResponse(overrides = {}) {
   const typedData = {
@@ -30,7 +31,7 @@ function preparedResponse(overrides = {}) {
     },
     message: {
       dealId: UUID_BYTES32,
-      fingerprintId: "0x" + FINGERPRINT_ID.replaceAll("-", ""),
+      fingerprintId: uuidToBytes32(FINGERPRINT_ID),
       fingerprintDigest: HEX("b"),
       bindingHash: HEX("c"),
       termsHash: HEX("d"),
