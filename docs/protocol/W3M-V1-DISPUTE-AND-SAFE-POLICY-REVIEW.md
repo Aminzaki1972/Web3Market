@@ -38,3 +38,25 @@ The previously documented signer endpoint limitation remains: the endpoint suppo
 ## Safety boundary
 
 No source implementation, database, Safe, wallet, key, deployment, live deal, or funds were changed. This is documentation of inspected gaps only. No independent escrow contract is proposed or permitted.
+
+
+## Finding D2-A — Audit logging records dispute status changes, not an adjudicated decision
+
+A follow-up inspection of `supabase/migrations/20261023100000_add_audit_coverage_for_deal_and_support_events.sql` confirms that the dispute audit trigger records:
+- dispute row identifier and deal identifier;
+- old and new status, and whether status changed;
+- actor metadata and a generic status-change action.
+
+It deliberately does not record a decision outcome, authorized decision-maker identity/authority, reasoned findings, evidence snapshot/hash, buyer refund amount, refund recipient, fee treatment, or a binding decision identifier. This is an audit trail for dispute-row lifecycle changes; it is not a dispute adjudication ledger and must not be treated as one.
+
+The migration also logs status changes for `deal_disputes` but does not define a controlled decision transition graph or prove that only an authorized adjudicator can resolve a dispute. Those controls must be designed against the approved agreement and authority model before adding a decision-writing RPC or UI.
+
+### Additional V1 release gates
+
+1. Keep dispute status changes distinct from an adjudication decision. A generic status such as `resolved` is not sufficient evidence to authorize a refund or seller release.
+2. Define the authorized decision-maker and appeal/finality model from the approved agreement before implementation; do not infer that authority from `isAdmin` or a platform role alone.
+3. Bind the decision to a fixed evidence snapshot, exact terms version/hash, deal, outcome, reason, timestamp, decision-maker authority, and any ordered buyer recipient/amount.
+4. Require the release/refund preparation endpoints to consume and independently validate that immutable decision record; browser status fields must never authorize funds movement.
+5. Add database tests proving unauthorized users cannot create, alter, delete, or replay a decision, and that a decision cannot be changed after a Safe claim begins.
+
+**Scope:** This is a source/migration review only. No decision schema, RPC, UI, migration, or adjudication authority was created. No live data or production object was changed.
