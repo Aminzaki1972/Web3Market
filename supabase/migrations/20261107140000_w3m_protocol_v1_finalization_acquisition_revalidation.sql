@@ -291,7 +291,10 @@ begin
   -- locking child dispute rows here: UPDATE already locks its child row before
   -- the trigger takes the parent lock, so the parent lock alone avoids inversion.
   -- Keep every non-terminal dispute fail-closed; resolved/closed records remain auditable.
-  if v_deal.dispute_status is distinct from 'none'
+  -- PREPARE accepts both 'none' and 'closed'. A closed parent status is
+  -- terminal only when every persisted dispute row is also resolved/closed;
+  -- active, null, and unclassified parent/child states remain fail-closed.
+  if v_deal.dispute_status not in ('none','closed')
      or exists (
        select 1 from public.deal_disputes d
         where d.deal_id = v_deal.id
