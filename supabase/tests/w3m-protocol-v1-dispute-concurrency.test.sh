@@ -12,6 +12,17 @@ export PGPASSWORD="${PGPASSWORD:-postgres}"
 psql_w3m() {
   psql -X -q -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" "$@"
 }
+wait_for_sleep_query() {
+  local app_name="$1"
+  for _ in $(seq 1 100); do
+    if psql_w3m -At -c "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE application_name = '$app_name' AND state = 'active' AND query LIKE '%pg_sleep%')" | grep -qx t; then
+      return 0
+    fi
+    sleep 0.05
+  done
+  echo "FAIL: timed out waiting for PostgreSQL session $app_name to reach its lock-holding sleep."
+  return 1
+}
 
 PROJECT_A="2a000000-0000-4000-8000-000000000001"
 DEAL_A="2a000000-0000-4000-8000-000000000002"
@@ -40,7 +51,7 @@ SQL
 
 # Race 1: the finalizer-side deal row lock wins first. The dispute INSERT
 # trigger must wait for that lock, then observe completed settlement and reject.
-psql_w3m > /tmp/w3m-lock-finalizer-first.log 2>&1 <<SQL &
+(export PGAPPNAME=w3m-finalizer-first; psql_w3m > /tmp/w3m-lock-finalizer-first.log 2>&1 <<SQL
 BEGIN;
 SELECT id FROM public.deals WHERE id = '$DEAL_A' FOR UPDATE;
 SELECT pg_sleep(1.5);
@@ -49,8 +60,9 @@ UPDATE public.deals
  WHERE id = '$DEAL_A';
 COMMIT;
 SQL
+) &
 FINALIZER_PID=$!
-sleep 0.2
+wait_for_sleep_query "w3m-finalizer-first"
 if DISPUTE_OUTPUT=$(psql_w3m 2>&1 <<SQL
 INSERT INTO public.deal_disputes (deal_id, status) VALUES ('$DEAL_A', 'open');
 SQL
@@ -69,14 +81,15 @@ psql_w3m -At -c "SELECT CASE WHEN status='completed' AND release_tx_hash='$TX_A'
 
 # Race 2: dispute INSERT obtains the parent deal lock first. The finalizer-side
 # transaction must wait, re-read the now-committed child dispute, and fail closed.
-psql_w3m > /tmp/w3m-lock-dispute-first.log 2>&1 <<SQL &
+(export PGAPPNAME=w3m-dispute-first; psql_w3m > /tmp/w3m-lock-dispute-first.log 2>&1 <<SQL
 BEGIN;
 INSERT INTO public.deal_disputes (deal_id, status) VALUES ('$DEAL_B', 'open');
 SELECT pg_sleep(1.5);
 COMMIT;
 SQL
+) &
 DISPUTE_PID=$!
-sleep 0.2
+wait_for_sleep_query "w3m-dispute-first"
 if FINALIZE_OUTPUT=$(psql_w3m 2>&1 <<SQL
 BEGIN;
 SELECT id FROM public.deals WHERE id = '$DEAL_B' FOR UPDATE;
