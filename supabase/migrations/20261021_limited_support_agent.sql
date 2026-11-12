@@ -33,7 +33,7 @@ create policy support_conversations_select_participant_or_admin
 on public.support_conversations for select to authenticated
 using (
   (public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2')
-  or (private.support_is_support_agent() and (select auth.jwt() ->> 'aal') = 'aal2')
+  or private.support_is_support_agent()
   or (
     user_id = (select auth.uid())
     and exists (
@@ -49,7 +49,7 @@ create policy support_messages_select_participant_or_admin
 on public.support_messages for select to authenticated
 using (
   (public.is_admin() and (select auth.jwt() ->> 'aal') = 'aal2')
-  or (private.support_is_support_agent() and (select auth.jwt() ->> 'aal') = 'aal2')
+  or private.support_is_support_agent()
   or exists (
     select 1 from public.support_conversations c
     join public.profiles p on p.id = c.user_id
@@ -75,7 +75,6 @@ with check (
     )
     or (
       private.support_is_support_agent()
-      and (select auth.jwt() ->> 'aal') = 'aal2'
       and exists (
         select 1 from public.support_conversations c
         where c.id = support_messages.conversation_id and c.status = 'open'
