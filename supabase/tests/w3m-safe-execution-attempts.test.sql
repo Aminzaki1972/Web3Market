@@ -750,6 +750,17 @@ begin
     raise exception 'Injected finalizer audit failure left partial settlement state';
   end if;
 
+  -- PREPARE permits a terminal 'closed' dispute status. Finalization must
+  -- agree when every persisted child dispute is resolved/closed, while the
+  -- preceding open-dispute case above remains rejected.
+  update public.deals set dispute_status='closed' where id=v_deal;
+  if not exists (
+    select 1 from public.deal_disputes
+     where deal_id=v_deal and lower(status) in ('resolved','closed')
+  ) then
+    raise exception 'Closed-parent regression fixture lacks a terminal dispute record';
+  end if;
+
   v_result := public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
   if coalesce((v_result->>'finalized')::boolean,false) is not true
      or coalesce((v_result->>'idempotent_replay')::boolean,true) is not false
