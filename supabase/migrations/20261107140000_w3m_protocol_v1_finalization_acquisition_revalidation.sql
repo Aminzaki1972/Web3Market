@@ -430,6 +430,7 @@ begin
      or lower(coalesce(p_receipt_evidence->>'token_contract','')) <> lower(v_policy.token_contract)
      or lower(coalesce(v_deal.token_contract,'')) <> lower(v_policy.token_contract)
      or v_policy.status not in ('locked','ready')
+     or v_policy.fee_percent is distinct from 7.5
      or v_policy.deal_amount is distinct from v_deal.amount
      or v_policy.seller_wallet is null
      or v_policy.platform_wallet is null

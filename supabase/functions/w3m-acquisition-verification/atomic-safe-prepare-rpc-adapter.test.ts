@@ -79,6 +79,9 @@ Deno.test("atomic PREPARE adapter rejects untrusted or malformed bindings before
     ...input, safeFacts: { ...input.safeFacts, threshold: 3 } as unknown as AtomicSafePrepareInput["safeFacts"],
   }));
   await assertRejects(() => commitAtomicSafePrepare(client, {
+    ...input, policy: { ...input.policy, feePercent: "8", feeAmount: "8", sellerNetAmount: "92" },
+  }));
+  await assertRejects(() => commitAtomicSafePrepare(client, {
     ...input, policy: { ...input.policy, tokenContract: "0x" + "9".repeat(40) },
   }));
   assertEquals(calls, 0);
