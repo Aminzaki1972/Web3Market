@@ -110,3 +110,23 @@ CI run [984](https://github.com/Aminzaki1972/Web3Market/actions/runs/43171778414
 The finalizer previously required `deals.dispute_status='none'` even though the PREPARE path accepts both `none` and `closed`. This was a fail-closed mismatch: a deal whose dispute had been closed could pass PREPARE but be rejected at finalization. The isolated migration now accepts parent status `none` or `closed`, while still rejecting null/active/unclassified parent states and any child dispute not explicitly `resolved` or `closed`. The behavioral fixture keeps its active-dispute rejection, resolves that dispute, sets the parent to `closed`, and then requires successful finalization. This is a V1 consistency fix only; it does not bypass unresolved disputes.
 
 Still outstanding: **separate-session behavioral proof** of those races. The test harness must hold one transaction at a controlled point, start the competing operation on a second PostgreSQL connection, prove it blocks or rejects as designed, then release/commit the first transaction and assert the final persisted state. Include both lock acquisition orders where meaningful. In particular, verify that a project-owner update waiting behind finalization cannot leave a completed/sold project with a mismatched owner, and that post-settlement dispute creation is rejected. Do not use sequential calls in one SQL session as a substitute for concurrency. The canonical Code Audit and Deal Room schemas remain authoritative for fixture inserts; no shadow tables or guessed schema are acceptable.
+
+
+### Issue #191 — actual finalizer two-session race proof
+
+Tracking: https://github.com/Aminzaki1972/Web3Market/issues/191
+
+A source-level review of the current behavioral SQL test confirms an important harness boundary: it begins with `BEGIN`, seeds the complete valid graph inside one `DO` block, and ends with `ROLLBACK`. Although it calls the actual `public.w3m_finalize_safe_execution_attempt`, its fixture is uncommitted and its PL/pgSQL variables (including the receipt JSON) are local to that block. A second PostgreSQL connection cannot see or reuse this fixture. Simply starting a second `psql` process against the existing test will therefore not create a valid race test.
+
+The existing focused shell test is also insufficient for this purpose: it proves the parent deal-row/dispute-trigger lock contract, but it does not call the finalizer. CI 984 is correctly reported only as that focused proof.
+
+Implementation gate for #191:
+1. Build a committed, disposable fixture using the exact real-schema insert graph from the behavioral test, with unique IDs per race case. Persist the identifiers and deterministic receipt payload in a dedicated test-only fixture registry/table only if that registry is itself disposable and removed by guaranteed cleanup; do not add shadow replacements for production tables.
+2. Split fixture preparation from race execution. The setup connection must commit before either worker session starts. Each worker must load identifiers and receipt facts from committed fixture data, not PL/pgSQL-local variables.
+3. Use two independent PostgreSQL sessions and explicit synchronization (application_name-visible lock/wait state or advisory barriers), bounded statement/lock timeouts, process cleanup, and trap-based fixture cleanup.
+4. In every finalizer-side race, invoke the actual `public.w3m_finalize_safe_execution_attempt` with the matching persisted attempt ID, broadcast hash, buyer actor ID, and receipt JSON. Competing workers must perform the real revocation, dispute, ownership, report, or evidence mutation against the same schema.
+5. Assert the complete persisted graph after each race: deal, project, release policy, multisig transaction, attempt, audit log count, signer key/event, dispute rows, report versions, and evidence rows. Prove no partial settlement, duplicate finalization, or mutation accepted on the wrong side of the serialization boundary.
+6. Cover both lock acquisition orders where meaningful. Do not infer correctness from sleeps alone; prove the competing session reached and waited on the intended lock before releasing the holder.
+7. Keep CI integration restricted to the isolated workflow and preserve CI 984's label as a focused lock-primitive test, not finalizer E2E.
+
+No implementation or CI result is claimed by this planning section. The actual finalizer concurrency matrix remains open until the committed fixture, independent-session tests, and successful isolated CI evidence all exist.
