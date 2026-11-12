@@ -114,6 +114,8 @@ on:
       - "supabase/tests/w3m-safe-execution-attempts-fixture.sql"
       - "supabase/tests/w3m-safe-execution-attempts.test.sql"
       - "supabase/tests/w3m-protocol-v1-dispute-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-concurrency-fixture.sql"
+      - "supabase/tests/w3m-safe-finalizer-signer-concurrency.test.sh"
       - "supabase/tests/w3m-protocol-v1-trusted-signer-schema.test.sql"
       - "supabase/tests/w3m-protocol-v1-schema.test.sql"
       - ".github/workflows/w3m-protocol-v1-isolated.yml"
