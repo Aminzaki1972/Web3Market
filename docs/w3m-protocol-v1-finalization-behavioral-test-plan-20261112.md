@@ -74,8 +74,8 @@ Concurrency path (separate PostgreSQL sessions, not sequential calls):
 
 ## 4. CI integration and acceptance criteria
 
-- Add this as a separate SQL behavioral test, not as an expansion of the existing source-definition test.
-- Ensure the workflow applies the complete ordered isolated migrations to a disposable PostgreSQL instance before running it.
+- Use the existing `supabase/tests/w3m-safe-execution-attempts.test.sql` as the primary SQL behavioral suite and extend its real seeded fixture. Keep `w3m-protocol-v1-finalization-acquisition-revalidation.test.sql` as a separate source-definition/structural contract test.
+- Ensure the workflow applies the complete ordered isolated migrations to a disposable PostgreSQL instance before running the behavioral suite.
 - Keep the existing source-definition test as a separate migration/contract guard.
 - Add a test result summary that distinguishes SQL behavioral cases, TypeScript adapter tests, and workflow steps.
 - Require two clean disposable database runs (normal migration apply and timestamp-sorted replay) before the PR can be considered ready.
@@ -83,6 +83,10 @@ Concurrency path (separate PostgreSQL sessions, not sequential calls):
 
 ## 5. Current known gap
 
-`supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql` currently checks columns, trigger presence, privileges, and function-definition text. It does **not** seed the complete graph or call the finalization RPC. It must remain labelled a structural contract test until the behavioral suite above is implemented and executed.
+`supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql` checks columns, trigger presence, privileges, and function-definition text; it remains a structural contract test.
 
-The Code Audit table schema and all base Deal Room table constraints must be verified from the canonical repository migrations before writing fixture INSERT statements. No guessed schema, mocked shadow tables, or successful test claim is acceptable.
+A separate, more complete fixture already exists in `supabase/tests/w3m-safe-execution-attempts.test.sql`. It seeds the project, parties, deal, Code Audit snapshot, terms, both acceptances, signed report, evidence, Safe transaction, attempt, wallet package, and then calls the actual finalization RPC. Before the latest expansion it covered malformed receipt fields, seller-recipient substitution, package time bounds, an open dispute, successful finalization, exactly-once state assertions, same-hash idempotent replay, and changed-hash rejection.
+
+Commit `3cf653c6f7a7f742f710ab86ae4b07c4b9520523` expands that behavioral test with signer revocation (inside a rollback savepoint), project-ownership drift, pinned-terms hash drift, wrong platform recipient/fee, post-pin evidence append rejection, and explicit no-partial-settlement assertions. These additions are **pending CI validation** until the workflow for that exact commit completes successfully.
+
+Still outstanding after this expansion: stale/superseded report behavior at finalization, an explicit finalization-time expired-evidence case, injected failure during the finalizer audit-log write proving all four settlement updates roll back, and separate-session concurrency races. The canonical Code Audit and Deal Room schemas are documented in the repository's read-only schema reviews and must remain the authority for fixture inserts; no shadow tables or guessed schema are acceptable.
