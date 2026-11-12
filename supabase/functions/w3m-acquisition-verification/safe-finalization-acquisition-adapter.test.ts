@@ -94,7 +94,7 @@ Deno.test("finalization acquisition adapter rejects a superseded report version"
   await assertRejects(
     () => verifySafeFinalizationAcquisitionBundle(db, ATTEMPT_ID, NOW),
     Error,
-    "not the latest",
+    "no longer the latest",
   );
   if (db.calls.length !== 1) throw new Error("Superseded report must fail before external source reads.");
 });
