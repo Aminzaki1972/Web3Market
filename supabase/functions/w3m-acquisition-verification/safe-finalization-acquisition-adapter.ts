@@ -60,19 +60,30 @@ export async function verifySafeFinalizationAcquisitionBundle(
   const sellerId = requiredText(deal.seller_id, "seller ID");
   const currentDealTermsHash = requiredText(bundle.current_deal_terms_hash, "current terms hash");
   const latestReportVersion = positiveInteger(bundle.latest_report_version, "latest report version");
+  const reportDealId = requiredText(reportRow.deal_id, "report deal ID");
+  const reportProjectId = requiredText(reportRow.project_id, "report project ID");
+  const reportBuyerId = requiredText(reportRow.buyer_id, "report buyer ID");
+  const reportSellerId = requiredText(reportRow.seller_id, "report seller ID");
+  const reportVersion = positiveInteger(reportRow.report_version, "report version");
   if (attempt.id !== attemptId || attempt.deal_id !== dealId ||
       attempt.report_id !== reportRow.id ||
-      attempt.report_version !== reportRow.report_version ||
+      attempt.report_version !== reportVersion ||
       attempt.pinned_report_hash !== reportRow.report_hash ||
       attempt.pinned_evidence_hash !== reportRow.evidence_hash ||
       attempt.pinned_signer_key_id !== reportRow.signer_key_id ||
       attempt.pinned_terms_hash !== currentDealTermsHash) {
     throw new Error("W3M pinned acquisition bundle no longer matches the execution attempt.");
   }
+  if (reportDealId !== dealId || reportProjectId !== projectId ||
+      reportBuyerId !== buyerId || reportSellerId !== sellerId) {
+    throw new Error("W3M pinned acquisition report is not bound to the exact deal, project, buyer, and seller.");
+  }
+  if (reportVersion !== latestReportVersion) {
+    throw new Error("W3M pinned acquisition report is no longer the latest report version.");
+  }
   const termsVersionId = requiredText(attempt.pinned_terms_version_id, "pinned terms version ID");
   const termsVersion = positiveInteger(attempt.pinned_terms_version, "pinned terms version");
   const termsHash = requiredText(attempt.pinned_terms_hash, "pinned terms hash");
-  const reportVersion = positiveInteger(reportRow.report_version, "report version");
   const reportHash = requiredText(reportRow.report_hash, "report hash");
   const evidenceHash = requiredText(reportRow.evidence_hash, "evidence hash");
   const signerKeyId = requiredText(reportRow.signer_key_id, "signer key ID");
