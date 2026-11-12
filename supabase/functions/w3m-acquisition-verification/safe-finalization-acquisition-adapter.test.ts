@@ -145,3 +145,29 @@ Deno.test("finalization acquisition adapter rejects an invalid attempt identity"
   );
   if (db.calls.length !== 0) throw new Error("Invalid attempt identity must not call the database.");
 });
+
+Deno.test("finalization acquisition adapter rejects cross-deal and cross-project report bindings", async () => {
+  for (const changed of [
+    { ...baseBundle.report_row, deal_id: "78000000-0000-4000-8000-000000000008" },
+    { ...baseBundle.report_row, project_id: "79000000-0000-4000-8000-000000000009" },
+    { ...baseBundle.report_row, buyer_id: SELLER_ID },
+  ]) {
+    const db = rpcClient({ ...baseBundle, report_row: changed });
+    await assertRejects(
+      () => verifySafeFinalizationAcquisitionBundle(db, ATTEMPT_ID, NOW),
+      Error,
+      "no longer matches",
+    );
+    if (db.calls.length !== 1) throw new Error("Misbound report must fail before external source reads.");
+  }
+});
+
+Deno.test("finalization acquisition adapter rejects current deal-terms hash drift", async () => {
+  const db = rpcClient({ ...baseBundle, current_deal_terms_hash: "d".repeat(64) });
+  await assertRejects(
+    () => verifySafeFinalizationAcquisitionBundle(db, ATTEMPT_ID, NOW),
+    Error,
+    "no longer matches",
+  );
+  if (db.calls.length !== 1) throw new Error("Terms drift must fail before external source reads.");
+});
