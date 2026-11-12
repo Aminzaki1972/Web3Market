@@ -172,3 +172,33 @@ CREATE TABLE public.deal_disputes (
   resolved_by uuid,
   resolved_at timestamptz
 );
+
+-- Narrow test double for the live projects owner-protection trigger.
+-- Mirrors the production rule: ordinary authenticated updates cannot change
+-- owner_id; trusted service-role workflows may do so inside atomic finalization.
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE OR REPLACE FUNCTION auth.role()
+RETURNS text LANGUAGE sql STABLE
+AS $auth_role$
+  SELECT coalesce(
+    nullif(current_setting('request.jwt.claim.role', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role')
+  )::text
+$auth_role$;
+
+CREATE OR REPLACE FUNCTION public.w3m_test_protect_project_owner()
+RETURNS trigger LANGUAGE plpgsql
+AS $owner_guard$
+BEGIN
+  IF NEW.owner_id IS DISTINCT FROM OLD.owner_id
+     AND auth.role() IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'Project owner cannot be changed'
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$owner_guard$;
+
+CREATE TRIGGER trg_test_protect_project_owner
+BEFORE UPDATE OF owner_id ON public.projects
+FOR EACH ROW EXECUTE FUNCTION public.w3m_test_protect_project_owner();
