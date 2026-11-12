@@ -676,22 +676,6 @@ begin
   update public.deal_disputes set status='resolved'
    where deal_id=v_deal and status='open';
 
-  v_result := public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
-  if coalesce((v_result->>'finalized')::boolean,false) is not true
-     or coalesce((v_result->>'idempotent_replay')::boolean,true) is not false
-     or v_result->>'state' <> 'CONFIRMED' then
-    raise exception 'Verified release did not finalize atomically';
-  end if;
-
-  if not exists (select 1 from public.deals where id=v_deal and status='completed' and release_tx_hash=v_broadcast_hash)
-     or not exists (select 1 from public.deal_release_policies where id=v_policy and status='released' and release_tx_hash=v_broadcast_hash)
-     or not exists (select 1 from public.deal_multisig_transactions where id=v_tx and status='confirmed' and tx_hash=v_broadcast_hash)
-     or not exists (select 1 from public.projects where id=v_project and status='sold')
-     or not exists (select 1 from public.w3m_safe_execution_attempts where id=v_attempt and state='CONFIRMED' and finalized_at is not null)
-     or (select count(*) from public.deal_audit_logs where deal_id=v_deal and action='safe_release_confirmed') <> 1 then
-    raise exception 'Atomic finalization did not update every required record exactly once';
-  end if;
-
   -- Inject a failure at the final audit-log write. The RPC must roll back
   -- transaction, policy, deal, project, and attempt state as one atomic unit.
   create or replace function public.w3m_test_fail_finalization_audit()
@@ -737,6 +721,22 @@ begin
      or (select count(*) from public.deal_audit_logs
         where deal_id=v_deal and action='safe_release_confirmed') <> 0 then
     raise exception 'Injected finalizer audit failure left partial settlement state';
+  end if;
+
+  v_result := public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
+  if coalesce((v_result->>'finalized')::boolean,false) is not true
+     or coalesce((v_result->>'idempotent_replay')::boolean,true) is not false
+     or v_result->>'state' <> 'CONFIRMED' then
+    raise exception 'Verified release did not finalize atomically';
+  end if;
+
+  if not exists (select 1 from public.deals where id=v_deal and status='completed' and release_tx_hash=v_broadcast_hash)
+     or not exists (select 1 from public.deal_release_policies where id=v_policy and status='released' and release_tx_hash=v_broadcast_hash)
+     or not exists (select 1 from public.deal_multisig_transactions where id=v_tx and status='confirmed' and tx_hash=v_broadcast_hash)
+     or not exists (select 1 from public.projects where id=v_project and status='sold')
+     or not exists (select 1 from public.w3m_safe_execution_attempts where id=v_attempt and state='CONFIRMED' and finalized_at is not null)
+     or (select count(*) from public.deal_audit_logs where deal_id=v_deal and action='safe_release_confirmed') <> 1 then
+    raise exception 'Atomic finalization did not update every required record exactly once';
   end if;
 
   v_result := public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
