@@ -91,6 +91,8 @@ begin
 end;
 $lock$;
 revoke all on function public.w3m_lock_evidence_append() from public, anon, authenticated, service_role;
+drop trigger if exists w3m_acquisition_evidence_serialize_append
+  on public.w3m_acquisition_evidence;
 create trigger w3m_acquisition_evidence_serialize_append
 before insert on public.w3m_acquisition_evidence
 for each row execute function public.w3m_lock_evidence_append();
