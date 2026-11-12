@@ -71,6 +71,19 @@ begin
 
   if v_attempt.state = 'CONFIRMED' then
     if lower(v_attempt.broadcast_tx_hash) = lower(p_broadcast_tx_hash) then
+      -- Idempotent replay also verifies that the atomic ownership transfer
+      -- remains reflected in the persisted project row.
+      select * into v_deal from public.deals
+       where id = v_attempt.deal_id for update;
+      if not found then raise exception 'Confirmed deal is missing' using errcode = 'P0002'; end if;
+      select * into v_project from public.projects
+       where id = v_deal.project_id for update;
+      if not found
+         or v_project.owner_id is distinct from v_deal.buyer_id
+         or v_project.status is distinct from 'sold' then
+        raise exception 'Confirmed Safe deal does not retain buyer project ownership'
+          using errcode = '23514';
+      end if;
       return jsonb_build_object(
         'finalized', true, 'idempotent_replay', true,
         'attempt_id', v_attempt.id, 'state', 'CONFIRMED',
