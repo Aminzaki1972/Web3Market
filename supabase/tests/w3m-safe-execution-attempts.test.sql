@@ -791,6 +791,47 @@ begin
     raise exception 'Atomic finalization did not update every required record exactly once';
   end if;
 
+  -- A report append that starts after settlement must not supersede the
+  -- exact report pinned by the now-confirmed execution attempt.
+  v_rejected := false;
+  begin
+    insert into public.w3m_acquisition_reports (
+      id,deal_id,project_id,report_version,supersedes_report_id,buyer_id,seller_id,
+      status,engine_version,evidence_hash,report_hash,report_payload,
+      signer_key_id,report_signature,issued_at,expires_at
+    ) values (
+      v_stale_report,v_deal::text,v_project::text,2,v_report,v_buyer::text,v_seller::text,
+      'BLOCKED','test-engine',repeat('6',64),repeat('7',64),
+      jsonb_build_object('dealTermsHash',v_terms_hash,'evidenceCount',0),
+      null,null,now(),now()+interval '1 hour'
+    );
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  if not v_rejected
+     or exists (select 1 from public.w3m_acquisition_reports where id=v_stale_report) then
+    raise exception 'A new acquisition report was appended after confirmed Safe settlement';
+  end if;
+
+  -- Evidence append is likewise frozen after the attempt reaches CONFIRMED.
+  v_rejected := false;
+  begin
+    insert into public.w3m_acquisition_evidence (
+      report_id,evidence_type,source_table,source_record_id,source_version,
+      evidence_hash,result,mandatory,observed_at,valid_until,details
+    ) values (
+      v_report,'PAYMENT',null,null,null,repeat('8',64),'PASS',true,now(),
+      now()+interval '1 hour',jsonb_build_object('evidenceId','post-settlement-append')
+    );
+  exception when object_not_in_prerequisite_state then
+    v_rejected := true;
+  end;
+  if not v_rejected
+     or exists (select 1 from public.w3m_acquisition_evidence
+                 where report_id=v_report and details->>'evidenceId'='post-settlement-append') then
+    raise exception 'New acquisition evidence was appended after confirmed Safe settlement';
+  end if;
+
   v_result := public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
   if coalesce((v_result->>'idempotent_replay')::boolean,false) is not true then
     raise exception 'Finalization replay was not idempotent';
