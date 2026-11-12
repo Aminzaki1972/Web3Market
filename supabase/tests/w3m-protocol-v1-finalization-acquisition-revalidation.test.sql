@@ -108,12 +108,16 @@ begin
     raise exception 'W3M finalizer must lock and revalidate current project ownership before settlement';
   end if;
 
+  -- Parent status may be 'none' or terminal 'closed'. NULL and every
+  -- other parent value fail closed; closed is accepted only when all child
+  -- dispute records are explicitly resolved/closed.
   if position('PUBLIC.DEAL_DISPUTES' in upper(v_finalizer)) = 0
      or position('NOT IN (''RESOLVED'',''CLOSED'')' in upper(v_finalizer)) = 0
-     or position('V_DEAL.DISPUTE_STATUS IS DISTINCT FROM ''NONE''' in upper(v_finalizer)) = 0
+     or position('V_DEAL.DISPUTE_STATUS IS NULL' in upper(v_finalizer)) = 0
+     or position('V_DEAL.DISPUTE_STATUS NOT IN (''NONE'',''CLOSED'')' in upper(v_finalizer)) = 0
      or position('PUBLIC.DEAL_DISPUTES' in upper(v_finalizer)) >
         position('UPDATE PUBLIC.DEAL_MULTISIG_TRANSACTIONS' in upper(v_finalizer)) then
-    raise exception 'W3M finalizer must reject active, unresolved, or unclassified dispute state before settlement';
+    raise exception 'W3M finalizer must accept only none/terminal-closed disputes and reject null, active, unresolved, or unclassified states before settlement';
   end if;
 
   if to_regprocedure('public.w3m_lock_deal_dispute_mutation()') is null
