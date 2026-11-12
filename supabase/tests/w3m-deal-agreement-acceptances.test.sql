@@ -420,9 +420,12 @@ begin
     raise exception 'Prior signed version was not preserved as immutable history';
   end if;
 
-  -- The second version cannot be accepted if project ownership drifts after
-  -- its canonical terms were registered.
+  -- Simulate an out-of-band trusted ownership change. Ordinary authenticated
+  -- callers are blocked by the project owner guard; this test models a
+  -- privileged mutation so it can verify the agreement acceptance fails closed.
+  perform set_config('request.jwt.claim.role','service_role',true);
   update public.projects set owner_id=v_buyer where id=v_project;
+  perform set_config('request.jwt.claim.role','',true);
   begin
     perform public.w3m_insert_deal_agreement_acceptance(
       v_deal,2,'buyer',v_buyer,'0x5555555555555555555555555555555555555555',
@@ -431,7 +434,9 @@ begin
     raise exception 'Agreement acceptance was allowed after project ownership changed';
   exception when check_violation then null;
   end;
+  perform set_config('request.jwt.claim.role','service_role',true);
   update public.projects set owner_id=v_seller where id=v_project;
+  perform set_config('request.jwt.claim.role','',true);
 
   -- Even if only one party is signing, both current verified wallets must remain distinct.
   update public.profiles
