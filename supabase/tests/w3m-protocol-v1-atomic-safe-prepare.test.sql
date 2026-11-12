@@ -58,7 +58,7 @@ begin
   policy := jsonb_set(policy,'{seller_net_amount}',to_jsonb('92'::text));
   begin
     perform public.w3m_commit_safe_prepare(v_deal_id,actor_id,policy,safe_facts,auth);
-    raise exception 'Non-V1 8% success fee unexpectedly accepted';
+    raise exception 'Non-V1 8%% success fee unexpectedly accepted';
   exception when check_violation then null;
   end;
   if exists(select 1 from public.deal_release_policies where deal_id=v_deal_id)
