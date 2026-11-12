@@ -703,6 +703,20 @@ begin
   update public.deal_disputes set status='resolved'
    where deal_id=v_deal and status='open';
 
+  -- A NULL parent dispute status is unclassified and must remain fail-closed.
+  update public.deals set dispute_status=null where id=v_deal;
+  v_rejected := false;
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
+    raise exception 'A NULL dispute status was unexpectedly allowed to finalize';
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception 'NULL dispute status did not fail closed';
+  end if;
+  update public.deals set dispute_status='none' where id=v_deal;
+
   -- Inject a failure at the final audit-log write. The RPC must roll back
   -- transaction, policy, deal, project, and attempt state as one atomic unit.
   create or replace function public.w3m_test_fail_finalization_audit()
