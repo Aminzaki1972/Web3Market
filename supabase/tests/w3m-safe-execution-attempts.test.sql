@@ -788,8 +788,14 @@ begin
      or not exists (select 1 from public.projects
        where id=v_project and owner_id=v_buyer and status='sold')
      or not exists (select 1 from public.w3m_safe_execution_attempts where id=v_attempt and state='CONFIRMED' and finalized_at is not null)
-     or (select count(*) from public.deal_audit_logs where deal_id=v_deal and action='safe_release_confirmed') <> 1 then
-    raise exception 'Atomic finalization did not update every required record exactly once';
+     or (select count(*) from public.deal_audit_logs where deal_id=v_deal and action='safe_release_confirmed') <> 1
+     or not exists (
+       select 1 from public.deal_audit_logs
+        where deal_id=v_deal and action='safe_release_confirmed'
+          and metadata->>'previous_project_owner_id'=v_seller::text
+          and metadata->>'new_project_owner_id'=v_buyer::text
+     ) then
+    raise exception 'Atomic finalization did not update every required record and ownership audit exactly once';
   end if;
 
   -- A report append that starts after settlement must not supersede the
@@ -831,6 +837,23 @@ begin
      or exists (select 1 from public.w3m_acquisition_evidence
                  where report_id=v_report and details->>'evidenceId'='post-settlement-append') then
     raise exception 'New acquisition evidence was appended after confirmed Safe settlement';
+  end if;
+
+  -- An idempotent replay must fail closed if the persisted buyer ownership
+  -- binding has drifted. The attempted mutation is isolated and rolled back.
+  v_rejected := false;
+  begin
+    update public.projects set owner_id=v_seller where id=v_project;
+    perform public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
+    raise exception 'Confirmed replay unexpectedly accepted seller ownership drift'
+      using errcode='P0001';
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  if not v_rejected
+     or not exists (select 1 from public.projects
+       where id=v_project and owner_id=v_buyer and status='sold') then
+    raise exception 'Confirmed replay did not preserve buyer ownership after drift rejection';
   end if;
 
   v_result := public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
