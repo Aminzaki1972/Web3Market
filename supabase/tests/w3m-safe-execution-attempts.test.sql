@@ -10,6 +10,7 @@ declare
   v_seller uuid := '22000000-0000-4000-8000-000000000002';
   v_tx uuid := '30000000-0000-4000-8000-000000000003';
   v_report uuid := '40000000-0000-4000-8000-000000000004';
+  v_stale_report uuid := '40000000-0000-4000-8000-000000000005';
   v_policy uuid := '50000000-0000-4000-8000-000000000005';
   v_attempt uuid;
   v_actor uuid := '21000000-0000-4000-8000-000000000002';
@@ -611,6 +612,56 @@ begin
      or (select count(*) from public.deal_audit_logs
       where deal_id=v_deal and action='safe_release_confirmed') <> 0 then
     raise exception 'A rejected finalization left partial settlement state';
+  end if;
+
+  -- A newer persisted report must supersede the attempt's pinned report.
+  -- The report/evidence append is rolled back after the expected finalizer rejection.
+  v_rejected := false;
+  begin
+    insert into public.w3m_acquisition_reports (
+      id,deal_id,project_id,report_version,supersedes_report_id,buyer_id,seller_id,
+      status,engine_version,evidence_hash,report_hash,report_payload,
+      signer_key_id,report_signature,issued_at,expires_at
+    ) values (
+      v_stale_report,v_deal::text,v_project::text,2,v_report,v_buyer::text,v_seller::text,
+      'BLOCKED','test-engine',repeat('8',64),repeat('9',64),
+      jsonb_build_object(
+        'dealTermsHash',v_terms_hash,'evidenceCount',1,
+        'auditId','75000000-0000-4000-8000-000000000001',
+        'expectedCommitSha',repeat('1',40)
+      ),
+      null,null,now(),now()+interval '1 hour'
+    );
+
+    insert into public.w3m_acquisition_evidence (
+      report_id,evidence_type,source_table,source_record_id,source_version,
+      evidence_hash,result,mandatory,observed_at,valid_until,details
+    )
+    select
+      v_stale_report,evidence_type,source_table,source_record_id,source_version,
+      evidence_hash,result,mandatory,observed_at,valid_until,details
+    from public.w3m_acquisition_evidence
+    where report_id=v_report and evidence_type='CODE_AUDIT';
+
+    execute 'set constraints w3m_acquisition_report_requires_signed_deal_terms immediate';
+    begin
+      perform public.w3m_finalize_safe_execution_attempt(
+        v_attempt,v_broadcast_hash,v_buyer,v_receipt
+      );
+    exception when check_violation then
+      v_rejected := true;
+    end;
+    if not v_rejected then
+      raise exception 'Finalization unexpectedly accepted a superseded acquisition report'
+        using errcode = 'P0001';
+    end if;
+    raise exception 'rollback superseded report fixture' using errcode = 'ZX001';
+  exception when sqlstate 'ZX001' then
+    null;
+  end;
+  if not v_rejected
+     or exists (select 1 from public.w3m_acquisition_reports where id=v_stale_report) then
+    raise exception 'Superseded-report rejection was not isolated and rolled back';
   end if;
 
   -- A dispute opened after the report and wallet claim must still block
