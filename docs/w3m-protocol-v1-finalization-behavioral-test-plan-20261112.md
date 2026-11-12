@@ -99,6 +99,12 @@ The isolated SQL migrations already implement several serialization controls tha
 - Finalization locks the pinned trusted-signer row; signer revocation uses a conflicting row lock, so the two operations serialize.
 - Finalization locks the exact report, evidence rows, terms version, and party acceptances before committing settlement.
 
+### CI 984 — focused dispute/deal-row lock race (not finalizer E2E)
+
+CI run [984](https://github.com/Aminzaki1972/Web3Market/actions/runs/43171778414) completed successfully on the isolated workflow, including the new `w3m-protocol-v1-dispute-concurrency.test.sh` invocation. The script opens two independent PostgreSQL sessions and exercises both lock orders against the disposable fixture: (1) a transaction holds the parent deal row, marks the deal completed, and a competing dispute insert must wait and then be rejected; (2) a dispute insert holds the parent deal row, and a competing settlement-side guard must wait, observe the committed open dispute, and fail closed.
+
+**Interpretation limit:** this is a focused proof of the dispute trigger/parent-row lock contract only. The script performs a direct test update of `deals.status` and a separately authored guard query; it does **not** call `public.w3m_finalize_safe_execution_attempt`. The fixture is the disposable test schema, not a full production-schema migration. Therefore CI 984 does not close the separate-session finalizer E2E concurrency gap, and must not be described as proof of the finalizer's complete race behavior.
+
 ### Dispute terminal-state consistency correction
 
 The finalizer previously required `deals.dispute_status='none'` even though the PREPARE path accepts both `none` and `closed`. This was a fail-closed mismatch: a deal whose dispute had been closed could pass PREPARE but be rejected at finalization. The isolated migration now accepts parent status `none` or `closed`, while still rejecting null/active/unclassified parent states and any child dispute not explicitly `resolved` or `closed`. The behavioral fixture keeps its active-dispute rejection, resolves that dispute, sets the parent to `closed`, and then requires successful finalization. This is a V1 consistency fix only; it does not bypass unresolved disputes.
