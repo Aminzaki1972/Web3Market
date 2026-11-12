@@ -785,7 +785,8 @@ begin
   if not exists (select 1 from public.deals where id=v_deal and status='completed' and release_tx_hash=v_broadcast_hash)
      or not exists (select 1 from public.deal_release_policies where id=v_policy and status='released' and release_tx_hash=v_broadcast_hash)
      or not exists (select 1 from public.deal_multisig_transactions where id=v_tx and status='confirmed' and tx_hash=v_broadcast_hash)
-     or not exists (select 1 from public.projects where id=v_project and status='sold')
+     or not exists (select 1 from public.projects
+       where id=v_project and owner_id=v_buyer and status='sold')
      or not exists (select 1 from public.w3m_safe_execution_attempts where id=v_attempt and state='CONFIRMED' and finalized_at is not null)
      or (select count(*) from public.deal_audit_logs where deal_id=v_deal and action='safe_release_confirmed') <> 1 then
     raise exception 'Atomic finalization did not update every required record exactly once';
