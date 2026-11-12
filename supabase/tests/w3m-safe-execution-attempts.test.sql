@@ -598,6 +598,33 @@ begin
     raise exception 'Pinned acquisition evidence manifest was not frozen';
   end if;
 
+  -- Simulate naturally expired mandatory evidence without changing the
+  -- append-only production contract. The trigger disable/update/finalizer
+  -- attempt live inside a savepoint and must all roll back on rejection.
+  v_rejected := false;
+  begin
+    alter table public.w3m_acquisition_evidence
+      disable trigger w3m_acquisition_evidence_reject_mutation;
+    update public.w3m_acquisition_evidence
+       set valid_until=now()-interval '1 second'
+     where report_id=v_report and evidence_type='PROJECT_IDENTITY';
+    alter table public.w3m_acquisition_evidence
+      enable trigger w3m_acquisition_evidence_reject_mutation;
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,v_receipt
+    );
+    raise exception 'Finalization unexpectedly accepted expired mandatory evidence'
+      using errcode='P0001';
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  if not v_rejected
+     or not exists (select 1 from public.w3m_acquisition_evidence
+       where report_id=v_report and evidence_type='PROJECT_IDENTITY'
+         and valid_until > now()) then
+    raise exception 'Expired evidence was not rejected or its test mutation was not rolled back';
+  end if;
+
   -- Every rejected finalization above must leave all settlement records intact.
   if exists (select 1 from public.deals
       where id=v_deal and (release_tx_hash is not null or completed_at is not null))
