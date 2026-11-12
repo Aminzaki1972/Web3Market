@@ -294,7 +294,8 @@ begin
   -- PREPARE accepts both 'none' and 'closed'. A closed parent status is
   -- terminal only when every persisted dispute row is also resolved/closed;
   -- active, null, and unclassified parent/child states remain fail-closed.
-  if v_deal.dispute_status not in ('none','closed')
+  if v_deal.dispute_status is null
+     or v_deal.dispute_status not in ('none','closed')
      or exists (
        select 1 from public.deal_disputes d
         where d.deal_id = v_deal.id
