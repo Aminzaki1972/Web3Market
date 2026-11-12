@@ -156,7 +156,7 @@ Deno.test("finalization acquisition adapter rejects cross-deal and cross-project
     await assertRejects(
       () => verifySafeFinalizationAcquisitionBundle(db, ATTEMPT_ID, NOW),
       Error,
-      "no longer matches",
+      "not bound to the exact deal",
     );
     if (db.calls.length !== 1) throw new Error("Misbound report must fail before external source reads.");
   }
