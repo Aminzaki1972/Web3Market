@@ -30,8 +30,8 @@ wait_for_query() {
 }
 
 cleanup() {
-  # CI database is disposable and all preceding contract tests roll back their fixtures.
-  psql_w3m -c "TRUNCATE public.projects, public.profiles, public.w3m_trusted_signer_keys CASCADE;" >/dev/null 2>&1 || true
+  # PostgreSQL container is disposable and destroyed by the CI job.
+  # Never TRUNCATE or DELETE the append-only trusted signer registry.
   psql_w3m -c "DROP TABLE IF EXISTS public.w3m_test_finalizer_race_fixture;" >/dev/null 2>&1 || true
 }
 cleanup
