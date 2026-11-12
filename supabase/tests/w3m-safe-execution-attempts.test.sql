@@ -692,6 +692,53 @@ begin
     raise exception 'Atomic finalization did not update every required record exactly once';
   end if;
 
+  -- Inject a failure at the final audit-log write. The RPC must roll back
+  -- transaction, policy, deal, project, and attempt state as one atomic unit.
+  create or replace function public.w3m_test_fail_finalization_audit()
+  returns trigger language plpgsql as $test_trigger$
+  begin
+    if new.action='safe_release_confirmed' then
+      raise exception 'injected finalizer audit write failure' using errcode='P0001';
+    end if;
+    return new;
+  end;
+  $test_trigger$;
+  create trigger w3m_test_fail_finalization_audit
+    before insert on public.deal_audit_logs
+    for each row execute function public.w3m_test_fail_finalization_audit();
+
+  v_rejected := false;
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,v_receipt
+    );
+    raise exception 'Finalizer unexpectedly succeeded despite injected audit failure'
+      using errcode='P0002';
+  exception when sqlstate 'P0001' then
+    if sqlerrm <> 'injected finalizer audit write failure' then
+      raise;
+    end if;
+    v_rejected := true;
+  end;
+  drop trigger w3m_test_fail_finalization_audit on public.deal_audit_logs;
+  drop function public.w3m_test_fail_finalization_audit();
+
+  if not v_rejected
+     or exists (select 1 from public.deals
+        where id=v_deal and (release_tx_hash is not null or completed_at is not null))
+     or not exists (select 1 from public.deal_release_policies
+        where id=v_policy and status='locked' and release_tx_hash is null)
+     or not exists (select 1 from public.deal_multisig_transactions
+        where id=v_tx and status='submitted' and tx_hash=v_broadcast_hash)
+     or not exists (select 1 from public.projects
+        where id=v_project and owner_id=v_seller and status='active')
+     or not exists (select 1 from public.w3m_safe_execution_attempts
+        where id=v_attempt and state='RECONCILIATION_REQUIRED' and finalized_at is null)
+     or (select count(*) from public.deal_audit_logs
+        where deal_id=v_deal and action='safe_release_confirmed') <> 0 then
+    raise exception 'Injected finalizer audit failure left partial settlement state';
+  end if;
+
   v_result := public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
   if coalesce((v_result->>'idempotent_replay')::boolean,false) is not true then
     raise exception 'Finalization replay was not idempotent';
