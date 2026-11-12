@@ -171,3 +171,66 @@ Deno.test("finalization acquisition adapter rejects current deal-terms hash drif
   );
   if (db.calls.length !== 1) throw new Error("Terms drift must fail before external source reads.");
 });
+
+
+Deno.test("finalization acquisition adapter rejects stale or malformed mandatory Code Audit evidence", async () => {
+  const validAuditEvidence = {
+    id: "evidence-row-audit",
+    report_id: REPORT_ID,
+    evidence_type: "CODE_AUDIT",
+    mandatory: true,
+    source_table: "code_audits",
+    source_record_id: "audit-record-1",
+    source_version: "abcdef123456",
+    evidence_hash: "d".repeat(64),
+    result: "PASS",
+    valid_until: "2026-11-12T06:00:00.000Z",
+    observed_at: "2026-11-12T04:00:00.000Z",
+    details: {
+      auditManifestVersion: "w3m-audit-manifest-v1",
+      auditManifestHash: "d".repeat(64),
+      commitSha: "abcdef123456",
+      auditFileCount: 2,
+      auditFindingCount: 0,
+    },
+  };
+  const cases = [
+    {
+      name: "expired evidence",
+      row: { ...validAuditEvidence, valid_until: "2026-11-12T04:59:59.000Z" },
+    },
+    {
+      name: "future-observed evidence",
+      row: { ...validAuditEvidence, observed_at: "2026-11-12T05:00:01.000Z" },
+    },
+    {
+      name: "wrong source table",
+      row: { ...validAuditEvidence, source_table: "code_audit_files" },
+    },
+    {
+      name: "non-PASS evidence",
+      row: { ...validAuditEvidence, result: "FAIL" },
+    },
+    {
+      name: "manifest digest mismatch",
+      row: {
+        ...validAuditEvidence,
+        details: { ...validAuditEvidence.details, auditManifestHash: "e".repeat(64) },
+      },
+    },
+  ];
+  for (const testCase of cases) {
+    const db = rpcClient({
+      ...baseBundle,
+      evidence_rows: [testCase.row],
+    });
+    await assertRejects(
+      () => verifySafeFinalizationAcquisitionBundle(db, ATTEMPT_ID, NOW),
+      Error,
+      "stale or malformed",
+    );
+    if (db.calls.length !== 1) {
+      throw new Error("Invalid " + testCase.name + " must fail before Code Audit manifest reads.");
+    }
+  }
+});
