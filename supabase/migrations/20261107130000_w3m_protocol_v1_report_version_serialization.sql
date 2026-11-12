@@ -72,56 +72,6 @@ create trigger w3m_acquisition_reports_serialize_version_append
 before insert on public.w3m_acquisition_reports
 for each row execute function public.w3m_lock_report_version_append();
 
--- Evidence appends use the same per-deal advisory lock as report versioning
--- and finalization. This prevents a post-settlement manifest mutation and
--- makes append-vs-finalize races deterministic in either lock order.
-create or replace function public.w3m_lock_acquisition_evidence_append()
-returns trigger
-language plpgsql
-security definer
-set search_path = pg_catalog, public
-as $evidence_lock$
-declare
-  v_deal_id text;
-begin
-  select r.deal_id
-    into v_deal_id
-    from public.w3m_acquisition_reports r
-   where r.id = new.report_id;
-
-  if not found or v_deal_id is null or length(btrim(v_deal_id)) = 0 then
-    raise exception 'W3M evidence must reference an existing deal-bound report'
-      using errcode = '23514';
-  end if;
-
-  perform pg_advisory_xact_lock(hashtextextended(v_deal_id, 0));
-
-  if exists (
-    select 1 from public.deals d
-     where d.id::text = v_deal_id
-       and (d.status = 'completed' or d.release_tx_hash is not null)
-  ) or exists (
-    select 1 from public.w3m_safe_execution_attempts a
-     where a.deal_id::text = v_deal_id
-       and a.state = 'CONFIRMED'
-  ) then
-    raise exception 'W3M acquisition evidence cannot be appended after Safe settlement is confirmed'
-      using errcode = '55000';
-  end if;
-
-  return new;
-end;
-$evidence_lock$;
-
-revoke all on function public.w3m_lock_acquisition_evidence_append()
-  from public, anon, authenticated, service_role;
-
-drop trigger if exists w3m_acquisition_evidence_serialize_append
-  on public.w3m_acquisition_evidence;
-create trigger w3m_acquisition_evidence_serialize_append
-before insert on public.w3m_acquisition_evidence
-for each row execute function public.w3m_lock_acquisition_evidence_append();
-
 create or replace function public.w3m_finalize_safe_execution_attempt(
   p_attempt_id uuid,
   p_broadcast_tx_hash text,
