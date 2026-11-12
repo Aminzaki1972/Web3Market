@@ -130,3 +130,39 @@ Implementation gate for #191:
 7. Keep CI integration restricted to the isolated workflow and preserve CI 984's label as a focused lock-primitive test, not finalizer E2E.
 
 No implementation or CI result is claimed by this planning section. The actual finalizer concurrency matrix remains open until the committed fixture, independent-session tests, and successful isolated CI evidence all exist.
+
+
+### 12 November — line-level fixture and lock-order review
+
+The existing SQL behavioral fixture was reviewed directly. Its committed-data prerequisite is not met: all seed rows, generated attempt ID, receipt JSON, negative cases, and successful finalization are inside one BEGIN / DO / ROLLBACK test. The setup sequence that a new committed fixture must preserve is:
+
+1. Insert seller-owned project; activate the test trusted-signer key and append its ACTIVATED event; create verified buyer/seller profiles.
+2. Insert the BNB Chain 56 deal, locked 7.5% release policy, and signed Safe release transaction.
+3. Insert the completed Code Audit and file row, then call w3m_create_deal_code_audit_snapshot for the exact audit ID, manifest version/digest, and file/finding counts.
+4. Obtain canonical deal terms from w3m_current_deal_terms_json; register the immutable terms version with w3m_register_deal_terms_version; record buyer and seller acceptance through w3m_insert_deal_agreement_acceptance.
+5. Insert the PASS acquisition report and its exact evidence rows; satisfy the deferred signed-terms constraint.
+6. Claim the attempt with w3m_claim_safe_execution_attempt; issue a package through w3m_issue_safe_execution_package; record the broadcast through w3m_record_safe_wallet_submission; transition to RECONCILIATION_REQUIRED through w3m_mark_safe_execution_reconciliation_required.
+7. Read the persisted snapshot, then build a deterministic SQL-boundary receipt whose block timestamp is within the persisted package window and whose Safe/token/transfers and acquisition attestation exactly match the persisted policy and attempt pins.
+
+For the race harness, do not copy the existing 5.1-second package-expiry sleep. Use a longer bounded package window and a synthetic receipt timestamp inside it. The SQL fixture is not a live-chain proof; raw BNB receipt and cryptographic report verification remain separately tested by the TypeScript verifier suites.
+
+The finalizer's actual lock order in migration 20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql is:
+
+1. execution-attempt row FOR UPDATE;
+2. per-deal transaction advisory lock shared with report/evidence append;
+3. deal row FOR UPDATE;
+4. project row FOR UPDATE;
+5. release policy, pinned report, evidence rows, signer-key row, pinned terms version and acceptances, then Safe transaction.
+
+The dispute trigger separately locks the parent deal row. The signer revocation RPC and finalizer lock the same signer-key row. The report/evidence append triggers share the per-deal advisory lock with finalization. These are the lock contracts the new harness must actually exercise.
+
+Synchronization requirements for the shell harness:
+- Set a unique application_name for each worker session.
+- Use a holder transaction to acquire the exact competing row/advisory lock, then start the other session with the real finalizer or real mutation.
+- Poll pg_stat_activity until the competing session is demonstrably waiting on a PostgreSQL lock; enforce a bounded deadline and lock_timeout / statement_timeout.
+- Commit the holder only after the wait has been observed; then assert both command outcomes and all persisted state.
+- Run each lock order on a separate fixture graph and clean it in a shell trap.
+
+Ownership-race acceptance must additionally inspect project lifecycle guards: if an owner update waits behind a successful finalization, it must not leave a completed deal with a project whose owner no longer matches the deal's seller. If the current schema permits such a post-sale owner change, that is a separate V1 integrity defect to fix before calling this race safe; do not encode a permissive result as expected behavior.
+
+This review and design note does not claim the race suite exists or has passed. The new fixture helper, independent-session shell harness, and CI invocation remain unimplemented.
