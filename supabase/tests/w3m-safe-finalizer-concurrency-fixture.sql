@@ -207,7 +207,7 @@ begin
   exception when insufficient_privilege then null;
   end;
 
-  v_package_expiry := clock_timestamp() + interval '1 hour';
+  v_package_expiry := clock_timestamp() + interval '90 seconds';
   v_package := jsonb_build_object(
     'protocol','W3M_PROTOCOL_V1',
     'issuedAt',clock_timestamp(),
