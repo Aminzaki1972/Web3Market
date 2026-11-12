@@ -31,6 +31,21 @@ declare
 begin
   insert into public.projects (id,owner_id,status,github_url) values (v_project,v_seller,'active','https://github.com/aminzaki1972/Web3Market');
 
+  -- Match the live database owner guard: an authenticated user cannot transfer
+  -- project ownership directly. Only the trusted service-role finalizer may.
+  perform set_config('request.jwt.claim.role','authenticated',true);
+  v_rejected := false;
+  begin
+    update public.projects set owner_id=v_buyer where id=v_project;
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  if not v_rejected
+     or not exists (select 1 from public.projects where id=v_project and owner_id=v_seller) then
+    raise exception 'Ordinary authenticated owner mutation was not blocked';
+  end if;
+  perform set_config('request.jwt.claim.role','service_role',true);
+
   insert into public.w3m_trusted_signer_keys (
     key_id, algorithm, public_address, valid_from, valid_until, created_by
   ) values (
