@@ -490,6 +490,129 @@ begin
   exception when check_violation then null;
   end;
 
+  -- Revoking the pinned signer must block finalization. The nested block is
+  -- a savepoint: its expected rejection rolls back the test revocation so the
+  -- same fixture can continue to the successful-path assertions.
+  v_rejected := false;
+  begin
+    perform public.w3m_revoke_trusted_signer_key(
+      'attempt-test-key',
+      jsonb_build_object(
+        'key_id','attempt-test-key','event_type','REVOKED',
+        'actor_type','SYSTEM','actor_ref','ci-test',
+        'reason','temporary finalization guard test',
+        'event_hash',repeat('f',64)
+      )
+    );
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,v_receipt
+    );
+    raise exception 'Finalization unexpectedly accepted a revoked report signer'
+      using errcode = 'P0001';
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception 'Revoked report signer did not block finalization';
+  end if;
+  if (select event_type from public.w3m_trusted_signer_key_events
+       where key_id='attempt-test-key' order by event_id desc limit 1) <> 'ACTIVATED' then
+    raise exception 'Signer revocation savepoint was not rolled back after the expected rejection';
+  end if;
+
+  -- Project ownership is reloaded under a row lock at finalization time.
+  update public.projects set owner_id=v_buyer where id=v_project;
+  v_rejected := false;
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,v_receipt
+    );
+    raise exception 'Finalization unexpectedly accepted changed project ownership'
+      using errcode = 'P0001';
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  update public.projects set owner_id=v_seller where id=v_project;
+  if not v_rejected then
+    raise exception 'Changed project ownership did not block finalization';
+  end if;
+
+  -- The persisted attempt must remain bound to the exact accepted terms hash.
+  update public.w3m_safe_execution_attempts
+     set pinned_terms_hash=repeat('9',64)
+   where id=v_attempt;
+  v_rejected := false;
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,v_receipt
+    );
+    raise exception 'Finalization unexpectedly accepted a changed pinned terms hash'
+      using errcode = 'P0001';
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  update public.w3m_safe_execution_attempts
+     set pinned_terms_hash=v_terms_hash
+   where id=v_attempt;
+  if not v_rejected then
+    raise exception 'Changed pinned terms hash did not block finalization';
+  end if;
+
+  -- Both transfer legs are exact: wrong platform recipient or fee must fail.
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,
+      jsonb_set(v_receipt,'{transfers,1,to_address}',
+        to_jsonb('0x9999999999999999999999999999999999999999'::text))
+    );
+    raise exception 'Substituted platform recipient was unexpectedly finalized'
+      using errcode = 'P0001';
+  exception when check_violation then null;
+  end;
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,
+      jsonb_set(v_receipt,'{transfers,1,amount}',to_jsonb('7.4'::text))
+    );
+    raise exception 'Incorrect platform fee amount was unexpectedly finalized'
+      using errcode = 'P0001';
+  exception when check_violation then null;
+  end;
+
+  -- Evidence cannot be appended after an attempt has pinned its report manifest.
+  v_rejected := false;
+  begin
+    insert into public.w3m_acquisition_evidence (
+      report_id,evidence_type,evidence_hash,result,mandatory,observed_at,valid_until,details
+    ) values (
+      v_report,'ASSET_TRANSFER',repeat('9',64),'PASS',true,now(),
+      now()+interval '1 hour',jsonb_build_object('evidenceId','late-evidence')
+    );
+    raise exception 'Evidence manifest unexpectedly accepted an append after attempt pinning'
+      using errcode = 'P0001';
+  exception when sqlstate '55000' then
+    v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception 'Pinned acquisition evidence manifest was not frozen';
+  end if;
+
+  -- Every rejected finalization above must leave all settlement records intact.
+  if exists (select 1 from public.deals
+      where id=v_deal and (release_tx_hash is not null or completed_at is not null))
+     or not exists (select 1 from public.deal_release_policies
+      where id=v_policy and status='locked' and release_tx_hash is null)
+     or not exists (select 1 from public.deal_multisig_transactions
+      where id=v_tx and status='submitted' and tx_hash=v_broadcast_hash)
+     or not exists (select 1 from public.projects
+      where id=v_project and owner_id=v_seller and status='active')
+     or not exists (select 1 from public.w3m_safe_execution_attempts
+      where id=v_attempt and state='RECONCILIATION_REQUIRED' and finalized_at is null)
+     or (select count(*) from public.deal_audit_logs
+      where deal_id=v_deal and action='safe_release_confirmed') <> 0 then
+    raise exception 'A rejected finalization left partial settlement state';
+  end if;
+
   -- A dispute opened after the report and wallet claim must still block
   -- settlement. Resolving it is an explicit status change, not deletion.
   insert into public.deal_disputes (deal_id,status)
