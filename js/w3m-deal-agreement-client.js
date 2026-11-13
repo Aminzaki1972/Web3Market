@@ -33,7 +33,21 @@ function exactFields(actual, expected, label) {
     throw new Error(label + " does not match the required EIP-712 schema.");
   }
 }
-function validatePrepared(value, dealId, walletAddress) {
+function stableCanonicalValue(value) {
+  if (Array.isArray(value)) return value.map(stableCanonicalValue);
+  if (value !== null && typeof value === "object") {
+    const result = {};
+    for (const key of Object.keys(value).sort()) result[key] = stableCanonicalValue(value[key]);
+    return result;
+  }
+  return value;
+}
+async function canonicalTermsHash(value) {
+  const canonical = JSON.stringify(stableCanonicalValue(value));
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+async function validatePrepared(value, dealId, walletAddress) {
   const root = record(value, "Agreement preparation");
   if (root.ok !== true) throw new Error("Agreement preparation was rejected.");
   const prepared = record(root.result, "Agreement preparation result");
@@ -46,6 +60,7 @@ function validatePrepared(value, dealId, walletAddress) {
   if (!/^[1-9][0-9]*$/.test(version)) throw new Error("Terms version is invalid.");
   const preparedTermsHash = requiredText(prepared.termsHash, "Canonical terms hash").toLowerCase();
   if (!/^[0-9a-f]{64}$/.test(preparedTermsHash)) throw new Error("Canonical terms hash is invalid.");
+  if (await canonicalTermsHash(canonicalTerms) !== preparedTermsHash) throw new Error("Canonical terms content does not match the server-provided SHA-256 hash.");
   const typedData = record(prepared.typedData, "EIP-712 typed data");
   const domain = record(typedData.domain, "EIP-712 domain");
   const message = record(typedData.message, "EIP-712 message");
@@ -70,7 +85,7 @@ export async function signAndSubmitW3MDealAgreement(input) {
   if (typeof input.accessToken !== "string" || !input.accessToken.trim()) throw new Error("An authenticated session is required.");
   if (typeof input.walletAddress !== "string" || !ADDRESS.test(input.walletAddress)) throw new Error("A connected EVM wallet is required.");
   if (typeof input.request !== "function" || typeof input.signTypedData !== "function" || typeof input.reviewTerms !== "function") throw new Error("Agreement request, terms review, and wallet signing adapters are required.");
-  const prepared = validatePrepared(await input.request({ mode: "prepare", deal_id: input.dealId }, input.accessToken), input.dealId, input.walletAddress);
+  const prepared = await validatePrepared(await input.request({ mode: "prepare", deal_id: input.dealId }, input.accessToken), input.dealId, input.walletAddress);
   const reviewed = await input.reviewTerms({ dealId: prepared.dealId, partyRole: prepared.partyRole, termsVersion: prepared.termsVersion, termsHash: prepared.termsHash, canonicalTerms: prepared.canonicalTerms });
   if (reviewed !== true) throw new Error("Agreement signing cancelled: exact canonical terms were not explicitly reviewed and accepted.");
   const signature = await input.signTypedData(prepared.walletAddress, prepared.typedData);
