@@ -60,6 +60,6 @@ $function$;
 revoke all on function public.open_deal_dispute(uuid, text)
   from public, anon, authenticated, service_role;
 grant execute on function public.open_deal_dispute(uuid, text)
-  to authenticated, service_role;
+  to authenticated;
 
 commit;
