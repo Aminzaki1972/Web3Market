@@ -341,3 +341,23 @@ Deno.test("missing or malformed immutable agreement binding blocks before execut
   assert(result.state === "BLOCKED", JSON.stringify(result));
   assert(!h.calls.includes("claim") && !h.calls.includes("broadcast"), h.calls.join(","));
 });
+
+Deno.test("evidence manifest changed by append-first race after claim blocks Safe broadcast", async () => {
+  let loads = 0;
+  const h = deps({
+    loadFresh: async () => {
+      loads++;
+      const value = snapshot();
+      if (loads === 2) {
+        // The report identity and signed evidence hash are unchanged, but the
+        // freshly rebuilt persisted manifest now includes an appended row.
+        value.guardInput.settlement.recomputedEvidenceHash = "e".repeat(64);
+      }
+      return value;
+    },
+  });
+  const result = await executeW3MSafeRelease(h.dependencies);
+  assert(result.state === "RECONCILIATION_REQUIRED", JSON.stringify(result));
+  assert(h.calls.join(",") === "load,claim,load,reconcile", h.calls.join(","));
+  assert(!h.calls.includes("broadcast"), "changed persisted evidence must never reach Safe broadcast");
+});
