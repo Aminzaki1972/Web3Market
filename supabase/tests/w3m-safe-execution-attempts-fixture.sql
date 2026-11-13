@@ -26,6 +26,7 @@ CREATE TABLE public.deals (
   delivery_status text NOT NULL,
   buyer_approved_at timestamptz,
   dispute_status text,
+  disputed_at timestamptz,
   chain_id bigint,
   safe_address text,
   token_contract text,
