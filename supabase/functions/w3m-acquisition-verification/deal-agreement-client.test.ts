@@ -70,7 +70,7 @@ Deno.test("client rejects changed terms hash before requesting a wallet signatur
 });
 Deno.test("client rejects a substituted typed-data field schema", async () => {
   let signed=false;
-  const altered=prepared();
+  const altered=await prepared();
   altered.result.typedData.types.DealTermsAcceptance=types.DealTermsAcceptance.slice(0,7);
   await assertRejects(()=>signAndSubmitW3MDealAgreement({dealId,accessToken:"session",walletAddress:wallet,
     reviewTerms: async () => true, request:async()=>altered,signTypedData:async()=>{signed=true;return signature;}}));
