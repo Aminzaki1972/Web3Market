@@ -20,7 +20,7 @@ async function prepared(overrides: Record<string, unknown> = {}) {
   const stable = (value: unknown): unknown => {
     if (Array.isArray(value)) return value.map(stable);
     if (value !== null && typeof value === "object") {
-      return Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, stable(item)]));
+      return Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, item]) => [key, stable(item)]));
     }
     return value;
   };
@@ -101,7 +101,9 @@ Deno.test("client requires explicit review of canonical terms before requesting 
   const reviewed: Array<Record<string, unknown>> = [];
   await assertRejects(() => signAndSubmitW3MDealAgreement({
     dealId, accessToken: "session", walletAddress: wallet,
-    request: async () => prepared(),
+    request: async (body: unknown) => (body as { mode: string }).mode === "prepare"
+      ? await prepared()
+      : { ok: true, result: { dealId, partyRole: "buyer", termsVersion: "3", acceptanceId: "76000000-0000-4000-8000-000000000006", idempotentReplay: false } },
     reviewTerms: async (value: Record<string, unknown>) => { reviewed.push(value); return false; },
     signTypedData: async () => { signed = true; return signature; },
   }));
