@@ -126,10 +126,6 @@
  const createSafeBtn=document.querySelector('#createSafeBtn');
  if(createSafeBtn)createSafeBtn.addEventListener('click',async()=>{safeDeploymentError='';safeDeploymentLog=[];await ensureSafeDeployment(true);if(deal?.safe_address)await renderSafe()});
 
- async function loadAgreement(){
-  const {data,error}=await sb.from('deal_party_agreements').select('party_role,party_id,agreed_at').eq('deal_id',deal.id);
-  if(error){console.error('agreement',error);return []}return data||[];
- }
  async function loadMessages(){
   if(!deal)return;
   const {data,error}=await sb.from('deal_messages').select('message,created_at,sender_id').eq('deal_id',deal.id).order('created_at',{ascending:true});
