@@ -99,14 +99,22 @@ Deno.test("client never submits a malformed wallet signature", async () => {
 Deno.test("client requires explicit review of canonical terms before requesting wallet signature", async () => {
   let signed = false;
   const reviewed: Array<Record<string, unknown>> = [];
-  await assertRejects(() => signAndSubmitW3MDealAgreement({
-    dealId, accessToken: "session", walletAddress: wallet,
-    request: async (body: unknown) => (body as { mode: string }).mode === "prepare"
-      ? await prepared()
-      : { ok: true, result: { dealId, partyRole: "buyer", termsVersion: "3", acceptanceId: "76000000-0000-4000-8000-000000000006", idempotentReplay: false } },
-    reviewTerms: async (value: Record<string, unknown>) => { reviewed.push(value); return false; },
-    signTypedData: async () => { signed = true; return signature; },
-  }));
+  let rejection: unknown;
+  try {
+    await signAndSubmitW3MDealAgreement({
+      dealId, accessToken: "session", walletAddress: wallet,
+      request: async (body: unknown) => (body as { mode: string }).mode === "prepare"
+        ? await prepared()
+        : { ok: true, result: { dealId, partyRole: "buyer", termsVersion: "3", acceptanceId: "76000000-0000-4000-8000-000000000006", idempotentReplay: false } },
+      reviewTerms: async (value: Record<string, unknown>) => { reviewed.push(value); return false; },
+      signTypedData: async () => { signed = true; return signature; },
+    });
+  } catch (error) { rejection = error; }
+  if (reviewed.length === 0) {
+    throw new Error("Canonical terms review was never reached; preparation validation rejected first: " +
+      (rejection instanceof Error ? rejection.message : String(rejection)));
+  }
+  assertEquals(rejection instanceof Error && rejection.message.includes("cancelled"), true);
   assertEquals(signed, false);
   assertEquals((reviewed[0].canonicalTerms as Record<string, unknown>).feePercent, "7.5");
 });
