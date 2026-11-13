@@ -92,7 +92,7 @@ Deno.test("client requires explicit review of canonical terms before requesting 
   const reviewed: Array<Record<string, unknown>> = [];
   await assertRejects(() => signAndSubmitW3MDealAgreement({
     dealId, accessToken: "session", walletAddress: wallet,
-    reviewTerms: async () => true, request: async () => prepared(),
+    request: async () => prepared(),
     reviewTerms: async (value: Record<string, unknown>) => { reviewed.push(value); return false; },
     signTypedData: async () => { signed = true; return signature; },
   }));
