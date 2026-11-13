@@ -145,6 +145,11 @@ Deno.test("prepare derives the buyer role and returns the exact server-built EIP
   assertEquals(prepared.walletAddress,buyerSigner.wallet);
   assertEquals(prepared.typedData.domain.chainId,56);
   assertEquals(prepared.typedData.message.partyRole,1);
+  assertEquals(prepared.canonicalTerms.dealId,dealId);
+  assertEquals(prepared.canonicalTerms.projectId,projectId);
+  assertEquals(prepared.canonicalTerms.amount,"100");
+  assertEquals((prepared.canonicalTerms.releasePolicy as Record<string, unknown>).feePercent,"7.5");
+  assertEquals((prepared.canonicalTerms.releasePolicy as Record<string, unknown>).sellerNetAmount,"92.5");
   assertEquals(calls.map(x=>x.name),[
     "w3m_read_deal_agreement_signing_snapshot","w3m_register_deal_terms_version",
   ]);
