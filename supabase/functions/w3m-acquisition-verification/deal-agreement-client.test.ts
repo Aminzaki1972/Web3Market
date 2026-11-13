@@ -43,12 +43,12 @@ Deno.test("client refuses to sign if connected wallet differs from server verifi
   let signed=false;
   await assertRejects(()=>signAndSubmitW3MDealAgreement({dealId,accessToken:"session",
     walletAddress:"0x6666666666666666666666666666666666666666",
-    request:async()=>prepared(),signTypedData:async()=>{signed=true;return signature;}}));
+    reviewTerms: async () => true, request:async()=>prepared(),signTypedData:async()=>{signed=true;return signature;}}));
   assertEquals(signed,false);
 });
 Deno.test("client rejects a substituted EIP-712 domain", async () => {
   await assertRejects(()=>signAndSubmitW3MDealAgreement({dealId,accessToken:"session",walletAddress:wallet,
-    request:async()=>prepared({typedData:{...prepared().result.typedData,domain:{name:"Attacker",version:"1",chainId:56}}}),
+    reviewTerms: async () => true, request:async()=>prepared({typedData:{...prepared().result.typedData,domain:{name:"Attacker",version:"1",chainId:56}}}),
     signTypedData:async()=>signature}));
 });
 Deno.test("client rejects changed terms hash before requesting a wallet signature", async () => {
@@ -56,7 +56,7 @@ Deno.test("client rejects changed terms hash before requesting a wallet signatur
   const altered=prepared();
   altered.result.typedData.message.termsHash="0x"+"9".repeat(64);
   await assertRejects(()=>signAndSubmitW3MDealAgreement({dealId,accessToken:"session",walletAddress:wallet,
-    request:async()=>altered,signTypedData:async()=>{signed=true;return signature;}}));
+    reviewTerms: async () => true, request:async()=>altered,signTypedData:async()=>{signed=true;return signature;}}));
   assertEquals(signed,false);
 });
 Deno.test("client rejects a substituted typed-data field schema", async () => {
@@ -64,38 +64,38 @@ Deno.test("client rejects a substituted typed-data field schema", async () => {
   const altered=prepared();
   altered.result.typedData.types.DealTermsAcceptance=types.DealTermsAcceptance.slice(0,7);
   await assertRejects(()=>signAndSubmitW3MDealAgreement({dealId,accessToken:"session",walletAddress:wallet,
-    request:async()=>altered,signTypedData:async()=>{signed=true;return signature;}}));
+    reviewTerms: async () => true, request:async()=>altered,signTypedData:async()=>{signed=true;return signature;}}));
   assertEquals(signed,false);
 });
 Deno.test("client rejects acceptance for a changed terms version", async () => {
   await assertRejects(()=>signAndSubmitW3MDealAgreement({dealId,accessToken:"session",walletAddress:wallet,
-    request:async(body:unknown)=>(body as {mode:string}).mode==="prepare"?prepared():{ok:true,result:{
+    reviewTerms: async () => true, request:async(body:unknown)=>(body as {mode:string}).mode==="prepare"?prepared():{ok:true,result:{
       dealId,partyRole:"buyer",termsVersion:"4",acceptanceId:"76000000-0000-4000-8000-000000000006",idempotentReplay:false}},
     signTypedData:async()=>signature}));
 });
 Deno.test("client rejects a malformed acceptance identifier", async () => {
   await assertRejects(()=>signAndSubmitW3MDealAgreement({dealId,accessToken:"session",walletAddress:wallet,
-    request:async(body:unknown)=>(body as {mode:string}).mode==="prepare"?prepared():{ok:true,result:{
+    reviewTerms: async () => true, request:async(body:unknown)=>(body as {mode:string}).mode==="prepare"?prepared():{ok:true,result:{
       dealId,partyRole:"buyer",termsVersion:"3",acceptanceId:"not-a-uuid",idempotentReplay:false}},
     signTypedData:async()=>signature}));
 });
 Deno.test("client never submits a malformed wallet signature", async () => {
   let submits=0;
   await assertRejects(()=>signAndSubmitW3MDealAgreement({dealId,accessToken:"session",walletAddress:wallet,
-    request:async(body:unknown)=>{if((body as {mode:string}).mode==="prepare")return prepared();submits++;return {};},
+    reviewTerms: async () => true, request:async(body:unknown)=>{if((body as {mode:string}).mode==="prepare")return prepared();submits++;return {};},
     signTypedData:async()=>"0x1234"}));
   assertEquals(submits,0);
 });
 
 Deno.test("client requires explicit review of canonical terms before requesting wallet signature", async () => {
   let signed = false;
-  let reviewed: Record<string, unknown> | null = null;
+  const reviewed: Array<Record<string, unknown>> = [];
   await assertRejects(() => signAndSubmitW3MDealAgreement({
     dealId, accessToken: "session", walletAddress: wallet,
-    request: async () => prepared(),
-    reviewTerms: async (value: Record<string, unknown>) => { reviewed = value; return false; },
+    reviewTerms: async () => true, request: async () => prepared(),
+    reviewTerms: async (value: Record<string, unknown>) => { reviewed.push(value); return false; },
     signTypedData: async () => { signed = true; return signature; },
   }));
   assertEquals(signed, false);
-  assertEquals((reviewed?.canonicalTerms as Record<string, unknown>).feePercent, "7.5");
+  assertEquals((reviewed[0].canonicalTerms as Record<string, unknown>).feePercent, "7.5");
 });
