@@ -1,5 +1,5 @@
 // Browser-side coordinator for the isolated EIP-712 agreement endpoint.
-// Not imported by the live Deal Room; network and wallet adapters are injected.
+// Dynamically imported by the Deal Room; network and wallet adapters are injected.
 const ADDRESS = /^0x[0-9a-f]{40}$/i;
 const BYTES32 = /^0x[0-9a-f]{64}$/i;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
