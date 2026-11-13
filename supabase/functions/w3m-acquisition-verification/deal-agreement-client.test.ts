@@ -29,7 +29,7 @@ async function prepared(overrides: Record<string, unknown> = {}) {
   return { ok: true, result: {
     dealId, partyRole: "buyer", walletAddress: wallet, termsHash, termsVersion: "3", canonicalTerms,
     typedData: { domain: { name: "Web3Market Deal Agreement", version: "1", chainId: 56 },
-      primaryType: "DealTermsAcceptance", types,
+      primaryType: "DealTermsAcceptance", types: structuredClone(types),
       message: { dealId: "0x" + "1".repeat(64), projectId: "0x" + "3".repeat(64),
         buyerId: "0x" + "4".repeat(64), sellerId: "0x" + "5".repeat(64),
         safeAddress: "0x2222222222222222222222222222222222222222",
