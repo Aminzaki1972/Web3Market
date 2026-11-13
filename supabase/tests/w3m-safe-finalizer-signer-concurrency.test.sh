@@ -54,6 +54,7 @@ run_fixture() {
       -e "s/75000000-0000-4000-8000-000000000001/75500000-0000-4000-8000-000000000001/g" \
       -e "s/75100000-0000-4000-8000-000000000001/75600000-0000-4000-8000-000000000001/g" \
       -e "s/attempt-test-key/attempt-test-key-2/g" \
+      -e "s/signer-race-idempotency/signer-race-2-idempotency/g" \
       -e "s/signer-race/signer-race-2/g" \
       supabase/tests/w3m-safe-finalizer-concurrency-fixture.sql | psql_w3m
   fi
