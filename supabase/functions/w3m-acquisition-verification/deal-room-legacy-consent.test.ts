@@ -1,4 +1,4 @@
-import { assert, assertStringIncludes, assertStringMatch } from "jsr:@std/assert@1";
+import { assert, assertStringIncludes } from "jsr:@std/assert@1";
 
 Deno.test("Deal Room never treats a timestamp-only row as agreement acceptance", async () => {
   const source = await Deno.readTextFile("js/deal-room.js");
@@ -15,5 +15,5 @@ Deno.test("Deal Room never treats a timestamp-only row as agreement acceptance",
   assert(!renderTerms.includes("deal_party_agreements"));
   assert(!renderTerms.includes("agreed_at"));
   assert(!renderTerms.includes("agreeBtn"));
-  assertStringMatch(renderTerms, /openDisputeModal\(\)/);
+  assert(renderTerms.includes("openDisputeModal()"));
 });
