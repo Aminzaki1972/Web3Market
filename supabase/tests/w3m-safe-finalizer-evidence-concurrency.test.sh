@@ -96,12 +96,13 @@ claim_sql() {
 SELECT set_config('request.jwt.claim.role','service_role',true);
 SELECT public.w3m_claim_safe_execution_attempt(
   f.deal_id,a.transaction_id,a.report_id,
-  '0x' || repeat(substr(f.deal_id::text,1,1),64),
+  t.safe_tx_hash,
   f.buyer_id::text,
   'evidence-race-claim-' || f.fixture_key
 )
 FROM public.w3m_test_finalizer_race_fixture f
 JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id
+JOIN public.deal_multisig_transactions t ON t.id=a.transaction_id
 WHERE f.fixture_key=:'fixture_key';
 SQL
 }
