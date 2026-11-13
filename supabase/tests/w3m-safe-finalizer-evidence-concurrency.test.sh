@@ -58,14 +58,17 @@ run_fixture() {
 reset_fixture_attempt() {
   local fixture_key="$1"
   psql_w3m -v fixture_key="$fixture_key" <<'SQL'
+-- Preserve the original failed attempt's Safe hash as immutable history.
+-- Model a freshly signed replacement Safe transaction with a distinct hash/nonce.
 UPDATE public.w3m_safe_execution_attempts a
    SET state='FAILED', finalized_at=clock_timestamp(),
-       safe_tx_hash=(SELECT t.safe_tx_hash FROM public.deal_multisig_transactions t WHERE t.id=a.transaction_id),
        broadcast_tx_hash=NULL, broadcast_at=NULL
   FROM public.w3m_test_finalizer_race_fixture f
  WHERE f.fixture_key=:'fixture_key' AND a.id=f.attempt_id;
 UPDATE public.deal_multisig_transactions t
-   SET status='signed', tx_hash=NULL
+   SET status='signed', tx_hash=NULL,
+       safe_tx_hash='0x' || md5(f.fixture_key) || md5('retry:' || f.fixture_key),
+       safe_nonce=t.safe_nonce + 1
   FROM public.w3m_test_finalizer_race_fixture f
  WHERE f.fixture_key=:'fixture_key' AND t.id=(
    SELECT transaction_id FROM public.w3m_safe_execution_attempts
