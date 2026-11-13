@@ -48,7 +48,7 @@ run_fixture() {
     -e "s/50000000-0000-4000-8000-000000000005/${prefix}5000-4000-8000-000000000005/g" \
     -e "s/75000000-0000-4000-8000-000000000001/${prefix}5000-4000-8000-000000000001/g" \
     -e "s/75100000-0000-4000-8000-000000000001/${prefix}5100-4000-8000-000000000001/g" \
-    -e "s/v_safe_hash text := '0x' || repeat('a', 64);/v_safe_hash text := '0x' || repeat('${prefix:1:1}', 64);/g" \
+    -e "s/v_safe_hash text := '0x' || repeat('a', 64);/v_safe_hash text := '0x' || md5('${fixture_key}') || md5('${prefix}');/g" \
     -e "s/attempt-test-key/attempt-test-key-${fixture_key}/g" \
     -e "s/signer-race-idempotency/signer-idempotency-${fixture_key}/g" \
     -e "s/signer-race/${fixture_key}/g" \
