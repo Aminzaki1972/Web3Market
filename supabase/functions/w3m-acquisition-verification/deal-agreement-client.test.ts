@@ -17,7 +17,14 @@ const types = {
 };
 async function prepared(overrides: Record<string, unknown> = {}) {
   const canonicalTerms = { dealId, amount: "100", currency: "USDT", feePercent: "7.5", sellerNetAmount: "92.5" };
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(canonicalTerms)));
+  const stable = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(stable);
+    if (value !== null && typeof value === "object") {
+      return Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, stable(item)]));
+    }
+    return value;
+  };
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(stable(canonicalTerms))));
   const termsHash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
   return { ok: true, result: {
     dealId, partyRole: "buyer", walletAddress: wallet, termsHash, termsVersion: "3", canonicalTerms,
