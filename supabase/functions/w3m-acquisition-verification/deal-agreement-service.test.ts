@@ -237,3 +237,24 @@ Deno.test("public agreement acceptance revalidates and persists the audit snapsh
     "w3m_insert_deal_agreement_acceptance",
   ]);
 });
+
+
+Deno.test("a buyer signature prepared for old terms is rejected if the deal snapshot changes before acceptance", async () => {
+  const prepared = await prepareDealAgreementAcceptance(mockClient(), { dealId, actorId: buyerId });
+  const oldDigest = computeDealTermsAcceptanceDigest({
+    dealId, projectId, buyerId, sellerId, safeAddress,
+    termsHash: prepared.termsHash, termsVersion: prepared.termsVersion, partyRole: "buyer",
+  });
+  const oldSignature = buyerSigner.sign(oldDigest.slice(2));
+  const changedSnapshot = {
+    ...rawSnapshot,
+    deal: { ...rawSnapshot.deal, amount: "101.000000", expected_amount: "101.000000" },
+    policy: { ...rawSnapshot.policy, deal_amount: "101.000000", fee_amount: "7.575000", seller_net_amount: "93.425000" },
+  };
+  const calls: Array<{name:string,args:Record<string,unknown>}> = [];
+  await assertRejects(() => acceptDealAgreement(
+    mockClient(calls, changedSnapshot),
+    { dealId, actorId: buyerId, signature: oldSignature },
+  ));
+  assertEquals(calls.some(call => call.name === "w3m_insert_deal_agreement_acceptance"), false);
+});
