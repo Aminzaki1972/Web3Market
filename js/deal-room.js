@@ -369,7 +369,7 @@
    if(reason.length<10||reason.length>5000){status.textContent='Please enter between 10 and 5,000 characters.';reasonField.focus();return}
    form.dataset.submitting='true';submit.disabled=true;cancel.disabled=true;status.textContent='Submitting dispute…';
    try{
-    const {error}=await sb.from('deal_disputes').insert({deal_id:deal.id,opened_by:user.id,reason,status:'open'});
+    const {error}=await sb.rpc('open_deal_dispute',{p_deal_id:deal.id,p_reason:reason});
     if(error)throw error;
     status.textContent='Dispute submitted successfully.';
     submit.textContent='Submitted';
