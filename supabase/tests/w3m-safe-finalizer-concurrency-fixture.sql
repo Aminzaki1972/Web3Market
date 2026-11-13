@@ -182,7 +182,7 @@ begin
   execute 'set constraints w3m_acquisition_report_requires_signed_deal_terms deferred';
 
   v_result := public.w3m_claim_safe_execution_attempt(
-    v_deal,v_tx,v_report,v_safe_hash,v_actor::text,'attempt-idempotency-key-0001'
+    v_deal,v_tx,v_report,v_safe_hash,v_actor::text,'signer-race-idempotency-key-0001'
   );
   if coalesce((v_result->>'claimed')::boolean,false) is not true
      or coalesce((v_result->>'idempotent_replay')::boolean,true) is not false then
@@ -192,7 +192,7 @@ begin
 
   begin
     perform public.w3m_claim_safe_execution_attempt(
-      v_deal,v_tx,v_report,v_safe_hash,v_seller::text,'attempt-idempotency-key-0001'
+      v_deal,v_tx,v_report,v_safe_hash,v_seller::text,'signer-race-idempotency-key-0001'
     );
     raise exception 'A different deal participant reused another actor idempotency claim';
   exception when insufficient_privilege then null;
@@ -201,7 +201,7 @@ begin
   begin
     perform public.w3m_claim_safe_execution_attempt(
       v_deal,v_tx,v_report,v_safe_hash,'23000000-0000-4000-8000-000000000003',
-      'attempt-idempotency-key-0002'
+      'signer-race-idempotency-key-0002'
     );
     raise exception 'A non-participant was unexpectedly allowed to claim Safe execution';
   exception when insufficient_privilege then null;
@@ -265,7 +265,7 @@ begin
   end if;
 
   v_result := public.w3m_claim_safe_execution_attempt(
-    v_deal,v_tx,v_report,v_safe_hash,v_actor::text,'attempt-idempotency-key-0001'
+    v_deal,v_tx,v_report,v_safe_hash,v_actor::text,'signer-race-idempotency-key-0001'
   );
   if coalesce((v_result->>'idempotent_replay')::boolean,false) is not true
      or (v_result->>'attempt_id')::uuid <> v_attempt then
@@ -274,7 +274,7 @@ begin
 
   begin
     perform public.w3m_claim_safe_execution_attempt(
-      v_deal,v_tx,v_report,v_safe_hash,v_seller::text,'attempt-idempotency-key-0002'
+      v_deal,v_tx,v_report,v_safe_hash,v_seller::text,'signer-race-idempotency-key-0002'
     );
     raise exception 'A second active attempt for the deal was unexpectedly accepted';
   exception when unique_violation then null;
@@ -342,7 +342,7 @@ begin
   update public.deal_multisig_transactions set status='submitted',tx_hash=v_broadcast_hash where id=v_tx;
 
   v_result := public.w3m_claim_safe_execution_attempt(
-    v_deal,v_tx,v_report,v_safe_hash,v_actor::text,'attempt-idempotency-key-0001'
+    v_deal,v_tx,v_report,v_safe_hash,v_actor::text,'signer-race-idempotency-key-0001'
   );
   if coalesce((v_result->>'idempotent_replay')::boolean,false) is not true
      or (v_result->>'attempt_id')::uuid <> v_attempt then
