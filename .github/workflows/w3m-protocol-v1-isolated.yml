@@ -57,6 +57,7 @@ on:
       - "supabase/tests/w3m-protocol-v1-dispute-concurrency.test.sh"
       - "supabase/tests/w3m-safe-finalizer-concurrency-fixture.sql"
       - "supabase/tests/w3m-safe-finalizer-signer-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-dispute-concurrency.test.sh"
       - "supabase/functions/w3m-acquisition-verification/deal-room-legacy-consent.test.ts"
       - "js/deal-room.js"
       - "supabase/tests/w3m-protocol-v1-schema.test.sql"
@@ -483,6 +484,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql
           bash supabase/tests/w3m-protocol-v1-dispute-concurrency.test.sh
           bash supabase/tests/w3m-safe-finalizer-signer-concurrency.test.sh
+          bash supabase/tests/w3m-safe-finalizer-dispute-concurrency.test.sh
       - name: Verify timestamp-sorted migrations on a second disposable database
         env:
           PGPASSWORD: postgres
