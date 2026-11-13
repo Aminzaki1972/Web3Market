@@ -60,6 +60,7 @@ export interface PreparedDealAgreement {
   termsHash: string;
   termsVersion: string;
   termsVersionId: string;
+  canonicalTerms: Record<string, unknown>;
   typedData: Eip712DealAgreementTypedData;
 }
 export interface AcceptedDealAgreement {
@@ -195,6 +196,7 @@ export async function prepareDealAgreementAcceptance(
   return {
     dealId: context.dealId, ...party, termsHash: context.termsHash,
     termsVersion: version.termsVersion, termsVersionId: version.termsVersionId,
+    canonicalTerms: context.canonicalTerms,
     typedData: buildDealTermsAcceptanceTypedData(acceptance),
   };
 }
