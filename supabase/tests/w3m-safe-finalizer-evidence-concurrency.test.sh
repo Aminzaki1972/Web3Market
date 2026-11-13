@@ -60,7 +60,7 @@ reset_fixture_attempt() {
   psql_w3m -v fixture_key="$fixture_key" <<'SQL'
 UPDATE public.w3m_safe_execution_attempts a
    SET state='FAILED', finalized_at=clock_timestamp(),
-       safe_tx_hash='0x' || repeat(case f.fixture_key when 'evidence-append-first' then 'e' else 'f' end,64),
+       safe_tx_hash=(SELECT t.safe_tx_hash FROM public.deal_multisig_transactions t WHERE t.id=a.transaction_id),
        broadcast_tx_hash=NULL, broadcast_at=NULL
   FROM public.w3m_test_finalizer_race_fixture f
  WHERE f.fixture_key=:'fixture_key' AND a.id=f.attempt_id;
