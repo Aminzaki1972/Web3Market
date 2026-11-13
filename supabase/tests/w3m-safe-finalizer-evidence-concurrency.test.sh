@@ -9,6 +9,8 @@ PGPORT="${PGPORT:-5432}"
 PGUSER="${PGUSER:-postgres}"
 PGDATABASE="${PGDATABASE:-postgres}"
 export PGPASSWORD="${PGPASSWORD:-postgres}"
+# Bound both lock waits and whole statements so a broken race cannot hang CI.
+export PGOPTIONS="${PGOPTIONS:-} -c lock_timeout=8s -c statement_timeout=12s"
 
 psql_w3m() {
   psql -X -q -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" "$@"
@@ -75,6 +77,7 @@ SQL
 append_evidence_sql() {
   local fixture_key="$1"
   psql_w3m -v fixture_key="$fixture_key" <<'SQL'
+\set VERBOSITY verbose
 INSERT INTO public.w3m_acquisition_evidence (
   report_id,evidence_type,source_table,source_record_id,source_version,
   evidence_hash,result,mandatory,observed_at,valid_until,details
@@ -172,7 +175,7 @@ APPEND_AFTER_PID=$!
 wait_for_query "w3m-append-after-claim" "INSERT INTO public.w3m_acquisition_evidence" "Lock"
 wait "$APPEND_AFTER_PID" || true
 wait "$CLAIM_FIRST_PID"
-if ! grep -q "Evidence manifest is frozen after an execution attempt pins the report" /tmp/w3m-append-after-claim.log; then
+if ! grep -q "55000: Evidence manifest is frozen after an execution attempt pins the report" /tmp/w3m-append-after-claim.log; then
   echo "FAIL: evidence append after claim was not rejected for the expected reason:"
   cat /tmp/w3m-append-after-claim.log
   exit 1
