@@ -58,7 +58,7 @@ reset_fixture_attempt() {
   psql_w3m -v fixture_key="$fixture_key" <<'SQL'
 UPDATE public.w3m_safe_execution_attempts a
    SET state='FAILED', finalized_at=clock_timestamp(),
-       safe_tx_hash='0x' || repeat('f',64),
+       safe_tx_hash='0x' || repeat((substr(f.deal_id::text,1,1)::integer + 2)::text,64),
        broadcast_tx_hash=NULL, broadcast_at=NULL
   FROM public.w3m_test_finalizer_race_fixture f
  WHERE f.fixture_key=:'fixture_key' AND a.id=f.attempt_id;
@@ -93,7 +93,7 @@ claim_sql() {
 SELECT set_config('request.jwt.claim.role','service_role',true);
 SELECT public.w3m_claim_safe_execution_attempt(
   f.deal_id,a.transaction_id,a.report_id,
-  '0x' || repeat(substr(f.fixture_key,1,1),64),
+  '0x' || repeat(substr(f.deal_id::text,1,1),64),
   f.buyer_id::text,
   'evidence-race-claim-' || f.fixture_key
 )
@@ -157,7 +157,7 @@ SQL
 
 # Order B: claim owns the shared deal advisory lock first. Evidence INSERT waits,
 # then the real evidence trigger must reject it with SQLSTATE 55000.
-run_fixture "evidence-claim-first" "68000000-"
+run_fixture "evidence-claim-first" "78000000-"
 reset_fixture_attempt "evidence-claim-first"
 (export PGAPPNAME=w3m-evidence-claim-first; {
   echo "BEGIN;"
