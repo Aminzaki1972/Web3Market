@@ -24,7 +24,7 @@ Deno.test("Deal Room never treats a timestamp-only row as agreement acceptance",
 Deno.test("Deal Room opens disputes through the atomic authenticated RPC", async () => {
   const source = await Deno.readTextFile("js/deal-room.js");
   const start = source.indexOf(" async function openDisputeModal(){");
-  const end = source.indexOf("  renderDealWalletState();", start);
+  const end = source.indexOf(" renderDealWalletState();", start);
   if (start < 0 || end < 0) throw new Error("openDisputeModal block could not be located");
   const dispute = source.slice(start, end);
 
