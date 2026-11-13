@@ -25,6 +25,7 @@ on:
       - "supabase/migrations/20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql"
       - "supabase/migrations/20261107150000_w3m_protocol_v1_report_signer_lock.sql"
       - "supabase/migrations/20261107160000_w3m_protocol_v1_atomic_project_ownership_transfer.sql"
+      - "supabase/migrations/20261107170000_w3m_protocol_v1_dispute_open_rpc_contract.sql"
       - "supabase/tests/w3m-protocol-v1-report-signer-lock.test.sql"
       - "supabase/tests/w3m-protocol-v1-report-version-serialization.test.sql"
       - "supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql"
@@ -89,6 +90,7 @@ on:
       - "supabase/migrations/20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql"
       - "supabase/migrations/20261107150000_w3m_protocol_v1_report_signer_lock.sql"
       - "supabase/migrations/20261107160000_w3m_protocol_v1_atomic_project_ownership_transfer.sql"
+      - "supabase/migrations/20261107170000_w3m_protocol_v1_dispute_open_rpc_contract.sql"
       - "supabase/tests/w3m-protocol-v1-report-signer-lock.test.sql"
       - "supabase/tests/w3m-protocol-v1-report-version-serialization.test.sql"
       - "supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql"
@@ -462,6 +464,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107150000_w3m_protocol_v1_report_signer_lock.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107160000_w3m_protocol_v1_atomic_project_ownership_transfer.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107170000_w3m_protocol_v1_dispute_open_rpc_contract.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107070000_w3m_protocol_v1_atomic_safe_prepare.sql
