@@ -67,6 +67,7 @@ on:
   push:
     branches:
       - w3m-protocol-v1-isolated-20261105
+      - w3m-v1-finalization-adapter-tests-20261112
     paths:
       - "supabase/functions/w3m-acquisition-verification/**"
       - "supabase/functions/w3m-protocol-v1-finalize-safe-release/**"
