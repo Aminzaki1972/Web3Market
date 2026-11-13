@@ -56,8 +56,7 @@ run_fixture() {
     supabase/tests/w3m-safe-finalizer-concurrency-fixture.sql | psql_w3m
 }
 
-# Order A: finalizer locks the deal first and commits. The real dispute RPC
-# must wait for the deal row, observe completed state, and reject the dispute.
+# Order A: finalizer commits first; dispute RPC must wait then reject.
 run_fixture "dispute-finalizer-first" "61000000-"
 (export PGAPPNAME=w3m-finalizer-before-dispute; psql_w3m > /tmp/w3m-finalizer-before-dispute.log 2>&1 <<'SQL'
 BEGIN;
@@ -85,19 +84,14 @@ DISPUTE_AFTER_PID=$!
 wait_for_query "w3m-dispute-after-finalizer" "open_deal_dispute" "Lock"
 wait "$DISPUTE_AFTER_PID" || true
 wait "$FINALIZER_PID"
-  echo "FAIL: dispute opened after finalizer committed."
-  exit 1
-fi
-wait "$FINALIZER_PID"
 if ! grep -q "Completed deals cannot be disputed" /tmp/w3m-dispute-after-finalizer.log; then
-  echo "FAIL: dispute RPC rejected for an unexpected reason:"
+  echo "FAIL: dispute RPC was not rejected for the expected completed-deal reason:"
   cat /tmp/w3m-dispute-after-finalizer.log
   exit 1
 fi
 psql_w3m -At -c "SELECT CASE WHEN d.status='completed' AND p.owner_id=f.buyer_id AND a.state='CONFIRMED' AND NOT EXISTS (SELECT 1 FROM public.deal_disputes x WHERE x.deal_id=d.id) AND (SELECT count(*) FROM public.deal_audit_logs l WHERE l.deal_id=d.id AND l.action='safe_release_confirmed')=1 THEN 'PASS' ELSE 'FAIL' END FROM public.w3m_test_finalizer_race_fixture f JOIN public.deals d ON d.id=f.deal_id JOIN public.projects p ON p.id=f.project_id JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id WHERE f.fixture_key='dispute-finalizer-first';" | grep -qx PASS
 
-# Order B: dispute RPC locks and commits first. The real finalizer must wait,
-# observe the persisted open dispute, and reject without partial settlement.
+# Order B: dispute commits first; finalizer must wait then reject settlement.
 run_fixture "dispute-first-finalizer" "62000000-"
 (export PGAPPNAME=w3m-dispute-before-finalizer; psql_w3m > /tmp/w3m-dispute-before-finalizer.log 2>&1 <<'SQL'
 BEGIN;
@@ -125,12 +119,8 @@ FINALIZER_AFTER_PID=$!
 wait_for_query "w3m-finalizer-after-dispute" "w3m_finalize_safe_execution_attempt" "Lock"
 wait "$FINALIZER_AFTER_PID" || true
 wait "$DISPUTE_PID"
-  echo "FAIL: finalizer succeeded after dispute committed."
-  exit 1
-fi
-wait "$DISPUTE_PID"
 if ! grep -q "An open, unresolved, or unclassified dispute blocks Safe settlement" /tmp/w3m-finalizer-after-dispute.log; then
-  echo "FAIL: finalizer rejected for an unexpected reason:"
+  echo "FAIL: finalizer was not rejected for the expected open-dispute reason:"
   cat /tmp/w3m-finalizer-after-dispute.log
   exit 1
 fi
