@@ -111,6 +111,34 @@ SQL
 # claim RPC waits, then pins the report after the extra evidence row commits.
 run_fixture "evidence-append-first" "67000000-"
 reset_fixture_attempt "evidence-append-first"
+
+# Emit the exact persisted release binding before the claim RPC. This keeps
+# failures diagnosable if fixture setup or a trigger changes any signed field.
+psql_w3m -v fixture_key="evidence-append-first" <<'SQL'
+SELECT jsonb_pretty(jsonb_build_object(
+  'deal_id',f.deal_id,
+  'attempt_transaction_id',a.transaction_id,
+  'stored_transaction_id',t.id,
+  'action',t.action,
+  'status',t.status,
+  'stored_safe_tx_hash',t.safe_tx_hash,
+  'chain_id',t.chain_id,
+  'transaction_safe_address',t.safe_address,
+  'deal_safe_address',d.safe_address,
+  'transaction_matches_attempt',t.id=a.transaction_id,
+  'transaction_matches_deal',t.deal_id=f.deal_id,
+  'expected_signed_release',t.action='release_to_seller'
+    AND t.status='signed'
+    AND t.safe_tx_hash IS NOT NULL
+    AND t.chain_id=56
+    AND lower(t.safe_address)=lower(d.safe_address)
+))
+FROM public.w3m_test_finalizer_race_fixture f
+JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id
+JOIN public.deal_multisig_transactions t ON t.id=a.transaction_id
+JOIN public.deals d ON d.id=f.deal_id
+WHERE f.fixture_key=:'fixture_key';
+SQL
 (export PGAPPNAME=w3m-evidence-append-first; psql_w3m > /tmp/w3m-evidence-append-first.log 2>&1 <<'SQL'
 BEGIN;
 INSERT INTO public.w3m_acquisition_evidence (
