@@ -60,6 +60,10 @@ export async function verifySafeFinalizationAcquisitionBundle(
   const sellerId = requiredText(deal.seller_id, "seller ID");
   const currentDealTermsHash = requiredText(bundle.current_deal_terms_hash, "current terms hash");
   const latestReportVersion = positiveInteger(bundle.latest_report_version, "latest report version");
+  const reportVersion = positiveInteger(reportRow.report_version, "report version");
+  if (reportVersion !== latestReportVersion) {
+    throw new Error("W3M pinned acquisition report is no longer the latest report version.");
+  }
   const reportDealId = requiredText(reportRow.deal_id, "report deal ID");
   const reportProjectId = requiredText(reportRow.project_id, "report project ID");
   const reportBuyerId = requiredText(reportRow.buyer_id, "report buyer ID");
@@ -77,9 +81,6 @@ export async function verifySafeFinalizationAcquisitionBundle(
   if (reportDealId !== dealId || reportProjectId !== projectId ||
       reportBuyerId !== buyerId || reportSellerId !== sellerId) {
     throw new Error("W3M pinned acquisition report is not bound to the exact deal, project, buyer, and seller.");
-  }
-  if (reportVersion !== latestReportVersion) {
-    throw new Error("W3M pinned acquisition report is no longer the latest report version.");
   }
   const termsVersionId = requiredText(attempt.pinned_terms_version_id, "pinned terms version ID");
   const termsVersion = positiveInteger(attempt.pinned_terms_version, "pinned terms version");
