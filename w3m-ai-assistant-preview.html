@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>W3M AI Assistant — Preview</title>
+<style>
+:root{color-scheme:dark;--bg:#07111f;--panel:#101e31;--line:#243750;--text:#edf4ff;--muted:#9aacc2;--accent:#58a6ff;--gold:#d8b66a}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#142b48 0,#07111f 55%);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh;padding:30px 16px}.wrap{max-width:820px;margin:0 auto}.brand{display:flex;align-items:center;gap:12px;margin:8px 0 24px}.mark{width:44px;height:44px;border-radius:14px;background:linear-gradient(145deg,#244d78,#10243c);display:grid;place-items:center;color:#fff;font-weight:900;border:1px solid #41668c}.brand strong{font-size:19px}.brand small{display:block;color:var(--muted);margin-top:3px}.card{background:rgba(16,30,49,.94);border:1px solid var(--line);border-radius:22px;overflow:hidden;box-shadow:0 24px 80px #0005}.top{padding:22px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:14px;align-items:center}.top h1{font-size:22px;margin:0 0 5px}.top p{margin:0;color:var(--muted);font-size:13px}.top select{background:#0a1728;color:var(--text);border:1px solid var(--line);padding:10px;border-radius:10px}.messages{height:min(52vh,520px);min-height:320px;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:12px}.message{max-width:88%;padding:12px 15px;border:1px solid var(--line);border-radius:15px;background:#0b192b;align-self:flex-start}.message.user{align-self:flex-end;background:#183655;border-color:#315b83}.message small{font-size:10px;color:var(--gold);font-weight:800}.message p{white-space:pre-wrap;line-height:1.65;margin:6px 0 0;font-size:14px}.composer{padding:16px;border-top:1px solid var(--line);background:#0b1727}.composer textarea{width:100%;resize:vertical;min-height:72px;max-height:180px;background:#07111f;border:1px solid var(--line);border-radius:12px;padding:13px;color:var(--text);font:inherit;outline:none}.actions{display:flex;align-items:center;gap:9px;margin-top:10px;flex-wrap:wrap}.actions button{border:1px solid var(--line);background:#14263d;color:var(--text);padding:10px 14px;border-radius:10px;font-weight:750;cursor:pointer}.actions button.primary{background:#245b91;border-color:#367ab8}.actions button:disabled{opacity:.5;cursor:not-allowed}.actions button.listening{border-color:#e8a34b;color:#ffd08a}.status{color:var(--muted);font-size:12px;margin:12px 2px 0;min-height:18px}.status.error{color:#ff9b9b}.note{margin:16px 4px;color:var(--muted);font-size:12px;line-height:1.7}.back{color:#9bcaff;text-decoration:none;font-size:13px}.signin{display:inline-block;margin:0 0 12px;padding:10px 14px;border:1px solid #367ab8;border-radius:10px;background:#183655;color:#edf4ff;text-decoration:none;font-weight:750;font-size:13px}.signin:hover{background:#245b91}@media(max-width:600px){body{padding:16px 10px}.top{align-items:flex-start;flex-direction:column}.messages{height:50vh;min-height:280px}.message{max-width:96%}}
+</style>
+</head>
+<body>
+<main class="wrap" id="w3m-ai-preview">
+  <div class="brand"><div class="mark">W3M</div><div><strong>W3M AI Assistant</strong><small>Official Web3Market bilingual assistant · Preview only</small></div></div>
+  <section class="card">
+    <header class="top"><div><h1>How can I help? / كيف أستطيع مساعدتك؟</h1><p>Arabic & English · Text chat · Optional browser voice</p></div><select id="w3m-ai-language" aria-label="Reply language"><option value="auto" selected>Auto / تلقائي</option><option value="en">English</option><option value="ar">العربية</option></select></header>
+    <div class="messages" id="w3m-ai-messages" aria-live="polite"><article class="message assistant"><small>W3M AI</small><p>Welcome to Web3Market. Ask me about listings, buyers, sellers, AI Code Audit, AI Passport, due diligence, or deals.
+
+مرحباً بك في Web3Market. اسألني عن الإدراج والشراء والبيع وخدمات الذكاء الاصطناعي والصفقات.</p></article></div>
+    <div class="composer"><a class="signin" id="w3m-ai-signin" href="login.html?returnTo=w3m-ai-assistant-preview.html">Sign in to Web3Market / تسجيل الدخول إلى Web3Market</a><textarea id="w3m-ai-input" maxlength="2400" placeholder="Ask a question… / اكتب سؤالك هنا…" aria-label="Message"></textarea><div class="actions"><button id="w3m-ai-send" class="primary" type="button">Send / إرسال</button><button id="w3m-ai-voice" type="button">🎙 Voice input</button><button id="w3m-ai-speak" type="button">🔊 Speak answer</button></div><div class="status" id="w3m-ai-status" role="status">Web3Market Assistant · Arabic & English</div></div>
+  </section>
+  <p class="note">This is an isolated development preview. It requires a signed-in Web3Market account and a separately deployed assistant Edge Function. Voice input/output depends on browser and device support. Conversation history is held only in this page session; it is not saved to the support inbox or database. Messages are sent to the external AI provider to generate replies. Do not share passwords, wallet secrets, private account details, payment information, or other sensitive data.</p>
+  <a class="back" href="index.html">← Back to Web3Market</a>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" crossorigin="anonymous" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK"></script>
+<script src="js/supabase.js?v=20261021-support2"></script>
+<script src="js/w3m-ai-assistant-preview.js"></script>
+</body>
+</html>
