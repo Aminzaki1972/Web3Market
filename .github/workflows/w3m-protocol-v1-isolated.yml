@@ -1,5 +1,7 @@
 name: W3M Protocol V1 isolated checks
 # Includes fail-closed Safe SIGN and atomic signature persistence checks.
+# The signer-race shell test uses two independent PostgreSQL sessions and a persistent disposable fixture;
+# keep both its fixture and script in pull_request path filters so namespace/cleanup edits run the full DB job.
 
 on:
   # Validate changes on the isolated branch without deploying production.
