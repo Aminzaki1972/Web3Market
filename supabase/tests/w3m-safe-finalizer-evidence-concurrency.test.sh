@@ -4,11 +4,11 @@
 # Disposable PostgreSQL only; no production DB or live Safe calls.
 set -euo pipefail
 
-PGHOST="\${PGHOST:-localhost}"
-PGPORT="\${PGPORT:-5432}"
-PGUSER="\${PGUSER:-postgres}"
-PGDATABASE="\${PGDATABASE:-postgres}"
-export PGPASSWORD="\${PGPASSWORD:-postgres}"
+PGHOST="${PGHOST:-localhost}"
+PGPORT="${PGPORT:-5432}"
+PGUSER="${PGUSER:-postgres}"
+PGDATABASE="${PGDATABASE:-postgres}"
+export PGPASSWORD="${PGPASSWORD:-postgres}"
 
 psql_w3m() {
   psql -X -q -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" "$@"
@@ -36,20 +36,20 @@ trap cleanup EXIT
 run_fixture() {
   local fixture_key="$1" prefix="$2"
   sed \
-    -e "s/10000000-0000-4000-8000-000000000001/\${prefix}0000-4000-8000-000000000001/g" \
-    -e "s/20000000-0000-4000-8000-000000000002/\${prefix}0000-4000-8000-000000000002/g" \
-    -e "s/21000000-0000-4000-8000-000000000002/\${prefix}1000-4000-8000-000000000002/g" \
-    -e "s/22000000-0000-4000-8000-000000000002/\${prefix}2000-4000-8000-000000000002/g" \
-    -e "s/30000000-0000-4000-8000-000000000003/\${prefix}3000-4000-8000-000000000003/g" \
-    -e "s/40000000-0000-4000-8000-000000000004/\${prefix}4000-4000-8000-000000000004/g" \
-    -e "s/40000000-0000-4000-8000-000000000005/\${prefix}4000-4000-8000-000000000005/g" \
-    -e "s/50000000-0000-4000-8000-000000000005/\${prefix}5000-4000-8000-000000000005/g" \
-    -e "s/75000000-0000-4000-8000-000000000001/\${prefix}5000-4000-8000-000000000001/g" \
-    -e "s/75100000-0000-4000-8000-000000000001/\${prefix}5100-4000-8000-000000000001/g" \
-    -e "s/v_safe_hash text := '0x' || repeat('a', 64);/v_safe_hash text := '0x' || repeat('\${prefix:1:1}', 64);/g" \
-    -e "s/attempt-test-key/attempt-test-key-\${fixture_key}/g" \
-    -e "s/signer-race-idempotency/signer-idempotency-\${fixture_key}/g" \
-    -e "s/signer-race/\${fixture_key}/g" \
+    -e "s/10000000-0000-4000-8000-000000000001/${prefix}0000-4000-8000-000000000001/g" \
+    -e "s/20000000-0000-4000-8000-000000000002/${prefix}0000-4000-8000-000000000002/g" \
+    -e "s/21000000-0000-4000-8000-000000000002/${prefix}1000-4000-8000-000000000002/g" \
+    -e "s/22000000-0000-4000-8000-000000000002/${prefix}2000-4000-8000-000000000002/g" \
+    -e "s/30000000-0000-4000-8000-000000000003/${prefix}3000-4000-8000-000000000003/g" \
+    -e "s/40000000-0000-4000-8000-000000000004/${prefix}4000-4000-8000-000000000004/g" \
+    -e "s/40000000-0000-4000-8000-000000000005/${prefix}4000-4000-8000-000000000005/g" \
+    -e "s/50000000-0000-4000-8000-000000000005/${prefix}5000-4000-8000-000000000005/g" \
+    -e "s/75000000-0000-4000-8000-000000000001/${prefix}5000-4000-8000-000000000001/g" \
+    -e "s/75100000-0000-4000-8000-000000000001/${prefix}5100-4000-8000-000000000001/g" \
+    -e "s/v_safe_hash text := '0x' || repeat('a', 64);/v_safe_hash text := '0x' || repeat('${prefix:1:1}', 64);/g" \
+    -e "s/attempt-test-key/attempt-test-key-${fixture_key}/g" \
+    -e "s/signer-race-idempotency/signer-idempotency-${fixture_key}/g" \
+    -e "s/signer-race/${fixture_key}/g" \
     supabase/tests/w3m-safe-finalizer-concurrency-fixture.sql | psql_w3m
 }
 
@@ -89,8 +89,7 @@ SQL
 }
 
 claim_sql() {
-  local fixture_key="$1"
-  psql_w3m -v fixture_key="$fixture_key" <<'SQL'
+  cat <<'SQL'
 SELECT set_config('request.jwt.claim.role','service_role',true);
 SELECT public.w3m_claim_safe_execution_attempt(
   f.deal_id,a.transaction_id,a.report_id,
@@ -126,7 +125,7 @@ SQL
 ) &
 APPEND_PID=$!
 wait_for_query "w3m-evidence-append-first" "pg_sleep" "any"
-(export PGAPPNAME=w3m-claim-after-evidence; claim_sql "evidence-append-first" > /tmp/w3m-claim-after-evidence.log 2>&1) &
+(export PGAPPNAME=w3m-claim-after-evidence; claim_sql "evidence-append-first" | psql_w3m -v fixture_key="evidence-append-first" > /tmp/w3m-claim-after-evidence.log 2>&1) &
 CLAIM_PID=$!
 wait_for_query "w3m-claim-after-evidence" "w3m_claim_safe_execution_attempt" "Lock"
 wait "$CLAIM_PID"
@@ -165,8 +164,7 @@ reset_fixture_attempt "evidence-claim-first"
   claim_sql "evidence-claim-first"
   echo "SELECT pg_sleep(1.5);"
   echo "COMMIT;"
-} > /tmp/w3m-evidence-claim-first.sql
-psql_w3m < /tmp/w3m-evidence-claim-first.sql > /tmp/w3m-evidence-claim-first.log 2>&1) &
+} | psql_w3m -v fixture_key="evidence-claim-first" > /tmp/w3m-evidence-claim-first.log 2>&1) &
 CLAIM_FIRST_PID=$!
 wait_for_query "w3m-evidence-claim-first" "pg_sleep" "any"
 (export PGAPPNAME=w3m-append-after-claim; append_evidence_sql "evidence-claim-first" > /tmp/w3m-append-after-claim.log 2>&1) &
