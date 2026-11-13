@@ -74,7 +74,7 @@ wait_for_query "w3m-finalizer-before-owner-change" "pg_sleep" "any"
 (export PGAPPNAME=w3m-owner-change-after-finalizer; psql_w3m > /tmp/w3m-owner-change-after-finalizer.log 2>&1 <<'SQL'
 SELECT set_config('request.jwt.claim.role','authenticated',false);
 UPDATE public.projects
-   SET owner_id=(SELECT buyer_id FROM public.w3m_test_finalizer_race_fixture WHERE fixture_key='owner-finalizer-first')
+   SET owner_id=(SELECT seller_id FROM public.w3m_test_finalizer_race_fixture WHERE fixture_key='owner-finalizer-first')
  WHERE id=(SELECT project_id FROM public.w3m_test_finalizer_race_fixture WHERE fixture_key='owner-finalizer-first');
 SQL
 ) &
