@@ -20,3 +20,16 @@ Deno.test("Deal Room never treats a timestamp-only row as agreement acceptance",
   assert(!renderTerms.includes("agreeBtn"));
   assert(renderTerms.includes("openDisputeModal()"));
 });
+
+Deno.test("Deal Room opens disputes through the atomic authenticated RPC", async () => {
+  const source = await Deno.readTextFile("js/deal-room.js");
+  const start = source.indexOf(" async function openDisputeModal(){");
+  const end = source.indexOf("  renderDealWalletState();", start);
+  if (start < 0 || end < 0) throw new Error("openDisputeModal block could not be located");
+  const dispute = source.slice(start, end);
+
+  assertStringIncludes(dispute, "sb.rpc('open_deal_dispute'");
+  assert(!dispute.includes("from('deal_disputes').insert"));
+  assertStringIncludes(dispute, "p_deal_id:deal.id");
+  assertStringIncludes(dispute, "p_reason:reason");
+});
