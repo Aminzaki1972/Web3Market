@@ -1,4 +1,12 @@
 -- Disposable PostgreSQL fixture only; never run against production.
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY);
+CREATE OR REPLACE FUNCTION auth.uid()
+RETURNS uuid LANGUAGE sql STABLE
+AS $auth_uid$
+  SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+$auth_uid$;
+
 CREATE TABLE public.projects (
   id uuid PRIMARY KEY,
   owner_id uuid,
@@ -168,10 +176,16 @@ CREATE TABLE public.deal_party_agreements (
 CREATE TABLE public.deal_disputes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   deal_id uuid NOT NULL UNIQUE REFERENCES public.deals(id) ON DELETE CASCADE,
-  status text NOT NULL,
+  opened_by uuid NOT NULL REFERENCES auth.users(id),
+  reason text NOT NULL,
+  evidence jsonb NOT NULL DEFAULT '[]'::jsonb,
+  status text NOT NULL DEFAULT 'open'
+    CHECK (status IN ('open','under_review','resolved','cancelled')),
   resolution text,
-  resolved_by uuid,
-  resolved_at timestamptz
+  resolved_by uuid REFERENCES auth.users(id),
+  resolved_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- Narrow test double for the live projects owner-protection trigger.
