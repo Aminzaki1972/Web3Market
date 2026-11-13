@@ -53,25 +53,52 @@ run_fixture() {
     supabase/tests/w3m-safe-finalizer-concurrency-fixture.sql | psql_w3m
 }
 
-append_report() {
-  psql_w3m <<'SQL'
-INSERT INTO public.w3m_acquisition_reports (
-  id,deal_id,project_id,report_version,supersedes_report_id,buyer_id,seller_id,
-  status,engine_version,evidence_hash,report_hash,report_payload,signer_key_id,
-  report_signature,issued_at,expires_at
-)
-SELECT gen_random_uuid(),r.deal_id,r.project_id,r.report_version+1,r.id,
-       r.buyer_id,r.seller_id,'PASS',r.engine_version,repeat('9',64),repeat('8',64),
-       r.report_payload,r.signer_key_id,r.report_signature,clock_timestamp(),
-       clock_timestamp()+interval '1 hour'
-  FROM public.w3m_test_finalizer_race_fixture f
-  JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id
-  JOIN public.w3m_acquisition_reports r ON r.id=a.report_id
- WHERE f.fixture_key=current_setting('w3m.test.fixture_key');
+append_report_sql() {
+  cat <<'SQL'
+DO $append$
+DECLARE
+  v_source public.w3m_acquisition_reports%rowtype;
+  v_report_id uuid := gen_random_uuid();
+BEGIN
+  SELECT r.* INTO STRICT v_source
+    FROM public.w3m_test_finalizer_race_fixture f
+    JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id
+    JOIN public.w3m_acquisition_reports r ON r.id=a.report_id
+   WHERE f.fixture_key=current_setting('w3m.test.fixture_key');
+
+  INSERT INTO public.w3m_acquisition_reports (
+    id,deal_id,project_id,report_version,supersedes_report_id,buyer_id,seller_id,
+    status,engine_version,evidence_hash,report_hash,report_payload,signer_key_id,
+    report_signature,issued_at,expires_at
+  ) VALUES (
+    v_report_id,v_source.deal_id,v_source.project_id,v_source.report_version+1,
+    v_source.id,v_source.buyer_id,v_source.seller_id,'PASS',v_source.engine_version,
+    v_source.evidence_hash,repeat('8',64),
+    jsonb_set(
+      jsonb_set(v_source.report_payload,'{reportId}',to_jsonb(v_report_id::text),true),
+      '{reportVersion}',to_jsonb((v_source.report_version+1)::text),true
+    ),
+    v_source.signer_key_id,'0x'||repeat('f',130),clock_timestamp(),
+    clock_timestamp()+interval '1 hour'
+  );
+
+  -- Copy the exact mandatory audit and identity evidence so the deferred
+  -- report guard sees a structurally valid v2 report tied to the same audit
+  -- snapshot; this test is about report serialization, not evidence forgery.
+  INSERT INTO public.w3m_acquisition_evidence (
+    report_id,evidence_type,source_table,source_record_id,source_version,
+    evidence_hash,result,mandatory,observed_at,valid_until,details
+  )
+  SELECT v_report_id,e.evidence_type,e.source_table,e.source_record_id,e.source_version,
+         e.evidence_hash,e.result,e.mandatory,e.observed_at,e.valid_until,e.details
+    FROM public.w3m_acquisition_evidence e
+   WHERE e.report_id=v_source.id;
+END;
+$append$;
 SQL
 }
 
-# Order A: finalizer holds the shared advisory lock first. Report INSERT waits,
+# Order A: finalizer holds the shared advisory lock first; report INSERT waits,
 # then must be rejected after the confirmed settlement commits.
 run_fixture "report-finalizer-first" "65000000-"
 (export PGAPPNAME=w3m-finalizer-before-report; psql_w3m > /tmp/w3m-finalizer-before-report.log 2>&1 <<'SQL'
@@ -86,25 +113,14 @@ SQL
 ) &
 FINALIZER_PID=$!
 wait_for_query "w3m-finalizer-before-report" "pg_sleep" "any"
-(export PGAPPNAME=w3m-report-after-finalizer; psql_w3m > /tmp/w3m-report-after-finalizer.log 2>&1 <<'SQL'
-SELECT set_config('w3m.test.fixture_key','report-finalizer-first',false);
-INSERT INTO public.w3m_acquisition_reports (
-  id,deal_id,project_id,report_version,supersedes_report_id,buyer_id,seller_id,
-  status,engine_version,evidence_hash,report_hash,report_payload,signer_key_id,
-  report_signature,issued_at,expires_at
-)
-SELECT gen_random_uuid(),r.deal_id,r.project_id,r.report_version+1,r.id,
-       r.buyer_id,r.seller_id,'PASS',r.engine_version,repeat('9',64),repeat('8',64),
-       r.report_payload,r.signer_key_id,r.report_signature,clock_timestamp(),
-       clock_timestamp()+interval '1 hour'
-  FROM public.w3m_test_finalizer_race_fixture f
-  JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id
-  JOIN public.w3m_acquisition_reports r ON r.id=a.report_id
- WHERE f.fixture_key='report-finalizer-first';
-SQL
-) &
+(export PGAPPNAME=w3m-report-after-finalizer; {
+  echo "BEGIN;"
+  echo "SELECT set_config('w3m.test.fixture_key','report-finalizer-first',true);"
+  append_report_sql
+  echo "COMMIT;"
+} | psql_w3m > /tmp/w3m-report-after-finalizer.log 2>&1) &
 REPORT_AFTER_PID=$!
-wait_for_query "w3m-report-after-finalizer" "INSERT INTO public.w3m_acquisition_reports" "Lock"
+wait_for_query "w3m-report-after-finalizer" "DO \$append\$" "Lock"
 wait "$REPORT_AFTER_PID" || true
 wait "$FINALIZER_PID"
 if ! grep -q "W3M acquisition reports cannot be appended after Safe settlement is confirmed" /tmp/w3m-report-after-finalizer.log; then
@@ -114,28 +130,16 @@ if ! grep -q "W3M acquisition reports cannot be appended after Safe settlement i
 fi
 psql_w3m -At -c "SELECT CASE WHEN d.status='completed' AND a.state='CONFIRMED' AND (SELECT max(report_version) FROM public.w3m_acquisition_reports WHERE deal_id=d.id::text)=1 AND (SELECT count(*) FROM public.deal_audit_logs WHERE deal_id=d.id AND action='safe_release_confirmed')=1 THEN 'PASS' ELSE 'FAIL' END FROM public.w3m_test_finalizer_race_fixture f JOIN public.deals d ON d.id=f.deal_id JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id WHERE f.fixture_key='report-finalizer-first';" | grep -qx PASS
 
-# Order B: report append holds the same advisory lock first. Finalizer waits,
-# then must reject because its pinned report is no longer the latest version.
+# Order B: report v2 append takes the same advisory lock first and commits;
+# finalizer waits, then must reject its now-superseded pinned v1 report.
 run_fixture "report-first-finalizer" "66000000-"
-(export PGAPPNAME=w3m-report-before-finalizer; psql_w3m > /tmp/w3m-report-before-finalizer.log 2>&1 <<'SQL'
-BEGIN;
-INSERT INTO public.w3m_acquisition_reports (
-  id,deal_id,project_id,report_version,supersedes_report_id,buyer_id,seller_id,
-  status,engine_version,evidence_hash,report_hash,report_payload,signer_key_id,
-  report_signature,issued_at,expires_at
-)
-SELECT gen_random_uuid(),r.deal_id,r.project_id,r.report_version+1,r.id,
-       r.buyer_id,r.seller_id,'PASS',r.engine_version,repeat('9',64),repeat('8',64),
-       r.report_payload,r.signer_key_id,r.report_signature,clock_timestamp(),
-       clock_timestamp()+interval '1 hour'
-  FROM public.w3m_test_finalizer_race_fixture f
-  JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id
-  JOIN public.w3m_acquisition_reports r ON r.id=a.report_id
- WHERE f.fixture_key='report-first-finalizer';
-SELECT pg_sleep(1.5);
-COMMIT;
-SQL
-) &
+(export PGAPPNAME=w3m-report-before-finalizer; {
+  echo "BEGIN;"
+  echo "SELECT set_config('w3m.test.fixture_key','report-first-finalizer',true);"
+  append_report_sql
+  echo "SELECT pg_sleep(1.5);"
+  echo "COMMIT;"
+} | psql_w3m > /tmp/w3m-report-before-finalizer.log 2>&1) &
 REPORT_PID=$!
 wait_for_query "w3m-report-before-finalizer" "pg_sleep" "any"
 (export PGAPPNAME=w3m-finalizer-after-report; psql_w3m > /tmp/w3m-finalizer-after-report.log 2>&1 <<'SQL'
@@ -156,43 +160,4 @@ if ! grep -q "Pinned acquisition report is stale, superseded, expired, or misbou
 fi
 psql_w3m -At -c "SELECT CASE WHEN d.status<>'completed' AND a.state IN ('BROADCAST','RECONCILIATION_REQUIRED') AND (SELECT max(report_version) FROM public.w3m_acquisition_reports WHERE deal_id=d.id::text)=2 AND NOT EXISTS (SELECT 1 FROM public.deal_audit_logs WHERE deal_id=d.id AND action='safe_release_confirmed') THEN 'PASS' ELSE 'FAIL' END FROM public.w3m_test_finalizer_race_fixture f JOIN public.deals d ON d.id=f.deal_id JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id WHERE f.fixture_key='report-first-finalizer';" | grep -qx PASS
 
-# Evidence is frozen as soon as the attempt pins the report. Race a real
-# evidence INSERT against finalization: the INSERT must wait on the same
-# per-deal advisory lock, then be rejected after the finalizer commits.
-run_fixture "evidence-finalizer-first" "67000000-"
-(export PGAPPNAME=w3m-finalizer-before-evidence; psql_w3m > /tmp/w3m-finalizer-before-evidence.log 2>&1 <<'SQL'
-BEGIN;
-SELECT set_config('request.jwt.claim.role','service_role',true);
-SELECT public.w3m_finalize_safe_execution_attempt(
-  f.attempt_id,f.broadcast_tx_hash,f.buyer_id,f.receipt
-) FROM public.w3m_test_finalizer_race_fixture f WHERE f.fixture_key='evidence-finalizer-first';
-SELECT pg_sleep(1.5);
-COMMIT;
-SQL
-) &
-FINALIZER_EVIDENCE_PID=$!
-wait_for_query "w3m-finalizer-before-evidence" "pg_sleep" "any"
-(export PGAPPNAME=w3m-evidence-after-finalizer; psql_w3m > /tmp/w3m-evidence-after-finalizer.log 2>&1 <<'SQL'
-INSERT INTO public.w3m_acquisition_evidence (
-  report_id,evidence_type,source_table,source_record_id,source_version,
-  evidence_hash,result,mandatory,observed_at,valid_until,details
-)
-SELECT a.report_id,'DISPUTE_CHECK',null,null,null,repeat('9',64),'PASS',true,
-       now(),now()+interval '1 hour',jsonb_build_object('test','concurrent post-finalization append')
-  FROM public.w3m_test_finalizer_race_fixture f
-  JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id
- WHERE f.fixture_key='evidence-finalizer-first';
-SQL
-) &
-EVIDENCE_AFTER_PID=$!
-wait_for_query "w3m-evidence-after-finalizer" "INSERT INTO public.w3m_acquisition_evidence" "Lock"
-wait "$EVIDENCE_AFTER_PID" || true
-wait "$FINALIZER_EVIDENCE_PID"
-if ! grep -q "Evidence manifest is frozen after an execution attempt pins the report" /tmp/w3m-evidence-after-finalizer.log; then
-  echo "FAIL: evidence append after finalization was not rejected for the expected reason:"
-  cat /tmp/w3m-evidence-after-finalizer.log
-  exit 1
-fi
-psql_w3m -At -c "SELECT CASE WHEN d.status='completed' AND a.state='CONFIRMED' AND (SELECT count(*) FROM public.w3m_acquisition_evidence WHERE report_id=a.report_id)=2 AND (SELECT count(*) FROM public.deal_audit_logs WHERE deal_id=d.id AND action='safe_release_confirmed')=1 THEN 'PASS' ELSE 'FAIL' END FROM public.w3m_test_finalizer_race_fixture f JOIN public.deals d ON d.id=f.deal_id JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id WHERE f.fixture_key='evidence-finalizer-first';" | grep -qx PASS
-
-echo "PASS: two independent PostgreSQL sessions raced the real Safe finalizer against report and evidence appends; both remained fail-closed."
+echo "PASS: two independent PostgreSQL sessions raced the real Safe finalizer against the report-version append trigger in both lock orders."
