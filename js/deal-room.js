@@ -313,8 +313,11 @@
    signBtn.disabled=true;if(status)status.textContent='Loading the server-prepared canonical terms…';
    try{
     const agreementClient=await import('/js/w3m-deal-agreement-client.js');
+    const sessionResult=await sb.auth.getSession();
+    const accessToken=sessionResult?.data?.session?.access_token;
+    if(typeof accessToken!=='string'||!accessToken)throw new Error('Your authenticated session must be refreshed before signing.');
     const result=await agreementClient.signAndSubmitW3MDealAgreement({
-     dealId:deal.id,accessToken:'session-managed-by-supabase',walletAddress:canonicalWalletAddress,
+     dealId:deal.id,accessToken,walletAddress:canonicalWalletAddress,
      request:async(body)=>{
       const response=await sb.functions.invoke('w3m-protocol-v1-deal-agreement',{body});
       if(response.error)throw response.error;
