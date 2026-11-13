@@ -57,6 +57,8 @@ on:
       - "supabase/tests/w3m-protocol-v1-dispute-concurrency.test.sh"
       - "supabase/tests/w3m-safe-finalizer-concurrency-fixture.sql"
       - "supabase/tests/w3m-safe-finalizer-signer-concurrency.test.sh"
+      - "supabase/functions/w3m-acquisition-verification/deal-room-legacy-consent.test.ts"
+      - "js/deal-room.js"
       - "supabase/tests/w3m-protocol-v1-schema.test.sql"
       - "supabase/tests/w3m-dealroom-terms-reader-fixture.sql"
       - "supabase/tests/w3m-dealroom-terms-reader.test.sql"
@@ -118,6 +120,8 @@ on:
       - "supabase/tests/w3m-protocol-v1-dispute-concurrency.test.sh"
       - "supabase/tests/w3m-safe-finalizer-concurrency-fixture.sql"
       - "supabase/tests/w3m-safe-finalizer-signer-concurrency.test.sh"
+      - "supabase/functions/w3m-acquisition-verification/deal-room-legacy-consent.test.ts"
+      - "js/deal-room.js"
       - "supabase/tests/w3m-protocol-v1-trusted-signer-schema.test.sql"
       - "supabase/tests/w3m-protocol-v1-schema.test.sql"
       - ".github/workflows/w3m-protocol-v1-isolated.yml"
@@ -329,6 +333,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/report-issue-request-handler.test.ts
       - name: Test isolated browser EIP-712 signing client
         run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-client.test.ts
+      - name: Test Deal Room rejects timestamp-only agreement consent
+        run: deno test supabase/functions/w3m-acquisition-verification/deal-room-legacy-consent.test.ts
       - name: Test atomic W3M Safe SIGN persistence adapter
         run: deno test supabase/functions/w3m-acquisition-verification/safe-signature-persistence-adapter.test.ts
       - name: Test W3M Bearer token parser
