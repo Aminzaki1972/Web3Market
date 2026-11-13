@@ -12,6 +12,12 @@ Deno.test("Deal Room never treats a timestamp-only row as agreement acceptance",
   assertStringIncludes(renderTerms, "Immutable EIP-712 deal agreement");
   assertStringIncludes(renderTerms, "showCanonicalAgreementReview");
   assertStringIncludes(renderTerms, "signAndSubmitW3MDealAgreement");
+  assertStringIncludes(renderTerms, "import('/js/w3m-deal-agreement-client.js')");
+  assertStringIncludes(renderTerms, "sb.auth.getSession()");
+  assertStringIncludes(renderTerms, "sb.functions.invoke('w3m-protocol-v1-deal-agreement'");
+  assertStringIncludes(renderTerms, "reviewTerms:showCanonicalAgreementReview");
+  assertStringIncludes(renderTerms, "signTypedData:async(walletAddress,typedData)");
+  assertStringIncludes(renderTerms, "signer.signTypedData(typedData.domain,types,typedData.message)");
   assertStringIncludes(renderTerms, "canonicalWalletVerified");
   assertStringIncludes(renderTerms, "network.chainId)!==56");
 
