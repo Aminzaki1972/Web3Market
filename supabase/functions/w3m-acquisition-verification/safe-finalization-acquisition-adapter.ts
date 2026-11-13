@@ -68,7 +68,6 @@ export async function verifySafeFinalizationAcquisitionBundle(
   const reportProjectId = requiredText(reportRow.project_id, "report project ID");
   const reportBuyerId = requiredText(reportRow.buyer_id, "report buyer ID");
   const reportSellerId = requiredText(reportRow.seller_id, "report seller ID");
-  const reportVersion = positiveInteger(reportRow.report_version, "report version");
   if (attempt.id !== attemptId || attempt.deal_id !== dealId ||
       attempt.report_id !== reportRow.id ||
       attempt.report_version !== reportVersion ||
