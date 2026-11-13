@@ -156,4 +156,43 @@ if ! grep -q "Pinned acquisition report is stale, superseded, expired, or misbou
 fi
 psql_w3m -At -c "SELECT CASE WHEN d.status<>'completed' AND a.state IN ('BROADCAST','RECONCILIATION_REQUIRED') AND (SELECT max(report_version) FROM public.w3m_acquisition_reports WHERE deal_id=d.id::text)=2 AND NOT EXISTS (SELECT 1 FROM public.deal_audit_logs WHERE deal_id=d.id AND action='safe_release_confirmed') THEN 'PASS' ELSE 'FAIL' END FROM public.w3m_test_finalizer_race_fixture f JOIN public.deals d ON d.id=f.deal_id JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id WHERE f.fixture_key='report-first-finalizer';" | grep -qx PASS
 
-echo "PASS: two independent PostgreSQL sessions raced the real Safe finalizer against the report-version append trigger in both lock orders."
+# Evidence is frozen as soon as the attempt pins the report. Race a real
+# evidence INSERT against finalization: the INSERT must wait on the same
+# per-deal advisory lock, then be rejected after the finalizer commits.
+run_fixture "evidence-finalizer-first" "67000000-"
+(export PGAPPNAME=w3m-finalizer-before-evidence; psql_w3m > /tmp/w3m-finalizer-before-evidence.log 2>&1 <<'SQL'
+BEGIN;
+SELECT set_config('request.jwt.claim.role','service_role',true);
+SELECT public.w3m_finalize_safe_execution_attempt(
+  f.attempt_id,f.broadcast_tx_hash,f.buyer_id,f.receipt
+) FROM public.w3m_test_finalizer_race_fixture f WHERE f.fixture_key='evidence-finalizer-first';
+SELECT pg_sleep(1.5);
+COMMIT;
+SQL
+) &
+FINALIZER_EVIDENCE_PID=$!
+wait_for_query "w3m-finalizer-before-evidence" "pg_sleep" "any"
+(export PGAPPNAME=w3m-evidence-after-finalizer; psql_w3m > /tmp/w3m-evidence-after-finalizer.log 2>&1 <<'SQL'
+INSERT INTO public.w3m_acquisition_evidence (
+  report_id,evidence_type,source_table,source_record_id,source_version,
+  evidence_hash,result,mandatory,observed_at,valid_until,details
+)
+SELECT a.report_id,'DISPUTE_CHECK',null,null,null,repeat('9',64),'PASS',true,
+       now(),now()+interval '1 hour',jsonb_build_object('test','concurrent post-finalization append')
+  FROM public.w3m_test_finalizer_race_fixture f
+  JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id
+ WHERE f.fixture_key='evidence-finalizer-first';
+SQL
+) &
+EVIDENCE_AFTER_PID=$!
+wait_for_query "w3m-evidence-after-finalizer" "INSERT INTO public.w3m_acquisition_evidence" "Lock"
+wait "$EVIDENCE_AFTER_PID" || true
+wait "$FINALIZER_EVIDENCE_PID"
+if ! grep -q "Evidence manifest is frozen after an execution attempt pins the report" /tmp/w3m-evidence-after-finalizer.log; then
+  echo "FAIL: evidence append after finalization was not rejected for the expected reason:"
+  cat /tmp/w3m-evidence-after-finalizer.log
+  exit 1
+fi
+psql_w3m -At -c "SELECT CASE WHEN d.status='completed' AND a.state='CONFIRMED' AND (SELECT count(*) FROM public.w3m_acquisition_evidence WHERE report_id=a.report_id)=2 AND (SELECT count(*) FROM public.deal_audit_logs WHERE deal_id=d.id AND action='safe_release_confirmed')=1 THEN 'PASS' ELSE 'FAIL' END FROM public.w3m_test_finalizer_race_fixture f JOIN public.deals d ON d.id=f.deal_id JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id WHERE f.fixture_key='evidence-finalizer-first';" | grep -qx PASS
+
+echo "PASS: two independent PostgreSQL sessions raced the real Safe finalizer against report and evidence appends; both remained fail-closed."
