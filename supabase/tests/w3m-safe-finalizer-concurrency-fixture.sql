@@ -191,6 +191,24 @@ begin
   end if;
   v_attempt := (v_result->>'attempt_id')::uuid;
 
+  -- Once the execution attempt pins this report, evidence is frozen. This
+  -- behavioral assertion complements the independent-session report race.
+  v_rejected := false;
+  begin
+    insert into public.w3m_acquisition_evidence (
+      report_id,evidence_type,source_table,source_record_id,source_version,
+      evidence_hash,result,mandatory,observed_at,valid_until,details
+    ) values (
+      v_report,'DISPUTE_CHECK',null,null,null,repeat('9',64),'PASS',true,
+      now(),now()+interval '1 hour',jsonb_build_object('test','post-pin append must fail')
+    );
+  exception when sqlstate '55000' then
+    v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception 'Evidence append was allowed after the execution attempt pinned the report';
+  end if;
+
   begin
     perform public.w3m_claim_safe_execution_attempt(
       v_deal,v_tx,v_report,v_safe_hash,v_seller::text,'signer-race-idempotency-key-0001'
