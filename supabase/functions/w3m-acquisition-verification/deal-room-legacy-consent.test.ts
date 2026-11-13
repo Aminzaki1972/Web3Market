@@ -7,6 +7,8 @@ Deno.test("Deal Room never treats a timestamp-only row as agreement acceptance",
   if (start < 0 || end < 0) throw new Error("renderTerms block could not be located");
   const renderTerms = source.slice(start, end);
 
+  assert(!source.includes("deal_party_agreements"));
+  assert(!source.includes("loadAgreement"));
   assertStringIncludes(renderTerms, "Secure agreement signature required");
   assertStringIncludes(renderTerms, "A timestamp or the old");
   assertStringIncludes(renderTerms, "No agreement acceptance is recorded from this screen.");
