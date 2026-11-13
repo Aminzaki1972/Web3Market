@@ -58,6 +58,7 @@ run_fixture() {
 
 # Order A: finalizer commits first; dispute RPC must wait then reject.
 run_fixture "dispute-finalizer-first" "61000000-"
+psql_w3m -c "GRANT SELECT ON public.w3m_test_finalizer_race_fixture TO authenticated;" >/dev/null
 (export PGAPPNAME=w3m-finalizer-before-dispute; psql_w3m > /tmp/w3m-finalizer-before-dispute.log 2>&1 <<'SQL'
 BEGIN;
 SELECT set_config('request.jwt.claim.role','service_role',true);
@@ -71,6 +72,7 @@ SQL
 FINALIZER_PID=$!
 wait_for_query "w3m-finalizer-before-dispute" "pg_sleep" "any"
 (export PGAPPNAME=w3m-dispute-after-finalizer; psql_w3m > /tmp/w3m-dispute-after-finalizer.log 2>&1 <<'SQL'
+SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.role','authenticated',false);
 SELECT set_config('request.jwt.claim.sub',
   (SELECT buyer_id::text FROM public.w3m_test_finalizer_race_fixture WHERE fixture_key='dispute-finalizer-first'),false);
@@ -84,7 +86,7 @@ DISPUTE_AFTER_PID=$!
 wait_for_query "w3m-dispute-after-finalizer" "open_deal_dispute" "Lock"
 wait "$DISPUTE_AFTER_PID" || true
 wait "$FINALIZER_PID"
-if ! grep -q "Completed deals cannot be disputed" /tmp/w3m-dispute-after-finalizer.log; then
+if ! grep -q "Completed or resolved deals cannot be disputed" /tmp/w3m-dispute-after-finalizer.log; then
   echo "FAIL: dispute RPC was not rejected for the expected completed-deal reason:"
   cat /tmp/w3m-dispute-after-finalizer.log
   exit 1
@@ -95,9 +97,10 @@ psql_w3m -At -c "SELECT CASE WHEN d.status='completed' AND p.owner_id=f.buyer_id
 run_fixture "dispute-first-finalizer" "62000000-"
 (export PGAPPNAME=w3m-dispute-before-finalizer; psql_w3m > /tmp/w3m-dispute-before-finalizer.log 2>&1 <<'SQL'
 BEGIN;
-SELECT set_config('request.jwt.claim.role','authenticated',true);
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.role','authenticated',false);
 SELECT set_config('request.jwt.claim.sub',
-  (SELECT buyer_id::text FROM public.w3m_test_finalizer_race_fixture WHERE fixture_key='dispute-first-finalizer'),true);
+  (SELECT buyer_id::text FROM public.w3m_test_finalizer_race_fixture WHERE fixture_key='dispute-first-finalizer'),false);
 SELECT public.open_deal_dispute(
   (SELECT deal_id FROM public.w3m_test_finalizer_race_fixture WHERE fixture_key='dispute-first-finalizer'),
   'race before finalization'
@@ -124,6 +127,6 @@ if ! grep -q "An open, unresolved, or unclassified dispute blocks Safe settlemen
   cat /tmp/w3m-finalizer-after-dispute.log
   exit 1
 fi
-psql_w3m -At -c "SELECT CASE WHEN d.status='disputed' AND p.owner_id=f.seller_id AND p.status='active' AND a.state='RECONCILIATION_REQUIRED' AND t.status='submitted' AND r.status='locked' AND EXISTS (SELECT 1 FROM public.deal_disputes x WHERE x.deal_id=d.id AND x.status='open') AND NOT EXISTS (SELECT 1 FROM public.deal_audit_logs l WHERE l.deal_id=d.id AND l.action='safe_release_confirmed') THEN 'PASS' ELSE 'FAIL' END FROM public.w3m_test_finalizer_race_fixture f JOIN public.deals d ON d.id=f.deal_id JOIN public.projects p ON p.id=f.project_id JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id JOIN public.deal_multisig_transactions t ON t.deal_id=f.deal_id JOIN public.deal_release_policies r ON r.deal_id=f.deal_id WHERE f.fixture_key='dispute-first-finalizer';" | grep -qx PASS
+psql_w3m -At -c "SELECT CASE WHEN d.status='disputed' AND d.dispute_status='open' AND p.owner_id=f.seller_id AND p.status='active' AND a.state='RECONCILIATION_REQUIRED' AND t.status='submitted' AND r.status='locked' AND EXISTS (SELECT 1 FROM public.deal_disputes x WHERE x.deal_id=d.id AND x.status='open') AND NOT EXISTS (SELECT 1 FROM public.deal_audit_logs l WHERE l.deal_id=d.id AND l.action='safe_release_confirmed') THEN 'PASS' ELSE 'FAIL' END FROM public.w3m_test_finalizer_race_fixture f JOIN public.deals d ON d.id=f.deal_id JOIN public.projects p ON p.id=f.project_id JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id JOIN public.deal_multisig_transactions t ON t.deal_id=f.deal_id JOIN public.deal_release_policies r ON r.deal_id=f.deal_id WHERE f.fixture_key='dispute-first-finalizer';" | grep -qx PASS
 
 echo "PASS: two independent PostgreSQL sessions raced the real Safe finalizer and real dispute-opening RPC in both lock orders."
