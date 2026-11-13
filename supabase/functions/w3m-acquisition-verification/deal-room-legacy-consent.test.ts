@@ -9,9 +9,12 @@ Deno.test("Deal Room never treats a timestamp-only row as agreement acceptance",
 
   assert(!source.includes("deal_party_agreements"));
   assert(!source.includes("loadAgreement"));
-  assertStringIncludes(renderTerms, "Secure agreement signature required");
-  assertStringIncludes(renderTerms, "A timestamp or the old");
-  assertStringIncludes(renderTerms, "No agreement acceptance is recorded from this screen.");
+  assertStringIncludes(renderTerms, "Immutable EIP-712 deal agreement");
+  assertStringIncludes(renderTerms, "showCanonicalAgreementReview");
+  assertStringIncludes(renderTerms, "signAndSubmitW3MDealAgreement");
+  assertStringIncludes(renderTerms, "canonicalWalletVerified");
+  assertStringIncludes(renderTerms, "network.chainId)!==56");
+
   assert(!renderTerms.includes("deal_party_agreements"));
   assert(!/\.agreed_at\b|['"]agreed_at['"]/.test(renderTerms));
   assert(!renderTerms.includes("agreeBtn"));
