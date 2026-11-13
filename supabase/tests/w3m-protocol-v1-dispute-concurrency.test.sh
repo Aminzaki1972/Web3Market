@@ -41,6 +41,7 @@ cleanup
 trap cleanup EXIT
 
 psql_w3m <<SQL
+INSERT INTO auth.users(id) VALUES ('$BUYER'),('$SELLER') ON CONFLICT DO NOTHING;
 INSERT INTO public.projects (id, owner_id, status, github_url)
 VALUES ('$PROJECT_A', '$SELLER', 'active', 'https://example.invalid/w3m-concurrency-a'),
        ('$PROJECT_B', '$SELLER', 'active', 'https://example.invalid/w3m-concurrency-b');
@@ -64,7 +65,8 @@ SQL
 FINALIZER_PID=$!
 wait_for_sleep_query "w3m-finalizer-first"
 if DISPUTE_OUTPUT=$(psql_w3m 2>&1 <<SQL
-INSERT INTO public.deal_disputes (deal_id, status) VALUES ('$DEAL_A', 'open');
+INSERT INTO public.deal_disputes (deal_id, opened_by, reason, status)
+VALUES ('$DEAL_A', '$BUYER', 'concurrency fixture A', 'open');
 SQL
 ); then
   wait "$FINALIZER_PID"
@@ -83,7 +85,8 @@ psql_w3m -At -c "SELECT CASE WHEN status='completed' AND release_tx_hash='$TX_A'
 # transaction must wait, re-read the now-committed child dispute, and fail closed.
 (export PGAPPNAME=w3m-dispute-first; psql_w3m > /tmp/w3m-lock-dispute-first.log 2>&1 <<SQL
 BEGIN;
-INSERT INTO public.deal_disputes (deal_id, status) VALUES ('$DEAL_B', 'open');
+INSERT INTO public.deal_disputes (deal_id, opened_by, reason, status)
+VALUES ('$DEAL_B', '$BUYER', 'concurrency fixture B', 'open');
 SELECT pg_sleep(1.5);
 COMMIT;
 SQL
