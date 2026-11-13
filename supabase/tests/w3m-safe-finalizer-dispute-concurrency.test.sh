@@ -59,6 +59,7 @@ run_fixture() {
 # Order A: finalizer commits first; dispute RPC must wait then reject.
 run_fixture "dispute-finalizer-first" "61000000-"
 psql_w3m -c "GRANT SELECT ON public.w3m_test_finalizer_race_fixture TO authenticated;" >/dev/null
+psql_w3m -At -c "SELECT CASE WHEN has_function_privilege('authenticated','public.open_deal_dispute(uuid,text)','EXECUTE') AND NOT has_function_privilege('anon','public.open_deal_dispute(uuid,text)','EXECUTE') THEN 'PASS' ELSE 'FAIL' END;" | grep -qx PASS
 (export PGAPPNAME=w3m-finalizer-before-dispute; psql_w3m > /tmp/w3m-finalizer-before-dispute.log 2>&1 <<'SQL'
 BEGIN;
 SELECT set_config('request.jwt.claim.role','service_role',true);
