@@ -60,6 +60,10 @@ export async function verifySafeFinalizationAcquisitionBundle(
   const sellerId = requiredText(deal.seller_id, "seller ID");
   const currentDealTermsHash = requiredText(bundle.current_deal_terms_hash, "current terms hash");
   const latestReportVersion = positiveInteger(bundle.latest_report_version, "latest report version");
+  const reportVersion = positiveInteger(reportRow.report_version, "report version");
+  if (reportVersion !== latestReportVersion) {
+    throw new Error("W3M acquisition report is not the latest version for this deal.");
+  }
   if (attempt.id !== attemptId || attempt.deal_id !== dealId ||
       attempt.report_id !== reportRow.id ||
       attempt.report_version !== reportRow.report_version ||
@@ -72,7 +76,6 @@ export async function verifySafeFinalizationAcquisitionBundle(
   const termsVersionId = requiredText(attempt.pinned_terms_version_id, "pinned terms version ID");
   const termsVersion = positiveInteger(attempt.pinned_terms_version, "pinned terms version");
   const termsHash = requiredText(attempt.pinned_terms_hash, "pinned terms hash");
-  const reportVersion = positiveInteger(reportRow.report_version, "report version");
   const reportHash = requiredText(reportRow.report_hash, "report hash");
   const evidenceHash = requiredText(reportRow.evidence_hash, "evidence hash");
   const signerKeyId = requiredText(reportRow.signer_key_id, "signer key ID");
