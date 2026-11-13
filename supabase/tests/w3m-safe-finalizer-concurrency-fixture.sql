@@ -68,6 +68,7 @@ begin
     key_id, event_type, actor_type, reason, event_hash
   ) values ('attempt-test-key','ACTIVATED','SYSTEM','isolated test key',repeat('a',64));
 
+  insert into auth.users(id) values (v_buyer),(v_seller) on conflict do nothing;
   insert into public.profiles (id,wallet_address,wallet_verified,wallet_verified_at) values
     (v_buyer,'0x3333333333333333333333333333333333333333',true,now()),
     (v_seller,'0x4444444444444444444444444444444444444444',true,now());
