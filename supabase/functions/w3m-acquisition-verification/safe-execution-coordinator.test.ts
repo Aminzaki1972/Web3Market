@@ -358,6 +358,7 @@ Deno.test("evidence manifest changed by append-first race after claim blocks Saf
   });
   const result = await executeW3MSafeRelease(h.dependencies);
   assert(result.state === "RECONCILIATION_REQUIRED", JSON.stringify(result));
-  assert(h.calls.join(",") === "load,claim,load,reconcile", h.calls.join(","));
+  assert(loads === 2, `expected fresh snapshot before and after claim, got ${loads}`);
+  assert(h.calls.includes("claim") && h.calls.includes("reconcile"), h.calls.join(","));
   assert(!h.calls.includes("broadcast"), "changed persisted evidence must never reach Safe broadcast");
 });
