@@ -335,7 +335,7 @@ jobs:
       - name: Test isolated browser EIP-712 signing client
         run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-client.test.ts
       - name: Test Deal Room rejects timestamp-only agreement consent
-        run: deno test supabase/functions/w3m-acquisition-verification/deal-room-legacy-consent.test.ts
+        run: deno test --allow-read=js/deal-room.js supabase/functions/w3m-acquisition-verification/deal-room-legacy-consent.test.ts
       - name: Test atomic W3M Safe SIGN persistence adapter
         run: deno test supabase/functions/w3m-acquisition-verification/safe-signature-persistence-adapter.test.ts
       - name: Test W3M Bearer token parser
