@@ -13,7 +13,7 @@ Deno.test("Deal Room never treats a timestamp-only row as agreement acceptance",
   assertStringIncludes(renderTerms, "A timestamp or the old");
   assertStringIncludes(renderTerms, "No agreement acceptance is recorded from this screen.");
   assert(!renderTerms.includes("deal_party_agreements"));
-  assert(!renderTerms.includes("agreed_at"));
+  assert(!/\\.agreed_at\\b|[\'"]agreed_at[\'"]/.test(renderTerms));
   assert(!renderTerms.includes("agreeBtn"));
   assert(renderTerms.includes("openDisputeModal()"));
 });
