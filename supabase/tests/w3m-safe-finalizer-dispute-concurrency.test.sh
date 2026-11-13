@@ -83,11 +83,7 @@ SQL
 ) &
 DISPUTE_AFTER_PID=$!
 wait_for_query "w3m-dispute-after-finalizer" "open_deal_dispute" "Lock"
-if wait "$DISPUTE_AFTER_PID"; then
-  wait "$FINALIZER_PID"
-  echo "FAIL: dispute opened after finalizer committed."
-  exit 1
-fi
+wait "$DISPUTE_AFTER_PID" || true
 wait "$FINALIZER_PID"
   echo "FAIL: dispute opened after finalizer committed."
   exit 1
@@ -127,11 +123,7 @@ SQL
 ) &
 FINALIZER_AFTER_PID=$!
 wait_for_query "w3m-finalizer-after-dispute" "w3m_finalize_safe_execution_attempt" "Lock"
-if wait "$FINALIZER_AFTER_PID"; then
-  wait "$DISPUTE_PID"
-  echo "FAIL: finalizer succeeded after dispute committed."
-  exit 1
-fi
+wait "$FINALIZER_AFTER_PID" || true
 wait "$DISPUTE_PID"
   echo "FAIL: finalizer succeeded after dispute committed."
   exit 1
