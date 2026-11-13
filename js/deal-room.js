@@ -274,16 +274,78 @@
    box.innerHTML=`<div class="safe-panel ${ok?'ok':'warn'}"><strong>Safe 2-of-3 verification</strong><br>${code!=='0x'?'Contract detected':'Not a contract'} · ${owners.length} owner(s) · threshold ${Number(threshold)}<br>Nonce: ${esc(nonce)}<div class="safe-note">${ok?'The Safe configuration is valid. Web3Market cannot release funds alone.':'Expected exactly 3 owners with a 2-signature threshold.'}</div>${ok?`<a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:${encodeURIComponent(safe)}" target="_blank" rel="noopener noreferrer">Open Safe Queue</a>`:''}</div>`;
   }catch(e){console.error('safe verification',e);box.innerHTML='<div class="safe-panel warn"><strong>Safe could not be verified.</strong><br>No release action will be enabled.</div>'}
  }
+ async function showCanonicalAgreementReview(info){
+  return await new Promise(resolve=>{
+   const existing=document.getElementById('w3mAgreementReviewModal');if(existing)existing.remove();
+   const modal=document.createElement('div');modal.id='w3mAgreementReviewModal';
+   modal.style.cssText='position:fixed;inset:0;z-index:100001;background:rgba(10,15,30,.78);display:grid;place-items:center;padding:16px';
+   const panel=document.createElement('section');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-labelledby','w3mAgreementReviewTitle');
+   panel.style.cssText='width:min(760px,100%);max-height:90vh;overflow:auto;background:#fff;border:1px solid #dbe4ef;border-radius:16px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.25)';
+   const heading=document.createElement('h2');heading.id='w3mAgreementReviewTitle';heading.textContent='Review immutable deal terms';heading.style.cssText='margin:0 0 8px;font-size:19px';
+   const intro=document.createElement('p');intro.textContent='Review the exact structured terms returned by Web3Market before any wallet signature is requested. Both parties must sign the same terms hash and version.';intro.style.cssText='color:#475569;font-size:13px;line-height:1.5';
+   const meta=document.createElement('p');meta.style.cssText='font-size:12px;overflow-wrap:anywhere;color:#334155';meta.textContent='Deal: '+info.dealId+' · Role: '+info.partyRole+' · Version: '+info.termsVersion+' · SHA-256: '+info.termsHash;
+   const pre=document.createElement('pre');pre.textContent=JSON.stringify(info.canonicalTerms,null,2);pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:42vh;overflow:auto;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font:12px/1.5 ui-monospace,monospace';
+   const label=document.createElement('label');label.style.cssText='display:flex;gap:9px;align-items:flex-start;margin:14px 0;font-size:13px;line-height:1.5;color:#111827';
+   const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.style.marginTop='3px';
+   const labelText=document.createElement('span');labelText.textContent='I reviewed these exact structured deal terms and confirm that I intend to sign this version and hash with my connected verified wallet.';
+   label.append(checkbox,labelText);
+   const note=document.createElement('p');note.textContent='This screen displays the canonical structured terms snapshot. It does not add or invent legal clauses that are not present in the approved deal terms.';note.style.cssText='font-size:12px;color:#64748b';
+   const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap';
+   const cancel=document.createElement('button');cancel.type='button';cancel.className='btn';cancel.textContent='Cancel';
+   const proceed=document.createElement('button');proceed.type='button';proceed.className='btn primary';proceed.textContent='Continue to wallet signature';proceed.disabled=true;
+   checkbox.addEventListener('change',()=>{proceed.disabled=!checkbox.checked});
+   const finish=value=>{modal.remove();resolve(value)};
+   cancel.onclick=()=>finish(false);proceed.onclick=()=>finish(checkbox.checked===true);
+   modal.addEventListener('click',e=>{if(e.target===modal)finish(false)});
+   actions.append(cancel,proceed);panel.append(heading,intro,meta,pre,label,note,actions);modal.append(panel);document.body.append(modal);
+   cancel.focus();
+  });
+ }
  async function renderTerms(){
   if(!deal)return;
-  const actions=document.querySelector('#actions');
-  if(!actions)return;
-  // Fail closed: legacy agreed_at timestamps are not cryptographic acceptance.
-  // The EIP-712 client remains unavailable in this UI until the complete,
-  // versioned legal document text and its hash are bound into the signing payload.
-  actions.innerHTML=`<div class="notice warn"><strong>Secure agreement signature required</strong><br>Buyer and Seller must each sign the same versioned agreement with their connected wallet (EIP-712). A timestamp or the old “I Agree” record is not a valid wallet signature and is not treated as acceptance.</div><div class="notice warn"><strong>Wallet signing is not yet enabled here</strong><br>The full legal agreement text, document version, and document hash must be bound to the signing request before either party can sign. No agreement acceptance is recorded from this screen.</div>${participant==='platform'?'<div class="notice">Platform moderator view — no party signature is available.</div>':''}<button id="disputeBtn" class="btn" style="background:#fff7ed;color:#9a3412">Open Dispute</button>`;
-  const db=document.querySelector('#disputeBtn');
-  if(db)db.onclick=()=>openDisputeModal();
+  const actions=document.querySelector('#actions');if(!actions)return;
+  const canSign=(participant==='buyer'||participant==='seller');
+  actions.innerHTML=`<div class="notice warn"><strong>Immutable EIP-712 deal agreement</strong><br>Legacy timestamp-only consent is not accepted. Buyer and seller must sign the same server-derived canonical terms hash and version.</div>${canSign?'<button id="w3mPrepareAgreementBtn" class="btn primary">Review & Sign Deal Terms</button>':'<div class="notice">Platform moderator view — party signatures are not available.</div>'}<div id="w3mAgreementStatus" class="info" role="status" aria-live="polite">${canSign?(canonicalWalletVerified?'Your verified profile wallet is ready.':'Verify your profile wallet before signing.'):'No party signature action is available.'}</div><button id="disputeBtn" class="btn" style="background:#fff7ed;color:#9a3412">Open Dispute</button>`;
+  const signBtn=document.querySelector('#w3mPrepareAgreementBtn'),status=document.querySelector('#w3mAgreementStatus');
+  if(signBtn)signBtn.disabled=!canonicalWalletVerified;
+  if(signBtn)signBtn.onclick=async()=>{
+   if(!canonicalWalletVerified||!canonicalWalletAddress){if(status)status.textContent='A currently verified profile wallet is required.';return}
+   signBtn.disabled=true;if(status)status.textContent='Loading the server-prepared canonical terms…';
+   try{
+    const agreementClient=await import('/js/w3m-deal-agreement-client.js');
+    const result=await agreementClient.signAndSubmitW3MDealAgreement({
+     dealId:deal.id,accessToken:'session-managed-by-supabase',walletAddress:canonicalWalletAddress,
+     request:async(body)=>{
+      const response=await sb.functions.invoke('w3m-protocol-v1-deal-agreement',{body});
+      if(response.error)throw response.error;
+      return response.data;
+     },
+     reviewTerms:showCanonicalAgreementReview,
+     signTypedData:async(walletAddress,typedData)=>{
+      const wm=window.Web3MarketWalletManager;
+      if(!wm)throw new Error('Wallet provider manager is unavailable.');
+      await wm.refreshWalletProviders();
+      const linked=wm.getLinkedWalletName();
+      const provider=linked?wm.getDetected(linked):null;
+      if(!provider)throw new Error('Open your linked wallet in its Web3 browser and reconnect before signing.');
+      if(!window.ethers?.BrowserProvider)throw new Error('EVM signing library is unavailable.');
+      const browserProvider=new window.ethers.BrowserProvider(provider);
+      const network=await browserProvider.getNetwork();
+      if(Number(network.chainId)!==56)throw new Error('Switch your wallet to BNB Smart Chain (56) before signing.');
+      const signer=await browserProvider.getSigner();
+      const signerAddress=await signer.getAddress();
+      if(signerAddress.toLowerCase()!==walletAddress.toLowerCase())throw new Error('Connected wallet does not match the verified Web3Market profile wallet.');
+      const types={...typedData.types};delete types.EIP712Domain;
+      return await signer.signTypedData(typedData.domain,types,typedData.message);
+     }
+    });
+    if(status)status.textContent='The server accepted your EIP-712 signature for terms version '+result.termsVersion+'. Acceptance ID: '+result.acceptanceId+'. The other party must sign the same version and hash separately.';
+   }catch(e){
+    console.error('W3M deal agreement signing blocked',e);
+    if(status)status.textContent='Signing was not completed: '+String(e?.message||e).slice(0,240);
+   }finally{signBtn.disabled=!canonicalWalletVerified}
+  };
+  const db=document.querySelector('#disputeBtn');if(db)db.onclick=()=>openDisputeModal();
  }
  // Keep dispute input bounded and accessible; never pass unvalidated prompt text into the database.
  async function openDisputeModal(){
