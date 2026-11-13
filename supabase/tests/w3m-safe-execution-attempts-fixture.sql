@@ -1,4 +1,12 @@
 -- Disposable PostgreSQL fixture only; never run against production.
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY);
+CREATE OR REPLACE FUNCTION auth.uid()
+RETURNS uuid LANGUAGE sql STABLE
+AS $auth_uid$
+  SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+$auth_uid$;
+
 CREATE TABLE public.projects (
   id uuid PRIMARY KEY,
   owner_id uuid,
@@ -26,6 +34,7 @@ CREATE TABLE public.deals (
   delivery_status text NOT NULL,
   buyer_approved_at timestamptz,
   dispute_status text,
+  disputed_at timestamptz,
   chain_id bigint,
   safe_address text,
   token_contract text,
@@ -167,8 +176,44 @@ CREATE TABLE public.deal_party_agreements (
 CREATE TABLE public.deal_disputes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   deal_id uuid NOT NULL UNIQUE REFERENCES public.deals(id) ON DELETE CASCADE,
-  status text NOT NULL,
+  opened_by uuid NOT NULL REFERENCES auth.users(id),
+  reason text NOT NULL,
+  evidence jsonb NOT NULL DEFAULT '[]'::jsonb,
+  status text NOT NULL DEFAULT 'open'
+    CHECK (status IN ('open','under_review','resolved','cancelled')),
   resolution text,
-  resolved_by uuid,
-  resolved_at timestamptz
+  resolved_by uuid REFERENCES auth.users(id),
+  resolved_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Narrow test double for the live projects owner-protection trigger.
+-- Mirrors the production rule: ordinary authenticated updates cannot change
+-- owner_id; trusted service-role workflows may do so inside atomic finalization.
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE OR REPLACE FUNCTION auth.role()
+RETURNS text LANGUAGE sql STABLE
+AS $auth_role$
+  SELECT coalesce(
+    nullif(current_setting('request.jwt.claim.role', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role')
+  )::text
+$auth_role$;
+
+CREATE OR REPLACE FUNCTION public.w3m_test_protect_project_owner()
+RETURNS trigger LANGUAGE plpgsql
+AS $owner_guard$
+BEGIN
+  IF NEW.owner_id IS DISTINCT FROM OLD.owner_id
+     AND auth.role() IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'Project owner cannot be changed'
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$owner_guard$;
+
+CREATE TRIGGER trg_test_protect_project_owner
+BEFORE UPDATE OF owner_id ON public.projects
+FOR EACH ROW EXECUTE FUNCTION public.w3m_test_protect_project_owner();

@@ -10,6 +10,7 @@ declare
   v_seller uuid := '22000000-0000-4000-8000-000000000002';
   v_tx uuid := '30000000-0000-4000-8000-000000000003';
   v_report uuid := '40000000-0000-4000-8000-000000000004';
+  v_stale_report uuid := '40000000-0000-4000-8000-000000000005';
   v_policy uuid := '50000000-0000-4000-8000-000000000005';
   v_attempt uuid;
   v_actor uuid := '21000000-0000-4000-8000-000000000002';
@@ -30,6 +31,21 @@ declare
 begin
   insert into public.projects (id,owner_id,status,github_url) values (v_project,v_seller,'active','https://github.com/aminzaki1972/Web3Market');
 
+  -- Match the live database owner guard: an authenticated user cannot transfer
+  -- project ownership directly. Only the trusted service-role finalizer may.
+  perform set_config('request.jwt.claim.role','authenticated',true);
+  v_rejected := false;
+  begin
+    update public.projects set owner_id=v_buyer where id=v_project;
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  if not v_rejected
+     or not exists (select 1 from public.projects where id=v_project and owner_id=v_seller) then
+    raise exception 'Ordinary authenticated owner mutation was not blocked';
+  end if;
+  perform set_config('request.jwt.claim.role','service_role',true);
+
   insert into public.w3m_trusted_signer_keys (
     key_id, algorithm, public_address, valid_from, valid_until, created_by
   ) values (
@@ -42,6 +58,7 @@ begin
     key_id, event_type, actor_type, reason, event_hash
   ) values ('attempt-test-key','ACTIVATED','SYSTEM','isolated test key',repeat('a',64));
 
+  insert into auth.users(id) values (v_buyer),(v_seller) on conflict do nothing;
   insert into public.profiles (id,wallet_address,wallet_verified,wallet_verified_at) values
     (v_buyer,'0x3333333333333333333333333333333333333333',true,now()),
     (v_seller,'0x4444444444444444444444444444444444444444',true,now());
@@ -490,10 +507,210 @@ begin
   exception when check_violation then null;
   end;
 
+  -- Revoking the pinned signer must block finalization. The nested block is
+  -- a savepoint: its expected rejection rolls back the test revocation so the
+  -- same fixture can continue to the successful-path assertions.
+  v_rejected := false;
+  begin
+    perform public.w3m_revoke_trusted_signer_key(
+      'attempt-test-key',
+      jsonb_build_object(
+        'key_id','attempt-test-key','event_type','REVOKED',
+        'actor_type','SYSTEM','actor_ref','ci-test',
+        'reason','temporary finalization guard test',
+        'event_hash',repeat('f',64)
+      )
+    );
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,v_receipt
+    );
+    raise exception 'Finalization unexpectedly accepted a revoked report signer'
+      using errcode = 'P0001';
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception 'Revoked report signer did not block finalization';
+  end if;
+  if (select event_type from public.w3m_trusted_signer_key_events
+       where key_id='attempt-test-key' order by event_id desc limit 1) <> 'ACTIVATED' then
+    raise exception 'Signer revocation savepoint was not rolled back after the expected rejection';
+  end if;
+
+  -- Project ownership is reloaded under a row lock at finalization time.
+  update public.projects set owner_id=v_buyer where id=v_project;
+  v_rejected := false;
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,v_receipt
+    );
+    raise exception 'Finalization unexpectedly accepted changed project ownership'
+      using errcode = 'P0001';
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  update public.projects set owner_id=v_seller where id=v_project;
+  if not v_rejected then
+    raise exception 'Changed project ownership did not block finalization';
+  end if;
+
+  -- The persisted attempt must remain bound to the exact accepted terms hash.
+  update public.w3m_safe_execution_attempts
+     set pinned_terms_hash=repeat('9',64)
+   where id=v_attempt;
+  v_rejected := false;
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,v_receipt
+    );
+    raise exception 'Finalization unexpectedly accepted a changed pinned terms hash'
+      using errcode = 'P0001';
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  update public.w3m_safe_execution_attempts
+     set pinned_terms_hash=v_terms_hash
+   where id=v_attempt;
+  if not v_rejected then
+    raise exception 'Changed pinned terms hash did not block finalization';
+  end if;
+
+  -- Both transfer legs are exact: wrong platform recipient or fee must fail.
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,
+      jsonb_set(v_receipt,'{transfers,1,to_address}',
+        to_jsonb('0x9999999999999999999999999999999999999999'::text))
+    );
+    raise exception 'Substituted platform recipient was unexpectedly finalized'
+      using errcode = 'P0001';
+  exception when check_violation then null;
+  end;
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,
+      jsonb_set(v_receipt,'{transfers,1,amount}',to_jsonb('7.4'::text))
+    );
+    raise exception 'Incorrect platform fee amount was unexpectedly finalized'
+      using errcode = 'P0001';
+  exception when check_violation then null;
+  end;
+
+  -- Evidence cannot be appended after an attempt has pinned its report manifest.
+  v_rejected := false;
+  begin
+    insert into public.w3m_acquisition_evidence (
+      report_id,evidence_type,evidence_hash,result,mandatory,observed_at,valid_until,details
+    ) values (
+      v_report,'ASSET_TRANSFER',repeat('9',64),'PASS',true,now(),
+      now()+interval '1 hour',jsonb_build_object('evidenceId','late-evidence')
+    );
+    raise exception 'Evidence manifest unexpectedly accepted an append after attempt pinning'
+      using errcode = 'P0001';
+  exception when sqlstate '55000' then
+    v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception 'Pinned acquisition evidence manifest was not frozen';
+  end if;
+
+  -- Simulate naturally expired mandatory evidence without changing the
+  -- append-only production contract. The trigger disable/update/finalizer
+  -- attempt live inside a savepoint and must all roll back on rejection.
+  v_rejected := false;
+  begin
+    alter table public.w3m_acquisition_evidence
+      disable trigger w3m_acquisition_evidence_reject_mutation;
+    update public.w3m_acquisition_evidence
+       set valid_until=now()-interval '1 second'
+     where report_id=v_report and evidence_type='PROJECT_IDENTITY';
+    alter table public.w3m_acquisition_evidence
+      enable trigger w3m_acquisition_evidence_reject_mutation;
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,v_receipt
+    );
+    raise exception 'Finalization unexpectedly accepted expired mandatory evidence'
+      using errcode='P0001';
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  if not v_rejected
+     or not exists (select 1 from public.w3m_acquisition_evidence
+       where report_id=v_report and evidence_type='PROJECT_IDENTITY'
+         and valid_until > now()) then
+    raise exception 'Expired evidence was not rejected or its test mutation was not rolled back';
+  end if;
+
+  -- Every rejected finalization above must leave all settlement records intact.
+  if exists (select 1 from public.deals
+      where id=v_deal and (release_tx_hash is not null or completed_at is not null))
+     or not exists (select 1 from public.deal_release_policies
+      where id=v_policy and status='locked' and release_tx_hash is null)
+     or not exists (select 1 from public.deal_multisig_transactions
+      where id=v_tx and status='submitted' and tx_hash=v_broadcast_hash)
+     or not exists (select 1 from public.projects
+      where id=v_project and owner_id=v_seller and status='active')
+     or not exists (select 1 from public.w3m_safe_execution_attempts
+      where id=v_attempt and state='RECONCILIATION_REQUIRED' and finalized_at is null)
+     or (select count(*) from public.deal_audit_logs
+      where deal_id=v_deal and action='safe_release_confirmed') <> 0 then
+    raise exception 'A rejected finalization left partial settlement state';
+  end if;
+
+  -- A newer persisted report must supersede the attempt's pinned report.
+  -- The report/evidence append is rolled back after the expected finalizer rejection.
+  v_rejected := false;
+  begin
+    insert into public.w3m_acquisition_reports (
+      id,deal_id,project_id,report_version,supersedes_report_id,buyer_id,seller_id,
+      status,engine_version,evidence_hash,report_hash,report_payload,
+      signer_key_id,report_signature,issued_at,expires_at
+    ) values (
+      v_stale_report,v_deal::text,v_project::text,2,v_report,v_buyer::text,v_seller::text,
+      'BLOCKED','test-engine',repeat('8',64),repeat('9',64),
+      jsonb_build_object(
+        'dealTermsHash',v_terms_hash,'evidenceCount',1,
+        'auditId','75000000-0000-4000-8000-000000000001',
+        'expectedCommitSha',repeat('1',40)
+      ),
+      null,null,now(),now()+interval '1 hour'
+    );
+
+    insert into public.w3m_acquisition_evidence (
+      report_id,evidence_type,source_table,source_record_id,source_version,
+      evidence_hash,result,mandatory,observed_at,valid_until,details
+    )
+    select
+      v_stale_report,evidence_type,source_table,source_record_id,source_version,
+      evidence_hash,result,mandatory,observed_at,valid_until,details
+    from public.w3m_acquisition_evidence
+    where report_id=v_report and evidence_type='CODE_AUDIT';
+
+    execute 'set constraints w3m_acquisition_report_requires_signed_deal_terms immediate';
+    begin
+      perform public.w3m_finalize_safe_execution_attempt(
+        v_attempt,v_broadcast_hash,v_buyer,v_receipt
+      );
+    exception when check_violation then
+      v_rejected := true;
+    end;
+    if not v_rejected then
+      raise exception 'Finalization unexpectedly accepted a superseded acquisition report'
+        using errcode = 'P0001';
+    end if;
+    raise exception 'rollback superseded report fixture' using errcode = 'ZX001';
+  exception when sqlstate 'ZX001' then
+    null;
+  end;
+  if not v_rejected
+     or exists (select 1 from public.w3m_acquisition_reports where id=v_stale_report) then
+    raise exception 'Superseded-report rejection was not isolated and rolled back';
+  end if;
+
   -- A dispute opened after the report and wallet claim must still block
   -- settlement. Resolving it is an explicit status change, not deletion.
-  insert into public.deal_disputes (deal_id,status)
-  values (v_deal,'open');
+  insert into public.deal_disputes (deal_id,opened_by,reason,status)
+  values (v_deal,v_buyer,'test unresolved dispute','open');
   begin
     perform public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
     raise exception 'An open dispute was unexpectedly allowed to finalize';
@@ -501,6 +718,78 @@ begin
   end;
   update public.deal_disputes set status='resolved'
    where deal_id=v_deal and status='open';
+
+  -- A NULL parent dispute status is unclassified and must remain fail-closed.
+  update public.deals set dispute_status=null where id=v_deal;
+  v_rejected := false;
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
+    raise exception 'A NULL dispute status was unexpectedly allowed to finalize';
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception 'NULL dispute status did not fail closed';
+  end if;
+  update public.deals set dispute_status='none' where id=v_deal;
+
+  -- Inject a failure at the final audit-log write. The RPC must roll back
+  -- transaction, policy, deal, project, and attempt state as one atomic unit.
+  create or replace function public.w3m_test_fail_finalization_audit()
+  returns trigger language plpgsql as $test_trigger$
+  begin
+    if new.action='safe_release_confirmed' then
+      raise exception 'injected finalizer audit write failure' using errcode='P0001';
+    end if;
+    return new;
+  end;
+  $test_trigger$;
+  create trigger w3m_test_fail_finalization_audit
+    before insert on public.deal_audit_logs
+    for each row execute function public.w3m_test_fail_finalization_audit();
+
+  v_rejected := false;
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(
+      v_attempt,v_broadcast_hash,v_buyer,v_receipt
+    );
+    raise exception 'Finalizer unexpectedly succeeded despite injected audit failure'
+      using errcode='P0002';
+  exception when sqlstate 'P0001' then
+    if sqlerrm <> 'injected finalizer audit write failure' then
+      raise;
+    end if;
+    v_rejected := true;
+  end;
+  drop trigger w3m_test_fail_finalization_audit on public.deal_audit_logs;
+  drop function public.w3m_test_fail_finalization_audit();
+
+  if not v_rejected
+     or exists (select 1 from public.deals
+        where id=v_deal and (release_tx_hash is not null or completed_at is not null))
+     or not exists (select 1 from public.deal_release_policies
+        where id=v_policy and status='locked' and release_tx_hash is null)
+     or not exists (select 1 from public.deal_multisig_transactions
+        where id=v_tx and status='submitted' and tx_hash=v_broadcast_hash)
+     or not exists (select 1 from public.projects
+        where id=v_project and owner_id=v_seller and status='active')
+     or not exists (select 1 from public.w3m_safe_execution_attempts
+        where id=v_attempt and state='RECONCILIATION_REQUIRED' and finalized_at is null)
+     or (select count(*) from public.deal_audit_logs
+        where deal_id=v_deal and action='safe_release_confirmed') <> 0 then
+    raise exception 'Injected finalizer audit failure left partial settlement state';
+  end if;
+
+  -- PREPARE permits a terminal 'closed' dispute status. Finalization must
+  -- agree when every persisted child dispute is resolved/closed, while the
+  -- preceding open-dispute case above remains rejected.
+  update public.deals set dispute_status='closed' where id=v_deal;
+  if not exists (
+    select 1 from public.deal_disputes
+     where deal_id=v_deal and lower(status) in ('resolved','closed')
+  ) then
+    raise exception 'Closed-parent regression fixture lacks a terminal dispute record';
+  end if;
 
   v_result := public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
   if coalesce((v_result->>'finalized')::boolean,false) is not true
@@ -512,10 +801,75 @@ begin
   if not exists (select 1 from public.deals where id=v_deal and status='completed' and release_tx_hash=v_broadcast_hash)
      or not exists (select 1 from public.deal_release_policies where id=v_policy and status='released' and release_tx_hash=v_broadcast_hash)
      or not exists (select 1 from public.deal_multisig_transactions where id=v_tx and status='confirmed' and tx_hash=v_broadcast_hash)
-     or not exists (select 1 from public.projects where id=v_project and status='sold')
+     or not exists (select 1 from public.projects
+       where id=v_project and owner_id=v_buyer and status='sold')
      or not exists (select 1 from public.w3m_safe_execution_attempts where id=v_attempt and state='CONFIRMED' and finalized_at is not null)
-     or (select count(*) from public.deal_audit_logs where deal_id=v_deal and action='safe_release_confirmed') <> 1 then
-    raise exception 'Atomic finalization did not update every required record exactly once';
+     or (select count(*) from public.deal_audit_logs where deal_id=v_deal and action='safe_release_confirmed') <> 1
+     or not exists (
+       select 1 from public.deal_audit_logs
+        where deal_id=v_deal and action='safe_release_confirmed'
+          and metadata->>'previous_project_owner_id'=v_seller::text
+          and metadata->>'new_project_owner_id'=v_buyer::text
+     ) then
+    raise exception 'Atomic finalization did not update every required record and ownership audit exactly once';
+  end if;
+
+  -- A report append that starts after settlement must not supersede the
+  -- exact report pinned by the now-confirmed execution attempt.
+  v_rejected := false;
+  begin
+    insert into public.w3m_acquisition_reports (
+      id,deal_id,project_id,report_version,supersedes_report_id,buyer_id,seller_id,
+      status,engine_version,evidence_hash,report_hash,report_payload,
+      signer_key_id,report_signature,issued_at,expires_at
+    ) values (
+      v_stale_report,v_deal::text,v_project::text,2,v_report,v_buyer::text,v_seller::text,
+      'BLOCKED','test-engine',repeat('6',64),repeat('7',64),
+      jsonb_build_object('dealTermsHash',v_terms_hash,'evidenceCount',0),
+      null,null,now(),now()+interval '1 hour'
+    );
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  if not v_rejected
+     or exists (select 1 from public.w3m_acquisition_reports where id=v_stale_report) then
+    raise exception 'A new acquisition report was appended after confirmed Safe settlement';
+  end if;
+
+  -- Evidence append is likewise frozen after the attempt reaches CONFIRMED.
+  v_rejected := false;
+  begin
+    insert into public.w3m_acquisition_evidence (
+      report_id,evidence_type,source_table,source_record_id,source_version,
+      evidence_hash,result,mandatory,observed_at,valid_until,details
+    ) values (
+      v_report,'PAYMENT',null,null,null,repeat('8',64),'PASS',true,now(),
+      now()+interval '1 hour',jsonb_build_object('evidenceId','post-settlement-append')
+    );
+  exception when object_not_in_prerequisite_state then
+    v_rejected := true;
+  end;
+  if not v_rejected
+     or exists (select 1 from public.w3m_acquisition_evidence
+                 where report_id=v_report and details->>'evidenceId'='post-settlement-append') then
+    raise exception 'New acquisition evidence was appended after confirmed Safe settlement';
+  end if;
+
+  -- An idempotent replay must fail closed if the persisted buyer ownership
+  -- binding has drifted. The attempted mutation is isolated and rolled back.
+  v_rejected := false;
+  begin
+    update public.projects set owner_id=v_seller where id=v_project;
+    perform public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
+    raise exception 'Confirmed replay unexpectedly accepted seller ownership drift'
+      using errcode='P0001';
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  if not v_rejected
+     or not exists (select 1 from public.projects
+       where id=v_project and owner_id=v_buyer and status='sold') then
+    raise exception 'Confirmed replay did not preserve buyer ownership after drift rejection';
   end if;
 
   v_result := public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);

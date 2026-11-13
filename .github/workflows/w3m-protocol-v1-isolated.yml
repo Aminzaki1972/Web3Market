@@ -1,5 +1,7 @@
 name: W3M Protocol V1 isolated checks
 # Includes fail-closed Safe SIGN and atomic signature persistence checks.
+# The signer-race shell test uses two independent PostgreSQL sessions and a persistent disposable fixture;
+# keep both its fixture and script in pull_request path filters so namespace/cleanup edits run the full DB job.
 
 on:
   # Validate changes on the isolated branch without deploying production.
@@ -22,6 +24,8 @@ on:
       - "supabase/migrations/20261107130000_w3m_protocol_v1_report_version_serialization.sql"
       - "supabase/migrations/20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql"
       - "supabase/migrations/20261107150000_w3m_protocol_v1_report_signer_lock.sql"
+      - "supabase/migrations/20261107160000_w3m_protocol_v1_atomic_project_ownership_transfer.sql"
+      - "supabase/migrations/20261107170000_w3m_protocol_v1_dispute_open_rpc_contract.sql"
       - "supabase/tests/w3m-protocol-v1-report-signer-lock.test.sql"
       - "supabase/tests/w3m-protocol-v1-report-version-serialization.test.sql"
       - "supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql"
@@ -51,6 +55,15 @@ on:
       - "supabase/tests/w3m-safe-execution-snapshot-reader.test.sql"
       - "supabase/tests/w3m-safe-execution-attempts-fixture.sql"
       - "supabase/tests/w3m-safe-execution-attempts.test.sql"
+      - "supabase/tests/w3m-protocol-v1-dispute-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-concurrency-fixture.sql"
+      - "supabase/tests/w3m-safe-finalizer-signer-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-dispute-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-owner-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-report-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-evidence-concurrency.test.sh"
+      - "supabase/functions/w3m-acquisition-verification/deal-room-legacy-consent.test.ts"
+      - "js/deal-room.js"
       - "supabase/tests/w3m-protocol-v1-schema.test.sql"
       - "supabase/tests/w3m-dealroom-terms-reader-fixture.sql"
       - "supabase/tests/w3m-dealroom-terms-reader.test.sql"
@@ -59,6 +72,7 @@ on:
   push:
     branches:
       - w3m-protocol-v1-isolated-20261105
+      - w3m-v1-finalization-adapter-tests-20261112
     paths:
       - "supabase/functions/w3m-acquisition-verification/**"
       - "supabase/functions/w3m-protocol-v1-finalize-safe-release/**"
@@ -78,6 +92,8 @@ on:
       - "supabase/migrations/20261107130000_w3m_protocol_v1_report_version_serialization.sql"
       - "supabase/migrations/20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql"
       - "supabase/migrations/20261107150000_w3m_protocol_v1_report_signer_lock.sql"
+      - "supabase/migrations/20261107160000_w3m_protocol_v1_atomic_project_ownership_transfer.sql"
+      - "supabase/migrations/20261107170000_w3m_protocol_v1_dispute_open_rpc_contract.sql"
       - "supabase/tests/w3m-protocol-v1-report-signer-lock.test.sql"
       - "supabase/tests/w3m-protocol-v1-report-version-serialization.test.sql"
       - "supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql"
@@ -108,6 +124,15 @@ on:
       - "supabase/tests/w3m-dealroom-terms-reader.test.sql"
       - "supabase/tests/w3m-safe-execution-attempts-fixture.sql"
       - "supabase/tests/w3m-safe-execution-attempts.test.sql"
+      - "supabase/tests/w3m-protocol-v1-dispute-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-concurrency-fixture.sql"
+      - "supabase/tests/w3m-safe-finalizer-signer-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-dispute-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-owner-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-report-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-evidence-concurrency.test.sh"
+      - "supabase/functions/w3m-acquisition-verification/deal-room-legacy-consent.test.ts"
+      - "js/deal-room.js"
       - "supabase/tests/w3m-protocol-v1-trusted-signer-schema.test.sql"
       - "supabase/tests/w3m-protocol-v1-schema.test.sql"
       - ".github/workflows/w3m-protocol-v1-isolated.yml"
@@ -319,6 +344,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/report-issue-request-handler.test.ts
       - name: Test isolated browser EIP-712 signing client
         run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-client.test.ts
+      - name: Test Deal Room rejects timestamp-only agreement consent
+        run: deno test --allow-read=js/deal-room.js supabase/functions/w3m-acquisition-verification/deal-room-legacy-consent.test.ts
       - name: Test atomic W3M Safe SIGN persistence adapter
         run: deno test supabase/functions/w3m-acquisition-verification/safe-signature-persistence-adapter.test.ts
       - name: Test W3M Bearer token parser
@@ -443,6 +470,8 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_w3m_protocol_v1_report_version_serialization.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107150000_w3m_protocol_v1_report_signer_lock.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107160000_w3m_protocol_v1_atomic_project_ownership_transfer.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107170000_w3m_protocol_v1_dispute_open_rpc_contract.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107070000_w3m_protocol_v1_atomic_safe_prepare.sql
@@ -463,6 +492,12 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-report-version-serialization.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-report-signer-lock.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql
+          bash supabase/tests/w3m-protocol-v1-dispute-concurrency.test.sh
+          bash supabase/tests/w3m-safe-finalizer-signer-concurrency.test.sh
+          bash supabase/tests/w3m-safe-finalizer-dispute-concurrency.test.sh
+          bash supabase/tests/w3m-safe-finalizer-owner-concurrency.test.sh
+          bash supabase/tests/w3m-safe-finalizer-report-concurrency.test.sh
+          bash supabase/tests/w3m-safe-finalizer-evidence-concurrency.test.sh
       - name: Verify timestamp-sorted migrations on a second disposable database
         env:
           PGPASSWORD: postgres

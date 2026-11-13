@@ -91,6 +91,8 @@ begin
 end;
 $lock$;
 revoke all on function public.w3m_lock_evidence_append() from public, anon, authenticated, service_role;
+drop trigger if exists w3m_acquisition_evidence_serialize_append
+  on public.w3m_acquisition_evidence;
 create trigger w3m_acquisition_evidence_serialize_append
 before insert on public.w3m_acquisition_evidence
 for each row execute function public.w3m_lock_evidence_append();
@@ -291,7 +293,11 @@ begin
   -- locking child dispute rows here: UPDATE already locks its child row before
   -- the trigger takes the parent lock, so the parent lock alone avoids inversion.
   -- Keep every non-terminal dispute fail-closed; resolved/closed records remain auditable.
-  if v_deal.dispute_status is distinct from 'none'
+  -- PREPARE accepts both 'none' and 'closed'. A closed parent status is
+  -- terminal only when every persisted dispute row is also resolved/closed;
+  -- active, null, and unclassified parent/child states remain fail-closed.
+  if v_deal.dispute_status is null
+     or v_deal.dispute_status not in ('none','closed')
      or exists (
        select 1 from public.deal_disputes d
         where d.deal_id = v_deal.id
@@ -430,6 +436,7 @@ begin
      or lower(coalesce(p_receipt_evidence->>'token_contract','')) <> lower(v_policy.token_contract)
      or lower(coalesce(v_deal.token_contract,'')) <> lower(v_policy.token_contract)
      or v_policy.status not in ('locked','ready')
+     or v_policy.fee_percent is distinct from 7.5
      or v_policy.deal_amount is distinct from v_deal.amount
      or v_policy.seller_wallet is null
      or v_policy.platform_wallet is null

@@ -80,7 +80,7 @@ begin
   fee_percent_value := (p_policy->>'fee_percent')::numeric;
   fee_value := (p_policy->>'fee_amount')::numeric;
   seller_net_value := (p_policy->>'seller_net_amount')::numeric;
-  if amount_value <= 0 or fee_percent_value < 0 or fee_percent_value > 100
+  if amount_value <= 0 or fee_percent_value <> 7.5
      or fee_value <> round(amount_value * fee_percent_value / 100,18)
      or seller_net_value <> amount_value - fee_value then
     raise exception 'Exact 18-decimal fee arithmetic mismatch' using errcode='23514';
@@ -235,4 +235,10 @@ revoke all on function public.w3m_commit_safe_prepare(uuid,uuid,jsonb,jsonb,json
 grant execute on function public.w3m_commit_safe_prepare(uuid,uuid,jsonb,jsonb,jsonb) to service_role;
 comment on function public.w3m_commit_safe_prepare(uuid,uuid,jsonb,jsonb,jsonb) is
  'Atomic service-role-only W3M PREPARE persistence. Caller must verify signed W3M PASS and live canonical BNB Safe facts. Isolated draft; not deployed.';
+
+-- Enforce the V1 success-fee rule for all newly inserted or updated release policies.
+-- NOT VALID preserves legacy rows for explicit reconciliation while blocking new deviations.
+alter table public.deal_release_policies
+  add constraint deal_release_policies_w3m_v1_fee_percent_check
+  check (fee_percent = 7.5) not valid;
 commit;
