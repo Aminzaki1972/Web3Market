@@ -1,0 +1,154 @@
+name: W3M V1 Supabase Edge Integration
+
+on:
+  pull_request:
+    paths:
+      - "supabase/config.toml"
+      - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/functions/_shared/w3m-v1-finalization-gate.ts"
+      - "supabase/functions/_shared/w3m-v1-settlement-evidence.ts"
+      - "supabase/functions/_shared/w3m-v1-settlement-evidence.test.ts"
+      - "supabase/functions/prepare-deal-release/**"
+      - "supabase/functions/prepare-safe-release-tx/**"
+      - "supabase/functions/record-safe-release-signature/**"
+      - "supabase/functions/execute-safe-release/**"
+      - "supabase/functions/finalize-safe-release/**"
+      - "supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql"
+      - "supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql"
+      - "supabase/migrations/20261108150000_w3m_v1_final_delivery_confirmation.sql"
+      - "supabase/migrations/20261108180000_w3m_deal_protocol_track_registry.sql"
+      - "supabase/migrations/20261108190000_w3m_v1_canonical_settlement_evidence.sql"
+      - "tests/w3m-v1-edge-integration/**"
+      - ".github/workflows/w3m-v1-edge-integration.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  edge-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Supabase CLI v2
+        id: supabase-cli
+        uses: supabase/setup-cli@v3
+        with:
+          version: v2.stable
+
+      - name: Start isolated local Supabase services
+        run: supabase start -x studio,logflare,vector,supavisor,storage-api,realtime,imgproxy,mailpit,postgres-meta
+
+      - name: Load disposable local Supabase environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env > /tmp/w3m-local-supabase.env
+          set -a
+          source /tmp/w3m-local-supabase.env
+          set +a
+          {
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "W3M_LOCAL_DB_URL=$DB_URL"
+          } >> "$GITHUB_ENV"
+
+      - name: Prepare disposable baseline and apply W3M V1 migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f tests/w3m-v1-edge-integration/schema.sql
+          psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261108180000_w3m_deal_protocol_track_registry.sql
+          # Test-only fixture: designate exactly one synthetic deal as V1 to exercise the V1 Edge path.
+          # The deployed migration itself continues to classify every current insert as legacy.
+          psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          create or replace function w3m_private.w3m_classify_new_deal_as_legacy()
+          returns trigger
+          language plpgsql
+          security definer
+          set search_path = ''
+          as $fixture$
+          begin
+            if new.id = '71000000-0000-4000-8000-000000000001'::uuid then
+              insert into w3m_private.w3m_deal_protocol_tracks
+                (deal_id, protocol_track, assignment_source)
+              values (new.id, 'v1', 'trusted_v1_creation');
+            else
+              insert into w3m_private.w3m_deal_protocol_tracks
+                (deal_id, protocol_track, assignment_source)
+              values (new.id, 'legacy', 'legacy_insert');
+            end if;
+            return new;
+          end;
+          $fixture$;
+          SQL
+          psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_w3m_v1_acceptance_ledger.sql
+          psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261108190000_w3m_v1_canonical_settlement_evidence.sql
+          psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261108110000_w3m_v1_asset_delivery_evidence.sql
+          psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261108150000_w3m_v1_final_delivery_confirmation.sql
+          psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 -c "NOTIFY pgrst, 'reload schema';"
+          sleep 2
+          psql "$W3M_LOCAL_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          do $w3m_privileges$
+          begin
+            if not has_function_privilege('service_role',
+              'public.w3m_get_current_deal_settlement_terms(uuid)', 'EXECUTE') then
+              raise exception 'service_role_must_read_current_signed_settlement_terms';
+            end if;
+            if has_function_privilege('anon',
+              'public.w3m_get_current_deal_settlement_terms(uuid)', 'EXECUTE')
+              or has_function_privilege('authenticated',
+              'public.w3m_get_current_deal_settlement_terms(uuid)', 'EXECUTE') then
+              raise exception 'client_roles_must_not_read_private_settlement_terms_rpc';
+            end if;
+          end;
+          $w3m_privileges$;
+          SQL
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Serve the actual W3M acquisition Edge Function
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase functions serve > /tmp/w3m-edge-runtime.log 2>&1 &
+          echo $! > /tmp/w3m-edge-runtime.pid
+          for attempt in $(seq 1 60); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' \
+              -H "apikey: $SUPABASE_ANON_KEY" \
+              -H 'Content-Type: application/json' \
+              -X POST -d '{}' \
+              http://127.0.0.1:54321/functions/v1/w3m-acquisition-verification || true)"
+            if [ "$code" = "401" ] || [ "$code" = "400" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/w3m-edge-runtime.log
+          echo "W3M Edge Function did not become ready"
+          exit 1
+
+      - name: Test canonical signed settlement evidence and Safe gate guards
+        run: |
+          deno test --allow-env supabase/functions/_shared/w3m-v1-settlement-evidence.test.ts
+          deno test --allow-env supabase/functions/_shared/w3m-v1-safe-payload.test.ts
+          deno test --allow-read supabase/functions/_shared/w3m-v1-safe-gate-source.test.ts
+
+      - name: Exercise real Auth, PostgREST, RPC and Edge Function paths
+        run: deno run --allow-net --allow-env tests/w3m-v1-edge-integration/run.ts
+
+      - name: Print local Edge Function diagnostics on failure
+        if: failure()
+        run: |
+          if [ -f /tmp/w3m-edge-runtime.log ]; then
+            cat /tmp/w3m-edge-runtime.log
+          fi
+
+      - name: Stop isolated Supabase services
+        if: always() && steps.supabase-cli.outcome == 'success'
+        run: supabase stop
