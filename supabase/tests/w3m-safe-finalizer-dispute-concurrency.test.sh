@@ -47,8 +47,8 @@ run_fixture() {
     -e "s/40000000-0000-4000-8000-000000000004/${prefix}4000-4000-8000-000000000004/g" \
     -e "s/40000000-0000-4000-8000-000000000005/${prefix}4000-4000-8000-000000000005/g" \
     -e "s/50000000-0000-4000-8000-000000000005/${prefix}5000-4000-8000-000000000005/g" \
-    -e "s/75000000-0000-4000-8000-000000000001/75500000-0000-4000-8000-000000000001/g" \
-    -e "s/75100000-0000-4000-8000-000000000001/75600000-0000-4000-8000-000000000001/g" \
+    -e "s/75000000-0000-4000-8000-000000000001/${prefix}5000-4000-8000-000000000001/g" \
+    -e "s/75100000-0000-4000-8000-000000000001/${prefix}5100-4000-8000-000000000001/g" \
     -e "s/v_safe_hash text := '0x' || repeat('a', 64);/v_safe_hash text := '0x' || repeat('9', 64);/g" \
     -e "s/attempt-test-key/attempt-test-key-${fixture_key}/g" \
     -e "s/signer-race-idempotency/signer-idempotency-${fixture_key}/g" \
@@ -71,7 +71,7 @@ SQL
 ) &
 FINALIZER_PID=$!
 wait_for_query "w3m-finalizer-before-dispute" "pg_sleep" "any"
-if (export PGAPPNAME=w3m-dispute-after-finalizer; psql_w3m > /tmp/w3m-dispute-after-finalizer.log 2>&1 <<'SQL'
+(export PGAPPNAME=w3m-dispute-after-finalizer; psql_w3m > /tmp/w3m-dispute-after-finalizer.log 2>&1 <<'SQL'
 SELECT set_config('request.jwt.claim.role','authenticated',false);
 SELECT set_config('request.jwt.claim.sub',
   (SELECT buyer_id::text FROM public.w3m_test_finalizer_race_fixture WHERE fixture_key='dispute-finalizer-first'),false);
@@ -80,8 +80,15 @@ SELECT public.open_deal_dispute(
   'race after finalization'
 );
 SQL
-); then
+) &
+DISPUTE_AFTER_PID=$!
+wait_for_query "w3m-dispute-after-finalizer" "open_deal_dispute" "Lock"
+if wait "$DISPUTE_AFTER_PID"; then
   wait "$FINALIZER_PID"
+  echo "FAIL: dispute opened after finalizer committed."
+  exit 1
+fi
+wait "$FINALIZER_PID"
   echo "FAIL: dispute opened after finalizer committed."
   exit 1
 fi
@@ -111,14 +118,21 @@ SQL
 ) &
 DISPUTE_PID=$!
 wait_for_query "w3m-dispute-before-finalizer" "pg_sleep" "any"
-if (export PGAPPNAME=w3m-finalizer-after-dispute; psql_w3m > /tmp/w3m-finalizer-after-dispute.log 2>&1 <<'SQL'
+(export PGAPPNAME=w3m-finalizer-after-dispute; psql_w3m > /tmp/w3m-finalizer-after-dispute.log 2>&1 <<'SQL'
 SELECT set_config('request.jwt.claim.role','service_role',false);
 SELECT public.w3m_finalize_safe_execution_attempt(
   f.attempt_id,f.broadcast_tx_hash,f.buyer_id,f.receipt
 ) FROM public.w3m_test_finalizer_race_fixture f WHERE f.fixture_key='dispute-first-finalizer';
 SQL
-); then
+) &
+FINALIZER_AFTER_PID=$!
+wait_for_query "w3m-finalizer-after-dispute" "w3m_finalize_safe_execution_attempt" "Lock"
+if wait "$FINALIZER_AFTER_PID"; then
   wait "$DISPUTE_PID"
+  echo "FAIL: finalizer succeeded after dispute committed."
+  exit 1
+fi
+wait "$DISPUTE_PID"
   echo "FAIL: finalizer succeeded after dispute committed."
   exit 1
 fi
