@@ -15,16 +15,18 @@ const types = {
     { name: "termsVersion", type: "uint256" }, { name: "partyRole", type: "uint8" },
   ],
 };
-function prepared(overrides: Record<string, unknown> = {}) {
+async function prepared(overrides: Record<string, unknown> = {}) {
+  const canonicalTerms = { dealId, amount: "100", currency: "USDT", feePercent: "7.5", sellerNetAmount: "92.5" };
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(canonicalTerms)));
+  const termsHash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
   return { ok: true, result: {
-    dealId, partyRole: "buyer", walletAddress: wallet, termsHash: "2".repeat(64), termsVersion: "3",
-    canonicalTerms: { dealId, amount: "100", currency: "USDT", feePercent: "7.5", sellerNetAmount: "92.5" },
+    dealId, partyRole: "buyer", walletAddress: wallet, termsHash, termsVersion: "3", canonicalTerms,
     typedData: { domain: { name: "Web3Market Deal Agreement", version: "1", chainId: 56 },
       primaryType: "DealTermsAcceptance", types,
       message: { dealId: "0x" + "1".repeat(64), projectId: "0x" + "3".repeat(64),
         buyerId: "0x" + "4".repeat(64), sellerId: "0x" + "5".repeat(64),
         safeAddress: "0x2222222222222222222222222222222222222222",
-        termsHash: "0x" + "2".repeat(64), termsVersion: "3", partyRole: 1 } },
+        termsHash: "0x" + termsHash, termsVersion: "3", partyRole: 1 } },
     ...overrides,
   }};
 }
@@ -48,12 +50,12 @@ Deno.test("client refuses to sign if connected wallet differs from server verifi
 });
 Deno.test("client rejects a substituted EIP-712 domain", async () => {
   await assertRejects(()=>signAndSubmitW3MDealAgreement({dealId,accessToken:"session",walletAddress:wallet,
-    reviewTerms: async () => true, request:async()=>prepared({typedData:{...prepared().result.typedData,domain:{name:"Attacker",version:"1",chainId:56}}}),
+    reviewTerms: async () => true, request:async()=>{const p=await prepared();return prepared({typedData:{...p.result.typedData,domain:{name:"Attacker",version:"1",chainId:56}}})},
     signTypedData:async()=>signature}));
 });
 Deno.test("client rejects changed terms hash before requesting a wallet signature", async () => {
   let signed=false;
-  const altered=prepared();
+  const altered=await prepared();
   altered.result.typedData.message.termsHash="0x"+"9".repeat(64);
   await assertRejects(()=>signAndSubmitW3MDealAgreement({dealId,accessToken:"session",walletAddress:wallet,
     reviewTerms: async () => true, request:async()=>altered,signTypedData:async()=>{signed=true;return signature;}}));
@@ -98,4 +100,17 @@ Deno.test("client requires explicit review of canonical terms before requesting 
   }));
   assertEquals(signed, false);
   assertEquals((reviewed[0].canonicalTerms as Record<string, unknown>).feePercent, "7.5");
+});
+
+Deno.test("client rejects canonical terms content that does not match its SHA-256 hash", async () => {
+  let signed = false;
+  const altered = await prepared();
+  altered.result.canonicalTerms.feePercent = "0";
+  await assertRejects(() => signAndSubmitW3MDealAgreement({
+    dealId, accessToken: "session", walletAddress: wallet,
+    request: async () => altered,
+    reviewTerms: async () => true,
+    signTypedData: async () => { signed = true; return signature; },
+  }));
+  assertEquals(signed, false);
 });
