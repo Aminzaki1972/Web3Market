@@ -280,11 +280,12 @@
  }
  async function renderTerms(){
   if(!deal)return;
-  const rows=await loadAgreement(),mine=rows.find(x=>x.party_role===participant&&String(x.party_id)===String(user.id)),buyer=rows.find(x=>x.party_role==='buyer')?.agreed_at,seller=rows.find(x=>x.party_role==='seller')?.agreed_at,actions=document.querySelector('#actions');
+  const actions=document.querySelector('#actions');
   if(!actions)return;
-  actions.innerHTML=`<div class="notice"><strong>Dispute Resolution — Model B</strong><br>Buyer and Seller agree that Web3Market acts as the dispute resolution party. Funds are held by the 2-of-3 Safe, not by Web3Market. ${buyer?'Buyer ✓':'Buyer pending'} · ${seller?'Seller ✓':'Seller pending'}</div>${participant==='platform'?'<div class="notice ok">Platform moderator view — monitoring and dispute resolution only.</div>':''}<button id="agreeBtn" class="btn primary" ${participant==='platform'||mine?.agreed_at?'disabled':''}>${mine?.agreed_at?'Terms Accepted':'I Agree to Deal Terms'}</button><button id="disputeBtn" class="btn" style="background:#fff7ed;color:#9a3412">Open Dispute</button>`;
-  const agreeBtn=document.querySelector('#agreeBtn');
-  if(agreeBtn&&!mine?.agreed_at&&participant!=='platform')agreeBtn.onclick=async()=>{agreeBtn.disabled=true;const {error}=await sb.from('deal_party_agreements').upsert({deal_id:deal.id,party_role:participant,party_id:user.id,agreed_at:new Date().toISOString()},{onConflict:'deal_id,party_role,party_id'});if(error){alert(error.message||'Could not save agreement');agreeBtn.disabled=false;return}await renderTerms()};
+  // Fail closed: legacy agreed_at timestamps are not cryptographic acceptance.
+  // The EIP-712 client remains unavailable in this UI until the complete,
+  // versioned legal document text and its hash are bound into the signing payload.
+  actions.innerHTML=`<div class="notice warn"><strong>Secure agreement signature required</strong><br>Buyer and Seller must each sign the same versioned agreement with their connected wallet (EIP-712). A timestamp or the old “I Agree” record is not a valid wallet signature and is not treated as acceptance.</div><div class="notice warn"><strong>Wallet signing is not yet enabled here</strong><br>The full legal agreement text, document version, and document hash must be bound to the signing request before either party can sign. No agreement acceptance is recorded from this screen.</div>${participant==='platform'?'<div class="notice">Platform moderator view — no party signature is available.</div>':''}<button id="disputeBtn" class="btn" style="background:#fff7ed;color:#9a3412">Open Dispute</button>`;
   const db=document.querySelector('#disputeBtn');
   if(db)db.onclick=()=>openDisputeModal();
  }
