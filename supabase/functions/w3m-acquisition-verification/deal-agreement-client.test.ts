@@ -18,6 +18,7 @@ const types = {
 function prepared(overrides: Record<string, unknown> = {}) {
   return { ok: true, result: {
     dealId, partyRole: "buyer", walletAddress: wallet, termsHash: "2".repeat(64), termsVersion: "3",
+    canonicalTerms: { dealId, amount: "100", currency: "USDT", feePercent: "7.5", sellerNetAmount: "92.5" },
     typedData: { domain: { name: "Web3Market Deal Agreement", version: "1", chainId: 56 },
       primaryType: "DealTermsAcceptance", types,
       message: { dealId: "0x" + "1".repeat(64), projectId: "0x" + "3".repeat(64),
@@ -30,7 +31,7 @@ function prepared(overrides: Record<string, unknown> = {}) {
 Deno.test("client requests, signs with the verified connected wallet, and submits the signature", async () => {
   const calls: unknown[] = [];
   const result = await signAndSubmitW3MDealAgreement({ dealId, accessToken: "session", walletAddress: wallet,
-    request: async (body: unknown, token: string) => { calls.push({body,token});
+    reviewTerms: async () => true, request: async (body: unknown, token: string) => { calls.push({body,token});
       return (body as {mode:string}).mode === "prepare" ? prepared() : { ok:true, result:{
         dealId,partyRole:"buyer",termsVersion:"3",acceptanceId:"76000000-0000-4000-8000-000000000006",idempotentReplay:false } }; },
     signTypedData: async (address: string, typedData: unknown) => { assertEquals(address,wallet);
@@ -84,4 +85,17 @@ Deno.test("client never submits a malformed wallet signature", async () => {
     request:async(body:unknown)=>{if((body as {mode:string}).mode==="prepare")return prepared();submits++;return {};},
     signTypedData:async()=>"0x1234"}));
   assertEquals(submits,0);
+});
+
+Deno.test("client requires explicit review of canonical terms before requesting wallet signature", async () => {
+  let signed = false;
+  let reviewed: Record<string, unknown> | null = null;
+  await assertRejects(() => signAndSubmitW3MDealAgreement({
+    dealId, accessToken: "session", walletAddress: wallet,
+    request: async () => prepared(),
+    reviewTerms: async (value: Record<string, unknown>) => { reviewed = value; return false; },
+    signTypedData: async () => { signed = true; return signature; },
+  }));
+  assertEquals(signed, false);
+  assertEquals((reviewed?.canonicalTerms as Record<string, unknown>).feePercent, "7.5");
 });
