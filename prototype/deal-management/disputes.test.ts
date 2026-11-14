@@ -6,7 +6,13 @@ import {
 import { parseUsdtAmount } from "./core.ts";
 
 const total = parseUsdtAmount("7000");
-const allocation = { buyerRefund: parseUsdtAmount("1000"), sellerPayout: parseUsdtAmount("5475"), platformFee: parseUsdtAmount("525") };
+const fee = parseUsdtAmount("525");
+const grossAmount = parseUsdtAmount("7000");
+const allocation = {
+  buyerGrossRefund: parseUsdtAmount("2000"),
+  sellerPayout: parseUsdtAmount("5000"),
+  platformFee: fee,
+};
 const claimantEvidence = { id: "e1", submittedBy: "buyer" as const, description: "Transfer proof", submittedAt: 110 };
 const respondentEvidence = { id: "e2", submittedBy: "seller" as const, description: "Delivery proof", submittedAt: 150 };
 
@@ -34,25 +40,30 @@ Deno.test("respondent cannot reply after deadline; non-response is explicitly re
   assertEquals(d.status, "response_expired");
 });
 
-Deno.test("decision requires reasons, valid timing and allocations reconciling to deposit", () => {
+Deno.test("decision requires reasons, valid timing, exact fee and balanced allocation", () => {
   let d = openDispute("d3", "buyer", 100, 100);
   d = submitClaimantEvidence(d, "buyer", claimantEvidence);
   d = submitRespondentResponse(d, "seller", respondentEvidence, 150);
-  assertThrows(() => issueDisputeDecision(d, "", allocation, total, 160));
-  assertThrows(() => issueDisputeDecision(d, "Reason", { ...allocation, platformFee: 1n }, total, 160));
-  assertThrows(() => issueDisputeDecision(d, "Too early", allocation, total, 140));
-  d = issueDisputeDecision(d, "Evidence reviewed", allocation, total, 160);
+  assertThrows(() => issueDisputeDecision(d, "", allocation, total, grossAmount, 160));
+  assertThrows(() => issueDisputeDecision(d, "Wrong fee", { ...allocation, platformFee: 1n }, total, grossAmount, 160));
+  assertThrows(() => issueDisputeDecision(d, "Fee shortfall", {
+    buyerGrossRefund: parseUsdtAmount("500"), sellerPayout: parseUsdtAmount("6500"), platformFee: fee,
+  }, total, grossAmount, 160));
+  assertThrows(() => issueDisputeDecision(d, "Deposit/gross mismatch", allocation, total, parseUsdtAmount("8000"), 160));
+  assertThrows(() => issueDisputeDecision(d, "Too early", allocation, total, grossAmount, 140));
+  d = issueDisputeDecision(d, "Evidence reviewed", allocation, total, grossAmount, 160);
   assertEquals(d.status, "decided");
-  assertThrows(() => issueDisputeDecision(d, "Second decision", allocation, total, 170));
+  assertEquals(d.decision?.allocation.buyerGrossRefund, parseUsdtAmount("2000"));
+  assertThrows(() => issueDisputeDecision(d, "Second decision", allocation, total, grossAmount, 170));
 });
 
 Deno.test("pure dispute lifecycle cannot self-certify Safe execution", () => {
   let d = openDispute("d4", "buyer", 100, 100);
   d = submitClaimantEvidence(d, "buyer", claimantEvidence);
   d = markResponseExpired(d, 200);
-  d = issueDisputeDecision(d, "No response received", allocation, total, 210);
+  d = issueDisputeDecision(d, "No response received", {
+    buyerGrossRefund: total, sellerPayout: 0n, platformFee: fee,
+  }, total, grossAmount, 210);
   d = markDisputeExecutionPending(d);
   assertEquals(d.status, "execution_pending");
-  // Deliberately no pure helper can mark this case executed. A future trusted,
-  // server-side chain verifier must prove the exact Safe batch and Transfer logs.
 });
