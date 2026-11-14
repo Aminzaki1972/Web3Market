@@ -44,6 +44,9 @@ export function submitAssetEvidence(
   if (asset.transferState === "verified" || asset.transferState === "rejected") {
     throw new Error("Evidence cannot be changed after a terminal verification result");
   }
+  if (asset.evidence.some(item => item.id === evidence.id)) {
+    throw new Error("Evidence IDs must be unique within an asset");
+  }
   return {
     ...asset, transferState: "evidence_submitted",
     evidence: [...asset.evidence, evidence], verification: null,
@@ -76,8 +79,9 @@ export function recordAssetVerification(
       !Number.isFinite(verification.checkedAt)) {
     throw new Error("Verification result, summary, source and timestamp are required");
   }
-  if (asset.evidence.length === 0 && verification.status === "verified") {
-    throw new Error("An asset cannot be verified without evidence");
+  if (verification.status === "verified" &&
+      assessAssetEvidence(asset, asset.evidence) !== "verified") {
+    throw new Error("Evidence type is insufficient to verify this asset");
   }
   return { ...asset, transferState: verification.status, verification };
 }
