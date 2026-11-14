@@ -10,6 +10,7 @@ const recipients = {
 const ordinary = {
   agreementApproved: true, depositVerified: true, depositedAmount: 7_000_000_000n,
   requiredAssetsVerified: true, buyerFinalAcceptance: true, openDispute: false,
+  disputeEverOpened: false,
 };
 
 Deno.test("ordinary payout requires every gate and produces 92.5/7.5 split", () => {
@@ -33,6 +34,12 @@ Deno.test("ordinary payout is blocked by every missing gate", () => {
     "agreement_not_approved", "deposit_not_verified",
     "required_assets_not_verified", "buyer_final_acceptance_missing", "dispute_open",
   ]);
+});
+
+Deno.test("ordinary payout cannot be used after a dispute has been opened, even after resolution", () => {
+  const result = prepareOrdinaryPayout({ ...ordinary, disputeEverOpened: true }, recipients);
+  assertEquals(result.ready, false);
+  if (!result.ready) assertEquals(result.blockers, ["dispute_requires_decision_payout"]);
 });
 
 Deno.test("ordinary payout rejects invalid or duplicate active recipient addresses", () => {
