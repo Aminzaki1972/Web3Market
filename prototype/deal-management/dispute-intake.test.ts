@@ -58,6 +58,7 @@ Deno.test("review requires a reason and reviewer audit identity", () => {
   const request = submitDisputeRequest("r6", "deal-6", "buyer", "Reason", 100, [{ id: "ev-required", description: "Initial evidence submitted with the dispute request", submittedAt: 95 }]);
   assertThrows(() => reviewDisputeRequest(request, "approved", " ", "admin", 101));
   assertThrows(() => reviewDisputeRequest(request, "approved", "Reason", " ", 101));
+  assertThrows(() => reviewDisputeRequest(request, "unexpected" as "approved", "Reason", "admin", 101));
 });
 
 Deno.test("declined hold is released only by a separate explicit action after no other hold is confirmed", () => {
