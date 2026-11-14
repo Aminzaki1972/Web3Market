@@ -32,3 +32,8 @@ Passing these tests proves only the behavior of this in-memory model. It does no
 - chain finality, RPC trust, concurrency safety, or real USDT transfer execution.
 
 No contract, wallet, RPC connection, database integration, deployment, migration, or production change is included. A separate threat-model and implementation plan must be reviewed and explicitly approved before writing or deploying Guard/Module contracts.
+
+
+## MultiSend modeling clarification
+
+The model distinguishes the outer Safe execution target from the token contract whose transfers appear in the decoded effects. A direct token call or a reviewed MultiSend target must be explicitly listed in `approvedExecutionTargets`. In a real verifier, that allowlist is not a text setting: it must be pinned to the exact chain deployment, runtime code hash and reviewed decoder version. Every nested operation must be decoded recursively; an outer MultiSend address alone is never proof that the batch is safe. The sandbox tests simulate this trusted allowlist and decoder output only.
