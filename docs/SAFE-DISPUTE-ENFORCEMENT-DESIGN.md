@@ -257,7 +257,7 @@ Monitor Safe events and independently poll critical state for changes to owners,
 ### Gross-amount commission rule
 Commission is calculated on the original gross final agreed deal amount regardless of the outcome or amount ultimately transferred to the seller. The currently specified rate is 7.5%. The final administrative allocation must explicitly account for this commission in completed deals, full refunds, partial refunds and split outcomes.
 
-The economic party/share from which the commission is funded in a full or partial refund is not yet specified. The agreement must resolve this before real deposits; do not silently subtract the fee from the buyer's refund or assign it to the seller without an approved clause.
+**Resolved by user:** the buyer bears the full gross-based commission, deducted from the buyer's refund. In partial/split outcomes, deduct the same full commission from the buyer's gross refund allocation. If that allocation is smaller than the commission, do not invent a shortfall funding source; the agreement and administrative allocation must resolve it before execution.
 
 ### Whole-deal fail-closed rule
 If Guard/Module Guard or any required security enforcement component fails, is removed, incompatible, unverifiable or behaves unexpectedly:
