@@ -106,3 +106,11 @@ GitHub Actions workflow `.github/workflows/deal-management-sandbox-tests.yml` ex
 - This is unit/domain-logic CI only. It does not test a deployed Safe Guard/Module Guard, live RPC, real USDT transfer, database authorization, concurrency, BNB fork behavior, or production runtime.
 
 Cloudflare Pages reported a successful **branch preview** build for the same commit. This is a preview deployment, not a production deployment; no production release or production configuration change was requested or performed.
+
+## 2026-11-14 follow-up — buyer inspection deadline is recorded but not enforced
+
+The buyer-review model stores an optional `inspectionEndsAt` value and the preview exposes the agreed choices (48 hours, 72 hours or 7 days). The pure `reviewAsset` and `finalBuyerAcceptance` helpers do not compare the current time with that deadline, send deadline notices, or define an expiry transition. They also do not automatically accept assets or release funds when time expires.
+
+**Required before live use:** define the contractual consequence of a missed inspection deadline (including notice/grace period, whether the buyer may still respond, and the required administrative/dispute path). Until that policy is explicitly approved and implemented server-side, expiry must not be interpreted as buyer acceptance, verified delivery, or payout authorization. The ordinary payout gate must continue to require an explicit authenticated final buyer-acceptance event, or a separately approved and auditable resolution path.
+
+This is an open policy and backend-enforcement gap. No auto-acceptance behavior was added to the sandbox.
