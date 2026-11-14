@@ -209,3 +209,32 @@ The isolated branch CI workflow completed successfully after the buyer-paid disp
 
 
 A final adversarial payout-gate test was added to forge a decision object with a buyer gross refund bucket below the fee. The payout-readiness function independently rejected it. Latest CI run: [#59](https://github.com/Aminzaki1972/Web3Market/actions/runs/43619818044), **68 passed, 0 failed**, on code commit `0d52a61a04ac521f0c194329c478a3775a4d71ab`.
+
+
+## Administrative dispute intake gate — 2026-11-14
+
+The isolated domain layer now separates a dispute request from a formally approved dispute:
+
+1. Either buyer or seller may submit a request with a reason and optional initial evidence.
+2. Submission enters `pending_admin_review` and raises a payout hold immediately in the model. No Safe lock is claimed.
+3. Only a separately recorded, reasoned administrative approval advances the request to `approved_lock_pending`.
+4. An administrative decline advances to `declined_hold`; the payout hold remains in place.
+5. A declined request's hold can be released only through a separate explicit administrative action, with a reason and a trusted check that no other active hold exists.
+6. An approved request can become `lock_confirmed` only when a normalized proof object reports BNB Smart Chain (56), the exact expected deal Safe, a successful lock transaction, sufficient confirmations, the lock event and independently verified locked state.
+7. The dispute payout-readiness gate now binds the request ID to the dispute ID, the request's deal ID to the target deal, and the lock proof to the exact deal Safe. Ordinary payout is blocked while the request is pending, declined-but-not-released, approved, or lock-confirmed. A dispute decision payout plan is not prepared until the exact dispute's lock is reported confirmed.
+
+Files:
+- `prototype/deal-management/dispute-intake.ts`
+- `prototype/deal-management/dispute-intake.test.ts`
+- `prototype/deal-management/payout-readiness.ts`
+- `prototype/deal-management/payout-readiness.test.ts`
+- `deal-management-preview.html` now demonstrates request submission, administrative approval/decline, explicit release after decline, and the distinct “Safe lock pending — not confirmed” state.
+
+**Critical boundary:** these are pure model transitions and a local UI simulation. The `reviewerId`, the no-other-hold assertion, and normalized lock proof are not authentication or chain verification. A future trusted backend must authenticate the administrator, persist append-only events atomically, prevent concurrent/duplicate requests, verify Safe state and canonical BNB receipts independently, and enforce the hold on every payout API. No live payout endpoint or Safe Guard is connected.
+
+## Latest administrative-intake validation
+
+- GitHub Actions Deno sandbox suite: **80 passed, 0 failed**.
+- Run: https://github.com/Aminzaki1972/Web3Market/actions/runs/43620254644
+- Tested code commit: `68d5491b51b2bbb91e49a21b24b06b43fc1f0558`.
+- This covers pure domain logic only; the HTML preview is not part of the Deno test suite and no real administration, notification, database or Safe operation is exercised.
