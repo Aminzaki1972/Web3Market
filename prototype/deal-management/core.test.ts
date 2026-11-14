@@ -74,9 +74,6 @@ Deno.test("an open dispute blocks payout until the dispute is resolved", () => {
   assertEquals(canAdvance("buyer_review", "payout_ready", { ...base, disputeOpen: true }), false);
   assertEquals(canAdvance("payout_ready", "completed", { ...base, disputeOpen: true, safeExecutionConfirmed: true }), false);
   assertEquals(canAdvance("buyer_review", "dispute_open", { ...base, disputeOpen: true }), true);
-
-  // A final decision ends the dispute phase; only then can the explicit
-  // dispute-allocation settlement path become payout-ready.
   assertEquals(canAdvance("dispute_open", "payout_ready", {
     ...base, disputeOpen: false, disputeDecisionFinalized: false, buyerAccepted: false,
   }), false);
@@ -90,8 +87,6 @@ Deno.test("an open dispute blocks payout until the dispute is resolved", () => {
     ...base, disputeOpen: false, disputeEverOpened: undefined as unknown as boolean,
     disputeDecisionFinalized: true, buyerAccepted: false,
   }), false);
-
-  // A dispute history cannot be bypassed by clearing the current-open flag.
   assertEquals(canAdvance("buyer_review", "payout_ready", {
     ...base, disputeOpen: false, disputeEverOpened: true, buyerAccepted: true,
     disputeDecisionFinalized: false,
@@ -99,13 +94,11 @@ Deno.test("an open dispute blocks payout until the dispute is resolved", () => {
   assertEquals(canAdvance("buyer_review", "payout_ready", {
     ...base, disputeOpen: false, disputeEverOpened: true, buyerAccepted: true,
     disputeDecisionFinalized: true,
-  }), false); // Must use the dispute_open decision path, not ordinary payout.
+  }), false);
   assertEquals(canAdvance("buyer_review", "payout_ready", {
     ...base, disputeOpen: false, disputeEverOpened: undefined as unknown as boolean,
     buyerAccepted: true,
-  }), false); // Missing dispute history fails closed.
-
-  // Ordinary buyer acceptance cannot bypass an unresolved dispute.
+  }), false);
   assertEquals(canAdvance("buyer_review", "payout_ready", {
     ...base, disputeOpen: true, buyerAccepted: true,
   }), false);
@@ -122,8 +115,19 @@ Deno.test("completion requires confirmed Safe execution", () => {
   }), true);
 });
 
-Deno.test("dispute allocations must reconcile exactly to deposited total", () => {
+Deno.test("dispute allocation uses buyer gross refund bucket and exact full fee", () => {
   const total = parseUsdtAmount("7000");
-  assertEquals(validateDisputeAllocation(total, { buyerRefund: parseUsdtAmount("1000"), sellerPayout: parseUsdtAmount("5475"), platformFee: parseUsdtAmount("525") }), true);
-  assertEquals(validateDisputeAllocation(total, { buyerRefund: parseUsdtAmount("1000"), sellerPayout: parseUsdtAmount("5400"), platformFee: parseUsdtAmount("525") }), false);
+  const fee = parseUsdtAmount("525");
+  assertEquals(validateDisputeAllocation(total, {
+    buyerGrossRefund: parseUsdtAmount("2000"), sellerPayout: parseUsdtAmount("5000"), platformFee: fee,
+  }, total), true);
+  assertEquals(validateDisputeAllocation(total, {
+    buyerGrossRefund: parseUsdtAmount("500"), sellerPayout: parseUsdtAmount("6500"), platformFee: fee,
+  }, total), false); // Buyer gross refund cannot cover the full commission.
+  assertEquals(validateDisputeAllocation(total, {
+    buyerGrossRefund: parseUsdtAmount("2000"), sellerPayout: parseUsdtAmount("5000"), platformFee: 1n,
+  }, total), false); // Fee cannot be reduced or invented by the decision.
+  assertEquals(validateDisputeAllocation(total, {
+    buyerGrossRefund: parseUsdtAmount("2000"), sellerPayout: parseUsdtAmount("5000"), platformFee: fee,
+  }, parseUsdtAmount("8000")), false); // Original agreement amount must match the deposit.
 });
