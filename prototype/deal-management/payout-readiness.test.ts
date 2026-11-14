@@ -89,3 +89,23 @@ Deno.test("dispute payout cannot proceed without verified deposit or agreement",
   assertEquals(result.ready, false);
   if (!result.ready) assertEquals(result.blockers.includes("agreement_not_approved"), true);
 });
+
+Deno.test("full buyer refund follows explicit dispute allocation and does not create seller/platform payments", () => {
+  let dispute = openDispute("d-refund", "buyer", 100, 1_000);
+  dispute = submitClaimantEvidence(dispute, "buyer", {
+    id: "e1", submittedBy: "buyer", description: "Evidence", submittedAt: 110,
+  });
+  dispute = submitRespondentResponse(dispute, "seller", {
+    id: "e2", submittedBy: "seller", description: "Response", submittedAt: 120,
+  }, 120);
+  dispute = issueDisputeDecision(dispute, "Full refund under agreement", {
+    buyerRefund: 7_000_000_000n, sellerPayout: 0n, platformFee: 0n,
+  }, 7_000_000_000n, 130);
+  const result = prepareDisputePayout(true, true, 7_000_000_000n, dispute, recipients);
+  assertEquals(result.ready, true);
+  if (result.ready) {
+    assertEquals(result.plan.buyerRefund, 7_000_000_000n);
+    assertEquals(result.plan.sellerPayout, 0n);
+    assertEquals(result.plan.platformFee, 0n);
+  }
+});
