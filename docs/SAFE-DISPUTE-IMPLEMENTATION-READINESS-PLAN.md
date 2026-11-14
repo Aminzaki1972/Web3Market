@@ -148,3 +148,35 @@ The system must define a fail-safe response for lock submission delay, mempool c
 ## 7. Current readiness
 
 The TypeScript policy model and sandbox tests are useful specification checks only. They do not establish Solidity correctness, Safe hook coverage, chain state, lock effectiveness, recovery safety or protection of real funds. Contract coding begins only after Phase 0 decisions are explicitly approved and the threat model is independently reviewed.
+
+## User-approved governance and financial rules — 2026-11-14
+
+These requirements were explicitly supplied by the Web3Market owner and supersede conflicting candidate wording:
+
+### Dispute intake and opening
+- Either buyer or seller may submit a dispute request to Web3Market administration.
+- Submission is a request for administrative review; it is not automatically an approved/open dispute.
+- Administration reviews the request and decides whether to formally open the dispute.
+- While review is pending, the entire deal is put on administrative-review hold: no new payout proposal or payout instruction may be issued. The UI must not claim the Safe is on-chain locked.
+- If administration approves opening, initiate the on-chain lock. Do not describe the Safe as locked until canonical lock state is independently verified under the finality policy.
+- If administration declines, record reasons. Remove the administrative hold only through an explicit recorded administrative action after checking that no other hold/security incident exists.
+
+### Final financial authority
+- Web3Market administration has final decision authority for every financial outcome: seller payout, full/partial buyer refund, split allocation, platform commission and any other financial distribution.
+- Record a reasoned decision with exact recipients, amounts, agreement reference and immutable decision identifier/hash.
+- AI may collect and summarize evidence but cannot make the final financial decision, authorize allocation or execute a transfer.
+- Safe owner signatures and Guard policy are technical execution controls; they do not replace the administration's decision authority.
+
+### Platform commission basis
+- Commission is calculated on the gross final agreed deal amount, regardless of completion, full refund, partial refund, equal split or another percentage allocation.
+- At the currently specified 7.5%, the basis is the original final agreed gross amount, not the amount ultimately paid to the seller.
+- Include the commission explicitly in every administrative allocation and agreement record.
+- **Still requiring a precise contractual rule:** which party/share bears the commission in full/partial refunds, and how the allocation remains funded when the Safe balance equals the gross deposit. Do not silently deduct it from a buyer refund or assign it to the seller without an approved agreement clause.
+
+### Guard/enforcement failure
+- If Guard, Module Guard or any required enforcement component is faulty, missing, bypassable, incompatible or cannot be independently verified, disable the entire deal until repaired and revalidated.
+- Disable progression, new deposits/funding, payout proposals, refunds and all outgoing financial execution. No manual status change may bypass the safety hold.
+- If funds are already in Safe, prohibit outgoing movement while the fault remains unresolved.
+- Re-enable only after repair, reproducible security tests, independent on-chain re-verification and explicit recorded administrative reactivation.
+
+These are product requirements, not implemented controls.
