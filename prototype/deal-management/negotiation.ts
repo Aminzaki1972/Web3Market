@@ -45,8 +45,11 @@ export function applyPriceAction(
   action: PriceAction,
 ): NegotiationState {
   if (state.finalPriceAccepted) throw new Error("Price negotiation is already accepted");
-  const current = state.offers.find((offer) => offer.id === action.offerId && offer.status === "open");
-  if (!current) throw new Error("Open offer not found");
+  const openOffers = state.offers.filter((offer) => offer.status === "open");
+  const current = action.type === "counter"
+    ? (openOffers.length === 1 ? openOffers[0] : undefined)
+    : state.offers.find((offer) => offer.id === action.offerId && offer.status === "open");
+  if (!current) throw new Error("Exactly one current open offer is required");
 
   if (action.type === "preliminary_seller_accept") {
     if (actor !== "seller" || current.proposer !== "buyer" || state.preliminarySellerAcceptance) {
@@ -72,9 +75,11 @@ export function applyPriceAction(
     };
   }
 
+  // For a counter-offer, action.offerId is the NEW unique offer ID. The
+  // single current open offer is superseded atomically in this state model.
   if (action.amountUsdt <= 0n || !action.offerId.trim() ||
       state.offers.some((offer) => offer.id === action.offerId)) {
-    throw new Error("Counter-offer amount and unique ID must be valid");
+    throw new Error("Counter-offer amount and new unique offer ID must be valid");
   }
   return {
     ...state,
