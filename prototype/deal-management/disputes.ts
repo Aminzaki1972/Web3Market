@@ -8,7 +8,7 @@ import { validateDisputeAllocation } from "./core.ts";
 export type DisputeParty = "buyer" | "seller";
 export type DisputeStatus =
   | "claimant_evidence" | "awaiting_respondent" | "response_received"
-  | "response_expired" | "decided" | "execution_pending" | "executed";
+  | "response_expired" | "decided" | "execution_pending";
 
 export type DisputeEvidence = {
   id: string;
@@ -32,7 +32,6 @@ export type DisputeCase = {
   status: DisputeStatus;
   evidence: DisputeEvidence[];
   decision: null | { reason: string; allocation: DisputeAllocation; decidedAt: number };
-  execution: null | { txHash: string; confirmedAt: number };
 };
 
 function validEvidence(dispute: DisputeCase, evidence: DisputeEvidence): boolean {
@@ -50,7 +49,7 @@ export function openDispute(
   return {
     id, claimant, respondent: claimant === "buyer" ? "seller" : "buyer",
     openedAt: now, responseDeadline: now + responseWindowMs,
-    status: "claimant_evidence", evidence: [], decision: null, execution: null,
+    status: "claimant_evidence", evidence: [], decision: null,
   };
 }
 
@@ -109,4 +108,3 @@ export function markDisputeExecutionPending(dispute: DisputeCase): DisputeCase {
   return { ...dispute, status: "execution_pending" };
 }
 
-/** Completion requires independently verified Safe execution evidence from a trusted adapter. */
