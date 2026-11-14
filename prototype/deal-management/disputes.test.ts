@@ -1,6 +1,6 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import {
-  confirmDisputeExecution, issueDisputeDecision, markDisputeExecutionPending,
+  issueDisputeDecision, markDisputeExecutionPending,
   markResponseExpired, openDispute, submitClaimantEvidence, submitRespondentResponse,
 } from "./disputes.ts";
 import { parseUsdtAmount } from "./core.ts";
@@ -46,13 +46,14 @@ Deno.test("decision requires reasons, valid timing and allocations reconciling t
   assertThrows(() => issueDisputeDecision(d, "Second decision", allocation, total, 170));
 });
 
-Deno.test("dispute execution is not complete until confirmed Safe receipt", () => {
+Deno.test("pure dispute lifecycle cannot self-certify Safe execution", () => {
   let d = openDispute("d4", "buyer", 100, 100);
   d = submitClaimantEvidence(d, "buyer", claimantEvidence);
   d = markResponseExpired(d, 200);
   d = issueDisputeDecision(d, "No response received", allocation, total, 210);
   d = markDisputeExecutionPending(d);
-  assertThrows(() => confirmDisputeExecution(d, "0x" + "a".repeat(64), false, 220));
-  d = confirmDisputeExecution(d, "0x" + "a".repeat(64), true, 220);
-  assertEquals(d.status, "executed");
+  assertEquals(d.status, "execution_pending");
+  assertEquals(d.execution, null);
+  // Deliberately no pure helper can mark this case executed. A future trusted,
+  // server-side chain verifier must prove the exact Safe batch and Transfer logs.
 });
