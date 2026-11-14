@@ -7,7 +7,7 @@ import { parseUsdtAmount } from "./core.ts";
 
 const total = parseUsdtAmount("7000");
 const allocation = { buyerRefund: parseUsdtAmount("1000"), sellerPayout: parseUsdtAmount("5475"), platformFee: parseUsdtAmount("525") };
-const claimantEvidence = { id: "e1", submittedBy: "buyer" as const, description: "Transfer proof", submittedAt: 100 };
+const claimantEvidence = { id: "e1", submittedBy: "buyer" as const, description: "Transfer proof", submittedAt: 110 };
 const respondentEvidence = { id: "e2", submittedBy: "seller" as const, description: "Delivery proof", submittedAt: 150 };
 
 Deno.test("dispute requires claimant evidence before respondent response", () => {
@@ -19,6 +19,13 @@ Deno.test("dispute requires claimant evidence before respondent response", () =>
   assertEquals(d.evidence.length, 2);
 });
 
+Deno.test("dispute rejects duplicate evidence IDs and future evidence timestamps", () => {
+  let d = openDispute("d1b", "buyer", 100, 100);
+  d = submitClaimantEvidence(d, "buyer", claimantEvidence);
+  assertThrows(() => submitRespondentResponse(d, "seller", { ...respondentEvidence, id: "e1" }, 150));
+  assertThrows(() => submitRespondentResponse(d, "seller", { ...respondentEvidence, submittedAt: 160 }, 150));
+});
+
 Deno.test("respondent cannot reply after deadline; non-response is explicitly recorded", () => {
   let d = openDispute("d2", "buyer", 100, 100);
   d = submitClaimantEvidence(d, "buyer", claimantEvidence);
@@ -27,12 +34,13 @@ Deno.test("respondent cannot reply after deadline; non-response is explicitly re
   assertEquals(d.status, "response_expired");
 });
 
-Deno.test("decision requires reasons and allocations reconciling to the deposited amount", () => {
+Deno.test("decision requires reasons, valid timing and allocations reconciling to deposit", () => {
   let d = openDispute("d3", "buyer", 100, 100);
   d = submitClaimantEvidence(d, "buyer", claimantEvidence);
   d = submitRespondentResponse(d, "seller", respondentEvidence, 150);
   assertThrows(() => issueDisputeDecision(d, "", allocation, total, 160));
   assertThrows(() => issueDisputeDecision(d, "Reason", { ...allocation, platformFee: 1n }, total, 160));
+  assertThrows(() => issueDisputeDecision(d, "Too early", allocation, total, 140));
   d = issueDisputeDecision(d, "Evidence reviewed", allocation, total, 160);
   assertEquals(d.status, "decided");
   assertThrows(() => issueDisputeDecision(d, "Second decision", allocation, total, 170));
