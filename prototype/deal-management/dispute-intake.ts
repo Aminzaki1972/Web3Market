@@ -84,8 +84,8 @@ export function submitDisputeRequest(
   evidence: DisputeRequestEvidence[] = [],
 ): DisputeRequest {
   if (!validText(id) || !validText(dealId) || !["buyer", "seller"].includes(claimant) ||
-      !validText(reason) || !Number.isFinite(submittedAt)) {
-    throw new Error("Dispute request requires an ID, deal, eligible claimant, reason and valid timestamp");
+      !validText(reason) || !Number.isFinite(submittedAt) || evidence.length === 0) {
+    throw new Error("Dispute request requires an ID, deal, eligible claimant, reason, valid timestamp and at least one evidence item");
   }
   validateEvidence(evidence, submittedAt);
   return {
