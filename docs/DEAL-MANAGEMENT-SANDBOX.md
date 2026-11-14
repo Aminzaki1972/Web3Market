@@ -93,6 +93,7 @@ The page is `/deal-management-preview.html` when served from this branch.
 ## Dispute lifecycle rules added
 
 - `prototype/deal-management/disputes.ts` models claimant evidence, respondent notice/response window, explicit response expiry, a reasoned one-time platform decision, agreement-defined allocation reconciliation, and a separate Safe-execution-pending state.
+- `prototype/deal-management/dispute-intake.ts` now rejects a dispute request that contains no initial claimant evidence. Buyer or seller must attach at least one evidence item with a non-empty description and valid timestamp before administrative review; submission still raises only an off-chain administrative payout hold, not an on-chain Safe lock. Tests cover empty-evidence rejection.
 - A respondent cannot submit a response after the configured deadline. If no response arrives, expiry must be explicitly recorded before a decision can be issued.
 - A decision requires a non-empty reason and buyer refund + seller payout + platform fee that exactly reconcile to the deposited amount. This validates arithmetic only; it does not decide what allocation is fair or legally required.
 - Execution is not marked complete until a trusted external verifier supplies a successful Safe receipt confirmation and transaction hash.
