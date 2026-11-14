@@ -209,3 +209,38 @@ A future verifier must not accept browser-provided receipts, event arrays, trans
 - unique use of the decision nonce and Safe nonce.
 
 Only a server-controlled verification service may append the final execution-confirmed event. The database status is a consequence of verified chain evidence, never its source. Until this service is implemented and independently tested, the UI and API must not mark a deal `executed` or `completed` based on a submitted hash or user action.
+
+
+## 10. Minimum Guard behavior specification — design target only
+
+This section makes the security requirements testable without selecting or implementing a contract.
+
+### Transaction Guard path
+
+For every owner-threshold Safe transaction, the eventual Guard must inspect the complete transaction tuple before execution: `to`, `value`, `data`, `operation`, Safe transaction hash, nonce and relevant gas/refund fields.
+
+While a dispute is locked, the default is deny. The only exception may be the exact decision-authorized settlement transaction, bound to the deal Safe, chain 56, agreement hash, decision hash, decision nonce, USDT contract, all recipients and exact amounts. No generic "payout allowed" boolean or recipient allowlist by itself is sufficient.
+
+The Guard must reject attempts to call Safe configuration selectors that can weaken or remove the policy while locked, including `setGuard`, `setModuleGuard`, `enableModule`, `disableModule`, `changeThreshold`, `addOwnerWithThreshold`, `removeOwner`, `swapOwner` and fallback-handler changes. The implementation must use the exact ABI selectors and Safe version under test; this list is a threat-model checklist, not production-ready selector code.
+
+### Module Guard path
+
+For every module-originated Safe transaction, the Module Guard must apply the same locked-by-default policy. The default configuration for a new deal Safe should have **no enabled modules** unless a specific module has a documented necessity, narrowly scoped permissions, verified code hash and independent audit. No automatic-payout module is required for the initial product.
+
+If the chosen Safe version does not support Module Guard, or the deployed Safe has no correctly configured Module Guard, the deal is not eligible for real deposits under this policy. This is not a UI warning that can be bypassed.
+
+### Dispute lock request and settlement separation
+
+A candidate lock request can be relayed by any party but must contain a valid EIP-712 signature from the exact buyer or seller recorded for that deal, bound to chain ID, Safe, deal ID, agreement hash/version, dispute nonce, evidence reference hash and expiry. The Guard must consume the nonce and make the lock monotonic: once locked, it cannot be cleared by a second party signature, API update or ordinary owner transaction.
+
+A candidate settlement authorization must be separate from the lock request. It must bind the final platform decision to the exact agreement hash, Safe, chain, token, decision nonce, recipients and amounts. The actual Safe settlement still requires the configured Safe owner threshold. The Guard allows only the exact authorized Safe transaction/batch and rejects any additional outgoing call or transfer.
+
+This candidate still has unresolved questions: how to ensure the signed decision is an authentic platform decision; how to protect the platform decision key; whether an additional independent attestation is required; how to handle a decision-key compromise; and how recovery works if the Guard has a bug. It is not selected or approved for implementation.
+
+### Race window and user-facing states
+
+The server must append the dispute request and stop issuing new payout proposals immediately. It then submits or relays the signed on-chain lock request. The Safe is not described as locked until the lock event is observed in a canonical block under the finality policy. Any payout that executes before that point is a real race condition; no off-chain flag can retroactively stop it. The product must disclose this residual window and define the emergency response if lock submission is delayed, censored or reorganized.
+
+### Configuration mutation monitoring
+
+Monitor Safe events and independently poll critical state for changes to owners, threshold, Guard, Module Guard, modules, singleton and fallback handler. Any unexpected mutation invalidates the protection snapshot and blocks new deposits/payout preparation. While a dispute is open, any attempted policy-weakening transaction must revert at the Guard; an event monitor alone is detection, not prevention.
