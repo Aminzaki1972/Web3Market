@@ -4,6 +4,7 @@
  */
 import { calculateOrdinaryPayout, validateDisputeAllocation } from "./core.ts";
 import type { DisputeCase } from "./disputes.ts";
+import type { DisputeRequest } from "./dispute-intake.ts";
 
 export type PayoutRecipientSet = {
   buyer: string;
@@ -20,6 +21,8 @@ export type PayoutReadinessInput = {
   openDispute: boolean;
   /** True if this deal has ever entered dispute; such deals must use the decision allocation path. */
   disputeEverOpened: boolean;
+  /** Administrative intake state; a pending/declined/approved dispute request cannot use ordinary payout. */
+  disputeRequest: DisputeRequest | null;
 };
 
 export type PayoutBlocker =
@@ -29,7 +32,8 @@ export type PayoutBlocker =
   | "required_assets_not_verified"
   | "buyer_final_acceptance_missing"
   | "dispute_open"
-  | "dispute_requires_decision_payout";
+  | "dispute_requires_decision_payout"
+  | "administrative_review_hold";
 
 export type PayoutPlan = {
   status: "ready_for_safe_review";
@@ -72,6 +76,10 @@ export function prepareOrdinaryPayout(
   if (!input.requiredAssetsVerified) blockers.push("required_assets_not_verified");
   if (!input.buyerFinalAcceptance) blockers.push("buyer_final_acceptance_missing");
   if (input.openDispute) blockers.push("dispute_open");
+  if (input.disputeRequest && input.disputeRequest.status !== "administrative_hold_released") {
+    blockers.push(input.disputeRequest.status === "pending_admin_review" || input.disputeRequest.status === "declined_hold"
+      ? "administrative_review_hold" : "dispute_requires_decision_payout");
+  }
   if (input.disputeEverOpened) blockers.push("dispute_requires_decision_payout");
   if (blockers.length) return { ready: false, blockers };
 
@@ -112,6 +120,9 @@ export function prepareDisputePayout(
   if (!input.depositVerified) blockers.push("deposit_not_verified");
   if (input.depositedAmount <= 0n) blockers.push("invalid_deposit_amount");
   if (input.originalGrossAgreedAmount <= 0n) blockers.push("invalid_original_agreed_amount");
+  if (input.disputeRequest.status !== "lock_confirmed" || !input.disputeRequest.lockProof) {
+    blockers.push("dispute_lock_not_confirmed");
+  }
   if (input.depositedAmount !== input.originalGrossAgreedAmount) blockers.push("deposit_amount_differs_from_agreement");
   if (input.dispute.status !== "decided" || !input.dispute.decision ||
       !input.dispute.decision.reason.trim() || !Number.isFinite(input.dispute.decision.decidedAt)) {
