@@ -11,6 +11,7 @@ export type DisputeRequestParty = "buyer" | "seller";
 export type DisputeRequestStatus =
   | "pending_admin_review"
   | "approved_lock_pending"
+  | "lock_confirmed"
   | "declined_hold"
   | "administrative_hold_released";
 
@@ -36,11 +37,25 @@ export type DisputeRequest = {
     reviewerId: string;
     reviewedAt: number;
   };
+  lockProof: null | DisputeLockProof;
   holdRelease: null | {
     reason: string;
     reviewerId: string;
     releasedAt: number;
   };
+};
+
+export type DisputeLockProof = {
+  chainId: number;
+  safeAddress: string;
+  expectedSafeAddress: string;
+  txHash: string;
+  receiptStatus: "success" | "failed";
+  confirmations: number;
+  requiredConfirmations: number;
+  canonicalBlockHash: string;
+  lockEventObserved: boolean;
+  lockStateVerified: boolean;
 };
 
 function validText(value: string): boolean {
@@ -75,7 +90,7 @@ export function submitDisputeRequest(
   validateEvidence(evidence, submittedAt);
   return {
     id, dealId, claimant, reason, submittedAt, evidence: [...evidence],
-    status: "pending_admin_review", payoutHold: true, review: null, holdRelease: null,
+    status: "pending_admin_review", payoutHold: true, review: null, lockProof: null, holdRelease: null,
   };
 }
 
@@ -130,4 +145,30 @@ export function releaseDeclinedDisputeHold(
     payoutHold: false,
     holdRelease: { reason, reviewerId, releasedAt },
   };
+}
+
+
+/**
+ * Record a normalized proof from a trusted server-side Safe/chain verifier.
+ * This function validates shape and consistency only; it cannot query BNB
+ * Chain or establish that the caller's proof is genuine.
+ */
+export function confirmDisputeLock(
+  request: DisputeRequest,
+  proof: DisputeLockProof,
+): DisputeRequest {
+  const address = /^0x[0-9a-fA-F]{40}$/;
+  const hash = /^0x[0-9a-fA-F]{64}$/;
+  if (request.status !== "approved_lock_pending" || request.review?.outcome !== "approved" ||
+      proof.chainId !== 56 || !address.test(proof.safeAddress) ||
+      !address.test(proof.expectedSafeAddress) ||
+      proof.safeAddress.toLowerCase() !== proof.expectedSafeAddress.toLowerCase() ||
+      !hash.test(proof.txHash) || proof.receiptStatus !== "success" ||
+      !Number.isInteger(proof.confirmations) || !Number.isInteger(proof.requiredConfirmations) ||
+      proof.requiredConfirmations <= 0 || proof.confirmations < proof.requiredConfirmations ||
+      !hash.test(proof.canonicalBlockHash) || proof.lockEventObserved !== true ||
+      proof.lockStateVerified !== true) {
+    throw new Error("Dispute lock requires matching Safe, successful canonical lock evidence and verified on-chain locked state");
+  }
+  return { ...request, status: "lock_confirmed", payoutHold: true, lockProof: { ...proof } };
 }
