@@ -2,6 +2,7 @@ import { assertEquals } from "jsr:@std/assert@1.0.14";
 import { prepareDisputePayout, prepareOrdinaryPayout } from "./payout-readiness.ts";
 import { openDispute, submitClaimantEvidence, submitRespondentResponse, issueDisputeDecision } from "./disputes.ts";
 import { parseUsdtAmount } from "./core.ts";
+import { confirmDisputeLock, reviewDisputeRequest, submitDisputeRequest } from "./dispute-intake.ts";
 
 const recipients = {
   buyer: "0x1111111111111111111111111111111111111111",
@@ -12,6 +13,7 @@ const ordinary = {
   agreementApproved: true, depositVerified: true, depositedAmount: 7_000_000_000n,
   requiredAssetsVerified: true, buyerFinalAcceptance: true, openDispute: false,
   disputeEverOpened: false,
+  disputeRequest: null,
 };
 const gross = parseUsdtAmount("10000");
 const fee = parseUsdtAmount("750");
@@ -29,12 +31,44 @@ function resolvedDispute(id: string, allocation: {
   return issueDisputeDecision(dispute, "Administrative decision", allocation, gross, gross, 130);
 }
 
+function approvedLockConfirmedRequest(id: string) {
+  const submitted = submitDisputeRequest(id, "deal-10000", "buyer", "Evidence reviewed", 100);
+  const approved = reviewDisputeRequest(submitted, "approved", "Formal dispute opened", "admin", 110);
+  return confirmDisputeLock(approved, {
+    chainId: 56, safeAddress: recipients.buyer, expectedSafeAddress: recipients.buyer,
+    txHash: "0x" + "a".repeat(64), receiptStatus: "success", confirmations: 15,
+    requiredConfirmations: 12, canonicalBlockHash: "0x" + "b".repeat(64),
+    lockEventObserved: true, lockStateVerified: true,
+  });
+}
+
 function disputeInput(dispute: ReturnType<typeof resolvedDispute>) {
   return {
     agreementApproved: true, depositVerified: true, depositedAmount: gross,
-    originalGrossAgreedAmount: gross, dispute, recipients,
+    originalGrossAgreedAmount: gross, dispute, disputeRequest: approvedLockConfirmedRequest("approved-" + dispute.id), recipients,
   };
 }
+
+
+Deno.test("ordinary payout is blocked during administrative review and after approval pending Safe lock", () => {
+  const pending = submitDisputeRequest("ordinary-pending", "deal-10000", "buyer", "Pending review", 100);
+  const pendingResult = prepareOrdinaryPayout({ ...ordinary, disputeRequest: pending }, recipients);
+  assertEquals(pendingResult.ready, false);
+  if (!pendingResult.ready) assertEquals(pendingResult.blockers.includes("administrative_review_hold"), true);
+
+  const approved = reviewDisputeRequest(pending, "approved", "Open dispute", "admin", 110);
+  const approvedResult = prepareOrdinaryPayout({ ...ordinary, disputeRequest: approved }, recipients);
+  assertEquals(approvedResult.ready, false);
+  if (!approvedResult.ready) assertEquals(approvedResult.blockers.includes("dispute_requires_decision_payout"), true);
+});
+
+Deno.test("ordinary payout remains blocked after declined review until explicit hold release", () => {
+  const pending = submitDisputeRequest("ordinary-declined", "deal-10000", "seller", "Request review", 100);
+  const declined = reviewDisputeRequest(pending, "declined", "Declined with reasons", "admin", 110);
+  const blocked = prepareOrdinaryPayout({ ...ordinary, disputeRequest: declined }, recipients);
+  assertEquals(blocked.ready, false);
+  if (!blocked.ready) assertEquals(blocked.blockers.includes("administrative_review_hold"), true);
+});
 
 Deno.test("ordinary payout requires every gate and produces 92.5/7.5 split", () => {
   const result = prepareOrdinaryPayout(ordinary, recipients);
@@ -143,7 +177,7 @@ Deno.test("dispute payout waits for final decision and verified agreement/deposi
   const pending = openDispute("pending", "buyer", 100, 1_000);
   const pendingResult = prepareDisputePayout({
     agreementApproved: true, depositVerified: true, depositedAmount: gross,
-    originalGrossAgreedAmount: gross, dispute: pending, recipients,
+    originalGrossAgreedAmount: gross, dispute: pending, disputeRequest: submitDisputeRequest("pending-request", "deal-10000", "buyer", "Awaiting admin", 100), recipients,
   });
   assertEquals(pendingResult.ready, false);
   if (!pendingResult.ready) assertEquals(pendingResult.blockers.includes("dispute_decision_not_finalized"), true);
@@ -153,7 +187,7 @@ Deno.test("dispute payout waits for final decision and verified agreement/deposi
   });
   const gateResult = prepareDisputePayout({
     agreementApproved: false, depositVerified: false, depositedAmount: gross,
-    originalGrossAgreedAmount: gross, dispute: decided, recipients,
+    originalGrossAgreedAmount: gross, dispute: decided, disputeRequest: approvedLockConfirmedRequest("missing-gates-request"), recipients,
   });
   assertEquals(gateResult.ready, false);
   if (!gateResult.ready) assertEquals(gateResult.blockers.includes("agreement_not_approved"), true);
