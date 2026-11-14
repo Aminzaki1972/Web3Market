@@ -123,3 +123,10 @@ A static review found that the pure `canAdvance` helper could theoretically perm
 **Sandbox fix:** `canAdvance` now rejects every transition out of `dispute_open` unless the dispute-history flag is explicitly true and a final dispute decision is recorded. Two regression assertions cover false and missing dispute-history values even when buyer acceptance is true.
 
 **Validation status:** source and regression test changes are committed on the isolated branch. A new Actions run for the latest test commit has not yet been independently confirmed; do not treat the regression test as passing until a run reports success. This remains pure TypeScript policy logic, not a live authorization or Safe enforcement boundary.
+
+
+## 2026-11-15 — activity ledger and conversation archive models
+
+The isolated branch now contains pure append-only models for deal chat messages and activity events. They validate participant-role consistency, deal isolation, duplicate IDs, chronological order, and selected event-specific actor roles; returned in-memory records are frozen and corrections are represented as new references.
+
+These models are not authenticated or durable audit infrastructure. Caller-supplied actor IDs, role labels, timestamps, and system events are not trusted proof. Before production, identity and roles must be derived server-side, timestamps/sequences assigned atomically, records persisted with tamper-evident controls, and any referenced deposit, Safe lock, transfer, or payout independently verified. No production database, authentication, notification, attachment-storage or chain integration was changed.
