@@ -206,3 +206,6 @@ The isolated branch CI workflow completed successfully after the buyer-paid disp
 - Result: **68 passed, 0 failed**.
 - The run checks Deno pure-domain sandbox tests only.
 - This does not validate an actual Safe Guard/Module Guard, live BNB RPC, official token contract configuration, database/authentication, concurrent transaction processing, production runtime, or real funds movement.
+
+
+A final adversarial payout-gate test was added to forge a decision object with a buyer gross refund bucket below the fee. The payout-readiness function independently rejected it. Latest CI run: [#59](https://github.com/Aminzaki1972/Web3Market/actions/runs/43619818044), **68 passed, 0 failed**, on code commit `0d52a61a04ac521f0c194329c478a3775a4d71ab`.
