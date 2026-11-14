@@ -96,3 +96,15 @@ Deno.test("returned archive, messages and attachment references are frozen again
   }));
   assertEquals(archive[0].content, first.content);
 });
+
+Deno.test("participant roster must keep buyer, seller and optional admins distinct", () => {
+  assertThrows(() => appendDealChatMessage([], {
+    buyerId: "same", sellerId: "same", adminIds: [],
+  }, first));
+  assertThrows(() => appendDealChatMessage([], {
+    buyerId: "buyer-1", sellerId: "seller-1", adminIds: ["buyer-1"],
+  }, first));
+  assertThrows(() => appendDealChatMessage([], {
+    buyerId: "buyer-1", sellerId: "seller-1", adminIds: ["admin-1", "admin-1"],
+  }, first));
+});
