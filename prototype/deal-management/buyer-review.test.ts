@@ -20,11 +20,13 @@ Deno.test("buyer accepts each asset then confirms final acceptance", () => {
   assertEquals(final.finalAcceptedAt, 550);
 });
 
-Deno.test("inspection period is configurable and no default is imposed", () => {
+Deno.test("buyer inspection offers 48 hours, 72 hours or 7 days and no default is imposed", () => {
   const noWindow = startBuyerReview([verified("repo")], null, 300);
   assertEquals(noWindow.inspectionEndsAt, null);
-  const window = startBuyerReview([verified("repo")], 86_400_000, 300);
-  assertEquals(window.inspectionEndsAt, 86_400_300);
+  for (const durationMs of [48 * 60 * 60 * 1000, 72 * 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000]) {
+    const review = startBuyerReview([verified("repo")], durationMs, 300);
+    assertEquals(review.inspectionEndsAt, 300 + durationMs);
+  }
 });
 
 Deno.test("buyer rejection requires a reason and records rejection without silently opening dispute", () => {
