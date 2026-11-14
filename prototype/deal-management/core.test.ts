@@ -50,7 +50,7 @@ for (const [name, override, reason] of [
 const base = {
   finalPriceAccepted: true, finalAgreementApproved: true, depositConfirmed: true, assetsTransferred: true,
   aiVerificationComplete: true, buyerAccepted: true, disputeOpen: false,
-  disputeDecisionFinalized: false, safeExecutionConfirmed: false,
+  disputeEverOpened: false, disputeDecisionFinalized: false, safeExecutionConfirmed: false,
 };
 
 Deno.test("agreement and deposit gates prevent premature funding and transfer", () => {
@@ -84,6 +84,16 @@ Deno.test("an open dispute blocks payout until the dispute is resolved", () => {
     ...base, disputeOpen: false, disputeDecisionFinalized: true, buyerAccepted: false,
   }), true);
 
+  // A dispute history cannot be bypassed by clearing the current-open flag.
+  assertEquals(canAdvance("buyer_review", "payout_ready", {
+    ...base, disputeOpen: false, disputeEverOpened: true, buyerAccepted: true,
+    disputeDecisionFinalized: false,
+  }), false);
+  assertEquals(canAdvance("buyer_review", "payout_ready", {
+    ...base, disputeOpen: false, disputeEverOpened: true, buyerAccepted: true,
+    disputeDecisionFinalized: true,
+  }), false); // Must use the dispute_open decision path, not ordinary payout.
+
   // Ordinary buyer acceptance cannot bypass an unresolved dispute.
   assertEquals(canAdvance("buyer_review", "payout_ready", {
     ...base, disputeOpen: true, buyerAccepted: true,
@@ -93,6 +103,12 @@ Deno.test("an open dispute blocks payout until the dispute is resolved", () => {
 Deno.test("completion requires confirmed Safe execution", () => {
   assertEquals(canAdvance("payout_ready", "completed", base), false);
   assertEquals(canAdvance("payout_ready", "completed", { ...base, safeExecutionConfirmed: true }), true);
+  assertEquals(canAdvance("payout_ready", "completed", {
+    ...base, disputeEverOpened: true, disputeDecisionFinalized: false, safeExecutionConfirmed: true,
+  }), false);
+  assertEquals(canAdvance("payout_ready", "completed", {
+    ...base, disputeEverOpened: true, disputeDecisionFinalized: true, safeExecutionConfirmed: true,
+  }), true);
 });
 
 Deno.test("dispute allocations must reconcile exactly to deposited total", () => {
