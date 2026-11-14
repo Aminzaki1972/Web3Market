@@ -35,6 +35,12 @@ export type DisputeCase = {
   execution: null | { txHash: string; confirmedAt: number };
 };
 
+function validEvidence(dispute: DisputeCase, evidence: DisputeEvidence): boolean {
+  return !!evidence.id.trim() && !!evidence.description.trim() &&
+    Number.isFinite(evidence.submittedAt) && evidence.submittedAt >= dispute.openedAt &&
+    !dispute.evidence.some(item => item.id === evidence.id);
+}
+
 export function openDispute(
   id: string, claimant: DisputeParty, now: number, responseWindowMs: number,
 ): DisputeCase {
@@ -52,8 +58,8 @@ export function submitClaimantEvidence(
   dispute: DisputeCase, actor: DisputeParty, evidence: DisputeEvidence,
 ): DisputeCase {
   if (dispute.status !== "claimant_evidence" || actor !== dispute.claimant ||
-      evidence.submittedBy !== actor || !evidence.id.trim() || !evidence.description.trim()) {
-    throw new Error("Only the claimant may submit the initial evidence package");
+      evidence.submittedBy !== actor || !validEvidence(dispute, evidence)) {
+    throw new Error("Only the claimant may submit valid initial evidence");
   }
   return { ...dispute, evidence: [...dispute.evidence, evidence], status: "awaiting_respondent" };
 }
@@ -62,17 +68,18 @@ export function submitRespondentResponse(
   dispute: DisputeCase, actor: DisputeParty, evidence: DisputeEvidence, now: number,
 ): DisputeCase {
   if (dispute.status !== "awaiting_respondent" || actor !== dispute.respondent ||
-      evidence.submittedBy !== actor || !evidence.id.trim() || !evidence.description.trim()) {
+      evidence.submittedBy !== actor || !validEvidence(dispute, evidence)) {
     throw new Error("Respondent response is not currently permitted");
   }
-  if (!Number.isFinite(now) || now > dispute.responseDeadline || evidence.submittedAt > dispute.responseDeadline) {
-    throw new Error("Response deadline has passed");
+  if (!Number.isFinite(now) || now > dispute.responseDeadline ||
+      evidence.submittedAt > dispute.responseDeadline || evidence.submittedAt > now) {
+    throw new Error("Response deadline has passed or evidence timestamp is invalid");
   }
   return { ...dispute, evidence: [...dispute.evidence, evidence], status: "response_received" };
 }
 
 export function markResponseExpired(dispute: DisputeCase, now: number): DisputeCase {
-  if (dispute.status !== "awaiting_respondent" || now < dispute.responseDeadline) {
+  if (dispute.status !== "awaiting_respondent" || !Number.isFinite(now) || now < dispute.responseDeadline) {
     throw new Error("Response period has not expired or dispute is not awaiting a response");
   }
   return { ...dispute, status: "response_expired" };
@@ -82,10 +89,12 @@ export function markResponseExpired(dispute: DisputeCase, now: number): DisputeC
 export function issueDisputeDecision(
   dispute: DisputeCase, reason: string, allocation: DisputeAllocation, totalDeposited: bigint, now: number,
 ): DisputeCase {
+  const lastEvidenceAt = dispute.evidence.reduce((latest, item) => Math.max(latest, item.submittedAt), dispute.openedAt);
   if (!["response_received", "response_expired"].includes(dispute.status) ||
-      !reason.trim() || !Number.isFinite(now) ||
+      !reason.trim() || !Number.isFinite(now) || now < lastEvidenceAt ||
+      (dispute.status === "response_expired" && now < dispute.responseDeadline) ||
       !validateDisputeAllocation(totalDeposited, allocation)) {
-    throw new Error("Decision requires a completed response phase, reasons and balanced allocation");
+    throw new Error("Decision requires a completed response phase, valid timing, reasons and balanced allocation");
   }
   return {
     ...dispute, status: "decided",
@@ -105,7 +114,7 @@ export function confirmDisputeExecution(
   dispute: DisputeCase, txHash: string, receiptConfirmed: boolean, now: number,
 ): DisputeCase {
   if (dispute.status !== "execution_pending" || !/^0x[0-9a-fA-F]{64}$/.test(txHash) ||
-      !receiptConfirmed || !Number.isFinite(now)) {
+      !receiptConfirmed || !Number.isFinite(now) || now < (dispute.decision?.decidedAt ?? Infinity)) {
     throw new Error("Confirmed Safe execution receipt is required");
   }
   return { ...dispute, status: "executed", execution: { txHash: txHash.toLowerCase(), confirmedAt: now } };
