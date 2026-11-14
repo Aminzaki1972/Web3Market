@@ -98,3 +98,13 @@ The page is `/deal-management-preview.html` when served from this branch.
 - Execution is not marked complete until a trusted external verifier supplies a successful Safe receipt confirmation and transaction hash.
 - `prototype/deal-management/disputes.test.ts` covers claimant/response order, deadline expiry, balanced allocation, one-time decision and Safe receipt completion.
 - These tests are authored but have **not** been executed. The module does not send notices, run timers, authenticate participants, adjudicate disputes, freeze Safe assets, or verify chain receipts. No actual pause/freeze or payout protection exists in this sandbox.
+
+
+## Asset transfer evidence and buyer review rules added
+
+- `prototype/deal-management/asset-transfer.ts` models per-asset transfer evidence and verification metadata (status, summary, source and checked-at time). It is a pure domain module with no GitHub, registrar, AI, database or network integration.
+- GitHub member invitations/access do not qualify as ownership-transfer proof; the evidence gate requires a repository transfer completion or verified organization-owner control evidence. Domain DNS changes alone do not qualify; registrant change or registrar-account control transfer evidence is required. Other assets require an independent control proof or supported transfer receipt. Unsupported/ambiguous evidence remains `needs_review`.
+- `prototype/deal-management/asset-transfer.test.ts` covers these rules, evidence metadata, and required-vs-optional assets.
+- `prototype/deal-management/buyer-review.ts` models a configurable inspection window (including explicitly unset), acceptance per asset, a final acceptance only after all required assets are accepted, and rejection with a reason. Rejection is recorded but does not silently create a dispute; dispute initiation remains an explicit next action under the agreement.
+- `prototype/deal-management/buyer-review.test.ts` covers per-asset and final acceptance, configurable/no inspection window, rejection, unverified asset blocking and duplicate IDs.
+- These tests are authored but **not executed**. No real ownership checks, AI verification, buyer notifications, timers, dispute creation, payout readiness, or Safe operations are implemented.
