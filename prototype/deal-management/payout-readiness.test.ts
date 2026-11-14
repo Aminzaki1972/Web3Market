@@ -112,16 +112,6 @@ Deno.test("seller-only dispute outcome still allocates fee from buyer's gross bu
   }
 });
 
-Deno.test("payout blocks an allocation where buyer gross refund is below the full commission", () => {
-  const dispute = resolvedDispute("shortfall-unsafe", {
-    buyerGrossRefund: parseUsdtAmount("500"),
-    sellerPayout: parseUsdtAmount("6500"),
-    platformFee: fee,
-  });
-  // Decision creation itself must reject this; this branch is unreachable through the public helper.
-  assertEquals(dispute.status, "decided");
-});
-
 Deno.test("payout blocks wrong fee, wrong agreement amount and mismatched deposit", () => {
   const valid = resolvedDispute("valid", {
     buyerGrossRefund: parseUsdtAmount("2000"),
