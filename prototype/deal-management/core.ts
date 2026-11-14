@@ -14,7 +14,7 @@ export const BSC_MAINNET_CHAIN_ID = 56;
 
 export function parseUsdtAmount(value: string | number): bigint {
   const raw = String(value).trim();
-  if (!/^(0|[1-9]\d*)(\.\d{1,6})?$/.test(raw)) {
+  if (!/^(0|[1-9]\\d*)(\\.\\d{1,6})?$/.test(raw)) {
     throw new Error("Amount must be a positive USDT value with at most 6 decimals");
   }
   const [whole, fraction = ""] = raw.split(".");
@@ -59,25 +59,40 @@ export type DepositEvidence = {
 export function validateDepositEvidence(e: DepositEvidence): { ok: true } | { ok: false; reason: string } {
   if (e.chainId !== BSC_MAINNET_CHAIN_ID) return { ok: false, reason: "wrong_network" };
   if (!/^0x[0-9a-fA-F]{40}$/.test(e.expectedTokenAddress) ||
+      !/^0x[0-9a-fA-F]{40}$/.test(e.tokenAddress) ||
       e.tokenAddress.toLowerCase() !== e.expectedTokenAddress.toLowerCase()) return { ok: false, reason: "wrong_token" };
   if (!/^0x[0-9a-fA-F]{40}$/.test(e.expectedSafeAddress) ||
+      !/^0x[0-9a-fA-F]{40}$/.test(e.safeAddress) ||
+      !/^0x[0-9a-fA-F]{40}$/.test(e.transferLogTo) ||
       e.safeAddress.toLowerCase() !== e.expectedSafeAddress.toLowerCase() ||
       e.transferLogTo.toLowerCase() !== e.expectedSafeAddress.toLowerCase()) return { ok: false, reason: "wrong_safe_recipient" };
   if (e.amount !== e.expectedAmount || e.expectedAmount <= 0n) return { ok: false, reason: "amount_mismatch" };
   if (!/^0x[0-9a-fA-F]{64}$/.test(e.txHash)) return { ok: false, reason: "invalid_tx_hash" };
   if (e.alreadyUsedTxHash) return { ok: false, reason: "duplicate_tx_hash" };
   if (e.receiptStatus !== "success") return { ok: false, reason: "transaction_not_successful" };
-  if (!Number.isInteger(e.confirmations) || e.confirmations < e.requiredConfirmations || e.requiredConfirmations < 1) {
+  if (!Number.isInteger(e.confirmations) || !Number.isInteger(e.requiredConfirmations) ||
+      e.confirmations < e.requiredConfirmations || e.requiredConfirmations < 1) {
     return { ok: false, reason: "insufficient_confirmations" };
   }
   return { ok: true };
 }
 
-export function canAdvance(stage: DealStage, next: DealStage, flags: {
-  finalAgreementApproved: boolean; depositConfirmed: boolean; assetsTransferred: boolean;
-  aiVerificationComplete: boolean; buyerAccepted: boolean; disputeOpen: boolean;
+export type DealTransitionFlags = {
+  finalAgreementApproved: boolean;
+  depositConfirmed: boolean;
+  assetsTransferred: boolean;
+  aiVerificationComplete: boolean;
+  buyerAccepted: boolean;
+  disputeOpen: boolean;
+  disputeDecisionFinalized: boolean;
   safeExecutionConfirmed: boolean;
-}): boolean {
+};
+
+/**
+ * A conservative transition guard. It is a domain helper, not an authorization
+ * boundary: callers must derive every flag from trusted persisted/chain evidence.
+ */
+export function canAdvance(stage: DealStage, next: DealStage, flags: DealTransitionFlags): boolean {
   if (flags.disputeOpen && next !== "dispute_open") return false;
   const allowed: Partial<Record<DealStage, DealStage[]>> = {
     negotiation: ["agreement_pending", "cancelled"],
@@ -93,10 +108,18 @@ export function canAdvance(stage: DealStage, next: DealStage, flags: {
   if (!allowed[stage]?.includes(next)) return false;
   if (next === "awaiting_deposit" && !flags.finalAgreementApproved) return false;
   if (next === "funded" && !flags.depositConfirmed) return false;
+  if (next === "transfer_in_progress" && !flags.depositConfirmed) return false;
   if (next === "ai_verification" && !flags.assetsTransferred) return false;
-  if (next === "buyer_review" && !flags.aiVerificationComplete) return false;
-  if (next === "payout_ready" && !flags.buyerAccepted && !stage.startsWith("dispute")) return false;
-  if (next === "completed" && !flags.safeExecutionConfirmed) return false;
+  if (next === "buyer_review" && (!flags.assetsTransferred || !flags.aiVerificationComplete)) return false;
+  if (next === "payout_ready") {
+    if (flags.disputeOpen) return false;
+    if (stage === "dispute_open") {
+      if (!flags.disputeDecisionFinalized) return false;
+    } else if (!flags.buyerAccepted) {
+      return false;
+    }
+  }
+  if (next === "completed" && (!flags.safeExecutionConfirmed || flags.disputeOpen)) return false;
   return true;
 }
 
