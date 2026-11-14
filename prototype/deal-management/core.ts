@@ -85,6 +85,8 @@ export type DealTransitionFlags = {
   aiVerificationComplete: boolean;
   buyerAccepted: boolean;
   disputeOpen: boolean;
+  /** Permanent deal history flag; prevents a disputed deal bypassing the decision payout path. */
+  disputeEverOpened: boolean;
   disputeDecisionFinalized: boolean;
   safeExecutionConfirmed: boolean;
 };
@@ -121,13 +123,17 @@ export function canAdvance(stage: DealStage, next: DealStage, flags: DealTransit
   if (next === "buyer_review" && (!flags.assetsTransferred || !flags.aiVerificationComplete)) return false;
   if (next === "payout_ready") {
     if (flags.disputeOpen) return false;
-    if (stage === "dispute_open") {
-      if (!flags.disputeDecisionFinalized) return false;
+    if (flags.disputeEverOpened) {
+      // A disputed deal can only enter payout-ready from the dispute decision path.
+      if (stage !== "dispute_open" || !flags.disputeDecisionFinalized) return false;
     } else if (!flags.buyerAccepted) {
       return false;
     }
   }
-  if (next === "completed" && (!flags.safeExecutionConfirmed || flags.disputeOpen)) return false;
+  if (next === "completed" && (
+    !flags.safeExecutionConfirmed || flags.disputeOpen ||
+    (flags.disputeEverOpened && !flags.disputeDecisionFinalized)
+  )) return false;
   return true;
 }
 
