@@ -110,3 +110,29 @@ Deno.test("a message event is a reference, not a substitute for formal approval"
   assertEquals(ledger[0].type, "message_posted");
   assertEquals(ledger[0].referenceId, "chat-message-9");
 });
+
+Deno.test("asset acceptance and asset transfer events require the correct party", () => {
+  assertThrows(() => appendDealActivityEvent([], participants, {
+    ...buyerOffer, id: "wrong-acceptor", type: "buyer_asset_accepted",
+    actorId: "seller-1", actorRole: "seller",
+  }));
+  assertThrows(() => appendDealActivityEvent([], participants, {
+    ...buyerOffer, id: "wrong-transferor", type: "asset_transfer_submitted",
+    actorId: "buyer-1", actorRole: "buyer",
+  }));
+  const accepted = appendDealActivityEvent([], participants, {
+    ...buyerOffer, id: "buyer-accept", type: "buyer_asset_accepted",
+  });
+  assertEquals(accepted[0].actorRole, "buyer");
+});
+
+Deno.test("payout requests require an authorized admin decision actor", () => {
+  assertThrows(() => appendDealActivityEvent([], participants, {
+    ...buyerOffer, id: "buyer-payout", type: "payout_requested",
+  }));
+  const request = appendDealActivityEvent([], participants, {
+    ...buyerOffer, id: "admin-payout", type: "payout_requested",
+    actorId: "admin-1", actorRole: "admin",
+  });
+  assertEquals(request[0].actorRole, "admin");
+});
