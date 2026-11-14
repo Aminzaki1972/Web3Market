@@ -157,3 +157,8 @@ The page is `/deal-management-preview.html` when served from this branch.
 ### Dispute-history bypass prevention
 
 The state-machine flags now distinguish an actively open dispute from a deal that has ever entered dispute. Clearing the active flag alone cannot route the deal through ordinary buyer-acceptance payout: disputed deals must enter payout readiness from the dispute-decision stage with a finalized decision. Completion also requires that final decision plus verified Safe execution. The flag must be derived from append-only trusted deal history, not from a client-supplied boolean. This remains sandbox domain logic, not an authorization boundary.
+
+
+## Execution confirmation hardening
+
+The pure dispute state machine intentionally stops at `execution_pending`. It has no function that accepts a caller-supplied receipt boolean to mark funds paid or a dispute executed. A live implementation remains blocked until a trusted server-side BNB receipt verifier binds the exact Safe execution and decision allocation to canonical chain evidence.
