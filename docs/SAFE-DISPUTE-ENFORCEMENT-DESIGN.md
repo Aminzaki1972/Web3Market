@@ -154,3 +154,14 @@ No contract architecture should be coded until these decisions have an approved 
 ## 9. Current status
 
 This file is design documentation only. No Solidity contract, Guard, Module, Module Guard, Safe configuration transaction, wallet connection, signing flow, RPC integration, database migration, or live-fund operation has been created or changed. No claim is made that funds are currently frozen by the prototype.
+
+
+## User-confirmed product rule: suspend payout during an open dispute
+
+The product rule is now explicit: **opening a dispute suspends payout from the deal Safe until the dispute is resolved**. This means:
+- no ordinary seller/platform payout while the dispute is open;
+- no buyer refund or partial distribution while the dispute is open;
+- after the platform's reasoned decision is final, only the exact decision allocation may proceed to Safe review;
+- no completion state until the exact Safe settlement transaction and all expected transfers are independently verified.
+
+The rule concerns outgoing deal funds; it does not imply that the Safe contract itself is disabled or that inbound deposits are blocked. The user-facing state must distinguish an off-chain dispute request from a confirmed on-chain enforcement lock. Current sandbox code enforces only local payout-readiness/state-machine rules; it does not install or activate a real Safe Guard.
