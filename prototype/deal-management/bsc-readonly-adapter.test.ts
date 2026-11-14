@@ -51,7 +51,7 @@ Deno.test("read-only adapter rejects failed receipts and mismatched transfer amo
   const failed = { ...receipt, status: 0 as const };
   const result = await verifyBscUsdtDeposit(client({ receipt: failed }), config);
   assertEquals(result.ok, false);
-  if (!result.ok) assertEquals(result.reason, "transaction_not_successful");
+  if (!result.ok) assertEquals(result.reason, "transaction_failed");
 
   const wrongAmount = { ...receipt, logs: [{ ...receipt.logs[0], data: "0x" + "1".padStart(64, "0") }] };
   const mismatch = await verifyBscUsdtDeposit(client({ receipt: wrongAmount }), config);
