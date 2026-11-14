@@ -110,3 +110,5 @@ The page is `/deal-management-preview.html` when served from this branch.
 - These tests are authored but **not executed**. No real ownership checks, AI verification, buyer notifications, timers, dispute creation, payout readiness, or Safe operations are implemented.
 
 - The standalone preview now includes an isolated Buyer Review tab with per-asset demo acceptance, final acceptance gating, optional inspection-window selection (unset by default), and a reasoned demo rejection state. These controls update local page state only; they do not create a dispute or authorize payout.
+
+- The asset verification guard also prevents a caller from marking GitHub/domain assets verified unless the evidence types meet the asset-specific minimum gate; duplicate evidence IDs are rejected. This remains a local domain rule, not an external ownership check.
