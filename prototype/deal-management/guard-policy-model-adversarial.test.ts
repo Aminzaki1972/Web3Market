@@ -17,7 +17,7 @@ function base(): PolicyInput {
     lockState: "confirmed",
     tx: { chainId: 56, safe, to: token, value: "0", dataHash: hash, operation: "CALL", safeNonce: 19, viaModule: false },
     intent: { chainId: 56, safe, to: token, value: "0", dataHash: hash, operation: "CALL", safeNonce: 19,
-      decisionHash: hash, decisionNonce: 12, token, effects },
+      decisionHash: hash, decisionNonce: 12, token, approvedExecutionTargets: [token], effects },
     decoded: { complete: true, effects },
     moduleGuardCovered: false,
     consumedDecisionNonces: [],
@@ -39,8 +39,10 @@ Deno.test("blocks attempted Safe Guard removal or replacement", () => {
 Deno.test("blocks malicious MultiSend with a hidden extra nested transfer", () => {
   const input = base();
   // The hypothetical trusted decoder must expose every nested effect, not just the outer MultiSend call.
-  input.tx.to = "0x6666666666666666666666666666666666666666";
-  input.intent.to = input.tx.to;
+  const multiSend = "0x6666666666666666666666666666666666666666";
+  input.tx.to = multiSend;
+  input.intent.to = multiSend;
+  input.intent.approvedExecutionTargets.push(multiSend);
   input.decoded.effects.push({
     kind: "erc20_transfer", target: token, recipient: attacker, amount: "1",
   });
@@ -77,7 +79,7 @@ Deno.test("blocks a settlement sent to a non-token target", () => {
   const input = base();
   input.tx.to = attacker;
   input.intent.to = attacker;
-  assertEquals(evaluateLockedSafeTransaction(input).reason, "settlement_target_not_token");
+  assertEquals(evaluateLockedSafeTransaction(input).reason, "settlement_target_not_approved");
 });
 
 Deno.test("does not treat a different recipient as the approved decision allocation", () => {
