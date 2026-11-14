@@ -216,7 +216,7 @@ A final adversarial payout-gate test was added to forge a decision object with a
 
 The isolated domain layer now separates a dispute request from a formally approved dispute:
 
-1. Either buyer or seller may submit a request with a reason and optional initial evidence.
+1. Either buyer or seller may submit a request with a reason and at least one initial evidence item. The sandbox validator rejects an empty evidence list, duplicate evidence IDs, invalid timestamps, and evidence dated after the request submission.
 2. Submission enters `pending_admin_review` and raises a payout hold immediately in the model. No Safe lock is claimed.
 3. Only a separately recorded, reasoned administrative approval advances the request to `approved_lock_pending`.
 4. An administrative decline advances to `declined_hold`; the payout hold remains in place.
@@ -271,3 +271,11 @@ Files:
 - Changes to any of these agreement-term fields after final-price acceptance create a new local agreement version and invalidate all three previous demo approvals. After the simulated deposit, edits are reverted until the demo is reset.
 - The transfer plan and cancellation terms are free-text fields; this is a structured capture aid, not legal validation. No legal defaults or response deadline are silently imposed. All values remain local UI state only: no cryptographic hash, authenticated signature, durable persistence, notifications, or backend workflow is implemented.
 - These are browser-local UI rules only. There is no immutable server snapshot, cryptographic agreement hash, authenticated signer, legal signature, persistent audit record or production enforcement.
+
+
+## 2026-11-15 documentation consistency — dispute intake evidence and reviewer identity
+
+- Corrected the administrative-intake description: the current sandbox requires at least one initial evidence item at request submission; it does not treat initial evidence as optional.
+- The `reviewerId` string remains audit metadata only. It is not an authenticated identity, role check, permission grant, proof of deal-scoped access, or protection against self-review/conflict of interest.
+- The domain helper must only be called by a future trusted server action that obtains the administrator identity from a verified session and checks server-side role/permission and deal scope. The current model does not decide the number of administrators, dual-control threshold, recusal rules, or conflict-of-interest policy; those remain explicit product decisions and must not be inferred from this patch.
+- No authentication, persistence, notification, dispute adjudication, Safe lock, or financial action is implemented by this documentation correction.
