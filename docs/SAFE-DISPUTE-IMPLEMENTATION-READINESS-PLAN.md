@@ -171,7 +171,7 @@ These requirements were explicitly supplied by the Web3Market owner and supersed
 - Commission is calculated on the gross final agreed deal amount, regardless of completion, full refund, partial refund, equal split or another percentage allocation.
 - At the currently specified 7.5%, the basis is the original final agreed gross amount, not the amount ultimately paid to the seller.
 - Include the commission explicitly in every administrative allocation and agreement record.
-- **Still requiring a precise contractual rule:** which party/share bears the commission in full/partial refunds, and how the allocation remains funded when the Safe balance equals the gross deposit. Do not silently deduct it from a buyer refund or assign it to the seller without an approved agreement clause.
+- **Resolved by user:** the buyer bears the full gross-based commission, deducted from the buyer's refund. In partial/split outcomes, deduct the same full commission from the buyer's gross refund allocation. If that allocation is smaller than the commission, do not invent a shortfall funding source; the agreement and administrative allocation must resolve it before execution.
 
 ### Guard/enforcement failure
 - If Guard, Module Guard or any required enforcement component is faulty, missing, bypassable, incompatible or cannot be independently verified, disable the entire deal until repaired and revalidated.
