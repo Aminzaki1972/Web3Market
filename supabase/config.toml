@@ -31,3 +31,7 @@ import_map = "./functions/ai-review-project/import_map.json"
 # migration history. Keep local Edge Function smoke tests isolated from partial migrations.
 [db.migrations]
 enabled = false
+
+# The assistant must require a valid Supabase JWT at the gateway.
+[functions.w3m-ai-assistant]
+verify_jwt = true
