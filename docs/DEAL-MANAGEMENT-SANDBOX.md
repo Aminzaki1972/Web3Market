@@ -258,3 +258,12 @@ Files:
 - After the simulated deposit flag is set, asset-list changes are blocked in the preview; reset the demo to restart the scenario.
 - Each approval label identifies the agreement version it refers to. This is only local UI state: no cryptographic snapshot hash is computed, no authenticated approval is collected, and no immutable server record is stored.
 - The agreement version currently binds only the accepted final price and selected asset list in this preview. Other legal terms remain static explanatory content and are not yet editable/versioned controls.
+
+## Agreement snapshot term binding — isolated preview update 2026-11-14
+
+- The preview's versioned agreement summary now displays the final accepted price, buyer-paid 7.5% commission, selected assets and inspection window.
+- Changing the selected asset list or inspection-window value after a final price is accepted increments the demo agreement version and invalidates all three previous demo approvals.
+- The changed version must receive fresh buyer, seller and platform demo approvals before the demo deposit control is enabled again.
+- Once the demo deposit state is marked, asset-list and inspection-window changes are rejected in the preview until reset.
+- The inspection window remains optional; “Not specified” is explicit and is not silently converted into a default period.
+- These are browser-local UI rules only. There is no immutable server snapshot, cryptographic agreement hash, authenticated signer, legal signature, persistent audit record or production enforcement.
