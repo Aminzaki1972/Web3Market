@@ -33,7 +33,7 @@ Deno.test("sandbox happy path: offer -> agreement -> deposit evidence -> transfe
   const flags = {
     finalPriceAccepted: true, finalAgreementApproved: true, depositConfirmed: true, assetsTransferred: true,
     aiVerificationComplete: true, buyerAccepted: true, disputeOpen: false,
-    disputeDecisionFinalized: false, safeExecutionConfirmed: false,
+    disputeEverOpened: false, disputeDecisionFinalized: false, safeExecutionConfirmed: false,
   };
   assertEquals(canAdvance("agreement_pending", "awaiting_deposit", flags), true);
   assertEquals(canAdvance("funded", "transfer_in_progress", flags), true);
