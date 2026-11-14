@@ -46,6 +46,7 @@ main{max-width:1180px;margin:28px auto;padding:0 18px}.intro{display:flex;justif
 (()=>{'use strict';
 const $=id=>document.getElementById(id);let finalPrice=null,agreementVersion=0,preliminary=false,offerSequence=1,offerHistory=[],currentOfferId=null,approvals={buyer:false,seller:false,platform:false},deposit=false,dispute=false,disputeRequestState="none",buyerAccepted={repo:false,domain:false},buyerRejected=false,finalBuyerAccepted=false;
 const money=n=>Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' USDT';
+$('inspectionWindow').dataset.previousValue=$('inspectionWindow').value;
 function log(message){const el=document.createElement('div');el.className='event';const time=document.createElement('small');time.textContent=new Date().toLocaleTimeString()+' · demo only';el.textContent=message;el.appendChild(time);$('eventLog').prepend(el)}
 function currentOffer(){return offerHistory.find(o=>o.id===currentOfferId&&o.status==="open")||null}
 function recalc(){const active=currentOffer(),v=Math.max(0,active?active.amount:Number($('offer').value)||0),fee=v*.075,net=v-fee;$('sellerNet').textContent=money(net);$('platformFee').textContent=money(fee);$('gross').textContent=money(v);$('offerMetric').textContent=money(v);$('finalMetric').textContent=finalPrice===null?'Not agreed':money(finalPrice);$('sideAmount').textContent=finalPrice===null?'Not agreed':money(finalPrice);$('sideSeller').textContent=finalPrice===null?'—':money(finalPrice*.925);$('sideFee').textContent=finalPrice===null?'7.5%':money(finalPrice*.075);$('statusMetric').textContent=dispute?'Dispute open · payout suspended (demo)':deposit?'Demo funded':finalPrice!==null?'Agreement pending':'Negotiation';$('payoutSuspended').hidden=!dispute}
@@ -108,7 +109,7 @@ function updateApprovals(){
 function reviseAgreementForChange(control,description){
   if(deposit){
     if(control.type==='checkbox')control.checked=!control.checked;
-    else control.dataset.previousValue!==undefined?control.value=control.dataset.previousValue:control.value='';
+    else control.value=control.dataset.previousValue??'';
     $('agreementMsg').textContent='The simulated deposit has already been marked. Reset the demo before changing agreed terms.';
     updateAgreementSnapshot();
     return;
