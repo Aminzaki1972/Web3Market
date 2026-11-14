@@ -115,7 +115,7 @@ Deno.test("seller-only dispute outcome still allocates fee from buyer's gross bu
 Deno.test("payout blocks wrong fee, wrong agreement amount and mismatched deposit", () => {
   const valid = resolvedDispute("valid", {
     buyerGrossRefund: parseUsdtAmount("2000"),
-    sellerPayout: parseUsdtAmount("5000"),
+    sellerPayout: parseUsdtAmount("8000"),
     platformFee: fee,
   });
   const wrongFee = {
