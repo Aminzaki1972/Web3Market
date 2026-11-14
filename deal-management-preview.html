@@ -132,7 +132,7 @@ function reviseAgreementForChange(control,description){
     $('depositMsg').textContent='Agreement terms changed. All previous demo approvals were invalidated; the revised version must be approved again.';
     log('Agreement revised to v'+agreementVersion+' after '+description+' change; prior approvals invalidated');
   }
-  if(control.id==='inspectionWindow')control.dataset.previousValue=control.value;
+  if(control.id==='inspectionWindow'||control.closest('#agreementTerms'))control.dataset.previousValue=control.value;
   updateApprovals();updateBuyerReview();
 }
 document.querySelectorAll('#assets input[data-asset]').forEach(input=>input.addEventListener('change',()=>reviseAgreementForChange(input,'asset-list')));
