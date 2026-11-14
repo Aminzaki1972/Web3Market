@@ -305,3 +305,15 @@ The append operation now returns a frozen archive array, frozen message objects 
 - Chat message events link to a message reference; they are not agreement approvals or financial decisions.
 
 **Critical implementation boundary:** this is a pure in-memory model. The role labels and system actor ID are inputs, not authenticated credentials. Timestamps are caller-supplied, sequence numbers are local to the supplied array, and no durable storage, cryptographic hash chain, trusted event ingestion, transaction atomicity, or chain verification exists. In production, the server must derive actor identity/role from authenticated sessions and verified service credentials, assign timestamps and sequence under a transaction/lock, persist immutable event records, bind each event to its canonical source record, and separately verify financial/chain events. A system-labelled event in this prototype does not prove that a deposit, Safe lock, payout, or completion occurred.
+
+
+## CI verification — 2026-11-14 activity ledger and chat archive
+
+GitHub Actions run [#43647002559](https://github.com/Aminzaki1972/Web3Market/actions/runs/43647002559) completed successfully on source/test commit `e49e103583e76428ff876a6cb27607971134325d`.
+
+- Deno 2 checked the sandbox test files.
+- Result: **101 passed, 0 failed**.
+- The run includes the new activity-ledger tests (10) and chat-archive tests (8), plus the existing deal-management suites.
+- Subsequent branch commits after this test run updated documentation only; no later source or test changes were made after the tested code commit.
+
+This is domain/unit-test CI only. It does not prove authentication, durable/tamper-evident persistence, production database policies, live notifications, attachment storage, or Safe/BNB Smart Chain enforcement.
