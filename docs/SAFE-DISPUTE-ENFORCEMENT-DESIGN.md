@@ -165,3 +165,29 @@ The product rule is now explicit: **opening a dispute suspends payout from the d
 - no completion state until the exact Safe settlement transaction and all expected transfers are independently verified.
 
 The rule concerns outgoing deal funds; it does not imply that the Safe contract itself is disabled or that inbound deposits are blocked. The user-facing state must distinguish an off-chain dispute request from a confirmed on-chain enforcement lock. Current sandbox code enforces only local payout-readiness/state-machine rules; it does not install or activate a real Safe Guard.
+
+
+## BNB Smart Chain deployment compatibility check (registry inspection)
+
+Checked the official `safe-global/safe-deployments` registry directly on 2026-11-14. Its versioned deployment JSON records chain ID `56` as using the canonical deployment for Safe v1.5.0, as well as for v1.4.1.
+
+Verified registry entries:
+
+| Component | Version | Canonical address | Canonical code hash | Chain 56 listed |
+|---|---:|---|---|---|
+| Safe singleton | 1.5.0 | `0xFf51A5898e281Db6DfC7855790607438dF2ca44b` | `0xdda019cbd7c867a533a2a86e5c53434fdc50b13122b5a5ddb4a8df61b31c20f2` | Yes |
+| MultiSend | 1.5.0 | `0x218543288004CD07832472D464648173c77D7eB7` | `0xca1147a12963172a93910c5cb2bfa5ad0e941c7f03fc7eb017dd06a8ea4e5604` | Yes |
+| MultiSendCallOnly | 1.5.0 | `0xA83c336B20401Af773B6219BA5027174338D1836` | `0xcdbdcec38d2f1c7d961b0029ff8416b7e86e9974d6f0e9c9580c7d17fcfb6663` | Yes |
+| CompatibilityFallbackHandler | 1.5.0 | `0x3EfCBb83A4A7AfcB4F68D501E2c2203a38be77f4` | `0x3c6a85bcf7b563daa624b884b4e9a1b9fa5371edde7be945d998071a48f28bbc` | Yes |
+| Safe singleton | 1.4.1 | `0x41675C099F32341bf84BFc5382aF534df5C7461a` | `0x1fe2df852ba3299d6534ef416eefa406e56ced995bca886ab7a553e6d0c5e1c4` | Yes |
+
+The v1.5.0 Safe ABI in the official registry includes both `setGuard(address)` and `setModuleGuard(address)`. The v1.4.1 ABI inspected does not include `setModuleGuard`. Safe's official v1.5.0 release notes state that the Module Guard checks module transactions against the same rules as other Safe transactions.
+
+**Important qualification:** this registry evidence confirms that Safe publishes canonical v1.5.0 deployment records for chain 56; it does not prove that any particular Web3Market deal Safe uses v1.5.0. Before activation, inspect the actual deal Safe proxy's singleton/mastercopy on BNB Smart Chain and compare the implementation bytecode hash to the official registry. Also verify the actual Guard/Module Guard storage, owner threshold, enabled modules, MultiSend target and code hash on-chain. A Safe address alone is not enough.
+
+### Compatibility gate for Web3Market
+
+- New deal Safes intended to use the complete dispute enforcement design must be created from the verified v1.5.0 deployment for chain 56, or must pass an explicit compatibility test proving equivalent enforcement coverage.
+- Existing v1.3.0/v1.4.1 Safes must not be assumed to have Module Guard protection. Do not silently upgrade an existing Safe; upgrade requires a separately approved migration plan and the Safe owners' transaction approval.
+- If the deal Safe does not pass the version/code-hash/guard/module checks, the deal must not accept a real deposit under the claim that dispute payout is enforceably suspended.
+- No deployment, upgrade, Guard installation, Module Guard installation or Safe transaction was performed by this registry inspection.
