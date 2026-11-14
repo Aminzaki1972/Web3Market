@@ -132,3 +132,7 @@ The page is `/deal-management-preview.html` when served from this branch.
 - Dispute evidence IDs must be unique across both parties; evidence timestamps and decision timing are checked against the dispute opening, response deadline and prior evidence.
 - `prototype/deal-management/workflow.test.ts` connects the pure sandbox modules through a simulated buyer offer, seller preliminary acceptance, counter-offer, final price acceptance, three-party agreement approval, normalized deposit evidence, asset verification, buyer acceptance and ordinary payout allocation.
 - All of these are authored tests only. Deno is not installed in the current execution environment, so the test suite remains **unexecuted** and must not be described as passing. The workflow uses mock evidence and does not establish a real deposit, asset transfer, Safe review or payment.
+
+
+- Counter-offers now use the new unique offer ID while superseding the single current open offer. The same rule supports alternating buyer/seller counter-offers; this closes a defect where the prior implementation could not create a valid counter-offer.
+- `prototype/deal-management/negotiation.test.ts` now covers seller and buyer counter-offers in sequence. The integrated workflow test uses the same corrected offer-ID contract.
