@@ -64,3 +64,24 @@ Deno.test("revising agreement increments version and clears all earlier approval
   agreement = approveAgreement(agreement, "platform", 2, H2);
   assertEquals(isAgreementFullyApproved(agreement), true);
 });
+Deno.test("a rejected offer is not final and a fresh buyer offer can be negotiated", () => {
+  const initial = startNegotiation(10_000n, 7_000n, "buyer-1");
+  const rejected = applyPriceAction(initial, "seller", { type: "reject", offerId: "buyer-1" });
+  assertEquals(rejected.finalPriceAccepted, false);
+  assertEquals(rejected.offers[0].status, "rejected");
+
+  const renewed = startNegotiation(10_000n, 6_800n, "buyer-2");
+  const accepted = applyPriceAction(renewed, "seller", { type: "accept", offerId: "buyer-2" });
+  assertEquals(accepted.finalPriceAccepted, true);
+  assertEquals(accepted.offers[0].status, "accepted");
+});
+
+Deno.test("a party cannot counter or respond to its own open offer", () => {
+  const state = startNegotiation(10_000n, 7_000n, "buyer-1");
+  assertThrows(() => applyPriceAction(state, "buyer", {
+    type: "counter", offerId: "buyer-2", amountUsdt: 7_200n,
+  }));
+  assertThrows(() => applyPriceAction(state, "buyer", {
+    type: "reject", offerId: "buyer-1",
+  }));
+});
