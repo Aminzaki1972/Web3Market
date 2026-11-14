@@ -14,7 +14,7 @@ export const BSC_MAINNET_CHAIN_ID = 56;
 
 export function parseUsdtAmount(value: string | number): bigint {
   const raw = String(value).trim();
-  if (!/^(0|[1-9]\\d*)(\\.\\d{1,6})?$/.test(raw)) {
+  if (!/^(0|[1-9]\d*)(\.\d{1,6})?$/.test(raw)) {
     throw new Error("Amount must be a positive USDT value with at most 6 decimals");
   }
   const [whole, fraction = ""] = raw.split(".");
