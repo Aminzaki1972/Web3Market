@@ -83,6 +83,14 @@ Deno.test("an open dispute blocks payout until the dispute is resolved", () => {
   assertEquals(canAdvance("dispute_open", "payout_ready", {
     ...base, disputeOpen: false, disputeEverOpened: false, disputeDecisionFinalized: true, buyerAccepted: false,
   }), false);
+  // A forged/missing dispute-history flag must not route an already-disputed deal through buyer acceptance.
+  assertEquals(canAdvance("dispute_open", "payout_ready", {
+    ...base, disputeOpen: false, disputeEverOpened: false, disputeDecisionFinalized: true, buyerAccepted: true,
+  }), false);
+  assertEquals(canAdvance("dispute_open", "payout_ready", {
+    ...base, disputeOpen: false, disputeEverOpened: undefined as unknown as boolean,
+    disputeDecisionFinalized: true, buyerAccepted: true,
+  }), false);
   assertEquals(canAdvance("dispute_open", "payout_ready", {
     ...base, disputeOpen: false, disputeEverOpened: undefined as unknown as boolean,
     disputeDecisionFinalized: true, buyerAccepted: false,
