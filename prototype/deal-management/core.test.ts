@@ -48,15 +48,19 @@ for (const [name, override, reason] of [
 }
 
 const base = {
-  finalAgreementApproved: true, depositConfirmed: true, assetsTransferred: true,
+  finalPriceAccepted: true, finalAgreementApproved: true, depositConfirmed: true, assetsTransferred: true,
   aiVerificationComplete: true, buyerAccepted: true, disputeOpen: false,
   disputeDecisionFinalized: false, safeExecutionConfirmed: false,
 };
 
 Deno.test("agreement and deposit gates prevent premature funding and transfer", () => {
+  assertEquals(canAdvance("negotiation", "agreement_pending", { ...base, finalPriceAccepted: false }), false);
+  assertEquals(canAdvance("negotiation", "agreement_pending", base), true);
   assertEquals(canAdvance("agreement_pending", "awaiting_deposit", { ...base, finalAgreementApproved: false }), false);
   assertEquals(canAdvance("awaiting_deposit", "funded", { ...base, depositConfirmed: false }), false);
   assertEquals(canAdvance("awaiting_deposit", "funded", base), true);
+  assertEquals(canAdvance("awaiting_deposit", "cancelled", { ...base, depositConfirmed: true }), false);
+  assertEquals(canAdvance("awaiting_deposit", "cancelled", { ...base, depositConfirmed: false }), true);
   assertEquals(canAdvance("funded", "transfer_in_progress", { ...base, depositConfirmed: false }), false);
 });
 
