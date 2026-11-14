@@ -37,6 +37,17 @@ Deno.test("verification must include evidence, source, summary and timestamp", (
   assertThrows(() => recordAssetVerification(asset, { status: "verified", summary: "ok", source: "test", checkedAt: 1 }));
 });
 
+Deno.test("GitHub invitation evidence cannot be manually promoted to verified", () => {
+  const asset = submitAssetEvidence(createDealAsset("repo-2", "github_repository"), ev("member_invitation"));
+  assertThrows(() => recordAssetVerification(asset, { status: "verified", summary: "claimed verified",
+    source: "untrusted assertion", checkedAt: 200 }));
+});
+
+Deno.test("duplicate evidence IDs are rejected", () => {
+  const asset = submitAssetEvidence(createDealAsset("repo-3", "github_repository"), ev("member_invitation"));
+  assertThrows(() => submitAssetEvidence(asset, ev("member_invitation")));
+});
+
 Deno.test("required assets must all be verified; optional assets do not block", () => {
   const required = recordAssetVerification(
     submitAssetEvidence(createDealAsset("repo", "github_repository"), ev("repository_transfer_completed")),
