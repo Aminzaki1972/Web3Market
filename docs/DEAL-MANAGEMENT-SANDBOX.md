@@ -70,3 +70,12 @@ The page is `/deal-management-preview.html` when served from this branch.
 - Suggested local command from repository root: `deno test prototype/deal-management/core.test.ts`.
 - These tests have been authored but have **not** been executed in this environment. Do not describe them as passing.
 - Deposit validation accepts a normalized evidence object only. A future trusted server-side adapter must independently obtain and decode the BSC receipt/logs, verify the configured token contract and Safe, enforce finality policy and atomically reserve the transaction hash. No such adapter is implemented here.
+
+
+## Read-only BSC adapter contract added
+
+- `prototype/deal-management/bsc-readonly-adapter.ts` defines an injected, read-only client interface and a receipt verifier for BNB Smart Chain (chain ID 56).
+- It checks the receipt transaction hash and success status, computes confirmations from the receipt block and current head, rejects reused transaction hashes, and requires exactly one matching ERC-20 Transfer log from the configured token contract to the configured deal Safe for the exact agreed amount.
+- The module has no RPC endpoint, network client implementation, credentials, wallet, signer, transaction builder or write method. It does not establish which token address is the official USDT contract; that address must be verified and pinned through an authoritative source and separate review.
+- `prototype/deal-management/bsc-readonly-adapter.test.ts` adds mocked-reader tests for a valid deposit, wrong network, duplicate hash, missing receipt, insufficient confirmations, failed receipt and amount mismatch.
+- Both the original domain tests and these adapter tests remain **authored but not executed**. No passing test claim is made. The mocked reader is not a substitute for testnet integration or reorg/finality testing.
