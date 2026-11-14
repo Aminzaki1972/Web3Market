@@ -20,8 +20,16 @@ Deno.test("seller preliminary acceptance does not lock buyer's initial price", (
     type: "counter", offerId: "seller-1", amountUsdt: 7_500_000_000n,
   });
   assertEquals(counter.offers[0].status, "superseded");
+  assertEquals(counter.offers[1].id, "seller-1");
   assertEquals(counter.offers[1].amountUsdt, 7_500_000_000n);
   assertEquals(counter.finalPriceAccepted, false);
+
+  const buyerCounter = applyPriceAction(counter, "buyer", {
+    type: "counter", offerId: "buyer-2", amountUsdt: 7_200_000_000n,
+  });
+  assertEquals(buyerCounter.offers[1].status, "superseded");
+  assertEquals(buyerCounter.offers[2].proposer, "buyer");
+  assertEquals(buyerCounter.offers[2].id, "buyer-2");
 });
 
 Deno.test("only the other party may accept an open offer; acceptance closes price negotiation", () => {
