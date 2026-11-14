@@ -266,4 +266,7 @@ Files:
 - The changed version must receive fresh buyer, seller and platform demo approvals before the demo deposit control is enabled again.
 - Once the demo deposit state is marked, asset-list and inspection-window changes are rejected in the preview until reset.
 - The inspection window remains optional; “Not specified” is explicit and is not silently converted into a default period.
+- The agreement preview now also captures an asset-by-asset transfer plan (responsible actions, buyer destination, evidence and exact deadline), respondent evidence-response deadline in hours, cancellation rules/consequences, and BNB gas-fee allocation. These deal-specific terms are required before the three demo approvals can be recorded.
+- Changes to any of these agreement-term fields after final-price acceptance create a new local agreement version and invalidate all three previous demo approvals. After the simulated deposit, edits are reverted until the demo is reset.
+- The transfer plan and cancellation terms are free-text fields; this is a structured capture aid, not legal validation. No legal defaults or response deadline are silently imposed. All values remain local UI state only: no cryptographic hash, authenticated signature, durable persistence, notifications, or backend workflow is implemented.
 - These are browser-local UI rules only. There is no immutable server snapshot, cryptographic agreement hash, authenticated signer, legal signature, persistent audit record or production enforcement.
