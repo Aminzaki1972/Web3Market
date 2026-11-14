@@ -136,3 +136,11 @@ The page is `/deal-management-preview.html` when served from this branch.
 
 - Counter-offers now use the new unique offer ID while superseding the single current open offer. The same rule supports alternating buyer/seller counter-offers; this closes a defect where the prior implementation could not create a valid counter-offer.
 - `prototype/deal-management/negotiation.test.ts` now covers seller and buyer counter-offers in sequence. The integrated workflow test uses the same corrected offer-ID contract.
+
+
+## Additional transition safety checks
+
+- A deal cannot enter agreement-pending until the buyer/seller price negotiation has an explicitly accepted final price.
+- Awaiting-deposit requires both final-price acceptance and all three agreement approvals.
+- A deal with a confirmed deposit cannot be marked cancelled through the ordinary state transition helper. Any post-deposit termination must use a separately agreed refund/dispute and verified Safe execution path.
+- These are still pure sandbox checks; a future backend must enforce them server-side from immutable agreement records and trusted chain evidence.
