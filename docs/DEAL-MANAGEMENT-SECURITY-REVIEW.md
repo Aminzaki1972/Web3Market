@@ -114,3 +114,12 @@ The buyer-review model stores an optional `inspectionEndsAt` value and the previ
 **Approved policy:** when the inspection deadline passes without the buyer's explicit decision, the deal remains pending review. The system must not auto-accept any asset, infer consent from silence, or authorize any payout. The buyer may still explicitly accept or reject; otherwise the case remains on hold until an authorized administrator intervenes through a separately recorded and auditable resolution path. The hold may be released only through that approved resolution workflow, never merely because time elapsed.
 
 **Implementation requirement:** enforce this rule server-side using a trusted clock and authenticated events. The ordinary payout gate must require an explicit authenticated final buyer-acceptance event or a separately approved and auditable administrative resolution.
+
+
+## 2026-11-15 follow-up — fail-closed disputed-stage transition
+
+A static review found that the pure `canAdvance` helper could theoretically permit a transition from `dispute_open` to `payout_ready` through the ordinary buyer-acceptance branch if a caller incorrectly supplied `disputeEverOpened: false` while `buyerAccepted: true`. Although trusted server state must ultimately supply these flags, the model itself should fail closed when its current stage is already `dispute_open`.
+
+**Sandbox fix:** `canAdvance` now rejects every transition out of `dispute_open` unless the dispute-history flag is explicitly true and a final dispute decision is recorded. Two regression assertions cover false and missing dispute-history values even when buyer acceptance is true.
+
+**Validation status:** source and regression test changes are committed on the isolated branch. A new Actions run for the latest test commit has not yet been independently confirmed; do not treat the regression test as passing until a run reports success. This remains pure TypeScript policy logic, not a live authorization or Safe enforcement boundary.
