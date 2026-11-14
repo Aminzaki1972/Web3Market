@@ -192,3 +192,10 @@ The user has now resolved the refund-fee question:
 - No allocation may be executed unless all amounts reconcile exactly to the verified Safe balance and the agreement. If the buyer's gross refund allocation is smaller than the full commission, the current rule does not by itself specify how the shortfall is funded. Do not silently charge the seller, create a new buyer debt, or exceed the buyer's refund. Flag this edge case for explicit agreement wording/administrative handling before funding or execution.
 
 This commission rule is an approved product decision. It remains a specification, not a live financial implementation.
+
+
+## Administrative intake clarification — 2026-11-14
+
+The initiation authority is resolved at the product-workflow level: either buyer or seller may submit a dispute request; Web3Market administration decides whether to open it. Approval triggers the next Safe lock-request phase. A submitted request immediately suspends new payout instructions while administrative review is pending, but does not itself claim an on-chain lock. A declined request remains on hold until a separate, reasoned administrative release confirms no other hold remains.
+
+The exact administrator authentication/authorization model, signer/key custody for the Safe lock transaction, and append-only production audit persistence remain unresolved technical/security decisions. The sandbox's reviewer ID and normalized lock proof are test inputs, not trusted identity or chain verification.
