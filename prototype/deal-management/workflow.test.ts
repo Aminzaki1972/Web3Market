@@ -31,7 +31,7 @@ Deno.test("sandbox happy path: offer -> agreement -> deposit evidence -> transfe
   assertEquals(isAgreementFullyApproved(agreement), true);
 
   const flags = {
-    finalAgreementApproved: true, depositConfirmed: true, assetsTransferred: true,
+    finalPriceAccepted: true, finalAgreementApproved: true, depositConfirmed: true, assetsTransferred: true,
     aiVerificationComplete: true, buyerAccepted: true, disputeOpen: false,
     disputeDecisionFinalized: false, safeExecutionConfirmed: false,
   };
