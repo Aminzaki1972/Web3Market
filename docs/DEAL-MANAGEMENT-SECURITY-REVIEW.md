@@ -12,13 +12,12 @@ No Safe Guard/Module, transaction builder, signer flow, RPC implementation, data
 
 ## Findings
 
-### Critical — dispute execution confirmation trusts a caller-supplied boolean
+### Critical — trusted on-chain execution verifier is not implemented
 
-File: `prototype/deal-management/disputes.ts`, `confirmDisputeExecution`
+**Sandbox hardening completed:** the pure dispute lifecycle no longer contains an execution-confirmation helper, an `executed` status, or a caller-controlled receipt Boolean. The local model cannot self-certify payment.
 
-The function accepts `receiptConfirmed: boolean` and a syntactically valid transaction hash. A caller able to pass `true` can move the local dispute model to `executed` without this module checking the Safe address, chain, receipt status, Safe execution event, token transfers, recipients, amounts, or transaction-to-decision binding.
+**Still blocking live use:** no trusted server-side BNB Smart Chain verifier exists. A future verifier must independently confirm chain ID, expected Safe, successful canonical receipt, Safe execution semantics, exact approved transaction/batch, expected token, all recipient/amount transfers, unique transaction hash, and confirmation/finality policy. It must persist the verification result atomically and idempotently. A UI or client must never be able to manufacture this result.
 
-**Required before live use:** remove the boolean proof interface. Accept only a server-created verification result from a trusted Safe-chain verifier. That verifier must independently confirm chain ID, expected Safe, successful receipt, Safe execution semantics, exact approved transaction/batch, expected token, all recipient/amount transfers, unique transaction hash, and confirmation/finality policy. Persist the verification result atomically and make it idempotent. A UI or client must never be able to manufacture this result.
 
 ### Critical — no actual Safe-level dispute lock
 
@@ -89,3 +88,8 @@ The pure dispute lifecycle previously accepted a caller-provided `receiptConfirm
 The helper has been removed. The pure lifecycle can now advance only to `execution_pending`; it cannot self-certify an on-chain execution. A future server-side verifier must independently query a trusted BNB Smart Chain RPC, bind the canonical receipt to the exact Safe address, Safe transaction/batch hash, dispute decision hash, token, recipients and amounts, verify every expected Transfer log and finality policy, and only then write an immutable execution-confirmed event. Browser-supplied receipt data or booleans are not acceptable.
 
 This is a fail-closed sandbox hardening change, not a replacement live verifier. No server verifier, RPC integration or Safe execution was added.
+
+
+## 2026-11-14 follow-up — remove the terminal execution state from the pure model
+
+The dispute type no longer exposes an `executed` status or an execution receipt field. The pure state machine ends at `execution_pending`. This avoids implying that the sandbox can ever confirm a real Safe payment. Production completion remains dependent on a separate trusted chain verifier that has not been implemented.
