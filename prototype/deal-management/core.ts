@@ -78,6 +78,7 @@ export function validateDepositEvidence(e: DepositEvidence): { ok: true } | { ok
 }
 
 export type DealTransitionFlags = {
+  finalPriceAccepted: boolean;
   finalAgreementApproved: boolean;
   depositConfirmed: boolean;
   assetsTransferred: boolean;
@@ -106,7 +107,11 @@ export function canAdvance(stage: DealStage, next: DealStage, flags: DealTransit
     payout_ready: ["completed", "dispute_open"],
   };
   if (!allowed[stage]?.includes(next)) return false;
-  if (next === "awaiting_deposit" && !flags.finalAgreementApproved) return false;
+  if (next === "agreement_pending" && !flags.finalPriceAccepted) return false;
+  if (next === "awaiting_deposit" && (!flags.finalPriceAccepted || !flags.finalAgreementApproved)) return false;
+  // Cancellation after confirmed funding must use an explicit refund/dispute path,
+  // not a database-only state change.
+  if (next === "cancelled" && flags.depositConfirmed) return false;
   if (next === "funded" && !flags.depositConfirmed) return false;
   if (next === "transfer_in_progress" && !flags.depositConfirmed) return false;
   if (next === "ai_verification" && !flags.assetsTransferred) return false;
