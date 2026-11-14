@@ -294,3 +294,14 @@ Files:
 ### Runtime immutability hardening for the chat model — 2026-11-15
 
 The append operation now returns a frozen archive array, frozen message objects and frozen attachment-reference arrays. This prevents accidental in-process edits to the returned model value, and a regression test checks that mutation attempts fail. This is still not tamper-proof persistence: a caller can construct a different archive value, and only a trusted backend with durable append-only storage, authorization and audit controls can protect the actual deal record.
+
+
+## 2026-11-15 — append-only Deal Room activity ledger model
+
+- Added `prototype/deal-management/activity-ledger.ts` and its test suite.
+- Each event carries a deal ID, unique event ID, monotonically assigned sequence, previous-event ID, typed event category, actor ID/role, occurrence timestamp, human-readable summary and optional stable reference to the related record.
+- The append helper validates the deal roster, actor identity/role, event-specific actor restrictions, unique IDs, deal isolation, chronological timestamps and summary/reference shape. The returned ledger and event objects are frozen; no edit/delete/reorder API is exposed.
+- Buyer-only asset acceptance/rejection, seller-only asset transfer, admin-only dispute review/decision/admin review/payout request, and system-only deposit/AI verification/Safe lock/payout execution confirmation/deal completion are distinguished in the model.
+- Chat message events link to a message reference; they are not agreement approvals or financial decisions.
+
+**Critical implementation boundary:** this is a pure in-memory model. The role labels and system actor ID are inputs, not authenticated credentials. Timestamps are caller-supplied, sequence numbers are local to the supplied array, and no durable storage, cryptographic hash chain, trusted event ingestion, transaction atomicity, or chain verification exists. In production, the server must derive actor identity/role from authenticated sessions and verified service credentials, assign timestamps and sequence under a transaction/lock, persist immutable event records, bind each event to its canonical source record, and separately verify financial/chain events. A system-labelled event in this prototype does not prove that a deposit, Safe lock, payout, or completion occurred.
