@@ -191,3 +191,21 @@ The v1.5.0 Safe ABI in the official registry includes both `setGuard(address)` a
 - Existing v1.3.0/v1.4.1 Safes must not be assumed to have Module Guard protection. Do not silently upgrade an existing Safe; upgrade requires a separately approved migration plan and the Safe owners' transaction approval.
 - If the deal Safe does not pass the version/code-hash/guard/module checks, the deal must not accept a real deposit under the claim that dispute payout is enforceably suspended.
 - No deployment, upgrade, Guard installation, Module Guard installation or Safe transaction was performed by this registry inspection.
+
+
+## 9. Execution confirmation trust boundary — fail closed
+
+The sandbox dispute lifecycle no longer contains a helper that turns a caller-provided boolean into an executed status. This deliberately leaves a dispute in `execution_pending` until a future trusted verifier exists.
+
+A future verifier must not accept browser-provided receipts, event arrays, transaction hashes as proof, or a `receiptConfirmed` boolean. It must fetch chain data server-side and prove all of the following against a persisted, immutable settlement intent:
+
+- chain ID 56 and exact deal Safe address;
+- canonical Safe execution transaction and expected Safe transaction hash/nonce;
+- exact decision hash and approved allocation;
+- exact token contract, recipient addresses and amounts;
+- successful canonical receipt and the Safe execution-success event;
+- every expected ERC-20 Transfer log, with no extra outgoing transfer in the authorized batch;
+- required confirmations/finality and no removed/reorged logs;
+- unique use of the decision nonce and Safe nonce.
+
+Only a server-controlled verification service may append the final execution-confirmed event. The database status is a consequence of verified chain evidence, never its source. Until this service is implemented and independently tested, the UI and API must not mark a deal `executed` or `completed` based on a submitted hash or user action.
