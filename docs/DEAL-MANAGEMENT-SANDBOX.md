@@ -79,3 +79,12 @@ The page is `/deal-management-preview.html` when served from this branch.
 - The module has no RPC endpoint, network client implementation, credentials, wallet, signer, transaction builder or write method. It does not establish which token address is the official USDT contract; that address must be verified and pinned through an authoritative source and separate review.
 - `prototype/deal-management/bsc-readonly-adapter.test.ts` adds mocked-reader tests for a valid deposit, wrong network, duplicate hash, missing receipt, insufficient confirmations, failed receipt and amount mismatch.
 - Both the original domain tests and these adapter tests remain **authored but not executed**. No passing test claim is made. The mocked reader is not a substitute for testnet integration or reorg/finality testing.
+
+
+## Negotiation and agreement controls added
+
+- `prototype/deal-management/negotiation.ts` adds pure rules for buyer/seller offers, counter-offers, rejection and acceptance.
+- A seller's preliminary acceptance of the buyer's initial offer leaves that offer open and explicitly does not lock the price or authorize a deposit. Either party can continue with a counter-offer until one current offer is explicitly accepted by the other party.
+- Versioned agreement approval requires the buyer, seller and platform to approve the exact current version and snapshot hash. Any revision must increment the version and clears all previous approvals.
+- `prototype/deal-management/negotiation.test.ts` covers preliminary acceptance, counter-offer flow, acceptance restrictions, three-party approval, stale-hash rejection and approval invalidation after revision.
+- These tests are authored but have **not** been executed. The snapshot hash is supplied by the caller; this module does not calculate a cryptographic hash, authenticate signers, persist immutable records or collect cryptographic signatures. Those remain server-side implementation and security-review requirements.
