@@ -45,7 +45,7 @@ function approvedLockConfirmedRequest(id: string) {
 function disputeInput(dispute: ReturnType<typeof resolvedDispute>) {
   return {
     agreementApproved: true, depositVerified: true, depositedAmount: gross,
-    originalGrossAgreedAmount: gross, dispute, disputeRequest: approvedLockConfirmedRequest("approved-" + dispute.id), recipients,
+    originalGrossAgreedAmount: gross, dealId: "deal-10000", dealSafeAddress: recipients.buyer, dispute, disputeRequest: approvedLockConfirmedRequest(dispute.id), recipients,
   };
 }
 
@@ -177,7 +177,7 @@ Deno.test("dispute payout waits for final decision and verified agreement/deposi
   const pending = openDispute("pending", "buyer", 100, 1_000);
   const pendingResult = prepareDisputePayout({
     agreementApproved: true, depositVerified: true, depositedAmount: gross,
-    originalGrossAgreedAmount: gross, dispute: pending, disputeRequest: submitDisputeRequest("pending-request", "deal-10000", "buyer", "Awaiting admin", 100), recipients,
+    originalGrossAgreedAmount: gross, dealId: "deal-10000", dealSafeAddress: recipients.buyer, dispute: pending, disputeRequest: submitDisputeRequest("pending", "deal-10000", "buyer", "Awaiting admin", 100), recipients,
   });
   assertEquals(pendingResult.ready, false);
   if (!pendingResult.ready) assertEquals(pendingResult.blockers.includes("dispute_decision_not_finalized"), true);
@@ -187,7 +187,7 @@ Deno.test("dispute payout waits for final decision and verified agreement/deposi
   });
   const gateResult = prepareDisputePayout({
     agreementApproved: false, depositVerified: false, depositedAmount: gross,
-    originalGrossAgreedAmount: gross, dispute: decided, disputeRequest: approvedLockConfirmedRequest("missing-gates-request"), recipients,
+    originalGrossAgreedAmount: gross, dealId: "deal-10000", dealSafeAddress: recipients.buyer, dispute: decided, disputeRequest: approvedLockConfirmedRequest(decided.id), recipients,
   });
   assertEquals(gateResult.ready, false);
   if (!gateResult.ready) assertEquals(gateResult.blockers.includes("agreement_not_approved"), true);
