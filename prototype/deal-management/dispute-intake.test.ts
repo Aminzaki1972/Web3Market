@@ -1,6 +1,6 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import {
-  releaseDeclinedDisputeHold, reviewDisputeRequest, submitDisputeRequest,
+  confirmDisputeLock, releaseDeclinedDisputeHold, reviewDisputeRequest, submitDisputeRequest,
 } from "./dispute-intake.ts";
 
 const evidence = [{ id: "ev1", description: "Initial transfer evidence", submittedAt: 95 }];
@@ -69,6 +69,46 @@ Deno.test("declined hold is released only by a separate explicit action after no
   assertEquals(released.status, "administrative_hold_released");
   assertEquals(released.payoutHold, false);
   assertEquals(released.holdRelease?.reviewerId, "admin-2");
+});
+
+
+const validLockProof = {
+  chainId: 56,
+  safeAddress: "0x1111111111111111111111111111111111111111",
+  expectedSafeAddress: "0x1111111111111111111111111111111111111111",
+  txHash: "0x" + "a".repeat(64),
+  receiptStatus: "success" as const,
+  confirmations: 15,
+  requiredConfirmations: 12,
+  canonicalBlockHash: "0x" + "b".repeat(64),
+  lockEventObserved: true,
+  lockStateVerified: true,
+};
+
+Deno.test("approved dispute becomes lock-confirmed only with matching canonical Safe lock evidence", () => {
+  const request = submitDisputeRequest("r9", "deal-9", "buyer", "Reason", 100);
+  const approved = reviewDisputeRequest(request, "approved", "Open dispute", "admin", 110);
+  const locked = confirmDisputeLock(approved, validLockProof);
+  assertEquals(locked.status, "lock_confirmed");
+  assertEquals(locked.payoutHold, true);
+  assertEquals(locked.lockProof?.chainId, 56);
+});
+
+Deno.test("lock confirmation rejects unapproved requests and unsafe/incomplete chain evidence", () => {
+  const pending = submitDisputeRequest("r10", "deal-10", "seller", "Reason", 100);
+  assertThrows(() => confirmDisputeLock(pending, validLockProof));
+  const approved = reviewDisputeRequest(pending, "approved", "Open", "admin", 110);
+  for (const proof of [
+    { ...validLockProof, chainId: 97 },
+    { ...validLockProof, safeAddress: "0x2222222222222222222222222222222222222222" },
+    { ...validLockProof, receiptStatus: "failed" as const },
+    { ...validLockProof, confirmations: 2 },
+    { ...validLockProof, lockEventObserved: false },
+    { ...validLockProof, lockStateVerified: false },
+    { ...validLockProof, canonicalBlockHash: "0x1234" },
+  ]) {
+    assertThrows(() => confirmDisputeLock(approved, proof));
+  }
 });
 
 Deno.test("pending and approved requests cannot use the decline-only hold-release action", () => {
