@@ -1,0 +1,35 @@
+name: Deal Management Sandbox Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "prototype/deal-management/**"
+      - ".github/workflows/deal-management-sandbox-tests.yml"
+  push:
+    branches:
+      - prototype/deal-management-system-20261114
+    paths:
+      - "prototype/deal-management/**"
+      - ".github/workflows/deal-management-sandbox-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  domain-tests:
+    name: Deno domain and workflow tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out sandbox branch
+        uses: actions/checkout@v4
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run sandbox tests
+        run: deno test prototype/deal-management/
