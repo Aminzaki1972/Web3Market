@@ -238,3 +238,13 @@ Files:
 - Run: https://github.com/Aminzaki1972/Web3Market/actions/runs/43620254644
 - Tested code commit: `68d5491b51b2bbb91e49a21b24b06b43fc1f0558`.
 - This covers pure domain logic only; the HTML preview is not part of the Deno test suite and no real administration, notification, database or Safe operation is exercised.
+
+## Deal conversation archive — product rule clarified 2026-11-14
+
+- The Deal Room has one conversation thread attached to the deal record; it is not a disposable or separate chat feature.
+- Buyer and seller are the primary participants and can communicate directly during an ordinary deal.
+- Web3Market administration has permission to join the same conversation when needed, but an administrator is not required to participate in normal negotiation, agreement, handover or completion.
+- Deal-related messages are retained as part of the deal's chronological archive, including after completion, cancellation or dispute, subject to a separately defined retention/privacy policy.
+- Each entry should preserve authenticated sender identity and role, server timestamp, message content and attachment/evidence references. Corrections must be auditable; ordinary participants must not be able to silently rewrite or delete archived entries.
+- Chat content is not a substitute for formal agreement-version approval, asset acceptance, dispute decisions or Safe authorization. Those actions remain in their dedicated workflows.
+- The preview's Chat tab now demonstrates the primary Buyer/Seller conversation, optional Admin participation, chronological append order and message count. It remains local-only: no authentication, cross-user delivery, permanent storage, attachments or notifications are implemented.
