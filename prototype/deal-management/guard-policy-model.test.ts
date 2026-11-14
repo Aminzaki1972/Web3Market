@@ -16,7 +16,7 @@ function fixture(): PolicyInput {
     lockState: "confirmed",
     tx: { chainId: 56, safe, to: token, value: "0", dataHash: hash, operation: "CALL", safeNonce: 8, viaModule: false },
     intent: { chainId: 56, safe, to: token, value: "0", dataHash: hash, operation: "CALL", safeNonce: 8,
-      decisionHash: hash, decisionNonce: 3, token, effects },
+      decisionHash: hash, decisionNonce: 3, token, approvedExecutionTargets: [token], effects },
     decoded: { complete: true, effects },
     moduleGuardCovered: false,
     consumedDecisionNonces: [],
