@@ -47,7 +47,46 @@ main{max-width:1180px;margin:28px auto;padding:0 18px}.intro{display:flex;justif
 const $=id=>document.getElementById(id);let finalPrice=null,agreementVersion=0,preliminary=false,offerSequence=1,offerHistory=[],currentOfferId=null,approvals={buyer:false,seller:false,platform:false},deposit=false,dispute=false,disputeRequestState="none",buyerAccepted={repo:false,domain:false},buyerRejected=false,finalBuyerAccepted=false;
 const money=n=>Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' USDT';
 $('inspectionWindow').dataset.previousValue=$('inspectionWindow').value;
-function log(message){const el=document.createElement('div');el.className='event';const time=document.createElement('small');time.textContent=new Date().toLocaleTimeString()+' · demo only';el.textContent=message;el.appendChild(time);$('eventLog').prepend(el)}
+let activityEvents=[],activitySequence=0;
+function classifyActivity(message){
+  const m=message.toLowerCase();
+  if(m.includes('offer')||m.includes('counter-offer')||m.includes('preliminary acceptance'))return 'negotiation';
+  if(m.includes('approval')||m.includes('agreement revised'))return 'agreement';
+  if(m.includes('message')||m.includes('archive message'))return 'chat_message';
+  if(m.includes('deposit'))return 'demo_deposit';
+  if(m.includes('dispute')||m.includes('payout hold')||m.includes('administrative review'))return 'dispute_review';
+  if(m.includes('repository')||m.includes('domain')||m.includes('buyer acceptance'))return 'asset_review';
+  return 'deal_activity';
+}
+function inferDemoActor(message){
+  const m=message.toLowerCase();
+  if(m.includes('buyer'))return 'buyer';
+  if(m.includes('seller'))return 'seller';
+  if(m.includes('administration')||m.includes('admin'))return 'platform_admin';
+  return 'demo_system';
+}
+function renderActivityLog(){
+  const host=$('eventLog');host.replaceChildren();
+  if(!activityEvents.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='No activity recorded in this demo session.';host.appendChild(empty);return}
+  activityEvents.forEach(event=>{
+    const item=document.createElement('div');item.className='event';
+    const summary=document.createElement('div');summary.textContent=event.summary;
+    const meta=document.createElement('small');
+    meta.textContent='#'+event.sequence+' · '+event.actorRole+' · '+event.type+' · '+new Date(event.createdAt).toLocaleString()+' · local demo time';
+    item.append(summary,meta);host.appendChild(item);
+  });
+}
+function log(message,actorRole,type){
+  const event=Object.freeze({
+    id:'demo-event-'+String(++activitySequence).padStart(5,'0'),
+    sequence:activitySequence,
+    actorRole:actorRole||inferDemoActor(message),
+    type:type||classifyActivity(message),
+    createdAt:new Date().toISOString(),
+    summary:String(message)
+  });
+  activityEvents.push(event);renderActivityLog();return event;
+}
 function currentOffer(){return offerHistory.find(o=>o.id===currentOfferId&&o.status==="open")||null}
 function recalc(){const active=currentOffer(),v=Math.max(0,active?active.amount:Number($('offer').value)||0),fee=v*.075,net=v-fee;$('sellerNet').textContent=money(net);$('platformFee').textContent=money(fee);$('gross').textContent=money(v);$('offerMetric').textContent=money(v);$('finalMetric').textContent=finalPrice===null?'Not agreed':money(finalPrice);$('sideAmount').textContent=finalPrice===null?'Not agreed':money(finalPrice);$('sideSeller').textContent=finalPrice===null?'—':money(finalPrice*.925);$('sideFee').textContent=finalPrice===null?'7.5%':money(finalPrice*.075);$('statusMetric').textContent=dispute?'Dispute open · payout suspended (demo)':deposit?'Demo funded':finalPrice!==null?'Agreement pending':'Negotiation';$('payoutSuspended').hidden=!dispute}
 function renderNegotiation(){const active=currentOffer(),actor=$('negotiationActor').value,canRespond=!!active&&active.proposer!==actor&&finalPrice===null;$('currentOfferStatus').textContent=finalPrice!==null?'Price accepted · '+money(finalPrice):active?(active.proposer.toUpperCase()+' offer · '+money(active.amount)):'No open offer';$('currentOfferStatus').className='pill '+(finalPrice!==null?'good':active?'warn':'');$('submitInitialOffer').disabled=!!active||actor!=="buyer"||finalPrice!==null;$('sendCounterOffer').disabled=!canRespond;$('acceptCurrentOffer').disabled=!canRespond;$('rejectCurrentOffer').disabled=!canRespond;$('sellerAccept').disabled=!(actor==="seller"&&active&&active.proposer==="buyer"&&!preliminary&&finalPrice===null);const history=$('offerHistory');history.replaceChildren();if(!offerHistory.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='No offers have been submitted in this demo session.';history.appendChild(empty)}else{offerHistory.forEach(o=>{const row=document.createElement('div');row.className='row';const label=document.createElement('span');label.textContent=o.proposer.toUpperCase()+' · '+o.id;const value=document.createElement('strong');value.textContent=money(o.amount)+' · '+o.status;row.append(label,value);history.appendChild(row)})}if(finalPrice!==null)$('negotiationMsg').textContent='The receiving party accepted '+money(finalPrice)+'. The price is fixed in this demo; three separate agreement approvals are still required.';recalc()}
@@ -76,7 +115,7 @@ $('sendChatMessage').onclick=()=>{
   $('chatCount').textContent=count+' message'+(count===1?'':'s');
   $('chatMessage').value='';
   $('chatMessageStatus').textContent='Added to this local demo archive in chronological order. Not delivered or permanently stored.';
-  log('Demo archive message added by '+senderName);
+  log('Chat message added to local archive by '+senderName,senderName==='Buyer'?'buyer':senderName==='Seller'?'seller':'platform_admin','chat_message');
 };
 
 function selectedAgreementAssets(){return Array.from(document.querySelectorAll('#assets input[data-asset]:checked')).map(el=>el.dataset.asset)}
@@ -179,8 +218,8 @@ $('acceptRepo').onclick=()=>{if(buyerRejected)return;buyerAccepted.repo=true;upd
 $('acceptDomain').onclick=()=>{if(buyerRejected)return;buyerAccepted.domain=true;updateBuyerReview();log('Buyer accepted domain individually (demo)')};
 $('rejectRepo').onclick=()=>{if(!$('buyerRejectReason').value.trim()){alert('Enter a rejection reason.');return}buyerRejected=true;buyerAccepted.repo=false;updateBuyerReview();log('Buyer rejected repository: '+$('buyerRejectReason').value.trim())};
 $('finalBuyerAccept').onclick=()=>{if(!buyerAccepted.repo||!buyerAccepted.domain||buyerRejected||finalBuyerAccepted)return;finalBuyerAccepted=true;updateBuyerReview();$('buyerReviewMsg').textContent='Final buyer acceptance recorded in local demo state only. No payout or Safe transaction occurred.';log('Final buyer acceptance recorded (demo)')};
-$('resetDemo').onclick=()=>{finalPrice=null;agreementVersion=0;$('assetRepo').checked=true;$('assetDomain').checked=true;$('assetWebsite').checked=false;$('assetDatabase').checked=false;$('assetOther').checked=false;preliminary=false;offerSequence=1;offerHistory=[];currentOfferId=null;approvals={buyer:false,seller:false,platform:false};deposit=false;dispute=false;disputeRequestState='none';buyerAccepted={repo:false,domain:false};buyerRejected=false;finalBuyerAccepted=false;$('buyerRejectReason').value='';$('inspectionWindow').value='';$('inspectionWindow').dataset.previousValue='';$('transferPlan').value='';$('disputeResponseHours').value='';$('cancellationTerms').value='';$('networkFeeAllocation').value='';document.querySelectorAll('#agreementTerms input,#agreementTerms textarea,#agreementTerms select').forEach(control=>control.dataset.previousValue='');$('offer').value='7000';$('responseAmount').value='';$('negotiationActor').value='buyer';$('disputeReason').value='';$('depositState').textContent='Awaiting agreement';$('depositState').className='pill warn';$('depositMsg').textContent='Deposit remains disabled until all demo approvals are recorded.';$('disputeState').textContent='No request';$('disputeState').className='pill';$('disputeMsg').textContent='No real dispute request is created.';renderDisputeState();updateApprovals();updateBuyerReview();renderNegotiation();$('eventLog').innerHTML='<div class="event">Demo reset<small>No backend write</small></div>';$('chatMessages').innerHTML='<p class="muted" id="chatEmpty">No messages have been added to this demo archive yet.</p>';$('chatCount').textContent='0 messages';$('chatMessage').value='';$('chatMessageStatus').textContent='Demo messages appear in chronological order below.';switchTab('overview')};
-updateApprovals();renderNegotiation();
+$('resetDemo').onclick=()=>{finalPrice=null;agreementVersion=0;$('assetRepo').checked=true;$('assetDomain').checked=true;$('assetWebsite').checked=false;$('assetDatabase').checked=false;$('assetOther').checked=false;preliminary=false;offerSequence=1;offerHistory=[];currentOfferId=null;approvals={buyer:false,seller:false,platform:false};deposit=false;dispute=false;disputeRequestState='none';buyerAccepted={repo:false,domain:false};buyerRejected=false;finalBuyerAccepted=false;$('buyerRejectReason').value='';$('inspectionWindow').value='';$('inspectionWindow').dataset.previousValue='';$('transferPlan').value='';$('disputeResponseHours').value='';$('cancellationTerms').value='';$('networkFeeAllocation').value='';document.querySelectorAll('#agreementTerms input,#agreementTerms textarea,#agreementTerms select').forEach(control=>control.dataset.previousValue='');$('offer').value='7000';$('responseAmount').value='';$('negotiationActor').value='buyer';$('disputeReason').value='';$('depositState').textContent='Awaiting agreement';$('depositState').className='pill warn';$('depositMsg').textContent='Deposit remains disabled until all demo approvals are recorded.';$('disputeState').textContent='No request';$('disputeState').className='pill';$('disputeMsg').textContent='No real dispute request is created.';renderDisputeState();updateApprovals();updateBuyerReview();renderNegotiation();activityEvents=[];activitySequence=0;log('Demo reset · session activity cleared','demo_system','demo_reset');$('chatMessages').innerHTML='<p class="muted" id="chatEmpty">No messages have been added to this demo archive yet.</p>';$('chatCount').textContent='0 messages';$('chatMessage').value='';$('chatMessageStatus').textContent='Demo messages appear in chronological order below.';switchTab('overview')};
+updateApprovals();renderNegotiation();log('Preview opened · no backend write','demo_system','preview_opened');
 })();
 </script>
 </body>
