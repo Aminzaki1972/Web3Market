@@ -66,3 +66,16 @@ Test against the exact deployed Safe version and bytecode intended for BNB Smart
 ## Current implementation boundary
 
 The sandbox currently contains pure TypeScript rules, mock tests, a read-only adapter interface and a front-end preview. It has no live Safe Guard, Module Guard, production backend, trusted dispute service, signing, transaction submission or on-chain freeze. The GitHub Actions workflow was added to run the Deno sandbox tests, but no workflow run has yet been observed. Do not claim the test suite passed until a successful run is recorded.
+
+ 
+## CI verification record — 2026-11-14
+
+GitHub Actions workflow `.github/workflows/deal-management-sandbox-tests.yml` executed on isolated branch commit `5a89ad8ad581d04241e3c321dc4b700ddd12fa61`.
+
+- Deno 2 setup completed.
+- All sandbox test files type-checked by Deno.
+- Result: **51 passed, 0 failed**.
+- The first run exposed one stale expected error string in the BSC read-only adapter test (`transaction_not_successful` versus the adapter's actual `transaction_failed`); the assertion was corrected and the rerun passed.
+- This is unit/domain-logic CI only. It does not test a deployed Safe Guard/Module Guard, live RPC, real USDT transfer, database authorization, concurrency, BNB fork behavior, or production runtime.
+
+Cloudflare Pages reported a successful **branch preview** build for the same commit. This is a preview deployment, not a production deployment; no production release or production configuration change was requested or performed.
