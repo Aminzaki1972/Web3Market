@@ -196,3 +196,13 @@ This commission rule is an approved product decision. It remains a specification
 - The payout readiness function independently checks the decision's gross amount, deposit amount and fee, then derives the net buyer refund by subtracting the full fee. It does not accept a caller-selected reduced fee.
 - Tests were updated for full refund (10,000 gross -> 9,250 buyer / 750 platform), mixed outcome (4,000 gross buyer bucket -> 3,250 buyer net / 6,000 seller / 750 platform), seller-only outcome (0 buyer net / 9,250 seller / 750 platform), fee mismatch, gross/deposit mismatch and fee-shortfall rejection.
 - These are pure domain rules and authored CI tests only. The original agreement amount and decision must be supplied by a trusted authenticated backend in a live implementation; there is no Safe transaction, chain verification, or real fund movement here.
+
+
+## Latest commission enforcement CI — 2026-11-14
+
+The isolated branch CI workflow completed successfully after the buyer-paid dispute commission code and tests were updated.
+
+- GitHub Actions run: [#56](https://github.com/Aminzaki1972/Web3Market/actions/runs/43619720518)
+- Result: **68 passed, 0 failed**.
+- The run checks Deno pure-domain sandbox tests only.
+- This does not validate an actual Safe Guard/Module Guard, live BNB RPC, official token contract configuration, database/authentication, concurrent transaction processing, production runtime, or real funds movement.
