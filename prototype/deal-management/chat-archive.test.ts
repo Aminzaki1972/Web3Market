@@ -84,3 +84,15 @@ Deno.test("corrections are appended as new messages referencing an earlier messa
     createdAt: 101, content: "Correction", attachmentRefs: [], correctionOf: "missing",
   }));
 });
+
+Deno.test("returned archive, messages and attachment references are frozen against silent mutation", () => {
+  const archive = appendDealChatMessage([], participants, first);
+  assertEquals(Object.isFrozen(archive), true);
+  assertEquals(Object.isFrozen(archive[0]), true);
+  assertEquals(Object.isFrozen(archive[0].attachmentRefs), true);
+  assertEquals(Reflect.set(archive[0], "content", "silently edited"), false);
+  assertThrows(() => (archive as unknown as DealChatMessage[]).push({
+    ...first, id: "injected",
+  }));
+  assertEquals(archive[0].content, first.content);
+});
