@@ -18,7 +18,7 @@ function base(): PolicyInput {
     tx: { chainId: 56, safe, to: token, value: "0", dataHash: hash, operation: "CALL", safeNonce: 19, viaModule: false },
     intent: { chainId: 56, safe, to: token, value: "0", dataHash: hash, operation: "CALL", safeNonce: 19,
       decisionHash: hash, decisionNonce: 12, token, approvedExecutionTargets: [token], effects },
-    decoded: { complete: true, effects },
+    decoded: { complete: true, effects: effects.map(effect => ({ ...effect })) },
     moduleGuardCovered: false,
     consumedDecisionNonces: [],
     consumedSafeNonces: [],
