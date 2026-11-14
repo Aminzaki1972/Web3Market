@@ -18,7 +18,8 @@ export type DisputeEvidence = {
 };
 
 export type DisputeAllocation = {
-  buyerRefund: bigint;
+  /** Buyer gross refund bucket before commission; platformFee is deducted from this amount. */
+  buyerGrossRefund: bigint;
   sellerPayout: bigint;
   platformFee: bigint;
 };
@@ -31,7 +32,12 @@ export type DisputeCase = {
   responseDeadline: number;
   status: DisputeStatus;
   evidence: DisputeEvidence[];
-  decision: null | { reason: string; allocation: DisputeAllocation; decidedAt: number };
+  decision: null | {
+    reason: string;
+    allocation: DisputeAllocation;
+    originalGrossAgreedAmount: bigint;
+    decidedAt: number;
+  };
 };
 
 function validEvidence(dispute: DisputeCase, evidence: DisputeEvidence): boolean {
@@ -84,20 +90,25 @@ export function markResponseExpired(dispute: DisputeCase, now: number): DisputeC
   return { ...dispute, status: "response_expired" };
 }
 
-/** Platform decision is recorded once, with reasons and a fully reconciled allocation. */
+/** Platform decision is recorded once, with reasons and a commission-compliant balanced allocation. */
 export function issueDisputeDecision(
-  dispute: DisputeCase, reason: string, allocation: DisputeAllocation, totalDeposited: bigint, now: number,
+  dispute: DisputeCase,
+  reason: string,
+  allocation: DisputeAllocation,
+  totalDeposited: bigint,
+  originalGrossAgreedAmount: bigint,
+  now: number,
 ): DisputeCase {
   const lastEvidenceAt = dispute.evidence.reduce((latest, item) => Math.max(latest, item.submittedAt), dispute.openedAt);
   if (!["response_received", "response_expired"].includes(dispute.status) ||
       !reason.trim() || !Number.isFinite(now) || now < lastEvidenceAt ||
       (dispute.status === "response_expired" && now < dispute.responseDeadline) ||
-      !validateDisputeAllocation(totalDeposited, allocation)) {
-    throw new Error("Decision requires a completed response phase, valid timing, reasons and balanced allocation");
+      !validateDisputeAllocation(totalDeposited, allocation, originalGrossAgreedAmount)) {
+    throw new Error("Decision requires a completed response phase, valid timing, exact 7.5% commission and balanced non-negative allocation");
   }
   return {
     ...dispute, status: "decided",
-    decision: { reason, allocation, decidedAt: now },
+    decision: { reason, allocation, originalGrossAgreedAmount, decidedAt: now },
   };
 }
 
@@ -107,4 +118,3 @@ export function markDisputeExecutionPending(dispute: DisputeCase): DisputeCase {
   }
   return { ...dispute, status: "execution_pending" };
 }
-
