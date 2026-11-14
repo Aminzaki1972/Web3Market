@@ -162,3 +162,16 @@ The state-machine flags now distinguish an actively open dispute from a deal tha
 ## Execution confirmation hardening
 
 The pure dispute state machine intentionally stops at `execution_pending`. It has no function that accepts a caller-supplied receipt boolean to mark funds paid or a dispute executed. A live implementation remains blocked until a trusted server-side BNB receipt verifier binds the exact Safe execution and decision allocation to canonical chain evidence.
+
+ 
+## CI verification record — 2026-11-14
+
+GitHub Actions workflow `.github/workflows/deal-management-sandbox-tests.yml` executed on isolated branch commit `5a89ad8ad581d04241e3c321dc4b700ddd12fa61`.
+
+- Deno 2 setup completed.
+- All sandbox test files type-checked by Deno.
+- Result: **51 passed, 0 failed**.
+- The first run exposed one stale expected error string in the BSC read-only adapter test (`transaction_not_successful` versus the adapter's actual `transaction_failed`); the assertion was corrected and the rerun passed.
+- This is unit/domain-logic CI only. It does not test a deployed Safe Guard/Module Guard, live RPC, real USDT transfer, database authorization, concurrency, BNB fork behavior, or production runtime.
+
+Cloudflare Pages reported a successful **branch preview** build for the same commit. This is a preview deployment, not a production deployment; no production release or production configuration change was requested or performed.
