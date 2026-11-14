@@ -17,7 +17,7 @@ Deno.test("sandbox happy path: offer -> agreement -> deposit evidence -> transfe
   assertEquals(preliminary.finalPriceAccepted, false);
 
   const countered = applyPriceAction(preliminary, "seller", {
-    type: "counter", offerId: "buyer-offer-1", amountUsdt: parseUsdtAmount("6800"),
+    type: "counter", offerId: "seller-counter-1", amountUsdt: parseUsdtAmount("6800"),
   });
   const priceAccepted = applyPriceAction(countered, "buyer", {
     type: "accept", offerId: "seller-counter-1",
