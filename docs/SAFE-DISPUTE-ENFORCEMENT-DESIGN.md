@@ -244,3 +244,27 @@ The server must append the dispute request and stop issuing new payout proposals
 ### Configuration mutation monitoring
 
 Monitor Safe events and independently poll critical state for changes to owners, threshold, Guard, Module Guard, modules, singleton and fallback handler. Any unexpected mutation invalidates the protection snapshot and blocks new deposits/payout preparation. While a dispute is open, any attempted policy-weakening transaction must revert at the Guard; an event monitor alone is detection, not prevention.
+
+## User-approved administration authority — 2026-11-14
+
+- Buyer or seller may submit a dispute request.
+- Web3Market administration reviews the request and decides whether to open the formal dispute.
+- During administrative review, hold the deal off-chain against new payout proposals/instructions. Do not represent this as a confirmed on-chain Safe lock.
+- Once administration approves opening, initiate the on-chain lock procedure. Only canonical verified chain state establishes a confirmed Safe lock.
+- The final financial decision in every deal matter belongs to Web3Market administration, including payout, refund, partial refund, equal split, other percentage split and platform commission allocation.
+- AI is evidence-assistance only; it has no decision, authorization or signing power.
+
+### Gross-amount commission rule
+Commission is calculated on the original gross final agreed deal amount regardless of the outcome or amount ultimately transferred to the seller. The currently specified rate is 7.5%. The final administrative allocation must explicitly account for this commission in completed deals, full refunds, partial refunds and split outcomes.
+
+The economic party/share from which the commission is funded in a full or partial refund is not yet specified. The agreement must resolve this before real deposits; do not silently subtract the fee from the buyer's refund or assign it to the seller without an approved clause.
+
+### Whole-deal fail-closed rule
+If Guard/Module Guard or any required security enforcement component fails, is removed, incompatible, unverifiable or behaves unexpectedly:
+- disable the entire deal workflow, not only the payout button;
+- block progression, new deposits, payout proposals, refunds and all outgoing financial execution;
+- if funds are already in Safe, prohibit outgoing movement until repair;
+- require repair, repeatable tests, independent on-chain verification and explicit recorded administrative reactivation before resuming;
+- never bypass the hold through a database flag or manual UI override.
+
+These are approved product decisions, not implemented controls. The sandbox does not enforce them on a real Safe.
