@@ -36,6 +36,7 @@ for (const [name, override, reason] of [
   ["wrong network", { chainId: 97 }, "wrong_network"],
   ["wrong token", { tokenAddress: safe }, "wrong_token"],
   ["wrong recipient", { transferLogTo: token }, "wrong_safe_recipient"],
+  ["malformed recipient", { transferLogTo: "0x1234" }, "wrong_safe_recipient"],
   ["wrong amount", { amount: 1n }, "amount_mismatch"],
   ["duplicate hash", { alreadyUsedTxHash: true }, "duplicate_tx_hash"],
   ["failed receipt", { receiptStatus: "failed" }, "transaction_not_successful"],
@@ -46,24 +47,34 @@ for (const [name, override, reason] of [
   });
 }
 
-Deno.test("agreement and deposit gates prevent premature funding", () => {
-  const base = { finalAgreementApproved: false, depositConfirmed: false, assetsTransferred: false,
-    aiVerificationComplete: false, buyerAccepted: false, disputeOpen: false, safeExecutionConfirmed: false };
-  assertEquals(canAdvance("agreement_pending", "awaiting_deposit", base), false);
-  assertEquals(canAdvance("awaiting_deposit", "funded", { ...base, finalAgreementApproved: true }), false);
-  assertEquals(canAdvance("awaiting_deposit", "funded", { ...base, depositConfirmed: true }), true);
+const base = {
+  finalAgreementApproved: true, depositConfirmed: true, assetsTransferred: true,
+  aiVerificationComplete: true, buyerAccepted: true, disputeOpen: false,
+  disputeDecisionFinalized: false, safeExecutionConfirmed: false,
+};
+
+Deno.test("agreement and deposit gates prevent premature funding and transfer", () => {
+  assertEquals(canAdvance("agreement_pending", "awaiting_deposit", { ...base, finalAgreementApproved: false }), false);
+  assertEquals(canAdvance("awaiting_deposit", "funded", { ...base, depositConfirmed: false }), false);
+  assertEquals(canAdvance("awaiting_deposit", "funded", base), true);
+  assertEquals(canAdvance("funded", "transfer_in_progress", { ...base, depositConfirmed: false }), false);
 });
 
-Deno.test("dispute blocks ordinary progress until resolution", () => {
-  const flags = { finalAgreementApproved: true, depositConfirmed: true, assetsTransferred: true,
-    aiVerificationComplete: true, buyerAccepted: true, disputeOpen: true, safeExecutionConfirmed: false };
-  assertEquals(canAdvance("buyer_review", "payout_ready", flags), false);
-  assertEquals(canAdvance("buyer_review", "dispute_open", flags), true);
+Deno.test("asset transfer and AI verification gates protect buyer review", () => {
+  assertEquals(canAdvance("transfer_in_progress", "ai_verification", { ...base, assetsTransferred: false }), false);
+  assertEquals(canAdvance("ai_verification", "buyer_review", { ...base, aiVerificationComplete: false }), false);
+  assertEquals(canAdvance("ai_verification", "buyer_review", base), true);
+});
+
+Deno.test("open dispute blocks payout; dispute payout requires a finalized decision", () => {
+  assertEquals(canAdvance("buyer_review", "payout_ready", { ...base, disputeOpen: true }), false);
+  assertEquals(canAdvance("buyer_review", "dispute_open", { ...base, disputeOpen: true }), true);
+  assertEquals(canAdvance("dispute_open", "payout_ready", { ...base, disputeOpen: true, disputeDecisionFinalized: true }), false);
+  assertEquals(canAdvance("dispute_open", "payout_ready", { ...base, buyerAccepted: false }), false);
+  assertEquals(canAdvance("dispute_open", "payout_ready", { ...base, buyerAccepted: false, disputeDecisionFinalized: true }), true);
 });
 
 Deno.test("completion requires confirmed Safe execution", () => {
-  const base = { finalAgreementApproved: true, depositConfirmed: true, assetsTransferred: true,
-    aiVerificationComplete: true, buyerAccepted: true, disputeOpen: false, safeExecutionConfirmed: false };
   assertEquals(canAdvance("payout_ready", "completed", base), false);
   assertEquals(canAdvance("payout_ready", "completed", { ...base, safeExecutionConfirmed: true }), true);
 });
