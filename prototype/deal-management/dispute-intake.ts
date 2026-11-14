@@ -109,7 +109,7 @@ export function reviewDisputeRequest(
   reviewedAt: number,
 ): DisputeRequest {
   if (request.status !== "pending_admin_review" || request.review !== null ||
-      !validText(reason) || !validText(reviewerId) || !Number.isFinite(reviewedAt) ||
+      !["approved", "declined"].includes(outcome) || !validText(reason) || !validText(reviewerId) || !Number.isFinite(reviewedAt) ||
       reviewedAt < request.submittedAt) {
     throw new Error("Only a pending request may receive one reasoned administrative review");
   }
