@@ -105,6 +105,9 @@ export function canAdvance(stage: DealStage, next: DealStage, flags: DealTransit
   // The dispute is considered resolved only after a final decision is recorded
   // and the caller clears disputeOpen from trusted server-side state.
   if (flags.disputeOpen && next !== "dispute_open") return false;
+  // A deal already in the dispute stage can never fall back to the ordinary
+  // buyer-acceptance route, even if a caller supplies a false/missing history flag.
+  if (stage === "dispute_open" && (flags.disputeEverOpened !== true || !flags.disputeDecisionFinalized)) return false;
   const allowed: Partial<Record<DealStage, DealStage[]>> = {
     negotiation: ["agreement_pending", "cancelled"],
     agreement_pending: ["awaiting_deposit", "negotiation", "cancelled"],
