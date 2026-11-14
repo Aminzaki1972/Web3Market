@@ -50,3 +50,18 @@ Deno.test("review rejects duplicate asset IDs and prevents repeat decisions", ()
   const accepted = reviewAsset(review, "repo", "accept", 400);
   assertThrows(() => reviewAsset(accepted, "repo", "accept", 450));
 });
+
+Deno.test("inspection deadline passing never auto-accepts assets or authorizes final acceptance", () => {
+  const startedAt = 1_000;
+  const duration = 48 * 60 * 60 * 1000;
+  const review = startBuyerReview([verified("repo")], duration, startedAt);
+  const afterDeadline = review.inspectionEndsAt! + 1;
+  // Time passing alone does not mutate the review or mark any asset accepted.
+  assertEquals(review.assets.repo.status, "pending");
+  assertEquals(review.finalAcceptedAt, null);
+  assertThrows(() => finalBuyerAcceptance(review, afterDeadline));
+  // The buyer may still make an explicit decision after the deadline in this model.
+  const accepted = reviewAsset(review, "repo", "accept", afterDeadline);
+  const final = finalBuyerAcceptance(accepted, afterDeadline + 1);
+  assertEquals(final.finalAcceptedAt, afterDeadline + 1);
+});
