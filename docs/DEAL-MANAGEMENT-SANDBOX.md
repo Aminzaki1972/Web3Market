@@ -144,3 +144,11 @@ The page is `/deal-management-preview.html` when served from this branch.
 - Awaiting-deposit requires both final-price acceptance and all three agreement approvals.
 - A deal with a confirmed deposit cannot be marked cancelled through the ordinary state transition helper. Any post-deposit termination must use a separately agreed refund/dispute and verified Safe execution path.
 - These are still pure sandbox checks; a future backend must enforce them server-side from immutable agreement records and trusted chain evidence.
+
+
+## Dispute payout suspension rule — confirmed sandbox behavior
+
+- As soon as a dispute is opened in the deal workflow, ordinary payout readiness is blocked and the state machine cannot advance to payout or completion while the dispute remains unresolved.
+- A deal that has ever entered a dispute cannot later use the ordinary 92.5%/7.5% payout helper. Once a reasoned decision is finalized, it must use the explicit buyer-refund / seller-payout / platform-fee allocation from the dispute decision.
+- A dispute decision does not itself move funds or mark the deal complete. The decision allocation is only prepared for Safe review; authorized Safe signatures and independently verified on-chain execution remain required.
+- This is sandbox domain logic only. It does not freeze a real Safe or stop owners/modules from sending transactions. Real enforcement requires the separately reviewed Safe Guard/Module design and a confirmed on-chain lock.
