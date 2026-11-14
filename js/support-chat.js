@@ -1,6 +1,6 @@
 (function () {
   "use strict";
-  const ADMIN_PAGE = /(?:^|\/)admin-support\.html$/.test(location.pathname);
+  const ADMIN_PAGE = /(?:^|\/)admin-support(?:\.html)?\/?$/.test(location.pathname);
   const BUCKET = "support-attachments";
   const MAX_FILE_BYTES = 20 * 1024 * 1024;
   const ALLOWED = new Set(["image/jpeg","image/png","image/webp","image/gif","video/mp4","video/webm","video/quicktime"]);
