@@ -248,3 +248,13 @@ Files:
 - Each entry should preserve authenticated sender identity and role, server timestamp, message content and attachment/evidence references. Corrections must be auditable; ordinary participants must not be able to silently rewrite or delete archived entries.
 - Chat content is not a substitute for formal agreement-version approval, asset acceptance, dispute decisions or Safe authorization. Those actions remain in their dedicated workflows.
 - The preview's Chat tab now demonstrates the primary Buyer/Seller conversation, optional Admin participation, chronological append order and message count. It remains local-only: no authentication, cross-user delivery, permanent storage, attachments or notifications are implemented.
+
+## Version-bound agreement preview — 2026-11-14
+
+- The preview now creates a local agreement version (v1) after the receiving party explicitly accepts the current final-price offer.
+- The agreement summary displays the accepted gross price, the buyer-paid 7.5% platform commission, and the selected transaction assets.
+- The selected asset checklist is bound to the preview agreement snapshot. At least one asset must be selected before demo approvals are enabled.
+- If an asset is added or removed before the simulated deposit, the agreement version increments, all three prior demo approvals are cleared, and buyer-review demo acceptance is reset. The deposit action becomes unavailable until the revised version is approved again.
+- After the simulated deposit flag is set, asset-list changes are blocked in the preview; reset the demo to restart the scenario.
+- Each approval label identifies the agreement version it refers to. This is only local UI state: no cryptographic snapshot hash is computed, no authenticated approval is collected, and no immutable server record is stored.
+- The agreement version currently binds only the accepted final price and selected asset list in this preview. Other legal terms remain static explanatory content and are not yet editable/versioned controls.
