@@ -123,3 +123,12 @@ The page is `/deal-management-preview.html` when served from this branch.
 - `prototype/deal-management/payout-readiness.test.ts` covers ordinary gates and split, blockers, invalid/duplicate recipients, partial dispute allocation, full buyer refund, mismatched allocations and missing agreement/deposit.
 - The preview includes a Settlement tab that explains both readiness paths and explicitly distinguishes readiness for Safe review from actual Safe authorization/execution.
 - These tests are authored but **not executed**. No Safe transaction construction, signer collection, Guard/Module, transaction execution, chain receipt verification or production integration is implemented.
+
+
+## Lifecycle hardening and integrated workflow coverage
+
+- The shared transition guard now requires a confirmed deposit before asset-transfer progression, completed transfer and AI verification before buyer review, and a finalized dispute decision before moving a resolved dispute to payout readiness. Completion still requires separately confirmed Safe execution evidence.
+- Deposit evidence validation now rejects malformed token, Safe and Transfer-recipient addresses in addition to mismatched values.
+- Dispute evidence IDs must be unique across both parties; evidence timestamps and decision timing are checked against the dispute opening, response deadline and prior evidence.
+- `prototype/deal-management/workflow.test.ts` connects the pure sandbox modules through a simulated buyer offer, seller preliminary acceptance, counter-offer, final price acceptance, three-party agreement approval, normalized deposit evidence, asset verification, buyer acceptance and ordinary payout allocation.
+- All of these are authored tests only. Deno is not installed in the current execution environment, so the test suite remains **unexecuted** and must not be described as passing. The workflow uses mock evidence and does not establish a real deposit, asset transfer, Safe review or payment.
