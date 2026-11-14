@@ -61,3 +61,12 @@ The page is `/deal-management-preview.html` when served from this branch.
 
 - A self-contained responsive UI preview with overview, price/commission calculator, asset checklist, agreement approval states, Safe deposit requirements, dispute outline and activity log.
 - Local demo interactions are explicitly marked as simulations and never claim an on-chain deposit, signature, verification or freeze.
+
+
+## Additional isolated domain layer added
+
+- `prototype/deal-management/core.ts` contains pure, side-effect-free rules for six-decimal USDT integer arithmetic, ordinary 7.5% commission split, normalized BSC deposit-evidence validation, guarded deal-stage transitions and exact dispute-allocation reconciliation.
+- `prototype/deal-management/core.test.ts` adds Deno tests for precision, the 7,000 USDT example, wrong network/token/recipient/amount, duplicate transaction hash, failed receipt, insufficient confirmations, agreement/deposit gates, dispute pause, Safe-execution completion gate and allocation reconciliation.
+- Suggested local command from repository root: `deno test prototype/deal-management/core.test.ts`.
+- These tests have been authored but have **not** been executed in this environment. Do not describe them as passing.
+- Deposit validation accepts a normalized evidence object only. A future trusted server-side adapter must independently obtain and decode the BSC receipt/logs, verify the configured token contract and Safe, enforce finality policy and atomically reserve the transaction hash. No such adapter is implemented here.
