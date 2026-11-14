@@ -95,9 +95,9 @@ function updateAgreementSnapshot(){
   $('agreementFee').textContent=finalPrice===null?'—':money(finalPrice*.075);
   $('agreementAssets').textContent=assets.length?assets.join(' · '):'None selected';
   $('agreementInspection').textContent=selectedInspectionWindow();
-  $('agreementTransferPlan').textContent=$('transferPlan').value.trim()?'Recorded · see terms':'Not agreed';
+  $('agreementTransferPlan').textContent=$('transferPlan').value.trim()||'Not agreed';
   $('agreementResponseDeadline').textContent=$('disputeResponseHours').value?$('disputeResponseHours').value+' hours':'Not agreed';
-  $('agreementCancellation').textContent=$('cancellationTerms').value.trim()?'Recorded · see terms':'Not agreed';
+  $('agreementCancellation').textContent=$('cancellationTerms').value.trim()||'Not agreed';
   $('agreementNetworkFees').textContent=$('networkFeeAllocation').selectedOptions[0]?.textContent||'Not agreed';
   const ready=agreementTermsReady();
   $('agreementSnapshotStatus').textContent=finalPrice===null?'The agreement snapshot is created only after a final offer is accepted.':!assets.length?'Select at least one asset before requesting agreement approvals.':!ready?'Complete all deal-specific terms before requesting approvals.':'This local version binds the accepted price, fee, assets, inspection window, transfer plan, response deadline, cancellation terms and network-fee allocation. It is not a cryptographic hash or legal signature.';
