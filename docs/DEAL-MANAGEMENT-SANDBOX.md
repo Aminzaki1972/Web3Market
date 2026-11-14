@@ -152,3 +152,8 @@ The page is `/deal-management-preview.html` when served from this branch.
 - A deal that has ever entered a dispute cannot later use the ordinary 92.5%/7.5% payout helper. Once a reasoned decision is finalized, it must use the explicit buyer-refund / seller-payout / platform-fee allocation from the dispute decision.
 - A dispute decision does not itself move funds or mark the deal complete. The decision allocation is only prepared for Safe review; authorized Safe signatures and independently verified on-chain execution remain required.
 - This is sandbox domain logic only. It does not freeze a real Safe or stop owners/modules from sending transactions. Real enforcement requires the separately reviewed Safe Guard/Module design and a confirmed on-chain lock.
+
+
+### Dispute-history bypass prevention
+
+The state-machine flags now distinguish an actively open dispute from a deal that has ever entered dispute. Clearing the active flag alone cannot route the deal through ordinary buyer-acceptance payout: disputed deals must enter payout readiness from the dispute-decision stage with a finalized decision. Completion also requires that final decision plus verified Safe execution. The flag must be derived from append-only trusted deal history, not from a client-supplied boolean. This remains sandbox domain logic, not an authorization boundary.
