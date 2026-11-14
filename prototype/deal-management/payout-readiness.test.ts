@@ -17,6 +17,7 @@ const ordinary = {
 };
 const gross = parseUsdtAmount("10000");
 const fee = parseUsdtAmount("750");
+const initialEvidence = [{ id: "initial-evidence", description: "Initial evidence attached to the dispute request", submittedAt: 95 }];
 
 function resolvedDispute(id: string, allocation: {
   buyerGrossRefund: bigint; sellerPayout: bigint; platformFee: bigint;
@@ -32,7 +33,7 @@ function resolvedDispute(id: string, allocation: {
 }
 
 function approvedLockConfirmedRequest(id: string) {
-  const submitted = submitDisputeRequest(id, "deal-10000", "buyer", "Evidence reviewed", 100);
+  const submitted = submitDisputeRequest(id, "deal-10000", "buyer", "Evidence reviewed", 100, initialEvidence);
   const approved = reviewDisputeRequest(submitted, "approved", "Formal dispute opened", "admin", 110);
   return confirmDisputeLock(approved, {
     chainId: 56, safeAddress: recipients.buyer, expectedSafeAddress: recipients.buyer,
@@ -51,7 +52,7 @@ function disputeInput(dispute: ReturnType<typeof resolvedDispute>) {
 
 
 Deno.test("ordinary payout is blocked during administrative review and after approval pending Safe lock", () => {
-  const pending = submitDisputeRequest("ordinary-pending", "deal-10000", "buyer", "Pending review", 100);
+  const pending = submitDisputeRequest("ordinary-pending", "deal-10000", "buyer", "Pending review", 100, initialEvidence);
   const pendingResult = prepareOrdinaryPayout({ ...ordinary, disputeRequest: pending }, recipients);
   assertEquals(pendingResult.ready, false);
   if (!pendingResult.ready) assertEquals(pendingResult.blockers.includes("administrative_review_hold"), true);
@@ -63,7 +64,7 @@ Deno.test("ordinary payout is blocked during administrative review and after app
 });
 
 Deno.test("ordinary payout remains blocked after declined review until explicit hold release", () => {
-  const pending = submitDisputeRequest("ordinary-declined", "deal-10000", "seller", "Request review", 100);
+  const pending = submitDisputeRequest("ordinary-declined", "deal-10000", "seller", "Request review", 100, initialEvidence);
   const declined = reviewDisputeRequest(pending, "declined", "Declined with reasons", "admin", 110);
   const blocked = prepareOrdinaryPayout({ ...ordinary, disputeRequest: declined }, recipients);
   assertEquals(blocked.ready, false);
@@ -177,7 +178,7 @@ Deno.test("dispute payout waits for final decision and verified agreement/deposi
   const pending = openDispute("pending", "buyer", 100, 1_000);
   const pendingResult = prepareDisputePayout({
     agreementApproved: true, depositVerified: true, depositedAmount: gross,
-    originalGrossAgreedAmount: gross, dealId: "deal-10000", dealSafeAddress: recipients.buyer, dispute: pending, disputeRequest: submitDisputeRequest("pending", "deal-10000", "buyer", "Awaiting admin", 100), recipients,
+    originalGrossAgreedAmount: gross, dealId: "deal-10000", dealSafeAddress: recipients.buyer, dispute: pending, disputeRequest: submitDisputeRequest("pending", "deal-10000", "buyer", "Awaiting admin", 100, initialEvidence), recipients,
   });
   assertEquals(pendingResult.ready, false);
   if (!pendingResult.ready) assertEquals(pendingResult.blockers.includes("dispute_decision_not_finalized"), true);
