@@ -18,6 +18,8 @@ export type PayoutReadinessInput = {
   requiredAssetsVerified: boolean;
   buyerFinalAcceptance: boolean;
   openDispute: boolean;
+  /** True if this deal has ever entered dispute; such deals must use the decision allocation path. */
+  disputeEverOpened: boolean;
 };
 
 export type PayoutBlocker =
@@ -26,7 +28,8 @@ export type PayoutBlocker =
   | "invalid_deposit_amount"
   | "required_assets_not_verified"
   | "buyer_final_acceptance_missing"
-  | "dispute_open";
+  | "dispute_open"
+  | "dispute_requires_decision_payout";
 
 export type PayoutPlan = {
   status: "ready_for_safe_review";
@@ -69,6 +72,7 @@ export function prepareOrdinaryPayout(
   if (!input.requiredAssetsVerified) blockers.push("required_assets_not_verified");
   if (!input.buyerFinalAcceptance) blockers.push("buyer_final_acceptance_missing");
   if (input.openDispute) blockers.push("dispute_open");
+  if (input.disputeEverOpened) blockers.push("dispute_requires_decision_payout");
   if (blockers.length) return { ready: false, blockers };
 
   const split = calculateOrdinaryPayout(input.depositedAmount);
