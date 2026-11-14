@@ -94,6 +94,9 @@ export type DealTransitionFlags = {
  * boundary: callers must derive every flag from trusted persisted/chain evidence.
  */
 export function canAdvance(stage: DealStage, next: DealStage, flags: DealTransitionFlags): boolean {
+  // An unresolved dispute blocks every payout/settlement transition.
+  // The dispute is considered resolved only after a final decision is recorded
+  // and the caller clears disputeOpen from trusted server-side state.
   if (flags.disputeOpen && next !== "dispute_open") return false;
   const allowed: Partial<Record<DealStage, DealStage[]>> = {
     negotiation: ["agreement_pending", "cancelled"],
