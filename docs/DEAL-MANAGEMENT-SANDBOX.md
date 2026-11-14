@@ -279,3 +279,13 @@ Files:
 - The `reviewerId` string remains audit metadata only. It is not an authenticated identity, role check, permission grant, proof of deal-scoped access, or protection against self-review/conflict of interest.
 - The domain helper must only be called by a future trusted server action that obtains the administrator identity from a verified session and checks server-side role/permission and deal scope. The current model does not decide the number of administrators, dual-control threshold, recusal rules, or conflict-of-interest policy; those remain explicit product decisions and must not be inferred from this patch.
 - No authentication, persistence, notification, dispute adjudication, Safe lock, or financial action is implemented by this documentation correction.
+
+
+## 2026-11-15 — append-only Deal Room chat archive model
+
+- Added `prototype/deal-management/chat-archive.ts` with a single deal-scoped conversation model for buyer, seller and optional deal-authorized admin participants.
+- The append operation validates participant ID/role consistency, optional admin membership, unique message IDs, one deal ID per archive, chronological timestamps, message length, attachment-reference shape and correction references.
+- The model exposes append only. A correction is a new message referencing the earlier message; no edit/delete operation is provided. Existing entries are preserved in the returned archive.
+- Added tests for buyer/seller conversation, optional admin participation, role spoofing, duplicate IDs, mixed deals, backdated messages, invalid content/attachments and append-only corrections.
+
+**Critical implementation boundary:** this is an in-memory pure model. It does not authenticate the supplied author ID, generate trusted timestamps, persist messages, make storage tamper-proof, store attachment bytes, enforce retention/privacy, or deliver notifications. A production backend must derive sender identity and role from the authenticated session, authorize deal membership/admin scope, assign server timestamps, append atomically to durable append-only/auditable storage, and protect attachment access. No live chat or database integration is present.
