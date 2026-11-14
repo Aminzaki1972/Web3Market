@@ -44,6 +44,8 @@ export type SettlementIntentModel = {
   decisionHash: string;
   decisionNonce: number;
   token: string;
+  /** Trusted, code-hash-verified execution targets: token directly and/or reviewed MultiSend. */
+  approvedExecutionTargets: string[];
   effects: Array<{ kind: "erc20_transfer"; target: string; recipient: string; amount: string }>;
 };
 
@@ -93,8 +95,9 @@ export function evaluateLockedSafeTransaction(input: PolicyInput): PolicyResult 
   }
   if (input.consumedDecisionNonces.includes(intent.decisionNonce) ||
       input.consumedSafeNonces.includes(tx.safeNonce)) return { allowed: false, reason: "replay_detected" };
-  if (!/^0x[0-9a-fA-F]{40}$/.test(intent.token) || !same(intent.to, intent.token)) {
-    return { allowed: false, reason: "settlement_target_not_token" };
+  if (!/^0x[0-9a-fA-F]{40}$/.test(intent.token) ||
+      !intent.approvedExecutionTargets.some(target => /^0x[0-9a-fA-F]{40}$/.test(target) && same(intent.to, target))) {
+    return { allowed: false, reason: "settlement_target_not_approved" };
   }
   if (!decoded.complete) return { allowed: false, reason: "incomplete_transaction_decode" };
   if (intent.effects.length === 0) return { allowed: false, reason: "empty_settlement" };
