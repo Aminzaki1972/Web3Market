@@ -46,6 +46,12 @@ export function appendDealChatMessage(
   participants: DealChatParticipants,
   message: DealChatMessage,
 ): readonly DealChatMessage[] {
+  if (!nonBlank(participants.buyerId) || !nonBlank(participants.sellerId) ||
+      participants.buyerId === participants.sellerId ||
+      participants.adminIds.some(id => !nonBlank(id) || id === participants.buyerId || id === participants.sellerId) ||
+      new Set(participants.adminIds).size !== participants.adminIds.length) {
+    throw new Error("Deal chat participant roster is invalid");
+  }
   if (!nonBlank(message.id) || !nonBlank(message.dealId) ||
       !nonBlank(message.authorId) || !["buyer", "seller", "admin"].includes(message.role) ||
       !authorizedRole(message.authorId, message.role, participants)) {
