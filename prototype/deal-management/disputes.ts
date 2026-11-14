@@ -110,12 +110,3 @@ export function markDisputeExecutionPending(dispute: DisputeCase): DisputeCase {
 }
 
 /** Completion requires independently verified Safe execution evidence from a trusted adapter. */
-export function confirmDisputeExecution(
-  dispute: DisputeCase, txHash: string, receiptConfirmed: boolean, now: number,
-): DisputeCase {
-  if (dispute.status !== "execution_pending" || !/^0x[0-9a-fA-F]{64}$/.test(txHash) ||
-      !receiptConfirmed || !Number.isFinite(now) || now < (dispute.decision?.decidedAt ?? Infinity)) {
-    throw new Error("Confirmed Safe execution receipt is required");
-  }
-  return { ...dispute, status: "executed", execution: { txHash: txHash.toLowerCase(), confirmedAt: now } };
-}
