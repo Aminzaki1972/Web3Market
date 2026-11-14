@@ -101,8 +101,10 @@ export function prepareDisputePayout(
   if (!agreementApproved) blockers.push("agreement_not_approved");
   if (!depositVerified) blockers.push("deposit_not_verified");
   if (depositedAmount <= 0n) blockers.push("invalid_deposit_amount");
-  if (dispute.status !== "decided" || !dispute.decision) blockers.push("dispute_decision_not_finalized");
-  if (dispute.status === "execution_pending" || dispute.status === "executed") blockers.push("dispute_already_in_execution_or_executed");
+  if (dispute.status !== "decided" || !dispute.decision ||
+      !dispute.decision.reason.trim() || !Number.isFinite(dispute.decision.decidedAt)) {
+    blockers.push("dispute_decision_not_finalized");
+  }
   if (blockers.length) return { ready: false, blockers };
 
   const allocation = dispute.decision!.allocation;
