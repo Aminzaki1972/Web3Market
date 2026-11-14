@@ -88,3 +88,13 @@ The page is `/deal-management-preview.html` when served from this branch.
 - Versioned agreement approval requires the buyer, seller and platform to approve the exact current version and snapshot hash. Any revision must increment the version and clears all previous approvals.
 - `prototype/deal-management/negotiation.test.ts` covers preliminary acceptance, counter-offer flow, acceptance restrictions, three-party approval, stale-hash rejection and approval invalidation after revision.
 - These tests are authored but have **not** been executed. The snapshot hash is supplied by the caller; this module does not calculate a cryptographic hash, authenticate signers, persist immutable records or collect cryptographic signatures. Those remain server-side implementation and security-review requirements.
+
+
+## Dispute lifecycle rules added
+
+- `prototype/deal-management/disputes.ts` models claimant evidence, respondent notice/response window, explicit response expiry, a reasoned one-time platform decision, agreement-defined allocation reconciliation, and a separate Safe-execution-pending state.
+- A respondent cannot submit a response after the configured deadline. If no response arrives, expiry must be explicitly recorded before a decision can be issued.
+- A decision requires a non-empty reason and buyer refund + seller payout + platform fee that exactly reconcile to the deposited amount. This validates arithmetic only; it does not decide what allocation is fair or legally required.
+- Execution is not marked complete until a trusted external verifier supplies a successful Safe receipt confirmation and transaction hash.
+- `prototype/deal-management/disputes.test.ts` covers claimant/response order, deadline expiry, balanced allocation, one-time decision and Safe receipt completion.
+- These tests are authored but have **not** been executed. The module does not send notices, run timers, authenticate participants, adjudicate disputes, freeze Safe assets, or verify chain receipts. No actual pause/freeze or payout protection exists in this sandbox.
