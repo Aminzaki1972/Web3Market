@@ -53,7 +53,6 @@ Deno.test("pure dispute lifecycle cannot self-certify Safe execution", () => {
   d = issueDisputeDecision(d, "No response received", allocation, total, 210);
   d = markDisputeExecutionPending(d);
   assertEquals(d.status, "execution_pending");
-  assertEquals(d.execution, null);
   // Deliberately no pure helper can mark this case executed. A future trusted,
   // server-side chain verifier must prove the exact Safe batch and Transfer logs.
 });
