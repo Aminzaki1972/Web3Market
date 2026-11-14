@@ -30,9 +30,14 @@ export function formatUsdt(units: bigint): string {
   return fraction ? whole.toString() + "." + fraction : whole.toString();
 }
 
-export function calculateOrdinaryPayout(grossUsdt: bigint) {
+/** Integer-only fee calculation. Rounds down to the nearest USDT base unit, matching the ordinary path. */
+export function calculatePlatformFee(grossUsdt: bigint): bigint {
   if (grossUsdt <= 0n) throw new Error("Gross amount must be positive");
-  const platformFee = grossUsdt * BigInt(PLATFORM_FEE_BPS) / BigInt(BPS_DENOMINATOR);
+  return grossUsdt * BigInt(PLATFORM_FEE_BPS) / BigInt(BPS_DENOMINATOR);
+}
+
+export function calculateOrdinaryPayout(grossUsdt: bigint) {
+  const platformFee = calculatePlatformFee(grossUsdt);
   return { gross: grossUsdt, platformFee, sellerNet: grossUsdt - platformFee };
 }
 
@@ -138,8 +143,26 @@ export function canAdvance(stage: DealStage, next: DealStage, flags: DealTransit
   return true;
 }
 
-/** Dispute allocations are explicit agreed outcomes; no automatic commission is inferred. */
-export function validateDisputeAllocation(total: bigint, allocations: { buyerRefund: bigint; sellerPayout: bigint; platformFee: bigint }) {
-  if (total <= 0n || allocations.buyerRefund < 0n || allocations.sellerPayout < 0n || allocations.platformFee < 0n) return false;
-  return allocations.buyerRefund + allocations.sellerPayout + allocations.platformFee === total;
+/**
+ * Dispute accounting uses the buyer's gross refund bucket before commission.
+ * The fee is carved out of that bucket, so the net buyer transfer is:
+ * buyerGrossRefund - platformFee.
+ */
+export type DisputeAllocationAmounts = {
+  buyerGrossRefund: bigint;
+  sellerPayout: bigint;
+  platformFee: bigint;
+};
+
+export function validateDisputeAllocation(
+  total: bigint,
+  allocation: DisputeAllocationAmounts,
+  originalGrossAgreedAmount: bigint,
+): boolean {
+  if (total <= 0n || originalGrossAgreedAmount <= 0n ||
+      allocation.buyerGrossRefund < 0n || allocation.sellerPayout < 0n || allocation.platformFee < 0n) return false;
+  const expectedFee = calculatePlatformFee(originalGrossAgreedAmount);
+  if (allocation.platformFee !== expectedFee || allocation.buyerGrossRefund < expectedFee) return false;
+  return allocation.buyerGrossRefund + allocation.sellerPayout === total &&
+    total === originalGrossAgreedAmount;
 }
