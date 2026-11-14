@@ -112,3 +112,14 @@ The page is `/deal-management-preview.html` when served from this branch.
 - The standalone preview now includes an isolated Buyer Review tab with per-asset demo acceptance, final acceptance gating, optional inspection-window selection (unset by default), and a reasoned demo rejection state. These controls update local page state only; they do not create a dispute or authorize payout.
 
 - The asset verification guard also prevents a caller from marking GitHub/domain assets verified unless the evidence types meet the asset-specific minimum gate; duplicate evidence IDs are rejected. This remains a local domain rule, not an external ownership check.
+
+
+## Payout readiness and settlement gates added
+
+- `prototype/deal-management/payout-readiness.ts` separates ordinary payout readiness from dispute-decision payout readiness. It returns explicit blockers or a reviewable allocation marked `ready_for_safe_review`; it does not build, sign or submit Safe transactions.
+- Ordinary payout requires approved agreement, independently verified deposit amount, all required assets verified, final buyer acceptance and no open dispute. The ordinary split is 92.5% seller / 7.5% platform.
+- Dispute payout requires approved agreement, verified deposit, a reasoned finalized decision and exact reconciliation of buyer refund + seller payout + platform fee to the deposited amount. The decision's explicit platform fee is used; it is not recalculated by the ordinary fee rule.
+- Active recipient addresses must be valid EVM addresses and cannot duplicate one another. Zero-value allocations do not require an active recipient address.
+- `prototype/deal-management/payout-readiness.test.ts` covers ordinary gates and split, blockers, invalid/duplicate recipients, partial dispute allocation, full buyer refund, mismatched allocations and missing agreement/deposit.
+- The preview includes a Settlement tab that explains both readiness paths and explicitly distinguishes readiness for Safe review from actual Safe authorization/execution.
+- These tests are authored but **not executed**. No Safe transaction construction, signer collection, Guard/Module, transaction execution, chain receipt verification or production integration is implemented.
