@@ -104,6 +104,8 @@ export type DisputePayoutInput = {
   depositedAmount: bigint;
   /** Must come from the immutable, finally approved agreement snapshot. */
   originalGrossAgreedAmount: bigint;
+  dealId: string;
+  dealSafeAddress: string;
   dispute: DisputeCase;
   /** Must be approved and have a trusted, canonical lock confirmation before a dispute payout plan is prepared. */
   disputeRequest: DisputeRequest;
@@ -122,7 +124,21 @@ export function prepareDisputePayout(
   if (!input.depositVerified) blockers.push("deposit_not_verified");
   if (input.depositedAmount <= 0n) blockers.push("invalid_deposit_amount");
   if (input.originalGrossAgreedAmount <= 0n) blockers.push("invalid_original_agreed_amount");
-  if (input.disputeRequest.status !== "lock_confirmed" || !input.disputeRequest.lockProof) {
+  if (input.disputeRequest.id !== input.dispute.id ||
+      input.disputeRequest.dealId !== input.dealId) {
+    blockers.push("dispute_request_mismatch");
+  }
+  const lock = input.disputeRequest.lockProof;
+  const validAddress = /^0x[0-9a-fA-F]{40}$/;
+  const validHash = /^0x[0-9a-fA-F]{64}$/;
+  if (input.disputeRequest.status !== "lock_confirmed" || !lock ||
+      lock.chainId !== 56 || !validAddress.test(input.dealSafeAddress) ||
+      lock.safeAddress.toLowerCase() !== input.dealSafeAddress.toLowerCase() ||
+      lock.expectedSafeAddress.toLowerCase() !== input.dealSafeAddress.toLowerCase() ||
+      !validHash.test(lock.txHash) || lock.receiptStatus !== "success" ||
+      lock.confirmations < lock.requiredConfirmations || lock.requiredConfirmations <= 0 ||
+      !validHash.test(lock.canonicalBlockHash) || lock.lockEventObserved !== true ||
+      lock.lockStateVerified !== true) {
     blockers.push("dispute_lock_not_confirmed");
   }
   if (input.depositedAmount !== input.originalGrossAgreedAmount) blockers.push("deposit_amount_differs_from_agreement");
