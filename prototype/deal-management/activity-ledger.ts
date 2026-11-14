@@ -63,8 +63,15 @@ const eventTypes: readonly DealActivityEventType[] = [
   "deal_cancelled", "deal_completed",
 ];
 
+const buyerOnly = new Set<DealActivityEventType>([
+  "buyer_asset_accepted", "buyer_asset_rejected",
+]);
+const sellerOnly = new Set<DealActivityEventType>([
+  "asset_transfer_submitted",
+]);
 const adminOnly = new Set<DealActivityEventType>([
   "dispute_reviewed", "dispute_decision_recorded", "admin_review_recorded",
+  "payout_requested",
 ]);
 const systemOnly = new Set<DealActivityEventType>([
   "deposit_detected", "ai_verification_completed", "safe_lock_confirmed",
@@ -108,6 +115,12 @@ export function appendDealActivityEvent(
   }
   if (adminOnly.has(event.type) && event.actorRole !== "admin") {
     throw new Error("This activity event requires an authorized admin actor");
+  }
+  if (buyerOnly.has(event.type) && event.actorRole !== "buyer") {
+    throw new Error("This activity event requires the buyer actor");
+  }
+  if (sellerOnly.has(event.type) && event.actorRole !== "seller") {
+    throw new Error("This activity event requires the seller actor");
   }
   if (systemOnly.has(event.type) && event.actorRole !== "system") {
     throw new Error("This activity event requires the trusted system actor");
