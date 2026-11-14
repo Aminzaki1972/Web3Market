@@ -317,3 +317,17 @@ GitHub Actions run [#43647002559](https://github.com/Aminzaki1972/Web3Market/act
 - Subsequent branch commits after this test run updated documentation only; no later source or test changes were made after the tested code commit.
 
 This is domain/unit-test CI only. It does not prove authentication, durable/tamper-evident persistence, production database policies, live notifications, attachment storage, or Safe/BNB Smart Chain enforcement.
+
+## 2026-11-15 — single authorized administrator and owner-controlled appointment
+
+The product owner explicitly approved the following administration policy for the Deal Management System:
+
+- Exactly one administrator account may hold the privileged administrator role at a time.
+- Only the product owner may appoint a new administrator or replace the current administrator. The current administrator cannot create, invite, promote or delegate another administrator.
+- Buyers and sellers may submit dispute requests and follow their status through their deal rooms, but ordinary buyer/seller accounts cannot access the administration page or invoke administrator-only actions.
+- The administrator may review dispute requests and issue the authorized administrative decisions described by the deal workflow. Normal deals do not require administrator participation in the buyer/seller chat; authorized administrative participation remains optional when needed.
+- Appointment and replacement must be owner-authorized, authenticated, recorded as an auditable event, and applied atomically so that the previous administrator's privilege is revoked as the replacement is granted. There must never be two active administrator accounts, including during replacement.
+- Administrator-page access and every privileged action must be enforced server-side using verified authentication and authorization. Hiding UI controls or relying on client-supplied role labels is insufficient.
+- The administrator's authority to decide a financial allocation does not grant authority to sign, bypass Safe threshold/Guard protections, or claim a transfer has executed. Safe transactions still require the configured on-chain permissions and independent execution verification.
+
+**Implementation boundary:** this is an approved product rule documented for the isolated prototype. It does not mean that a production administrator account, owner-appointment workflow, server-side access control, or permanent audit trail has been implemented. The identity and secure mechanism by which the product owner authorizes appointment/replacement, recovery if the owner account is compromised, and the exact re-authentication procedure remain to be designed before production implementation. No administrator credentials or identities are specified here.
