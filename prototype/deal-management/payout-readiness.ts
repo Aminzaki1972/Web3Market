@@ -90,40 +90,66 @@ export function prepareOrdinaryPayout(
   };
 }
 
+export type DisputePayoutInput = {
+  agreementApproved: boolean;
+  depositVerified: boolean;
+  depositedAmount: bigint;
+  /** Must come from the immutable, finally approved agreement snapshot. */
+  originalGrossAgreedAmount: bigint;
+  dispute: DisputeCase;
+  recipients: PayoutRecipientSet;
+};
+
 /**
- * Dispute payout requires an issued platform decision and explicit agreement-consistent allocation.
- * Platform fee is never inferred or recalculated here; it must be stated in the decision.
+ * Dispute payout recomputes the full 7.5% fee from the immutable gross agreement amount.
+ * The decision stores buyerGrossRefund before commission; the buyer receives the net remainder.
  */
 export function prepareDisputePayout(
-  agreementApproved: boolean,
-  depositVerified: boolean,
-  depositedAmount: bigint,
-  dispute: DisputeCase,
-  recipients: PayoutRecipientSet,
+  input: DisputePayoutInput,
 ): { ready: true; plan: PayoutPlan } | { ready: false; blockers: string[] } {
   const blockers: string[] = [];
-  if (!agreementApproved) blockers.push("agreement_not_approved");
-  if (!depositVerified) blockers.push("deposit_not_verified");
-  if (depositedAmount <= 0n) blockers.push("invalid_deposit_amount");
-  if (dispute.status !== "decided" || !dispute.decision ||
-      !dispute.decision.reason.trim() || !Number.isFinite(dispute.decision.decidedAt)) {
+  if (!input.agreementApproved) blockers.push("agreement_not_approved");
+  if (!input.depositVerified) blockers.push("deposit_not_verified");
+  if (input.depositedAmount <= 0n) blockers.push("invalid_deposit_amount");
+  if (input.originalGrossAgreedAmount <= 0n) blockers.push("invalid_original_agreed_amount");
+  if (input.depositedAmount !== input.originalGrossAgreedAmount) blockers.push("deposit_amount_differs_from_agreement");
+  if (input.dispute.status !== "decided" || !input.dispute.decision ||
+      !input.dispute.decision.reason.trim() || !Number.isFinite(input.dispute.decision.decidedAt)) {
     blockers.push("dispute_decision_not_finalized");
   }
   if (blockers.length) return { ready: false, blockers };
 
-  const allocation = dispute.decision!.allocation;
-  if (!validateDisputeAllocation(depositedAmount, allocation)) {
+  const decision = input.dispute.decision!;
+  if (decision.originalGrossAgreedAmount !== input.originalGrossAgreedAmount) {
+    return { ready: false, blockers: ["decision_gross_amount_mismatch"] };
+  }
+  const allocation = decision.allocation;
+  if (allocation.platformFee !== calculateOrdinaryPayout(input.originalGrossAgreedAmount).platformFee) {
+    return { ready: false, blockers: ["dispute_platform_fee_mismatch"] };
+  }
+  if (allocation.buyerGrossRefund < allocation.platformFee) {
+    return { ready: false, blockers: ["buyer_refund_below_full_commission"] };
+  }
+  if (!validateDisputeAllocation(
+    input.depositedAmount, allocation, input.originalGrossAgreedAmount,
+  )) {
     return { ready: false, blockers: ["dispute_allocation_does_not_match_deposit"] };
   }
-  const recipientBlockers = validateRecipients(recipients, allocation);
+
+  const netAllocation = {
+    buyerRefund: allocation.buyerGrossRefund - allocation.platformFee,
+    sellerPayout: allocation.sellerPayout,
+    platformFee: allocation.platformFee,
+  };
+  const recipientBlockers = validateRecipients(input.recipients, netAllocation);
   if (recipientBlockers.length) return { ready: false, blockers: recipientBlockers };
 
   return {
     ready: true,
     plan: {
-      status: "ready_for_safe_review", mode: "dispute_decision", total: depositedAmount,
-      ...allocation, recipients,
-      note: "Uses the explicit dispute decision allocation; no automatic commission rule is applied. Requires separate Safe review and authorized signatures.",
+      status: "ready_for_safe_review", mode: "dispute_decision", total: input.depositedAmount,
+      ...netAllocation, recipients: input.recipients,
+      note: "Full 7.5% fee is deducted from the buyer gross refund bucket; only the net buyer refund is transferred. Requires separate Safe review and authorized signatures.",
     },
   };
 }
