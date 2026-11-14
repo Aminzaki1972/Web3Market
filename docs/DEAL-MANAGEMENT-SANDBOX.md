@@ -175,3 +175,15 @@ GitHub Actions workflow `.github/workflows/deal-management-sandbox-tests.yml` ex
 - This is unit/domain-logic CI only. It does not test a deployed Safe Guard/Module Guard, live RPC, real USDT transfer, database authorization, concurrency, BNB fork behavior, or production runtime.
 
 Cloudflare Pages reported a successful **branch preview** build for the same commit. This is a preview deployment, not a production deployment; no production release or production configuration change was requested or performed.
+
+## User-approved commission treatment for refunds — 2026-11-14
+
+The user has now resolved the refund-fee question:
+- The buyer bears the **entire platform commission**, not the seller.
+- The commission remains calculated on the original gross final agreed deal amount at the agreed rate (currently 7.5%), regardless of the outcome.
+- When funds are refunded to the buyer, the full commission is deducted from the amount otherwise refundable to the buyer; it is not prorated to the seller's payout or the amount retained by the seller.
+- Example: gross deal amount 10,000 USDT; commission 7.5% = 750 USDT. If the administrative decision is a full refund, the buyer receives 9,250 USDT and the 750 USDT commission is allocated to Web3Market.
+- In partial-refund or split outcomes, the same full gross-based commission is borne by the buyer and deducted from the buyer's gross refund allocation before the buyer's net refund is transferred. The administrative decision must show gross buyer refund allocation, full commission, net buyer refund, seller allocation and exact sum.
+- No allocation may be executed unless all amounts reconcile exactly to the verified Safe balance and the agreement. If the buyer's gross refund allocation is smaller than the full commission, the current rule does not by itself specify how the shortfall is funded. Do not silently charge the seller, create a new buyer debt, or exceed the buyer's refund. Flag this edge case for explicit agreement wording/administrative handling before funding or execution.
+
+This commission rule is an approved product decision. It remains a specification, not a live financial implementation.
