@@ -80,3 +80,12 @@ The dispute helper validates timestamp relationships, but claimant evidence subm
 - A mocked or injected read-only client is not a live BNB Chain integration.
 - Authored tests are not passing tests until executed in a supported environment.
 - This review does not authorize production deployment, migrations, wallet connection, live-fund testing, or changes to Safe configuration.
+
+
+## 2026-11-14 hardening — dispute execution self-certification removed
+
+The pure dispute lifecycle previously accepted a caller-provided `receiptConfirmed: boolean` and a transaction-hash-shaped string, then marked the dispute executed. That was not a trustworthy chain verification boundary: any caller able to invoke the helper could assert the boolean.
+
+The helper has been removed. The pure lifecycle can now advance only to `execution_pending`; it cannot self-certify an on-chain execution. A future server-side verifier must independently query a trusted BNB Smart Chain RPC, bind the canonical receipt to the exact Safe address, Safe transaction/batch hash, dispute decision hash, token, recipients and amounts, verify every expected Transfer log and finality policy, and only then write an immutable execution-confirmed event. Browser-supplied receipt data or booleans are not acceptable.
+
+This is a fail-closed sandbox hardening change, not a replacement live verifier. No server verifier, RPC integration or Safe execution was added.
