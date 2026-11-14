@@ -13,8 +13,8 @@ const ordinary = {
   requiredAssetsVerified: true, buyerFinalAcceptance: true, openDispute: false,
   disputeEverOpened: false,
 };
-const gross = parseUsdtAmount("7000");
-const fee = parseUsdtAmount("525");
+const gross = parseUsdtAmount("10000");
+const fee = parseUsdtAmount("750");
 
 function resolvedDispute(id: string, allocation: {
   buyerGrossRefund: bigint; sellerPayout: bigint; platformFee: bigint;
@@ -93,7 +93,7 @@ Deno.test("full refund returns gross deposit less full buyer-paid commission", (
   const result = prepareDisputePayout(disputeInput(dispute));
   assertEquals(result.ready, true);
   if (result.ready) {
-    assertEquals(result.plan.buyerRefund, parseUsdtAmount("6475"));
+    assertEquals(result.plan.buyerRefund, parseUsdtAmount("9250"));
     assertEquals(result.plan.sellerPayout, 0n);
     assertEquals(result.plan.platformFee, fee);
   }
@@ -101,13 +101,13 @@ Deno.test("full refund returns gross deposit less full buyer-paid commission", (
 
 Deno.test("seller-only dispute outcome still allocates fee from buyer's gross bucket", () => {
   const dispute = resolvedDispute("seller-only", {
-    buyerGrossRefund: fee, sellerPayout: parseUsdtAmount("6475"), platformFee: fee,
+    buyerGrossRefund: fee, sellerPayout: parseUsdtAmount("9250"), platformFee: fee,
   });
   const result = prepareDisputePayout(disputeInput(dispute));
   assertEquals(result.ready, true);
   if (result.ready) {
     assertEquals(result.plan.buyerRefund, 0n);
-    assertEquals(result.plan.sellerPayout, parseUsdtAmount("6475"));
+    assertEquals(result.plan.sellerPayout, parseUsdtAmount("9250"));
     assertEquals(result.plan.platformFee, fee);
   }
 });
@@ -133,7 +133,7 @@ Deno.test("payout blocks wrong fee, wrong agreement amount and mismatched deposi
   if (!grossResult.ready) assertEquals(grossResult.blockers.includes("deposit_amount_differs_from_agreement"), true);
 
   const depositResult = prepareDisputePayout({
-    ...disputeInput(valid), depositedAmount: parseUsdtAmount("6999"),
+    ...disputeInput(valid), depositedAmount: parseUsdtAmount("9999"),
   });
   assertEquals(depositResult.ready, false);
   if (!depositResult.ready) assertEquals(depositResult.blockers.includes("deposit_amount_differs_from_agreement"), true);
