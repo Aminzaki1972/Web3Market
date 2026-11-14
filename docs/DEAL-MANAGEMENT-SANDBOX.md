@@ -289,3 +289,8 @@ Files:
 - Added tests for buyer/seller conversation, optional admin participation, role spoofing, duplicate IDs, mixed deals, backdated messages, invalid content/attachments and append-only corrections.
 
 **Critical implementation boundary:** this is an in-memory pure model. It does not authenticate the supplied author ID, generate trusted timestamps, persist messages, make storage tamper-proof, store attachment bytes, enforce retention/privacy, or deliver notifications. A production backend must derive sender identity and role from the authenticated session, authorize deal membership/admin scope, assign server timestamps, append atomically to durable append-only/auditable storage, and protect attachment access. No live chat or database integration is present.
+
+
+### Runtime immutability hardening for the chat model — 2026-11-15
+
+The append operation now returns a frozen archive array, frozen message objects and frozen attachment-reference arrays. This prevents accidental in-process edits to the returned model value, and a regression test checks that mutation attempts fail. This is still not tamper-proof persistence: a caller can construct a different archive value, and only a trusted backend with durable append-only storage, authorization and audit controls can protect the actual deal record.
