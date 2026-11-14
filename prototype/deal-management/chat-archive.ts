@@ -14,7 +14,7 @@ export type DealChatParticipants = {
   adminIds: readonly string[];
 };
 
-export type DealChatMessage = {
+export type DealChatMessage = Readonly<{
   id: string;
   dealId: string;
   authorId: string;
@@ -24,7 +24,7 @@ export type DealChatMessage = {
   attachmentRefs: readonly string[];
   /** A correction is a new message referencing an earlier message, never an edit. */
   correctionOf?: string;
-};
+}>;
 
 function nonBlank(value: string): boolean {
   return typeof value === "string" && value.trim().length > 0;
@@ -45,7 +45,7 @@ export function appendDealChatMessage(
   archive: readonly DealChatMessage[],
   participants: DealChatParticipants,
   message: DealChatMessage,
-): DealChatMessage[] {
+): readonly DealChatMessage[] {
   if (!nonBlank(message.id) || !nonBlank(message.dealId) ||
       !nonBlank(message.authorId) || !["buyer", "seller", "admin"].includes(message.role) ||
       !authorizedRole(message.authorId, message.role, participants)) {
@@ -71,5 +71,11 @@ export function appendDealChatMessage(
       !archive.some(item => item.id === message.correctionOf && item.dealId === message.dealId)) {
     throw new Error("A correction must reference an existing message in the same deal");
   }
-  return [...archive, { ...message, attachmentRefs: [...message.attachmentRefs] }];
+  const frozenEntries = archive.map(item => Object.freeze({
+    ...item, attachmentRefs: Object.freeze([...item.attachmentRefs]),
+  }));
+  const appended = Object.freeze({
+    ...message, attachmentRefs: Object.freeze([...message.attachmentRefs]),
+  });
+  return Object.freeze([...frozenEntries, appended]);
 }
