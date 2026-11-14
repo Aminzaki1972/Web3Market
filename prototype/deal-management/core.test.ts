@@ -81,8 +81,15 @@ Deno.test("an open dispute blocks payout until the dispute is resolved", () => {
     ...base, disputeOpen: false, disputeDecisionFinalized: false, buyerAccepted: false,
   }), false);
   assertEquals(canAdvance("dispute_open", "payout_ready", {
-    ...base, disputeOpen: false, disputeDecisionFinalized: true, buyerAccepted: false,
+    ...base, disputeOpen: false, disputeEverOpened: true, disputeDecisionFinalized: true, buyerAccepted: false,
   }), true);
+  assertEquals(canAdvance("dispute_open", "payout_ready", {
+    ...base, disputeOpen: false, disputeEverOpened: false, disputeDecisionFinalized: true, buyerAccepted: false,
+  }), false);
+  assertEquals(canAdvance("dispute_open", "payout_ready", {
+    ...base, disputeOpen: false, disputeEverOpened: undefined as unknown as boolean,
+    disputeDecisionFinalized: true, buyerAccepted: false,
+  }), false);
 
   // A dispute history cannot be bypassed by clearing the current-open flag.
   assertEquals(canAdvance("buyer_review", "payout_ready", {
@@ -93,6 +100,10 @@ Deno.test("an open dispute blocks payout until the dispute is resolved", () => {
     ...base, disputeOpen: false, disputeEverOpened: true, buyerAccepted: true,
     disputeDecisionFinalized: true,
   }), false); // Must use the dispute_open decision path, not ordinary payout.
+  assertEquals(canAdvance("buyer_review", "payout_ready", {
+    ...base, disputeOpen: false, disputeEverOpened: undefined as unknown as boolean,
+    buyerAccepted: true,
+  }), false); // Missing dispute history fails closed.
 
   // Ordinary buyer acceptance cannot bypass an unresolved dispute.
   assertEquals(canAdvance("buyer_review", "payout_ready", {
