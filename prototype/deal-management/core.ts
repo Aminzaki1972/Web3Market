@@ -123,16 +123,17 @@ export function canAdvance(stage: DealStage, next: DealStage, flags: DealTransit
   if (next === "buyer_review" && (!flags.assetsTransferred || !flags.aiVerificationComplete)) return false;
   if (next === "payout_ready") {
     if (flags.disputeOpen) return false;
-    if (flags.disputeEverOpened) {
-      // A disputed deal can only enter payout-ready from the dispute decision path.
-      if (stage !== "dispute_open" || !flags.disputeDecisionFinalized) return false;
+    if (flags.disputeEverOpened !== false) {
+      // Fail closed if dispute history is missing. A disputed deal can only
+      // enter payout-ready from the dispute decision path.
+      if (flags.disputeEverOpened !== true || stage !== "dispute_open" || !flags.disputeDecisionFinalized) return false;
     } else if (!flags.buyerAccepted) {
       return false;
     }
   }
   if (next === "completed" && (
     !flags.safeExecutionConfirmed || flags.disputeOpen ||
-    (flags.disputeEverOpened && !flags.disputeDecisionFinalized)
+    (flags.disputeEverOpened !== false && (flags.disputeEverOpened !== true || !flags.disputeDecisionFinalized))
   )) return false;
   return true;
 }
