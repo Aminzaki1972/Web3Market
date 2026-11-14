@@ -70,12 +70,24 @@ Deno.test("asset transfer and AI verification gates protect buyer review", () =>
   assertEquals(canAdvance("ai_verification", "buyer_review", base), true);
 });
 
-Deno.test("open dispute blocks payout; dispute payout requires a finalized decision", () => {
+Deno.test("an open dispute blocks payout until the dispute is resolved", () => {
   assertEquals(canAdvance("buyer_review", "payout_ready", { ...base, disputeOpen: true }), false);
+  assertEquals(canAdvance("payout_ready", "completed", { ...base, disputeOpen: true, safeExecutionConfirmed: true }), false);
   assertEquals(canAdvance("buyer_review", "dispute_open", { ...base, disputeOpen: true }), true);
-  assertEquals(canAdvance("dispute_open", "payout_ready", { ...base, disputeOpen: true, disputeDecisionFinalized: true }), false);
-  assertEquals(canAdvance("dispute_open", "payout_ready", { ...base, buyerAccepted: false }), false);
-  assertEquals(canAdvance("dispute_open", "payout_ready", { ...base, buyerAccepted: false, disputeDecisionFinalized: true }), true);
+
+  // A final decision ends the dispute phase; only then can the explicit
+  // dispute-allocation settlement path become payout-ready.
+  assertEquals(canAdvance("dispute_open", "payout_ready", {
+    ...base, disputeOpen: false, disputeDecisionFinalized: false, buyerAccepted: false,
+  }), false);
+  assertEquals(canAdvance("dispute_open", "payout_ready", {
+    ...base, disputeOpen: false, disputeDecisionFinalized: true, buyerAccepted: false,
+  }), true);
+
+  // Ordinary buyer acceptance cannot bypass an unresolved dispute.
+  assertEquals(canAdvance("buyer_review", "payout_ready", {
+    ...base, disputeOpen: true, buyerAccepted: true,
+  }), false);
 });
 
 Deno.test("completion requires confirmed Safe execution", () => {
