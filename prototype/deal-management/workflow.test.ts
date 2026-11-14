@@ -67,6 +67,7 @@ Deno.test("sandbox happy path: offer -> agreement -> deposit evidence -> transfe
   const payout = prepareOrdinaryPayout({
     agreementApproved: true, depositVerified: true, depositedAmount: parseUsdtAmount("6800"),
     requiredAssetsVerified: true, buyerFinalAcceptance: true, openDispute: false,
+    disputeEverOpened: false,
   }, {
     buyer: "0x3333333333333333333333333333333333333333",
     seller: "0x4444444444444444444444444444444444444444",
