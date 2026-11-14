@@ -105,6 +105,8 @@ export type DisputePayoutInput = {
   /** Must come from the immutable, finally approved agreement snapshot. */
   originalGrossAgreedAmount: bigint;
   dispute: DisputeCase;
+  /** Must be approved and have a trusted, canonical lock confirmation before a dispute payout plan is prepared. */
+  disputeRequest: DisputeRequest;
   recipients: PayoutRecipientSet;
 };
 
