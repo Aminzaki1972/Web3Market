@@ -136,3 +136,18 @@ Never display “frozen”, “secured”, “refunded”, “paid”, or “com
 ## Decision status
 
 No option has been selected by the user. No Guard or Module code should be written until the user approves a threat model, the party authorization model, signer/threshold model, lock-race treatment, fee policy for refunds, and recovery process.
+
+## User-approved administration authority — 2026-11-14
+
+The user selected administration-led dispute governance:
+- Either buyer or seller may submit a dispute request.
+- Web3Market administration reviews it and decides whether to formally open the dispute.
+- A submitted request is not automatically an approved dispute. During review, the deal is held off-chain against new payout proposals/instructions; the UI must not claim a confirmed Safe lock.
+- If administration approves opening, initiate the on-chain lock. Only verified canonical chain state may be labelled "lock confirmed".
+- Administration has final authority over every financial decision: seller payout, full/partial refund, split allocation, platform commission and other financial distributions.
+- Decisions must be reasoned, recorded and bound to the exact deal/agreement/allocation. AI is advisory only.
+
+### Abuse, accountability and audit controls
+Require a recorded request, claimant, timestamp, reason and evidence references; notice to the other party and response opportunity under the agreement; a reasoned administrative decision to open or decline; conflict-of-interest/recusal handling; an auditable record of deciding administrator(s); a separate final financial decision after both parties' evidence/response period; and append-only decision history. No automatic AI acceptance/rejection, hidden manual override or unlogged administrator action.
+
+The authority model is approved. Exact administrator role model (single authorized administrator versus multi-person approval), recusal policy, response deadlines and emergency availability remain to be specified. A party-signed lock option is not selected; on-chain lock is initiated only after the administrative opening decision.
