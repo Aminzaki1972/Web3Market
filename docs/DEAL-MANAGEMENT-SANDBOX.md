@@ -41,7 +41,7 @@ The page is `/deal-management-preview.html` when served from this branch.
 - Confirm the exact official USDT BEP-20 token contract and how it is pinned/configured.
 - Select and security-review the Safe Guard/Module design that actually blocks unauthorized transfers during an open dispute.
 - Finalize Safe owners, threshold, signer availability and emergency behavior for the new deal model.
-- Define commission treatment for full buyer refunds and partial dispute allocations.
+- Commission treatment is defined: buyer bears the full 7.5% of the original gross agreed amount; dispute refunds deduct it from the buyer gross refund bucket, with shortfalls rejected.
 - Set response deadlines, inspection window defaults, cancellation rules and non-response consequences.
 - Obtain legal review of the binding agreement and internal dispute mechanism.
 - Decide testnet environment, test Safe addresses and test token setup.
@@ -118,7 +118,7 @@ The page is `/deal-management-preview.html` when served from this branch.
 
 - `prototype/deal-management/payout-readiness.ts` separates ordinary payout readiness from dispute-decision payout readiness. It returns explicit blockers or a reviewable allocation marked `ready_for_safe_review`; it does not build, sign or submit Safe transactions.
 - Ordinary payout requires approved agreement, independently verified deposit amount, all required assets verified, final buyer acceptance and no open dispute. The ordinary split is 92.5% seller / 7.5% platform.
-- Dispute payout requires approved agreement, verified deposit, a reasoned finalized decision and exact reconciliation of buyer refund + seller payout + platform fee to the deposited amount. The decision's explicit platform fee is used; it is not recalculated by the ordinary fee rule.
+- Dispute payout requires approved agreement, verified deposit, a reasoned finalized decision, and an exact 7.5% fee recomputed from the original gross agreed amount. The decision records buyer gross refund bucket + seller payout = deposit; the net buyer refund is gross buyer bucket minus full fee.
 - Active recipient addresses must be valid EVM addresses and cannot duplicate one another. Zero-value allocations do not require an active recipient address.
 - `prototype/deal-management/payout-readiness.test.ts` covers ordinary gates and split, blockers, invalid/duplicate recipients, partial dispute allocation, full buyer refund, mismatched allocations and missing agreement/deposit.
 - The preview includes a Settlement tab that explains both readiness paths and explicitly distinguishes readiness for Safe review from actual Safe authorization/execution.
@@ -187,3 +187,12 @@ The user has now resolved the refund-fee question:
 - No allocation may be executed unless all amounts reconcile exactly to the verified Safe balance and the agreement. If the buyer's gross refund allocation is smaller than the full commission, the current rule does not by itself specify how the shortfall is funded. Do not silently charge the seller, create a new buyer debt, or exceed the buyer's refund. Flag this edge case for explicit agreement wording/administrative handling before funding or execution.
 
 This commission rule is an approved product decision. It remains a specification, not a live financial implementation.
+
+
+## Code-level dispute commission enforcement — isolated sandbox update
+
+- The dispute decision now records `buyerGrossRefund` (before commission), `sellerPayout`, `platformFee`, and the original gross agreed amount.
+- The decision validator recomputes 7.5% from the original gross amount, requires the deposit to equal that gross amount, requires the buyer gross refund bucket to cover the full fee, and requires the buyer bucket plus seller payout to equal the deposit.
+- The payout readiness function independently checks the decision's gross amount, deposit amount and fee, then derives the net buyer refund by subtracting the full fee. It does not accept a caller-selected reduced fee.
+- Tests were updated for full refund (10,000 gross -> 9,250 buyer / 750 platform), mixed outcome (4,000 gross buyer bucket -> 3,250 buyer net / 6,000 seller / 750 platform), seller-only outcome (0 buyer net / 9,250 seller / 750 platform), fee mismatch, gross/deposit mismatch and fee-shortfall rejection.
+- These are pure domain rules and authored CI tests only. The original agreement amount and decision must be supplied by a trusted authenticated backend in a live implementation; there is no Safe transaction, chain verification, or real fund movement here.
