@@ -16,3 +16,26 @@ Deno.test("preview buyer review is generated from every selected deal asset", ()
   assertStringIncludes(preview, "buyerRejectedAssets[asset.id]=true");
   assertStringIncludes(preview, "assets.some(x=>buyerRejectedAssets[x.id]===true)");
 });
+
+Deno.test("dispute preview requires claimant evidence and models respondent response deadline", () => {
+  assertStringIncludes(preview, 'id="disputeInitialEvidence"');
+  assertStringIncludes(preview, 'id="disputeRespondentEvidence"');
+  assertStringIncludes(preview, 'id="submitRespondentEvidence"');
+  assertStringIncludes(preview, 'id="markResponseExpired"');
+  assertStringIncludes(preview, "disputeLifecycle.responseDeadline");
+  assertStringIncludes(preview, "disputeLifecycle.status='response_received'");
+  assertStringIncludes(preview, "disputeLifecycle.status='response_expired'");
+  assertStringIncludes(preview, "Safe lock is NOT verified or claimed.");
+});
+
+Deno.test("dispute decision preview enforces reason, six-decimal fee and balanced allocation", () => {
+  assertStringIncludes(preview, 'id="disputeDecisionReason"');
+  assertStringIncludes(preview, 'id="buyerGrossRefund"');
+  assertStringIncludes(preview, 'id="sellerPayout"');
+  assertStringIncludes(preview, "function parseUsdtUnits(value)");
+  assertStringIncludes(preview, "const platformFee=gross*750n/10000n");
+  assertStringIncludes(preview, "buyerGrossRefund<platformFee");
+  assertStringIncludes(preview, "buyerGrossRefund+sellerPayout!==gross");
+  assertStringIncludes(preview, "disputeLifecycle.decision={reason,buyerGrossRefund,sellerPayout,platformFee,decidedAt:Date.now()}");
+  assertStringIncludes(preview, "Safe execution is not connected.");
+});
