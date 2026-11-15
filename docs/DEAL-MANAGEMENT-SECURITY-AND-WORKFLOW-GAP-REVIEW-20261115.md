@@ -171,3 +171,43 @@ Added `prototype/deal-management/deal-authorization.ts` and focused tests. The p
 Verification boundary: this is still a pure policy model. It does not verify Supabase JWTs, load trusted rows, or protect a deployed Edge Function/database by itself. A future Edge Function must obtain the identity from the verified session and load deal/admin membership from trusted database records before invoking equivalent checks. The unresolved owner-controlled appointment and recovery protocol remains a blocker for implementing the live singleton-admin write path.
 
 The GitHub Actions run triggered by the source-module commit completed successfully with 114 passed and 0 failed. Because that run's commit preceded the separate test-file commit, a subsequent run on the latest branch head is required to confirm the new authorization tests themselves.
+
+
+## Production read-only schema/security recheck (2026-11-15)
+
+The active Supabase project `web3market` was queried read-only. No DDL, data writes, function deployments, or settings changes were made.
+
+### Confirmed current dispute contract
+
+- `deal_disputes.status` CHECK permits only `open`, `under_review`, `resolved`, and `cancelled`; it has no `pending_admin_review` state.
+- `deal_disputes.deal_id` is UNIQUE, so the current table supports at most one dispute row per deal.
+- Existing participant INSERT RLS policy allows a buyer/seller to insert a `deal_disputes` row when `opened_by = auth.uid()` and the user is a deal participant. Therefore the current path can create an immediately active `open` dispute without a separate manager approval record.
+- Existing SELECT policy allows `is_admin()`, the opener, or either deal participant to read.
+- An existing audit trigger records dispute INSERT/UPDATE/DELETE into `admin_audit_log`, but this is not an append-only evidence/review state machine and does not create a distinct pending-request phase.
+- Current `deals.dispute_status` CHECK includes `none`, `open`, `under_review`, `resolved_buyer`, `resolved_seller`, and `closed`. The current status constraints do not encode the new administrative-review lifecycle.
+
+### Administrator source mismatch
+
+- Read-only counts at inspection time: `admin_users` contains exactly 1 row; `profiles.role='admin'` contains exactly 1 row; those rows match.
+- This is only a snapshot, not a singleton guarantee. `admin_users` has `user_id` as its primary key and does not enforce a global single-row constraint.
+- `public.is_admin()` delegates to `private.support_is_admin()`, which checks `profiles.role='admin'`; it does not use `admin_users` as the authority source.
+- Consequently, the new single-active-admin / owner-only appointment rule is not enforced by the current schema. Do not treat today's row count as proof of the appointment/replacement protocol.
+
+### Existing security controls that must be preserved
+
+- `deals` has financial-field and state-transition protection triggers, plus the fee-lock/fee-sync triggers. A new implementation must be tested against all of them; do not write around them.
+- `deal_party_agreements` permits only buyer/seller roles, has UNIQUE `(deal_id, party_role)`, and includes update protection/audit triggers. It cannot represent version-bound three-party approvals.
+- `deal_assets` has a status CHECK for pending/delivered/accepted/rejected, a unique `(deal_id, asset_name)`, and an update-protection trigger.
+- `deal_multisig_transactions` constrains actions to deposit/release_to_seller/refund_to_buyer, requires exactly 2 signatures, and has an audit trigger. This does not prove dynamic Safe owner/threshold validation.
+- `deal_messages` has participant insert/select policies and an audit trigger for message metadata; it is not yet the required server-timestamped, correction-linked, attachment-backed permanent archive.
+- The existing `is_deal_participant(uuid)` helper is SECURITY DEFINER in the exposed `public` schema. Its exact grants and every call path must be checked before any new endpoint relies on it.
+
+### Security Advisor snapshot
+
+The Supabase Security Advisor returned unrelated/general findings at the time of inspection: 9 RLS-enabled tables without policies (including internal audit tables), 4 public SECURITY DEFINER functions callable by anon, 7 callable by authenticated, and leaked-password protection disabled. These findings are not evidence that the deal tables themselves lack RLS. They should be triaged separately; do not make broad unrelated security changes as part of this Deal Management patch.
+
+### Implementation consequence
+
+Do not insert into `deal_disputes` for a request awaiting manager review. A safe design needs a separate request state/record and append-only request events (or a carefully reviewed additive equivalent), plus server-side identity and authorization. The current production status CHECK and UNIQUE constraint must remain intact until a forward-compatible transition is separately reviewed. The current manager authority source and owner-controlled replacement protocol must be resolved before enabling admin review/decision writes.
+
+Historical original deal-creation migrations are still absent from the repository's tracked migration directory; the current live migration history exposes versions/names, not their original SQL bodies. The PR #74 historical dispute-release guard migration was inspected as a later guard patch only; it is not a substitute for the missing original schema migrations and is not copied into this branch.
