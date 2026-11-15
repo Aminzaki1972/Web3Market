@@ -130,18 +130,46 @@ begin
   -- The parent deal lock serializes dispute inserts and status changes. Avoid
   -- locking child dispute rows here: UPDATE already locks its child row before
   -- the trigger takes the parent lock, so the parent lock alone avoids inversion.
-  -- Keep every non-terminal dispute fail-closed; resolved/closed records remain auditable.
-  -- PREPARE accepts both 'none' and 'closed'. A closed parent status is
-  -- terminal only when every persisted dispute row is also resolved/closed;
-  -- active, null, and unclassified parent/child states remain fail-closed.
+  -- A disputed deal can reach seller settlement only after an immutable,
+  -- administrator-authorized seller_wins decision bound to the latest signed terms.
+  -- Buyer wins remain blocked until the separate Safe-to-buyer refund path is
+  -- chain-confirmed; generic closed/resolved states never authorize seller release.
   if v_deal.dispute_status is null
-     or v_deal.dispute_status not in ('none','closed')
+     or v_deal.dispute_status not in ('none','resolved_seller')
      or exists (
        select 1 from public.deal_disputes d
         where d.deal_id = v_deal.id
-          and lower(coalesce(d.status,'')) not in ('resolved','closed')
+          and lower(coalesce(d.status,'')) <> 'resolved'
+     )
+     or (
+       v_deal.dispute_status = 'none'
+       and exists (select 1 from public.deal_disputes d where d.deal_id = v_deal.id)
+     )
+     or (
+       v_deal.dispute_status = 'resolved_seller'
+       and not exists (
+         select 1
+           from public.w3m_deal_dispute_decisions decision
+           join public.deal_disputes dispute
+             on dispute.id = decision.dispute_id
+            and dispute.deal_id = decision.deal_id
+          where decision.deal_id = v_deal.id
+            and decision.outcome = 'seller_wins'
+            and dispute.status = 'resolved'
+            and dispute.resolution = 'seller_wins'
+            and decision.terms_version_id = (
+              select tv.id from public.w3m_deal_terms_versions tv
+               where tv.deal_id = v_deal.id
+               order by tv.terms_version desc limit 1
+            )
+            and decision.terms_hash = (
+              select tv.terms_hash from public.w3m_deal_terms_versions tv
+               where tv.deal_id = v_deal.id
+               order by tv.terms_version desc limit 1
+            )
+       )
      ) then
-    raise exception 'An open, unresolved, or unclassified dispute blocks Safe settlement'
+    raise exception 'Safe seller release requires no dispute or an immutable seller-wins decision; buyer-wins refunds use the separate Safe refund path'
       using errcode = '23514';
   end if;
 
