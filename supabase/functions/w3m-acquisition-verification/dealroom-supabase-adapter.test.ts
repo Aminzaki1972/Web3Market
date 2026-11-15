@@ -107,7 +107,6 @@ Deno.test("strict Deal Room adapter permits only verified seller-wins disputes",
     policy, codeAudit, stage: "PREPARE",
     now: "2026-11-06T20:00:00.000Z",
     safeConfigurationMatches: true, sellerWinDecisionVerified: false,
-    sellerWinDecisionVerified: false,
   }));
 });
 
