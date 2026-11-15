@@ -162,3 +162,12 @@ This is a tested deterministic serialization primitive only. It is not yet calle
 ## Latest sandbox verification (2026-11-15)
 
 The latest relevant workflow run after adding the canonical agreement snapshot tests and the Deal Room syntax check completed successfully: run `43667434900`, with **114 passed, 0 failed** in the Deno sandbox suite and the `node --check js/deal-room.js` step successful. This run tested commit `44d0a699c359451359413cbef7d638b53ccc6615`; the current branch head contains only a subsequent documentation/PR-description update.
+
+
+## Fail-closed Deal Room authorization policy model (2026-11-15)
+
+Added `prototype/deal-management/deal-authorization.ts` and focused tests. The policy derives buyer/seller/admin role from an authenticated user ID plus a trusted deal roster, rejects unknown users, restricts administrative review/decision/hold-release actions to the sole active administrator, prevents admin impersonation of a buyer/seller participant, and fails closed if the trusted roster contains multiple active admins.
+
+Verification boundary: this is still a pure policy model. It does not verify Supabase JWTs, load trusted rows, or protect a deployed Edge Function/database by itself. A future Edge Function must obtain the identity from the verified session and load deal/admin membership from trusted database records before invoking equivalent checks. The unresolved owner-controlled appointment and recovery protocol remains a blocker for implementing the live singleton-admin write path.
+
+The GitHub Actions run triggered by the source-module commit completed successfully with 114 passed and 0 failed. Because that run's commit preceded the separate test-file commit, a subsequent run on the latest branch head is required to confirm the new authorization tests themselves.
