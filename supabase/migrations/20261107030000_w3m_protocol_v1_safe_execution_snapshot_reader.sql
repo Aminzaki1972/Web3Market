@@ -23,6 +23,7 @@ declare
   v_signers jsonb;
   v_agreements jsonb;
   v_dispute jsonb;
+  v_dispute_decision jsonb;
 begin
   if p_deal_id is null then
     raise exception 'Deal ID is required' using errcode = '22023';
@@ -134,6 +135,21 @@ begin
   from public.deal_disputes d
   where d.deal_id = p_deal_id;
 
+  select jsonb_build_object(
+    'id', decision.id::text,
+    'deal_id', decision.deal_id::text,
+    'dispute_id', decision.dispute_id::text,
+    'outcome', decision.outcome,
+    'decision_hash', decision.decision_hash,
+    'terms_version_id', decision.terms_version_id::text,
+    'terms_version', decision.terms_version::text,
+    'terms_hash', decision.terms_hash,
+    'decided_by', decision.decided_by::text,
+    'decided_at', decision.decided_at::text
+  ) into v_dispute_decision
+  from public.w3m_deal_dispute_decisions decision
+  where decision.deal_id = p_deal_id;
+
   return jsonb_build_object(
     'deal', jsonb_build_object(
       'id', v_deal.id::text,
@@ -189,6 +205,7 @@ begin
     'signers', v_signers,
     'party_agreements', v_agreements,
     'dispute', v_dispute,
+    'dispute_decision', v_dispute_decision,
     'agreement_binding_supported', false
   );
 end;
