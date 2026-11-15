@@ -177,7 +177,8 @@ begin
     if v_deal.status = 'disputed'
        and v_dispute.status = 'resolved'
        and v_dispute.resolution = v_existing.outcome
-       and v_deal.dispute_status = case when v_existing.outcome='buyer_wins' then 'resolved_buyer' else 'resolved_seller' end
+       and ((v_existing.outcome='buyer_wins' and v_deal.dispute_status='resolved_buyer')
+         or (v_existing.outcome='seller_wins' and v_deal.dispute_status='resolved_seller'))
        and v_existing.outcome = p_outcome
        and v_existing.reason = v_reason
        and v_existing_refs = v_requested_refs then
