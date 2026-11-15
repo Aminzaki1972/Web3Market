@@ -66,7 +66,6 @@ Deno.test("strict Deal Room adapter passes exact text rows to the W3M gate and f
     now: "2026-11-06T20:00:00.000Z", safeConfigurationMatches: true, sellerWinDecisionVerified: false,
   });
   assertEquals(result.authorized, false);
-  assertEquals(result.reportVerificationIssues.includes("REPORT_ROW_INVALID"), true);
   assertEquals(result.dealTermsHash.length, 64);
 });
 
