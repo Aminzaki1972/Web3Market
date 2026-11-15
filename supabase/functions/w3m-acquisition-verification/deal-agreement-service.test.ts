@@ -146,7 +146,7 @@ Deno.test("prepare derives the buyer role and returns the exact server-built EIP
   assertEquals(prepared.typedData.domain.chainId,56);
   assertEquals(prepared.typedData.message.partyRole,1);
   assertEquals(prepared.agreementDocument.version,"1.0");
-  assertEquals(prepared.agreementDocument.sha256,"74fc948b9b7757718b617af080acd51c0a21de81aa3a5b7f410a19aa07a7a465");
+  assertEquals(prepared.agreementDocument.sha256,"721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531");
   assertEquals(prepared.agreementDocument.text.length > 1000,true);
   assertEquals(prepared.canonicalTerms.dealId,dealId);
   assertEquals(prepared.canonicalTerms.projectId,projectId);
@@ -181,7 +181,7 @@ Deno.test("accept verifies the current verified wallet and persists only the rec
   const prepared = await prepareDealAgreementAcceptance(mockClient(), {dealId,actorId:buyerId});
   const digest = computeDealTermsAcceptanceDigest({
     dealId,projectId,buyerId,sellerId,safeAddress,
-    agreementDocumentVersion: "1.0", agreementDocumentHash: "74fc948b9b7757718b617af080acd51c0a21de81aa3a5b7f410a19aa07a7a465",
+    agreementDocumentVersion: "1.0", agreementDocumentHash: "721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531",
     termsHash:prepared.termsHash,termsVersion:prepared.termsVersion,partyRole:"buyer",
   });
   const signature = buyerSigner.sign(digest.slice(2));
@@ -225,7 +225,7 @@ Deno.test("public agreement acceptance revalidates and persists the audit snapsh
   );
   const digest = computeDealTermsAcceptanceDigest({
     dealId,projectId,buyerId,sellerId,safeAddress,
-    agreementDocumentVersion: "1.0", agreementDocumentHash: "74fc948b9b7757718b617af080acd51c0a21de81aa3a5b7f410a19aa07a7a465",
+    agreementDocumentVersion: "1.0", agreementDocumentHash: "721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531",
     termsHash:preparation.termsHash,termsVersion:preparation.termsVersion,partyRole:"buyer",
   });
   const signature = buyerSigner.sign(digest.slice(2));
@@ -248,7 +248,7 @@ Deno.test("a buyer signature prepared for old terms is rejected if the deal snap
   const prepared = await prepareDealAgreementAcceptance(mockClient(), { dealId, actorId: buyerId });
   const oldDigest = computeDealTermsAcceptanceDigest({
     dealId, projectId, buyerId, sellerId, safeAddress,
-    agreementDocumentVersion: "1.0", agreementDocumentHash: "74fc948b9b7757718b617af080acd51c0a21de81aa3a5b7f410a19aa07a7a465",
+    agreementDocumentVersion: "1.0", agreementDocumentHash: "721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531",
     termsHash: prepared.termsHash, termsVersion: prepared.termsVersion, partyRole: "buyer",
   });
   const oldSignature = buyerSigner.sign(oldDigest.slice(2));
