@@ -4,6 +4,7 @@ declare
   v_rls boolean;
   v_trigger boolean;
   v_finalizer text;
+  v_finalizer_compact text;
   v_decision_function text;
 begin
   select c.relrowsecurity into v_rls
@@ -48,11 +49,12 @@ begin
   select pg_get_functiondef(
     'public.w3m_finalize_safe_execution_attempt(uuid,text,uuid,jsonb)'::regprocedure
   ) into v_finalizer;
-  if position('W3M_DEAL_DISPUTE_DECISIONS' in upper(v_finalizer))=0
-     or position('RESOLVED_SELLER' in upper(v_finalizer))=0
-     or position('SELLER_WINS' in upper(v_finalizer))=0
-     or position('RESOLVED_BUYER' in upper(v_finalizer))>0
-     or position('DISPUTE_STATUS NOT IN (''NONE'',''RESOLVED_SELLER'')' in upper(v_finalizer))=0 then
+  v_finalizer_compact := regexp_replace(upper(v_finalizer), '\\s+', '', 'g');
+  if position('W3M_DEAL_DISPUTE_DECISIONS' in v_finalizer_compact)=0
+     or position('RESOLVED_SELLER' in v_finalizer_compact)=0
+     or position('SELLER_WINS' in v_finalizer_compact)=0
+     or position('RESOLVED_BUYER' in v_finalizer_compact)>0
+     or position('DISPUTE_STATUSNOTIN(''NONE'',''RESOLVED_SELLER'')' in v_finalizer_compact)=0 then
     raise exception 'Safe seller finalization must require a recorded seller-wins decision and block buyer-wins';
   end if;
 
