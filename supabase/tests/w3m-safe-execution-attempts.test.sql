@@ -712,22 +712,6 @@ begin
     raise exception 'Superseded-report rejection was not isolated and rolled back';
   end if;
 
-  -- A dispute opened after the report and wallet claim must still block
-  -- settlement. Resolving it is an explicit status change, not deletion.
-  insert into public.deal_disputes (id,deal_id,opened_by,reason,status)
-  values (v_dispute_id,v_deal,v_buyer,'test unresolved dispute','open');
-  begin
-    perform public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
-    raise exception 'An open dispute was unexpectedly allowed to finalize';
-  exception when check_violation then null;
-  end;
-  update public.deal_disputes set status='resolved'
-   where deal_id=v_deal and status='open';
-
-  -- The no-dispute fixture must not retain a historical dispute row. A real
-  -- resolved dispute is reintroduced below with its immutable seller-wins decision.
-  delete from public.deal_disputes where id=v_dispute_id and deal_id=v_deal;
-
   -- A NULL parent dispute status is unclassified and must remain fail-closed.
   update public.deals set dispute_status=null where id=v_deal;
   v_rejected := false;
@@ -789,14 +773,21 @@ begin
     raise exception 'Injected finalizer audit failure left partial settlement state';
   end if;
 
-  -- A generic terminal 'closed' status is not a seller-wins decision and
-  -- must not authorize release. Recreate the resolved dispute for this branch;
-  -- only its immutable seller-wins decision below may authorize finalization.
+  -- A dispute opened after the report and wallet claim must still block
+  -- settlement. Resolving it is an explicit status change, not deletion.
   insert into public.deal_disputes (id,deal_id,opened_by,reason,status)
-  values (v_dispute_id,v_deal,v_buyer,'seller fulfilled the agreed transfer obligations','open');
-  update public.deal_disputes
-     set status='resolved'
-   where id=v_dispute_id and deal_id=v_deal;
+  values (v_dispute_id,v_deal,v_buyer,'test unresolved dispute','open');
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
+    raise exception 'An open dispute was unexpectedly allowed to finalize';
+  exception when check_violation then null;
+  end;
+  update public.deal_disputes set status='resolved'
+   where deal_id=v_deal and status='open';
+
+  -- A generic terminal 'closed' status is not a seller-wins decision and
+  -- must not authorize release. Reuse the resolved dispute record above;
+  -- only its immutable seller-wins decision below may authorize finalization.
   update public.deals set dispute_status='closed' where id=v_deal;
   if not exists (
     select 1 from public.deal_disputes
