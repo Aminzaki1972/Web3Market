@@ -11,7 +11,7 @@ import type { DealCodeAuditBinding } from "./deal-code-audit-binding.ts";
 
 export interface DealRoomTermsSnapshotRow {
   deal_id: unknown; deal_status: unknown; project_id: unknown; buyer_id: unknown; seller_id: unknown;
-  seller_win_decision_verified: unknown;
+  seller_win_decision_verified?: unknown;
   project_owner_id: unknown; project_status: unknown;
   buyer_wallet: unknown; buyer_wallet_verified: unknown; buyer_wallet_verified_at: unknown;
   seller_wallet: unknown; seller_wallet_verified: unknown; seller_wallet_verified_at: unknown;
