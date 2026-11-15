@@ -2,6 +2,7 @@ import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import {
   buildW3MCanonicalDisputeDecision,
   parseW3MDisputeDecisionCommand,
+  type W3MDisputeDecisionCommand,
 } from "./dispute-decision.ts";
 
 const dealId = "81000000-0000-4000-8000-000000000001";
@@ -11,7 +12,7 @@ const actorId = "84000000-0000-4000-8000-000000000004";
 const termsVersionId = "85000000-0000-4000-8000-000000000005";
 const messageId = "86000000-0000-4000-8000-000000000006";
 const assetId = "87000000-0000-4000-8000-000000000007";
-const command = {
+const command: W3MDisputeDecisionCommand = {
   dealId, disputeId, outcome: "buyer_wins",
   reason: "The seller did not transfer the agreed project ownership.",
   evidenceRefs: [
