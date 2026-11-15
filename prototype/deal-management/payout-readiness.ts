@@ -136,10 +136,10 @@ export function prepareDisputePayout(
       input.dispute.respondent !== (input.dispute.claimant === "buyer" ? "seller" : "buyer")) {
     blockers.push("dispute_request_mismatch");
   }
-  if (input.disputeRequest.review?.outcome !== "approved" ||
-      !input.disputeRequest.review.reason.trim() ||
-      !input.disputeRequest.review.reviewerId.trim() ||
-      !Number.isFinite(input.disputeRequest.review.reviewedAt) ||
+  const administrativeReview = input.disputeRequest.review;
+  if (!administrativeReview || administrativeReview.outcome !== "approved" ||
+      !administrativeReview.reason.trim() || !administrativeReview.reviewerId.trim() ||
+      !Number.isFinite(administrativeReview.reviewedAt) ||
       input.disputeRequest.payoutHold !== true) {
     blockers.push("dispute_approval_or_hold_inconsistent");
   }
