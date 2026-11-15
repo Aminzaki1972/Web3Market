@@ -171,6 +171,13 @@ export function prepareDisputePayout(
   if (input.dispute.status !== "decided" || !input.dispute.decision ||
       !input.dispute.decision.reason.trim() || !Number.isFinite(input.dispute.decision.decidedAt)) {
     blockers.push("dispute_decision_not_finalized");
+  } else {
+    const authorization = input.dispute.decision.authorization;
+    if (!authorization || !authorization.adminId.trim() ||
+        authorization.dealId !== input.dealId ||
+        authorization.disputeRequestId !== input.disputeRequest.id) {
+      blockers.push("dispute_decision_authorization_missing_or_mismatched");
+    }
   }
   if (blockers.length) return { ready: false, blockers };
 
