@@ -12,14 +12,21 @@ export type PayoutRecipientSet = {
   platform: string;
 };
 
+export type PayoutAgreementEvidence = {
+  version: number;
+  hash: string;
+  grossAmount: bigint;
+  approvals: Record<"buyer" | "seller" | "platform", { approved: boolean; version: number; hash: string }>;
+  buyerFinalAcceptance: null | { accepted: boolean; version: number; hash: string };
+};
+
 export type PayoutReadinessInput = {
-  agreementApproved: boolean;
+  agreementSnapshot: PayoutAgreementEvidence;
   depositVerified: boolean;
   depositedAmount: bigint;
   /** Must come from the immutable, finally approved agreement snapshot. */
   originalGrossAgreedAmount: bigint;
   requiredAssetsVerified: boolean;
-  buyerFinalAcceptance: boolean;
   openDispute: boolean;
   /** True if this deal has ever entered dispute; such deals must use the decision allocation path. */
   disputeEverOpened: boolean;
@@ -29,6 +36,7 @@ export type PayoutReadinessInput = {
 
 export type PayoutBlocker =
   | "agreement_not_approved"
+  | "agreement_snapshot_mismatch"
   | "deposit_not_verified"
   | "invalid_deposit_amount"
   | "invalid_original_agreed_amount"
@@ -51,6 +59,20 @@ export type PayoutPlan = {
 };
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+const AGREEMENT_HASH = /^0x[0-9a-f]{64}$/;
+
+function hasCurrentAgreementApprovals(snapshot: PayoutAgreementEvidence, gross: bigint): boolean {
+  if (!Number.isSafeInteger(snapshot.version) || snapshot.version <= 0 || !AGREEMENT_HASH.test(snapshot.hash) || snapshot.grossAmount !== gross || gross <= 0n) return false;
+  return (["buyer", "seller", "platform"] as const).every(role => {
+    const approval = snapshot.approvals?.[role];
+    return approval?.approved === true && approval.version === snapshot.version && approval.hash === snapshot.hash;
+  });
+}
+
+function hasCurrentBuyerFinalAcceptance(snapshot: PayoutAgreementEvidence): boolean {
+  const acceptance = snapshot.buyerFinalAcceptance;
+  return !!acceptance && acceptance.accepted === true && acceptance.version === snapshot.version && acceptance.hash === snapshot.hash;
+}
 
 function validateRecipients(recipients: PayoutRecipientSet, amounts: {
   buyerRefund: bigint; sellerPayout: bigint; platformFee: bigint;
@@ -74,13 +96,14 @@ export function prepareOrdinaryPayout(
   input: PayoutReadinessInput, recipients: PayoutRecipientSet,
 ): { ready: true; plan: PayoutPlan } | { ready: false; blockers: string[] } {
   const blockers: string[] = [];
-  if (!input.agreementApproved) blockers.push("agreement_not_approved");
+  if (!hasCurrentAgreementApprovals(input.agreementSnapshot, input.originalGrossAgreedAmount)) blockers.push("agreement_not_approved");
+  if (input.agreementSnapshot.grossAmount !== input.originalGrossAgreedAmount) blockers.push("agreement_snapshot_mismatch");
   if (!input.depositVerified) blockers.push("deposit_not_verified");
   if (input.depositedAmount <= 0n) blockers.push("invalid_deposit_amount");
   if (input.originalGrossAgreedAmount <= 0n) blockers.push("invalid_original_agreed_amount");
   if (input.depositedAmount !== input.originalGrossAgreedAmount) blockers.push("deposit_amount_differs_from_agreement");
   if (!input.requiredAssetsVerified) blockers.push("required_assets_not_verified");
-  if (!input.buyerFinalAcceptance) blockers.push("buyer_final_acceptance_missing");
+  if (!hasCurrentBuyerFinalAcceptance(input.agreementSnapshot)) blockers.push("buyer_final_acceptance_missing");
   if (input.openDispute) blockers.push("dispute_open");
   if (input.disputeRequest && input.disputeRequest.status !== "administrative_hold_released") {
     blockers.push(input.disputeRequest.status === "pending_admin_review" || input.disputeRequest.status === "declined_hold"
@@ -115,7 +138,7 @@ export function prepareOrdinaryPayout(
 }
 
 export type DisputePayoutInput = {
-  agreementApproved: boolean;
+  agreementSnapshot: PayoutAgreementEvidence;
   depositVerified: boolean;
   depositedAmount: bigint;
   /** Must come from the immutable, finally approved agreement snapshot. */
@@ -136,7 +159,8 @@ export function prepareDisputePayout(
   input: DisputePayoutInput,
 ): { ready: true; plan: PayoutPlan } | { ready: false; blockers: string[] } {
   const blockers: string[] = [];
-  if (!input.agreementApproved) blockers.push("agreement_not_approved");
+  if (!hasCurrentAgreementApprovals(input.agreementSnapshot, input.originalGrossAgreedAmount)) blockers.push("agreement_not_approved");
+  if (input.agreementSnapshot.grossAmount !== input.originalGrossAgreedAmount) blockers.push("agreement_snapshot_mismatch");
   if (!input.depositVerified) blockers.push("deposit_not_verified");
   if (input.depositedAmount <= 0n) blockers.push("invalid_deposit_amount");
   if (input.originalGrossAgreedAmount <= 0n) blockers.push("invalid_original_agreed_amount");
