@@ -130,7 +130,7 @@ async function loadSigningContext(client: W3MRpcClient, dealId: string): Promise
   };
   const actualAgreementHash = await sha256Hex(W3M_AGREEMENT_DOCUMENT_TEXT);
   if (actualAgreementHash !== W3M_AGREEMENT_DOCUMENT_SHA256) {
-    throw new Error("Bundled W3M agreement document does not match its immutable SHA-256 registry.");
+    throw new Error("Bundled W3M agreement document hash mismatch: computed " + actualAgreementHash + ", expected " + W3M_AGREEMENT_DOCUMENT_SHA256 + ".");
   }
   const agreementDocument = { documentId: W3M_AGREEMENT_DOCUMENT_ID, version: W3M_AGREEMENT_DOCUMENT_VERSION, locale: W3M_AGREEMENT_DOCUMENT_LOCALE, sha256: W3M_AGREEMENT_DOCUMENT_SHA256 };
   const terms = await computeDealTermsHash({
