@@ -108,16 +108,18 @@ begin
     raise exception 'W3M finalizer must lock and revalidate current project ownership before settlement';
   end if;
 
-  -- Parent status may be 'none' or terminal 'closed'. NULL and every
-  -- other parent value fail closed; closed is accepted only when all child
-  -- dispute records are explicitly resolved/closed.
+  -- No dispute may be bypassed by a generic closed state. Seller release
+  -- after a dispute requires the immutable seller_wins decision record;
+  -- buyer_wins is deliberately excluded from the seller-release path.
   if position('PUBLIC.DEAL_DISPUTES' in upper(v_finalizer)) = 0
-     or position('NOT IN (''RESOLVED'',''CLOSED'')' in upper(v_finalizer)) = 0
+     or position('NOT IN (''RESOLVED'')' in upper(v_finalizer)) = 0
      or position('V_DEAL.DISPUTE_STATUS IS NULL' in upper(v_finalizer)) = 0
-     or position('V_DEAL.DISPUTE_STATUS NOT IN (''NONE'',''CLOSED'')' in upper(v_finalizer)) = 0
+     or position('V_DEAL.DISPUTE_STATUS NOT IN (''NONE'',''RESOLVED_SELLER'')' in upper(v_finalizer)) = 0
+     or position('W3M_DEAL_DISPUTE_DECISIONS' in upper(v_finalizer)) = 0
+     or position('DECISION.OUTCOME = ''SELLER_WINS''' in upper(v_finalizer)) = 0
      or position('PUBLIC.DEAL_DISPUTES' in upper(v_finalizer)) >
         position('UPDATE PUBLIC.DEAL_MULTISIG_TRANSACTIONS' in upper(v_finalizer)) then
-    raise exception 'W3M finalizer must accept only none/terminal-closed disputes and reject null, active, unresolved, or unclassified states before settlement';
+    raise exception 'W3M finalizer must require an immutable seller-wins decision for disputed seller release and block buyer-wins';
   end if;
 
   if to_regprocedure('public.w3m_lock_deal_dispute_mutation()') is null
