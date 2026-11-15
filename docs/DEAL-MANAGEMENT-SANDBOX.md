@@ -362,3 +362,10 @@ The product owner explicitly approved the following administration policy for th
 - Added regression coverage for malformed confirmation counts.
 - Latest CI run [#43665805328](https://github.com/Aminzaki1972/Web3Market/actions/runs/43665805328): **106 passed, 0 failed**.
 - This still validates only normalized sandbox input. A trusted server must independently obtain canonical receipts, confirmation depth, block hash, lock event and current Safe lock state from BNB Chain.
+
+## 2026-11-15 — ordinary payout requires a recorded hold release
+
+- An ordinary payout can no longer rely on the `administrative_hold_released` status alone. The sandbox now requires the payout hold to be false, the underlying review to be a reasoned decline, and a separate release record with reviewer, reason and valid release time.
+- Added tests for a valid explicit release and contradictory/forged release records.
+- Latest CI run [#43665887465](https://github.com/Aminzaki1972/Web3Market/actions/runs/43665887465): **107 passed, 0 failed**.
+- The no-other-hold check remains a trusted backend responsibility; this pure helper cannot inspect every persisted deal hold or authenticate the reviewer.
