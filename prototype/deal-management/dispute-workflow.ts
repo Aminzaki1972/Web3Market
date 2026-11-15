@@ -74,7 +74,18 @@ export function issueAuthorizedDisputeDecision(
       !request.lockProof) {
     throw new Error("A matching approved dispute with confirmed Safe lock and active payout hold is required");
   }
-  return issueDisputeDecision(
+  const decided = issueDisputeDecision(
     dispute, reason, allocation, totalDeposited, originalGrossAgreedAmount, decidedAt,
   );
+  return {
+    ...decided,
+    decision: {
+      ...decided.decision!,
+      authorization: {
+        adminId: authenticatedUserId,
+        dealId: roster.dealId,
+        disputeRequestId: request.id,
+      },
+    },
+  };
 }
