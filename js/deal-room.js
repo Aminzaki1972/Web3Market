@@ -281,15 +281,19 @@
    modal.style.cssText='position:fixed;inset:0;z-index:100001;background:rgba(10,15,30,.78);display:grid;place-items:center;padding:16px';
    const panel=document.createElement('section');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-labelledby','w3mAgreementReviewTitle');
    panel.style.cssText='width:min(760px,100%);max-height:90vh;overflow:auto;background:#fff;border:1px solid #dbe4ef;border-radius:16px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.25)';
-   const heading=document.createElement('h2');heading.id='w3mAgreementReviewTitle';heading.textContent='Review immutable deal terms';heading.style.cssText='margin:0 0 8px;font-size:19px';
-   const intro=document.createElement('p');intro.textContent='Review the exact structured terms returned by Web3Market before any wallet signature is requested. Both parties must sign the same terms hash and version.';intro.style.cssText='color:#475569;font-size:13px;line-height:1.5';
+   const heading=document.createElement('h2');heading.id='w3mAgreementReviewTitle';heading.textContent='Review Web3Market Deal Agreement';heading.style.cssText='margin:0 0 8px;font-size:19px';
+   const intro=document.createElement('p');intro.textContent='Read the complete approved legal agreement and the exact structured terms before signing. Both parties must sign the same agreement document hash, terms hash, and version.';intro.style.cssText='color:#475569;font-size:13px;line-height:1.5';
    const meta=document.createElement('p');meta.style.cssText='font-size:12px;overflow-wrap:anywhere;color:#334155';meta.textContent='Deal: '+info.dealId+' · Role: '+info.partyRole+' · Version: '+info.termsVersion+' · SHA-256: '+info.termsHash;
-   const pre=document.createElement('pre');pre.textContent=JSON.stringify(info.canonicalTerms,null,2);pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:42vh;overflow:auto;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font:12px/1.5 ui-monospace,monospace';
+   const legalHeading=document.createElement('h3');legalHeading.textContent='Full legal agreement · '+info.agreementDocument.version;legalHeading.style.cssText='font-size:15px;margin:16px 0 8px';
+   const legalMeta=document.createElement('p');legalMeta.textContent='Document SHA-256: '+info.agreementDocument.sha256;legalMeta.style.cssText='font-size:11px;overflow-wrap:anywhere;color:#475569';
+   const legalText=document.createElement('pre');legalText.textContent=info.agreementDocument.text;legalText.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:48vh;overflow:auto;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:14px;font:13px/1.65 system-ui,sans-serif;color:#111827';
+   const termsHeading=document.createElement('h3');termsHeading.textContent='Exact structured deal terms';termsHeading.style.cssText='font-size:15px;margin:16px 0 8px';
+   const pre=document.createElement('pre');pre.textContent=JSON.stringify(info.canonicalTerms,null,2);pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:32vh;overflow:auto;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font:12px/1.5 ui-monospace,monospace';
    const label=document.createElement('label');label.style.cssText='display:flex;gap:9px;align-items:flex-start;margin:14px 0;font-size:13px;line-height:1.5;color:#111827';
    const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.style.marginTop='3px';
-   const labelText=document.createElement('span');labelText.textContent='I reviewed these exact structured deal terms and confirm that I intend to sign this version and hash with my connected verified wallet.';
+   const labelText=document.createElement('span');labelText.textContent='I have read the complete legal agreement and the exact structured deal terms, and I agree to sign this document version and both hashes with my connected verified wallet.';
    label.append(checkbox,labelText);
-   const note=document.createElement('p');note.textContent='This screen displays the canonical structured terms snapshot. It does not add or invent legal clauses that are not present in the approved deal terms.';note.style.cssText='font-size:12px;color:#64748b';
+   const note=document.createElement('p');note.textContent='The agreement text is displayed exactly as served by the server and is checked against its SHA-256 digest before signing. Any document change requires a new version and fresh signatures.';note.style.cssText='font-size:12px;color:#64748b';
    const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap';
    const cancel=document.createElement('button');cancel.type='button';cancel.className='btn';cancel.textContent='Cancel';
    const proceed=document.createElement('button');proceed.type='button';proceed.className='btn primary';proceed.textContent='Continue to wallet signature';proceed.disabled=true;
@@ -297,7 +301,7 @@
    const finish=value=>{modal.remove();resolve(value)};
    cancel.onclick=()=>finish(false);proceed.onclick=()=>finish(checkbox.checked===true);
    modal.addEventListener('click',e=>{if(e.target===modal)finish(false)});
-   actions.append(cancel,proceed);panel.append(heading,intro,meta,pre,label,note,actions);modal.append(panel);document.body.append(modal);
+   actions.append(cancel,proceed);panel.append(heading,intro,meta,legalHeading,legalMeta,legalText,termsHeading,pre,label,note,actions);modal.append(panel);document.body.append(modal);
    cancel.focus();
   });
  }
