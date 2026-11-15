@@ -11,7 +11,7 @@ Canonical document: docs/legal/W3M-DEAL-AGREEMENT-AR-V1.0.md
 Encoding: UTF-8
 Canonicalization: exact repository file bytes; no newline normalization at runtime
 Byte length: 17761
-SHA-256: 74fc948b9b7757718b617af080acd51c0a21de81aa3a5b7f410a19aa07a7a465
+SHA-256: 721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531
 
 ## Activation controls
 
