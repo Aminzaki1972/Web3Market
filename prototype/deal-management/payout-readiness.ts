@@ -16,6 +16,8 @@ export type PayoutReadinessInput = {
   agreementApproved: boolean;
   depositVerified: boolean;
   depositedAmount: bigint;
+  /** Must come from the immutable, finally approved agreement snapshot. */
+  originalGrossAgreedAmount: bigint;
   requiredAssetsVerified: boolean;
   buyerFinalAcceptance: boolean;
   openDispute: boolean;
@@ -29,6 +31,8 @@ export type PayoutBlocker =
   | "agreement_not_approved"
   | "deposit_not_verified"
   | "invalid_deposit_amount"
+  | "invalid_original_agreed_amount"
+  | "deposit_amount_differs_from_agreement"
   | "required_assets_not_verified"
   | "buyer_final_acceptance_missing"
   | "dispute_open"
@@ -73,6 +77,8 @@ export function prepareOrdinaryPayout(
   if (!input.agreementApproved) blockers.push("agreement_not_approved");
   if (!input.depositVerified) blockers.push("deposit_not_verified");
   if (input.depositedAmount <= 0n) blockers.push("invalid_deposit_amount");
+  if (input.originalGrossAgreedAmount <= 0n) blockers.push("invalid_original_agreed_amount");
+  if (input.depositedAmount !== input.originalGrossAgreedAmount) blockers.push("deposit_amount_differs_from_agreement");
   if (!input.requiredAssetsVerified) blockers.push("required_assets_not_verified");
   if (!input.buyerFinalAcceptance) blockers.push("buyer_final_acceptance_missing");
   if (input.openDispute) blockers.push("dispute_open");
