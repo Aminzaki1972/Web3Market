@@ -95,7 +95,8 @@ begin
   if (d.status not in ('funded','in_progress')
        and not (d.status='disputed' and d.dispute_status='resolved_seller'))
      or d.payment_status <> 'confirmed'
-     or d.payment_tx_hash is null or d.payment_tx_hash !~ '^0x[0-9a-fA-F]{64}
+     or d.payment_tx_hash is null or length(d.payment_tx_hash) <> 66
+     or d.payment_tx_hash !~ '^0x[0-9a-fA-F]{64}'
 
   select lower(wallet_address) into buyer_wallet from public.profiles
    where id=d.buyer_id and wallet_verified=true;
