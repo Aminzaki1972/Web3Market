@@ -12,6 +12,10 @@ declare
   v_report uuid := '40000000-0000-4000-8000-000000000004';
   v_stale_report uuid := '40000000-0000-4000-8000-000000000005';
   v_policy uuid := '50000000-0000-4000-8000-000000000005';
+  v_dispute_id uuid := '51000000-0000-4000-8000-000000000001';
+  v_decision_id uuid := '52000000-0000-4000-8000-000000000001';
+  v_admin_id uuid := '23000000-0000-4000-8000-000000000001';
+  v_decision_payload jsonb;
   v_attempt uuid;
   v_actor uuid := '21000000-0000-4000-8000-000000000002';
   v_package_hash text := repeat('c',64);
@@ -58,7 +62,8 @@ begin
     key_id, event_type, actor_type, reason, event_hash
   ) values ('attempt-test-key','ACTIVATED','SYSTEM','isolated test key',repeat('a',64));
 
-  insert into auth.users(id) values (v_buyer),(v_seller) on conflict do nothing;
+  insert into auth.users(id) values (v_buyer),(v_seller),(v_admin_id) on conflict do nothing;
+  insert into public.profiles (id,role) values (v_admin_id,'admin') on conflict (id) do nothing;
   insert into public.profiles (id,wallet_address,wallet_verified,wallet_verified_at) values
     (v_buyer,'0x3333333333333333333333333333333333333333',true,now()),
     (v_seller,'0x4444444444444444444444444444444444444444',true,now());
@@ -780,16 +785,55 @@ begin
     raise exception 'Injected finalizer audit failure left partial settlement state';
   end if;
 
-  -- PREPARE permits a terminal 'closed' dispute status. Finalization must
-  -- agree when every persisted child dispute is resolved/closed, while the
-  -- preceding open-dispute case above remains rejected.
+  -- A generic terminal 'closed' status is not a seller-wins decision and
+  -- must not authorize release. Only an immutable seller-wins decision bound
+  -- to the latest signed terms may pass the finalizer.
   update public.deals set dispute_status='closed' where id=v_deal;
   if not exists (
     select 1 from public.deal_disputes
-     where deal_id=v_deal and lower(status) in ('resolved','closed')
+     where deal_id=v_deal and lower(status)='resolved'
   ) then
-    raise exception 'Closed-parent regression fixture lacks a terminal dispute record';
+    raise exception 'Closed-parent regression fixture lacks a resolved dispute record';
   end if;
+  v_rejected := false;
+  begin
+    perform public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
+    raise exception 'Generic closed dispute status unexpectedly authorized seller release'
+      using errcode='P0001';
+  exception when check_violation then
+    v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception 'Generic closed dispute status did not fail closed';
+  end if;
+
+  update public.deal_disputes
+     set resolution='seller_wins'
+   where id=v_dispute_id and deal_id=v_deal and status='resolved';
+  update public.deals set dispute_status='resolved_seller' where id=v_deal;
+
+  v_decision_payload := jsonb_build_object(
+    'decisionId',v_decision_id::text,
+    'dealId',v_deal::text,
+    'disputeId',v_dispute_id::text,
+    'outcome','seller_wins',
+    'termsVersionId',v_terms_result->>'terms_version_id',
+    'termsVersion',1,
+    'termsHash',v_terms_hash,
+    'decidedBy',v_admin_id::text
+  );
+  insert into public.w3m_deal_dispute_decisions (
+    id,dispute_id,deal_id,outcome,reason,evidence_refs,prior_state,
+    terms_version_id,terms_version,terms_hash,decided_by,decided_at,
+    canonical_payload,decision_hash
+  ) values (
+    v_decision_id,v_dispute_id,v_deal,'seller_wins',
+    'Seller fulfilled the agreed transfer obligations.',
+    jsonb_build_array(jsonb_build_object('source','deal_message','recordId',v_dispute_id::text)),
+    jsonb_build_object('dealStatus','disputed','disputeStatus','open'),
+    (v_terms_result->>'terms_version_id')::uuid,1,v_terms_hash,v_admin_id,clock_timestamp(),
+    v_decision_payload,repeat('e',64)
+  );
 
   v_result := public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
   if coalesce((v_result->>'finalized')::boolean,false) is not true
