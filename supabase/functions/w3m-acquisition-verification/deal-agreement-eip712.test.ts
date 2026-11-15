@@ -16,7 +16,7 @@ const base: DealTermsAcceptanceInput = {
   safeAddress: "0x2222222222222222222222222222222222222222",
   termsHash: "ab".repeat(32),
   agreementDocumentVersion: "1.0",
-  agreementDocumentHash: "74fc948b9b7757718b617af080acd51c0a21de81aa3a5b7f410a19aa07a7a465",
+  agreementDocumentHash: "721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531",
   termsVersion: "1",
   partyRole: "buyer",
 };
