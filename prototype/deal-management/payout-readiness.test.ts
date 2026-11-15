@@ -19,8 +19,8 @@ function approvedAgreementSnapshot(grossAmount: bigint, approved = true, accepte
       platform: { approved, version: 1, hash: agreementHash },
     },
     requiredAssets: [
-      { id: "repo", evidenceStatus: "verified", evidenceCheckedAt: 105, buyerStatus: accepted ? "accepted" : "pending", buyerReviewedAt: accepted ? 120 : null },
-      { id: "domain", evidenceStatus: "verified", evidenceCheckedAt: 106, buyerStatus: accepted ? "accepted" : "pending", buyerReviewedAt: accepted ? 121 : null },
+      { id: "repo", evidenceStatus: "verified", evidenceCheckedAt: 105, evidenceSource: "trusted sandbox verifier", evidenceReference: "repo-transfer-proof", buyerStatus: accepted ? "accepted" : "pending", buyerReviewedAt: accepted ? 120 : null },
+      { id: "domain", evidenceStatus: "verified", evidenceCheckedAt: 106, evidenceSource: "trusted sandbox verifier", evidenceReference: "domain-transfer-proof", buyerStatus: accepted ? "accepted" : "pending", buyerReviewedAt: accepted ? 121 : null },
     ],
     buyerFinalAcceptance: accepted ? { accepted: true, version: 1, hash: agreementHash, acceptedAssetIds: ["repo", "domain"], acceptedAt: 130 } : null,
   };
@@ -159,7 +159,7 @@ Deno.test("ordinary payout rejects a deposit that differs from the approved gros
 
 Deno.test("ordinary payout is blocked by every missing gate", () => {
   const result = prepareOrdinaryPayout({
-    ...ordinary, agreementSnapshot: {...approvedAgreementSnapshot(ordinary.originalGrossAgreedAmount, false, false), requiredAssets:[{id:"repo",evidenceStatus:"pending",evidenceCheckedAt:null,buyerStatus:"pending",buyerReviewedAt:null}]}, depositVerified: false, openDispute: true,
+    ...ordinary, agreementSnapshot: {...approvedAgreementSnapshot(ordinary.originalGrossAgreedAmount, false, false), requiredAssets:[{id:"repo",evidenceStatus:"pending",evidenceCheckedAt:null,evidenceSource:"",evidenceReference:"",buyerStatus:"pending",buyerReviewedAt:null}]}, depositVerified: false, openDispute: true,
   }, recipients);
   assertEquals(result.ready, false);
   if (!result.ready) assertEquals(result.blockers, [
@@ -404,7 +404,7 @@ Deno.test("ordinary payout binds approvals and final acceptance to current agree
 
 
 Deno.test("ordinary payout requires every required asset verified and individually accepted", () => {
-  const unverified = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,requiredAssets:[...ordinary.agreementSnapshot.requiredAssets,{id:"domain",evidenceStatus:"pending" as const,evidenceCheckedAt:null,buyerStatus:"accepted" as const,buyerReviewedAt:121}]}};
+  const unverified = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,requiredAssets:[...ordinary.agreementSnapshot.requiredAssets,{id:"domain",evidenceStatus:"pending" as const,evidenceCheckedAt:null,evidenceSource:"",evidenceReference:"",buyerStatus:"accepted" as const,buyerReviewedAt:121}]}};
   const evidenceResult = prepareOrdinaryPayout(unverified, recipients);
   assertEquals(evidenceResult.ready, false);
   if (!evidenceResult.ready) assertEquals(evidenceResult.blockers.includes("required_assets_not_verified"), true);
@@ -444,4 +444,16 @@ Deno.test("ordinary payout rejects acceptance timestamps that precede asset evid
  const reviewResult=prepareOrdinaryPayout(beforeReview,recipients);
  assertEquals(reviewResult.ready,false);
  if(!reviewResult.ready)assertEquals(reviewResult.blockers.includes("buyer_final_acceptance_missing"),true);
+});
+
+
+Deno.test("ordinary payout requires traceable source and reference for verified asset evidence",()=>{
+ const missingSource={...ordinary,agreementSnapshot:{...ordinary.agreementSnapshot,requiredAssets:ordinary.agreementSnapshot.requiredAssets.map(a=>a.id==="repo"?{...a,evidenceSource:""}:a)}};
+ const sourceResult=prepareOrdinaryPayout(missingSource,recipients);
+ assertEquals(sourceResult.ready,false);
+ if(!sourceResult.ready)assertEquals(sourceResult.blockers.includes("required_assets_not_verified"),true);
+ const missingReference={...ordinary,agreementSnapshot:{...ordinary.agreementSnapshot,requiredAssets:ordinary.agreementSnapshot.requiredAssets.map(a=>a.id==="repo"?{...a,evidenceReference:""}:a)}};
+ const referenceResult=prepareOrdinaryPayout(missingReference,recipients);
+ assertEquals(referenceResult.ready,false);
+ if(!referenceResult.ready)assertEquals(referenceResult.blockers.includes("required_assets_not_verified"),true);
 });
