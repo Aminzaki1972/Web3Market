@@ -339,3 +339,10 @@ The product owner explicitly approved the following administration policy for th
 - The preview activity log no longer guesses actor role or event type from message wording. Each event call supplies explicit actor-role and event-type metadata, and the logger rejects missing metadata.
 - Added a Deno source-contract regression test for these preview invariants and configured CI to run when the preview changes. Latest run [#43664716442](https://github.com/Aminzaki1972/Web3Market/actions/runs/43664716442): **102 passed, 0 failed**.
 - The test verifies source-level preview contracts and pure domain rules. It is not a browser automation test and does not prove runtime interaction, backend authorization, persistent storage or live Safe/chain behavior.
+
+## 2026-11-15 — ordinary payout amount bound to final agreement
+
+- Ordinary payout readiness now requires the gross amount from the approved agreement snapshot and rejects a deposit amount that differs from that agreed gross amount.
+- Added regression coverage for a mismatched deposit and a missing/invalid agreed amount; the happy-path workflow now supplies the same final agreed amount explicitly.
+- Latest CI run [#43664845343](https://github.com/Aminzaki1972/Web3Market/actions/runs/43664845343): **103 passed, 0 failed**.
+- This is a pure domain gate. Production must source the agreed gross amount from the immutable, authenticated server-side agreement record and independently verify the deposit; caller-supplied fields are not trusted evidence.
