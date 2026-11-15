@@ -21,7 +21,8 @@ Deno.test("deposit gate requires all three approvals to match the current finger
   assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, { ...versions2, seller: 1 }, 2, hashA), false);
   assertEquals(haveAllCurrentAgreementApprovals({ ...approved, platform: false }, hashesA, versions2, 2, hashA), false);
   assertEquals(haveAllCurrentAgreementApprovals(approved, { ...hashesA, seller: hashB }, versions2, 2, hashA), false);
-  assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, versions2, 3, hashA), true);
+  assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, versions2, 3, hashA), false);
+  assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, { buyer: 3, seller: 3, platform: 3 }, 3, hashA), true);
   assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, versions2, 0, hashA), false);
   assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, versions2, 2, null), false);
 });
