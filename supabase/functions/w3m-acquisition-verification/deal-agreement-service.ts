@@ -53,6 +53,7 @@ export interface DealAgreementSigningContext {
   termsHash: string;
   codeAudit: DealCodeAuditBinding;
   canonicalTerms: Record<string, unknown>;
+  agreementDocument: { documentId: string; version: string; locale: string; sha256: string };
 }
 export interface PreparedDealAgreement {
   dealId: string;
@@ -209,6 +210,7 @@ export async function prepareDealAgreementAcceptance(
     dealId: context.dealId, ...party, termsHash: context.termsHash,
     termsVersion: version.termsVersion, termsVersionId: version.termsVersionId,
     canonicalTerms: context.canonicalTerms,
+    agreementDocument: { ...context.agreementDocument, text: W3M_AGREEMENT_DOCUMENT_TEXT },
     typedData: buildDealTermsAcceptanceTypedData(acceptance),
   };
 }
