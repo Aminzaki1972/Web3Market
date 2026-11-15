@@ -212,3 +212,10 @@ Changes:
 CI run [43696112145](https://github.com/Aminzaki1972/Web3Market/actions/runs/43696112145) passed: **137 passed, 0 failed**.
 
 Scope limitation remains: this hardens only the in-memory model. PostgreSQL transaction isolation, server-derived identity/time, durable idempotency keys, and append-only database event enforcement remain unimplemented.
+
+
+## 10. Historical migration recovery attempt (2026-11-15)
+
+Searched the repository's current migration history, the existing `feature/web3-marketplace-v1` branch, the `w3m-protocol-v1-isolated-20261105` branch, and the user's searchable Library for the six known historical migration filenames. The exact SQL source files were not present in those locations/results.
+
+This does not prove no backup exists elsewhere. It confirms that the source has not yet been recovered from the checked repository branches or Library search. The migration remains blocked; no replacement SQL has been guessed or created.
