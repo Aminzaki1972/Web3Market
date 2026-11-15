@@ -724,6 +724,10 @@ begin
   update public.deal_disputes set status='resolved'
    where deal_id=v_deal and status='open';
 
+  -- The no-dispute fixture must not retain a historical dispute row. A real
+  -- resolved dispute is reintroduced below with its immutable seller-wins decision.
+  delete from public.deal_disputes where id=v_dispute_id and deal_id=v_deal;
+
   -- A NULL parent dispute status is unclassified and must remain fail-closed.
   update public.deals set dispute_status=null where id=v_deal;
   v_rejected := false;
@@ -786,12 +790,17 @@ begin
   end if;
 
   -- A generic terminal 'closed' status is not a seller-wins decision and
-  -- must not authorize release. Only an immutable seller-wins decision bound
-  -- to the latest signed terms may pass the finalizer.
+  -- must not authorize release. Recreate the resolved dispute for this branch;
+  -- only its immutable seller-wins decision below may authorize finalization.
+  insert into public.deal_disputes (id,deal_id,opened_by,reason,status)
+  values (v_dispute_id,v_deal,v_buyer,'seller fulfilled the agreed transfer obligations','open');
+  update public.deal_disputes
+     set status='resolved'
+   where id=v_dispute_id and deal_id=v_deal;
   update public.deals set dispute_status='closed' where id=v_deal;
   if not exists (
     select 1 from public.deal_disputes
-     where deal_id=v_deal and lower(status)='resolved'
+     where id=v_dispute_id and deal_id=v_deal and lower(status)='resolved'
   ) then
     raise exception 'Closed-parent regression fixture lacks a resolved dispute record';
   end if;
