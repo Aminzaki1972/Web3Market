@@ -146,7 +146,7 @@ Deno.test("declined hold release appends a third admin event without rewriting e
   store.submit("seller-1", "req-1", "idem-1", "Reason", 100, evidence);
   store.review("admin-1", "req-1", "declined", "Insufficient evidence", 110);
   const beforeRelease = store.getActivityLedger();
-  const released = store.releaseDeclinedHold("admin-1", "req-1", "No other hold remains", 120);
+  const released = store.releaseDeclinedHold("admin-1", "req-1", "No other hold remains", 120, false);
   const afterRelease = store.getActivityLedger();
   assertEquals(released.status, "administrative_hold_released");
   assertEquals(beforeRelease.length, 2);
