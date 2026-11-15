@@ -211,3 +211,14 @@ The Supabase Security Advisor returned unrelated/general findings at the time of
 Do not insert into `deal_disputes` for a request awaiting manager review. A safe design needs a separate request state/record and append-only request events (or a carefully reviewed additive equivalent), plus server-side identity and authorization. The current production status CHECK and UNIQUE constraint must remain intact until a forward-compatible transition is separately reviewed. The current manager authority source and owner-controlled replacement protocol must be resolved before enabling admin review/decision writes.
 
 Historical original deal-creation migrations are still absent from the repository's tracked migration directory; the current live migration history exposes versions/names, not their original SQL bodies. The PR #74 historical dispute-release guard migration was inspected as a later guard patch only; it is not a substitute for the missing original schema migrations and is not copied into this branch.
+
+
+### Authenticated dispute workflow composition tests
+
+Added `prototype/deal-management/dispute-workflow.ts` and `dispute-workflow.test.ts`. This composes the role resolver with dispute intake/review so the claimant role is derived from authenticated identity and the reviewer ID is taken from the authenticated active-admin identity rather than caller-supplied metadata. It rejects admin/outsider intake, non-admin review, cross-deal review, and multiple-admin rosters.
+
+CI on code commit `41d11d3c645c11c11e8181901cc7b963966e8e33`: **126 passed, 0 failed**; Deal Room JavaScript syntax check passed. The preceding source-module commit `5bc8205dbb18f00ea6a85ec6bdb0e30324fd2651` also passed **121 passed, 0 failed**. These are domain-model tests only, not a deployed or DB-integrated workflow.
+
+### Additional direct-write privilege check
+
+Read-only privilege inspection confirmed `authenticated` has table INSERT privilege on `public.deal_disputes`, while UPDATE/DELETE are false. Combined with the existing participant INSERT RLS policy and the status CHECK, an authenticated participant can still create an immediately `open` dispute directly through the Data API. The `anon` role has the table-level INSERT grant too, but the RLS policy is restricted to `authenticated` and requires `opened_by = auth.uid()`; no anonymous insert path was established. This is a live authorization gap requiring a reviewed migration that removes the legacy direct-insert path and replaces it with a server-mediated pending request flow. No production privileges or policies were changed.
