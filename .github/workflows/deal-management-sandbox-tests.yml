@@ -51,6 +51,7 @@ jobs:
           node --check js/deal-checkout.js
           node --check js/project.js
           node --check js/offer-form-fix.js
+          node --check prototype/deal-management/agreement-snapshot-browser.js
 
       - name: Assert legacy Deal Room financial paths stay disabled
         shell: bash
@@ -69,6 +70,8 @@ jobs:
           ! grep -Fq "from('deal_messages').insert" js/project.js
           ! grep -Fq "from('deals').insert" js/offer-form-fix.js
           ! grep -Fq "from('deal_messages').insert" js/offer-form-fix.js
+          grep -Fq "approvalHashes[k]===currentFingerprint" deal-management-preview.html
+          grep -Fq "approvalHashes[k]===agreementHashState.termsHash" deal-management-preview.html
 
       - name: Run sandbox tests
         run: deno test --allow-read=deal-management-preview.html prototype/deal-management/
