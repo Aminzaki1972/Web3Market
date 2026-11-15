@@ -85,6 +85,11 @@ export async function computeDealTermsHash(snapshot: DealTermsSnapshot): Promise
   requiredText(snapshot.sellerId, "Seller ID");
   if (snapshot.buyerId === snapshot.sellerId) throw new Error("Buyer and seller must be distinct.");
   requiredText(snapshot.currency, "Deal currency");
+  requiredText(snapshot.agreementDocument.documentId, "Agreement document ID");
+  if (snapshot.agreementDocument.version !== "1.0" || snapshot.agreementDocument.locale !== "ar" ||
+      !/^[0-9a-f]{64}$/.test(snapshot.agreementDocument.sha256)) {
+    throw new Error("Agreement document version, locale, or SHA-256 is not the pinned W3M V1 document.");
+  }
   if (snapshot.chainId !== 56) throw new Error("W3M V1 release terms must be pinned to BNB Chain 56.");
   if (snapshot.policy.status !== "locked" && snapshot.policy.status !== "ready") {
     throw new Error("Release policy must be locked or ready.");
