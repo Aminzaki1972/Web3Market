@@ -159,7 +159,7 @@ Deno.test("ordinary payout rejects a deposit that differs from the approved gros
 
 Deno.test("ordinary payout is blocked by every missing gate", () => {
   const result = prepareOrdinaryPayout({
-    ...ordinary, agreementSnapshot: {...approvedAgreementSnapshot(ordinary.originalGrossAgreedAmount, false, false), requiredAssets:[{id:"repo",evidenceStatus:"pending",buyerStatus:"pending"}]}, depositVerified: false, openDispute: true,
+    ...ordinary, agreementSnapshot: {...approvedAgreementSnapshot(ordinary.originalGrossAgreedAmount, false, false), requiredAssets:[{id:"repo",evidenceStatus:"pending",evidenceCheckedAt:null,buyerStatus:"pending",buyerReviewedAt:null}]}, depositVerified: false, openDispute: true,
   }, recipients);
   assertEquals(result.ready, false);
   if (!result.ready) assertEquals(result.blockers, [
