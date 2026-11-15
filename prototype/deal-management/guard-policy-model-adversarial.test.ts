@@ -65,9 +65,32 @@ Deno.test("blocks hidden nested approval or native BNB movement in a batch", () 
 
 Deno.test("blocks an otherwise exact batch if the decision hash or decision nonce is invalid", () => {
   const badHash = base(); badHash.intent.decisionHash = "0x1234";
-  assertEquals(evaluateLockedSafeTransaction(badHash).reason, "invalid_decision_or_nonce");
+  assertEquals(evaluateLockedSafeTransaction(badHash).reason, "decision_not_bound_to_approved_record_or_invalid_nonce");
   const badNonce = base(); badNonce.intent.decisionNonce = -1;
-  assertEquals(evaluateLockedSafeTransaction(badNonce).reason, "invalid_decision_or_nonce");
+  assertEquals(evaluateLockedSafeTransaction(badNonce).reason, "decision_not_bound_to_approved_record_or_invalid_nonce");
+});
+
+Deno.test("blocks a structurally valid but unapproved or stale decision hash/nonce", () => {
+  const wrongHash = base();
+  wrongHash.intent.decisionHash = "0x" + "d".repeat(64);
+  assertEquals(
+    evaluateLockedSafeTransaction(wrongHash).reason,
+    "decision_not_bound_to_approved_record_or_invalid_nonce",
+  );
+
+  const wrongNonce = base();
+  wrongNonce.intent.decisionNonce = 13;
+  assertEquals(
+    evaluateLockedSafeTransaction(wrongNonce).reason,
+    "decision_not_bound_to_approved_record_or_invalid_nonce",
+  );
+
+  const malformedApprovedHash = base();
+  malformedApprovedHash.approvedDecisionHash = "0x1234";
+  assertEquals(
+    evaluateLockedSafeTransaction(malformedApprovedHash).reason,
+    "decision_not_bound_to_approved_record_or_invalid_nonce",
+  );
 });
 
 Deno.test("blocks payout attempts when dispute is absent, merely submitted, or pending", () => {
