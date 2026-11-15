@@ -1,65 +1,77 @@
 "use strict";
-(async function(){
- const root=document.querySelector('#checkoutApp');
- let sb=null;
- const dealId=new URLSearchParams(location.search).get('deal');
- const waitForClient=async(timeout=8000)=>{const started=Date.now();while(Date.now()-started<timeout){try{sb=window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase||null;if(!sb&&window.supabase&&typeof window.supabase.createClient==='function'){sb=window.supabase.createClient('https://hzhqlexnhtukfljcvnyd.supabase.co','sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'web3market-auth'}});window.supabaseClient=sb;window.web3marketSupabase=sb;window.Web3MarketSupabase=window.Web3MarketSupabase||{client:sb,supabase:sb,getClient:()=>sb};}if(sb)return true;}catch(e){console.warn('Checkout Supabase init',e)}await new Promise(r=>setTimeout(r,100))}return false};
- if(!root||!dealId){if(root)root.innerHTML='<div class="status">Deal information is unavailable.</div>';return;}
- if(!(await waitForClient())){root.innerHTML='<div class="status">Database connection unavailable. Please refresh the page.</div>';return;}
- const {data:{user},error:authError}=await sb.auth.getUser();
- if(authError||!user){root.innerHTML='<div class="status">Please sign in.</div>';return;}
- // Canonical deal source: public.deals. The Deal Room and payment verifier use this table too.
- let {data:deal,error}=await sb.from('deals').select('id,project_id,buyer_id,seller_id,amount,currency,status,platform_fee_percent,platform_fee_amount,platform_fee,seller_net_amount,payment_tx_hash,payment_status,chain_id,safe_address,token_contract,token_symbol,expected_amount,safe_deployment_status').eq('id',dealId).maybeSingle();
- if(error||!deal){root.innerHTML='<div class="status">Deal not found.</div>';return;}
- if(String(deal.buyer_id)!==String(user.id)&&String(deal.seller_id)!==String(user.id)){root.innerHTML='<div class="status">You are not a participant in this deal.</div>';return;}
- const esc=v=>String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[m]));
- const amount=Number(deal.expected_amount??deal.amount??0),feePct=Number(deal.platform_fee_percent??7.5),fee=Number(deal.platform_fee_amount??deal.platform_fee??amount*feePct/100),net=Number(deal.seller_net_amount??amount-fee),currency=esc(deal.token_symbol||deal.currency||'USDT');
- if(String(deal.status||'').toLowerCase()==='accepted' && !(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && /^0x[0-9a-fA-F]{40}$/.test(String(deal.safe_address||'')))){
-  const {data:{session}}=await sb.auth.getSession();
-  if(session){
-   try{
-    const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/create-safe',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({deal_id:deal.id})});
-    const result=await response.json().catch(()=>({error:'Invalid Safe deployment response'}));
-    if(response.ok && result.success){
-      const refreshed=await sb.from('deals').select('id,project_id,buyer_id,seller_id,amount,currency,status,platform_fee_percent,platform_fee_amount,platform_fee,seller_net_amount,payment_tx_hash,payment_status,chain_id,safe_address,token_contract,token_symbol,expected_amount,safe_deployment_status').eq('id',dealId).maybeSingle();
-      if(refreshed.data) deal=refreshed.data;
-    }
-   }catch(e){console.warn('Safe auto-deployment from checkout failed',e)}
+
+/**
+ * Read-only checkout shell for the isolated Deal Management prototype.
+ *
+ * Legacy Safe creation and legacy payment verification are intentionally
+ * disabled here. The new server-authoritative agreement/deposit workflow is
+ * not yet implemented. This file must not create a Safe, request a wallet
+ * signature, submit a token transfer, or invoke a production payment function.
+ */
+(async function () {
+  const root = document.querySelector("#checkoutApp");
+  const dealId = new URLSearchParams(location.search).get("deal");
+  const supabase = window.Web3MarketSupabase?.getClient?.() ||
+    window.supabaseClient || window.web3marketSupabase || null;
+
+  const esc = value => String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;",
+  })[char]);
+
+  if (!root || !dealId) {
+    if (root) root.innerHTML = '<div class="status">Deal information is unavailable.</div>';
+    return;
   }
- }
- const configured=Number(deal.chain_id||0)===56&&/^0x[0-9a-fA-F]{40}$/.test(String(deal.safe_address||''))&&/^0x[0-9a-fA-F]{40}$/.test(String(deal.token_contract||''));
- const paid=Boolean(deal.payment_tx_hash)||String(deal.payment_status||'').toLowerCase()==='confirmed'||String(deal.status||'').toLowerCase()==='funded';
- root.innerHTML=`<h2>Deal Checkout</h2><div class="card"><p>Deal amount: <strong>${amount.toLocaleString()} ${currency}</strong></p><p>Web3Market fee: <strong>${fee.toLocaleString()} ${currency}</strong> (${feePct.toFixed(2)}%)</p><p>Seller net amount: <strong>${net.toLocaleString()} ${currency}</strong></p><p>Status: <strong>${esc(deal.status)}</strong></p><p>Payment: <strong>${paid?'Confirmed on-chain':'Pending'}</strong>${deal.payment_tx_hash?` · <code>${esc(deal.payment_tx_hash)}</code>`:''}</p>${configured&&String(deal.buyer_id)===String(user.id)&&!paid?'<button class="btn primary" id="payBtn">Pay from connected wallet</button>':'<div class="status">'+(paid?'Payment is already verified.':'Live payment is not enabled for this deal yet. The platform must assign a verified BNB Smart Chain Safe and token contract before funds can move.')+'</div>'}<a class="btn" href="deal-room.html?deal=${encodeURIComponent(deal.id)}">Open Deal Room</a></div>`;
- const payBtn=document.getElementById('payBtn');if(!payBtn)return;
- const loadWalletManager=async()=>{if(window.Web3MarketWalletManager)return window.Web3MarketWalletManager;return await new Promise(resolve=>{const id='checkout-wallet-manager-loader';let s=document.getElementById(id);if(!s){s=document.createElement('script');s.id=id;s.src='js/wallet-manager.js?v=20260919-payment1';s.async=false;s.onload=()=>resolve(window.Web3MarketWalletManager||null);s.onerror=()=>resolve(null);document.head.appendChild(s)}else{s.addEventListener('load',()=>resolve(window.Web3MarketWalletManager||null),{once:true});setTimeout(()=>resolve(window.Web3MarketWalletManager||null),2500)}})};
- const choosePaymentWallet=async()=>{const wm=await loadWalletManager();if(!wm)throw new Error('Wallet connection module is unavailable. Please refresh the page.');return await new Promise(resolve=>{let m=document.getElementById('checkoutWalletModal');if(!m){m=document.createElement('div');m.id='checkoutWalletModal';m.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(3,5,15,.82);backdrop-filter:blur(7px);display:grid;place-items:center;padding:18px';m.innerHTML='<div style="width:min(430px,100%);max-height:85vh;overflow:auto;background:#15132a;border:1px solid #443270;border-radius:18px;padding:18px;color:#fff"><div style="display:flex;justify-content:space-between;align-items:center"><div><strong style="font-size:17px">Choose wallet for payment</strong><div style="font-size:10px;color:#aaa3c3;margin-top:4px">Your selected wallet will open the payment confirmation directly.</div></div><button id="checkoutWalletClose" type="button" style="border:0;background:transparent;color:#aaa3c3;font-size:24px">×</button></div><div id="checkoutWalletList"></div><div id="checkoutWalletNotice" style="font-size:10px;color:#a9a2bd;margin-top:10px;line-height:1.5">No funds move until you confirm the transaction in your wallet.</div></div>';document.body.appendChild(m);m.querySelector('#checkoutWalletClose').onclick=()=>{m.remove();resolve(null)}}const list=m.querySelector('#checkoutWalletList');list.innerHTML='';wm.listWallets().forEach(row=>{const b=document.createElement('button');b.type='button';b.style.cssText='width:100%;display:flex;align-items:center;gap:12px;margin:8px 0;padding:13px;border:1px solid #3a3158;border-radius:12px;background:#18152b;color:#fff;cursor:pointer;text-align:left;touch-action:manipulation';b.innerHTML='<span style="font-size:20px">◈</span><span style="flex:1"><strong style="display:block;font-size:12px">'+wm.esc(row.name)+'</strong><small style="display:block;color:#89829f;margin-top:3px">'+(row.detected?'Detected on this device':'Open wallet app / browser')+'</small></span><span style="color:#7c3aed">›</span>';b.onclick=async()=>{if(row.provider){m.remove();resolve({provider:row.provider,name:row.name})}else{const notice=m.querySelector('#checkoutWalletNotice');notice.textContent='Opening '+row.name+'…';wm.launch(row.name,notice)}};list.appendChild(b)})})};
- payBtn.addEventListener('click',async()=>{const old=payBtn.textContent;payBtn.disabled=true;try{
-  const selected=await choosePaymentWallet();if(!selected)throw new Error('Wallet selection cancelled.');
-  const provider=selected.provider;
-  let chain=await provider.request({method:'eth_chainId'});if(chain!=='0x38'){await provider.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});chain=await provider.request({method:'eth_chainId'});}if(chain!=='0x38')throw new Error('Please switch to BNB Smart Chain.');
-  const accounts=await provider.request({method:'eth_requestAccounts'}),from=accounts?.[0];if(!from)throw new Error('No wallet account selected.');
-  const {data:profile}=await sb.from('profiles').select('wallet_address,wallet_verified').eq('id',deal.buyer_id).maybeSingle();
-  if(!profile?.wallet_address||profile.wallet_verified!==true)throw new Error('Buyer wallet must be connected and verified before payment.');
-  if(from.toLowerCase()!==String(profile.wallet_address).toLowerCase())throw new Error('Connect the Buyer wallet locked to this deal.');
-  const tokenAddress=String(deal.token_contract||'');
-  const safeAddress=String(deal.safe_address||'');
-  if(!/^0x[a-fA-F0-9]{40}$/.test(tokenAddress)||!/^0x[a-fA-F0-9]{40}$/.test(safeAddress))throw new Error('Deal token or Safe contract address is invalid.');
-  const decimalsHex=await provider.request({method:'eth_call',params:[{to:tokenAddress,data:'0x313ce567'},'latest']});
-  if(typeof decimalsHex!=='string'||!/^0x[0-9a-fA-F]+$/.test(decimalsHex))throw new Error('Token decimals response is invalid.');
-  const decimals=Number(BigInt(decimalsHex));if(!Number.isInteger(decimals)||decimals<0||decimals>36)throw new Error('Could not determine token decimals.');
-  // Parse the database decimal string without floating-point conversion. Preserve fractional leading zeros (e.g. 0.01) because they are positional digits, not padding to strip.
-  const value=String(deal.expected_amount??deal.amount??'').trim();
-  const amountMatch=/^(0|[1-9][0-9]*)(?:\.([0-9]+))?$/.exec(value);
-  if(!amountMatch)throw new Error('Deal amount is not a valid non-negative decimal value.');
-  const whole=BigInt(amountMatch[1]),fraction=amountMatch[2]||'';
-  if(fraction.length>decimals)throw new Error('Deal amount has too many decimal places for this token.');
-  const scaledFraction=fraction.padEnd(decimals,'0');
-  const baseUnits=whole*(10n**BigInt(decimals))+BigInt(scaledFraction||'0');
-  if(baseUnits<=0n||baseUnits>=(1n<<256n))throw new Error('Deal amount is outside the supported token transfer range.');
-  const base=baseUnits.toString(16).padStart(64,'0'),to=safeAddress.toLowerCase().replace(/^0x/,'').padStart(64,'0'),data='0xa9059cbb'+to+base;
-  payBtn.textContent='Confirm payment in wallet…';const txHash=await provider.request({method:'eth_sendTransaction',params:[{from,to:tokenAddress,data}]}),valid=/^0x[0-9a-fA-F]{64}$/.test(txHash);if(!valid)throw new Error('Wallet returned an invalid transaction hash.');
-  payBtn.textContent='Verifying payment on BNB…';const {data:{session}}=await sb.auth.getSession();if(!session)throw new Error('Session expired. Please sign in again.');
-  const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/verify-deal-payment',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({deal_id:deal.id,tx_hash:txHash})});
-  const result=await response.json().catch(()=>({error:'Invalid verifier response'}));if(!response.ok||!result.ok)throw new Error(result.error||'Payment verification failed');alert('Payment confirmed on-chain.');location.reload();
- }catch(err){payBtn.disabled=false;payBtn.textContent=old;alert(err?.message||'Payment failed');}});
+  if (!supabase) {
+    root.innerHTML = '<div class="status">Database connection unavailable. Please refresh the page.</div>';
+    return;
+  }
+
+  try {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      root.innerHTML = '<div class="status">Please sign in.</div>';
+      return;
+    }
+
+    const { data: deal, error } = await supabase.from("deals")
+      .select("id,project_id,buyer_id,seller_id,amount,currency,status,payment_status,payment_tx_hash,chain_id,safe_address,token_contract,token_symbol")
+      .eq("id", dealId).maybeSingle();
+
+    if (error || !deal) {
+      root.innerHTML = '<div class="status">Deal not found.</div>';
+      return;
+    }
+    if (String(deal.buyer_id) !== String(user.id) &&
+        String(deal.seller_id) !== String(user.id)) {
+      root.innerHTML = '<div class="status">You are not a participant in this deal.</div>';
+      return;
+    }
+
+    const amount = esc(deal.amount);
+    const currency = esc(deal.token_symbol || deal.currency || "USDT");
+    const paymentStatus = esc(deal.payment_status || "pending");
+    const legacyPaymentRecorded = Boolean(deal.payment_tx_hash) ||
+      String(deal.payment_status || "").toLowerCase() === "confirmed";
+
+    root.innerHTML = `
+      <h2>Deal Checkout</h2>
+      <div class="card">
+        <p>Deal amount: <strong>${amount} ${currency}</strong></p>
+        <p>Deal status: <strong>${esc(deal.status || "unknown")}</strong></p>
+        <p>Existing payment record: <strong>${paymentStatus}</strong></p>
+        <p class="status" role="status">
+          The previous checkout payment flow is disabled in this prototype.
+          ${legacyPaymentRecorded
+            ? "A legacy payment record exists, but it is not accepted as proof for the new workflow."
+            : "No new deposit can be initiated from this page."}
+          The new agreement, Safe validation and deposit-verification backend
+          must be completed and tested before deposits are enabled.
+        </p>
+        <a class="btn" href="deal-room.html?deal=${encodeURIComponent(deal.id)}">Open Deal Room</a>
+      </div>`;
+  } catch (error) {
+    console.error("Read-only Deal Checkout failed", error);
+    root.innerHTML = '<div class="status">Could not load deal information. No payment action was attempted.</div>';
+  }
 })();
