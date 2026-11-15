@@ -15,6 +15,8 @@ const base: DealTermsAcceptanceInput = {
   sellerId: "74000000-0000-4000-8000-000000000004",
   safeAddress: "0x2222222222222222222222222222222222222222",
   termsHash: "ab".repeat(32),
+  agreementDocumentVersion: "1.0",
+  agreementDocumentHash: "74fc948b9b7757718b617af080acd51c0a21de81aa3a5b7f410a19aa07a7a465",
   termsVersion: "1",
   partyRole: "buyer",
 };
