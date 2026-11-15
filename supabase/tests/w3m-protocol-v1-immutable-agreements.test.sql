@@ -57,7 +57,7 @@ begin
     else
         execute format('truncate table public.%I',v_table);
     end if;
-    exception when sqlstate '55000' then v_blocked := true;
+    exception when sqlstate '55000' or sqlstate '0A000' then v_blocked := true;
     end;
     if not v_blocked then raise exception 'TRUNCATE was not blocked on %',v_table; end if;
   end loop;
