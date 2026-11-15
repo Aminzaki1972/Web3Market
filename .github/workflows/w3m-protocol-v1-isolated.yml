@@ -10,8 +10,6 @@ on:
       - "supabase/functions/w3m-acquisition-verification/**"
       - "supabase/migrations/*_w3m_protocol_v1_immutable_dispute_decisions.sql"
       - "supabase/tests/w3m-protocol-v1-dispute-decisions.test.sql"
-      - "supabase/migrations/*_w3m_protocol_v1_immutable_dispute_decisions.sql"
-      - "supabase/tests/w3m-protocol-v1-dispute-decisions.test.sql"
       - "docs/legal/**"
       - "supabase/migrations/20261115010000_w3m_protocol_v1_bind_legal_agreement_document.sql"
       - "supabase/functions/w3m-protocol-v1-finalize-safe-release/**"
@@ -82,6 +80,8 @@ on:
       - w3m-v1-finalization-adapter-tests-20261112
     paths:
       - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/migrations/*_w3m_protocol_v1_immutable_dispute_decisions.sql"
+      - "supabase/tests/w3m-protocol-v1-dispute-decisions.test.sql"
       - "supabase/functions/w3m-protocol-v1-finalize-safe-release/**"
       - "supabase/functions/w3m-protocol-v1-deal-agreement/**"
       - "supabase/functions/w3m-protocol-v1-prepare-deal-release/**"
@@ -537,7 +537,7 @@ jobs:
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*_w3m_protocol_v1_*.sql' -print | sort)
 
   scaffold-dispute-decision-migration:
-    if: github.event_name == 'push' && github.ref_name == 'w3m-v1-finalization-adapter-tests-20261112' && github.event.head_commit.message == 'w3m: scaffold dispute migration with supabase cli'
+    if: github.event_name == 'push' && github.ref_name == 'w3m-v1-finalization-adapter-tests-20261112' && contains(github.event.head_commit.message, 'w3m scaffold dispute migration with supabase cli')
     runs-on: ubuntu-latest
     permissions:
       contents: write
