@@ -100,3 +100,26 @@ Deno.test("events are returned as immutable snapshots with monotonic sequence nu
   assertEquals(events.map(event => event.sequence), [1, 2]);
   assertThrows(() => (events as unknown as { push(value: unknown): number }).push({}));
 });
+
+Deno.test("stored request and evidence are defensive immutable snapshots", () => {
+  const store = makeStore();
+  const mutableEvidence = [{ id: "ev-1", description: "Original evidence", submittedAt: 90 }];
+  const request = store.submit("buyer-1", "req-1", "idem-1", "Reason", 100, mutableEvidence);
+  mutableEvidence[0].description = "Tampered after submission";
+  assertEquals(store.getRequest("req-1")?.evidence[0].description, "Original evidence");
+  assertThrows(() => { (request as unknown as { reason: string }).reason = "Tampered"; });
+  assertThrows(() => { (request.evidence[0] as unknown as { description: string }).description = "Tampered"; });
+  assertEquals(store.getRequest("req-1")?.reason, "Reason");
+  assertEquals(store.getEvents("req-1").length, 1);
+});
+
+Deno.test("idempotency fingerprint ignores evidence object property insertion order", () => {
+  const store = makeStore();
+  const firstEvidence = [{ id: "ev-1", description: "Evidence item", submittedAt: 90 }];
+  const reorderedEvidence = [{ submittedAt: 90, description: "Evidence item", id: "ev-1" }];
+  const first = store.submit("buyer-1", "req-1", "idem-1", "Reason", 100, firstEvidence);
+  const retry = store.submit("buyer-1", "req-2", "idem-1", "Reason", 100, reorderedEvidence);
+  assertEquals(retry, first);
+  assertEquals(store.getEvents("req-1").length, 1);
+  assertEquals(store.getRequest("req-2"), null);
+});
