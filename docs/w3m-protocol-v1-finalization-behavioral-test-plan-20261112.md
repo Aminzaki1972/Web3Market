@@ -166,3 +166,8 @@ Synchronization requirements for the shell harness:
 Ownership-race acceptance must additionally inspect project lifecycle guards: if an owner update waits behind a successful finalization, it must not leave a completed deal with a project whose owner no longer matches the deal's seller. If the current schema permits such a post-sale owner change, that is a separate V1 integrity defect to fix before calling this race safe; do not encode a permissive result as expected behavior.
 
 This review and design note does not claim the race suite exists or has passed. The new fixture helper, independent-session shell harness, and CI invocation remain unimplemented.
+
+
+### Evidence append lock-order boundary clarification — 15 November 2026
+
+The evidence-append trigger takes the per-deal advisory transaction lock and then rejects an INSERT whenever an execution attempt for that report is already in an active/pinned state (`CLAIMED`, `BROADCAST`, `CONFIRMED`, or `RECONCILIATION_REQUIRED`). Consequently, a successful evidence INSERT cannot acquire and retain this lock ahead of the finalizer for an already-existing attempt: the attempt's existence itself makes the append invalid. The meaningful pre-pin ordering is covered by racing the real execution-claim RPC against evidence append in both lock orders. Once an attempt is pinned, the meaningful finalizer race is finalizer-lock-first followed by a competing evidence append, which must wait and then be rejected. Do not add an "evidence insert succeeds first, then finalizer for the same already-pinned attempt" test; that state is not reachable under the current trigger contract. This does not weaken the pre-pin concurrency requirement or claim that all report/evidence race cases are closed.
