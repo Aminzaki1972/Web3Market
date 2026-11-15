@@ -384,4 +384,51 @@ revoke all on function public.w3m_admin_decide_deal_dispute(uuid,uuid,text,text,
 grant execute on function public.w3m_admin_decide_deal_dispute(uuid,uuid,text,text,jsonb,uuid)
   to service_role;
 
+
+-- Server-only read model used by PREPARE/SIGN adapters to distinguish a
+-- verified seller-win decision from an active or buyer-win dispute.
+create or replace function public.w3m_read_dealroom_dispute_decision_snapshot(p_deal_id uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $read$
+  select jsonb_build_object(
+    'deal_id', d.id::text,
+    'deal_status', d.status,
+    'dispute_status', d.dispute_status,
+    'dispute', case when x.id is null then null else jsonb_build_object(
+      'id', x.id::text,
+      'deal_id', x.deal_id::text,
+      'status', x.status,
+      'resolution', x.resolution,
+      'resolved_by', x.resolved_by::text,
+      'resolved_at', x.resolved_at::text
+    ) end,
+    'decision', case when decision.id is null then null else jsonb_build_object(
+      'id', decision.id::text,
+      'deal_id', decision.deal_id::text,
+      'dispute_id', decision.dispute_id::text,
+      'outcome', decision.outcome,
+      'decision_hash', decision.decision_hash,
+      'terms_version_id', decision.terms_version_id::text,
+      'terms_version', decision.terms_version::text,
+      'terms_hash', decision.terms_hash,
+      'decided_by', decision.decided_by::text,
+      'decided_at', decision.decided_at::text
+    ) end
+  )
+  from public.deals d
+  left join public.deal_disputes x on x.deal_id = d.id
+  left join public.w3m_deal_dispute_decisions decision
+    on decision.deal_id = d.id and decision.dispute_id = x.id
+  where d.id = p_deal_id;
+$read$;
+
+revoke all on function public.w3m_read_dealroom_dispute_decision_snapshot(uuid)
+  from public, anon, authenticated, service_role;
+grant execute on function public.w3m_read_dealroom_dispute_decision_snapshot(uuid)
+  to service_role;
+
 commit;
