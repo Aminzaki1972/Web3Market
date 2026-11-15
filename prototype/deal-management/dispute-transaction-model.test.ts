@@ -60,9 +60,11 @@ Deno.test("declined hold release is separate, reasoned, admin-only and append-on
   const store = makeStore();
   store.submit("buyer-1", "req-1", "idem-1", "Reason", 100, evidence);
   store.review("admin-1", "req-1", "declined", "No qualifying breach", 110);
-  assertThrows(() => store.releaseDeclinedHold("buyer-1", "req-1", "Release", 120));
-  assertThrows(() => store.releaseDeclinedHold("admin-1", "req-1", " ", 120));
-  const released = store.releaseDeclinedHold("admin-1", "req-1", "No other hold remains", 120);
+  assertThrows(() => store.releaseDeclinedHold("buyer-1", "req-1", "Release", 120, false));
+  assertThrows(() => store.releaseDeclinedHold("admin-1", "req-1", " ", 120, false));
+  assertThrows(() => store.releaseDeclinedHold("admin-1", "req-1", "Another hold is still active", 120, true));
+  assertEquals(store.hasActiveHold(), true);
+  const released = store.releaseDeclinedHold("admin-1", "req-1", "No other hold remains", 120, false);
   assertEquals(released.status, "administrative_hold_released");
   assertEquals(store.hasActiveHold(), false);
   assertEquals(store.canIssuePayoutInstruction(), true);
