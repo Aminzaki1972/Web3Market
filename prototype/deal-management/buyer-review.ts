@@ -16,8 +16,8 @@ export type BuyerReview = {
 export function startBuyerReview(
   assets: DealAsset[], inspectionWindowMs: number | null, now: number,
 ): BuyerReview {
-  if (!Number.isFinite(now) || (inspectionWindowMs !== null &&
-      (!Number.isFinite(inspectionWindowMs) || inspectionWindowMs < 0))) {
+  if (!Number.isFinite(now) || now < 0 || (inspectionWindowMs !== null &&
+      (!Number.isFinite(inspectionWindowMs) || inspectionWindowMs < 0 || !Number.isFinite(now + inspectionWindowMs)))) {
     throw new Error("A valid review start and optional inspection window are required");
   }
   if (assets.length === 0 || assets.some(a => !a.id.trim()) ||
@@ -45,7 +45,7 @@ export function reviewAsset(
 ): BuyerReview {
   const current = review.assets[assetId];
   if (!current || review.finalAcceptedAt !== null || review.rejection !== null ||
-      current.status !== "pending" || !Number.isFinite(now)) {
+      current.status !== "pending" || !Number.isFinite(now) || now < review.inspectionStartedAt) {
     throw new Error("This asset is not available for buyer review");
   }
   if (decision === "reject" && !note.trim()) throw new Error("A rejection reason is required");
@@ -63,7 +63,8 @@ export function reviewAsset(
 }
 
 export function finalBuyerAcceptance(review: BuyerReview, now: number): BuyerReview {
-  if (review.finalAcceptedAt !== null || review.rejection !== null || !Number.isFinite(now) ||
+  if (review.finalAcceptedAt !== null || review.rejection !== null || !Number.isFinite(now) || now < review.inspectionStartedAt ||
+      Object.values(review.assets).some(asset => asset.reviewedAt === null || now < asset.reviewedAt) ||
       Object.values(review.assets).some(asset => asset.status !== "accepted")) {
     throw new Error("Final acceptance requires every required asset to be accepted");
   }
