@@ -2,7 +2,7 @@ import { assertEquals } from "jsr:@std/assert@1.0.14";
 import { prepareDisputePayout, prepareOrdinaryPayout } from "./payout-readiness.ts";
 import { openDispute, submitClaimantEvidence, submitRespondentResponse, issueDisputeDecision } from "./disputes.ts";
 import { parseUsdtAmount } from "./core.ts";
-import { confirmDisputeLock, reviewDisputeRequest, submitDisputeRequest } from "./dispute-intake.ts";
+import { confirmDisputeLock, releaseDeclinedDisputeHold, reviewDisputeRequest, submitDisputeRequest } from "./dispute-intake.ts";
 
 const recipients = {
   buyer: "0x1111111111111111111111111111111111111111",
@@ -70,6 +70,41 @@ Deno.test("ordinary payout remains blocked after declined review until explicit 
   const blocked = prepareOrdinaryPayout({ ...ordinary, disputeRequest: declined }, recipients);
   assertEquals(blocked.ready, false);
   if (!blocked.ready) assertEquals(blocked.blockers.includes("administrative_review_hold"), true);
+});
+
+Deno.test("ordinary payout requires a genuine recorded release after a declined request", () => {
+  const submitted = submitDisputeRequest(
+    "ordinary-release", "deal-10000", "buyer", "Request review", 100, initialEvidence,
+  );
+  const declined = reviewDisputeRequest(
+    submitted, "declined", "No qualifying grounds", "admin-1", 110,
+  );
+  const released = releaseDeclinedDisputeHold(
+    declined, "No other active hold remains", "admin-1", 120, false,
+  );
+  const valid = prepareOrdinaryPayout({ ...ordinary, disputeRequest: released }, recipients);
+  assertEquals(valid.ready, true);
+
+  const forgedRelease = {
+    ...released, payoutHold: true, holdRelease: null,
+  };
+  const invalid = prepareOrdinaryPayout({ ...ordinary, disputeRequest: forgedRelease }, recipients);
+  assertEquals(invalid.ready, false);
+  if (!invalid.ready) assertEquals(
+    invalid.blockers.includes("administrative_hold_release_inconsistent"), true,
+  );
+
+  const approvedButRelabelled = {
+    ...released,
+    review: { ...released.review!, outcome: "approved" as const },
+  };
+  const invalidApproval = prepareOrdinaryPayout({
+    ...ordinary, disputeRequest: approvedButRelabelled,
+  }, recipients);
+  assertEquals(invalidApproval.ready, false);
+  if (!invalidApproval.ready) assertEquals(
+    invalidApproval.blockers.includes("administrative_hold_release_inconsistent"), true,
+  );
 });
 
 Deno.test("ordinary payout requires every gate and produces 92.5/7.5 split", () => {
