@@ -21,7 +21,9 @@ const command: W3MDisputeDecisionCommand = {
   ],
 };
 const canonicalInput = {
-  ...command, decisionId, decidedBy: actorId,
+  ...command,
+  evidenceRefs: command.evidenceRefs.map((item, index) => ({ ...item, contentHash: index === 0 ? "11".repeat(32) : "22".repeat(32) })),
+  decisionId, decidedBy: actorId,
   decidedAt: "2026-11-15T21:00:00.000Z",
   termsVersionId, termsVersion: "2", termsHash: "ab".repeat(32),
 };
@@ -70,7 +72,7 @@ Deno.test("canonical decision hash changes when outcome, reason, evidence, or te
   const variants = await Promise.all([
     buildW3MCanonicalDisputeDecision({ ...canonicalInput, outcome: "seller_wins" }),
     buildW3MCanonicalDisputeDecision({ ...canonicalInput, reason: canonicalInput.reason + " Additional finding." }),
-    buildW3MCanonicalDisputeDecision({ ...canonicalInput, evidenceRefs: [{ source: "deal_message", recordId: assetId }] }),
+    buildW3MCanonicalDisputeDecision({ ...canonicalInput, evidenceRefs: [{ source: "deal_message", recordId: assetId, contentHash: "33".repeat(32) }] }),
     buildW3MCanonicalDisputeDecision({ ...canonicalInput, termsVersion: "3" }),
   ]);
   for (const variant of variants) assertEquals(variant.decisionHash === base.decisionHash, false);
@@ -79,5 +81,6 @@ Deno.test("canonical decision hash changes when outcome, reason, evidence, or te
 Deno.test("canonical decision rejects noncanonical timestamps, invalid terms hash, and invalid server identity", async () => {
   await assertRejects(() => buildW3MCanonicalDisputeDecision({ ...canonicalInput, decidedAt: "yesterday" }));
   await assertRejects(() => buildW3MCanonicalDisputeDecision({ ...canonicalInput, termsHash: "bad" }));
+  await assertRejects(() => buildW3MCanonicalDisputeDecision({ ...canonicalInput, evidenceRefs: [{ source: "deal_message", recordId: messageId } as never] }));
   await assertRejects(() => buildW3MCanonicalDisputeDecision({ ...canonicalInput, decidedBy: "browser-admin" }));
 });
