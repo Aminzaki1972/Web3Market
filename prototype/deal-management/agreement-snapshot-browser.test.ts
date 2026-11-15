@@ -28,6 +28,9 @@ Deno.test("deal preview binds every demo approval to the current terms fingerpri
   const html = await Deno.readTextFile("deal-management-preview.html");
   for (const required of [
     "agreement-snapshot-browser.js",
+    "agreement-approval-gate.js",
+    "canRecordAgreementApproval",
+    "haveAllCurrentAgreementApprovals",
     "function agreementTermsPayload()",
     "async function refreshAgreementHash()",
     "approvalHashes[k]===agreementHashState.termsHash",
