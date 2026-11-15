@@ -19,10 +19,10 @@ function approvedAgreementSnapshot(grossAmount: bigint, approved = true, accepte
       platform: { approved, version: 1, hash: agreementHash },
     },
     requiredAssets: [
-      { id: "repo", evidenceStatus: "verified", buyerStatus: accepted ? "accepted" : "pending" },
-      { id: "domain", evidenceStatus: "verified", buyerStatus: accepted ? "accepted" : "pending" },
+      { id: "repo", evidenceStatus: "verified", evidenceCheckedAt: 105, buyerStatus: accepted ? "accepted" : "pending", buyerReviewedAt: accepted ? 120 : null },
+      { id: "domain", evidenceStatus: "verified", evidenceCheckedAt: 106, buyerStatus: accepted ? "accepted" : "pending", buyerReviewedAt: accepted ? 121 : null },
     ],
-    buyerFinalAcceptance: accepted ? { accepted: true, version: 1, hash: agreementHash, acceptedAssetIds: ["repo", "domain"] } : null,
+    buyerFinalAcceptance: accepted ? { accepted: true, version: 1, hash: agreementHash, acceptedAssetIds: ["repo", "domain"], acceptedAt: 130 } : null,
   };
 }
 const ordinary = {
@@ -391,7 +391,7 @@ Deno.test("ordinary payout binds approvals and final acceptance to current agree
   assertEquals(prepareOrdinaryPayout(ordinary, recipients).ready, true);
   const staleBuyer = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,approvals:{...ordinary.agreementSnapshot.approvals,buyer:{approved:true,version:0,hash:agreementHash}}}};
   const staleSeller = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,approvals:{...ordinary.agreementSnapshot.approvals,seller:{approved:true,version:1,hash:"0x"+"d".repeat(64)}}}};
-  const staleAcceptance = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,buyerFinalAcceptance:{accepted:true,version:0,hash:agreementHash,acceptedAssetIds:["repo","domain"]}}};
+  const staleAcceptance = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,buyerFinalAcceptance:{accepted:true,version:0,hash:agreementHash,acceptedAssetIds:["repo","domain"],acceptedAt:130}}};
   for (const invalid of [staleBuyer,staleSeller]) {
     const result = prepareOrdinaryPayout(invalid, recipients);
     assertEquals(result.ready, false);
@@ -404,7 +404,7 @@ Deno.test("ordinary payout binds approvals and final acceptance to current agree
 
 
 Deno.test("ordinary payout requires every required asset verified and individually accepted", () => {
-  const unverified = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,requiredAssets:[...ordinary.agreementSnapshot.requiredAssets,{id:"domain",evidenceStatus:"pending" as const,buyerStatus:"accepted" as const}]}};
+  const unverified = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,requiredAssets:[...ordinary.agreementSnapshot.requiredAssets,{id:"domain",evidenceStatus:"pending" as const,evidenceCheckedAt:null,buyerStatus:"accepted" as const,buyerReviewedAt:121}]}};
   const evidenceResult = prepareOrdinaryPayout(unverified, recipients);
   assertEquals(evidenceResult.ready, false);
   if (!evidenceResult.ready) assertEquals(evidenceResult.blockers.includes("required_assets_not_verified"), true);
@@ -416,4 +416,20 @@ Deno.test("ordinary payout requires every required asset verified and individual
   const idsResult = prepareOrdinaryPayout(incompleteIds, recipients);
   assertEquals(idsResult.ready, false);
   if (!idsResult.ready) assertEquals(idsResult.blockers.includes("buyer_final_acceptance_missing"), true);
+});
+
+
+Deno.test("ordinary payout requires timestamped evidence verification and buyer review records", () => {
+  const noEvidenceTime = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,requiredAssets:ordinary.agreementSnapshot.requiredAssets.map(a=>a.id==="repo"?{...a,evidenceCheckedAt:null}:a)}};
+  const evidenceResult = prepareOrdinaryPayout(noEvidenceTime, recipients);
+  assertEquals(evidenceResult.ready, false);
+  if (!evidenceResult.ready) assertEquals(evidenceResult.blockers.includes("required_assets_not_verified"), true);
+  const noReviewTime = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,requiredAssets:ordinary.agreementSnapshot.requiredAssets.map(a=>a.id==="repo"?{...a,buyerReviewedAt:null}:a)}};
+  const reviewResult = prepareOrdinaryPayout(noReviewTime, recipients);
+  assertEquals(reviewResult.ready, false);
+  if (!reviewResult.ready) assertEquals(reviewResult.blockers.includes("buyer_final_acceptance_missing"), true);
+  const noFinalTime = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,buyerFinalAcceptance:{...ordinary.agreementSnapshot.buyerFinalAcceptance!,acceptedAt:NaN}}};
+  const finalResult = prepareOrdinaryPayout(noFinalTime, recipients);
+  assertEquals(finalResult.ready, false);
+  if (!finalResult.ready) assertEquals(finalResult.blockers.includes("buyer_final_acceptance_missing"), true);
 });
