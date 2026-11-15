@@ -107,4 +107,7 @@ Deno.test("participant roster must keep buyer, seller and optional admins distin
   assertThrows(() => appendDealChatMessage([], {
     buyerId: "buyer-1", sellerId: "seller-1", adminIds: ["admin-1", "admin-1"],
   }, first));
+  assertThrows(() => appendDealChatMessage([], {
+    buyerId: "buyer-1", sellerId: "seller-1", adminIds: ["admin-1", "admin-2"],
+  }, first));
 });
