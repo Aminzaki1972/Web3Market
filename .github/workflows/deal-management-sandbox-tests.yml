@@ -17,6 +17,7 @@ on:
       - "prototype/deal-management/**"
       - "deal-management-preview.html"
       - "js/deal-room.js"
+      - "deal-room.html"
       - ".github/workflows/deal-management-sandbox-tests.yml"
 
 permissions:
