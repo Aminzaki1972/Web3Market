@@ -1,0 +1,49 @@
+import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
+import { persistW3MDisputeDecision } from "./dispute-decision-service.ts";
+
+const actorId = "84000000-0000-4000-8000-000000000004";
+const command = {
+  dealId: "81000000-0000-4000-8000-000000000001",
+  disputeId: "82000000-0000-4000-8000-000000000002",
+  outcome: "seller_wins",
+  reason: "The seller delivered the agreed project assets and control.",
+  evidenceRefs: [{ source: "deal_asset", recordId: "87000000-0000-4000-8000-000000000007" }],
+};
+const result = {
+  decision_id: "83000000-0000-4000-8000-000000000003",
+  decision_hash: "ab".repeat(32),
+  outcome: "seller_wins",
+  dispute_record_status: "resolved",
+  deal_dispute_status: "resolved_seller",
+  deal_status: "disputed",
+  idempotent_replay: false,
+};
+
+Deno.test("decision service passes only parsed command and verified actor to the server RPC", async () => {
+  let captured: { name: string; args: Record<string, unknown> } | null = null;
+  const persisted = await persistW3MDisputeDecision({
+    rpc: async (name, args) => { captured = { name, args }; return { data: result, error: null }; },
+  }, { command, actorId });
+  assertEquals(captured?.name, "w3m_admin_decide_deal_dispute");
+  assertEquals(captured?.args.p_actor_id, actorId);
+  assertEquals("p_refund_amount" in (captured?.args || {}), false);
+  assertEquals(persisted.dealDisputeStatus, "resolved_seller");
+  assertEquals(persisted.dealStatus, "disputed");
+});
+
+Deno.test("decision service rejects invalid actor and browser-supplied authority fields before RPC", async () => {
+  let called = false;
+  const client = { rpc: async () => { called = true; return { data: result, error: null }; } };
+  await assertRejects(() => persistW3MDisputeDecision(client, { command, actorId: "not-admin" }));
+  await assertRejects(() => persistW3MDisputeDecision(client, { command: { ...command, actorId }, actorId }));
+  assertEquals(called, false);
+});
+
+Deno.test("decision service fails closed on RPC error or mismatched state response", async () => {
+  await assertRejects(() => persistW3MDisputeDecision({
+    rpc: async () => ({ data: null, error: { message: "internal database details" } }),
+  }, { command, actorId }));
+  await assertRejects(() => persistW3MDisputeDecision({
+    rpc: async () => ({ data: { ...result, deal_dispute_status: "resolved_buyer" }, error: null }),
+  }, { command, actorId }));
+});
