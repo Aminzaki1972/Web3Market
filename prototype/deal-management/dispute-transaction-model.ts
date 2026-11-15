@@ -31,6 +31,32 @@ export type DisputeStoreEvent = Readonly<{
 
 type ActiveHold = Readonly<{ requestId: string; active: true }>;
 type IdempotencyRecord = Readonly<{ fingerprint: string; requestId: string }>;
+/** Freeze a defensive copy so callers cannot mutate stored state through aliases. */
+function immutableRequest(request: DisputeRequest): DisputeRequest {
+  const evidence = Object.freeze(request.evidence.map(item =>
+    Object.freeze({ id: item.id, description: item.description, submittedAt: item.submittedAt })
+  )) as unknown as DisputeRequestEvidence[];
+  const review = request.review === null ? null : Object.freeze({ ...request.review });
+  const lockProof = request.lockProof === null ? null : Object.freeze({ ...request.lockProof });
+  const holdRelease = request.holdRelease === null ? null : Object.freeze({ ...request.holdRelease });
+  return Object.freeze({ ...request, evidence, review, lockProof, holdRelease }) as DisputeRequest;
+}
+
+function requestFingerprint(
+  dealId: string,
+  role: "buyer" | "seller",
+  reason: string,
+  evidence: DisputeRequestEvidence[],
+): string {
+  // Explicit field projection ignores caller key ordering and extra properties.
+  return JSON.stringify([
+    dealId.normalize("NFC"), role, reason.normalize("NFC"),
+    evidence.map(item => [
+      item.id.normalize("NFC"), item.description.normalize("NFC"), item.submittedAt,
+    ]),
+  ]);
+}
+
 
 export class InMemoryDisputeTransactionModel {
   readonly #roster: TrustedDealRoster;
@@ -63,7 +89,7 @@ export class InMemoryDisputeTransactionModel {
     if (role !== "buyer" && role !== "seller") throw new Error("Participant identity required");
     if (!idempotencyKey.trim()) throw new Error("Idempotency key is required");
 
-    const fingerprint = JSON.stringify({ dealId: this.#roster.dealId, role, reason, evidence });
+    const fingerprint = requestFingerprint(this.#roster.dealId, role, reason, evidence);
     const prior = this.#idempotency.get(idempotencyKey);
     if (prior) {
       if (prior.fingerprint !== fingerprint) throw new Error("Idempotency key was reused with different request content");
@@ -76,9 +102,9 @@ export class InMemoryDisputeTransactionModel {
 
     // Build and validate every new record before mutating the model. The commit
     // section below is synchronous, modelling a single atomic transaction.
-    const request = submitDisputeRequest(
+    const request = immutableRequest(submitDisputeRequest(
       requestId, this.#roster.dealId, role, reason, submittedAt, evidence,
-    );
+    ));
     const event: DisputeStoreEvent = Object.freeze({
       id: requestId + ":1", requestId, dealId: this.#roster.dealId,
       sequence: 1, type: "request_submitted", actorId: authenticatedUserId,
@@ -102,7 +128,7 @@ export class InMemoryDisputeTransactionModel {
     authorizeDealAction(authenticatedUserId, this.#roster, "review_dispute_request");
     const current = this.#requests.get(requestId);
     if (!current) throw new Error("Dispute request not found");
-    const next = reviewDisputeRequest(current, outcome, reason, authenticatedUserId, reviewedAt);
+    const next = immutableRequest(reviewDisputeRequest(current, outcome, reason, authenticatedUserId, reviewedAt));
     const sequence = this.#events.filter(event => event.requestId === requestId).length + 1;
     const event: DisputeStoreEvent = Object.freeze({
       id: requestId + ":" + sequence, requestId, dealId: this.#roster.dealId,
@@ -127,9 +153,9 @@ export class InMemoryDisputeTransactionModel {
     if (!current) throw new Error("Dispute request not found");
     const hold = this.#holds.get(this.#roster.dealId);
     if (!hold || hold.requestId !== requestId) throw new Error("Matching active payout hold is required");
-    const next = releaseDeclinedDisputeHold(
+    const next = immutableRequest(releaseDeclinedDisputeHold(
       current, reason, authenticatedUserId, releasedAt, false,
-    );
+    ));
     const sequence = this.#events.filter(event => event.requestId === requestId).length + 1;
     const event: DisputeStoreEvent = Object.freeze({
       id: requestId + ":" + sequence, requestId, dealId: this.#roster.dealId,
