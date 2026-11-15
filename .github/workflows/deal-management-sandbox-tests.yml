@@ -15,6 +15,7 @@ on:
     paths:
       - "prototype/deal-management/**"
       - "deal-management-preview.html"
+      - "js/deal-room.js"
       - ".github/workflows/deal-management-sandbox-tests.yml"
 
 permissions:
