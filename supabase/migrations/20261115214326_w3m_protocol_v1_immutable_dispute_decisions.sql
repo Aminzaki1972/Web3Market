@@ -144,19 +144,22 @@ begin
     );
   end loop;
 
-  -- Global lock order: parent deal first, then its dispute row. This matches
-  -- the V1 dispute mutation/finalizer serialization trigger.
-  select * into v_deal
-    from public.deals d
-   where d.id = p_deal_id
-   for update;
-  if not found then raise exception 'Deal not found' using errcode = 'P0002'; end if;
-
+  -- Global lock order is dispute row first, then parent deal. The existing
+  -- BEFORE UPDATE dispute trigger runs after PostgreSQL has locked the child
+  -- row and then locks the parent deal; matching that order avoids deadlocks.
+  -- Safe finalization locks only the parent deal and deliberately never locks
+  -- a child dispute row, so it cannot form the reverse edge in this lock graph.
   select * into v_dispute
     from public.deal_disputes d
    where d.id = p_dispute_id and d.deal_id = p_deal_id
    for update;
   if not found then raise exception 'Dispute not found for this deal' using errcode = 'P0002'; end if;
+
+  select * into v_deal
+    from public.deals d
+   where d.id = p_deal_id
+   for update;
+  if not found then raise exception 'Deal not found' using errcode = 'P0002'; end if;
 
   select * into v_existing
     from public.w3m_deal_dispute_decisions d
