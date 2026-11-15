@@ -65,9 +65,24 @@ Deno.test("sandbox happy path: offer -> agreement -> deposit evidence -> transfe
   assertEquals(review.finalAcceptedAt, 140);
 
   const payout = prepareOrdinaryPayout({
-    agreementApproved: true, depositVerified: true, depositedAmount: parseUsdtAmount("6800"),
+    agreementSnapshot: {
+      version: agreement.version,
+      hash: agreement.snapshotHash,
+      grossAmount: parseUsdtAmount("6800"),
+      approvals: {
+        buyer: { approved: true, version: agreement.version, hash: agreement.snapshotHash },
+        seller: { approved: true, version: agreement.version, hash: agreement.snapshotHash },
+        platform: { approved: true, version: agreement.version, hash: agreement.snapshotHash },
+      },
+      buyerFinalAcceptance: {
+        accepted: review.finalAcceptedAt === 140,
+        version: agreement.version,
+        hash: agreement.snapshotHash,
+      },
+    },
+    depositVerified: true, depositedAmount: parseUsdtAmount("6800"),
     originalGrossAgreedAmount: parseUsdtAmount("6800"),
-    requiredAssetsVerified: true, buyerFinalAcceptance: true, openDispute: false,
+    requiredAssetsVerified: true, openDispute: false,
     disputeEverOpened: false, disputeRequest: null,
   }, {
     buyer: "0x3333333333333333333333333333333333333333",
