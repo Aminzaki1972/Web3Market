@@ -55,3 +55,19 @@ Deno.test("required assets must all be verified; optional assets do not block", 
   const optional = createDealAsset("bonus", "other", false);
   assertEquals(allRequiredAssetsVerified([required, optional]), true);
 });
+
+
+Deno.test("asset evidence and verification timestamps cannot be negative",()=>{
+ const asset=createDealAsset("repo-negative-time","github_repository");
+ assertThrows(()=>submitAssetEvidence(asset,{...ev("repository_transfer_completed"),submittedAt:-1}));
+ const withEvidence=submitAssetEvidence(asset,ev("repository_transfer_completed"));
+ assertThrows(()=>recordAssetVerification(withEvidence,{status:"verified",summary:"ok",source:"source",checkedAt:-1}));
+});
+
+Deno.test("terminal verification results cannot be overwritten",()=>{
+ const withEvidence=submitAssetEvidence(createDealAsset("repo-terminal","github_repository"),ev("repository_transfer_completed"));
+ const verified=recordAssetVerification(withEvidence,{status:"verified",summary:"verified",source:"trusted",checkedAt:200});
+ assertThrows(()=>recordAssetVerification(verified,{status:"rejected",summary:"changed",source:"trusted",checkedAt:210}));
+ const rejected=recordAssetVerification(submitAssetEvidence(createDealAsset("repo-rejected","github_repository"),ev("member_invitation")),{status:"rejected",summary:"not sufficient",source:"reviewer",checkedAt:210});
+ assertThrows(()=>recordAssetVerification(rejected,{status:"verified",summary:"changed",source:"trusted",checkedAt:220}));
+});
