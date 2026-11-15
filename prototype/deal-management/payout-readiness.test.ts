@@ -9,10 +9,23 @@ const recipients = {
   seller: "0x2222222222222222222222222222222222222222",
   platform: "0x3333333333333333333333333333333333333333",
 };
+const agreementHash = "0x" + "c".repeat(64);
+function approvedAgreementSnapshot(grossAmount: bigint, approved = true, accepted = true) {
+  return {
+    version: 1, hash: agreementHash, grossAmount,
+    approvals: {
+      buyer: { approved, version: 1, hash: agreementHash },
+      seller: { approved, version: 1, hash: agreementHash },
+      platform: { approved, version: 1, hash: agreementHash },
+    },
+    buyerFinalAcceptance: accepted ? { accepted: true, version: 1, hash: agreementHash } : null,
+  };
+}
 const ordinary = {
-  agreementApproved: true, depositVerified: true, depositedAmount: 7_000_000_000n,
+  agreementSnapshot: approvedAgreementSnapshot(7_000_000_000n),
+  depositVerified: true, depositedAmount: 7_000_000_000n,
   originalGrossAgreedAmount: 7_000_000_000n,
-  requiredAssetsVerified: true, buyerFinalAcceptance: true, openDispute: false,
+  requiredAssetsVerified: true, openDispute: false,
   disputeEverOpened: false,
   disputeRequest: null,
 };
@@ -53,7 +66,8 @@ function approvedLockConfirmedRequest(id: string) {
 
 function disputeInput(dispute: ReturnType<typeof resolvedDispute>) {
   return {
-    agreementApproved: true, depositVerified: true, depositedAmount: gross,
+    agreementSnapshot: approvedAgreementSnapshot(gross, true, false),
+    depositVerified: true, depositedAmount: gross,
     originalGrossAgreedAmount: gross, dealId: "deal-10000", dealSafeAddress: recipients.buyer, dispute, disputeRequest: approvedLockConfirmedRequest(dispute.id), recipients,
   };
 }
@@ -141,8 +155,8 @@ Deno.test("ordinary payout rejects a deposit that differs from the approved gros
 
 Deno.test("ordinary payout is blocked by every missing gate", () => {
   const result = prepareOrdinaryPayout({
-    ...ordinary, agreementApproved: false, depositVerified: false,
-    requiredAssetsVerified: false, buyerFinalAcceptance: false, openDispute: true,
+    ...ordinary, agreementSnapshot: approvedAgreementSnapshot(ordinary.originalGrossAgreedAmount, false, false), depositVerified: false,
+    requiredAssetsVerified: false, openDispute: true,
   }, recipients);
   assertEquals(result.ready, false);
   if (!result.ready) assertEquals(result.blockers, [
@@ -297,7 +311,7 @@ Deno.test("dispute payout rejects non-integer or non-finite lock confirmation co
 Deno.test("dispute payout waits for final decision and verified agreement/deposit", () => {
   const pending = openDispute("pending", "buyer", 100, 1_000);
   const pendingResult = prepareDisputePayout({
-    agreementApproved: true, depositVerified: true, depositedAmount: gross,
+    agreementSnapshot: approvedAgreementSnapshot(gross, true, false), depositVerified: true, depositedAmount: gross,
     originalGrossAgreedAmount: gross, dealId: "deal-10000", dealSafeAddress: recipients.buyer, dispute: pending, disputeRequest: submitDisputeRequest("pending", "deal-10000", "buyer", "Awaiting admin", 100, initialEvidence), recipients,
   });
   assertEquals(pendingResult.ready, false);
@@ -307,7 +321,7 @@ Deno.test("dispute payout waits for final decision and verified agreement/deposi
     buyerGrossRefund: gross, sellerPayout: 0n, platformFee: fee,
   });
   const gateResult = prepareDisputePayout({
-    agreementApproved: false, depositVerified: false, depositedAmount: gross,
+    agreementSnapshot: approvedAgreementSnapshot(gross, false, false), depositVerified: false, depositedAmount: gross,
     originalGrossAgreedAmount: gross, dealId: "deal-10000", dealSafeAddress: recipients.buyer, dispute: decided, disputeRequest: approvedLockConfirmedRequest(decided.id), recipients,
   });
   assertEquals(gateResult.ready, false);
@@ -367,4 +381,20 @@ Deno.test("dispute payout rejects a released hold or a decision by a different a
   const adminResult = prepareDisputePayout({...input, dispute:wrongAdmin});
   assertEquals(adminResult.ready, false);
   if (!adminResult.ready) assertEquals(adminResult.blockers.includes("dispute_decision_authorization_missing_or_mismatched"), true);
+});
+
+
+Deno.test("ordinary payout binds approvals and final acceptance to current agreement version and hash", () => {
+  assertEquals(prepareOrdinaryPayout(ordinary, recipients).ready, true);
+  const staleBuyer = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,approvals:{...ordinary.agreementSnapshot.approvals,buyer:{approved:true,version:0,hash:agreementHash}}}};
+  const staleSeller = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,approvals:{...ordinary.agreementSnapshot.approvals,seller:{approved:true,version:1,hash:"0x"+"d".repeat(64)}}}};
+  const staleAcceptance = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,buyerFinalAcceptance:{accepted:true,version:0,hash:agreementHash}}};
+  for (const invalid of [staleBuyer,staleSeller]) {
+    const result = prepareOrdinaryPayout(invalid, recipients);
+    assertEquals(result.ready, false);
+    if (!result.ready) assertEquals(result.blockers.includes("agreement_not_approved"), true);
+  }
+  const acceptanceResult = prepareOrdinaryPayout(staleAcceptance, recipients);
+  assertEquals(acceptanceResult.ready, false);
+  if (!acceptanceResult.ready) assertEquals(acceptanceResult.blockers.includes("buyer_final_acceptance_missing"), true);
 });
