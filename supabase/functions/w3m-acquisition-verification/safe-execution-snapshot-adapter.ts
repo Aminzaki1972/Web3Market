@@ -385,7 +385,10 @@ export async function loadSafeExecutionDatabaseSnapshot(
         acceptance: {
           dealId, projectId: termsVersion.projectId, buyerId: termsVersion.buyerId,
           sellerId: termsVersion.sellerId, safeAddress: termsVersion.safeAddress,
-          termsHash: termsVersion.termsHash, termsVersion: termsVersion.termsVersion,
+          termsHash: termsVersion.termsHash,
+          agreementDocumentVersion: String(agreementDocument.version),
+          agreementDocumentHash: String(agreementDocument.sha256),
+          termsVersion: termsVersion.termsVersion,
           partyRole: accepted.partyRole,
         },
         signature: accepted.signature,
