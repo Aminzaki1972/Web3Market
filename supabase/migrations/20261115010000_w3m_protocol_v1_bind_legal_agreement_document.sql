@@ -22,7 +22,7 @@ as $current$
       'documentId', 'W3M-AGREEMENT',
       'version', '1.0',
       'locale', 'ar',
-      'sha256', '74fc948b9b7757718b617af080acd51c0a21de81aa3a5b7f410a19aa07a7a465'
+      'sha256', '721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531'
     ),
     'codeAudit', public.w3m_current_deal_code_audit_json(d.id),
     'releasePolicy', jsonb_build_object(
