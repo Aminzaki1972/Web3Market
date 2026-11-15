@@ -189,6 +189,44 @@ Deno.test("payout blocks wrong fee, wrong agreement amount and mismatched deposi
   if (!depositResult.ready) assertEquals(depositResult.blockers.includes("deposit_amount_differs_from_agreement"), true);
 });
 
+Deno.test("dispute payout rejects contradictory approval, hold and claimant records", () => {
+  const valid = resolvedDispute("consistent", {
+    buyerGrossRefund: gross, sellerPayout: 0n, platformFee: fee,
+  });
+  const validInput = disputeInput(valid);
+  const approvedRequest = validInput.disputeRequest;
+
+  const declinedButForgedLocked = {
+    ...approvedRequest,
+    review: { ...approvedRequest.review!, outcome: "declined" as const },
+  };
+  const declinedResult = prepareDisputePayout({
+    ...validInput, disputeRequest: declinedButForgedLocked,
+  });
+  assertEquals(declinedResult.ready, false);
+  if (!declinedResult.ready) assertEquals(
+    declinedResult.blockers.includes("dispute_approval_or_hold_inconsistent"), true,
+  );
+
+  const releasedHold = { ...approvedRequest, payoutHold: false };
+  const releasedResult = prepareDisputePayout({
+    ...validInput, disputeRequest: releasedHold,
+  });
+  assertEquals(releasedResult.ready, false);
+  if (!releasedResult.ready) assertEquals(
+    releasedResult.blockers.includes("dispute_approval_or_hold_inconsistent"), true,
+  );
+
+  const wrongClaimant = { ...approvedRequest, claimant: "seller" as const };
+  const claimantResult = prepareDisputePayout({
+    ...validInput, disputeRequest: wrongClaimant,
+  });
+  assertEquals(claimantResult.ready, false);
+  if (!claimantResult.ready) assertEquals(
+    claimantResult.blockers.includes("dispute_request_mismatch"), true,
+  );
+});
+
 Deno.test("dispute payout waits for final decision and verified agreement/deposit", () => {
   const pending = openDispute("pending", "buyer", 100, 1_000);
   const pendingResult = prepareDisputePayout({
