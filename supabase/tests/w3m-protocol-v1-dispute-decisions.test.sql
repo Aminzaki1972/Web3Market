@@ -422,7 +422,7 @@ $test$;
   end if;
 
   v_snapshot := public.w3m_read_dealroom_dispute_decision_snapshot(v_deal3);
-  if v_snapshot->'decision' is not null
+  if jsonb_typeof(v_snapshot->'decision') is distinct from 'null'
      or v_snapshot->'dispute'->>'status' <> 'open' then
     raise exception 'Open dispute must not be represented as a completed decision';
   end if;
