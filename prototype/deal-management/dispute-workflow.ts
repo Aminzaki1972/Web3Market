@@ -6,6 +6,7 @@
  * then call equivalent logic inside one atomic backend transaction.
  */
 import { authorizeDealAction, type TrustedDealRoster } from "./deal-authorization.ts";
+import { issueDisputeDecision, type DisputeAllocation, type DisputeCase } from "./disputes.ts";
 import {
   reviewDisputeRequest, submitDisputeRequest,
   type DisputeRequest, type DisputeRequestEvidence,
@@ -46,5 +47,34 @@ export function reviewDisputeRequestAsAdmin(
   }
   return reviewDisputeRequest(
     request, outcome, reason, authenticatedUserId, reviewedAt,
+  );
+}
+
+
+/**
+ * Issues the final financial decision only for the single authenticated active admin.
+ * The dispute must match the same deal/request and its approved Safe lock must be confirmed.
+ * Production must perform this transition atomically after loading all records server-side.
+ */
+export function issueAuthorizedDisputeDecision(
+  authenticatedUserId: string,
+  roster: TrustedDealRoster,
+  request: DisputeRequest,
+  dispute: DisputeCase,
+  reason: string,
+  allocation: DisputeAllocation,
+  totalDeposited: bigint,
+  originalGrossAgreedAmount: bigint,
+  decidedAt: number,
+): DisputeCase {
+  authorizeDealAction(authenticatedUserId, roster, "record_dispute_decision");
+  if (request.dealId !== roster.dealId || request.id !== dispute.id ||
+      request.claimant !== dispute.claimant || request.status !== "lock_confirmed" ||
+      request.review?.outcome !== "approved" || request.payoutHold !== true ||
+      !request.lockProof) {
+    throw new Error("A matching approved dispute with confirmed Safe lock and active payout hold is required");
+  }
+  return issueDisputeDecision(
+    dispute, reason, allocation, totalDeposited, originalGrossAgreedAmount, decidedAt,
   );
 }
