@@ -314,6 +314,16 @@ begin
             and decision.outcome = 'seller_wins'
             and dispute.status = 'resolved'
             and dispute.resolution = 'seller_wins'
+            and decision.terms_version_id = (
+              select tv.id from public.w3m_deal_terms_versions tv
+               where tv.deal_id = v_deal.id
+               order by tv.terms_version desc limit 1
+            )
+            and decision.terms_hash = (
+              select tv.terms_hash from public.w3m_deal_terms_versions tv
+               where tv.deal_id = v_deal.id
+               order by tv.terms_version desc limit 1
+            )
        )
      ) then
     raise exception 'Safe seller release requires no dispute or an immutable seller-wins decision; buyer-wins refunds use the separate Safe refund path'
