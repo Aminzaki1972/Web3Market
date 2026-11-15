@@ -8,6 +8,7 @@ on:
   pull_request:
     paths:
       - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/functions/w3m-protocol-v1-dispute-decision/**"
       - "supabase/migrations/*_w3m_protocol_v1_immutable_dispute_decisions.sql"
       - "supabase/tests/w3m-protocol-v1-dispute-decisions.test.sql"
       - "docs/legal/**"
@@ -313,6 +314,7 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/fresh-safe-handler-context.ts
           deno check supabase/functions/w3m-acquisition-verification/fresh-safe-handler-context.test.ts
           deno check supabase/functions/w3m-protocol-v1-finalize-safe-release/index.ts
+          deno check supabase/functions/w3m-protocol-v1-dispute-decision/index.ts
       - name: Test decision engine
         run: deno test supabase/functions/w3m-acquisition-verification/decision-engine.test.ts
       - name: Test settlement gate
