@@ -193,3 +193,22 @@ The in-memory model demonstrates the required logical transaction boundary:
 CI run 43695842210 passed: **135 passed, 0 failed**, including Deal Room JavaScript syntax and legacy endpoint containment checks.
 
 Important limitation: this is a synchronous in-memory test model, not PostgreSQL concurrency/transaction testing. It does not prove row locking, unique constraints, crash rollback, cross-worker races, or deployed server authorization. Those require an isolated database and a real server implementation. The model is a contract for those future integration tests, not a substitute for them.
+
+
+## 9. Defensive immutability and idempotency hardening (2026-11-15)
+
+A follow-up review found a model-level aliasing weakness: the original submission retained a mutable evidence array/object reference, and the returned request object could be mutated by its caller. That could make the in-memory model diverge from its event history.
+
+Fixed in:
+- `prototype/deal-management/dispute-transaction-model.ts`
+- `prototype/deal-management/dispute-transaction-model.test.ts`
+
+Changes:
+- Stored request records now use defensive copies and frozen top-level/nested evidence, review, lock-proof and hold-release objects.
+- Idempotency fingerprints use an explicit canonical field projection, NFC-normalized text and stable field ordering rather than raw caller object serialization.
+- Added tests proving caller mutation cannot alter stored evidence/request state.
+- Added a retry test proving evidence object property insertion order does not change the idempotency identity.
+
+CI run [43696112145](https://github.com/Aminzaki1972/Web3Market/actions/runs/43696112145) passed: **137 passed, 0 failed**.
+
+Scope limitation remains: this hardens only the in-memory model. PostgreSQL transaction isolation, server-derived identity/time, durable idempotency keys, and append-only database event enforcement remain unimplemented.
