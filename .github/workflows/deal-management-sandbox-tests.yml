@@ -37,8 +37,10 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Check Deal Room client syntax
-        run: node --check js/deal-room.js
+      - name: Check Deal Room and checkout client syntax
+        run: |
+          node --check js/deal-room.js
+          node --check js/deal-checkout.js
 
       - name: Assert legacy Deal Room financial paths stay disabled
         shell: bash
@@ -49,6 +51,10 @@ jobs:
           ! grep -Fq "/functions/v1/verify-deal-payment" js/deal-room.js
           ! grep -Fq ".from('deal_messages').insert" js/deal-room.js
           ! grep -Fq "functions.invoke('create-safe'" js/deal-room.js
+          ! grep -Fq "functions/v1/create-safe" js/deal-checkout.js
+          ! grep -Fq "functions/v1/verify-deal-payment" js/deal-checkout.js
+          ! grep -Fq "eth_sendTransaction" js/deal-checkout.js
+          ! grep -Fq "eth_requestAccounts" js/deal-checkout.js
 
       - name: Run sandbox tests
         run: deno test --allow-read=deal-management-preview.html prototype/deal-management/
