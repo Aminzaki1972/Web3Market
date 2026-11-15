@@ -151,6 +151,7 @@ export function prepareDisputePayout(
       lock.safeAddress.toLowerCase() !== input.dealSafeAddress.toLowerCase() ||
       lock.expectedSafeAddress.toLowerCase() !== input.dealSafeAddress.toLowerCase() ||
       !validHash.test(lock.txHash) || lock.receiptStatus !== "success" ||
+      !Number.isInteger(lock.confirmations) || !Number.isInteger(lock.requiredConfirmations) ||
       lock.confirmations < lock.requiredConfirmations || lock.requiredConfirmations <= 0 ||
       !validHash.test(lock.canonicalBlockHash) || lock.lockEventObserved !== true ||
       lock.lockStateVerified !== true) {
