@@ -27,8 +27,15 @@ export interface W3MDisputeDecisionCommand {
   evidenceRefs: W3MDisputeEvidenceReference[];
 }
 
+export interface W3MDisputePriorState {
+  dealStatus: "disputed";
+  dealDisputeStatus: "open" | "under_review";
+  disputeRecordStatus: "open" | "under_review";
+}
+
 export interface W3MCanonicalDisputeDecisionInput extends Omit<W3MDisputeDecisionCommand, "evidenceRefs"> {
   evidenceRefs: W3MCanonicalDisputeEvidenceReference[];
+  priorState: W3MDisputePriorState;
   decisionId: string;
   decidedBy: string;
   decidedAt: string;
@@ -46,6 +53,7 @@ export interface W3MCanonicalDisputeDecision {
     outcome: W3MDisputeOutcome;
     reason: string;
     evidenceRefs: W3MCanonicalDisputeEvidenceReference[];
+    priorState: W3MDisputePriorState;
     decidedBy: string;
     decidedAt: string;
     termsVersionId: string;
@@ -175,9 +183,21 @@ export async function buildW3MCanonicalDisputeDecision(
     throw new Error("Decision timestamp must be a canonical UTC ISO-8601 timestamp.");
   }
   const evidenceRefs = parseCanonicalEvidenceRefs(input.evidenceRefs);
+  const priorState = record(input.priorState, "Prior dispute state");
+  if (priorState.dealStatus !== "disputed" ||
+      !["open", "under_review"].includes(String(priorState.dealDisputeStatus)) ||
+      !["open", "under_review"].includes(String(priorState.disputeRecordStatus))) {
+    throw new Error("Dispute decision requires a currently active and consistently disputed deal state.");
+  }
+  const normalizedPriorState = {
+    dealStatus: "disputed" as const,
+    dealDisputeStatus: priorState.dealDisputeStatus as "open" | "under_review",
+    disputeRecordStatus: priorState.disputeRecordStatus as "open" | "under_review",
+  };
   const payload = {
     protocol: "W3M Protocol V1" as const,
     decisionId, dealId, disputeId, outcome: input.outcome, reason, evidenceRefs,
+    priorState: normalizedPriorState,
     decidedBy, decidedAt, termsVersionId, termsVersion,
     termsHash: input.termsHash.toLowerCase(),
   };
