@@ -11,7 +11,8 @@ const command = {
 };
 function request(body: unknown, authorization = "Bearer valid-session", method = "POST") {
   return new Request("https://w3m.test/dispute-decision", {
-    method, headers: { authorization, "content-type": "application/json" }, body: JSON.stringify(body),
+    method, headers: { authorization, "content-type": "application/json" },
+    ...(method === "GET" ? {} : { body: JSON.stringify(body) }),
   });
 }
 
