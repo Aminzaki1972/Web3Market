@@ -90,9 +90,9 @@ export function prepareOrdinaryPayout(
     const review = input.disputeRequest.review;
     const release = input.disputeRequest.holdRelease;
     if (input.disputeRequest.payoutHold !== false || review?.outcome !== "declined" ||
+        !review.reviewerId.trim() || !Number.isFinite(review.reviewedAt) ||
         !release || !release.reason.trim() || !release.reviewerId.trim() ||
-        !Number.isFinite(release.releasedAt) ||
-        !review || release.releasedAt < review.reviewedAt) {
+        !Number.isFinite(release.releasedAt) || release.releasedAt < review.reviewedAt) {
       blockers.push("administrative_hold_release_inconsistent");
     }
   }
@@ -150,7 +150,7 @@ export function prepareDisputePayout(
   if (!administrativeReview || administrativeReview.outcome !== "approved" ||
       !administrativeReview.reason.trim() || !administrativeReview.reviewerId.trim() ||
       !Number.isFinite(administrativeReview.reviewedAt) ||
-      input.disputeRequest.payoutHold !== true) {
+      input.disputeRequest.payoutHold !== true || input.disputeRequest.holdRelease !== null) {
     blockers.push("dispute_approval_or_hold_inconsistent");
   }
   const lock = input.disputeRequest.lockProof;
@@ -174,6 +174,7 @@ export function prepareDisputePayout(
   } else {
     const authorization = input.dispute.decision.authorization;
     if (!authorization || !authorization.adminId.trim() ||
+        authorization.adminId !== input.disputeRequest.review?.reviewerId ||
         authorization.dealId !== input.dealId ||
         authorization.disputeRequestId !== input.disputeRequest.id) {
       blockers.push("dispute_decision_authorization_missing_or_mismatched");
