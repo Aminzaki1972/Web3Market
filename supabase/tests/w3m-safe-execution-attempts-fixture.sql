@@ -164,6 +164,44 @@ CREATE TABLE public.deal_multisig_signers (
   UNIQUE (deal_id, signer_role)
 );
 
+CREATE TABLE public.admin_users (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.deal_messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  deal_id uuid NOT NULL REFERENCES public.deals(id) ON DELETE CASCADE,
+  sender_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  message text NOT NULL CHECK (length(trim(message)) BETWEEN 1 AND 2000),
+  sender_role text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.deal_assets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  deal_id uuid NOT NULL REFERENCES public.deals(id) ON DELETE CASCADE,
+  asset_name text NOT NULL,
+  status text NOT NULL DEFAULT 'pending',
+  delivery_url text,
+  evidence text,
+  delivered_by uuid REFERENCES auth.users(id),
+  delivered_at timestamptz,
+  accepted_by uuid REFERENCES auth.users(id),
+  accepted_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.deal_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  deal_id uuid NOT NULL REFERENCES public.deals(id) ON DELETE CASCADE,
+  actor_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  event_type text NOT NULL,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE public.deal_party_agreements (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   deal_id uuid NOT NULL REFERENCES public.deals(id) ON DELETE CASCADE,
