@@ -86,6 +86,16 @@ export function prepareOrdinaryPayout(
     blockers.push(input.disputeRequest.status === "pending_admin_review" || input.disputeRequest.status === "declined_hold"
       ? "administrative_review_hold" : "dispute_requires_decision_payout");
   }
+  if (input.disputeRequest?.status === "administrative_hold_released") {
+    const review = input.disputeRequest.review;
+    const release = input.disputeRequest.holdRelease;
+    if (input.disputeRequest.payoutHold !== false || review?.outcome !== "declined" ||
+        !release || !release.reason.trim() || !release.reviewerId.trim() ||
+        !Number.isFinite(release.releasedAt) ||
+        !review || release.releasedAt < review.reviewedAt) {
+      blockers.push("administrative_hold_release_inconsistent");
+    }
+  }
   if (input.disputeEverOpened) blockers.push("dispute_requires_decision_payout");
   if (blockers.length) return { ready: false, blockers };
 
