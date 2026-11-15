@@ -119,6 +119,8 @@ Deno.test("exact snapshot loader allows only a decision-bound seller win", async
     dispute: {
       id: disputeId, deal_id: "deal-reader-1",
       status: "resolved", resolution: "seller_wins",
+      resolved_by: "85000000-0000-4000-8000-000000000005",
+      resolved_at: "2026-11-15T20:00:00Z",
     },
     decision: {
       id: "83000000-0000-4000-8000-000000000003",
