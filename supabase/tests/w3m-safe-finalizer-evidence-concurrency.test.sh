@@ -273,4 +273,68 @@ JOIN public.deal_release_policies r ON r.deal_id=f.deal_id
 WHERE f.fixture_key=:'fixture_key';
 SQL
 
-echo "PASS: two independent PostgreSQL sessions raced evidence append against the execution-claim RPC in both lock orders, plus the real finalizer-before-evidence lock order."
+
+# Order D: evidence append owns the shared deal lock first. The REAL finalizer
+# must wait, then reject the now-stale pinned evidence manifest without settling.
+run_fixture "evidence-append-first-finalizer" "80000000-"
+(export PGAPPNAME=w3m-evidence-before-finalizer; psql_w3m > /tmp/w3m-evidence-before-finalizer.log 2>&1 <<'SQL'
+BEGIN;
+INSERT INTO public.w3m_acquisition_evidence (
+  report_id,evidence_type,source_table,source_record_id,source_version,
+  evidence_hash,result,mandatory,observed_at,valid_until,details
+)
+SELECT a.report_id,'DISPUTE_CHECK',null,null,null,repeat('8',64),'PASS',true,
+       clock_timestamp(),clock_timestamp()+interval '1 hour',
+       jsonb_build_object('test','evidence-first-real-finalizer')
+  FROM public.w3m_test_finalizer_race_fixture f
+  JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id
+ WHERE f.fixture_key='evidence-append-first-finalizer';
+SELECT pg_sleep(1.5);
+COMMIT;
+SQL
+) &
+EVIDENCE_FIRST_PID=$!
+wait_for_query "w3m-evidence-before-finalizer" "pg_sleep" "any"
+(export PGAPPNAME=w3m-finalizer-after-evidence; psql_w3m > /tmp/w3m-finalizer-after-evidence.log 2>&1 <<'SQL'
+BEGIN;
+SELECT set_config('request.jwt.claim.role','service_role',true);
+SELECT public.w3m_finalize_safe_execution_attempt(
+  f.attempt_id,f.broadcast_tx_hash,f.buyer_id,f.receipt
+) FROM public.w3m_test_finalizer_race_fixture f
+ WHERE f.fixture_key='evidence-append-first-finalizer';
+COMMIT;
+SQL
+) &
+FINALIZER_AFTER_EVIDENCE_PID=$!
+wait_for_query "w3m-finalizer-after-evidence" "w3m_finalize_safe_execution_attempt" "Lock"
+wait "$FINALIZER_AFTER_EVIDENCE_PID" || true
+wait "$EVIDENCE_FIRST_PID"
+if ! grep -q "Pinned acquisition evidence manifest is incomplete or stale" /tmp/w3m-finalizer-after-evidence.log; then
+  echo "FAIL: real finalizer did not reject evidence appended before finalization:"
+  cat /tmp/w3m-finalizer-after-evidence.log
+  exit 1
+fi
+psql_w3m -At -v fixture_key="evidence-append-first-finalizer" <<'SQL' | grep -qx PASS
+SELECT CASE WHEN
+  d.status <> 'completed'
+  AND d.release_tx_hash IS NULL
+  AND p.status='active'
+  AND p.owner_id=f.seller_id
+  AND a.state='BROADCAST'
+  AND t.status='submitted'
+  AND r.status='locked'
+  AND (SELECT count(*) FROM public.w3m_acquisition_evidence e
+        WHERE e.report_id=a.report_id)=3
+  AND NOT EXISTS (SELECT 1 FROM public.deal_audit_logs l
+        WHERE l.deal_id=d.id AND l.action='safe_release_confirmed')
+THEN 'PASS' ELSE 'FAIL' END
+FROM public.w3m_test_finalizer_race_fixture f
+JOIN public.deals d ON d.id=f.deal_id
+JOIN public.projects p ON p.id=f.project_id
+JOIN public.w3m_safe_execution_attempts a ON a.id=f.attempt_id
+JOIN public.deal_multisig_transactions t ON t.deal_id=f.deal_id
+JOIN public.deal_release_policies r ON r.deal_id=f.deal_id
+WHERE f.fixture_key=:'fixture_key';
+SQL
+
+echo "PASS: two independent PostgreSQL sessions raced evidence append against the execution-claim RPC in both lock orders, and the real finalizer in both lock orders."
