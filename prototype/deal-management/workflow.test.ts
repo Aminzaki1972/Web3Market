@@ -77,13 +77,16 @@ Deno.test("sandbox happy path: offer -> agreement -> deposit evidence -> transfe
       requiredAssets: [{
         id: asset.id,
         evidenceStatus: asset.transferState === "verified" ? "verified" : "pending",
+        evidenceCheckedAt: asset.verification?.checkedAt ?? null,
         buyerStatus: review.assets[asset.id].status,
+        buyerReviewedAt: review.assets[asset.id].reviewedAt,
       }],
       buyerFinalAcceptance: {
         accepted: review.finalAcceptedAt === 140,
         version: agreement.version,
         hash: agreement.snapshotHash,
         acceptedAssetIds: Object.entries(review.assets).filter(([, item]) => item.status === "accepted").map(([id]) => id),
+        acceptedAt: review.finalAcceptedAt ?? NaN,
       },
     },
     depositVerified: true, depositedAmount: parseUsdtAmount("6800"),
