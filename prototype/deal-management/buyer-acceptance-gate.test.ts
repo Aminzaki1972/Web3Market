@@ -27,3 +27,15 @@ Deno.test("final acceptance requires all selected assets accepted and evidence v
     {requiredAssetIds:[]},
   ]) assertEquals(canRecordFinalBuyerAcceptance({...valid,...patch}),false);
 });
+
+
+Deno.test("final acceptance rejects duplicate, extra and conflicting asset IDs",()=>{
+ const valid={...base,acceptedAssetIds:["repo","domain"],rejectedAssetIds:[]};
+ for(const patch of [
+  {acceptedAssetIds:["repo","domain","repo"]},
+  {acceptedAssetIds:["repo","domain","unlisted"]},
+  {rejectedAssetIds:["unlisted"]},
+  {acceptedAssetIds:["repo","domain"],rejectedAssetIds:["repo"]},
+  {requiredAssetIds:["repo","repo"]},
+ ]) assertEquals(canRecordFinalBuyerAcceptance({...valid,...patch}),false);
+});
