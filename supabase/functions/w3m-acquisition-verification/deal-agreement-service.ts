@@ -1,6 +1,8 @@
 // W3M Protocol V1 — server-side immutable deal agreement signing service.
 import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
 import { computeDealTermsHash } from "./deal-terms-hash.ts";
+import { sha256Hex } from "./decision-engine.ts";
+import { W3M_AGREEMENT_DOCUMENT_ID, W3M_AGREEMENT_DOCUMENT_VERSION, W3M_AGREEMENT_DOCUMENT_LOCALE, W3M_AGREEMENT_DOCUMENT_SHA256, W3M_AGREEMENT_DOCUMENT_TEXT } from "./deal-agreement-document.ts";
 import type { DealCodeAuditBinding } from "./deal-code-audit-binding.ts";
 import type { AuditManifestSource } from "./audit-manifest-loader.ts";
 import { prepareDealAuditSnapshot } from "./deal-audit-snapshot-service.ts";
@@ -61,6 +63,7 @@ export interface PreparedDealAgreement {
   termsVersion: string;
   termsVersionId: string;
   canonicalTerms: Record<string, unknown>;
+  agreementDocument: { documentId: string; version: string; locale: string; sha256: string; text: string };
   typedData: Eip712DealAgreementTypedData;
 }
 export interface AcceptedDealAgreement {
@@ -124,6 +127,11 @@ async function loadSigningContext(client: W3MRpcClient, dealId: string): Promise
     completedAt: text(audit.completedAt, "Code Audit completion timestamp"),
     auditEvidenceHash: text(audit.auditEvidenceHash, "Code Audit manifest hash"),
   };
+  const actualAgreementHash = await sha256Hex(W3M_AGREEMENT_DOCUMENT_TEXT);
+  if (actualAgreementHash !== W3M_AGREEMENT_DOCUMENT_SHA256) {
+    throw new Error("Bundled W3M agreement document does not match its immutable SHA-256 registry.");
+  }
+  const agreementDocument = { documentId: W3M_AGREEMENT_DOCUMENT_ID, version: W3M_AGREEMENT_DOCUMENT_VERSION, locale: W3M_AGREEMENT_DOCUMENT_LOCALE, sha256: W3M_AGREEMENT_DOCUMENT_SHA256 };
   const terms = await computeDealTermsHash({
     dealId,
     projectId,
@@ -136,6 +144,7 @@ async function loadSigningContext(client: W3MRpcClient, dealId: string): Promise
     safeAddress: text(deal.safe_address, "Deal Safe"),
     tokenContract: text(deal.token_contract, "Deal token"),
     codeAudit,
+    agreementDocument,
     policy: {
       dealAmount: decimal(policy.deal_amount, "Policy deal amount"),
       feePercent: decimal(policy.fee_percent, "Policy fee percent"),
@@ -153,6 +162,7 @@ async function loadSigningContext(client: W3MRpcClient, dealId: string): Promise
   return {
     dealId, projectId, buyerId, sellerId, buyerWallet, sellerWallet,
     safeAddress, termsHash: terms.dealTermsHash, codeAudit, canonicalTerms: terms.canonicalTerms,
+    agreementDocument: { ...agreementDocument, text: W3M_AGREEMENT_DOCUMENT_TEXT },
   };
 }
 
@@ -191,6 +201,8 @@ export async function prepareDealAgreementAcceptance(
     dealId: context.dealId, projectId: context.projectId,
     buyerId: context.buyerId, sellerId: context.sellerId,
     safeAddress: context.safeAddress, termsHash: context.termsHash,
+    agreementDocumentVersion: context.canonicalTerms.agreementDocument && typeof context.canonicalTerms.agreementDocument === "object" ? String((context.canonicalTerms.agreementDocument as Record<string, unknown>).version) : "",
+    agreementDocumentHash: context.canonicalTerms.agreementDocument && typeof context.canonicalTerms.agreementDocument === "object" ? String((context.canonicalTerms.agreementDocument as Record<string, unknown>).sha256) : "",
     termsVersion: version.termsVersion, partyRole: party.partyRole,
   };
   return {
