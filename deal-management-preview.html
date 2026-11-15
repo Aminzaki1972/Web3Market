@@ -44,7 +44,7 @@ main{max-width:1180px;margin:28px auto;padding:0 18px}.intro{display:flex;justif
 </main>
 <script>
 (()=>{'use strict';
-const $=id=>document.getElementById(id);let finalPrice=null,agreementVersion=0,preliminary=false,offerSequence=1,offerHistory=[],currentOfferId=null,approvals={buyer:false,seller:false,platform:false},deposit=false,dispute=false,disputeRequestState="none",buyerAccepted={},buyerRejectedAssetId=null,buyerRejectedReason='',finalBuyerAccepted=false;
+const $=id=>document.getElementById(id);let finalPrice=null,agreementVersion=0,preliminary=false,offerSequence=1,offerHistory=[],currentOfferId=null,approvals={buyer:false,seller:false,platform:false},deposit=false,dispute=false,disputeRequestState="none",buyerAccepted={},buyerRejectedAssets={},buyerRejectedReasons={},finalBuyerAccepted=false;
 const money=n=>Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' USDT';
 $('inspectionWindow').dataset.previousValue=$('inspectionWindow').value;
 let activityEvents=[],activitySequence=0;
@@ -150,7 +150,7 @@ function reviseAgreementForChange(control,description){
   if(finalPrice!==null){
     agreementVersion+=1;
     approvals={buyer:false,seller:false,platform:false};
-    buyerAccepted={};buyerRejectedAssetId=null,buyerRejectedReason='';finalBuyerAccepted=false;
+    buyerAccepted={};buyerRejectedAssets={},buyerRejectedReasons={};finalBuyerAccepted=false;
     $('depositState').textContent='Awaiting revised agreement';
     $('depositState').className='pill warn';
     $('depositMsg').textContent='Agreement terms changed. All previous demo approvals were invalidated; the revised version must be approved again.';
@@ -159,7 +159,7 @@ function reviseAgreementForChange(control,description){
   if(control.id==='inspectionWindow'||control.closest('#agreementTerms'))control.dataset.previousValue=control.value;
   updateApprovals();updateBuyerReview();
 }
-document.querySelectorAll('#assets input[data-asset]').forEach(input=>input.addEventListener('change',()=>{reviseAgreementForChange(input,'asset-list');buyerAccepted={};buyerRejectedAssetId=null;buyerRejectedReason='';finalBuyerAccepted=false;$('buyerRejectReason').value='';updateBuyerReview()}));
+document.querySelectorAll('#assets input[data-asset]').forEach(input=>input.addEventListener('change',()=>{reviseAgreementForChange(input,'asset-list');buyerAccepted={};buyerRejectedAssets={};buyerRejectedReasons={};finalBuyerAccepted=false;$('buyerRejectReason').value='';updateBuyerReview()}));
 $('inspectionWindow').addEventListener('change',()=>reviseAgreementForChange($('inspectionWindow'),'inspection-window'));
 document.querySelectorAll('#agreementTerms input,#agreementTerms textarea,#agreementTerms select').forEach(control=>{control.dataset.previousValue=control.value;control.addEventListener('change',()=>reviseAgreementForChange(control,'agreement-term'))});
 ['buyer','seller','platform'].forEach(k=>$('approve'+k[0].toUpperCase()+k.slice(1)).onclick=()=>{if(finalPrice===null){$('agreementMsg').textContent='Set the final demo price before agreement approvals.';return}approvals[k]=true;updateApprovals();log(k+' demo approval recorded',k==='platform'?'platform_admin':k,'agreement')});
@@ -202,25 +202,25 @@ function updateBuyerReview(){
  const host=$('buyerAssetReviewList');host.replaceChildren();const assets=selectedReviewAssets();
  if(!assets.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='No assets selected. Select assets in the Assets section first.';host.appendChild(empty)}
  for(const asset of assets){
-  const rejected=buyerRejectedAssetId===asset.id,accepted=buyerAccepted[asset.id]===true;
+  const rejected=buyerRejectedAssets[asset.id]===true,accepted=buyerAccepted[asset.id]===true;
   const row=document.createElement('div');row.className='event';
   const title=document.createElement('div');title.textContent=asset.label;
   const status=document.createElement('span');status.className='pill '+(rejected?'bad':accepted?'good':'warn');status.textContent=rejected?'Rejected (demo)':accepted?'Accepted (demo)':'Pending buyer review';
   const actions=document.createElement('div');actions.className='actions';
   const accept=document.createElement('button');accept.type='button';accept.className='btn';accept.textContent='Accept asset (demo)';accept.disabled=accepted||rejected||finalBuyerAccepted;
-  accept.addEventListener('click',()=>{if(finalBuyerAccepted||buyerRejectedAssetId||!selectedReviewAssets().some(x=>x.id===asset.id))return;buyerAccepted[asset.id]=true;updateBuyerReview();log('Buyer accepted '+asset.label+' individually (demo)','buyer','asset_review')});
+  accept.addEventListener('click',()=>{if(finalBuyerAccepted||!selectedReviewAssets().some(x=>x.id===asset.id))return;buyerAccepted[asset.id]=true;updateBuyerReview();log('Buyer accepted '+asset.label+' individually (demo)','buyer','asset_review')});
   const reject=document.createElement('button');reject.type='button';reject.className='btn';reject.textContent='Reject asset (demo)';reject.disabled=accepted||rejected||finalBuyerAccepted;
-  reject.addEventListener('click',()=>{const reason=$('buyerRejectReason').value.trim();if(!reason){$('buyerReviewMsg').textContent='Enter a rejection reason before rejecting an asset.';return}buyerRejectedAssetId=asset.id;buyerRejectedReason=reason;buyerAccepted[asset.id]=false;updateBuyerReview();log('Buyer rejected '+asset.label+': '+reason,'buyer','asset_review')});
+  reject.addEventListener('click',()=>{const reason=$('buyerRejectReason').value.trim();if(!reason){$('buyerReviewMsg').textContent='Enter a rejection reason before rejecting an asset.';return}buyerRejectedAssets[asset.id]=true;buyerRejectedReasons[asset.id]=reason;buyerAccepted[asset.id]=false;updateBuyerReview();log('Buyer rejected '+asset.label+': '+reason,'buyer','asset_review')});
   actions.append(accept,reject);row.append(title,status,actions);
-  if(rejected){const note=document.createElement('p');note.className='muted';note.textContent='Reason: '+buyerRejectedReason;row.appendChild(note)}
+  if(rejected){const note=document.createElement('p');note.className='muted';note.textContent='Reason: '+buyerRejectedReasons[asset.id];row.appendChild(note)}
   host.appendChild(row);
  }
- const all=assets.length>0&&assets.every(x=>buyerAccepted[x.id]===true)&&buyerRejectedAssetId===null&&!finalBuyerAccepted;
+ const all=assets.length>0&&assets.every(x=>buyerAccepted[x.id]===true)&&!assets.some(x=>buyerRejectedAssets[x.id]===true)&&!finalBuyerAccepted;
  $('finalBuyerAccept').disabled=!all;
- $('buyerReviewMsg').textContent=buyerRejectedAssetId!==null?'An asset was rejected. Follow the agreement-defined resolution/dispute path.':all?'Every selected asset has been accepted; final acceptance can be recorded.':assets.length?'Final acceptance is unavailable until every selected asset is accepted.':'Select at least one asset before final acceptance.';
+ $('buyerReviewMsg').textContent=assets.some(x=>buyerRejectedAssets[x.id]===true)?'An asset was rejected. Follow the agreement-defined resolution/dispute path.':all?'Every selected asset has been accepted; final acceptance can be recorded.':assets.length?'Final acceptance is unavailable until every selected asset is accepted.':'Select at least one asset before final acceptance.';
 }
-$('finalBuyerAccept').onclick=()=>{const assets=selectedReviewAssets();if(!assets.length||!assets.every(x=>buyerAccepted[x.id]===true)||buyerRejectedAssetId!==null||finalBuyerAccepted)return;finalBuyerAccepted=true;updateBuyerReview();$('buyerReviewMsg').textContent='Final buyer acceptance recorded in local demo state only. No payout or Safe transaction occurred.';log('Final buyer acceptance recorded (demo)','buyer','asset_review')};
-$('resetDemo').onclick=()=>{finalPrice=null;agreementVersion=0;$('assetRepo').checked=true;$('assetDomain').checked=true;$('assetWebsite').checked=false;$('assetDatabase').checked=false;$('assetOther').checked=false;preliminary=false;offerSequence=1;offerHistory=[];currentOfferId=null;approvals={buyer:false,seller:false,platform:false};deposit=false;dispute=false;disputeRequestState='none';buyerAccepted={};buyerRejectedAssetId=null,buyerRejectedReason='';finalBuyerAccepted=false;$('buyerRejectReason').value='';$('inspectionWindow').value='';$('inspectionWindow').dataset.previousValue='';$('transferPlan').value='';$('disputeResponseHours').value='';$('cancellationTerms').value='';$('networkFeeAllocation').value='';document.querySelectorAll('#agreementTerms input,#agreementTerms textarea,#agreementTerms select').forEach(control=>control.dataset.previousValue='');$('offer').value='7000';$('responseAmount').value='';$('negotiationActor').value='buyer';$('disputeReason').value='';$('depositState').textContent='Awaiting agreement';$('depositState').className='pill warn';$('depositMsg').textContent='Deposit remains disabled until all demo approvals are recorded.';$('disputeState').textContent='No request';$('disputeState').className='pill';$('disputeMsg').textContent='No real dispute request is created.';renderDisputeState();updateApprovals();updateBuyerReview();renderNegotiation();activityEvents=[];activitySequence=0;log('Demo reset · session activity cleared','demo_system','demo_reset');$('chatMessages').innerHTML='<p class="muted" id="chatEmpty">No messages have been added to this demo archive yet.</p>';$('chatCount').textContent='0 messages';$('chatMessage').value='';$('chatMessageStatus').textContent='Demo messages appear in chronological order below.';switchTab('overview')};
+$('finalBuyerAccept').onclick=()=>{const assets=selectedReviewAssets();if(!assets.length||!assets.every(x=>buyerAccepted[x.id]===true)||assets.some(x=>buyerRejectedAssets[x.id]===true)||finalBuyerAccepted)return;finalBuyerAccepted=true;updateBuyerReview();$('buyerReviewMsg').textContent='Final buyer acceptance recorded in local demo state only. No payout or Safe transaction occurred.';log('Final buyer acceptance recorded (demo)','buyer','asset_review')};
+$('resetDemo').onclick=()=>{finalPrice=null;agreementVersion=0;$('assetRepo').checked=true;$('assetDomain').checked=true;$('assetWebsite').checked=false;$('assetDatabase').checked=false;$('assetOther').checked=false;preliminary=false;offerSequence=1;offerHistory=[];currentOfferId=null;approvals={buyer:false,seller:false,platform:false};deposit=false;dispute=false;disputeRequestState='none';buyerAccepted={};buyerRejectedAssets={},buyerRejectedReasons={};finalBuyerAccepted=false;$('buyerRejectReason').value='';$('inspectionWindow').value='';$('inspectionWindow').dataset.previousValue='';$('transferPlan').value='';$('disputeResponseHours').value='';$('cancellationTerms').value='';$('networkFeeAllocation').value='';document.querySelectorAll('#agreementTerms input,#agreementTerms textarea,#agreementTerms select').forEach(control=>control.dataset.previousValue='');$('offer').value='7000';$('responseAmount').value='';$('negotiationActor').value='buyer';$('disputeReason').value='';$('depositState').textContent='Awaiting agreement';$('depositState').className='pill warn';$('depositMsg').textContent='Deposit remains disabled until all demo approvals are recorded.';$('disputeState').textContent='No request';$('disputeState').className='pill';$('disputeMsg').textContent='No real dispute request is created.';renderDisputeState();updateApprovals();updateBuyerReview();renderNegotiation();activityEvents=[];activitySequence=0;log('Demo reset · session activity cleared','demo_system','demo_reset');$('chatMessages').innerHTML='<p class="muted" id="chatEmpty">No messages have been added to this demo archive yet.</p>';$('chatCount').textContent='0 messages';$('chatMessage').value='';$('chatMessageStatus').textContent='Demo messages appear in chronological order below.';switchTab('overview')};
 updateApprovals();updateBuyerReview();renderNegotiation();log('Preview opened · no backend write','demo_system','preview_opened');
 })();
 </script>
