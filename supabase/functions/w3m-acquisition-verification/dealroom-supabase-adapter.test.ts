@@ -93,6 +93,7 @@ Deno.test("strict Deal Room adapter permits only verified seller-wins disputes",
     sellerWinDecisionVerified: true,
   });
   assertEquals(result.authorized, false);
+  assertEquals(result.decision.issues.some((issue) => issue.code === "OPEN_DISPUTE"), false);
   assertEquals(result.reportVerificationIssues.includes("REPORT_ROW_INVALID"), true);
   await assertRejects(() => evaluateDealRoomRowsWithW3M({
     client: client(),
