@@ -287,23 +287,36 @@ begin
       using errcode = '23514';
   end if;
 
-  -- The deal row is already locked above. A newly opened dispute must block
-  -- settlement even when the previously signed acquisition report passed.
-  -- The parent deal lock serializes dispute inserts and status changes. Avoid
-  -- locking child dispute rows here: UPDATE already locks its child row before
-  -- the trigger takes the parent lock, so the parent lock alone avoids inversion.
-  -- Keep every non-terminal dispute fail-closed; resolved/closed records remain auditable.
-  -- PREPARE accepts both 'none' and 'closed'. A closed parent status is
-  -- terminal only when every persisted dispute row is also resolved/closed;
-  -- active, null, and unclassified parent/child states remain fail-closed.
+  -- Dispute outcomes are not interchangeable. A seller release is allowed
+  -- only when the immutable admin decision explicitly says seller_wins.
+  -- Buyer wins remain blocked here until the separate Safe-to-buyer refund
+  -- lifecycle is chain-confirmed. No generic "closed" state may bypass a decision.
   if v_deal.dispute_status is null
-     or v_deal.dispute_status not in ('none','closed')
+     or v_deal.dispute_status not in ('none','resolved_seller')
      or exists (
        select 1 from public.deal_disputes d
         where d.deal_id = v_deal.id
-          and lower(coalesce(d.status,'')) not in ('resolved','closed')
+          and lower(coalesce(d.status,'')) not in ('resolved')
+     )
+     or (
+       v_deal.dispute_status = 'none'
+       and exists (select 1 from public.deal_disputes d where d.deal_id = v_deal.id)
+     )
+     or (
+       v_deal.dispute_status = 'resolved_seller'
+       and not exists (
+         select 1
+           from public.w3m_deal_dispute_decisions decision
+           join public.deal_disputes dispute
+             on dispute.id = decision.dispute_id
+            and dispute.deal_id = decision.deal_id
+          where decision.deal_id = v_deal.id
+            and decision.outcome = 'seller_wins'
+            and dispute.status = 'resolved'
+            and dispute.resolution = 'seller_wins'
+       )
      ) then
-    raise exception 'An open, unresolved, or unclassified dispute blocks Safe settlement'
+    raise exception 'Safe seller release requires no dispute or an immutable seller-wins decision; buyer-wins refunds use the separate Safe refund path'
       using errcode = '23514';
   end if;
 
