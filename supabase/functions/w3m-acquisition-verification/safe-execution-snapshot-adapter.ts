@@ -282,6 +282,11 @@ export async function loadSafeExecutionDatabaseSnapshot(
       throw new Error("Safe execution snapshot terms version is not a positive integer.");
     }
     const canonicalTerms = object(row.canonical_terms, "canonical terms");
+    const agreementDocument = object(canonicalTerms.agreementDocument, "pinned legal agreement document");
+    if (agreementDocument.documentId !== "W3M-AGREEMENT" || agreementDocument.version !== "1.0" ||
+        agreementDocument.locale !== "ar" || agreementDocument.sha256 !== "74fc948b9b7757718b617af080acd51c0a21de81aa3a5b7f410a19aa07a7a465") {
+      throw new Error("Canonical terms do not contain the exact approved W3M V1 legal agreement.");
+    }
     const termsHash = text(row.terms_hash, "canonical terms hash");
     if (!/^[0-9a-f]{64}$/.test(termsHash)) {
       throw new Error("Safe execution snapshot terms hash is malformed.");
