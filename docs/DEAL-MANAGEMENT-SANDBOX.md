@@ -277,14 +277,14 @@ Files:
 
 - Corrected the administrative-intake description: the current sandbox requires at least one initial evidence item at request submission; it does not treat initial evidence as optional.
 - The `reviewerId` string remains audit metadata only. It is not an authenticated identity, role check, permission grant, proof of deal-scoped access, or protection against self-review/conflict of interest.
-- The domain helper must only be called by a future trusted server action that obtains the administrator identity from a verified session and checks server-side role/permission and deal scope. The current model does not decide the number of administrators, dual-control threshold, recusal rules, or conflict-of-interest policy; those remain explicit product decisions and must not be inferred from this patch.
+- The domain helper must only be called by a future trusted server action that obtains the administrator identity from a verified session and checks server-side role/permission and deal scope. The approved policy is exactly one authorized administrator globally, appointed or replaced only by the product owner. Dual-control is not part of this policy; recusal and conflict-of-interest handling remain unspecified and must not be inferred. The chat and activity in-memory participant rosters now reject more than one admin identity per deal, but this local check does not enforce a global singleton, owner authorization, atomic replacement, or server-side access control.
 - No authentication, persistence, notification, dispute adjudication, Safe lock, or financial action is implemented by this documentation correction.
 
 
 ## 2026-11-15 — append-only Deal Room chat archive model
 
 - Added `prototype/deal-management/chat-archive.ts` with a single deal-scoped conversation model for buyer, seller and optional deal-authorized admin participants.
-- The append operation validates participant ID/role consistency, optional admin membership, unique message IDs, one deal ID per archive, chronological timestamps, message length, attachment-reference shape and correction references.
+- The append operation validates participant ID/role consistency, allows zero or one admin participant per deal, rejects multiple admin identities, and checks unique message IDs, one deal ID per archive, chronological timestamps, message length, attachment-reference shape and correction references.
 - The model exposes append only. A correction is a new message referencing the earlier message; no edit/delete operation is provided. Existing entries are preserved in the returned archive.
 - Added tests for buyer/seller conversation, optional admin participation, role spoofing, duplicate IDs, mixed deals, backdated messages, invalid content/attachments and append-only corrections.
 
@@ -300,7 +300,7 @@ The append operation now returns a frozen archive array, frozen message objects 
 
 - Added `prototype/deal-management/activity-ledger.ts` and its test suite.
 - Each event carries a deal ID, unique event ID, monotonically assigned sequence, previous-event ID, typed event category, actor ID/role, occurrence timestamp, human-readable summary and optional stable reference to the related record.
-- The append helper validates the deal roster, actor identity/role, event-specific actor restrictions, unique IDs, deal isolation, chronological timestamps and summary/reference shape. The returned ledger and event objects are frozen; no edit/delete/reorder API is exposed.
+- The append helper validates the deal roster, allows at most one admin identity per deal, checks actor identity/role and event-specific actor restrictions, unique IDs, deal isolation, chronological timestamps and summary/reference shape. The returned ledger and event objects are frozen; no edit/delete/reorder API is exposed.
 - Buyer-only asset acceptance/rejection, seller-only asset transfer, admin-only dispute review/decision/admin review/payout request, and system-only deposit/AI verification/Safe lock/payout execution confirmation/deal completion are distinguished in the model.
 - Chat message events link to a message reference; they are not agreement approvals or financial decisions.
 
