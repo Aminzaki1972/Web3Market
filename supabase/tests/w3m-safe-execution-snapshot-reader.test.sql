@@ -98,7 +98,7 @@ begin
     raise exception 'Safe execution snapshot did not preserve expected deal/policy/profile fields';
   end if;
 
-  if not (v_snapshot ? 'dispute_decision') or v_snapshot->'dispute_decision' is not null then
+  if not (v_snapshot ? 'dispute_decision') or jsonb_typeof(v_snapshot->'dispute_decision') is distinct from 'null' then
     raise exception 'No-dispute Safe snapshot must expose an explicit null decision';
   end if;
 
