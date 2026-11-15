@@ -6,11 +6,13 @@ Deno.test("preview buyer review is generated from every selected deal asset", ()
   assertStringIncludes(preview, 'id="buyerAssetReviewList"');
   assertStringIncludes(preview, "querySelectorAll('#assets input[data-asset]:checked')");
   assertStringIncludes(preview, "assets.every(x=>buyerAccepted[x.id]===true)");
-  assertStringIncludes(preview, "buyerAccepted={};buyerRejectedAssetId=null");
+  assertStringIncludes(preview, "buyerAccepted={};buyerRejectedAssets={};buyerRejectedReasons={}");
   assertEquals(preview.includes('id="acceptRepo"'), false);
   assertEquals(preview.includes('id="acceptDomain"'), false);
   assertEquals(preview.includes('id="rejectRepo"'), false);
   assertEquals(preview.includes("function inferDemoActor"), false);
   assertEquals(preview.includes("function classifyActivity"), false);
   assertStringIncludes(preview, "if(!actorRole||!type)");
+  assertStringIncludes(preview, "buyerRejectedAssets[asset.id]=true");
+  assertStringIncludes(preview, "assets.some(x=>buyerRejectedAssets[x.id]===true)");
 });
