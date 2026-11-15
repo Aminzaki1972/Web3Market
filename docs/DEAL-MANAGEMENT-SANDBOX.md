@@ -355,3 +355,10 @@ The product owner explicitly approved the following administration policy for th
 - Added regression tests for contradictory dispute state and unapproved/stale decision references.
 - Latest CI run [#43665684762](https://github.com/Aminzaki1972/Web3Market/actions/runs/43665684762): **105 passed, 0 failed**.
 - These remain pure sandbox checks. The trusted approved decision reference must eventually be loaded and authenticated server-side; the model does not verify signatures, decode live Safe calldata, query chain state or enforce a real Guard.
+
+## 2026-11-15 — strict dispute lock confirmation counts
+
+- Dispute payout planning now independently requires integer confirmation counts and an integer positive required-confirmation threshold. NaN, infinity and fractional values are rejected rather than passing comparison checks.
+- Added regression coverage for malformed confirmation counts.
+- Latest CI run [#43665805328](https://github.com/Aminzaki1972/Web3Market/actions/runs/43665805328): **106 passed, 0 failed**.
+- This still validates only normalized sandbox input. A trusted server must independently obtain canonical receipts, confirmation depth, block hash, lock event and current Safe lock state from BNB Chain.
