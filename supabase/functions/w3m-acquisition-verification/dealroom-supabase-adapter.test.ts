@@ -32,7 +32,7 @@ function client(): W3MRegistryReadClient {
 }
 
 const deal: DealRoomDealRow = {
-  id: "deal-1", project_id: "project-1", buyer_id: "buyer-1", seller_id: "seller-1",
+  id: "deal-1", status: "funded", project_id: "project-1", buyer_id: "buyer-1", seller_id: "seller-1",
   amount: "100", currency: "USDT", expected_amount: "100", chain_id: 56,
   safe_address: "0x2222222222222222222222222222222222222222",
   token_contract: "0x3333333333333333333333333333333333333333",
@@ -63,7 +63,7 @@ const policy: DealRoomPolicyRow = {
 Deno.test("strict Deal Room adapter passes exact text rows to the W3M gate and fails closed without report", async () => {
   const result = await evaluateDealRoomRowsWithW3M({
     client: client(), deal, policy, codeAudit, stage: "PREPARE",
-    now: "2026-11-06T20:00:00.000Z", safeConfigurationMatches: true,
+    now: "2026-11-06T20:00:00.000Z", safeConfigurationMatches: true, sellerWinDecisionVerified: false,
   });
   assertEquals(result.authorized, false);
   assertEquals(result.reportVerificationIssues.includes("REPORT_ROW_INVALID"), true);
@@ -80,7 +80,36 @@ Deno.test("strict Deal Room adapter rejects floating-point financial fields", as
 Deno.test("strict Deal Room adapter rejects non-none dispute states", async () => {
   await assertRejects(() => evaluateDealRoomRowsWithW3M({
     client: client(), deal: { ...deal, dispute_status: "resolved" }, policy, codeAudit, stage: "PREPARE",
-    now: "2026-11-06T20:00:00.000Z", safeConfigurationMatches: true,
+    now: "2026-11-06T20:00:00.000Z", safeConfigurationMatches: true, sellerWinDecisionVerified: false,
+  }));
+});
+
+Deno.test("strict Deal Room adapter permits only verified seller-wins disputes", async () => {
+  const result = await evaluateDealRoomRowsWithW3M({
+    client: client(),
+    deal: { ...deal, status: "disputed", dispute_status: "resolved_seller" },
+    policy, codeAudit, stage: "PREPARE",
+    now: "2026-11-06T20:00:00.000Z",
+    safeConfigurationMatches: true,
+    sellerWinDecisionVerified: true,
+  });
+  assertEquals(result.authorized, false);
+  assertEquals(result.reportVerificationIssues.includes("REPORT_ROW_INVALID"), true);
+  await assertRejects(() => evaluateDealRoomRowsWithW3M({
+    client: client(),
+    deal: { ...deal, status: "disputed", dispute_status: "resolved_buyer" },
+    policy, codeAudit, stage: "PREPARE",
+    now: "2026-11-06T20:00:00.000Z",
+    safeConfigurationMatches: true,
+    sellerWinDecisionVerified: false,
+  }));
+  await assertRejects(() => evaluateDealRoomRowsWithW3M({
+    client: client(),
+    deal: { ...deal, status: "disputed", dispute_status: "resolved_seller" },
+    policy, codeAudit, stage: "PREPARE",
+    now: "2026-11-06T20:00:00.000Z",
+    safeConfigurationMatches: true,
+    sellerWinDecisionVerified: false,
   }));
 });
 
