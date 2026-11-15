@@ -119,6 +119,8 @@ begin
      or position('V_DEAL.DISPUTE_STATUSNOTIN(''NONE'',''RESOLVED_SELLER'')' in v_finalizer_compact) = 0
      or position('W3M_DEAL_DISPUTE_DECISIONS' in v_finalizer_compact) = 0
      or position('DECISION.OUTCOME=''SELLER_WINS''' in v_finalizer_compact) = 0
+     or position('DECISION.TERMS_VERSION_ID' in v_finalizer_compact) = 0
+     or position('DECISION.TERMS_HASH' in v_finalizer_compact) = 0
      or position('PUBLIC.DEAL_DISPUTES' in v_finalizer_compact) >
         position('UPDATEPUBLIC.DEAL_MULTISIG_TRANSACTIONS' in v_finalizer_compact) then
     raise exception 'W3M finalizer must require an immutable seller-wins decision for disputed seller release and block buyer-wins';
