@@ -180,6 +180,10 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/signature-verifier.ts
           deno check supabase/functions/w3m-acquisition-verification/signature-verifier.test.ts
           deno check supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.ts
+          deno check supabase/functions/w3m-acquisition-verification/dispute-decision.ts
+          deno check supabase/functions/w3m-acquisition-verification/dispute-decision.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/dispute-decision-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/dispute-decision-request-handler.test.ts
           deno check supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.ts
           deno check supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.test.ts
           deno check supabase/functions/w3m-acquisition-verification/deal-agreement-service.ts
@@ -339,6 +343,10 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.test.ts
       - name: Test EIP-712 buyer and seller deal agreement signatures
         run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.test.ts
+      - name: Test canonical dispute decision validation and hashing
+        run: deno test supabase/functions/w3m-acquisition-verification/dispute-decision.test.ts
+      - name: Test authenticated admin-only dispute decision boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/dispute-decision-request-handler.test.ts
       - name: Test server-side deal agreement signing service
         run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-service.test.ts
       - name: Test authenticated deal agreement request boundary
