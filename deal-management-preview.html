@@ -243,7 +243,8 @@ $('submitRespondentEvidence').onclick=()=>{
   log('Respondent submitted response and evidence in dispute simulation',disputeLifecycle.respondent,'dispute_response');
 };
 $('markResponseExpired').onclick=()=>{
-  if(!disputeLifecycle||disputeLifecycle.status!=='awaiting_respondent'||Date.now()<disputeLifecycle.responseDeadline)return;
+  if(!disputeLifecycle||disputeLifecycle.status!=='awaiting_respondent')return;
+  if(Date.now()<disputeLifecycle.responseDeadline){$('respondentResponseMsg').textContent='The agreed response deadline has not expired yet.';return}
   disputeLifecycle.status='response_expired';renderDisputeState();
   log('Respondent response deadline expired in dispute simulation','demo_system','dispute_deadline');
 };
