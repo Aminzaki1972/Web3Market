@@ -224,12 +224,6 @@ revoke all on function public.w3m_commit_safe_prepare(uuid,uuid,jsonb,jsonb,json
 grant execute on function public.w3m_commit_safe_prepare(uuid,uuid,jsonb,jsonb,jsonb) to service_role;
 comment on function public.w3m_commit_safe_prepare(uuid,uuid,jsonb,jsonb,jsonb) is
  'Atomic service-role-only W3M PREPARE persistence. Caller must verify signed W3M PASS and live canonical BNB Safe facts. Isolated draft; not deployed.';
-
--- Enforce the V1 success-fee rule for all newly inserted or updated release policies.
--- NOT VALID preserves legacy rows for explicit reconciliation while blocking new deviations.
-alter table public.deal_release_policies
-  add constraint deal_release_policies_w3m_v1_fee_percent_check
-  check (fee_percent = 7.5) not valid;
 commit;
      or d.chain_id is distinct from 56 or lower(coalesce(d.safe_address,'')) <> safe_addr
      or lower(coalesce(d.token_contract,'')) <> token_addr
@@ -395,10 +389,4 @@ revoke all on function public.w3m_commit_safe_prepare(uuid,uuid,jsonb,jsonb,json
 grant execute on function public.w3m_commit_safe_prepare(uuid,uuid,jsonb,jsonb,jsonb) to service_role;
 comment on function public.w3m_commit_safe_prepare(uuid,uuid,jsonb,jsonb,jsonb) is
  'Atomic service-role-only W3M PREPARE persistence. Caller must verify signed W3M PASS and live canonical BNB Safe facts. Isolated draft; not deployed.';
-
--- Enforce the V1 success-fee rule for all newly inserted or updated release policies.
--- NOT VALID preserves legacy rows for explicit reconciliation while blocking new deviations.
-alter table public.deal_release_policies
-  add constraint deal_release_policies_w3m_v1_fee_percent_check
-  check (fee_percent = 7.5) not valid;
 commit;
