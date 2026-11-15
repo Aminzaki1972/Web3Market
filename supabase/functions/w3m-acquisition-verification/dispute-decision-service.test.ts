@@ -20,13 +20,13 @@ const result = {
 };
 
 Deno.test("decision service passes only parsed command and verified actor to the server RPC", async () => {
-  let captured: { name: string; args: Record<string, unknown> } | null = null;
+  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const persisted = await persistW3MDisputeDecision({
-    rpc: async (name, args) => { captured = { name, args }; return { data: result, error: null }; },
+    rpc: async (name, args) => { calls.push({ name, args }); return { data: result, error: null }; },
   }, { command, actorId });
-  assertEquals(captured?.name, "w3m_admin_decide_deal_dispute");
-  assertEquals(captured?.args.p_actor_id, actorId);
-  assertEquals("p_refund_amount" in (captured?.args || {}), false);
+  assertEquals(calls[0].name, "w3m_admin_decide_deal_dispute");
+  assertEquals(calls[0].args.p_actor_id, actorId);
+  assertEquals("p_refund_amount" in calls[0].args, false);
   assertEquals(persisted.dealDisputeStatus, "resolved_seller");
   assertEquals(persisted.dealStatus, "disputed");
 });
