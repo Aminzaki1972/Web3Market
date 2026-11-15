@@ -123,10 +123,7 @@
  await loadCanonicalWallet().catch(e=>console.error('wallet state refresh before render',e));
  const dealWalletBtn=document.querySelector('#dealConnectWallet');
  if(dealWalletBtn)dealWalletBtn.addEventListener('click',connectDealWallet);
- const createSafeBtn=document.querySelector('#createSafeBtn');
- if(createSafeBtn)createSafeBtn.addEventListener('click',async()=>{safeDeploymentError='';safeDeploymentLog=[];await ensureSafeDeployment(true);if(deal?.safe_address)await renderSafe()});
-
- async function loadAgreement(){
+async function loadAgreement(){
   const {data,error}=await sb.from('deal_party_agreements').select('party_role,party_id,agreed_at').eq('deal_id',deal.id);
   if(error){console.error('agreement',error);return []}return data||[];
  }
@@ -138,120 +135,7 @@
   box.innerHTML=(data||[]).map(m=>`<div class="msg ${String(m.sender_id)===String(user.id)?'mine':''}"><span class="translation-text">${esc(m.message)}</span><small>${new Date(m.created_at).toLocaleString()}</small></div>`).join('')||'<div class="info">No messages yet.</div>';
   box.scrollTop=box.scrollHeight;
  }
- async function ensureSafeDeployment(manual=false){
-  if(safeDeploymentBusy)return false;
-  safeDeploymentBusy=true;
-  if(manual)safeDeploymentLog=[];
-  addSafeLog('Starting Safe deployment flow.');
-  const createBtn=document.querySelector('#createSafeBtn');
-  if(createBtn){createBtn.disabled=true;createBtn.textContent='Creating Safe…'}
-  if(!deal || String(deal.status||'').toLowerCase()!=='accepted'){addSafeLog('Stopped: deal is not in accepted status.');return false;}
-  addSafeLog('Deal verified: accepted / BNB Smart Chain (56).');
-  if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && /^0x[a-fA-F0-9]{40}$/.test(String(deal.safe_address||''))){addSafeLog('Safe is already deployed: '+deal.safe_address);return true;}
-  const box=document.querySelector('#safeStatus');
-  addSafeLog('Preparing a dedicated 2-of-3 Safe for this deal.');
-  addSafeLog('The platform wallet is intended to pay the BNB deployment gas.');
-  addSafeLog('No USDT is moved during Safe creation.');
-  if(canonicalWalletAddress)addSafeLog('Current verified profile wallet: '+canonicalWalletAddress);
-  try{
-   let session=null;
-   try{
-    const current=await sb.auth.getSession();
-    session=current?.data?.session||null;
-   }catch(e){
-    console.warn('Deal Room getSession failed',e);
-   }
-   if(!session && typeof window.Web3MarketSupabaseRestoreSession==='function'){
-    try{
-     await window.Web3MarketSupabaseRestoreSession();
-     const restored=await sb.auth.getSession();
-     session=restored?.data?.session||null;
-    }catch(e){
-     console.warn('Deal Room session restore failed',e);
-    }
-   }
-   if(!session){
-    for(let i=0;i<20&&!session;i++){
-     await sleep(250);
-     try{
-      const retry=await sb.auth.getSession();
-      session=retry?.data?.session||null;
-     }catch(e){
-      console.warn('Deal Room session retry failed',e);
-     }
-    }
-   }
-   if(!session?.access_token){addSafeLog('Authentication session is missing or expired.');throw new Error('Session expired. Please sign in again.');}
-   addSafeLog('Authenticated session ready. Calling create-safe Edge Function…');
-   const invokeResult=await sb.functions.invoke('create-safe',{body:{deal_id:deal.id},headers:{Authorization:'Bearer '+session.access_token}});
-   let result=invokeResult?.data||{};
-   let invokeError=invokeResult?.error||null;
-   addSafeLog('create-safe SDK invocation completed.');
-   console.error('create-safe response',invokeError,result);
-   if(invokeError || !result.success){
-    const detail=[
-     invokeError?.name ? 'name='+invokeError.name : '',
-     invokeError?.message ? 'message='+invokeError.message : '',
-     invokeError?.status ? 'status='+invokeError.status : '',
-     invokeError?.context ? 'context='+String(invokeError.context) : '',
-     invokeError?.cause ? 'cause='+String(invokeError.cause) : ''
-    ].filter(Boolean).join(' | ');
-    if(detail)addSafeLog('SDK error detail: '+detail);
-    const isFetchError=String(invokeError?.name||'').toLowerCase().includes('fetch')||String(invokeError?.message||'').toLowerCase().includes('failed to send a request');
-    if(isFetchError){
-     addSafeLog('SDK could not expose the HTTP response. Running a direct Edge Function diagnostic…');
-     try{
-      const direct=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/create-safe',{
-       method:'POST',
-       headers:{
-        'Content-Type':'application/json',
-        'apikey':'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI',
-        'Authorization':'Bearer '+session.access_token
-       },
-       body:JSON.stringify({deal_id:deal.id})
-      });
-      const raw=await direct.text();
-      let parsed={};
-      try{parsed=raw?JSON.parse(raw):{};}catch(_){}
-      addSafeLog('Direct create-safe HTTP status: '+direct.status+' '+direct.statusText);
-      addSafeLog('Direct response: '+(parsed?.error||parsed?.message||raw||'(empty response)'));
-      if(direct.ok && parsed?.success){
-       result=parsed; invokeError=null;
-      }else{
-       safeDeploymentError=String(parsed?.error||parsed?.message||('HTTP '+direct.status));
-       return false;
-      }
-     }catch(fetchError){
-      safeDeploymentError='Direct Edge Function fetch failed: '+String(fetchError?.message||fetchError);
-      addSafeLog('ERROR: '+safeDeploymentError);
-      return false;
-     }
-    }else{
-     safeDeploymentError=invokeError?.message||String(result.error||result.message||'create-safe returned an error');
-     addSafeLog('ERROR: '+safeDeploymentError);
-     return false;
-    }
-   }
-   if(!result.success){
-    safeDeploymentError=String(result.error||result.message||'create-safe returned an error');
-    addSafeLog('ERROR: '+safeDeploymentError);
-    return false;
-   }
-   const refreshed=await sb.from('deals').select('*').eq('id',deal.id).maybeSingle();
-   if(refreshed.data) deal=refreshed.data;
-   addSafeLog('create-safe reported success. Deal record refreshed.');
-   return true;
-  }catch(e){
-   console.error('Safe deployment',e); safeDeploymentError='Fetch/Network error: '+String(e?.message||'Unknown error');
-   addSafeLog('ERROR: '+safeDeploymentError);
-   addSafeLog('ERROR: '+safeDeploymentError);
-   return false;
-  }finally{
-   safeDeploymentBusy=false;
-   const createBtn=document.querySelector('#createSafeBtn');
-   if(createBtn){createBtn.disabled=false;createBtn.textContent='Create / Retry Safe'}
-  }
- }
+ // Legacy Safe creation is intentionally not callable from this isolated Deal Room.
  async function renderSafe(){
   if(!deal)return;
   const box=document.querySelector('#safeStatus');if(!box)return;
@@ -292,48 +176,15 @@
  await loadMessages();await renderTerms();
  // Safe deployment is manual-only from the Deal Room button to prevent automatic rerenders from hiding diagnostics or starting repeated deployment attempts.
  if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && deal.safe_address) await renderSafe();
- async function autoDetectPayment(){
-  if(!deal || !['buyer','seller'].includes(participant))return false;
-  const st=String(deal.payment_status||'').toLowerCase();
-  const status=String(deal.status||'').toLowerCase();
-  if(deal.payment_tx_hash||st==='confirmed'||status==='funded')return false;
-  try{
-   const {data:{session}}=await sb.auth.getSession();
-   if(!session?.access_token)return false;
-   setStatus('Checking blockchain payment automatically…');
-   const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/verify-deal-payment',{
-    method:'POST',
-    headers:{
-     'Content-Type':'application/json',
-     'apikey':'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI',
-     'Authorization':'Bearer '+session.access_token
-    },
-    body:JSON.stringify({deal_id:deal.id})
-   });
-   const result=await response.json().catch(()=>({}));
-   if(response.ok&&result.ok){
-    await loadDeal();await renderTerms();
-    return true;
-   }
-   if(result?.error){
-    const msg=String(result.error);
-    console.warn('Automatic payment verification:',msg,result);
-    const diagnostic=result.scanned_from_block&&result.scanned_to_block
-      ? msg+' (blocks '+result.scanned_from_block+' → '+result.scanned_to_block+')'
-      : msg;
-    setStatus(diagnostic,'warn');
-   }
-  }catch(e){
-   console.warn('Automatic payment verification',e);
-   setStatus('Automatic payment check failed. Retrying…','warn');
-  }
-  return false;
- }
- let paymentPollTimer=null;
- const startAutomaticPaymentMonitor=()=>{if(!['buyer','seller'].includes(participant))return;if(paymentPollTimer)return;autoDetectPayment();paymentPollTimer=setInterval(()=>{if(disposed){clearInterval(paymentPollTimer);paymentPollTimer=null;return}autoDetectPayment()},15000)};
- startAutomaticPaymentMonitor();
+ // Legacy automatic payment polling is disabled in this isolated branch.
+ // It previously called the production payment-verification Edge Function.
+ // Payment verification must be reintroduced only through the reviewed test backend.
  const form=document.querySelector('#chatForm');
- if(form&&participant!=='platform')form.addEventListener('submit',async e=>{e.preventDefault();const input=document.querySelector('#messageInput'),message=input?.value.trim();if(!message)return;const btn=form.querySelector('button');btn.disabled=true;const {error}=await sb.from('deal_messages').insert({deal_id:deal.id,sender_id:user.id,message});btn.disabled=false;if(error){alert(error.message||'Unable to send message.');return}input.value='';await loadMessages()});
+ if(form){
+  const input=document.querySelector('#messageInput'),send=form.querySelector('button');
+  if(input){input.disabled=true;input.placeholder='Chat sending is paused until the authenticated permanent archive is connected.'}
+  if(send){send.disabled=true;send.textContent='Chat unavailable'}
+ }
  channel=sb.channel('deal-room-'+deal.id)
   .on('postgres_changes',{event:'INSERT',schema:'public',table:'deal_messages',filter:'deal_id=eq.'+deal.id},loadMessages)
   .on('postgres_changes',{event:'UPDATE',schema:'public',table:'deals',filter:'id=eq.'+deal.id},async()=>{if(disposed)return;if(await loadDeal()){await renderTerms();if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && deal.safe_address)await renderSafe()}})
