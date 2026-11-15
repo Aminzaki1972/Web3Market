@@ -51,12 +51,12 @@ Deno.serve(async (request) => {
     },
     isAdmin: async (actorId) => {
       const { data, error } = await supabase
-        .from("admin_users")
-        .select("user_id")
-        .eq("user_id", actorId)
+        .from("profiles")
+        .select("id, role")
+        .eq("id", actorId)
         .maybeSingle();
-      if (error) throw new Error("Administrator registry could not be checked.");
-      return data?.user_id === actorId;
+      if (error) throw new Error("Administrator profile could not be checked.");
+      return data?.id === actorId && String(data?.role ?? "").toLowerCase() === "admin";
     },
     decide: async ({ command, actorId }) => {
       const result = await persistW3MDisputeDecision(database, { command, actorId });
