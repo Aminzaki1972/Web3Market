@@ -123,3 +123,36 @@ Deno.test("idempotency fingerprint ignores evidence object property insertion or
   assertEquals(store.getEvents("req-1").length, 1);
   assertEquals(store.getRequest("req-2"), null);
 });
+
+
+Deno.test("dispute transitions append matching entries to the unified immutable Deal Room activity ledger", () => {
+  const store = makeStore();
+  store.submit("buyer-1", "req-1", "idem-1", "Reason", 100, evidence);
+  store.review("admin-1", "req-1", "approved", "Evidence supports review", 110);
+  const ledger = store.getActivityLedger();
+  assertEquals(ledger.map(event => event.type), ["dispute_requested", "dispute_reviewed"]);
+  assertEquals(ledger.map(event => event.sequence), [1, 2]);
+  assertEquals(ledger.map(event => event.previousEventId), [null, "req-1:activity:1"]);
+  assertEquals(ledger.map(event => event.actorRole), ["buyer", "admin"]);
+  assertEquals(ledger.map(event => event.referenceId), ["req-1", "req-1"]);
+  assertEquals(Object.isFrozen(ledger), true);
+  assertEquals(Object.isFrozen(ledger[0]), true);
+});
+
+Deno.test("declined hold release appends a third admin event without rewriting earlier activity", () => {
+  const store = makeStore();
+  store.submit("seller-1", "req-1", "idem-1", "Reason", 100, evidence);
+  store.review("admin-1", "req-1", "declined", "Insufficient evidence", 110);
+  const beforeRelease = store.getActivityLedger();
+  const released = store.releaseDeclinedHold("admin-1", "req-1", "No other hold remains", 120);
+  const afterRelease = store.getActivityLedger();
+  assertEquals(released.status, "administrative_hold_released");
+  assertEquals(beforeRelease.length, 2);
+  assertEquals(afterRelease.length, 3);
+  assertEquals(afterRelease.map(event => event.type), [
+    "dispute_requested", "dispute_reviewed", "admin_review_recorded",
+  ]);
+  assertEquals(afterRelease.map(event => event.sequence), [1, 2, 3]);
+  assertEquals(afterRelease[2].previousEventId, afterRelease[1].id);
+  assertEquals(beforeRelease.length, 2);
+});
