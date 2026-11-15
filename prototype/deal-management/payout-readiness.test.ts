@@ -342,3 +342,29 @@ Deno.test("dispute payout rejects a decision without matching single-admin workf
   assertEquals(wrongRequestResult.ready, false);
   if (!wrongRequestResult.ready) assertEquals(wrongRequestResult.blockers.includes("dispute_decision_authorization_missing_or_mismatched"), true);
 });
+
+
+Deno.test("ordinary payout rejects non-finite review timestamps in a declined-hold release", () => {
+  const submitted = submitDisputeRequest("ordinary-bad-review-time", "deal-10000", "buyer", "Request review", 100, initialEvidence);
+  const declined = reviewDisputeRequest(submitted, "declined", "No qualifying grounds", "admin-1", 110);
+  const released = releaseDeclinedDisputeHold(declined, "No other active hold", "admin-1", 120, false);
+  const badReview = {...released, review:{...released.review!, reviewedAt:Number.NaN}};
+  const result = prepareOrdinaryPayout({...ordinary, disputeRequest:badReview}, recipients);
+  assertEquals(result.ready, false);
+  if (!result.ready) assertEquals(result.blockers.includes("administrative_hold_release_inconsistent"), true);
+});
+
+Deno.test("dispute payout rejects a released hold or a decision by a different admin", () => {
+  const dispute = resolvedDispute("hold-auth", {
+    buyerGrossRefund: gross, sellerPayout: 0n, platformFee: fee,
+  });
+  const input = disputeInput(dispute);
+  const released = {...input.disputeRequest, holdRelease:{reason:"forged",reviewerId:"admin-1",releasedAt:140}};
+  const releasedResult = prepareDisputePayout({...input, disputeRequest:released});
+  assertEquals(releasedResult.ready, false);
+  if (!releasedResult.ready) assertEquals(releasedResult.blockers.includes("dispute_approval_or_hold_inconsistent"), true);
+  const wrongAdmin = {...dispute, decision:{...dispute.decision!,authorization:{...dispute.decision!.authorization!,adminId:"admin-2"}}};
+  const adminResult = prepareDisputePayout({...input, dispute:wrongAdmin});
+  assertEquals(adminResult.ready, false);
+  if (!adminResult.ready) assertEquals(adminResult.blockers.includes("dispute_decision_authorization_missing_or_mismatched"), true);
+});
