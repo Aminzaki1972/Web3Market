@@ -118,7 +118,9 @@ begin
      order by e.value->>'source', e.value->>'recordId'
   loop
     if jsonb_typeof(v_item) is distinct from 'object'
-       or jsonb_object_length(v_item) <> 2
+       or (select count(*) from jsonb_object_keys(
+         case when jsonb_typeof(v_item) = 'object' then v_item else '{}'::jsonb end
+       )) <> 2
        or not (v_item ? 'source')
        or not (v_item ? 'recordId') then
       raise exception 'Evidence references must contain only source and recordId'
