@@ -222,6 +222,7 @@ export async function checkDealRoomFromExactSnapshot(
   const sellerWinDecisionVerified = row.deal_status === "disputed" &&
     row.dispute_status === "resolved_seller" &&
     dispute !== null && decision !== null &&
+    UUID.test(String(dispute.id)) &&
     dispute.id === decision.dispute_id &&
     dispute.deal_id === input.dealId &&
     dispute.status === "resolved" &&
@@ -233,7 +234,9 @@ export async function checkDealRoomFromExactSnapshot(
     typeof decision.terms_version === "string" && /^[1-9][0-9]*$/.test(decision.terms_version) &&
     typeof decision.terms_version_id === "string" && UUID.test(decision.terms_version_id) &&
     typeof decision.decided_by === "string" && UUID.test(decision.decided_by) &&
-    typeof decision.decided_at === "string" && Number.isFinite(Date.parse(decision.decided_at));
+    dispute.resolved_by === decision.decided_by &&
+    typeof decision.decided_at === "string" && Number.isFinite(Date.parse(decision.decided_at)) &&
+    dispute.resolved_at === decision.decided_at;
   if (!noDispute && !sellerWinDecisionVerified) {
     throw new Error("W3M seller-win decision is missing, inconsistent, or invalid.");
   }
