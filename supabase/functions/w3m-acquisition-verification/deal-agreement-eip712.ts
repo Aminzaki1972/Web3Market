@@ -9,7 +9,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const HASH = /^[0-9a-f]{64}$/i;
 const ADDRESS = /^0x[0-9a-f]{40}$/i;
 const DOMAIN_TYPE = "EIP712Domain(string name,string version,uint256 chainId)";
-const ACCEPTANCE_TYPE = "DealTermsAcceptance(bytes32 dealId,bytes32 projectId,bytes32 buyerId,bytes32 sellerId,address safeAddress,bytes32 termsHash,uint256 termsVersion,uint8 partyRole)";
+const ACCEPTANCE_TYPE = "DealTermsAcceptance(bytes32 dealId,bytes32 projectId,bytes32 buyerId,bytes32 sellerId,address safeAddress,bytes32 termsHash,string agreementDocumentVersion,bytes32 agreementDocumentHash,uint256 termsVersion,uint8 partyRole)";
 const NAME = "Web3Market Deal Agreement";
 const VERSION = "1";
 const CHAIN_ID = 56n;
@@ -22,6 +22,8 @@ export interface DealTermsAcceptanceInput {
   sellerId: string;
   safeAddress: string;
   termsHash: string;
+  agreementDocumentVersion: string;
+  agreementDocumentHash: string;
   termsVersion: string;
   partyRole: DealAgreementPartyRole;
 }
@@ -34,7 +36,7 @@ export interface Eip712DealAgreementTypedData {
   };
   message: {
     dealId: string; projectId: string; buyerId: string; sellerId: string;
-    safeAddress: string; termsHash: string; termsVersion: string; partyRole: number;
+    safeAddress: string; termsHash: string; agreementDocumentVersion: string; agreementDocumentHash: string; termsVersion: string; partyRole: number;
   };
 }
 const DOMAIN_FIELDS = [
@@ -45,6 +47,7 @@ const ACCEPTANCE_FIELDS = [
   { name: "dealId", type: "bytes32" }, { name: "projectId", type: "bytes32" },
   { name: "buyerId", type: "bytes32" }, { name: "sellerId", type: "bytes32" },
   { name: "safeAddress", type: "address" }, { name: "termsHash", type: "bytes32" },
+  { name: "agreementDocumentVersion", type: "string" }, { name: "agreementDocumentHash", type: "bytes32" },
   { name: "termsVersion", type: "uint256" }, { name: "partyRole", type: "uint8" },
 ];
 
@@ -92,6 +95,8 @@ function normalize(input: DealTermsAcceptanceInput) {
   }
   const safeAddress = addressWord(input.safeAddress);
   if (!HASH.test(input.termsHash)) throw new Error("Terms hash must be exactly 32 bytes.");
+  if (!input.agreementDocumentVersion || input.agreementDocumentVersion.length > 32) throw new Error("Agreement document version is invalid.");
+  if (!HASH.test(input.agreementDocumentHash)) throw new Error("Agreement document hash must be exactly 32 bytes.");
   if (!/^[1-9][0-9]*$/.test(input.termsVersion)) throw new Error("Terms version must be a positive integer string.");
   const version = BigInt(input.termsVersion);
   if (version >= (1n << 256n)) throw new Error("Terms version exceeds uint256.");
@@ -100,7 +105,7 @@ function normalize(input: DealTermsAcceptanceInput) {
   }
   return {
     dealId, projectId, buyerId, sellerId, safeAddress,
-    termsHash: hexToBytes(input.termsHash), version,
+    termsHash: hexToBytes(input.termsHash), agreementDocumentHash: hexToBytes(input.agreementDocumentHash), agreementDocumentVersion: input.agreementDocumentVersion, version,
     partyRole: input.partyRole === "buyer" ? 1n : 2n,
   };
 }
@@ -123,6 +128,8 @@ export function buildDealTermsAcceptanceTypedData(
       sellerId: "0x" + bytesToHex(values.sellerId),
       safeAddress: input.safeAddress.toLowerCase(),
       termsHash: "0x" + input.termsHash.toLowerCase(),
+      agreementDocumentVersion: input.agreementDocumentVersion,
+      agreementDocumentHash: "0x" + input.agreementDocumentHash.toLowerCase(),
       termsVersion: input.termsVersion,
       partyRole: Number(values.partyRole),
     },
@@ -147,6 +154,8 @@ export function computeDealTermsAcceptanceDigest(input: DealTermsAcceptanceInput
     values.sellerId,
     values.safeAddress,
     values.termsHash,
+    hashText(values.agreementDocumentVersion),
+    values.agreementDocumentHash,
     word(values.version),
     word(values.partyRole),
   ));
