@@ -52,6 +52,7 @@ jobs:
           node --check js/project.js
           node --check js/offer-form-fix.js
           node --check prototype/deal-management/agreement-snapshot-browser.js
+          node --check prototype/deal-management/agreement-approval-gate.js
 
       - name: Assert legacy Deal Room financial paths stay disabled
         shell: bash
