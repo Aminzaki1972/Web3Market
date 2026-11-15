@@ -97,6 +97,42 @@ begin
      or d.payment_status <> 'confirmed'
      or d.payment_tx_hash is null or length(d.payment_tx_hash) <> 66
      or d.payment_tx_hash !~ '^0x[0-9a-fA-F]{64}'
+     or d.chain_id is distinct from 56 or lower(coalesce(d.safe_address,'')) <> safe_addr
+     or lower(coalesce(d.token_contract,'')) <> token_addr
+     or upper(coalesce(d.token_symbol,d.currency,'')) <> 'USDT'
+     or coalesce(d.dispute_status,'') not in ('none','resolved_seller')
+     or (d.dispute_status='resolved_seller' and d.status is distinct from 'disputed')
+     or d.delivery_status <> 'accepted' or d.buyer_approved_at is null
+     or d.amount is distinct from amount_value or d.platform_fee_percent is distinct from fee_percent_value then
+    raise exception 'Current deal/payment/delivery/dispute/amount state is not eligible' using errcode='23514';
+  end if;
+
+  if d.dispute_status='none' then
+    if exists(select 1 from public.deal_disputes x where x.deal_id=p_deal_id) then
+      raise exception 'A dispute record exists while the parent deal is marked no-dispute' using errcode='23514';
+    end if;
+  elsif d.dispute_status='resolved_seller' then
+    if not exists (
+      select 1
+        from public.deal_disputes x
+        join public.w3m_deal_dispute_decisions decision
+          on decision.deal_id=x.deal_id and decision.dispute_id=x.id
+       where x.deal_id=p_deal_id
+         and x.status='resolved'
+         and x.resolution='seller_wins'
+         and decision.outcome='seller_wins'
+         and decision.terms_hash=p_w3m_authorization->>'deal_terms_hash'
+         and decision.terms_version_id = (
+           select tv.id from public.w3m_deal_terms_versions tv
+            where tv.deal_id=p_deal_id
+            order by tv.terms_version desc limit 1
+         )
+    ) then
+      raise exception 'Seller release after dispute requires an immutable seller-wins decision bound to the latest signed terms' using errcode='23514';
+    end if;
+  else
+    raise exception 'Dispute state blocks seller PREPARE' using errcode='23514';
+  end if;
 
   select lower(wallet_address) into buyer_wallet from public.profiles
    where id=d.buyer_id and wallet_verified=true;
