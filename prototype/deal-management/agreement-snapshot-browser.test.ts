@@ -31,6 +31,8 @@ Deno.test("deal preview binds every demo approval to the current terms fingerpri
     "agreement-approval-gate.js",
     "safe-demo-usdt-number.js",
     "parseSafeDemoUsdtNumber",
+    "amount=parseSafeDemoUsdtNumber($('offer').value)",
+    "amount=parseSafeDemoUsdtNumber($('responseAmount').value)",
     "canRecordAgreementApproval",
     "haveAllCurrentAgreementApprovals",
     "approvalVersions={buyer:null,seller:null,platform:null}",
