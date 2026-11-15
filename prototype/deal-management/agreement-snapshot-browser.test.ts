@@ -49,3 +49,7 @@ Deno.test("browser serializer normalizes Unicode and rejects lossy array entries
   assertEquals(composed.termsHash, decomposed.termsHash);
   await assertRejects(() => hashDealAgreementSnapshot({ values: [undefined] }));
 });
+Deno.test("browser serializer rejects sparse arrays instead of producing malformed JSON", async () => {
+  const sparse = new Array(2);
+  await assertRejects(() => hashDealAgreementSnapshot({ values: sparse }));
+});
