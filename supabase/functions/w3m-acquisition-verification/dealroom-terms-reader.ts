@@ -203,12 +203,14 @@ export async function checkDealRoomFromExactSnapshot(
     throw new Error("W3M dispute decision snapshot read failed.");
   }
   const disputeSnapshot = disputeResult.data;
-  const dispute = disputeSnapshot.dispute === null ? null : record(disputeSnapshot.dispute)
-    ? disputeSnapshot.dispute as Record<string, unknown>
-    : null;
-  const decision = disputeSnapshot.decision === null ? null : record(disputeSnapshot.decision)
-    ? disputeSnapshot.decision as Record<string, unknown>
-    : null;
+  if (disputeSnapshot.dispute !== null && !record(disputeSnapshot.dispute)) {
+    throw new Error("W3M dispute snapshot record is malformed.");
+  }
+  if (disputeSnapshot.decision !== null && !record(disputeSnapshot.decision)) {
+    throw new Error("W3M dispute decision snapshot record is malformed.");
+  }
+  const dispute = disputeSnapshot.dispute as Record<string, unknown> | null;
+  const decision = disputeSnapshot.decision as Record<string, unknown> | null;
   if (disputeSnapshot.deal_id !== input.dealId ||
       disputeSnapshot.deal_status !== row.deal_status ||
       disputeSnapshot.dispute_status !== row.dispute_status) {
