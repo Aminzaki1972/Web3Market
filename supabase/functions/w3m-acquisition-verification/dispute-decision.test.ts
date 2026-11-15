@@ -3,6 +3,8 @@ import {
   buildW3MCanonicalDisputeDecision,
   parseW3MDisputeDecisionCommand,
   type W3MDisputeDecisionCommand,
+  type W3MCanonicalDisputeDecisionInput,
+  type W3MCanonicalDisputeEvidenceReference,
 } from "./dispute-decision.ts";
 
 const dealId = "81000000-0000-4000-8000-000000000001";
@@ -20,9 +22,9 @@ const command: W3MDisputeDecisionCommand = {
     { source: "deal_message", recordId: messageId },
   ],
 };
-const canonicalInput = {
+const canonicalInput: W3MCanonicalDisputeDecisionInput = {
   ...command,
-  evidenceRefs: command.evidenceRefs.map((item, index) => ({ ...item, contentHash: index === 0 ? "11".repeat(32) : "22".repeat(32) })),
+  evidenceRefs: command.evidenceRefs.map((item, index): W3MCanonicalDisputeEvidenceReference => ({ ...item, contentHash: index === 0 ? "11".repeat(32) : "22".repeat(32) })),
   priorState: { dealStatus: "disputed", dealDisputeStatus: "under_review", disputeRecordStatus: "open" },
   decisionId, decidedBy: actorId,
   decidedAt: "2026-11-15T21:00:00.000Z",
@@ -65,7 +67,7 @@ Deno.test("decision command rejects unsupported outcomes, weak reasons, invalid 
 Deno.test("canonical decision hash is stable across evidence reference ordering", async () => {
   const first = await buildW3MCanonicalDisputeDecision(canonicalInput);
   const second = await buildW3MCanonicalDisputeDecision({
-    ...canonicalInput, evidenceRefs: [...command.evidenceRefs].reverse(),
+    ...canonicalInput, evidenceRefs: [...canonicalInput.evidenceRefs].reverse(),
   });
   assertEquals(first.decisionHash, second.decisionHash);
   assertEquals(first.payload.evidenceRefs[0].source, "deal_asset");
@@ -87,5 +89,5 @@ Deno.test("canonical decision rejects noncanonical timestamps, invalid terms has
   await assertRejects(() => buildW3MCanonicalDisputeDecision({ ...canonicalInput, termsHash: "bad" }));
   await assertRejects(() => buildW3MCanonicalDisputeDecision({ ...canonicalInput, evidenceRefs: [{ source: "deal_message", recordId: messageId } as never] }));
   await assertRejects(() => buildW3MCanonicalDisputeDecision({ ...canonicalInput, decidedBy: "browser-admin" }));
-  await assertRejects(() => buildW3MCanonicalDisputeDecision({ ...canonicalInput, priorState: { dealStatus: "completed", dealDisputeStatus: "open", disputeRecordStatus: "open" } }));
+  await assertRejects(() => buildW3MCanonicalDisputeDecision({ ...canonicalInput, priorState: { dealStatus: "completed", dealDisputeStatus: "open", disputeRecordStatus: "open" } as never }));
 });
