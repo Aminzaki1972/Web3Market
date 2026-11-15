@@ -7,6 +7,7 @@ export interface W3MSignAuthorization {
   phase: "SIGN";
   dealId: string;
   safeTransactionHash: string | null;
+  dealTermsHash?: string;
   issues: string[];
   reportId?: string;
   reportVersion?: number;
@@ -90,6 +91,7 @@ export function createW3MSafeSignRequestHandler(deps: W3MSignHandlerDependencies
       const auth = fresh?.authorization;
       if (!auth || auth.authorized !== true || auth.phase !== "SIGN" ||
           auth.dealId !== dealId || auth.safeTransactionHash?.toLowerCase() !== safeHash.toLowerCase() ||
+          typeof auth.dealTermsHash !== "string" || !/^[0-9a-f]{64}$/i.test(auth.dealTermsHash) ||
           !Array.isArray(auth.issues) || auth.issues.length !== 0) {
         return json(409, { ok: false, error: "W3M_SIGN_AUTHORIZATION_DENIED", issues: auth?.issues ?? [] });
       }
