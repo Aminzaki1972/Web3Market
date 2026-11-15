@@ -181,6 +181,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/signature-verifier.test.ts
           deno check supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.ts
           deno check supabase/functions/w3m-acquisition-verification/dispute-decision.ts
+          deno check supabase/functions/w3m-acquisition-verification/dispute-decision-service.ts
+          deno check supabase/functions/w3m-acquisition-verification/dispute-decision-service.test.ts
           deno check supabase/functions/w3m-acquisition-verification/dispute-decision.test.ts
           deno check supabase/functions/w3m-acquisition-verification/dispute-decision-request-handler.ts
           deno check supabase/functions/w3m-acquisition-verification/dispute-decision-request-handler.test.ts
@@ -343,6 +345,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.test.ts
       - name: Test EIP-712 buyer and seller deal agreement signatures
         run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.test.ts
+      - name: Test immutable dispute decision RPC adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/dispute-decision-service.test.ts
       - name: Test canonical dispute decision validation and hashing
         run: deno test supabase/functions/w3m-acquisition-verification/dispute-decision.test.ts
       - name: Test authenticated admin-only dispute decision boundary
