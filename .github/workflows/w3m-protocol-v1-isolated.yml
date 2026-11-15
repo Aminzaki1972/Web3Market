@@ -1,0 +1,545 @@
+name: W3M Protocol V1 isolated checks
+# Includes fail-closed Safe SIGN and atomic signature persistence checks.
+# The signer-race shell test uses two independent PostgreSQL sessions and a persistent disposable fixture;
+# keep both its fixture and script in pull_request path filters so namespace/cleanup edits run the full DB job.
+
+on:
+  # Validate changes on the isolated branch without deploying production.
+  pull_request:
+    paths:
+      - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/functions/w3m-protocol-v1-dispute-decision/**"
+      - "supabase/migrations/*_w3m_protocol_v1_immutable_dispute_decisions.sql"
+      - "supabase/tests/w3m-protocol-v1-dispute-decisions.test.sql"
+      - "docs/legal/**"
+      - "supabase/migrations/20261115010000_w3m_protocol_v1_bind_legal_agreement_document.sql"
+      - "supabase/functions/w3m-protocol-v1-finalize-safe-release/**"
+      - "supabase/functions/w3m-protocol-v1-deal-agreement/**"
+      - "supabase/functions/w3m-protocol-v1-prepare-deal-release/**"
+      - "supabase/functions/w3m-protocol-v1-safe-sign/**"
+      - "supabase/functions/w3m-protocol-v1-safe-wallet-package/**"
+      - "supabase/functions/w3m-protocol-v1-safe-wallet-submit/**"
+      - "js/w3m-safe-wallet-execution-client.js"
+      - "js/release-signing-fix.js"
+      - "deal-room.html"
+      - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
+      - "supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql"
+      - "supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql"
+      - "supabase/migrations/20261107120000_w3m_protocol_v1_immutable_agreements.sql"
+      - "supabase/migrations/20261107130000_w3m_protocol_v1_report_version_serialization.sql"
+      - "supabase/migrations/20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql"
+      - "supabase/migrations/20261107150000_w3m_protocol_v1_report_signer_lock.sql"
+      - "supabase/migrations/20261107160000_w3m_protocol_v1_atomic_project_ownership_transfer.sql"
+      - "supabase/migrations/20261107170000_w3m_protocol_v1_dispute_open_rpc_contract.sql"
+      - "supabase/migrations/20261115010000_w3m_protocol_v1_bind_legal_agreement_document.sql"
+      - "supabase/tests/w3m-protocol-v1-report-signer-lock.test.sql"
+      - "supabase/tests/w3m-protocol-v1-report-version-serialization.test.sql"
+      - "supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql"
+      - "supabase/tests/w3m-protocol-v1-immutable-agreements.test.sql"
+      - "supabase/tests/w3m-protocol-v1-append-only-registry.test.sql"
+      - "supabase/migrations/20261106230000_w3m_protocol_v1_safe_execution_attempts.sql"
+      - "supabase/migrations/20261107090000_w3m_protocol_v1_wallet_package_issuance.sql"
+      - "supabase/migrations/20261106240000_w3m_protocol_v1_safe_execution_finalizer.sql"
+      - "supabase/migrations/20261107010000_w3m_protocol_v1_dealroom_terms_reader.sql"
+      - "supabase/migrations/20261107020000_w3m_protocol_v1_safe_finalization_snapshot_reader.sql"
+      - "supabase/migrations/20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql"
+      - "supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql"
+      - "supabase/migrations/20261116010000_w3m_protocol_v1_safe_snapshot_dispute_decision.sql"
+      - "supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql"
+      - "supabase/migrations/20261107065000_w3m_protocol_v1_dealroom_code_audit_snapshot.sql"
+      - "supabase/migrations/20261107066000_w3m_protocol_v1_completed_audit_immutability.sql"
+      - "supabase/tests/w3m-protocol-v1-completed-audit-immutability.test.sql"
+      - "supabase/tests/w3m-dealroom-terms-reader-fixture.sql"
+      - "supabase/tests/w3m-dealroom-terms-reader.test.sql"
+      - "supabase/migrations/20261107070000_w3m_protocol_v1_atomic_safe_prepare.sql"
+      - "supabase/migrations/20261107080000_w3m_protocol_v1_atomic_safe_sign.sql"
+      - "supabase/tests/w3m-protocol-v1-atomic-safe-prepare.test.sql"
+      - "supabase/tests/w3m-protocol-v1-atomic-safe-sign.test.sql"
+      - "supabase/tests/w3m-dealroom-prepare-policy-reader-fixture.sql"
+      - "supabase/tests/w3m-dealroom-prepare-policy-reader.test.sql"
+      - "supabase/tests/w3m-deal-agreement-acceptances.test.sql"
+      - "supabase/migrations/20261107030000_w3m_protocol_v1_safe_execution_snapshot_reader.sql"
+      - "supabase/tests/w3m-safe-execution-snapshot-reader.test.sql"
+      - "supabase/tests/w3m-safe-execution-attempts-fixture.sql"
+      - "supabase/tests/w3m-safe-execution-attempts.test.sql"
+      - "supabase/tests/w3m-protocol-v1-dispute-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-concurrency-fixture.sql"
+      - "supabase/tests/w3m-safe-finalizer-signer-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-dispute-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-owner-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-report-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-evidence-concurrency.test.sh"
+      - "supabase/functions/w3m-acquisition-verification/deal-room-legacy-consent.test.ts"
+      - "js/deal-room.js"
+      - "supabase/tests/w3m-protocol-v1-schema.test.sql"
+      - "supabase/tests/w3m-dealroom-terms-reader-fixture.sql"
+      - "supabase/tests/w3m-dealroom-terms-reader.test.sql"
+      - "supabase/tests/w3m-protocol-v1-trusted-signer-schema.test.sql"
+      - ".github/workflows/w3m-protocol-v1-isolated.yml"
+  push:
+    branches:
+      - w3m-protocol-v1-isolated-20261105
+      - w3m-v1-finalization-adapter-tests-20261112
+    paths:
+      - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/migrations/*_w3m_protocol_v1_immutable_dispute_decisions.sql"
+      - "supabase/tests/w3m-protocol-v1-dispute-decisions.test.sql"
+      - "supabase/functions/w3m-protocol-v1-finalize-safe-release/**"
+      - "supabase/functions/w3m-protocol-v1-deal-agreement/**"
+      - "supabase/functions/w3m-protocol-v1-prepare-deal-release/**"
+      - "supabase/functions/w3m-protocol-v1-safe-sign/**"
+      - "supabase/functions/w3m-protocol-v1-safe-wallet-package/**"
+      - "supabase/functions/w3m-protocol-v1-safe-wallet-submit/**"
+      - "js/w3m-deal-agreement-client.js"
+      - "js/w3m-safe-wallet-execution-client.js"
+      - "js/release-signing-fix.js"
+      - "deal-room.html"
+      - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
+      - "supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql"
+      - "supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql"
+      - "supabase/migrations/20261107120000_w3m_protocol_v1_immutable_agreements.sql"
+      - "supabase/migrations/20261107130000_w3m_protocol_v1_report_version_serialization.sql"
+      - "supabase/migrations/20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql"
+      - "supabase/migrations/20261107150000_w3m_protocol_v1_report_signer_lock.sql"
+      - "supabase/migrations/20261107160000_w3m_protocol_v1_atomic_project_ownership_transfer.sql"
+      - "supabase/migrations/20261107170000_w3m_protocol_v1_dispute_open_rpc_contract.sql"
+      - "supabase/tests/w3m-protocol-v1-report-signer-lock.test.sql"
+      - "supabase/tests/w3m-protocol-v1-report-version-serialization.test.sql"
+      - "supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql"
+      - "supabase/tests/w3m-protocol-v1-immutable-agreements.test.sql"
+      - "supabase/tests/w3m-protocol-v1-append-only-registry.test.sql"
+      - "supabase/migrations/20261106230000_w3m_protocol_v1_safe_execution_attempts.sql"
+      - "supabase/migrations/20261107090000_w3m_protocol_v1_wallet_package_issuance.sql"
+      - "supabase/migrations/20261106240000_w3m_protocol_v1_safe_execution_finalizer.sql"
+      - "supabase/migrations/20261107010000_w3m_protocol_v1_dealroom_terms_reader.sql"
+      - "supabase/migrations/20261107020000_w3m_protocol_v1_safe_finalization_snapshot_reader.sql"
+      - "supabase/migrations/20261107030000_w3m_protocol_v1_safe_execution_snapshot_reader.sql"
+      - "supabase/migrations/20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql"
+      - "supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql"
+      - "supabase/migrations/20261116010000_w3m_protocol_v1_safe_snapshot_dispute_decision.sql"
+      - "supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql"
+      - "supabase/migrations/20261107065000_w3m_protocol_v1_dealroom_code_audit_snapshot.sql"
+      - "supabase/migrations/20261107066000_w3m_protocol_v1_completed_audit_immutability.sql"
+      - "supabase/tests/w3m-protocol-v1-completed-audit-immutability.test.sql"
+      - "supabase/tests/w3m-dealroom-terms-reader-fixture.sql"
+      - "supabase/tests/w3m-dealroom-terms-reader.test.sql"
+      - "supabase/migrations/20261107070000_w3m_protocol_v1_atomic_safe_prepare.sql"
+      - "supabase/tests/w3m-protocol-v1-atomic-safe-prepare.test.sql"
+      - "supabase/tests/w3m-safe-execution-attempts-fixture.sql"
+      - "supabase/tests/w3m-dealroom-prepare-policy-reader-fixture.sql"
+      - "supabase/tests/w3m-dealroom-prepare-policy-reader.test.sql"
+      - "supabase/tests/w3m-safe-execution-snapshot-reader.test.sql"
+      - "supabase/tests/w3m-deal-agreement-acceptances.test.sql"
+      - "supabase/tests/w3m-dealroom-terms-reader-fixture.sql"
+      - "supabase/tests/w3m-dealroom-terms-reader.test.sql"
+      - "supabase/tests/w3m-safe-execution-attempts-fixture.sql"
+      - "supabase/tests/w3m-safe-execution-attempts.test.sql"
+      - "supabase/tests/w3m-protocol-v1-dispute-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-concurrency-fixture.sql"
+      - "supabase/tests/w3m-safe-finalizer-signer-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-dispute-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-owner-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-report-concurrency.test.sh"
+      - "supabase/tests/w3m-safe-finalizer-evidence-concurrency.test.sh"
+      - "supabase/functions/w3m-acquisition-verification/deal-room-legacy-consent.test.ts"
+      - "js/deal-room.js"
+      - "supabase/tests/w3m-protocol-v1-trusted-signer-schema.test.sql"
+      - "supabase/tests/w3m-protocol-v1-schema.test.sql"
+      - ".github/workflows/w3m-protocol-v1-isolated.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  decision-engine-and-schema:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check isolated decision and settlement gate engines
+        run: |
+          deno check supabase/functions/w3m-acquisition-verification/decision-engine.ts
+          deno check supabase/functions/w3m-acquisition-verification/settlement-gate.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-payload-validator.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-multisend-decoder.ts
+          deno check supabase/functions/w3m-acquisition-verification/asset-transfer-orchestrator.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-payload-pipeline.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/unified-evidence-aggregator.ts
+          deno check supabase/functions/w3m-acquisition-verification/report-envelope.ts
+          deno check supabase/functions/w3m-acquisition-verification/report-registry-batch.ts
+          deno check supabase/functions/w3m-acquisition-verification/protocol-orchestrator.ts
+          deno check supabase/functions/w3m-acquisition-verification/protocol-orchestrator.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/signature-verifier.ts
+          deno check supabase/functions/w3m-acquisition-verification/signature-verifier.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.ts
+          deno check supabase/functions/w3m-acquisition-verification/dispute-decision.ts
+          deno check supabase/functions/w3m-acquisition-verification/dispute-decision-service.ts
+          deno check supabase/functions/w3m-acquisition-verification/dispute-decision-service.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/dispute-decision.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/dispute-decision-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/dispute-decision-request-handler.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-service.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-service.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-request-handler.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/report-issue-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/verified-report-issuance.ts
+          deno check supabase/functions/w3m-acquisition-verification/report-issue-request-handler.test.ts
+          deno check supabase/functions/w3m-protocol-v1-deal-agreement/index.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-client.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-signature-set-validator.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-signature-set-validator.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-sign-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-sign-request-handler.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-signature-persistence-adapter.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-signature-persistence-adapter.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-sign-context-composer.ts
+          deno check supabase/functions/w3m-protocol-v1-safe-sign/index.ts
+          deno check supabase/functions/w3m-acquisition-verification/bearer-token.ts
+          deno check supabase/functions/w3m-acquisition-verification/bearer-token.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/fresh-safe-handler-context.ts
+          deno check supabase/functions/w3m-acquisition-verification/trusted-signer-registry-adapter.ts
+          deno check supabase/functions/w3m-acquisition-verification/trusted-signer-registry-adapter.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/supabase-rpc-adapter.ts
+          deno check supabase/functions/w3m-acquisition-verification/supabase-rpc-adapter.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/atomic-safe-prepare-rpc-adapter.ts
+          deno check supabase/functions/w3m-acquisition-verification/atomic-safe-prepare-rpc-adapter.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/protocol-service.ts
+          deno check supabase/functions/w3m-acquisition-verification/protocol-service.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/report-sequence.ts
+          deno check supabase/functions/w3m-acquisition-verification/report-sequence.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/persisted-report-guard.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-acquisition-adapter.ts
+          deno check supabase/functions/w3m-acquisition-verification/persisted-report-guard.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-terms-hash.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-terms-hash.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-code-audit-binding.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-code-audit-binding.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/code-audit-evidence-selector.ts
+          deno check supabase/functions/w3m-acquisition-verification/code-audit-evidence-selector.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/audit-manifest.ts
+          deno check supabase/functions/w3m-acquisition-verification/audit-manifest.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/audit-manifest-loader.ts
+          deno check supabase/functions/w3m-acquisition-verification/audit-manifest-supabase-adapter.ts
+          deno check supabase/functions/w3m-acquisition-verification/audit-manifest-supabase-adapter.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-persistence.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-persistence.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-service.ts
+          deno check supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-service.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/audit-manifest-binding.ts
+          deno check supabase/functions/w3m-acquisition-verification/audit-manifest-loader.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/dealroom-w3m-gate.ts
+          deno check supabase/functions/w3m-acquisition-verification/dealroom-w3m-gate.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/persisted-report-loader.ts
+          deno check supabase/functions/w3m-acquisition-verification/persisted-report-loader.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/dealroom-w3m-service.ts
+          deno check supabase/functions/w3m-acquisition-verification/dealroom-w3m-service.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/dealroom-supabase-adapter.ts
+          deno check supabase/functions/w3m-acquisition-verification/dealroom-supabase-adapter.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/dealroom-terms-reader.ts
+          deno check supabase/functions/w3m-acquisition-verification/dealroom-terms-reader.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-edge-w3m-boundary.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-edge-w3m-boundary.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-edge-w3m-phase-boundary.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-edge-w3m-phase-boundary.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-handler-w3m-authorizer.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-handler-w3m-authorizer.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-guard.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-guard.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-snapshot-adapter.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-snapshot-adapter.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-receipt-verifier.ts
+          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-receipt-verifier.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-execution-coordinator.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-execution-coordinator.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-execute-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-execute-request-handler.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-package-context-composer.ts
+          deno check supabase/functions/w3m-protocol-v1-safe-wallet-package/index.ts
+          deno check supabase/functions/w3m-protocol-v1-safe-wallet-submit/index.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-package-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-package-request-handler.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-submission-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-submission-request-handler.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-execution-client.test.ts
+          deno check js/w3m-safe-wallet-execution-client.js
+          deno check js/release-signing-fix.js
+          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-execution-package.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-execution-package.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-live-execution-facts.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-live-execution-facts.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-live-configuration-facts.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-live-configuration-facts.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-configuration-facts-reader.ts
+          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-configuration-facts-reader.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/fresh-safe-prepare-context.ts
+          deno check supabase/functions/w3m-acquisition-verification/fresh-safe-prepare-context.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-gate.ts
+          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-gate.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-boundary.ts
+          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-boundary.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-commit.ts
+          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-commit.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.test.ts
+          deno check supabase/functions/w3m-protocol-v1-prepare-deal-release/index.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.ts
+          deno check supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-live-read-client.ts
+          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-live-read-client.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-execution-facts-reader.ts
+          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-execution-facts-reader.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/fresh-safe-handler-context.ts
+          deno check supabase/functions/w3m-acquisition-verification/fresh-safe-handler-context.test.ts
+          deno check supabase/functions/w3m-protocol-v1-finalize-safe-release/index.ts
+          deno check supabase/functions/w3m-protocol-v1-dispute-decision/index.ts
+      - name: Test decision engine
+        run: deno test supabase/functions/w3m-acquisition-verification/decision-engine.test.ts
+      - name: Test settlement gate
+        run: deno test supabase/functions/w3m-acquisition-verification/settlement-gate.test.ts
+      - name: Test Safe payload validator
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-payload-validator.test.ts
+      - name: Test Safe MultiSend decoder
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-multisend-decoder.test.ts
+      - name: Test Safe payload pipeline
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-payload-pipeline.test.ts
+      - name: Test asset transfer orchestrator
+        run: deno test supabase/functions/w3m-acquisition-verification/asset-transfer-orchestrator.test.ts
+      - name: Test GitHub repository adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/github-repository-adapter.test.ts
+      - name: Test BNB revenue adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/bnb-revenue-adapter.test.ts
+      - name: Test NiceNIC domain adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/nicenic-domain-adapter.test.ts
+      - name: Test unified evidence aggregator
+        run: deno test supabase/functions/w3m-acquisition-verification/unified-evidence-aggregator.test.ts
+      - name: Test canonical report envelope
+        run: deno test supabase/functions/w3m-acquisition-verification/report-envelope.test.ts
+      - name: Test signed report registry batch builder
+        run: deno test supabase/functions/w3m-acquisition-verification/report-registry-batch.test.ts
+      - name: Test W3M Protocol V1 orchestrator
+        run: deno test supabase/functions/w3m-acquisition-verification/protocol-orchestrator.test.ts
+      - name: Test W3M report sequence derivation
+        run: deno test supabase/functions/w3m-acquisition-verification/report-sequence.test.ts
+      - name: Test W3M report sequence service boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/protocol-service.test.ts
+      - name: Test trusted signer verification policy
+        run: deno test supabase/functions/w3m-acquisition-verification/signature-verifier.test.ts
+      - name: Test Ethereum secp256k1 signature recovery
+        run: deno test supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.test.ts
+      - name: Test EIP-712 buyer and seller deal agreement signatures
+        run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.test.ts
+      - name: Test immutable dispute decision RPC adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/dispute-decision-service.test.ts
+      - name: Test canonical dispute decision validation and hashing
+        run: deno test supabase/functions/w3m-acquisition-verification/dispute-decision.test.ts
+      - name: Test authenticated admin-only dispute decision boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/dispute-decision-request-handler.test.ts
+      - name: Test server-side deal agreement signing service
+        run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-service.test.ts
+      - name: Test authenticated deal agreement request boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-request-handler.test.ts
+      - name: Test authenticated W3M report issuance request boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/report-issue-request-handler.test.ts
+      - name: Test isolated browser EIP-712 signing client
+        run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-client.test.ts
+      - name: Test Deal Room rejects timestamp-only agreement consent
+        run: deno test --allow-read=js/deal-room.js supabase/functions/w3m-acquisition-verification/deal-room-legacy-consent.test.ts
+      - name: Test atomic W3M Safe SIGN persistence adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-signature-persistence-adapter.test.ts
+      - name: Test W3M Bearer token parser
+        run: deno test supabase/functions/w3m-acquisition-verification/bearer-token.test.ts
+      - name: Test authenticated W3M Safe SIGN request boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-sign-request-handler.test.ts
+      - name: Test Safe execution-time signature set
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-signature-set-validator.test.ts
+      - name: Test trusted signer registry row mapping
+        run: deno test supabase/functions/w3m-acquisition-verification/trusted-signer-registry-adapter.test.ts
+      - name: Test Supabase registry and finalization RPC adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/supabase-rpc-adapter.test.ts
+      - name: Test atomic W3M PREPARE RPC adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/atomic-safe-prepare-rpc-adapter.test.ts
+      - name: Test persisted W3M report and evidence verification
+        run: deno test supabase/functions/w3m-acquisition-verification/persisted-report-guard.test.ts
+      - name: Test canonical deal terms hashing
+        run: deno test supabase/functions/w3m-acquisition-verification/deal-terms-hash.test.ts
+      - name: Test immutable deal Code Audit binding boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/deal-code-audit-binding.test.ts
+      - name: Test manifest-backed Code Audit evidence selection
+        run: deno test supabase/functions/w3m-acquisition-verification/code-audit-evidence-selector.test.ts
+      - name: Test deterministic Code Audit manifest
+        run: deno test supabase/functions/w3m-acquisition-verification/audit-manifest.test.ts
+      - name: Test complete paginated Code Audit manifest loader
+        run: deno test supabase/functions/w3m-acquisition-verification/audit-manifest-loader.test.ts
+      - name: Test deterministic Supabase Code Audit manifest pagination adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/audit-manifest-supabase-adapter.test.ts
+      - name: Test independent deal Code Audit snapshot persistence boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-persistence.test.ts
+      - name: Test pre-agreement independent Deal Code Audit snapshot orchestration
+        run: deno test supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-service.test.ts
+      - name: Test combined Deal Room W3M settlement gate
+        run: deno test supabase/functions/w3m-acquisition-verification/dealroom-w3m-gate.test.ts
+      - name: Test server-side persisted report loader
+        run: deno test supabase/functions/w3m-acquisition-verification/persisted-report-loader.test.ts
+      - name: Test unified Deal Room W3M service
+        run: deno test supabase/functions/w3m-acquisition-verification/dealroom-w3m-service.test.ts
+      - name: Test strict Deal Room row adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/dealroom-supabase-adapter.test.ts
+      - name: Test Safe finalization snapshot adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-finalization-snapshot-adapter.test.ts
+      - name: Test finalization-time acquisition revalidation adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-finalization-acquisition-adapter.test.ts
+      - name: Test authenticated W3M Safe finalization request boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.test.ts
+      - name: Test fail-closed W3M Safe execution coordinator
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-execution-coordinator.test.ts
+      - name: Test authenticated W3M Safe EXECUTE request boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-execute-request-handler.test.ts
+      - name: Test connected-wallet Safe execution package
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-wallet-execution-package.test.ts
+      - name: Test authenticated one-use Safe wallet package endpoint
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-wallet-package-request-handler.test.ts
+      - name: Test authenticated Safe wallet submission hash boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-wallet-submission-request-handler.test.ts
+      - name: Test non-custodial connected Safe wallet submission client
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-wallet-execution-client.test.ts
+      - name: Test read-only live Safe execution facts
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-live-execution-facts.test.ts
+      - name: Test read-only Safe configuration facts for PREPARE
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-live-configuration-facts.test.ts
+      - name: Test canonical-block BNB Safe configuration facts for PREPARE
+        run: deno test supabase/functions/w3m-acquisition-verification/bnb-safe-configuration-facts-reader.test.ts
+      - name: Test fresh pre-transaction W3M PREPARE context
+        run: deno test supabase/functions/w3m-acquisition-verification/fresh-safe-prepare-context.test.ts
+      - name: Test pre-lock W3M PREPARE gate
+        run: deno test supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-gate.test.ts
+      - name: Test pre-lock W3M PREPARE side-effect boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-boundary.test.ts
+      - name: Test atomic pre-lock W3M PREPARE composition
+        run: deno test supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-commit.test.ts
+      - name: Test authenticated W3M PREPARE HTTP boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.test.ts
+      - name: Test strict Safe execution database snapshot adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.test.ts
+      - name: Test block-pinned read-only BNB Safe RPC client
+        run: deno test supabase/functions/w3m-acquisition-verification/bnb-safe-live-read-client.test.ts
+      - name: Test canonical-block BNB Safe execution facts reader
+        run: deno test supabase/functions/w3m-acquisition-verification/bnb-safe-execution-facts-reader.test.ts
+      - name: Test fresh Safe handler context composition
+        run: deno test supabase/functions/w3m-acquisition-verification/fresh-safe-handler-context.test.ts
+      - name: Test raw BNB Safe receipt verifier
+        run: deno test supabase/functions/w3m-acquisition-verification/bnb-safe-receipt-verifier.test.ts
+      - name: Test Safe finalization receipt guard
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-finalization-guard.test.ts
+      - name: Test fresh Safe handler W3M authorizer
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-handler-w3m-authorizer.test.ts
+      - name: Test phase-aware Safe Edge W3M boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-edge-w3m-phase-boundary.test.ts
+      - name: Test fail-closed Safe Edge W3M boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/safe-edge-w3m-boundary.test.ts
+      - name: Test exact Deal Room terms reader
+        run: deno test supabase/functions/w3m-acquisition-verification/dealroom-terms-reader.test.ts
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Apply migration to disposable PostgreSQL only
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE anon;"
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE authenticated;"
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE service_role BYPASSRLS;"
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-attempts-fixture.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-terms-reader-fixture.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-prepare-policy-reader-fixture.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261106230000_w3m_protocol_v1_safe_execution_attempts.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107090000_w3m_protocol_v1_wallet_package_issuance.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261106240000_w3m_protocol_v1_safe_execution_finalizer.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107010000_w3m_protocol_v1_dealroom_terms_reader.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107020000_w3m_protocol_v1_safe_finalization_snapshot_reader.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107030000_w3m_protocol_v1_safe_execution_snapshot_reader.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107065000_w3m_protocol_v1_dealroom_code_audit_snapshot.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107066000_w3m_protocol_v1_completed_audit_immutability.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107120000_w3m_protocol_v1_immutable_agreements.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_w3m_protocol_v1_report_version_serialization.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107150000_w3m_protocol_v1_report_signer_lock.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107160000_w3m_protocol_v1_atomic_project_ownership_transfer.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107170000_w3m_protocol_v1_dispute_open_rpc_contract.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261115010000_w3m_protocol_v1_bind_legal_agreement_document.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261115214326_w3m_protocol_v1_immutable_dispute_decisions.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116010000_w3m_protocol_v1_safe_snapshot_dispute_decision.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107070000_w3m_protocol_v1_atomic_safe_prepare.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107080000_w3m_protocol_v1_atomic_safe_sign.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-schema.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-trusted-signer-schema.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-append-only-registry.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-attempts.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-terms-reader.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-prepare-policy-reader.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-atomic-safe-prepare.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-atomic-safe-sign.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-snapshot-reader.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-deal-agreement-acceptances.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE audit_immutability_test;"
+          psql -h localhost -U postgres -d audit_immutability_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-completed-audit-immutability.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-immutable-agreements.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-dispute-decisions.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-report-version-serialization.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-report-signer-lock.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql
+          bash supabase/tests/w3m-protocol-v1-dispute-concurrency.test.sh
+          bash supabase/tests/w3m-safe-finalizer-signer-concurrency.test.sh
+          bash supabase/tests/w3m-safe-finalizer-dispute-concurrency.test.sh
+          bash supabase/tests/w3m-safe-finalizer-owner-concurrency.test.sh
+          bash supabase/tests/w3m-safe-finalizer-report-concurrency.test.sh
+          bash supabase/tests/w3m-safe-finalizer-evidence-concurrency.test.sh
+      - name: Verify timestamp-sorted migrations on a second disposable database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE w3m_protocol_migration_order_test;"
+          # Minimal Supabase Auth schema for historical migrations that reference auth.users.
+          # This is a disposable CI database only; it is not a production auth schema.
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -c "CREATE SCHEMA auth;"
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -c "CREATE TABLE auth.users (id uuid PRIMARY KEY);"
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -c "CREATE SCHEMA IF NOT EXISTS extensions;"
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;"
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-attempts-fixture.sql
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-terms-reader-fixture.sql
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-prepare-policy-reader-fixture.sql
+          while IFS= read -r migration; do
+            echo "Applying timestamp-sorted migration: $migration"
+            psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f "$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*_w3m_protocol_v1_*.sql' -print | sort)
