@@ -91,6 +91,9 @@ Deno.test("rejects invalid summaries, references and participant rosters", () =>
   assertThrows(() => appendDealActivityEvent([], {
     ...participants, adminIds: ["admin-1", "admin-1"],
   }, buyerOffer));
+  assertThrows(() => appendDealActivityEvent([], {
+    ...participants, adminIds: ["admin-1", "admin-2"],
+  }, buyerOffer));
 });
 
 Deno.test("ledger, event objects and entries are frozen against in-place mutation", () => {
