@@ -49,3 +49,17 @@ Before restoring any transaction controls:
 5. Reintroduce one operation at a time only after server-side and on-chain tests pass.
 
 No production database, Edge Function, Safe, wallet, funds, or Cloudflare production setting was changed. No paid resource was created. No merge or deployment was performed.
+
+
+## Checkout legacy-path isolation — 2026-11-15
+
+A wider client-path review found that `js/deal-checkout.js` still automatically invoked the deployed `create-safe` function for accepted deals and offered a wallet payment path that submitted a token transfer and then called `verify-deal-payment`. These were legacy production endpoints and were not part of the new server-authoritative deal workflow.
+
+Sandbox branch changes:
+- Replaced checkout client behavior with read-only deal display.
+- Removed automatic Safe creation and all wallet connection/signing/transfer code from this page.
+- Removed calls to both legacy `create-safe` and `verify-deal-payment`.
+- Clarified the checkout page that deposits and asset transfers remain disabled until the new agreement/Safe workflow is complete.
+- Extended CI to syntax-check checkout and fail if legacy function URLs, `eth_sendTransaction`, or `eth_requestAccounts` reappear in this file.
+
+This is only prototype-branch isolation. The production website and deployed Edge Functions were not changed. Other direct API access to the deployed legacy functions remains possible outside this branch; this client-side change is not a server-side authorization control. The legacy functions still require their existing authenticated/session and signature checks, but they do not enforce the proposed new dispute-request/hold state machine.
