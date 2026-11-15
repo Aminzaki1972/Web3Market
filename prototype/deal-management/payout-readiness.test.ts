@@ -30,7 +30,14 @@ function resolvedDispute(id: string, allocation: {
   dispute = submitRespondentResponse(dispute, "seller", {
     id: id + "-e2", submittedBy: "seller", description: "Response", submittedAt: 120,
   }, 120);
-  return issueDisputeDecision(dispute, "Administrative decision", allocation, gross, gross, 130);
+  const decided = issueDisputeDecision(dispute, "Administrative decision", allocation, gross, gross, 130);
+  return {
+    ...decided,
+    decision: {
+      ...decided.decision!,
+      authorization: { adminId: "admin-1", dealId: "deal-10000", disputeRequestId: id },
+    },
+  };
 }
 
 function approvedLockConfirmedRequest(id: string) {
@@ -305,4 +312,33 @@ Deno.test("dispute payout waits for final decision and verified agreement/deposi
   });
   assertEquals(gateResult.ready, false);
   if (!gateResult.ready) assertEquals(gateResult.blockers.includes("agreement_not_approved"), true);
+});
+
+
+Deno.test("dispute payout rejects a decision without matching single-admin workflow authorization metadata", () => {
+  const valid = resolvedDispute("decision-auth", {
+    buyerGrossRefund: gross, sellerPayout: 0n, platformFee: fee,
+  });
+  const input = disputeInput(valid);
+  const missing = {
+    ...valid,
+    decision: { ...valid.decision!, authorization: null },
+  };
+  const missingResult = prepareDisputePayout({ ...input, dispute: missing });
+  assertEquals(missingResult.ready, false);
+  if (!missingResult.ready) assertEquals(missingResult.blockers.includes("dispute_decision_authorization_missing_or_mismatched"), true);
+  const wrongDeal = {
+    ...valid,
+    decision: { ...valid.decision!, authorization: { adminId: "admin-1", dealId: "deal-other", disputeRequestId: valid.id } },
+  };
+  const wrongDealResult = prepareDisputePayout({ ...input, dispute: wrongDeal });
+  assertEquals(wrongDealResult.ready, false);
+  if (!wrongDealResult.ready) assertEquals(wrongDealResult.blockers.includes("dispute_decision_authorization_missing_or_mismatched"), true);
+  const wrongRequest = {
+    ...valid,
+    decision: { ...valid.decision!, authorization: { adminId: "admin-1", dealId: "deal-10000", disputeRequestId: "another-request" } },
+  };
+  const wrongRequestResult = prepareDisputePayout({ ...input, dispute: wrongRequest });
+  assertEquals(wrongRequestResult.ready, false);
+  if (!wrongRequestResult.ready) assertEquals(wrongRequestResult.blockers.includes("dispute_decision_authorization_missing_or_mismatched"), true);
 });
