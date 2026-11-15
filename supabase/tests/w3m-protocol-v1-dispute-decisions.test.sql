@@ -119,6 +119,7 @@ declare
   v_terms3a uuid;
   v_terms3b uuid;
   v_result jsonb;
+  v_snapshot jsonb;
   v_decision_id uuid;
   v_decision_hash text;
   v_blocked boolean;
@@ -133,7 +134,6 @@ begin
     (v_buyer1),(v_seller1),(v_buyer2),(v_seller2),(v_buyer3),(v_seller3),(v_admin),(v_nonadmin)
   on conflict do nothing;
 
-  insert into public.admin_users(user_id) values (v_admin) on conflict do nothing;
   insert into public.profiles(id,wallet_address,wallet_verified,wallet_verified_at) values
     (v_buyer1,'0x1111111111111111111111111111111111111111',true,now()),
     (v_seller1,'0x1212121212121212121212121212121212121212',true,now()),
@@ -370,6 +370,54 @@ begin
      or v_result->>'deal_dispute_status' <> 'resolved_seller'
      or v_result->>'deal_status' <> 'disputed' then
     raise exception 'Seller-win decision returned an invalid state';
+  end if;
+
+  v_snapshot := public.w3m_read_dealroom_dispute_decision_snapshot(v_deal2);
+  if v_snapshot->>'deal_id' <> v_deal2::text
+     or v_snapshot->>'deal_status' <> 'disputed'
+     or v_snapshot->>'dispute_status' <> 'resolved_seller'
+     or v_snapshot->'dispute'->>'status' <> 'resolved'
+     or v_snapshot->'dispute'->>'resolution' <> 'seller_wins'
+     or v_snapshot->'decision'->>'outcome' <> 'seller_wins'
+     or v_snapshot->'decision'->>'decision_hash' !~ '^[0-9a-f]{64}
+
+  -- The decision table is append-only even for service_role.
+  v_blocked := false;
+  begin
+    update public.w3m_deal_dispute_decisions set reason=reason where false;
+  exception when sqlstate '55000' then v_blocked := true;
+  end;
+  if not v_blocked then raise exception 'Decision UPDATE was not blocked'; end if;
+
+  v_blocked := false;
+  begin
+    delete from public.w3m_deal_dispute_decisions where false;
+  exception when sqlstate '55000' then v_blocked := true;
+  end;
+  if not v_blocked then raise exception 'Decision DELETE was not blocked'; end if;
+
+  v_blocked := false;
+  begin
+    truncate table public.w3m_deal_dispute_decisions;
+  exception when sqlstate '55000' then v_blocked := true;
+  end;
+  if not v_blocked then raise exception 'Decision TRUNCATE was not blocked'; end if;
+end;
+$test$;
+
+     or v_snapshot->'decision'->>'terms_hash' <> repeat('b',64) then
+    raise exception 'Server dispute snapshot did not expose the immutable seller-wins decision';
+  end if;
+
+  v_snapshot := public.w3m_read_dealroom_dispute_decision_snapshot(v_deal1);
+  if v_snapshot->'decision'->>'outcome' <> 'buyer_wins' then
+    raise exception 'Server dispute snapshot did not preserve buyer-wins outcome';
+  end if;
+
+  v_snapshot := public.w3m_read_dealroom_dispute_decision_snapshot(v_deal3);
+  if v_snapshot->'decision' is not null
+     or v_snapshot->'dispute'->>'status' <> 'open' then
+    raise exception 'Open dispute must not be represented as a completed decision';
   end if;
 
   -- The decision table is append-only even for service_role.
