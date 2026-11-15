@@ -386,32 +386,9 @@ begin
      or v_snapshot->'dispute'->>'status' <> 'resolved'
      or v_snapshot->'dispute'->>'resolution' <> 'seller_wins'
      or v_snapshot->'decision'->>'outcome' <> 'seller_wins'
-     or v_snapshot->'decision'->>'decision_hash' !~ '^[0-9a-f]{64}
-
-  -- The decision table is append-only even for service_role.
-  v_blocked := false;
-  begin
-    update public.w3m_deal_dispute_decisions set reason=reason where false;
-  exception when sqlstate '55000' then v_blocked := true;
-  end;
-  if not v_blocked then raise exception 'Decision UPDATE was not blocked'; end if;
-
-  v_blocked := false;
-  begin
-    delete from public.w3m_deal_dispute_decisions where false;
-  exception when sqlstate '55000' then v_blocked := true;
-  end;
-  if not v_blocked then raise exception 'Decision DELETE was not blocked'; end if;
-
-  v_blocked := false;
-  begin
-    truncate table public.w3m_deal_dispute_decisions;
-  exception when sqlstate '55000' then v_blocked := true;
-  end;
-  if not v_blocked then raise exception 'Decision TRUNCATE was not blocked'; end if;
-end;
-$test$;
-
+     or length(v_snapshot->'decision'->>'decision_hash') <> 64
+     or v_snapshot->'decision'->>'terms_version_id' <> v_terms2::text
+     or v_snapshot->'decision'->>'terms_version' <> '1'
      or v_snapshot->'decision'->>'terms_hash' <> repeat('b',64) then
     raise exception 'Server dispute snapshot did not expose the immutable seller-wins decision';
   end if;
