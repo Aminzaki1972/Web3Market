@@ -8,6 +8,7 @@ on:
       - "prototype/deal-management/**"
       - "deal-management-preview.html"
       - "js/deal-room.js"
+      - "deal-room.html"
       - ".github/workflows/deal-management-sandbox-tests.yml"
   push:
     branches:
@@ -37,6 +38,16 @@ jobs:
 
       - name: Check Deal Room client syntax
         run: node --check js/deal-room.js
+
+      - name: Assert legacy Deal Room financial paths stay disabled
+        shell: bash
+        run: |
+          ! grep -Fq "execute-safe-release" deal-room.html
+          ! grep -Fq "release-signing-fix.js" deal-room.html
+          ! grep -Fq "prepare-safe-release-tx" deal-room.html
+          ! grep -Fq "/functions/v1/verify-deal-payment" js/deal-room.js
+          ! grep -Fq ".from('deal_messages').insert" js/deal-room.js
+          ! grep -Fq "functions.invoke('create-safe'" js/deal-room.js
 
       - name: Run sandbox tests
         run: deno test --allow-read=deal-management-preview.html prototype/deal-management/
