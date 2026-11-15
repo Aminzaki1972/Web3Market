@@ -37,6 +37,8 @@ export type DisputeCase = {
     allocation: DisputeAllocation;
     originalGrossAgreedAmount: bigint;
     decidedAt: number;
+    /** Null for the pure policy primitive; populated only by the authorized workflow wrapper. */
+    authorization: null | { adminId: string; dealId: string; disputeRequestId: string };
   };
 };
 
@@ -108,7 +110,7 @@ export function issueDisputeDecision(
   }
   return {
     ...dispute, status: "decided",
-    decision: { reason, allocation, originalGrossAgreedAmount, decidedAt: now },
+    decision: { reason, allocation, originalGrossAgreedAmount, decidedAt: now, authorization: null },
   };
 }
 
