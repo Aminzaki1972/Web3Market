@@ -223,6 +223,7 @@ export async function checkDealRoomFromExactSnapshot(
     row.dispute_status === "resolved_seller" &&
     dispute !== null && decision !== null &&
     UUID.test(String(dispute.id)) &&
+    typeof decision.id === "string" && UUID.test(decision.id) &&
     dispute.id === decision.dispute_id &&
     dispute.deal_id === input.dealId &&
     dispute.status === "resolved" &&
