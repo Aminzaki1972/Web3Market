@@ -51,7 +51,7 @@ Deno.test("deal preview binds every demo approval to the current terms fingerpri
     "function agreementTermsPayload()",
     "async function refreshAgreementHash()",
     "approvalHashes[k]===agreementHashState.termsHash",
-    "result.termsHash!==current.termsHash",
+    "result.termsHash!==agreementHashState.termsHash",
     "approvalHashes={buyer:null,seller:null,platform:null}",
     "SHA-256 terms fingerprint",
     "function reviseAgreementForChange(control,description)",
