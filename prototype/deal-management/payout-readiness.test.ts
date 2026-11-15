@@ -18,7 +18,11 @@ function approvedAgreementSnapshot(grossAmount: bigint, approved = true, accepte
       seller: { approved, version: 1, hash: agreementHash },
       platform: { approved, version: 1, hash: agreementHash },
     },
-    buyerFinalAcceptance: accepted ? { accepted: true, version: 1, hash: agreementHash } : null,
+    requiredAssets: [
+      { id: "repo", evidenceStatus: "verified", buyerStatus: accepted ? "accepted" : "pending" },
+      { id: "domain", evidenceStatus: "verified", buyerStatus: accepted ? "accepted" : "pending" },
+    ],
+    buyerFinalAcceptance: accepted ? { accepted: true, version: 1, hash: agreementHash, acceptedAssetIds: ["repo", "domain"] } : null,
   };
 }
 const ordinary = {
@@ -156,7 +160,7 @@ Deno.test("ordinary payout rejects a deposit that differs from the approved gros
 Deno.test("ordinary payout is blocked by every missing gate", () => {
   const result = prepareOrdinaryPayout({
     ...ordinary, agreementSnapshot: approvedAgreementSnapshot(ordinary.originalGrossAgreedAmount, false, false), depositVerified: false,
-    requiredAssetsVerified: false, openDispute: true,
+    agreementSnapshot: {...approvedAgreementSnapshot(ordinary.originalGrossAgreedAmount, false, false), requiredAssets:[{id:"repo",evidenceStatus:"pending",buyerStatus:"pending"}]}, openDispute: true,
   }, recipients);
   assertEquals(result.ready, false);
   if (!result.ready) assertEquals(result.blockers, [
@@ -388,7 +392,7 @@ Deno.test("ordinary payout binds approvals and final acceptance to current agree
   assertEquals(prepareOrdinaryPayout(ordinary, recipients).ready, true);
   const staleBuyer = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,approvals:{...ordinary.agreementSnapshot.approvals,buyer:{approved:true,version:0,hash:agreementHash}}}};
   const staleSeller = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,approvals:{...ordinary.agreementSnapshot.approvals,seller:{approved:true,version:1,hash:"0x"+"d".repeat(64)}}}};
-  const staleAcceptance = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,buyerFinalAcceptance:{accepted:true,version:0,hash:agreementHash}}};
+  const staleAcceptance = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,buyerFinalAcceptance:{accepted:true,version:0,hash:agreementHash,acceptedAssetIds:["repo","domain"]}}};
   for (const invalid of [staleBuyer,staleSeller]) {
     const result = prepareOrdinaryPayout(invalid, recipients);
     assertEquals(result.ready, false);
@@ -397,4 +401,20 @@ Deno.test("ordinary payout binds approvals and final acceptance to current agree
   const acceptanceResult = prepareOrdinaryPayout(staleAcceptance, recipients);
   assertEquals(acceptanceResult.ready, false);
   if (!acceptanceResult.ready) assertEquals(acceptanceResult.blockers.includes("buyer_final_acceptance_missing"), true);
+});
+
+
+Deno.test("ordinary payout requires every required asset verified and individually accepted", () => {
+  const unverified = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,requiredAssets:[...ordinary.agreementSnapshot.requiredAssets,{id:"domain",evidenceStatus:"pending" as const,buyerStatus:"accepted" as const}]}};
+  const evidenceResult = prepareOrdinaryPayout(unverified, recipients);
+  assertEquals(evidenceResult.ready, false);
+  if (!evidenceResult.ready) assertEquals(evidenceResult.blockers.includes("required_assets_not_verified"), true);
+  const pendingAsset = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,requiredAssets:ordinary.agreementSnapshot.requiredAssets.map(a=>a.id==="domain"?{...a,buyerStatus:"pending" as const}:a)}};
+  const pendingResult = prepareOrdinaryPayout(pendingAsset, recipients);
+  assertEquals(pendingResult.ready, false);
+  if (!pendingResult.ready) assertEquals(pendingResult.blockers.includes("buyer_final_acceptance_missing"), true);
+  const incompleteIds = {...ordinary, agreementSnapshot:{...ordinary.agreementSnapshot,buyerFinalAcceptance:{...ordinary.agreementSnapshot.buyerFinalAcceptance!,acceptedAssetIds:["repo"]}}};
+  const idsResult = prepareOrdinaryPayout(incompleteIds, recipients);
+  assertEquals(idsResult.ready, false);
+  if (!idsResult.ready) assertEquals(idsResult.blockers.includes("buyer_final_acceptance_missing"), true);
 });
