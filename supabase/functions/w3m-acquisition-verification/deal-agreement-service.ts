@@ -226,6 +226,8 @@ export async function acceptDealAgreement(
     dealId: context.dealId, projectId: context.projectId,
     buyerId: context.buyerId, sellerId: context.sellerId,
     safeAddress: context.safeAddress, termsHash: context.termsHash,
+    agreementDocumentVersion: context.agreementDocument.version,
+    agreementDocumentHash: context.agreementDocument.sha256,
     termsVersion: version.termsVersion, partyRole: party.partyRole,
   };
   const verification = verifyDealTermsAcceptanceSignature({
