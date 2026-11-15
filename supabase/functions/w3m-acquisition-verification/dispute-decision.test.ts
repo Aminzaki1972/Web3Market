@@ -23,6 +23,7 @@ const command: W3MDisputeDecisionCommand = {
 const canonicalInput = {
   ...command,
   evidenceRefs: command.evidenceRefs.map((item, index) => ({ ...item, contentHash: index === 0 ? "11".repeat(32) : "22".repeat(32) })),
+  priorState: { dealStatus: "disputed", dealDisputeStatus: "under_review", disputeRecordStatus: "open" },
   decisionId, decidedBy: actorId,
   decidedAt: "2026-11-15T21:00:00.000Z",
   termsVersionId, termsVersion: "2", termsHash: "ab".repeat(32),
@@ -83,4 +84,5 @@ Deno.test("canonical decision rejects noncanonical timestamps, invalid terms has
   await assertRejects(() => buildW3MCanonicalDisputeDecision({ ...canonicalInput, termsHash: "bad" }));
   await assertRejects(() => buildW3MCanonicalDisputeDecision({ ...canonicalInput, evidenceRefs: [{ source: "deal_message", recordId: messageId } as never] }));
   await assertRejects(() => buildW3MCanonicalDisputeDecision({ ...canonicalInput, decidedBy: "browser-admin" }));
+  await assertRejects(() => buildW3MCanonicalDisputeDecision({ ...canonicalInput, priorState: { dealStatus: "completed", dealDisputeStatus: "open", disputeRecordStatus: "open" } }));
 });
