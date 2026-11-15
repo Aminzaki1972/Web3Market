@@ -85,3 +85,44 @@ Before authoring an executable additive migration, recover the canonical histori
 ## Current outcome
 
 This is a documentation-only gap review. No production SQL was executed for writes, no migration was applied, no paid service was created, and no merge or deployment was performed.
+
+
+## Additional source-history recovery and current Deal Room client review (2026-11-15)
+
+### Historical migration recovery result
+
+The Git tree at commit `b30263d155317dc936d82b862e1bfcf436f3b56a` (a historical repository snapshot) contains the October 2026 migration set, including the central admin audit log and deal/support audit coverage migrations. It does not contain the original deal lifecycle, agreement, dispute, or multisig schema-creation migrations. GitHub commit-history lookups for the expected August deal migration filenames also returned no file history.
+
+This narrows the likely explanation: those original deal schema migrations were not present in the repository migration directory at the inspected historical snapshot either. The live Supabase migration history therefore cannot currently be reconstructed from the accessible Git repository. This is not evidence that the remote schema is missing; it is a source-control provenance gap.
+
+Historical audit source files recovered and inspected:
+- `20261023080000_create_admin_audit_log.sql`: creates `admin_audit_log`, enables RLS and revokes direct client-role access. It does not install immutability triggers or prevent privileged service-role mutation.
+- `20261023100000_add_audit_coverage_for_deal_and_support_events.sql`: installs metadata-only activity triggers for messages, disputes, agreements and multisig rows. The audit design intentionally excludes sensitive message bodies, signatures, transaction hashes, wallet addresses and financial values.
+
+### Current Deal Room UI is still using legacy direct table operations
+
+The current branch file `js/deal-room.js` was inspected. Its live Deal Room path still:
+- reads `deal_party_agreements` directly;
+- upserts participant consent directly into `deal_party_agreements` using a browser-generated timestamp;
+- inserts a dispute directly into `deal_disputes` with status `open`;
+- sends chat messages directly into `deal_messages`.
+
+Consequences:
+1. The agreement button does not yet call a server-authoritative, version/hash-bound, three-party approval endpoint.
+2. The dispute button bypasses the new pending-request/administrator-review state machine and writes the legacy dispute row directly.
+3. A browser timestamp is not sufficient evidence of server-authoritative agreement acceptance.
+4. The current UI is not yet wired to the new sandbox domain workflow.
+5. Existing RLS and triggers may permit these legacy writes; this review does not claim that RLS alone is absent or bypassed. The incompatibility is the old workflow semantics and missing integration.
+
+The current file also displays legacy Safe and platform-resolution language. Any replacement must preserve the approved rule that Safe remains the sole deal-funds vehicle, while actual Safe execution and Guard enforcement remain separate unimplemented integration work. The local preview must not be presented as a production workflow.
+
+### Required integration order
+
+1. Recover canonical schema provenance as far as possible; document which original migrations are absent rather than reconstructing them by guesswork.
+2. Build and test server-authoritative database contracts for agreement versions/approvals and dispute requests/review, using additive migrations only after full schema/RLS/trigger/grant comparison.
+3. Implement and test authenticated server functions that bind caller identity to the deal participant or the single authorized administrator.
+4. Replace the legacy browser direct writes in the Deal Room with those server functions; keep chat persistence separate from legal consent and financial decisions.
+5. Run isolated database tests for RLS, privilege boundaries, duplicate/retry behavior and concurrency before any production deployment.
+6. Only then proceed to Safe testnet integration and end-to-end workflow validation.
+
+No UI code or database migration was changed as part of this review.
