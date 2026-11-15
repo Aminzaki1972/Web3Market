@@ -61,7 +61,7 @@ begin
    'deal_id','22222222-2222-4222-8222-222222222222',
    'safe_tx_hash','0x' || repeat('b',64),'issues','[]'::jsonb,
    'report_id','77777777-7777-4777-8777-777777777777',
-   'report_version',1,'report_hash',repeat('d',64))
+   'report_version',1,'report_hash',repeat('d',64),'deal_terms_hash',repeat('f',64))
  );
  if r->>'recorded' <> 'true' or r->>'idempotent_replay' <> 'false'
     or r->>'confirmations_count' <> '1' or r->>'status' <> 'awaiting_signatures'
