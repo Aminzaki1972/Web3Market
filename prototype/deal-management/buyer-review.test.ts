@@ -65,3 +65,16 @@ Deno.test("inspection deadline passing never auto-accepts assets or authorizes f
   const final = finalBuyerAcceptance(accepted, afterDeadline + 1);
   assertEquals(final.finalAcceptedAt, afterDeadline + 1);
 });
+
+
+Deno.test("buyer decisions must be timestamped after review start and final acceptance after every asset review",()=>{
+ const review=startBuyerReview([verified("repo")],null,300);
+ assertThrows(()=>reviewAsset(review,"repo","accept",299));
+ const accepted=reviewAsset(review,"repo","accept",400);
+ assertThrows(()=>finalBuyerAcceptance(accepted,399));
+ assertThrows(()=>startBuyerReview([verified("repo")],null,-1));
+});
+
+Deno.test("inspection end timestamp must remain finite",()=>{
+ assertThrows(()=>startBuyerReview([verified("repo")],Number.MAX_VALUE,Number.MAX_VALUE));
+});
