@@ -24,3 +24,17 @@ Deno.test("rejects incomplete or unsupported agreement values", async () => {
   await assertRejects(() => hashDealAgreementSnapshot([]));
   await assertRejects(() => hashDealAgreementSnapshot({ price: Number.NaN }));
 });
+Deno.test("deal preview binds every demo approval to the current terms fingerprint", async () => {
+  const html = await Deno.readTextFile("deal-management-preview.html");
+  for (const required of [
+    "agreement-snapshot-browser.js",
+    "function agreementTermsPayload()",
+    "async function refreshAgreementHash()",
+    "approvalHashes[k]===agreementHashState.termsHash",
+    "result.termsHash!==current.termsHash",
+    "approvalHashes={buyer:null,seller:null,platform:null}",
+    "SHA-256 terms fingerprint",
+  ]) {
+    if (!html.includes(required)) throw new Error("Missing agreement fingerprint integration contract: " + required);
+  }
+});
