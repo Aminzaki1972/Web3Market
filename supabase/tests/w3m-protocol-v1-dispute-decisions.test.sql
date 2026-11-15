@@ -121,6 +121,10 @@ begin
     (v_buyer3,'0x1515151515151515151515151515151515151515',true,now()),
     (v_seller3,'0x1616161616161616161616161616161616161616',true,now())
   on conflict (id) do nothing;
+  insert into public.profiles(id,role) values
+    (v_admin,'admin'),
+    (v_nonadmin,'user')
+  on conflict (id) do nothing;
 
   insert into public.projects(id,owner_id,status,github_url) values
     (v_project1,v_seller1,'active','https://example.invalid/w3m-dispute-1'),
