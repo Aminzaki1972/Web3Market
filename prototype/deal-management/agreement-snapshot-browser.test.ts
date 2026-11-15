@@ -29,6 +29,8 @@ Deno.test("deal preview binds every demo approval to the current terms fingerpri
   for (const required of [
     "agreement-snapshot-browser.js",
     "agreement-approval-gate.js",
+    "safe-demo-usdt-number.js",
+    "parseSafeDemoUsdtNumber",
     "canRecordAgreementApproval",
     "haveAllCurrentAgreementApprovals",
     "approvalVersions={buyer:null,seller:null,platform:null}",
