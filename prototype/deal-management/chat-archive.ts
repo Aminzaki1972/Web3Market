@@ -47,7 +47,7 @@ export function appendDealChatMessage(
   message: DealChatMessage,
 ): readonly DealChatMessage[] {
   if (!nonBlank(participants.buyerId) || !nonBlank(participants.sellerId) ||
-      participants.buyerId === participants.sellerId ||
+      participants.buyerId === participants.sellerId || participants.adminIds.length > 1 ||
       participants.adminIds.some(id => !nonBlank(id) || id === participants.buyerId || id === participants.sellerId) ||
       new Set(participants.adminIds).size !== participants.adminIds.length) {
     throw new Error("Deal chat participant roster is invalid");
