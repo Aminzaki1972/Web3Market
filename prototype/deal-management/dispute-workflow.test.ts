@@ -71,7 +71,7 @@ Deno.test("only the single active admin may issue a financial dispute decision a
   }, 120);
   const total = parseUsdtAmount("1000");
   const allocation = {
-    buyerGrossRefund: parseUsdtAmount("100"),
+    buyerGrossRefund: parseUsdtAmount("175"),
     sellerPayout: parseUsdtAmount("825"),
     platformFee: parseUsdtAmount("75"),
   };
