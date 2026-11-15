@@ -18,7 +18,7 @@ const types = {
   ],
 };
 async function prepared(overrides: Record<string, unknown> = {}) {
-  const agreementDocument = { documentId: "W3M-AGREEMENT", version: "1.0", locale: "ar", sha256: W3M_AGREEMENT_DOCUMENT_SHA256, text: "# Web3Market Agreement\n" + "Approved agreement text. ".repeat(100) };
+  const agreementDocument = { documentId: "W3M-AGREEMENT", version: "1.0", locale: "ar", sha256: W3M_AGREEMENT_DOCUMENT_SHA256, text: W3M_AGREEMENT_DOCUMENT_TEXT };
   const canonicalTerms = { dealId, amount: "100", currency: "USDT", feePercent: "7.5", sellerNetAmount: "92.5", agreementDocument: { documentId: agreementDocument.documentId, version: agreementDocument.version, locale: agreementDocument.locale, sha256: agreementDocument.sha256 } };
   const stable = (value: unknown): unknown => {
     if (Array.isArray(value)) return value.map(stable);
