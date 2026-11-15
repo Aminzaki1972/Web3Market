@@ -29,7 +29,7 @@ const ordinary = {
   agreementSnapshot: approvedAgreementSnapshot(7_000_000_000n),
   depositVerified: true, depositedAmount: 7_000_000_000n,
   originalGrossAgreedAmount: 7_000_000_000n,
-  requiredAssetsVerified: true, openDispute: false,
+  openDispute: false,
   disputeEverOpened: false,
   disputeRequest: null,
 };
