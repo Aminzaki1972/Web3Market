@@ -49,7 +49,7 @@ begin
   select pg_get_functiondef(
     'public.w3m_finalize_safe_execution_attempt(uuid,text,uuid,jsonb)'::regprocedure
   ) into v_finalizer;
-  v_finalizer_compact := regexp_replace(upper(v_finalizer), '\\s+', '', 'g');
+  v_finalizer_compact := regexp_replace(upper(v_finalizer), '\s+', '', 'g');
   if position('W3M_DEAL_DISPUTE_DECISIONS' in v_finalizer_compact)=0
      or position('RESOLVED_SELLER' in v_finalizer_compact)=0
      or position('SELLER_WINS' in v_finalizer_compact)=0
