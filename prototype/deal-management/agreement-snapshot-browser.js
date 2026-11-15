@@ -14,7 +14,14 @@ function canonicalize(value) {
       if (!Number.isFinite(input)) throw new Error("Agreement snapshot contains a non-finite number");
       return Object.is(input, -0) ? "0" : JSON.stringify(input);
     }
-    if (Array.isArray(input)) return "[" + input.map(item => visit(item, depth + 1)).join(",") + "]";
+    if (Array.isArray(input)) {
+      const items = [];
+      for (let index = 0; index < input.length; index++) {
+        if (!Object.prototype.hasOwnProperty.call(input, index)) throw new Error("Agreement snapshot contains a sparse array");
+        items.push(visit(input[index], depth + 1));
+      }
+      return "[" + items.join(",") + "]";
+    }
     if (isPlainRecord(input)) {
       const normalized = new Map();
       for (const [rawKey, item] of Object.entries(input)) {
