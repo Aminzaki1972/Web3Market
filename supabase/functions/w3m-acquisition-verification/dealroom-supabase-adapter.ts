@@ -13,6 +13,7 @@ import type { DealCodeAuditBinding } from "./deal-code-audit-binding.ts";
 
 export interface DealRoomDealRow {
   id: unknown;
+  status: unknown;
   project_id: unknown;
   buyer_id: unknown;
   seller_id: unknown;
@@ -52,6 +53,7 @@ export interface DealRoomW3MAdapterInput {
   stage: SettlementStage;
   now: string;
   safeConfigurationMatches: boolean;
+  sellerWinDecisionVerified: boolean;
   codeAudit: DealCodeAuditBinding;
 }
 
@@ -87,8 +89,14 @@ export async function evaluateDealRoomRowsWithW3M(
   if (String(p.deal_id) !== String(d.id)) {
     throw new Error("W3M release policy is not bound to the current deal.");
   }
-  if (String(d.dispute_status ?? "").trim().toLowerCase() !== "none") {
-    throw new Error("W3M V1 blocks every dispute status except exact 'none'.");
+  const dealStatus = String(d.status ?? "").trim().toLowerCase();
+  const disputeStatus = String(d.dispute_status ?? "").trim().toLowerCase();
+  const noDispute = disputeStatus === "none" && ["funded", "in_progress"].includes(dealStatus);
+  const verifiedSellerWin = dealStatus === "disputed" &&
+    disputeStatus === "resolved_seller" &&
+    input.sellerWinDecisionVerified === true;
+  if (!noDispute && !verifiedSellerWin) {
+    throw new Error("W3M V1 blocks active, buyer-win, inconsistent, or unverified dispute states.");
   }
   const paymentConfirmed = d.payment_status === "confirmed" &&
     typeof d.payment_tx_hash === "string" && /^0x[0-9a-f]{64}$/i.test(d.payment_tx_hash);
