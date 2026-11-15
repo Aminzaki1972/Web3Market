@@ -148,8 +148,25 @@ CREATE TABLE public.profiles (
   id uuid PRIMARY KEY,
   wallet_address text,
   wallet_verified boolean NOT NULL DEFAULT false,
-  wallet_verified_at timestamptz
+  wallet_verified_at timestamptz,
+  role text NOT NULL DEFAULT 'user'
 );
+
+CREATE SCHEMA IF NOT EXISTS private;
+CREATE OR REPLACE FUNCTION private.support_is_admin()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $support_admin$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles p
+     WHERE p.id = (SELECT auth.uid())
+       AND lower(coalesce(p.role,'')) = 'admin'
+  )
+$support_admin$;
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean LANGUAGE sql STABLE SET search_path = ''
+AS $is_admin$
+  SELECT private.support_is_admin()
+$is_admin$;
 
 CREATE TABLE public.deal_multisig_signers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
