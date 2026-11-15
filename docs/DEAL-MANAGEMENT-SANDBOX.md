@@ -331,3 +331,11 @@ The product owner explicitly approved the following administration policy for th
 - The administrator's authority to decide a financial allocation does not grant authority to sign, bypass Safe threshold/Guard protections, or claim a transfer has executed. Safe transactions still require the configured on-chain permissions and independent execution verification.
 
 **Implementation boundary:** this is an approved product rule documented for the isolated prototype. It does not mean that a production administrator account, owner-appointment workflow, server-side access control, or permanent audit trail has been implemented. The identity and secure mechanism by which the product owner authorizes appointment/replacement, recovery if the owner account is compromised, and the exact re-authentication procedure remain to be designed before production implementation. No administrator credentials or identities are specified here.
+
+## 2026-11-15 — selected-asset buyer review and explicit activity metadata
+
+- Replaced the preview's fixed repository/domain review controls with a review list generated from every checked asset in the deal asset list. Each selected asset receives independent accept/reject controls; final buyer acceptance remains disabled until at least one asset is selected and every selected asset is explicitly accepted.
+- Rejection requires a reason, is recorded against the specific asset, and blocks final acceptance. Multiple selected assets may be rejected independently. Changing the selected asset list clears previous demo review decisions and final acceptance.
+- The preview activity log no longer guesses actor role or event type from message wording. Each event call supplies explicit actor-role and event-type metadata, and the logger rejects missing metadata.
+- Added a Deno source-contract regression test for these preview invariants and configured CI to run when the preview changes. Latest run [#43664716442](https://github.com/Aminzaki1972/Web3Market/actions/runs/43664716442): **102 passed, 0 failed**.
+- The test verifies source-level preview contracts and pure domain rules. It is not a browser automation test and does not prove runtime interaction, backend authorization, persistent storage or live Safe/chain behavior.
