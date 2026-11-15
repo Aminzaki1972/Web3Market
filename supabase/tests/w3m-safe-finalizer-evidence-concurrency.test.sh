@@ -320,7 +320,7 @@ SELECT CASE WHEN
   AND d.release_tx_hash IS NULL
   AND p.status='active'
   AND p.owner_id=f.seller_id
-  AND a.state='BROADCAST'
+  AND a.state='RECONCILIATION_REQUIRED'
   AND t.status='submitted'
   AND r.status='locked'
   AND (SELECT count(*) FROM public.w3m_acquisition_evidence e
