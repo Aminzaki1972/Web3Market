@@ -49,7 +49,7 @@ Implement a server-authorized decision service/RPC that:
 - locks the active `deal_disputes` row and parent `deals` row in one documented lock order;
 - accepts only enumerated outcomes: buyer wins or seller wins;
 - requires a bounded reason and references to the evidence/messages already stored for that dispute;
-- persists decision ID, dispute/deal IDs, outcome, decision-maker, server timestamp, agreement/terms reference, canonical payload hash, and prior-state reference;
+- persists decision ID, dispute/deal IDs, outcome, decision-maker, server timestamp, exact signed terms version/hash, the active prior deal/dispute state, canonical payload hash, and prior-state reference;
 - rejects duplicate/conflicting decisions and records an append-only audit event;
 - transitions dispute/deal status atomically, without allowing participants to update the decision directly.
 
