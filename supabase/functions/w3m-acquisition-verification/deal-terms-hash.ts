@@ -22,6 +22,7 @@ export interface DealTermsSnapshot {
   safeAddress: string;
   tokenContract: string;
   codeAudit: DealCodeAuditBinding;
+  agreementDocument: { documentId: string; version: string; locale: string; sha256: string };
   policy: {
     dealAmount: string;
     feePercent: string;
@@ -133,6 +134,12 @@ export async function computeDealTermsHash(snapshot: DealTermsSnapshot): Promise
     chainId: snapshot.chainId,
     safeAddress: address(snapshot.safeAddress, "Safe address"),
     tokenContract: address(snapshot.tokenContract, "Token contract"),
+    agreementDocument: {
+      documentId: snapshot.agreementDocument.documentId,
+      version: snapshot.agreementDocument.version,
+      locale: snapshot.agreementDocument.locale,
+      sha256: snapshot.agreementDocument.sha256.toLowerCase(),
+    },
     codeAudit: {
       auditId: audit.auditId,
       repositoryOwner: audit.repositoryOwner,
