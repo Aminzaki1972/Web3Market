@@ -7,6 +7,7 @@
  * with row locks, unique constraints and trusted session/roster loading.
  */
 import { authorizeDealAction, type TrustedDealRoster } from "./deal-authorization.ts";
+import { appendDealActivityEvent, type DealActivityEvent, type DealActivityParticipants } from "./activity-ledger.ts";
 import {
   releaseDeclinedDisputeHold, reviewDisputeRequest, submitDisputeRequest,
   type DisputeRequest, type DisputeRequestEvidence,
@@ -64,6 +65,8 @@ export class InMemoryDisputeTransactionModel {
   readonly #holds = new Map<string, ActiveHold>();
   readonly #events: DisputeStoreEvent[] = [];
   readonly #idempotency = new Map<string, IdempotencyRecord>();
+  #activityLedger: readonly DealActivityEvent[] = Object.freeze([]);
+  readonly #activityParticipants: DealActivityParticipants;
 
   constructor(roster: TrustedDealRoster) {
     // Validate the trusted roster at construction; production must reload it
@@ -72,6 +75,13 @@ export class InMemoryDisputeTransactionModel {
     this.#roster = Object.freeze({
       ...roster,
       activeAdminIds: Object.freeze([...roster.activeAdminIds]),
+    });
+    this.#activityParticipants = Object.freeze({
+      dealId: roster.dealId,
+      buyerId: roster.buyerId,
+      sellerId: roster.sellerId,
+      adminIds: Object.freeze([...roster.activeAdminIds]),
+      systemActorId: "\u0000w3m-system",
     });
   }
 
@@ -111,9 +121,19 @@ export class InMemoryDisputeTransactionModel {
       actorRole: role, occurredAt: submittedAt,
     });
 
+    const nextActivityLedger = appendDealActivityEvent(
+      this.#activityLedger, this.#activityParticipants, {
+        id: requestId + ":activity:1", dealId: this.#roster.dealId,
+        type: "dispute_requested", actorId: authenticatedUserId,
+        actorRole: role, occurredAt: submittedAt,
+        summary: "Dispute request submitted; administrative payout hold activated",
+        referenceId: requestId,
+      },
+    );
     this.#requests.set(requestId, request);
     this.#holds.set(this.#roster.dealId, Object.freeze({ requestId, active: true }));
     this.#events.push(event);
+    this.#activityLedger = nextActivityLedger;
     this.#idempotency.set(idempotencyKey, Object.freeze({ fingerprint, requestId }));
     return request;
   }
@@ -137,8 +157,20 @@ export class InMemoryDisputeTransactionModel {
     });
     // The active hold is intentionally retained for both outcomes.
     if (!this.#holds.has(this.#roster.dealId)) throw new Error("Payout hold is missing; review aborted");
+    const nextActivityLedger = appendDealActivityEvent(
+      this.#activityLedger, this.#activityParticipants, {
+        id: requestId + ":activity:" + sequence, dealId: this.#roster.dealId,
+        type: "dispute_reviewed", actorId: authenticatedUserId,
+        actorRole: "admin", occurredAt: reviewedAt,
+        summary: outcome === "approved"
+          ? "Dispute request approved; Safe lock verification is pending"
+          : "Dispute request declined; administrative payout hold remains active",
+        referenceId: requestId,
+      },
+    );
     this.#requests.set(requestId, next);
     this.#events.push(event);
+    this.#activityLedger = nextActivityLedger;
     return next;
   }
 
@@ -162,9 +194,19 @@ export class InMemoryDisputeTransactionModel {
       sequence, type: "declined_hold_released", actorId: authenticatedUserId,
       actorRole: "admin", occurredAt: releasedAt,
     });
+    const nextActivityLedger = appendDealActivityEvent(
+      this.#activityLedger, this.#activityParticipants, {
+        id: requestId + ":activity:" + sequence, dealId: this.#roster.dealId,
+        type: "admin_review_recorded", actorId: authenticatedUserId,
+        actorRole: "admin", occurredAt: releasedAt,
+        summary: "Declined dispute administrative hold released by explicit reasoned action",
+        referenceId: requestId,
+      },
+    );
     this.#requests.set(requestId, next);
     this.#holds.delete(this.#roster.dealId);
     this.#events.push(event);
+    this.#activityLedger = nextActivityLedger;
     return next;
   }
 
@@ -182,5 +224,9 @@ export class InMemoryDisputeTransactionModel {
 
   hasActiveHold(): boolean {
     return this.#holds.has(this.#roster.dealId);
+  }
+
+  getActivityLedger(): readonly DealActivityEvent[] {
+    return this.#activityLedger;
   }
 }
