@@ -73,7 +73,7 @@ Deno.test("strict Deal Room adapter passes exact text rows to the W3M gate and f
 Deno.test("strict Deal Room adapter rejects floating-point financial fields", async () => {
   await assertRejects(() => evaluateDealRoomRowsWithW3M({
     client: client(), deal: { ...deal, amount: 100 }, policy, codeAudit, stage: "PREPARE",
-    now: "2026-11-06T20:00:00.000Z", safeConfigurationMatches: true,
+    now: "2026-11-06T20:00:00.000Z", safeConfigurationMatches: true, sellerWinDecisionVerified: false,
   }));
 });
 
@@ -90,7 +90,7 @@ Deno.test("strict Deal Room adapter permits only verified seller-wins disputes",
     deal: { ...deal, status: "disputed", dispute_status: "resolved_seller" },
     policy, codeAudit, stage: "PREPARE",
     now: "2026-11-06T20:00:00.000Z",
-    safeConfigurationMatches: true,
+    safeConfigurationMatches: true, sellerWinDecisionVerified: false,
     sellerWinDecisionVerified: true,
   });
   assertEquals(result.authorized, false);
@@ -100,7 +100,7 @@ Deno.test("strict Deal Room adapter permits only verified seller-wins disputes",
     deal: { ...deal, status: "disputed", dispute_status: "resolved_buyer" },
     policy, codeAudit, stage: "PREPARE",
     now: "2026-11-06T20:00:00.000Z",
-    safeConfigurationMatches: true,
+    safeConfigurationMatches: true, sellerWinDecisionVerified: false,
     sellerWinDecisionVerified: false,
   }));
   await assertRejects(() => evaluateDealRoomRowsWithW3M({
@@ -108,7 +108,7 @@ Deno.test("strict Deal Room adapter permits only verified seller-wins disputes",
     deal: { ...deal, status: "disputed", dispute_status: "resolved_seller" },
     policy, codeAudit, stage: "PREPARE",
     now: "2026-11-06T20:00:00.000Z",
-    safeConfigurationMatches: true,
+    safeConfigurationMatches: true, sellerWinDecisionVerified: false,
     sellerWinDecisionVerified: false,
   }));
 });
@@ -116,6 +116,6 @@ Deno.test("strict Deal Room adapter permits only verified seller-wins disputes",
 Deno.test("strict Deal Room adapter rejects policy rows belonging to another deal", async () => {
   await assertRejects(() => evaluateDealRoomRowsWithW3M({
     client: client(), deal, policy: { ...policy, deal_id: "deal-2" }, codeAudit, stage: "PREPARE",
-    now: "2026-11-06T20:00:00.000Z", safeConfigurationMatches: true,
+    now: "2026-11-06T20:00:00.000Z", safeConfigurationMatches: true, sellerWinDecisionVerified: false,
   }));
 });
