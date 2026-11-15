@@ -63,3 +63,18 @@ Sandbox branch changes:
 - Extended CI to syntax-check checkout and fail if legacy function URLs, `eth_sendTransaction`, or `eth_requestAccounts` reappear in this file.
 
 This is only prototype-branch isolation. The production website and deployed Edge Functions were not changed. Other direct API access to the deployed legacy functions remains possible outside this branch; this client-side change is not a server-side authorization control. The legacy functions still require their existing authenticated/session and signature checks, but they do not enforce the proposed new dispute-request/hold state machine.
+
+
+## Legacy offer creation and chat insert isolation — 2026-11-15
+
+A broader Deal Room entry-point scan found another pre-workflow path in `js/project.js`: the project detail offer form directly inserted into `deals` and optionally inserted the buyer's initial message into `deal_messages`. The compatibility handler in `js/offer-form-fix.js` repeated the same browser-write pattern.
+
+Sandbox branch changes:
+- Replaced the project page's legacy offer handler with a clear fail-closed notice; it creates neither a deal nor a message.
+- Replaced the compatibility offer-form script with a capture-phase guard that blocks form submission before any other listener and explicitly states that nothing was created.
+- Extended CI path filters and syntax checks to cover both files.
+- Added source-contract assertions that prevent direct `deals` or `deal_messages` inserts from returning to either file.
+
+CI [43697454993](https://github.com/Aminzaki1972/Web3Market/actions/runs/43697454993) passed on commit `04e15e2abece6adc5038f2ac12e20f2402b008f7`: **139 passed, 0 failed**.
+
+This is UI-side isolation only. It does not revoke direct Data API permissions or replace server-side RLS/RPC/Edge Function authorization. Production was not modified. The new offer/negotiation API is not yet implemented, so new offer creation remains unavailable in this prototype.
