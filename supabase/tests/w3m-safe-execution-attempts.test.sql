@@ -714,8 +714,8 @@ begin
 
   -- A dispute opened after the report and wallet claim must still block
   -- settlement. Resolving it is an explicit status change, not deletion.
-  insert into public.deal_disputes (deal_id,opened_by,reason,status)
-  values (v_deal,v_buyer,'test unresolved dispute','open');
+  insert into public.deal_disputes (id,deal_id,opened_by,reason,status)
+  values (v_dispute_id,v_deal,v_buyer,'test unresolved dispute','open');
   begin
     perform public.w3m_finalize_safe_execution_attempt(v_attempt,v_broadcast_hash,v_buyer,v_receipt);
     raise exception 'An open dispute was unexpectedly allowed to finalize';
