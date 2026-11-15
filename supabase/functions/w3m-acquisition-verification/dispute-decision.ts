@@ -15,6 +15,10 @@ export interface W3MDisputeEvidenceReference {
   recordId: string;
 }
 
+export interface W3MCanonicalDisputeEvidenceReference extends W3MDisputeEvidenceReference {
+  contentHash: string;
+}
+
 export interface W3MDisputeDecisionCommand {
   dealId: string;
   disputeId: string;
@@ -23,7 +27,8 @@ export interface W3MDisputeDecisionCommand {
   evidenceRefs: W3MDisputeEvidenceReference[];
 }
 
-export interface W3MCanonicalDisputeDecisionInput extends W3MDisputeDecisionCommand {
+export interface W3MCanonicalDisputeDecisionInput extends Omit<W3MDisputeDecisionCommand, "evidenceRefs"> {
+  evidenceRefs: W3MCanonicalDisputeEvidenceReference[];
   decisionId: string;
   decidedBy: string;
   decidedAt: string;
@@ -40,7 +45,7 @@ export interface W3MCanonicalDisputeDecision {
     disputeId: string;
     outcome: W3MDisputeOutcome;
     reason: string;
-    evidenceRefs: W3MDisputeEvidenceReference[];
+    evidenceRefs: W3MCanonicalDisputeEvidenceReference[];
     decidedBy: string;
     decidedAt: string;
     termsVersionId: string;
@@ -72,6 +77,35 @@ function boundedText(value: unknown, label: string, min: number, max: number): s
     throw new Error(label + " must contain between " + min + " and " + max + " characters.");
   }
   return normalized;
+}
+
+function parseCanonicalEvidenceRefs(value: unknown): W3MCanonicalDisputeEvidenceReference[] {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 100) {
+    throw new Error("Canonical evidence references must contain between 1 and 100 records.");
+  }
+  const seen = new Set<string>();
+  const refs = value.map((item, index) => {
+    const row = record(item, "Canonical evidence reference " + index);
+    if (Object.keys(row).some((key) => key !== "source" && key !== "recordId" && key !== "contentHash")) {
+      throw new Error("Canonical evidence reference contains unsupported fields.");
+    }
+    if (typeof row.source !== "string" ||
+        !EVIDENCE_SOURCES.includes(row.source as W3MDisputeEvidenceSource)) {
+      throw new Error("Canonical evidence reference source is unsupported.");
+    }
+    const source = row.source as W3MDisputeEvidenceSource;
+    const recordId = uuid(row.recordId, "Evidence record ID");
+    if (typeof row.contentHash !== "string" || !HASH.test(row.contentHash)) {
+      throw new Error("Evidence content hash must be exactly 32 bytes.");
+    }
+    const key = source + ":" + recordId;
+    if (seen.has(key)) throw new Error("Duplicate canonical evidence reference.");
+    seen.add(key);
+    return { source, recordId, contentHash: row.contentHash.toLowerCase() };
+  });
+  return refs.sort((a, b) =>
+    a.source.localeCompare(b.source) || a.recordId.localeCompare(b.recordId)
+  );
 }
 
 function parseEvidenceRefs(value: unknown): W3MDisputeEvidenceReference[] {
@@ -140,7 +174,7 @@ export async function buildW3MCanonicalDisputeDecision(
   if (!Number.isFinite(parsedTime) || new Date(parsedTime).toISOString() !== decidedAt) {
     throw new Error("Decision timestamp must be a canonical UTC ISO-8601 timestamp.");
   }
-  const evidenceRefs = parseEvidenceRefs(input.evidenceRefs);
+  const evidenceRefs = parseCanonicalEvidenceRefs(input.evidenceRefs);
   const payload = {
     protocol: "W3M Protocol V1" as const,
     decisionId, dealId, disputeId, outcome: input.outcome, reason, evidenceRefs,
