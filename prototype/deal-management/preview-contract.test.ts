@@ -38,4 +38,5 @@ Deno.test("dispute decision preview enforces reason, six-decimal fee and balance
   assertStringIncludes(preview, "buyerGrossRefund+sellerPayout!==gross");
   assertStringIncludes(preview, "disputeLifecycle.decision={reason,buyerGrossRefund,sellerPayout,platformFee,decidedAt:Date.now()}");
   assertStringIncludes(preview, "Safe execution is not connected.");
+  assertStringIncludes(preview, "recalc();renderDisputeLifecycle();log('Demo deposit state toggled");
 });
