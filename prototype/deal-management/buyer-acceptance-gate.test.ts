@@ -5,13 +5,13 @@ const base={requiredAssetIds:["repo","domain"],evidenceStatuses:{repo:"verified"
 Deno.test("individual acceptance requires verified evidence and every deal gate",()=>{
   assertEquals(canRecordBuyerAssetAcceptance({...base,assetId:"repo"}),true);
   for(const patch of [
-    {assetId:"repo",evidenceStatuses:{repo:"needs_review",domain:"verified"}},
-    {assetId:"repo",depositConfirmed:false},
-    {assetId:"repo",disputeActive:true},
-    {assetId:"repo",agreementApprovalsCurrent:false},
-    {assetId:"repo",agreementSnapshotCurrent:false},
-    {assetId:"unknown"},
-  ]) assertEquals(canRecordBuyerAssetAcceptance({...base,assetId:"repo",...patch}),false);
+    {evidenceStatuses:{repo:"needs_review",domain:"verified"}},
+    {depositConfirmed:false},
+    {disputeActive:true},
+    {agreementApprovalsCurrent:false},
+    {agreementSnapshotCurrent:false},
+  ]) assertEquals(canRecordBuyerAssetAcceptance({...base,...patch,assetId:"repo"}),false);
+  assertEquals(canRecordBuyerAssetAcceptance({...base,assetId:"unknown"}),false);
 });
 Deno.test("final acceptance requires all selected assets accepted and evidence verified",()=>{
   const valid={...base,acceptedAssetIds:["repo","domain"],rejectedAssetIds:[]};
