@@ -20,6 +20,8 @@ function base(): PolicyInput {
       decisionHash: hash, decisionNonce: 12, token, approvedExecutionTargets: [token], effects },
     decoded: { complete: true, effects: effects.map(effect => ({ ...effect })) },
     moduleGuardCovered: false,
+    approvedDecisionHash: hash,
+    approvedDecisionNonce: 12,
     consumedDecisionNonces: [],
     consumedSafeNonces: [],
   };
