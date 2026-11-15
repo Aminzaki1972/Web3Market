@@ -11,6 +11,7 @@ const recipients = {
 };
 const ordinary = {
   agreementApproved: true, depositVerified: true, depositedAmount: 7_000_000_000n,
+  originalGrossAgreedAmount: 7_000_000_000n,
   requiredAssetsVerified: true, buyerFinalAcceptance: true, openDispute: false,
   disputeEverOpened: false,
   disputeRequest: null,
@@ -80,6 +81,20 @@ Deno.test("ordinary payout requires every gate and produces 92.5/7.5 split", () 
     assertEquals(result.plan.buyerRefund, 0n);
     assertEquals(result.plan.status, "ready_for_safe_review");
   }
+});
+
+Deno.test("ordinary payout rejects a deposit that differs from the approved gross agreement amount", () => {
+  const mismatch = prepareOrdinaryPayout({
+    ...ordinary, originalGrossAgreedAmount: 6_999_000_000n,
+  }, recipients);
+  assertEquals(mismatch.ready, false);
+  if (!mismatch.ready) assertEquals(mismatch.blockers.includes("deposit_amount_differs_from_agreement"), true);
+
+  const missingGross = prepareOrdinaryPayout({
+    ...ordinary, originalGrossAgreedAmount: 0n,
+  }, recipients);
+  assertEquals(missingGross.ready, false);
+  if (!missingGross.ready) assertEquals(missingGross.blockers.includes("invalid_original_agreed_amount"), true);
 });
 
 Deno.test("ordinary payout is blocked by every missing gate", () => {
