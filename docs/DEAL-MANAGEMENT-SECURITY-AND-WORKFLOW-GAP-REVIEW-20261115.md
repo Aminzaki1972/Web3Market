@@ -126,3 +126,20 @@ The current file also displays legacy Safe and platform-resolution language. Any
 6. Only then proceed to Safe testnet integration and end-to-end workflow validation.
 
 No UI code or database migration was changed as part of this review.
+
+
+## Fail-closed Deal Room client change (2026-11-15)
+
+The isolated branch now disables the legacy agreement-approval and dispute-submission buttons in `js/deal-room.js` and removes the obsolete dispute modal. The previous direct browser writes to `deal_party_agreements` and `deal_disputes` were removed from this client file.
+
+The UI now states that the new server-authoritative workflow is not connected yet. This is an intentional safety barrier: it prevents browser timestamps from being presented as binding three-party approvals and prevents dispute submissions from bypassing the new administrative review state machine.
+
+Verification performed against the committed client source:
+- No direct INSERT/UPSERT/UPDATE/DELETE calls remain against `deal_party_agreements` in `js/deal-room.js`.
+- No direct INSERT/UPSERT/UPDATE/DELETE calls remain against `deal_disputes` in `js/deal-room.js`.
+- The obsolete dispute modal is absent.
+- Chat still uses the legacy `deal_messages` path; it is not yet the fully authenticated, permanent archive/attachment workflow.
+
+The sandbox GitHub Actions workflow now also runs `node --check js/deal-room.js` when that client file changes. Run `43667143165` completed successfully for commit `6ffb725bc9db313f5dbeabb0e354900badac91d5`.
+
+This is a fail-closed client-side guard, not a backend authorization boundary. It does not implement the new agreement/dispute endpoints, database persistence, single-admin authorization, Safe lock, or on-chain settlement.
