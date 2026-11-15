@@ -70,6 +70,7 @@ export interface SafeExecutionDatabaseSnapshot {
   agreementAcceptances: SafeExecutionSnapshotAgreementAcceptance[];
   codeAudit: DealCodeAuditBinding;
   dispute: Record<string, unknown> | null;
+  disputeDecision: Record<string, unknown> | null;
   blockers: string[];
 }
 
@@ -414,7 +415,32 @@ export async function loadSafeExecutionDatabaseSnapshot(
       !agreementAcceptances.some((row) => row.partyRole === "seller")) {
     blockers.push("IMMUTABLE_AGREEMENT_ACCEPTANCES_INCOMPLETE");
   }
-  if (deal.dispute_status !== "none" || root.dispute !== null) {
+  const dispute = root.dispute === null || root.dispute === undefined
+    ? null
+    : object(root.dispute, "dispute");
+  const disputeDecision = root.dispute_decision === null || root.dispute_decision === undefined
+    ? null
+    : object(root.dispute_decision, "dispute decision");
+  const noDispute = deal.dispute_status === "none" && dispute === null && disputeDecision === null;
+  const sellerWinDecisionVerified = deal.status === "disputed" &&
+    deal.dispute_status === "resolved_seller" &&
+    dispute !== null &&
+    dispute.id === disputeDecision?.dispute_id &&
+    dispute.deal_id === dealId &&
+    dispute.status === "resolved" &&
+    dispute.resolution === "seller_wins" &&
+    disputeDecision?.id !== undefined &&
+    UUID.test(String(disputeDecision.id)) &&
+    disputeDecision.deal_id === dealId &&
+    disputeDecision.outcome === "seller_wins" &&
+    typeof disputeDecision.decision_hash === "string" &&
+    /^[0-9a-f]{64}$/.test(disputeDecision.decision_hash) &&
+    disputeDecision.terms_version_id === termsVersion?.id &&
+    disputeDecision.terms_version === termsVersion?.termsVersion &&
+    disputeDecision.terms_hash === termsVersion?.termsHash &&
+    UUID.test(String(disputeDecision.decided_by ?? "")) &&
+    timestamp(disputeDecision.decided_at) !== null;
+  if (!noDispute && !sellerWinDecisionVerified) {
     blockers.push("DEAL_DISPUTE_STATE_NOT_CLEAR");
   }
   if (deal.payment_status !== "confirmed" || !HASH.test(String(deal.payment_tx_hash ?? ""))) {
@@ -453,7 +479,8 @@ export async function loadSafeExecutionDatabaseSnapshot(
     termsVersion,
     agreementAcceptances,
     codeAudit,
-    dispute: root.dispute === null ? null : object(root.dispute, "dispute"),
+    dispute,
+    disputeDecision,
     blockers: [...new Set(blockers)],
   };
 }
