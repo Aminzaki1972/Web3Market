@@ -163,7 +163,7 @@ async function loadSigningContext(client: W3MRpcClient, dealId: string): Promise
   return {
     dealId, projectId, buyerId, sellerId, buyerWallet, sellerWallet,
     safeAddress, termsHash: terms.dealTermsHash, codeAudit, canonicalTerms: terms.canonicalTerms,
-    agreementDocument: { ...agreementDocument, text: W3M_AGREEMENT_DOCUMENT_TEXT },
+    agreementDocument,
   };
 }
 
