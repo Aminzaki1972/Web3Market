@@ -48,23 +48,6 @@ const $=id=>document.getElementById(id);let finalPrice=null,agreementVersion=0,p
 const money=n=>Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' USDT';
 $('inspectionWindow').dataset.previousValue=$('inspectionWindow').value;
 let activityEvents=[],activitySequence=0;
-function classifyActivity(message){
-  const m=message.toLowerCase();
-  if(m.includes('offer')||m.includes('counter-offer')||m.includes('preliminary acceptance'))return 'negotiation';
-  if(m.includes('approval')||m.includes('agreement revised'))return 'agreement';
-  if(m.includes('message')||m.includes('archive message'))return 'chat_message';
-  if(m.includes('deposit'))return 'demo_deposit';
-  if(m.includes('dispute')||m.includes('payout hold')||m.includes('administrative review'))return 'dispute_review';
-  if(m.includes('repository')||m.includes('domain')||m.includes('buyer acceptance'))return 'asset_review';
-  return 'deal_activity';
-}
-function inferDemoActor(message){
-  const m=message.toLowerCase();
-  if(m.includes('buyer'))return 'buyer';
-  if(m.includes('seller'))return 'seller';
-  if(m.includes('administration')||m.includes('admin'))return 'platform_admin';
-  return 'demo_system';
-}
 function renderActivityLog(){
   const host=$('eventLog');host.replaceChildren();
   if(!activityEvents.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='No activity recorded in this demo session.';host.appendChild(empty);return}
@@ -77,11 +60,12 @@ function renderActivityLog(){
   });
 }
 function log(message,actorRole,type){
+  if(!actorRole||!type)throw new Error('Activity events require explicit actor and type metadata');
   const event=Object.freeze({
     id:'demo-event-'+String(++activitySequence).padStart(5,'0'),
     sequence:activitySequence,
-    actorRole:actorRole||inferDemoActor(message),
-    type:type||classifyActivity(message),
+    actorRole,
+    type,
     createdAt:new Date().toISOString(),
     summary:String(message)
   });
@@ -94,11 +78,11 @@ function switchTab(name){document.querySelectorAll('.tab').forEach(b=>b.setAttri
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
 $('offer').addEventListener('input',()=>{if(!currentOffer())recalc()});
 $('negotiationActor').addEventListener('change',renderNegotiation);
-$('submitInitialOffer').onclick=()=>{const amount=Number($('offer').value);if($('negotiationActor').value!=="buyer"||currentOffer()||!(amount>0)){ $('negotiationMsg').textContent='Only the buyer can submit a valid initial offer when no offer is open.';return}const id='offer-'+offerSequence++;offerHistory.push({id,amount,proposer:'buyer',status:'open'});currentOfferId=id;$('negotiationMsg').textContent='Buyer submitted '+money(amount)+'. The seller may accept, reject or counter.';renderNegotiation();log('Buyer submitted offer '+id+' · '+money(amount))};
-$('sendCounterOffer').onclick=()=>{const active=currentOffer(),actor=$('negotiationActor').value,amount=Number($('responseAmount').value);if(!active||active.proposer===actor||!(amount>0)||finalPrice!==null){$('negotiationMsg').textContent='A valid counter-offer can be sent only by the other party while an offer is open.';return}active.status='superseded';const id='offer-'+offerSequence++;offerHistory.push({id,amount,proposer:actor,status:'open'});currentOfferId=id;$('responseAmount').value='';preliminary=false;$('negotiationMsg').textContent=actor.toUpperCase()+' sent a counter-offer of '+money(amount)+'. The other party must respond.';renderNegotiation();log(actor.toUpperCase()+' sent counter-offer '+id+' · '+money(amount))};
-$('acceptCurrentOffer').onclick=()=>{const active=currentOffer(),actor=$('negotiationActor').value;if(!active||active.proposer===actor||finalPrice!==null)return;active.status='accepted';finalPrice=active.amount;currentOfferId=null;approvals={buyer:false,seller:false,platform:false};agreementVersion=1;updateApprovals();$('negotiationMsg').textContent=actor.toUpperCase()+' accepted '+money(finalPrice)+'. Agreement v1 now snapshots this price and the selected assets; three approvals are required.';renderNegotiation();log(actor.toUpperCase()+' accepted offer '+active.id+' · final demo price '+money(finalPrice))};
-$('rejectCurrentOffer').onclick=()=>{const active=currentOffer(),actor=$('negotiationActor').value;if(!active||active.proposer===actor||finalPrice!==null)return;active.status='rejected';currentOfferId=null;$('negotiationMsg').textContent=actor.toUpperCase()+' rejected the current offer. No final price has been agreed.';renderNegotiation();log(actor.toUpperCase()+' rejected offer '+active.id)};
-$('sellerAccept').onclick=()=>{const active=currentOffer();if($('negotiationActor').value!=='seller'||!active||active.proposer!=='buyer'||preliminary||finalPrice!==null)return;preliminary=true;$('negotiationMsg').textContent='Seller accepted the buyer offer preliminarily. This does not close the offer or fix the price; either party may still negotiate.';renderNegotiation();log('Seller preliminary acceptance recorded for '+active.id)};
+$('submitInitialOffer').onclick=()=>{const amount=Number($('offer').value);if($('negotiationActor').value!=="buyer"||currentOffer()||!(amount>0)){ $('negotiationMsg').textContent='Only the buyer can submit a valid initial offer when no offer is open.';return}const id='offer-'+offerSequence++;offerHistory.push({id,amount,proposer:'buyer',status:'open'});currentOfferId=id;$('negotiationMsg').textContent='Buyer submitted '+money(amount)+'. The seller may accept, reject or counter.';renderNegotiation();log('Buyer submitted offer '+id+' · '+money(amount),'buyer','negotiation')};
+$('sendCounterOffer').onclick=()=>{const active=currentOffer(),actor=$('negotiationActor').value,amount=Number($('responseAmount').value);if(!active||active.proposer===actor||!(amount>0)||finalPrice!==null){$('negotiationMsg').textContent='A valid counter-offer can be sent only by the other party while an offer is open.';return}active.status='superseded';const id='offer-'+offerSequence++;offerHistory.push({id,amount,proposer:actor,status:'open'});currentOfferId=id;$('responseAmount').value='';preliminary=false;$('negotiationMsg').textContent=actor.toUpperCase()+' sent a counter-offer of '+money(amount)+'. The other party must respond.';renderNegotiation();log(actor.toUpperCase()+' sent counter-offer '+id+' · '+money(amount),actor,'negotiation')};
+$('acceptCurrentOffer').onclick=()=>{const active=currentOffer(),actor=$('negotiationActor').value;if(!active||active.proposer===actor||finalPrice!==null)return;active.status='accepted';finalPrice=active.amount;currentOfferId=null;approvals={buyer:false,seller:false,platform:false};agreementVersion=1;updateApprovals();$('negotiationMsg').textContent=actor.toUpperCase()+' accepted '+money(finalPrice)+'. Agreement v1 now snapshots this price and the selected assets; three approvals are required.';renderNegotiation();log(actor.toUpperCase()+' accepted offer '+active.id+' · final demo price '+money(finalPrice),actor,'negotiation')};
+$('rejectCurrentOffer').onclick=()=>{const active=currentOffer(),actor=$('negotiationActor').value;if(!active||active.proposer===actor||finalPrice!==null)return;active.status='rejected';currentOfferId=null;$('negotiationMsg').textContent=actor.toUpperCase()+' rejected the current offer. No final price has been agreed.';renderNegotiation();log(actor.toUpperCase()+' rejected offer '+active.id,actor,'negotiation')};
+$('sellerAccept').onclick=()=>{const active=currentOffer();if($('negotiationActor').value!=='seller'||!active||active.proposer!=='buyer'||preliminary||finalPrice!==null)return;preliminary=true;$('negotiationMsg').textContent='Seller accepted the buyer offer preliminarily. This does not close the offer or fix the price; either party may still negotiate.';renderNegotiation();log('Seller preliminary acceptance recorded for '+active.id,'seller','negotiation')};
 $('sendChatMessage').onclick=()=>{
   const message=$('chatMessage').value.trim();
   if(!message){$('chatMessageStatus').textContent='Write a message before adding it.';return}
@@ -170,7 +154,7 @@ function reviseAgreementForChange(control,description){
     $('depositState').textContent='Awaiting revised agreement';
     $('depositState').className='pill warn';
     $('depositMsg').textContent='Agreement terms changed. All previous demo approvals were invalidated; the revised version must be approved again.';
-    log('Agreement revised to v'+agreementVersion+' after '+description+' change; prior approvals invalidated');
+    log('Agreement revised to v'+agreementVersion+' after '+description+' change; prior approvals invalidated','demo_system','agreement');
   }
   if(control.id==='inspectionWindow'||control.closest('#agreementTerms'))control.dataset.previousValue=control.value;
   updateApprovals();updateBuyerReview();
@@ -178,8 +162,8 @@ function reviseAgreementForChange(control,description){
 document.querySelectorAll('#assets input[data-asset]').forEach(input=>input.addEventListener('change',()=>{reviseAgreementForChange(input,'asset-list');buyerAccepted={};buyerRejectedAssetId=null;buyerRejectedReason='';finalBuyerAccepted=false;$('buyerRejectReason').value='';updateBuyerReview()}));
 $('inspectionWindow').addEventListener('change',()=>reviseAgreementForChange($('inspectionWindow'),'inspection-window'));
 document.querySelectorAll('#agreementTerms input,#agreementTerms textarea,#agreementTerms select').forEach(control=>{control.dataset.previousValue=control.value;control.addEventListener('change',()=>reviseAgreementForChange(control,'agreement-term'))});
-['buyer','seller','platform'].forEach(k=>$('approve'+k[0].toUpperCase()+k.slice(1)).onclick=()=>{if(finalPrice===null){$('agreementMsg').textContent='Set the final demo price before agreement approvals.';return}approvals[k]=true;updateApprovals();log(k+' demo approval recorded')});
-$('demoDeposit').onclick=()=>{if(!Object.values(approvals).every(Boolean))return;deposit=true;$('depositState').textContent='Simulated only — NOT on-chain';$('depositState').className='pill warn';$('depositMsg').textContent='Demo state changed only. No blockchain lookup, token transfer or Safe deposit occurred.';recalc();log('Demo deposit state toggled — no on-chain transaction')};
+['buyer','seller','platform'].forEach(k=>$('approve'+k[0].toUpperCase()+k.slice(1)).onclick=()=>{if(finalPrice===null){$('agreementMsg').textContent='Set the final demo price before agreement approvals.';return}approvals[k]=true;updateApprovals();log(k+' demo approval recorded',k==='platform'?'platform_admin':k,'agreement')});
+$('demoDeposit').onclick=()=>{if(!Object.values(approvals).every(Boolean))return;deposit=true;$('depositState').textContent='Simulated only — NOT on-chain';$('depositState').className='pill warn';$('depositMsg').textContent='Demo state changed only. No blockchain lookup, token transfer or Safe deposit occurred.';recalc();log('Demo deposit state toggled — no on-chain transaction','demo_system','demo_deposit')};
 function renderDisputeState(){
   const labels={none:"No request",pending_admin_review:"Pending administrative review · payout held (demo)",approved_lock_pending:"Approved · Safe lock pending (not confirmed)",declined_hold:"Declined · review hold remains",administrative_hold_released:"Declined · review hold explicitly released"};
   $('disputeState').textContent=labels[disputeRequestState]||"Unknown";
@@ -193,25 +177,25 @@ $('submitDisputeRequest').onclick=()=>{
   if(!$('disputeReason').value.trim()){alert("Enter a demo dispute reason.");return}
   dispute=true;disputeRequestState="pending_admin_review";renderDisputeState();
   $('disputeMsg').textContent=$('disputeClaimant').value+" submitted a demo dispute request. Administrative review is required before a formal dispute is opened.";
-  recalc();log($('disputeClaimant').value+" submitted dispute request; administrative-review payout hold applied locally");
+  recalc();log($('disputeClaimant').value+" submitted dispute request; administrative-review payout hold applied locally",$('disputeClaimant').value,'dispute_review');
 };
 $('approveDisputeRequest').onclick=()=>{
   if(disputeRequestState!=="pending_admin_review")return;
   disputeRequestState="approved_lock_pending";dispute=true;renderDisputeState();
   $('disputeMsg').textContent="Administration approved opening. The Safe lock request is pending; this demo cannot submit or verify a real chain lock.";
-  recalc();log("Administration approved dispute opening; Safe lock pending, not confirmed");
+  recalc();log("Administration approved dispute opening; Safe lock pending, not confirmed",'platform_admin','dispute_review');
 };
 $('declineDisputeRequest').onclick=()=>{
   if(disputeRequestState!=="pending_admin_review")return;
   disputeRequestState="declined_hold";dispute=true;renderDisputeState();
   $('disputeMsg').textContent="Administration declined the demo request with reasons. The payout hold remains until a separate explicit release.";
-  recalc();log("Administration declined dispute request; payout hold retained");
+  recalc();log("Administration declined dispute request; payout hold retained",'platform_admin','dispute_review');
 };
 $('releaseDeclinedHold').onclick=()=>{
   if(disputeRequestState!=="declined_hold")return;
   disputeRequestState="administrative_hold_released";dispute=false;renderDisputeState();
   $('disputeMsg').textContent="The declined request's administrative hold was explicitly released in this demo after checking that no other hold exists.";
-  recalc();log("Administrative review hold explicitly released in demo");
+  recalc();log("Administrative review hold explicitly released in demo",'platform_admin','dispute_review');
 };
 function selectedReviewAssets(){return Array.from(document.querySelectorAll('#assets input[data-asset]:checked')).map(input=>({id:input.id.slice(5).toLowerCase(),label:input.dataset.asset}))}
 function updateBuyerReview(){
@@ -224,9 +208,9 @@ function updateBuyerReview(){
   const status=document.createElement('span');status.className='pill '+(rejected?'bad':accepted?'good':'warn');status.textContent=rejected?'Rejected (demo)':accepted?'Accepted (demo)':'Pending buyer review';
   const actions=document.createElement('div');actions.className='actions';
   const accept=document.createElement('button');accept.type='button';accept.className='btn';accept.textContent='Accept asset (demo)';accept.disabled=accepted||rejected||finalBuyerAccepted;
-  accept.addEventListener('click',()=>{if(finalBuyerAccepted||buyerRejectedAssetId||!selectedReviewAssets().some(x=>x.id===asset.id))return;buyerAccepted[asset.id]=true;updateBuyerReview();log('Buyer accepted '+asset.label+' individually (demo)')});
+  accept.addEventListener('click',()=>{if(finalBuyerAccepted||buyerRejectedAssetId||!selectedReviewAssets().some(x=>x.id===asset.id))return;buyerAccepted[asset.id]=true;updateBuyerReview();log('Buyer accepted '+asset.label+' individually (demo)','buyer','asset_review')});
   const reject=document.createElement('button');reject.type='button';reject.className='btn';reject.textContent='Reject asset (demo)';reject.disabled=accepted||rejected||finalBuyerAccepted;
-  reject.addEventListener('click',()=>{const reason=$('buyerRejectReason').value.trim();if(!reason){$('buyerReviewMsg').textContent='Enter a rejection reason before rejecting an asset.';return}buyerRejectedAssetId=asset.id;buyerRejectedReason=reason;buyerAccepted[asset.id]=false;updateBuyerReview();log('Buyer rejected '+asset.label+': '+reason)});
+  reject.addEventListener('click',()=>{const reason=$('buyerRejectReason').value.trim();if(!reason){$('buyerReviewMsg').textContent='Enter a rejection reason before rejecting an asset.';return}buyerRejectedAssetId=asset.id;buyerRejectedReason=reason;buyerAccepted[asset.id]=false;updateBuyerReview();log('Buyer rejected '+asset.label+': '+reason,'buyer','asset_review')});
   actions.append(accept,reject);row.append(title,status,actions);
   if(rejected){const note=document.createElement('p');note.className='muted';note.textContent='Reason: '+buyerRejectedReason;row.appendChild(note)}
   host.appendChild(row);
@@ -235,7 +219,7 @@ function updateBuyerReview(){
  $('finalBuyerAccept').disabled=!all;
  $('buyerReviewMsg').textContent=buyerRejectedAssetId!==null?'An asset was rejected. Follow the agreement-defined resolution/dispute path.':all?'Every selected asset has been accepted; final acceptance can be recorded.':assets.length?'Final acceptance is unavailable until every selected asset is accepted.':'Select at least one asset before final acceptance.';
 }
-$('finalBuyerAccept').onclick=()=>{const assets=selectedReviewAssets();if(!assets.length||!assets.every(x=>buyerAccepted[x.id]===true)||buyerRejectedAssetId!==null||finalBuyerAccepted)return;finalBuyerAccepted=true;updateBuyerReview();$('buyerReviewMsg').textContent='Final buyer acceptance recorded in local demo state only. No payout or Safe transaction occurred.';log('Final buyer acceptance recorded (demo)')};
+$('finalBuyerAccept').onclick=()=>{const assets=selectedReviewAssets();if(!assets.length||!assets.every(x=>buyerAccepted[x.id]===true)||buyerRejectedAssetId!==null||finalBuyerAccepted)return;finalBuyerAccepted=true;updateBuyerReview();$('buyerReviewMsg').textContent='Final buyer acceptance recorded in local demo state only. No payout or Safe transaction occurred.';log('Final buyer acceptance recorded (demo)','buyer','asset_review')};
 $('resetDemo').onclick=()=>{finalPrice=null;agreementVersion=0;$('assetRepo').checked=true;$('assetDomain').checked=true;$('assetWebsite').checked=false;$('assetDatabase').checked=false;$('assetOther').checked=false;preliminary=false;offerSequence=1;offerHistory=[];currentOfferId=null;approvals={buyer:false,seller:false,platform:false};deposit=false;dispute=false;disputeRequestState='none';buyerAccepted={};buyerRejectedAssetId=null,buyerRejectedReason='';finalBuyerAccepted=false;$('buyerRejectReason').value='';$('inspectionWindow').value='';$('inspectionWindow').dataset.previousValue='';$('transferPlan').value='';$('disputeResponseHours').value='';$('cancellationTerms').value='';$('networkFeeAllocation').value='';document.querySelectorAll('#agreementTerms input,#agreementTerms textarea,#agreementTerms select').forEach(control=>control.dataset.previousValue='');$('offer').value='7000';$('responseAmount').value='';$('negotiationActor').value='buyer';$('disputeReason').value='';$('depositState').textContent='Awaiting agreement';$('depositState').className='pill warn';$('depositMsg').textContent='Deposit remains disabled until all demo approvals are recorded.';$('disputeState').textContent='No request';$('disputeState').className='pill';$('disputeMsg').textContent='No real dispute request is created.';renderDisputeState();updateApprovals();updateBuyerReview();renderNegotiation();activityEvents=[];activitySequence=0;log('Demo reset · session activity cleared','demo_system','demo_reset');$('chatMessages').innerHTML='<p class="muted" id="chatEmpty">No messages have been added to this demo archive yet.</p>';$('chatCount').textContent='0 messages';$('chatMessage').value='';$('chatMessageStatus').textContent='Demo messages appear in chronological order below.';switchTab('overview')};
 updateApprovals();updateBuyerReview();renderNegotiation();log('Preview opened · no backend write','demo_system','preview_opened');
 })();
