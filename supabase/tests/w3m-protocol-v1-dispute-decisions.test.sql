@@ -86,6 +86,11 @@ begin
      or position('W3M_DEAL_DISPUTE_DECISIONS' in upper(v_reader))=0 then
     raise exception 'PREPARE/SIGN/read snapshots must independently require a verified seller-wins decision';
   end if;
+  if not has_function_privilege('service_role','public.w3m_read_dealroom_dispute_decision_snapshot(uuid)','EXECUTE')
+     or has_function_privilege('anon','public.w3m_read_dealroom_dispute_decision_snapshot(uuid)','EXECUTE')
+     or has_function_privilege('authenticated','public.w3m_read_dealroom_dispute_decision_snapshot(uuid)','EXECUTE') then
+    raise exception 'Dispute decision snapshot RPC must be service-role-only';
+  end if;
 end;
 $schema$;
 
