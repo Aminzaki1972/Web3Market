@@ -78,6 +78,8 @@ Deno.test("sandbox happy path: offer -> agreement -> deposit evidence -> transfe
         id: asset.id,
         evidenceStatus: asset.transferState === "verified" ? "verified" : "pending",
         evidenceCheckedAt: asset.verification?.checkedAt ?? null,
+        evidenceSource: asset.verification?.source ?? "",
+        evidenceReference: asset.evidence.map(item => item.reference).join(","),
         buyerStatus: review.assets[asset.id].status,
         buyerReviewedAt: review.assets[asset.id].reviewedAt,
       }],
