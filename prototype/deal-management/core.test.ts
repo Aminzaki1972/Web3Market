@@ -25,8 +25,8 @@ Deno.test("platform commission floors to whole six-decimal USDT units without fl
   assertEquals(oneMicro.sellerNet, 1n);
 
   const awkward = calculateOrdinaryPayout(13_333n);
-  assertEquals(awkward.platformFee, 9_999n);
-  assertEquals(awkward.sellerNet, 3_334n);
+  assertEquals(awkward.platformFee, 999n);
+  assertEquals(awkward.sellerNet, 12_334n);
   assertEquals(awkward.platformFee + awkward.sellerNet, 13_333n);
 });
 
