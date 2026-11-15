@@ -346,3 +346,12 @@ The product owner explicitly approved the following administration policy for th
 - Added regression coverage for a mismatched deposit and a missing/invalid agreed amount; the happy-path workflow now supplies the same final agreed amount explicitly.
 - Latest CI run [#43664845343](https://github.com/Aminzaki1972/Web3Market/actions/runs/43664845343): **103 passed, 0 failed**.
 - This is a pure domain gate. Production must source the agreed gross amount from the immutable, authenticated server-side agreement record and independently verify the deposit; caller-supplied fields are not trusted evidence.
+
+## 2026-11-15 — dispute payout consistency and decision binding
+
+- Dispute payout planning now requires the intake request to match the dispute ID, deal ID and claimant; the respondent must be the opposite party.
+- It also requires a reasoned approved administrative review, a recorded reviewer identity/time, and an active payout hold. A contradictory record (for example, a declined review relabelled as lock-confirmed, or a released hold) is rejected.
+- The locked-Safe policy model now compares the settlement intent's decision hash and decision nonce with the separately supplied trusted approved-decision hash and nonce. A merely well-formed but different hash/nonce is rejected.
+- Added regression tests for contradictory dispute state and unapproved/stale decision references.
+- Latest CI run [#43665684762](https://github.com/Aminzaki1972/Web3Market/actions/runs/43665684762): **105 passed, 0 failed**.
+- These remain pure sandbox checks. The trusted approved decision reference must eventually be loaded and authenticated server-side; the model does not verify signatures, decode live Safe calldata, query chain state or enforce a real Guard.
