@@ -6,6 +6,9 @@ declare
   v_finalizer text;
   v_finalizer_compact text;
   v_decision_function text;
+  v_prepare text;
+  v_sign text;
+  v_reader text;
 begin
   select c.relrowsecurity into v_rls
     from pg_class c join pg_namespace n on n.oid=c.relnamespace
@@ -66,6 +69,22 @@ begin
      or position('SELECT * INTO V_DISPUTE' in upper(v_decision_function)) >
         position('SELECT * INTO V_DEAL' in upper(v_decision_function)) then
     raise exception 'Dispute decision RPC must lock the dispute row before the parent deal to match trigger lock order';
+  end if;
+
+  select pg_get_functiondef('public.w3m_commit_safe_prepare(uuid,uuid,jsonb,jsonb,jsonb)'::regprocedure)
+    into v_prepare;
+  select pg_get_functiondef('public.w3m_record_safe_release_signature(uuid,uuid,text,text,text,text,jsonb)'::regprocedure)
+    into v_sign;
+  select pg_get_functiondef('public.w3m_read_dealroom_dispute_decision_snapshot(uuid)'::regprocedure)
+    into v_reader;
+  if position('W3M_DEAL_DISPUTE_DECISIONS' in upper(v_prepare))=0
+     or position('RESOLVED_SELLER' in upper(v_prepare))=0
+     or position('SELLER_WINS' in upper(v_prepare))=0
+     or position('W3M_DEAL_DISPUTE_DECISIONS' in upper(v_sign))=0
+     or position('RESOLVED_SELLER' in upper(v_sign))=0
+     or position('SELLER_WINS' in upper(v_sign))=0
+     or position('W3M_DEAL_DISPUTE_DECISIONS' in upper(v_reader))=0 then
+    raise exception 'PREPARE/SIGN/read snapshots must independently require a verified seller-wins decision';
   end if;
 end;
 $schema$;
