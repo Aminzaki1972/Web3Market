@@ -84,7 +84,7 @@ declare
   v_parent_dispute_status text;
 begin
   if p_deal_id is null or p_dispute_id is null or p_actor_id is null
-     or p_outcome not in ('buyer_wins','seller_wins')
+     or p_outcome is null or p_outcome not in ('buyer_wins','seller_wins')
      or p_reason is null then
     raise exception 'Invalid W3M dispute decision arguments' using errcode = '22023';
   end if;
@@ -101,9 +101,10 @@ begin
   end if;
   perform pg_catalog.set_config('request.jwt.claim.sub', p_actor_id::text, true);
 
-  if jsonb_typeof(p_evidence_refs) is distinct from 'array'
-     or jsonb_array_length(p_evidence_refs) < 1
-     or jsonb_array_length(p_evidence_refs) > 100 then
+  if jsonb_typeof(p_evidence_refs) is distinct from 'array' then
+    raise exception 'Evidence references must be a JSON array' using errcode = '22023';
+  end if;
+  if jsonb_array_length(p_evidence_refs) < 1 or jsonb_array_length(p_evidence_refs) > 100 then
     raise exception 'One to one hundred evidence references are required'
       using errcode = '22023';
   end if;
@@ -170,6 +171,9 @@ begin
     ) into v_existing_refs
       from jsonb_array_elements(v_existing.evidence_refs) as e(value);
     if v_deal.status = 'disputed'
+       and v_dispute.status = 'resolved'
+       and v_dispute.resolution = v_existing.outcome
+       and v_deal.dispute_status = case when v_existing.outcome='buyer_wins' then 'resolved_buyer' else 'resolved_seller' end
        and v_existing.outcome = p_outcome
        and v_existing.reason = v_reason
        and v_existing_refs = v_requested_refs then
@@ -189,7 +193,9 @@ begin
   end if;
 
   if v_deal.status is distinct from 'disputed'
+     or v_deal.dispute_status is null
      or v_deal.dispute_status not in ('open','under_review')
+     or v_dispute.status is null
      or v_dispute.status not in ('open','under_review') then
     raise exception 'Only an active, consistently disputed deal can receive a decision'
       using errcode = '23514';
@@ -234,7 +240,8 @@ begin
      and a.party_role = 'seller'
    for share;
 
-  if not found
+  if v_buyer_accept.id is null
+     or v_seller_accept.id is null
      or v_buyer_accept.party_id is distinct from v_deal.buyer_id
      or v_seller_accept.party_id is distinct from v_deal.seller_id
      or v_buyer_accept.terms_hash is distinct from v_terms.terms_hash
