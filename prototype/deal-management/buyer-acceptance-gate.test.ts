@@ -39,3 +39,10 @@ Deno.test("final acceptance rejects duplicate, extra and conflicting asset IDs",
   {requiredAssetIds:["repo","repo"]},
  ]) assertEquals(canRecordFinalBuyerAcceptance({...valid,...patch}),false);
 });
+
+
+Deno.test("individual acceptance rejects malformed or duplicate required asset lists",()=>{
+ for(const requiredAssetIds of [[],["repo","repo"],["repo",""]]) {
+  assertEquals(canRecordBuyerAssetAcceptance({...base,requiredAssetIds,assetId:"repo"}),false);
+ }
+});
