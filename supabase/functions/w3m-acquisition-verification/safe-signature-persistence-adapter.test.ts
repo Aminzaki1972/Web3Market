@@ -9,7 +9,7 @@ const wallet = "0x" + "1".repeat(40);
 function authorization(overrides: Record<string, unknown> = {}) {
  return {
   authorized: true, phase: "SIGN" as const, dealId: deal, safeTransactionHash: hash,
-  issues: [], reportId: report, reportVersion: 1, ...overrides,
+  issues: [], reportId: report, reportVersion: 1, dealTermsHash: "a".repeat(64), ...overrides,
  };
 }
 function client(response: unknown = {
@@ -37,6 +37,7 @@ Deno.test("atomic SIGN adapter invokes only the dedicated RPC with server-derive
  assertEquals(db.calls[0].name, "w3m_record_safe_release_signature");
  assertEquals(db.calls[0].args.p_actor_id, actor);
  assertEquals(db.calls[0].args.p_w3m_authorization && (db.calls[0].args.p_w3m_authorization as Record<string,unknown>).report_id, report);
+ assertEquals((db.calls[0].args.p_w3m_authorization as Record<string,unknown>).deal_terms_hash, "a".repeat(64));
 });
 Deno.test("atomic SIGN adapter refuses missing or mismatched W3M PASS before RPC", async () => {
  const db = client();
