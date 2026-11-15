@@ -98,6 +98,10 @@ begin
     raise exception 'Safe execution snapshot did not preserve expected deal/policy/profile fields';
   end if;
 
+  if not (v_snapshot ? 'dispute_decision') or v_snapshot->'dispute_decision' is not null then
+    raise exception 'No-dispute Safe snapshot must expose an explicit null decision';
+  end if;
+
   v_tx_rows := v_snapshot->'release_transactions';
   if jsonb_typeof(v_tx_rows) <> 'array'
      or jsonb_array_length(v_tx_rows) <> 1
