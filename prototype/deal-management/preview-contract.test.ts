@@ -25,6 +25,7 @@ Deno.test("dispute preview requires claimant evidence and models respondent resp
   assertStringIncludes(preview, "disputeLifecycle.responseDeadline");
   assertStringIncludes(preview, "disputeLifecycle.status='response_received'");
   assertStringIncludes(preview, "disputeLifecycle.status='response_expired'");
+  assertStringIncludes(preview, "The agreed response deadline has not expired yet.");
   assertStringIncludes(preview, "Safe lock is NOT verified or claimed.");
 });
 
