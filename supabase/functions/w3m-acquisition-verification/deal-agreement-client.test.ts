@@ -1,5 +1,6 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import { signAndSubmitW3MDealAgreement } from "../../../js/w3m-deal-agreement-client.js";
+import { W3M_AGREEMENT_DOCUMENT_TEXT, W3M_AGREEMENT_DOCUMENT_SHA256 } from "./deal-agreement-document.ts";
 const dealId = "71000000-0000-4000-8000-000000000001";
 const wallet = "0x5555555555555555555555555555555555555555";
 const signature = "0x" + "a".repeat(130);
@@ -17,7 +18,7 @@ const types = {
   ],
 };
 async function prepared(overrides: Record<string, unknown> = {}) {
-  const agreementDocument = { documentId: "W3M-AGREEMENT", version: "1.0", locale: "ar", sha256: "74fc948b9b7757718b617af080acd51c0a21de81aa3a5b7f410a19aa07a7a465", text: "# Web3Market Agreement\n" + "Approved agreement text. ".repeat(100) };
+  const agreementDocument = { documentId: "W3M-AGREEMENT", version: "1.0", locale: "ar", sha256: W3M_AGREEMENT_DOCUMENT_SHA256, text: "# Web3Market Agreement\n" + "Approved agreement text. ".repeat(100) };
   const canonicalTerms = { dealId, amount: "100", currency: "USDT", feePercent: "7.5", sellerNetAmount: "92.5", agreementDocument: { documentId: agreementDocument.documentId, version: agreementDocument.version, locale: agreementDocument.locale, sha256: agreementDocument.sha256 } };
   const stable = (value: unknown): unknown => {
     if (Array.isArray(value)) return value.map(stable);
@@ -129,6 +130,18 @@ Deno.test("client rejects canonical terms content that does not match its SHA-25
     dealId, accessToken: "session", walletAddress: wallet,
     request: async () => altered,
     reviewTerms: async () => true,
+    signTypedData: async () => { signed = true; return signature; },
+  }));
+  assertEquals(signed, false);
+});
+
+Deno.test("client refuses to sign if the displayed legal agreement text differs from its signed digest", async () => {
+  let signed = false;
+  const altered = await prepared();
+  altered.result.agreementDocument.text += "\\nAltered clause";
+  await assertRejects(() => signAndSubmitW3MDealAgreement({
+    dealId, accessToken: "session", walletAddress: wallet,
+    reviewTerms: async () => true, request: async () => altered,
     signTypedData: async () => { signed = true; return signature; },
   }));
   assertEquals(signed, false);
