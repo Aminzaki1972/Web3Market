@@ -7,6 +7,7 @@ on:
     paths:
       - "prototype/deal-management/**"
       - "deal-management-preview.html"
+      - "js/deal-room.js"
       - ".github/workflows/deal-management-sandbox-tests.yml"
   push:
     branches:
@@ -32,6 +33,9 @@ jobs:
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+
+      - name: Check Deal Room client syntax
+        run: node --check js/deal-room.js
 
       - name: Run sandbox tests
         run: deno test --allow-read=deal-management-preview.html prototype/deal-management/
