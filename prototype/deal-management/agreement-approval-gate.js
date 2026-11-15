@@ -14,10 +14,11 @@ export function canRecordAgreementApproval(role, capturedVersion, capturedHash, 
     capturedHash === currentHash;
 }
 
-export function haveAllCurrentAgreementApprovals(approvals, approvalHashes, currentVersion, currentHash) {
+export function haveAllCurrentAgreementApprovals(approvals, approvalHashes, approvalVersions, currentVersion, currentHash) {
   if (!currentHash || !Number.isSafeInteger(currentVersion) || currentVersion <= 0) return false;
   return [...ROLES].every(role =>
     approvals?.[role] === true &&
-    approvalHashes?.[role] === currentHash
+    approvalHashes?.[role] === currentHash &&
+    approvalVersions?.[role] === currentVersion
   );
 }
