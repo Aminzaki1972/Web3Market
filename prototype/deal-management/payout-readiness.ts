@@ -21,6 +21,8 @@ export type PayoutAgreementEvidence = {
     id: string;
     evidenceStatus: "verified" | "pending" | "rejected";
     evidenceCheckedAt: number | null;
+    evidenceSource: string;
+    evidenceReference: string;
     buyerStatus: "accepted" | "pending" | "rejected";
     buyerReviewedAt: number | null;
   }>;
@@ -81,7 +83,8 @@ function hasAllRequiredAssetsVerified(snapshot: PayoutAgreementEvidence): boolea
   const assets = snapshot.requiredAssets;
   return Array.isArray(assets) && assets.length > 0 &&
     assets.every(asset => !!asset.id.trim() && asset.evidenceStatus === "verified" &&
-      asset.evidenceCheckedAt !== null && Number.isFinite(asset.evidenceCheckedAt) && asset.evidenceCheckedAt >= 0) &&
+      asset.evidenceCheckedAt !== null && Number.isFinite(asset.evidenceCheckedAt) && asset.evidenceCheckedAt >= 0 &&
+      !!asset.evidenceSource.trim() && !!asset.evidenceReference.trim()) &&
     new Set(assets.map(asset => asset.id)).size === assets.length;
 }
 
@@ -94,7 +97,7 @@ function hasCurrentBuyerFinalAcceptance(snapshot: PayoutAgreementEvidence): bool
       !Array.isArray(assets) || assets.length === 0 ||
       assets.some(asset => asset.buyerStatus !== "accepted" || !Number.isFinite(asset.buyerReviewedAt) || asset.buyerReviewedAt! < 0 ||
         asset.evidenceStatus !== "verified" || !Number.isFinite(asset.evidenceCheckedAt) ||
-        asset.evidenceCheckedAt! < 0 || asset.buyerReviewedAt! < asset.evidenceCheckedAt! ||
+        asset.evidenceCheckedAt! < 0 || !asset.evidenceSource.trim() || !asset.evidenceReference.trim() || asset.buyerReviewedAt! < asset.evidenceCheckedAt! ||
         acceptance.acceptedAt < asset.buyerReviewedAt!)) return false;
   const requiredIds = assets.map(asset => asset.id).sort();
   const acceptedIds = [...acceptance.acceptedAssetIds].sort();
