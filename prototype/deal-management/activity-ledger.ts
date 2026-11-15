@@ -80,7 +80,7 @@ const systemOnly = new Set<DealActivityEventType>([
 
 function validRoster(p: DealActivityParticipants): boolean {
   return Boolean(p.dealId.trim() && p.buyerId.trim() && p.sellerId.trim() &&
-    p.systemActorId.trim() && p.buyerId !== p.sellerId &&
+    p.systemActorId.trim() && p.buyerId !== p.sellerId && p.adminIds.length <= 1 &&
     p.systemActorId !== p.buyerId && p.systemActorId !== p.sellerId &&
     !p.adminIds.some(id => !id.trim() || id === p.buyerId ||
       id === p.sellerId || id === p.systemActorId) &&
