@@ -13,10 +13,17 @@ export function canRecordBuyerAssetAcceptance({assetId,requiredAssetIds,evidence
 }
 
 export function canRecordFinalBuyerAcceptance({requiredAssetIds,evidenceStatuses,acceptedAssetIds,rejectedAssetIds,depositConfirmed,disputeActive,agreementApprovalsCurrent,agreementSnapshotCurrent}) {
-  if (!Array.isArray(requiredAssetIds) || requiredAssetIds.length === 0) return false;
-  const accepted = new Set(Array.isArray(acceptedAssetIds) ? acceptedAssetIds : []);
-  const rejected = new Set(Array.isArray(rejectedAssetIds) ? rejectedAssetIds : []);
-  return depositConfirmed === true && disputeActive === false &&
-    agreementApprovalsCurrent === true && agreementSnapshotCurrent === true &&
-    requiredAssetIds.every(id => evidenceStatuses?.[id] === "verified" && accepted.has(id) && !rejected.has(id));
+  if (!Array.isArray(requiredAssetIds) || requiredAssetIds.length === 0 ||
+      requiredAssetIds.some(id => typeof id !== "string" || !id.trim()) ||
+      new Set(requiredAssetIds).size !== requiredAssetIds.length ||
+      !Array.isArray(acceptedAssetIds) || !Array.isArray(rejectedAssetIds)) return false;
+  const accepted = new Set(acceptedAssetIds);
+  const rejected = new Set(rejectedAssetIds);
+  return accepted.size === acceptedAssetIds.length &&
+    rejected.size === rejectedAssetIds.length &&
+    accepted.size === requiredAssetIds.length &&
+    requiredAssetIds.every(id => evidenceStatuses?.[id] === "verified" && accepted.has(id) && !rejected.has(id)) &&
+    rejectedAssetIds.every(id => !accepted.has(id) && requiredAssetIds.includes(id)) &&
+    depositConfirmed === true && disputeActive === false &&
+    agreementApprovalsCurrent === true && agreementSnapshotCurrent === true;
 }
