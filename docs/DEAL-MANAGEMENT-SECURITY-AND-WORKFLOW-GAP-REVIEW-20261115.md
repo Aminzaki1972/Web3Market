@@ -143,3 +143,17 @@ Verification performed against the committed client source:
 The sandbox GitHub Actions workflow now also runs `node --check js/deal-room.js` when that client file changes. Run `43667143165` completed successfully for commit `6ffb725bc9db313f5dbeabb0e354900badac91d5`.
 
 This is a fail-closed client-side guard, not a backend authorization boundary. It does not implement the new agreement/dispute endpoints, database persistence, single-admin authorization, Safe lock, or on-chain settlement.
+
+
+## Deterministic agreement snapshot primitive (2026-11-15)
+
+Added `prototype/deal-management/agreement-snapshot.ts` and tests. The sandbox primitive:
+- serializes JSON objects with recursively sorted keys;
+- preserves array order;
+- normalizes strings to Unicode NFC;
+- rejects unsupported/lossy values, non-finite numbers, unsafe object keys, normalized-key collisions, and excessive nesting;
+- computes a SHA-256 digest over the canonical JSON.
+
+Tests cover key-order invariance, array-order sensitivity, Unicode normalization, unsupported values, unsafe keys, and top-level object validation.
+
+This is a tested deterministic serialization primitive only. It is not yet called by a trusted Edge Function, does not persist immutable agreement versions, and does not verify wallet signatures or platform approval authority. The platform approval decision gate remains open. No database migration or deployment was performed.
