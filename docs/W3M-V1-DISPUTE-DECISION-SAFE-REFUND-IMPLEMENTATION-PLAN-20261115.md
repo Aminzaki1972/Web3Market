@@ -12,6 +12,22 @@ Scope: isolated V1 branch only. Planning artifact; not a production migration or
 - Existing independent-session tests now exercise the actual finalizer against dispute opening, signer revocation, project ownership changes, report appends, and evidence appends. The focused legacy dispute concurrency test is not a substitute for those finalizer tests.
 - The owner-approved Arabic 20-article agreement is now committed at `docs/legal/W3M-DEAL-AGREEMENT-AR-V1.0.md` (document ID `W3M-AGREEMENT`, version `1.0`, SHA-256 `74fc948b9b7757718b617af080acd51c0a21de81aa3a5b7f410a19aa07a7a465`) and is being wired into the isolated EIP-712 acceptance flow under Issue #192. This owner approval is not a claim of final independent legal review or jurisdiction-specific enforceability. The agreement protects the platform's 7.5% commission but does not yet provide a sufficiently precise executable formula for allocating commission on partial buyer refunds. Partial-refund fee allocation must therefore remain fail-closed and must not be invented.
 
+## 1A. Read-only live-schema inventory (2026-11-15)
+
+The connected production schema was inspected read-only to avoid designing against guessed columns or policies. No rows were modified and no migration was applied.
+
+- `deals`: has `status` including `disputed`, `dispute_status` values `none | open | under_review | resolved_buyer | resolved_seller | closed`, `payment_status`, `payment_tx_hash`, `funded_at`, `chain_id`, `safe_address`, `token_contract`, `expected_amount`, and locked fee fields.
+- `deal_disputes`: has `id, deal_id, opened_by, reason, evidence jsonb, status, resolution, resolved_by, resolved_at`; allowed dispute statuses are `open | under_review | resolved | cancelled`; a unique index enforces one dispute per deal.
+- RLS currently permits authenticated participants to INSERT disputes and permits participants/admins to SELECT them; no participant UPDATE policy was found. This supports a server-only decision path rather than browser-side updates.
+- `deal_multisig_transactions`: has the `refund_to_buyer` action value, amount, chain/Safe address, nonce, destination, calldata, operation, gas fields, Safe transaction hash, status, signatures, and confirmations. Its current RLS is participant SELECT only; no working refund RPC was identified.
+- `deal_release_policies`: stores the locked 7.5% fee, fee amount, seller net, platform wallet, Safe, token contract, chain, and Safe nonce.
+- `blockchain_transactions`: has chain ID, tx hash, transaction type, amount, token symbol, from/to, status, block number, confirmation timestamp and metadata; a partial unique index permits one `transaction_type='payment'` record per deal. It does not have a first-class token-contract column, so refund eligibility must independently verify the deal's configured token contract and on-chain receipt rather than trusting `token_symbol` or metadata alone.
+- `deal_messages`, `deal_assets`, `deal_events`, and `deal_audit_logs` are available as existing deal evidence/audit sources. Evidence references must be checked against the same deal and the actor's permitted scope.
+- Existing deal-state trigger permits `disputed -> in_progress | completed | cancelled`; the dispute status column has separate values. The new RPC must update both vocabularies consistently and must not bypass the fee-lock or sensitive-field triggers.
+- `public.is_admin()` delegates to `private.support_is_admin()`, which checks the authenticated user's `profiles.role='admin'`. A decision endpoint must still verify the session and invoke the server-side admin check; a browser-supplied role is never authority.
+
+Implementation consequence: keep decision authorization and immutable decision persistence separate from Safe refund request creation and receipt finalization. Treat confirmed payment records as candidate funding evidence only after cross-checking their tx hash, chain, exact token contract, Safe recipient, amount, canonical receipt and confirmations.
+
 ## 2. Non-negotiable V1 rules
 
 1. No independent escrow contract. Deal funds and any refund request remain Safe-only.
