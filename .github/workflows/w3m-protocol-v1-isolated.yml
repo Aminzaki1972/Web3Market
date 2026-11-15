@@ -8,6 +8,8 @@ on:
   pull_request:
     paths:
       - "supabase/functions/w3m-acquisition-verification/**"
+      - "docs/legal/**"
+      - "supabase/migrations/20261115010000_w3m_protocol_v1_bind_legal_agreement_document.sql"
       - "supabase/functions/w3m-protocol-v1-finalize-safe-release/**"
       - "supabase/functions/w3m-protocol-v1-deal-agreement/**"
       - "supabase/functions/w3m-protocol-v1-prepare-deal-release/**"
@@ -26,6 +28,7 @@ on:
       - "supabase/migrations/20261107150000_w3m_protocol_v1_report_signer_lock.sql"
       - "supabase/migrations/20261107160000_w3m_protocol_v1_atomic_project_ownership_transfer.sql"
       - "supabase/migrations/20261107170000_w3m_protocol_v1_dispute_open_rpc_contract.sql"
+      - "supabase/migrations/20261115010000_w3m_protocol_v1_bind_legal_agreement_document.sql"
       - "supabase/tests/w3m-protocol-v1-report-signer-lock.test.sql"
       - "supabase/tests/w3m-protocol-v1-report-version-serialization.test.sql"
       - "supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql"
