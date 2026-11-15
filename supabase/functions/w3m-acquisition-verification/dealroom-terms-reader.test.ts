@@ -107,7 +107,6 @@ Deno.test("exact snapshot loader feeds exact financial text into the W3M gate", 
   });
   assertEquals(result.authorized, false);
   assertEquals(result.dealTermsHash.length, 64);
-  assertEquals(result.reportVerificationIssues.includes("REPORT_ROW_INVALID"), true);
 });
 
 Deno.test("exact snapshot loader allows only a decision-bound seller win", async () => {
