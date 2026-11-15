@@ -110,3 +110,16 @@ Read-only SQL inspection confirmed:
 ## Safety boundary
 
 This audit only retrieved function source and queried metadata/definitions. It did not invoke any deployed Edge Function endpoint, alter any production table, change any function, apply any migration, sign a wallet, or submit a blockchain transaction. No paid resource was created. The isolated branch remains unmerged and undeployed.
+
+
+## 12. Read-only RLS and table-grant recheck — 2026-11-15
+
+A fresh read-only query of `pg_policies` and `information_schema.role_table_grants` reconfirmed the following production facts:
+
+- `deals`: `authenticated` has table INSERT and SELECT privileges. The permissive INSERT policy requires a non-anonymous authenticated JWT and `buyer_id = auth.uid()`. A restrictive INSERT policy additionally requires buyer != seller, amount > 0, fee percent exactly 7.5, multisig 2-of-3 fields, pending payment, all chain/Safe/token/payment fields initially null, and a project row whose owner matches `seller_id`. It does **not** require `profiles.role = 'buyer'` and does not require creation through a server-owned offer workflow.
+- `deal_messages`: `authenticated` has INSERT and SELECT privileges. The INSERT policy checks `sender_id = auth.uid()` and `is_deal_participant(deal_id)`; this means direct participant chat inserts remain possible through the Data API, independent of the new prototype's disabled UI.
+- `deal_disputes`: `authenticated` has INSERT and SELECT privileges; its participant INSERT policy allows a buyer/seller to insert a dispute row directly when `opened_by = auth.uid()`. The old status constraint and schema do not implement the proposed pending-admin-review lifecycle. The `anon` role has table-level grants in metadata, but the listed policies are authenticated-only; no conclusion of anonymous row access is made here.
+
+These findings are production database configuration observations, not changes. The prototype's UI guards do not close these Data API paths. Before rollout, the database authorization model must be redesigned so that offers, chat writes, and dispute intake are performed through the approved server-authoritative workflows, while preserving only the intended participant read access. Any migration must wait until the historical schema/trigger/constraint baseline is recovered and reviewed.
+
+No production writes, policy changes, grants changes, function invocations, or migrations were performed.
