@@ -227,6 +227,31 @@ Deno.test("dispute payout rejects contradictory approval, hold and claimant reco
   );
 });
 
+Deno.test("dispute payout rejects non-integer or non-finite lock confirmation counts", () => {
+  const dispute = resolvedDispute("lock-counts", {
+    buyerGrossRefund: gross, sellerPayout: 0n, platformFee: fee,
+  });
+  const input = disputeInput(dispute);
+  for (const malformed of [
+    { confirmations: Number.NaN },
+    { confirmations: Number.POSITIVE_INFINITY },
+    { confirmations: 12.5 },
+    { requiredConfirmations: Number.NaN },
+    { requiredConfirmations: Number.POSITIVE_INFINITY },
+    { requiredConfirmations: 12.5 },
+  ]) {
+    const badRequest = {
+      ...input.disputeRequest,
+      lockProof: { ...input.disputeRequest.lockProof!, ...malformed },
+    };
+    const result = prepareDisputePayout({ ...input, disputeRequest: badRequest });
+    assertEquals(result.ready, false);
+    if (!result.ready) assertEquals(
+      result.blockers.includes("dispute_lock_not_confirmed"), true,
+    );
+  }
+});
+
 Deno.test("dispute payout waits for final decision and verified agreement/deposit", () => {
   const pending = openDispute("pending", "buyer", 100, 1_000);
   const pendingResult = prepareDisputePayout({
