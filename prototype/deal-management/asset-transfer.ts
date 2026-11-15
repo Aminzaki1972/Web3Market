@@ -38,7 +38,7 @@ export function submitAssetEvidence(
   asset: DealAsset, evidence: AssetEvidence,
 ): DealAsset {
   if (!evidence.id.trim() || !evidence.kind.trim() || !evidence.source.trim() ||
-      !evidence.reference.trim() || !Number.isFinite(evidence.submittedAt)) {
+      !evidence.reference.trim() || !Number.isFinite(evidence.submittedAt) || evidence.submittedAt < 0) {
     throw new Error("Complete evidence metadata is required");
   }
   if (asset.transferState === "verified" || asset.transferState === "rejected") {
@@ -74,9 +74,12 @@ export function assessAssetEvidence(asset: DealAsset, evidence: AssetEvidence[])
 export function recordAssetVerification(
   asset: DealAsset, verification: AssetVerification,
 ): DealAsset {
+  if (asset.transferState === "verified" || asset.transferState === "rejected") {
+    throw new Error("A terminal verification result cannot be overwritten");
+  }
   if (!["verified", "needs_review", "rejected"].includes(verification.status) ||
       !verification.summary.trim() || !verification.source.trim() ||
-      !Number.isFinite(verification.checkedAt)) {
+      !Number.isFinite(verification.checkedAt) || verification.checkedAt < 0) {
     throw new Error("Verification result, summary, source and timestamp are required");
   }
   if (verification.status === "verified" &&
