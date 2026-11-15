@@ -179,6 +179,7 @@ export class InMemoryDisputeTransactionModel {
     requestId: string,
     reason: string,
     releasedAt: number,
+    otherActiveHoldExists: boolean,
   ): DisputeRequest {
     authorizeDealAction(authenticatedUserId, this.#roster, "release_declined_hold");
     const current = this.#requests.get(requestId);
@@ -186,7 +187,7 @@ export class InMemoryDisputeTransactionModel {
     const hold = this.#holds.get(this.#roster.dealId);
     if (!hold || hold.requestId !== requestId) throw new Error("Matching active payout hold is required");
     const next = immutableRequest(releaseDeclinedDisputeHold(
-      current, reason, authenticatedUserId, releasedAt, false,
+      current, reason, authenticatedUserId, releasedAt, otherActiveHoldExists,
     ));
     const sequence = this.#events.filter(event => event.requestId === requestId).length + 1;
     const event: DisputeStoreEvent = Object.freeze({
