@@ -1,7 +1,7 @@
 // W3M Protocol V1 — authenticated admin-only dispute decision endpoint.
 // Isolated implementation only; not deployed and not connected to the live Deal Room.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import type { W3MDisputeDecisionRpcClient } from "../w3m-acquisition-verification/dispute-decision-service.ts";
 import { persistW3MDisputeDecision } from "../w3m-acquisition-verification/dispute-decision-service.ts";
 import { handleW3MDisputeDecisionRequest } from "../w3m-acquisition-verification/dispute-decision-request-handler.ts";
