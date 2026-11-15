@@ -280,13 +280,12 @@
  }
  async function renderTerms(){
   if(!deal)return;
-  const rows=await loadAgreement(),mine=rows.find(x=>x.party_role===participant&&String(x.party_id)===String(user.id)),buyer=rows.find(x=>x.party_role==='buyer')?.agreed_at,seller=rows.find(x=>x.party_role==='seller')?.agreed_at,actions=document.querySelector('#actions');
+  const actions=document.querySelector('#actions');
   if(!actions)return;
-  actions.innerHTML=`<div class="notice"><strong>Dispute Resolution — Model B</strong><br>Buyer and Seller agree that Web3Market acts as the dispute resolution party. Funds are held by the 2-of-3 Safe, not by Web3Market. ${buyer?'Buyer ✓':'Buyer pending'} · ${seller?'Seller ✓':'Seller pending'}</div>${participant==='platform'?'<div class="notice ok">Platform moderator view — monitoring and dispute resolution only.</div>':''}<button id="agreeBtn" class="btn primary" ${participant==='platform'||mine?.agreed_at?'disabled':''}>${mine?.agreed_at?'Terms Accepted':'I Agree to Deal Terms'}</button><button id="disputeBtn" class="btn" style="background:#fff7ed;color:#9a3412">Open Dispute</button>`;
-  const agreeBtn=document.querySelector('#agreeBtn');
-  if(agreeBtn&&!mine?.agreed_at&&participant!=='platform')agreeBtn.onclick=async()=>{agreeBtn.disabled=true;const {error}=await sb.from('deal_party_agreements').upsert({deal_id:deal.id,party_role:participant,party_id:user.id,agreed_at:new Date().toISOString()},{onConflict:'deal_id,party_role,party_id'});if(error){alert(error.message||'Could not save agreement');agreeBtn.disabled=false;return}await renderTerms()};
-  const db=document.querySelector('#disputeBtn');
-  if(db)db.onclick=()=>openDisputeModal();
+  // Fail closed: the legacy browser writes are not valid substitutes for the
+  // new server-authoritative, version/hash-bound three-party agreement flow
+  // or the pending-request/admin-review dispute workflow.
+  actions.innerHTML=`<div class="notice warn"><strong>New Deal Management workflow is not connected yet.</strong><br>Agreement approval and dispute submission are temporarily unavailable here. The old direct-table actions are deliberately disabled so they cannot create misleading approvals or bypass administrative dispute review.</div><div class="notice">No agreement approval, dispute decision, Safe lock, deposit, or payout is being performed by this screen.</div>${participant==='platform'?'<div class="notice">Administrator view: review functions remain unavailable until the owner-authorized single-admin backend is connected.</div>':''}<button id="agreeBtn" class="btn primary" disabled title="Awaiting the server-authoritative agreement workflow">Agreement approval unavailable</button><button id="disputeBtn" class="btn" disabled title="Awaiting the dispute request and administrator review workflow">Dispute request unavailable</button>`;
  }
  // Keep dispute input bounded and accessible; never pass unvalidated prompt text into the database.
  async function openDisputeModal(){
