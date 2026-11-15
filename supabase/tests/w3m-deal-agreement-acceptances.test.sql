@@ -186,6 +186,7 @@ begin
     'currency','USDT','expectedAmount','100','chainId',56,
     'safeAddress','0x2222222222222222222222222222222222222222',
     'tokenContract','0x3333333333333333333333333333333333333333',
+    'agreementDocument',jsonb_build_object('documentId','W3M-AGREEMENT','version','1.0','locale','ar','sha256','74fc948b9b7757718b617af080acd51c0a21de81aa3a5b7f410a19aa07a7a465'),
     'codeAudit',jsonb_build_object(
       'auditId','87000000-0000-4000-8000-000000000007',
       'repositoryOwner','Aminzaki1972',
@@ -218,6 +219,10 @@ begin
     raise exception 'First terms version was not created';
   end if;
   v_version_id := (v_version->>'terms_version_id')::uuid;
+  if (select canonical_terms->'agreementDocument'->>'version' from public.w3m_deal_terms_versions where id=v_version_id) <> '1.0'
+     or (select canonical_terms->'agreementDocument'->>'sha256' from public.w3m_deal_terms_versions where id=v_version_id) <> '74fc948b9b7757718b617af080acd51c0a21de81aa3a5b7f410a19aa07a7a465' then
+    raise exception 'Registered deal terms did not pin the exact approved agreement document version and SHA-256';
+  end if;
 
   v_version := public.w3m_register_deal_terms_version(v_deal,v_hash,v_canonical);
   if v_version->>'terms_version' <> '1'
