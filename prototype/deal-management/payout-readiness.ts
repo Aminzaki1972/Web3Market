@@ -131,8 +131,17 @@ export function prepareDisputePayout(
   if (input.depositedAmount <= 0n) blockers.push("invalid_deposit_amount");
   if (input.originalGrossAgreedAmount <= 0n) blockers.push("invalid_original_agreed_amount");
   if (input.disputeRequest.id !== input.dispute.id ||
-      input.disputeRequest.dealId !== input.dealId) {
+      input.disputeRequest.dealId !== input.dealId ||
+      input.disputeRequest.claimant !== input.dispute.claimant ||
+      input.dispute.respondent !== (input.dispute.claimant === "buyer" ? "seller" : "buyer")) {
     blockers.push("dispute_request_mismatch");
+  }
+  if (input.disputeRequest.review?.outcome !== "approved" ||
+      !input.disputeRequest.review.reason.trim() ||
+      !input.disputeRequest.review.reviewerId.trim() ||
+      !Number.isFinite(input.disputeRequest.review.reviewedAt) ||
+      input.disputeRequest.payoutHold !== true) {
+    blockers.push("dispute_approval_or_hold_inconsistent");
   }
   const lock = input.disputeRequest.lockProof;
   const validAddress = /^0x[0-9a-fA-F]{40}$/;
