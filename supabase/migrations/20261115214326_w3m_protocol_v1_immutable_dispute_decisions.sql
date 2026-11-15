@@ -94,12 +94,13 @@ begin
       using errcode = '22023';
   end if;
 
-  -- The actor is supplied only by the authenticated Edge Function and is
-  -- independently checked against the authoritative admin_users registry.
-  if not exists (select 1 from public.admin_users a where a.user_id = p_actor_id) then
+  -- The actor is supplied only by the authenticated Edge Function. Reuse
+  -- the existing authoritative public.is_admin() policy, which resolves the
+  -- session subject through private.support_is_admin() and profiles.role.
+  perform pg_catalog.set_config('request.jwt.claim.sub', p_actor_id::text, true);
+  if coalesce(public.is_admin(),false) is not true then
     raise exception 'Verified administrator required' using errcode = '42501';
   end if;
-  perform pg_catalog.set_config('request.jwt.claim.sub', p_actor_id::text, true);
 
   if jsonb_typeof(p_evidence_refs) is distinct from 'array' then
     raise exception 'Evidence references must be a JSON array' using errcode = '22023';
