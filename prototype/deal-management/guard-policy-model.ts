@@ -55,6 +55,9 @@ export type PolicyInput = {
   intent: SettlementIntentModel;
   decoded: { complete: boolean; effects: DecodedEffect[] };
   moduleGuardCovered: boolean;
+  /** Must be loaded from the trusted, immutable final administrative decision record. */
+  approvedDecisionHash: string;
+  approvedDecisionNonce: number;
   consumedDecisionNonces: number[];
   consumedSafeNonces: number[];
 };
@@ -89,9 +92,13 @@ export function evaluateLockedSafeTransaction(input: PolicyInput): PolicyResult 
       tx.dataHash.toLowerCase() !== intent.dataHash.toLowerCase() ||
       tx.safeNonce !== intent.safeNonce) return { allowed: false, reason: "transaction_tuple_mismatch" };
   if (!/^0x[0-9a-fA-F]{64}$/.test(intent.decisionHash) ||
+      !/^0x[0-9a-fA-F]{64}$/.test(input.approvedDecisionHash) ||
+      !same(intent.decisionHash, input.approvedDecisionHash) ||
       !Number.isSafeInteger(intent.decisionNonce) || intent.decisionNonce < 0 ||
+      !Number.isSafeInteger(input.approvedDecisionNonce) ||
+      intent.decisionNonce !== input.approvedDecisionNonce ||
       !Number.isSafeInteger(tx.safeNonce) || tx.safeNonce < 0) {
-    return { allowed: false, reason: "invalid_decision_or_nonce" };
+    return { allowed: false, reason: "decision_not_bound_to_approved_record_or_invalid_nonce" };
   }
   if (input.consumedDecisionNonces.includes(intent.decisionNonce) ||
       input.consumedSafeNonces.includes(tx.safeNonce)) return { allowed: false, reason: "replay_detected" };
