@@ -39,6 +39,7 @@ export async function persistSafeReleaseSignatureAtomically(
       auth.dealId !== input.dealId ||
       auth.safeTransactionHash?.toLowerCase() !== input.safeTransactionHash.toLowerCase() ||
       !Array.isArray(auth.issues) || auth.issues.length !== 0 ||
+      typeof auth.dealTermsHash !== "string" || !/^[0-9a-f]{64}$/i.test(auth.dealTermsHash) ||
       typeof auth.reportId !== "string" || !UUID.test(auth.reportId) ||
       !Number.isInteger(auth.reportVersion) || Number(auth.reportVersion) < 1) {
     throw new Error("A fresh, exact W3M PASS authorization is required before SIGN persistence.");
@@ -58,6 +59,7 @@ export async function persistSafeReleaseSignatureAtomically(
       issues: [],
       report_id: auth.reportId,
       report_version: auth.reportVersion,
+      deal_terms_hash: auth.dealTermsHash.toLowerCase(),
     },
   });
   if (error) throw new Error("W3M atomic Safe SIGN RPC failed.");
