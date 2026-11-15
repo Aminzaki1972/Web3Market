@@ -115,7 +115,7 @@ begin
   v_finalizer_compact := regexp_replace(upper(v_finalizer), '\s+', '', 'g');
   if position('PUBLIC.DEAL_DISPUTES' in v_finalizer_compact) = 0
      or (position('NOTIN(''RESOLVED'')' in v_finalizer_compact) = 0
-         and position('<>' || '''RESOLVED''', v_finalizer_compact) = 0)
+         and position('<>''RESOLVED''' in v_finalizer_compact) = 0)
      or position('V_DEAL.DISPUTE_STATUSISNULL' in v_finalizer_compact) = 0
      or position('V_DEAL.DISPUTE_STATUSNOTIN(''NONE'',''RESOLVED_SELLER'')' in v_finalizer_compact) = 0
      or position('W3M_DEAL_DISPUTE_DECISIONS' in v_finalizer_compact) = 0
