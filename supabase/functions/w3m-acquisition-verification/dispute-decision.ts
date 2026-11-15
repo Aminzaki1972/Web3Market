@@ -5,7 +5,7 @@ import { canonicalJson, sha256Hex } from "./decision-engine.ts";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH = /^[0-9a-f]{64}$/i;
 const OUTCOMES = ["buyer_wins", "seller_wins"] as const;
-const EVIDENCE_SOURCES = ["deal_message", "deal_asset", "dispute_evidence"] as const;
+const EVIDENCE_SOURCES = ["deal_message", "deal_asset", "deal_event", "deal_audit_log"] as const;
 
 export type W3MDisputeOutcome = typeof OUTCOMES[number];
 export type W3MDisputeEvidenceSource = typeof EVIDENCE_SOURCES[number];
