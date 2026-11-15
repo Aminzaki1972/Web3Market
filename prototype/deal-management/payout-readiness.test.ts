@@ -42,7 +42,7 @@ function resolvedDispute(id: string, allocation: {
 
 function approvedLockConfirmedRequest(id: string) {
   const submitted = submitDisputeRequest(id, "deal-10000", "buyer", "Evidence reviewed", 100, initialEvidence);
-  const approved = reviewDisputeRequest(submitted, "approved", "Formal dispute opened", "admin", 110);
+  const approved = reviewDisputeRequest(submitted, "approved", "Formal dispute opened", "admin-1", 110);
   return confirmDisputeLock(approved, {
     chainId: 56, safeAddress: recipients.buyer, expectedSafeAddress: recipients.buyer,
     txHash: "0x" + "a".repeat(64), receiptStatus: "success", confirmations: 15,
