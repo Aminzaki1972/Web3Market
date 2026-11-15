@@ -4,7 +4,10 @@
  */
 export function canRecordBuyerAssetAcceptance({assetId,requiredAssetIds,evidenceStatuses,depositConfirmed,disputeActive,agreementApprovalsCurrent,agreementSnapshotCurrent}) {
   return typeof assetId === "string" &&
-    Array.isArray(requiredAssetIds) && requiredAssetIds.includes(assetId) &&
+    Array.isArray(requiredAssetIds) && requiredAssetIds.length > 0 &&
+    requiredAssetIds.every(id => typeof id === "string" && id.trim()) &&
+    new Set(requiredAssetIds).size === requiredAssetIds.length &&
+    assetId.trim().length > 0 && requiredAssetIds.includes(assetId) &&
     evidenceStatuses?.[assetId] === "verified" &&
     depositConfirmed === true &&
     disputeActive === false &&
