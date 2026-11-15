@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "prototype/deal-management/**"
+      - "deal-management-preview.html"
       - ".github/workflows/deal-management-sandbox-tests.yml"
   push:
     branches:
@@ -32,4 +33,4 @@ jobs:
           deno-version: v2.x
 
       - name: Run sandbox tests
-        run: deno test prototype/deal-management/
+        run: deno test --allow-read=deal-management-preview.html prototype/deal-management/
