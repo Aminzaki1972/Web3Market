@@ -181,11 +181,6 @@ CREATE TABLE public.deal_multisig_signers (
   UNIQUE (deal_id, signer_role)
 );
 
-CREATE TABLE public.admin_users (
-  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
 CREATE TABLE public.deal_messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   deal_id uuid NOT NULL REFERENCES public.deals(id) ON DELETE CASCADE,
