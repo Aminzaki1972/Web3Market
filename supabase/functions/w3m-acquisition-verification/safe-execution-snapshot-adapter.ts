@@ -429,6 +429,8 @@ export async function loadSafeExecutionDatabaseSnapshot(
     dispute.deal_id === dealId &&
     dispute.status === "resolved" &&
     dispute.resolution === "seller_wins" &&
+    dispute.resolved_by === disputeDecision?.decided_by &&
+    dispute.resolved_at === disputeDecision?.decided_at &&
     disputeDecision?.id !== undefined &&
     UUID.test(String(disputeDecision.id)) &&
     disputeDecision.deal_id === dealId &&
