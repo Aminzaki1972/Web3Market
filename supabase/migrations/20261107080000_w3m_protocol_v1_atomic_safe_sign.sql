@@ -89,9 +89,39 @@ begin
   if v_deal.chain_id is distinct from 56
      or v_deal.payment_status is distinct from 'confirmed'
      or v_deal.delivery_status is distinct from 'accepted'
-     or v_deal.dispute_status is distinct from 'none'
+     or (v_deal.status not in ('funded','in_progress')
+       and not (v_deal.status='disputed' and v_deal.dispute_status='resolved_seller'))
+     or coalesce(v_deal.dispute_status,'') not in ('none','resolved_seller')
+     or (v_deal.dispute_status='resolved_seller' and v_deal.status is distinct from 'disputed')
      or v_deal.buyer_approved_at is null then
     raise exception 'Deal payment, delivery, or dispute state blocks signing' using errcode = '23514';
+  end if;
+
+  if v_deal.dispute_status='none' then
+    if exists(select 1 from public.deal_disputes x where x.deal_id=p_deal_id) then
+      raise exception 'A dispute record exists while the parent deal is marked no-dispute' using errcode = '23514';
+    end if;
+  elsif v_deal.dispute_status='resolved_seller' then
+    if not exists (
+      select 1
+        from public.deal_disputes x
+        join public.w3m_deal_dispute_decisions decision
+          on decision.deal_id=x.deal_id and decision.dispute_id=x.id
+       where x.deal_id=p_deal_id
+         and x.status='resolved'
+         and x.resolution='seller_wins'
+         and decision.outcome='seller_wins'
+         and decision.terms_hash=p_w3m_authorization->>'deal_terms_hash'
+         and decision.terms_version_id = (
+           select tv.id from public.w3m_deal_terms_versions tv
+            where tv.deal_id=p_deal_id
+            order by tv.terms_version desc limit 1
+         )
+    ) then
+      raise exception 'Seller signing after dispute requires an immutable seller-wins decision bound to the latest signed terms' using errcode = '23514';
+    end if;
+  else
+    raise exception 'Dispute state blocks seller signing' using errcode = '23514';
   end if;
 
   select * into v_tx
