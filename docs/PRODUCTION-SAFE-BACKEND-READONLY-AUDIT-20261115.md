@@ -123,3 +123,16 @@ A fresh read-only query of `pg_policies` and `information_schema.role_table_gran
 These findings are production database configuration observations, not changes. The prototype's UI guards do not close these Data API paths. Before rollout, the database authorization model must be redesigned so that offers, chat writes, and dispute intake are performed through the approved server-authoritative workflows, while preserving only the intended participant read access. Any migration must wait until the historical schema/trigger/constraint baseline is recovered and reviewed.
 
 No production writes, policy changes, grants changes, function invocations, or migrations were performed.
+
+
+## 13. Offer creation backend inventory — 2026-11-15 (read-only)
+
+A further production catalog check examined public functions, function ACLs, triggers, and public table inventory:
+
+- No public function named `act_on_marketplace_offer` or any public function/table containing `offer` was present in the inspected catalog. The branch's `js/offer-actions.js` calls `client.rpc('act_on_marketplace_offer', ...)`, but this call is not backed by a matching public database function in the current production catalog. This path must be treated as unavailable/unverified, not as a working offer workflow.
+- `prepare_deal(p_project_id uuid)` exists as SECURITY DEFINER, but its ACL grants EXECUTE only to `postgres` and `service_role`, not `authenticated`. Its implementation creates a deal at the listing's asking price and initializes a fixed asset checklist; it is not a buyer/seller price-negotiation API and does not implement the new three-party agreement process.
+- `open_deal_dispute(p_deal_id uuid,p_reason text)` similarly has EXECUTE only for `postgres` and `service_role`; its implementation immediately inserts a legacy dispute and changes `deals.status` to `disputed`. The separate authenticated direct INSERT policy on `deal_disputes` remains the bypass described above.
+- Production `deals` has multiple fee-related BEFORE INSERT triggers, including `enforce_deal_financials_on_write`, `sync_deal_fee_amount`, and `set_web3market_deal_fee`. They compute/overwrite fee fields using different numeric scales/rounding conventions (including 6 and 8 decimal places). This is an additional reason not to infer a clean base schema or add a speculative trigger/migration before recovering the full trigger definitions and intended ordering.
+- `deals` has an AFTER INSERT/UPDATE/DELETE audit trigger; message and dispute tables also have audit triggers. These are audit records, not append-only contractual evidence and do not enforce the proposed server workflow.
+
+Consequence: with the project page's legacy direct form now disabled in the prototype, there is currently no verified, usable production-backed buyer offer/counteroffer API for the new system. Do not re-enable either the direct insert or the unverified RPC call. The new workflow needs a deliberately designed server-authoritative offer API, backed by a reconciled schema and tests. No production changes were made.
