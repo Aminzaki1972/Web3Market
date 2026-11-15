@@ -17,8 +17,16 @@ export type PayoutAgreementEvidence = {
   hash: string;
   grossAmount: bigint;
   approvals: Record<"buyer" | "seller" | "platform", { approved: boolean; version: number; hash: string }>;
-  requiredAssets: Array<{ id: string; evidenceStatus: "verified" | "pending" | "rejected"; buyerStatus: "accepted" | "pending" | "rejected" }>;
-  buyerFinalAcceptance: null | { accepted: boolean; version: number; hash: string; acceptedAssetIds: string[] };
+  requiredAssets: Array<{
+    id: string;
+    evidenceStatus: "verified" | "pending" | "rejected";
+    evidenceCheckedAt: number | null;
+    buyerStatus: "accepted" | "pending" | "rejected";
+    buyerReviewedAt: number | null;
+  }>;
+  buyerFinalAcceptance: null | {
+    accepted: boolean; version: number; hash: string; acceptedAssetIds: string[]; acceptedAt: number;
+  };
 };
 
 export type PayoutReadinessInput = {
@@ -72,7 +80,8 @@ function hasCurrentAgreementApprovals(snapshot: PayoutAgreementEvidence, gross: 
 function hasAllRequiredAssetsVerified(snapshot: PayoutAgreementEvidence): boolean {
   const assets = snapshot.requiredAssets;
   return Array.isArray(assets) && assets.length > 0 &&
-    assets.every(asset => !!asset.id.trim() && asset.evidenceStatus === "verified") &&
+    assets.every(asset => !!asset.id.trim() && asset.evidenceStatus === "verified" &&
+      asset.evidenceCheckedAt !== null && Number.isFinite(asset.evidenceCheckedAt)) &&
     new Set(assets.map(asset => asset.id)).size === assets.length;
 }
 
@@ -80,9 +89,11 @@ function hasCurrentBuyerFinalAcceptance(snapshot: PayoutAgreementEvidence): bool
   const acceptance = snapshot.buyerFinalAcceptance;
   const assets = snapshot.requiredAssets;
   if (!acceptance || acceptance.accepted !== true || acceptance.version !== snapshot.version ||
-      acceptance.hash !== snapshot.hash || !Array.isArray(acceptance.acceptedAssetIds) ||
+      acceptance.hash !== snapshot.hash || !Number.isFinite(acceptance.acceptedAt) ||
+      !Array.isArray(acceptance.acceptedAssetIds) ||
       !Array.isArray(assets) || assets.length === 0 ||
-      assets.some(asset => asset.buyerStatus !== "accepted" || asset.evidenceStatus !== "verified")) return false;
+      assets.some(asset => asset.buyerStatus !== "accepted" || !Number.isFinite(asset.buyerReviewedAt) ||
+        asset.evidenceStatus !== "verified" || !Number.isFinite(asset.evidenceCheckedAt))) return false;
   const requiredIds = assets.map(asset => asset.id).sort();
   const acceptedIds = [...acceptance.acceptedAssetIds].sort();
   return new Set(requiredIds).size === requiredIds.length &&
