@@ -171,3 +171,25 @@ This document does not:
 ## Current status
 
 Design drafted for review in the isolated GitHub branch only. Implementation remains blocked on historical schema/dependency recovery and the unresolved administrator authority protocol. No production database operation was performed.
+
+
+## 8. Additional transaction-model test coverage (2026-11-15)
+
+Added:
+- `prototype/deal-management/dispute-transaction-model.ts`
+- `prototype/deal-management/dispute-transaction-model.test.ts`
+
+The in-memory model demonstrates the required logical transaction boundary:
+- participant identity and role are resolved from the authenticated identity plus the trusted roster model;
+- a submission creates the pending request, active payout hold, first lifecycle event and idempotency record together;
+- an identical retry returns the original request without duplicating the event;
+- reusing an idempotency key with different content is rejected;
+- a second request cannot create a conflicting active hold for the same deal;
+- admin review appends a decision event but retains the payout hold for both approval and decline;
+- a declined hold is released only through a separate reasoned admin action;
+- approved requests remain payout-held while the Safe lock is pending;
+- invalid actors, evidence, duplicate IDs and conflicting requests do not partially mutate the model.
+
+CI run 43695842210 passed: **135 passed, 0 failed**, including Deal Room JavaScript syntax and legacy endpoint containment checks.
+
+Important limitation: this is a synchronous in-memory test model, not PostgreSQL concurrency/transaction testing. It does not prove row locking, unique constraints, crash rollback, cross-worker races, or deployed server authorization. Those require an isolated database and a real server implementation. The model is a contract for those future integration tests, not a substitute for them.
