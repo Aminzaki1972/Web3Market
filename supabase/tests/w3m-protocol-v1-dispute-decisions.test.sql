@@ -56,6 +56,8 @@ begin
   if position('W3M_DEAL_DISPUTE_DECISIONS' in v_finalizer_compact)=0
      or position('RESOLVED_SELLER' in v_finalizer_compact)=0
      or position('SELLER_WINS' in v_finalizer_compact)=0
+     or position('DECISION.TERMS_VERSION_ID' in v_finalizer_compact)=0
+     or position('DECISION.TERMS_HASH' in v_finalizer_compact)=0
      or position('RESOLVED_BUYER' in v_finalizer_compact)>0
      or position('DISPUTE_STATUSNOTIN(''NONE'',''RESOLVED_SELLER'')' in v_finalizer_compact)=0 then
     raise exception 'Safe seller finalization must require a recorded seller-wins decision and block buyer-wins';
