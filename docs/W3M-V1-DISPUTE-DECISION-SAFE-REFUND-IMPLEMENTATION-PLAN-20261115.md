@@ -118,10 +118,13 @@ All race tests must use independent PostgreSQL sessions and the actual RPC/final
 
 ## 5. Commission/legal blocker
 
-The authoritative signed 20-article agreement is not present in the reviewed repository/context. Do not invent legal language, a fee formula, or a commission waiver. Until that document is supplied/recovered and approved:
-- preserve the already persisted commission policy;
-- do not implement partial-refund fee allocation where the agreement controls the calculation;
-- permit implementation/testing of decision records and refund mechanics only behind a fail-closed policy gate for the unresolved fee treatment.
+The owner-approved Arabic 20-article agreement is now present in the isolated repository at `docs/legal/W3M-DEAL-AGREEMENT-AR-V1.0.md`, registered as `W3M-AGREEMENT-V1.0` with SHA-256 `721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531`. The isolated EIP-712 acceptance flow binds the canonical document version/hash. This does not establish final independent legal review, jurisdiction-specific enforceability, production activation, or signatures by actual deal parties.
+
+The agreement preserves W3M's 7.5% commission and prohibits bypassing or waiving the platform fee without authorization. It does not provide a sufficiently precise executable arithmetic allocation for every partial buyer-refund scenario. Therefore:
+- preserve the locked 7.5% commission policy and the exact signed deal terms;
+- do not invent pro-rata, full-retention, or waived-fee arithmetic for partial refunds;
+- keep any refund case whose fee allocation is not expressly determined by the signed agreement fail-closed;
+- implement and test the decision and Safe mechanics independently of unresolved refund arithmetic, without creating or signing a Safe transaction for a blocked case.
 
 ## 6. Implementation order
 
