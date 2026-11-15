@@ -69,9 +69,16 @@ begin
   ) values ('attempt-test-key','ACTIVATED','SYSTEM','isolated test key',repeat('a',64));
 
   insert into auth.users(id) values (v_buyer),(v_seller) on conflict do nothing;
+  -- Earlier disposable SQL tests may have already created these auth/profile
+  -- identities. Reuse the exact fixture wallets instead of failing on a
+  -- harmless primary-key collision; this file is never run against production.
   insert into public.profiles (id,wallet_address,wallet_verified,wallet_verified_at) values
     (v_buyer,'0x3333333333333333333333333333333333333333',true,now()),
-    (v_seller,'0x4444444444444444444444444444444444444444',true,now());
+    (v_seller,'0x4444444444444444444444444444444444444444',true,now())
+  on conflict (id) do update set
+    wallet_address = excluded.wallet_address,
+    wallet_verified = excluded.wallet_verified,
+    wallet_verified_at = excluded.wallet_verified_at;
 
   insert into public.deals (
     id, project_id, buyer_id, seller_id, amount, payment_status, payment_tx_hash,
