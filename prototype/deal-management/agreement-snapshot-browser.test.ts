@@ -38,3 +38,14 @@ Deno.test("deal preview binds every demo approval to the current terms fingerpri
     if (!html.includes(required)) throw new Error("Missing agreement fingerprint integration contract: " + required);
   }
 });
+Deno.test("SHA-256 output matches the standard known vector for an empty JSON object", async () => {
+  const result = await hashDealAgreementSnapshot({});
+  assertEquals(result.canonicalJson, "{}");
+  assertEquals(result.termsHash, "0x44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a");
+});
+Deno.test("browser serializer normalizes Unicode and rejects lossy array entries", async () => {
+  const composed = await hashDealAgreementSnapshot({ title: "\\u00e9" });
+  const decomposed = await hashDealAgreementSnapshot({ title: "e\\u0301" });
+  assertEquals(composed.termsHash, decomposed.termsHash);
+  await assertRejects(() => hashDealAgreementSnapshot({ values: [undefined] }));
+});
