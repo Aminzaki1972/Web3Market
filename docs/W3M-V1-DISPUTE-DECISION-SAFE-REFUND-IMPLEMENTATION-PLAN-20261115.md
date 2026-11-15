@@ -10,7 +10,7 @@ Scope: isolated V1 branch only. Planning artifact; not a production migration or
 - `deal_multisig_transactions.action` includes `refund_to_buyer`, but an enum/check value is not an implemented refund workflow.
 - The current Safe finalizer is deliberately seller-release-specific: it requires `action='release_to_seller'`, verifies exactly two USDT transfers (seller net + platform fee), then completes the deal and transfers project ownership.
 - Existing independent-session tests now exercise the actual finalizer against dispute opening, signer revocation, project ownership changes, report appends, and evidence appends. The focused legacy dispute concurrency test is not a substitute for those finalizer tests.
-- The complete authoritative 20-article signed agreement is still missing. Partial-refund commission allocation must not be invented.
+- The owner-approved Arabic 20-article agreement is now committed at `docs/legal/W3M-DEAL-AGREEMENT-AR-V1.0.md` (document ID `W3M-AGREEMENT`, version `1.0`, SHA-256 `74fc948b9b7757718b617af080acd51c0a21de81aa3a5b7f410a19aa07a7a465`) and is being wired into the isolated EIP-712 acceptance flow under Issue #192. This owner approval is not a claim of final independent legal review or jurisdiction-specific enforceability. The agreement protects the platform's 7.5% commission but does not yet provide a sufficiently precise executable formula for allocating commission on partial buyer refunds. Partial-refund fee allocation must therefore remain fail-closed and must not be invented.
 
 ## 2. Non-negotiable V1 rules
 
@@ -106,4 +106,4 @@ The authoritative signed 20-article agreement is not present in the reviewed rep
 
 ## 7. Current status
 
-This document records a proposed implementation sequence from the inspected V1 baseline. It does not claim that dispute decisions or refunds are implemented. No database migration, production change, wallet action, or fund movement is performed by this plan.
+The legal document prerequisite has advanced: the owner-approved Arabic V1.0 agreement and its SHA-256 registry are committed on the isolated branch. Issue #192 remains open until the complete EIP-712/client/SQL integration and CI checks pass. Issue #195 remains unimplemented: decision records, refund requests, refund receipt verification, and refund finalization still require schema inventory and isolated implementation. This document records a proposed implementation sequence from the inspected V1 baseline. It does not claim that dispute decisions or refunds are implemented. No database migration, production change, wallet action, or fund movement is performed by this plan.
