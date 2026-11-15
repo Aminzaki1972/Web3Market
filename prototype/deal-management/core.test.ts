@@ -19,6 +19,17 @@ Deno.test("ordinary 7.5 percent commission split is exact", () => {
   assertEquals(result.platformFee + result.sellerNet, result.gross);
 });
 
+Deno.test("platform commission floors to whole six-decimal USDT units without floating point", () => {
+  const oneMicro = calculateOrdinaryPayout(1n);
+  assertEquals(oneMicro.platformFee, 0n);
+  assertEquals(oneMicro.sellerNet, 1n);
+
+  const awkward = calculateOrdinaryPayout(13_333n);
+  assertEquals(awkward.platformFee, 9_999n);
+  assertEquals(awkward.sellerNet, 3_334n);
+  assertEquals(awkward.platformFee + awkward.sellerNet, 13_333n);
+});
+
 const token = "0x1111111111111111111111111111111111111111";
 const safe = "0x2222222222222222222222222222222222222222";
 const evidence = {
