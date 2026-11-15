@@ -57,6 +57,9 @@ Deno.test("decision command rejects unsupported outcomes, weak reasons, invalid 
       { source: "deal_message", recordId: messageId },
     ],
   }));
+  await assertRejects(async () => parseW3MDisputeDecisionCommand({
+    ...command, evidenceRefs: [{ source: "deal_message", recordId: messageId, contentHash: "ab".repeat(32) }],
+  }));
 });
 
 Deno.test("canonical decision hash is stable across evidence reference ordering", async () => {
