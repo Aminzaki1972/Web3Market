@@ -433,3 +433,15 @@ Deno.test("ordinary payout requires timestamped evidence verification and buyer 
   assertEquals(finalResult.ready, false);
   if (!finalResult.ready) assertEquals(finalResult.blockers.includes("buyer_final_acceptance_missing"), true);
 });
+
+
+Deno.test("ordinary payout rejects acceptance timestamps that precede asset evidence or review",()=>{
+ const beforeEvidence={...ordinary,agreementSnapshot:{...ordinary.agreementSnapshot,buyerFinalAcceptance:{...ordinary.agreementSnapshot.buyerFinalAcceptance!,acceptedAt:99}}};
+ const evidenceResult=prepareOrdinaryPayout(beforeEvidence,recipients);
+ assertEquals(evidenceResult.ready,false);
+ if(!evidenceResult.ready)assertEquals(evidenceResult.blockers.includes("buyer_final_acceptance_missing"),true);
+ const beforeReview={...ordinary,agreementSnapshot:{...ordinary.agreementSnapshot,requiredAssets:ordinary.agreementSnapshot.requiredAssets.map(a=>a.id==="repo"?{...a,buyerReviewedAt:99}:a)}};
+ const reviewResult=prepareOrdinaryPayout(beforeReview,recipients);
+ assertEquals(reviewResult.ready,false);
+ if(!reviewResult.ready)assertEquals(reviewResult.blockers.includes("buyer_final_acceptance_missing"),true);
+});
