@@ -4,6 +4,7 @@ declare
   v_rls boolean;
   v_trigger boolean;
   v_finalizer text;
+  v_decision_function text;
 begin
   select c.relrowsecurity into v_rls
     from pg_class c join pg_namespace n on n.oid=c.relnamespace
@@ -53,6 +54,16 @@ begin
      or position('RESOLVED_BUYER' in upper(v_finalizer))>0
      or position('DISPUTE_STATUS NOT IN (''NONE'',''RESOLVED_SELLER'')' in upper(v_finalizer))=0 then
     raise exception 'Safe seller finalization must require a recorded seller-wins decision and block buyer-wins';
+  end if;
+
+  select pg_get_functiondef(
+    'public.w3m_admin_decide_deal_dispute(uuid,uuid,text,text,jsonb,uuid)'::regprocedure
+  ) into v_decision_function;
+  if position('SELECT * INTO V_DISPUTE' in upper(v_decision_function))=0
+     or position('SELECT * INTO V_DEAL' in upper(v_decision_function))=0
+     or position('SELECT * INTO V_DISPUTE' in upper(v_decision_function)) >
+        position('SELECT * INTO V_DEAL' in upper(v_decision_function)) then
+    raise exception 'Dispute decision RPC must lock the dispute row before the parent deal to match trigger lock order';
   end if;
 end;
 $schema$;
