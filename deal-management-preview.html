@@ -296,12 +296,14 @@ $('releaseDeclinedHold').onclick=()=>{
 };
 function selectedReviewAssets(){return Array.from(document.querySelectorAll('#assets input[data-asset]:checked')).map(input=>({id:input.id.slice(5).toLowerCase(),label:input.dataset.asset}))}
 async function buyerAcceptanceGateSnapshot(){
+ const requiredAssetIds=selectedReviewAssets().map(x=>x.id);
+ if(finalPrice===null||!agreementTermsReady())return {requiredAssetIds,evidenceStatuses:assetEvidenceStatuses,depositConfirmed:deposit,disputeActive:dispute,agreementApprovalsCurrent:false,agreementSnapshotCurrent:false};
  const {hashDealAgreementSnapshot}=await agreementHashModulePromise;
  const {haveAllCurrentAgreementApprovals}=await agreementApprovalGateModulePromise;
  const live=await hashDealAgreementSnapshot(agreementTermsPayload());
  const snapshotCurrent=!!agreementHashState.termsHash&&live.termsHash===agreementHashState.termsHash;
  const approvalsCurrent=haveAllCurrentAgreementApprovals(approvals,approvalHashes,approvalVersions,agreementVersion,live.termsHash);
- return {requiredAssetIds:selectedReviewAssets().map(x=>x.id),evidenceStatuses:assetEvidenceStatuses,depositConfirmed:deposit,disputeActive:dispute,agreementApprovalsCurrent:approvalsCurrent,agreementSnapshotCurrent:snapshotCurrent};
+ return {requiredAssetIds,evidenceStatuses:assetEvidenceStatuses,depositConfirmed:deposit,disputeActive:dispute,agreementApprovalsCurrent:approvalsCurrent,agreementSnapshotCurrent:snapshotCurrent};
 }
 function updateBuyerReview(){
  const host=$('buyerAssetReviewList');host.replaceChildren();const assets=selectedReviewAssets();
@@ -311,12 +313,13 @@ function updateBuyerReview(){
   const row=document.createElement('div');row.className='event';
   const title=document.createElement('div');title.textContent=asset.label;
   const status=document.createElement('span');status.className='pill '+(rejected?'bad':accepted?'good':'warn');status.textContent=rejected?'Rejected (demo)':accepted?'Accepted (demo)':'Pending buyer review';
+  const evidence=document.createElement('span');evidence.className='pill '+(assetEvidenceStatuses[asset.id]==='verified'?'good':'warn');evidence.textContent='AI evidence · '+(assetEvidenceStatuses[asset.id]==='verified'?'Verified':'Needs Review');
   const actions=document.createElement('div');actions.className='actions';
   const accept=document.createElement('button');accept.type='button';accept.className='btn';accept.textContent='Accept asset (demo)';accept.disabled=accepted||rejected||finalBuyerAccepted||!deposit||dispute||assetEvidenceStatuses[asset.id]!=='verified'||!agreementTermsReady()||!agreementHashState.termsHash||!Object.keys(approvals).every(k=>approvals[k]===true&&approvalHashes[k]===agreementHashState.termsHash&&approvalVersions[k]===agreementVersion);
   accept.addEventListener('click',async()=>{if(finalBuyerAccepted||!selectedReviewAssets().some(x=>x.id===asset.id))return;try{const {canRecordBuyerAssetAcceptance}=await buyerAcceptanceGateModulePromise;const gates=await buyerAcceptanceGateSnapshot();if(!canRecordBuyerAssetAcceptance({...gates,assetId:asset.id})){$('buyerReviewMsg').textContent='Asset acceptance blocked: deposit, current agreement approvals, no active dispute and verified AI evidence are all required.';return}buyerAccepted[asset.id]=true;updateBuyerReview();log('Buyer accepted '+asset.label+' individually (demo)','buyer','asset_review')}catch(error){$('buyerReviewMsg').textContent=error instanceof Error?error.message:'Unable to validate buyer acceptance gates.'}});
   const reject=document.createElement('button');reject.type='button';reject.className='btn';reject.textContent='Reject asset (demo)';reject.disabled=accepted||rejected||finalBuyerAccepted;
   reject.addEventListener('click',()=>{const reason=$('buyerRejectReason').value.trim();if(!reason){$('buyerReviewMsg').textContent='Enter a rejection reason before rejecting an asset.';return}buyerRejectedAssets[asset.id]=true;buyerRejectedReasons[asset.id]=reason;buyerAccepted[asset.id]=false;updateBuyerReview();log('Buyer rejected '+asset.label+': '+reason,'buyer','asset_review')});
-  actions.append(accept,reject);row.append(title,status,actions);
+  actions.append(accept,reject);row.append(title,status,evidence,actions);
   if(rejected){const note=document.createElement('p');note.className='muted';note.textContent='Reason: '+buyerRejectedReasons[asset.id];row.appendChild(note)}
   host.appendChild(row);
  }
