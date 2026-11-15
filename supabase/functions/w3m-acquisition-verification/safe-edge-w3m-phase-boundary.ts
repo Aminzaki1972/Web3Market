@@ -9,6 +9,7 @@ export interface W3MPhaseAuthorization extends W3MBoundaryAuthorization {
   phase: W3MSafePhase;
   dealId: string;
   safeTransactionHash?: string | null;
+  dealTermsHash?: string;
 }
 
 export interface W3MExpectedPhaseBinding {
