@@ -17,7 +17,8 @@ export type PayoutAgreementEvidence = {
   hash: string;
   grossAmount: bigint;
   approvals: Record<"buyer" | "seller" | "platform", { approved: boolean; version: number; hash: string }>;
-  buyerFinalAcceptance: null | { accepted: boolean; version: number; hash: string };
+  requiredAssets: Array<{ id: string; evidenceStatus: "verified" | "pending" | "rejected"; buyerStatus: "accepted" | "pending" | "rejected" }>;
+  buyerFinalAcceptance: null | { accepted: boolean; version: number; hash: string; acceptedAssetIds: string[] };
 };
 
 export type PayoutReadinessInput = {
@@ -26,7 +27,6 @@ export type PayoutReadinessInput = {
   depositedAmount: bigint;
   /** Must come from the immutable, finally approved agreement snapshot. */
   originalGrossAgreedAmount: bigint;
-  requiredAssetsVerified: boolean;
   openDispute: boolean;
   /** True if this deal has ever entered dispute; such deals must use the decision allocation path. */
   disputeEverOpened: boolean;
@@ -69,9 +69,25 @@ function hasCurrentAgreementApprovals(snapshot: PayoutAgreementEvidence, gross: 
   });
 }
 
+function hasAllRequiredAssetsVerified(snapshot: PayoutAgreementEvidence): boolean {
+  const assets = snapshot.requiredAssets;
+  return Array.isArray(assets) && assets.length > 0 &&
+    assets.every(asset => !!asset.id.trim() && asset.evidenceStatus === "verified") &&
+    new Set(assets.map(asset => asset.id)).size === assets.length;
+}
+
 function hasCurrentBuyerFinalAcceptance(snapshot: PayoutAgreementEvidence): boolean {
   const acceptance = snapshot.buyerFinalAcceptance;
-  return !!acceptance && acceptance.accepted === true && acceptance.version === snapshot.version && acceptance.hash === snapshot.hash;
+  const assets = snapshot.requiredAssets;
+  if (!acceptance || acceptance.accepted !== true || acceptance.version !== snapshot.version ||
+      acceptance.hash !== snapshot.hash || !Array.isArray(acceptance.acceptedAssetIds) ||
+      !Array.isArray(assets) || assets.length === 0 ||
+      assets.some(asset => asset.buyerStatus !== "accepted" || asset.evidenceStatus !== "verified")) return false;
+  const requiredIds = assets.map(asset => asset.id).sort();
+  const acceptedIds = [...acceptance.acceptedAssetIds].sort();
+  return new Set(requiredIds).size === requiredIds.length &&
+    new Set(acceptedIds).size === acceptedIds.length &&
+    requiredIds.length === acceptedIds.length && requiredIds.every((id, index) => id === acceptedIds[index]);
 }
 
 function validateRecipients(recipients: PayoutRecipientSet, amounts: {
@@ -102,7 +118,7 @@ export function prepareOrdinaryPayout(
   if (input.depositedAmount <= 0n) blockers.push("invalid_deposit_amount");
   if (input.originalGrossAgreedAmount <= 0n) blockers.push("invalid_original_agreed_amount");
   if (input.depositedAmount !== input.originalGrossAgreedAmount) blockers.push("deposit_amount_differs_from_agreement");
-  if (!input.requiredAssetsVerified) blockers.push("required_assets_not_verified");
+  if (!hasAllRequiredAssetsVerified(input.agreementSnapshot)) blockers.push("required_assets_not_verified");
   if (!hasCurrentBuyerFinalAcceptance(input.agreementSnapshot)) blockers.push("buyer_final_acceptance_missing");
   if (input.openDispute) blockers.push("dispute_open");
   if (input.disputeRequest && input.disputeRequest.status !== "administrative_hold_released") {
