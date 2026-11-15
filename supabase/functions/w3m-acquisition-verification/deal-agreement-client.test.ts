@@ -12,11 +12,13 @@ const types = {
     { name: "dealId", type: "bytes32" }, { name: "projectId", type: "bytes32" },
     { name: "buyerId", type: "bytes32" }, { name: "sellerId", type: "bytes32" },
     { name: "safeAddress", type: "address" }, { name: "termsHash", type: "bytes32" },
+    { name: "agreementDocumentVersion", type: "string" }, { name: "agreementDocumentHash", type: "bytes32" },
     { name: "termsVersion", type: "uint256" }, { name: "partyRole", type: "uint8" },
   ],
 };
 async function prepared(overrides: Record<string, unknown> = {}) {
-  const canonicalTerms = { dealId, amount: "100", currency: "USDT", feePercent: "7.5", sellerNetAmount: "92.5" };
+  const agreementDocument = { documentId: "W3M-AGREEMENT", version: "1.0", locale: "ar", sha256: "74fc948b9b7757718b617af080acd51c0a21de81aa3a5b7f410a19aa07a7a465", text: "# Web3Market Agreement\n" + "Approved agreement text. ".repeat(100) };
+  const canonicalTerms = { dealId, amount: "100", currency: "USDT", feePercent: "7.5", sellerNetAmount: "92.5", agreementDocument: { documentId: agreementDocument.documentId, version: agreementDocument.version, locale: agreementDocument.locale, sha256: agreementDocument.sha256 } };
   const stable = (value: unknown): unknown => {
     if (Array.isArray(value)) return value.map(stable);
     if (value !== null && typeof value === "object") {
@@ -27,13 +29,13 @@ async function prepared(overrides: Record<string, unknown> = {}) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(stable(canonicalTerms))));
   const termsHash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
   return { ok: true, result: {
-    dealId, partyRole: "buyer", walletAddress: wallet, termsHash, termsVersion: "3", canonicalTerms,
+    dealId, partyRole: "buyer", walletAddress: wallet, termsHash, termsVersion: "3", canonicalTerms, agreementDocument,
     typedData: { domain: { name: "Web3Market Deal Agreement", version: "1", chainId: 56 },
       primaryType: "DealTermsAcceptance", types: structuredClone(types),
       message: { dealId: "0x" + "1".repeat(64), projectId: "0x" + "3".repeat(64),
         buyerId: "0x" + "4".repeat(64), sellerId: "0x" + "5".repeat(64),
         safeAddress: "0x2222222222222222222222222222222222222222",
-        termsHash: "0x" + termsHash, termsVersion: "3", partyRole: 1 } },
+        termsHash: "0x" + termsHash, agreementDocumentVersion: "1.0", agreementDocumentHash: "0x" + agreementDocument.sha256, termsVersion: "3", partyRole: 1 } },
     ...overrides,
   }};
 }
