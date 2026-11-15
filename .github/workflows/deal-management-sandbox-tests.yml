@@ -8,6 +8,10 @@ on:
       - "prototype/deal-management/**"
       - "deal-management-preview.html"
       - "js/deal-room.js"
+      - "js/deal-checkout.js"
+      - "js/project.js"
+      - "js/offer-form-fix.js"
+      - "deal-checkout.html"
       - "deal-room.html"
       - ".github/workflows/deal-management-sandbox-tests.yml"
   push:
@@ -17,6 +21,10 @@ on:
       - "prototype/deal-management/**"
       - "deal-management-preview.html"
       - "js/deal-room.js"
+      - "js/deal-checkout.js"
+      - "js/project.js"
+      - "js/offer-form-fix.js"
+      - "deal-checkout.html"
       - "deal-room.html"
       - ".github/workflows/deal-management-sandbox-tests.yml"
 
@@ -41,6 +49,8 @@ jobs:
         run: |
           node --check js/deal-room.js
           node --check js/deal-checkout.js
+          node --check js/project.js
+          node --check js/offer-form-fix.js
 
       - name: Assert legacy Deal Room financial paths stay disabled
         shell: bash
@@ -55,6 +65,10 @@ jobs:
           ! grep -Fq "functions/v1/verify-deal-payment" js/deal-checkout.js
           ! grep -Fq "eth_sendTransaction" js/deal-checkout.js
           ! grep -Fq "eth_requestAccounts" js/deal-checkout.js
+          ! grep -Fq "from('deals').insert" js/project.js
+          ! grep -Fq "from('deal_messages').insert" js/project.js
+          ! grep -Fq "from('deals').insert" js/offer-form-fix.js
+          ! grep -Fq "from('deal_messages').insert" js/offer-form-fix.js
 
       - name: Run sandbox tests
         run: deno test --allow-read=deal-management-preview.html prototype/deal-management/
