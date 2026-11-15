@@ -55,6 +55,20 @@ Implement a server-authorized decision service/RPC that:
 
 Do not add a new user-facing appeal or arbitration feature in V1 unless separately approved.
 
+### A1. Decision table and RPC contract (implementation target)
+
+Create an append-only `w3m_deal_dispute_decisions` table with:
+- `id` UUID primary key and `dispute_id` UNIQUE (one authoritative decision per dispute);
+- `deal_id`, `outcome` constrained to `buyer_wins | seller_wins`, bounded `reason`, and canonical `evidence_refs` JSONB;
+- `decided_by`, server-generated `decided_at`, exact `terms_version_id`, `terms_version`, and `terms_hash`;
+- prior deal/dispute state fields, canonical payload JSONB, and lowercase 64-character SHA-256 `decision_hash`.
+
+Enable RLS, revoke direct participant writes, and add a trigger rejecting UPDATE/DELETE. The only write path is a service-role-only `w3m_admin_decide_deal_dispute` RPC called by the authenticated Edge Function. The Edge Function verifies the bearer session and admin permission; the RPC independently checks that the passed actor UUID maps to an admin profile before writing.
+
+RPC lock order must be `deals FOR UPDATE` then `deal_disputes FOR UPDATE`, matching the parent-deal serialization trigger. Revalidate that the deal and dispute are active and consistently disputed, no prior decision exists, both parties accepted the latest immutable terms version, and every evidence reference belongs to the same deal. Supported evidence sources are `deal_messages`, `deal_assets`, `deal_events`, and `deal_audit_logs`; compute each content hash inside the same database transaction and include only source, record ID, and content hash in the canonical decision payload.
+
+The RPC updates the dispute row to `status='resolved'`, stores `resolution='buyer_wins'|'seller_wins'`, and updates the parent `deals.dispute_status` to `resolved_buyer | resolved_seller`. Keep `deals.status='disputed'` until the corresponding Safe settlement is chain-confirmed. The RPC returns the immutable decision ID/hash and exact resulting states; repeated identical calls may return the same decision as an idempotent replay, while a conflicting outcome must fail.
+
 ### B. Buyer-win Safe refund request
 
 For a buyer-win decision:
