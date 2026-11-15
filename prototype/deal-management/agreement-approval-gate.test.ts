@@ -5,6 +5,7 @@ const hashA = "0x" + "a".repeat(64);
 const hashB = "0x" + "b".repeat(64);
 const approved = { buyer: true, seller: true, platform: true };
 const hashesA = { buyer: hashA, seller: hashA, platform: hashA };
+const versions2 = { buyer: 2, seller: 2, platform: 2 };
 
 Deno.test("approval can only be recorded for a known role and exact current version and digest", () => {
   assertEquals(canRecordAgreementApproval("buyer", 2, hashA, 2, hashA), true);
@@ -16,14 +17,15 @@ Deno.test("approval can only be recorded for a known role and exact current vers
 });
 
 Deno.test("deposit gate requires all three approvals to match the current fingerprint", () => {
-  assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, 2, hashA), true);
-  assertEquals(haveAllCurrentAgreementApprovals({ ...approved, platform: false }, hashesA, 2, hashA), false);
-  assertEquals(haveAllCurrentAgreementApprovals(approved, { ...hashesA, seller: hashB }, 2, hashA), false);
-  assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, 3, hashA), true);
-  assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, 0, hashA), false);
-  assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, 2, null), false);
+  assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, versions2, 2, hashA), true);
+  assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, { ...versions2, seller: 1 }, 2, hashA), false);
+  assertEquals(haveAllCurrentAgreementApprovals({ ...approved, platform: false }, hashesA, versions2, 2, hashA), false);
+  assertEquals(haveAllCurrentAgreementApprovals(approved, { ...hashesA, seller: hashB }, versions2, 2, hashA), false);
+  assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, versions2, 3, hashA), true);
+  assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, versions2, 0, hashA), false);
+  assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, versions2, 2, null), false);
 });
 
 Deno.test("old approvals cannot satisfy the gate after the agreement digest changes", () => {
-  assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, 3, hashB), false);
+  assertEquals(haveAllCurrentAgreementApprovals(approved, hashesA, versions2, 3, hashB), false);
 });
