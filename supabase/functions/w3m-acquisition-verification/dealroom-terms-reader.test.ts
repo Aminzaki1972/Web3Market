@@ -149,6 +149,7 @@ Deno.test("exact snapshot loader allows only a decision-bound seller win", async
     },
   });
   assertEquals(result.authorized, false);
+  assertEquals(result.decision.issues.some((issue) => issue.code === "OPEN_DISPUTE"), false);
   assertEquals(result.reportVerificationIssues.includes("REPORT_ROW_INVALID"), true);
 });
 
