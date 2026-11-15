@@ -492,6 +492,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107160000_w3m_protocol_v1_atomic_project_ownership_transfer.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107170000_w3m_protocol_v1_dispute_open_rpc_contract.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261115010000_w3m_protocol_v1_bind_legal_agreement_document.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261115214326_w3m_protocol_v1_immutable_dispute_decisions.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107070000_w3m_protocol_v1_atomic_safe_prepare.sql
@@ -509,6 +510,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE audit_immutability_test;"
           psql -h localhost -U postgres -d audit_immutability_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-completed-audit-immutability.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-immutable-agreements.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-dispute-decisions.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-report-version-serialization.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-report-signer-lock.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql
@@ -527,7 +529,8 @@ jobs:
           # This is a disposable CI database only; it is not a production auth schema.
           psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -c "CREATE SCHEMA auth;"
           psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -c "CREATE TABLE auth.users (id uuid PRIMARY KEY);"
-          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -c "CREATE SCHEMA IF NOT EXISTS extensions;"
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;"
           psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-attempts-fixture.sql
           psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-terms-reader-fixture.sql
           psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-prepare-policy-reader-fixture.sql
@@ -535,31 +538,3 @@ jobs:
             echo "Applying timestamp-sorted migration: $migration"
             psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f "$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*_w3m_protocol_v1_*.sql' -print | sort)
-
-  scaffold-dispute-decision-migration:
-    if: github.event_name == 'push' && github.ref_name == 'w3m-v1-finalization-adapter-tests-20261112' && contains(github.event.head_commit.message, 'w3m scaffold dispute migration with supabase cli')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref_name }}
-      - uses: supabase/setup-cli@v3
-        with:
-          version: 3.1.0
-      - name: Discover Supabase CLI migration commands
-        run: |
-          supabase --help
-          supabase migration --help
-          supabase migration new --help
-      - name: Generate the migration scaffold with Supabase CLI
-        run: |
-          supabase migration new w3m_protocol_v1_immutable_dispute_decisions
-          migration="$(find supabase/migrations -maxdepth 1 -type f -name '*_w3m_protocol_v1_immutable_dispute_decisions.sql' -print -quit)"
-          test -n "$migration"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "$migration"
-          git commit -m "chore(w3m): create immutable dispute decision migration scaffold"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
