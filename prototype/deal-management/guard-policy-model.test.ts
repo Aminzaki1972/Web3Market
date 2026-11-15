@@ -19,6 +19,8 @@ function fixture(): PolicyInput {
       decisionHash: hash, decisionNonce: 3, token, approvedExecutionTargets: [token], effects },
     decoded: { complete: true, effects: effects.map(effect => ({ ...effect })) },
     moduleGuardCovered: false,
+    approvedDecisionHash: hash,
+    approvedDecisionNonce: 3,
     consumedDecisionNonces: [],
     consumedSafeNonces: [],
   };
