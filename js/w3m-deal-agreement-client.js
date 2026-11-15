@@ -44,6 +44,10 @@ function stableCanonicalValue(value) {
   }
   return value;
 }
+async function sha256Text(value) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+}
 async function canonicalTermsHash(value) {
   const canonical = JSON.stringify(stableCanonicalValue(value));
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
@@ -59,7 +63,8 @@ async function validatePrepared(value, dealId, walletAddress) {
   if (agreementDocument.documentId !== "W3M-AGREEMENT" || agreementDocument.version !== "1.0" || agreementDocument.locale !== "ar" ||
       !BYTES32.test("0x" + String(agreementDocument.sha256 || "")) || agreementDocument.sha256 !== canonicalDocument.sha256 ||
       agreementDocument.version !== canonicalDocument.version || agreementDocument.documentId !== canonicalDocument.documentId ||
-      typeof agreementDocument.text !== "string" || agreementDocument.text.length < 1000) {
+      typeof agreementDocument.text !== "string" || agreementDocument.text.length < 1000 ||
+      await sha256Text(agreementDocument.text) !== agreementDocument.sha256) {
     throw new Error("The exact approved legal agreement document is missing or differs from the canonical deal binding.");
   }
   const wallet = requiredText(prepared.walletAddress, "Verified party wallet").toLowerCase();
