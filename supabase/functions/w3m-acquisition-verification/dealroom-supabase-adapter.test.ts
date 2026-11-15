@@ -89,8 +89,7 @@ Deno.test("strict Deal Room adapter permits only verified seller-wins disputes",
     deal: { ...deal, status: "disputed", dispute_status: "resolved_seller" },
     policy, codeAudit, stage: "PREPARE",
     now: "2026-11-06T20:00:00.000Z",
-    safeConfigurationMatches: true, sellerWinDecisionVerified: false,
-    sellerWinDecisionVerified: true,
+    safeConfigurationMatches: true, sellerWinDecisionVerified: true,
   });
   assertEquals(result.authorized, false);
   assertEquals(result.decision.issues.some((issue) => issue.code === "OPEN_DISPUTE"), false);
@@ -101,7 +100,6 @@ Deno.test("strict Deal Room adapter permits only verified seller-wins disputes",
     policy, codeAudit, stage: "PREPARE",
     now: "2026-11-06T20:00:00.000Z",
     safeConfigurationMatches: true, sellerWinDecisionVerified: false,
-    sellerWinDecisionVerified: false,
   }));
   await assertRejects(() => evaluateDealRoomRowsWithW3M({
     client: client(),
