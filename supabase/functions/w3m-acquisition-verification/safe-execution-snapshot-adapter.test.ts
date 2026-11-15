@@ -234,9 +234,12 @@ async function snapshotWithSignedAgreements() {
     },
   });
   const termsVersionId = "77000000-0000-4000-8000-000000000007";
+  const agreementDocument = terms.canonicalTerms.agreementDocument as Record<string, string>;
   const baseAcceptance = {
     dealId, projectId: String(deal.project_id), buyerId, sellerId,
     safeAddress: String(policy.safe_address), termsHash: terms.dealTermsHash,
+    agreementDocumentVersion: agreementDocument.version,
+    agreementDocumentHash: agreementDocument.sha256,
     termsVersion: "1",
   };
   const buyerDigest = computeDealTermsAcceptanceDigest({ ...baseAcceptance, partyRole: "buyer" });
