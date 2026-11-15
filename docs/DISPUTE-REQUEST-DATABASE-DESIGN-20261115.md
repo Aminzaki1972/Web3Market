@@ -219,3 +219,19 @@ Scope limitation remains: this hardens only the in-memory model. PostgreSQL tran
 Searched the repository's current migration history, the existing `feature/web3-marketplace-v1` branch, the `w3m-protocol-v1-isolated-20261105` branch, and the user's searchable Library for the six known historical migration filenames. The exact SQL source files were not present in those locations/results.
 
 This does not prove no backup exists elsewhere. It confirms that the source has not yet been recovered from the checked repository branches or Library search. The migration remains blocked; no replacement SQL has been guessed or created.
+
+
+## 11. Unified Deal Room activity ledger integration (2026-11-15)
+
+The in-memory dispute transaction model now appends each dispute transition to the existing append-only Deal Room activity-ledger model before committing its local state transition:
+- submission -> `dispute_requested`;
+- administrator approval or decline -> `dispute_reviewed`;
+- separately reasoned declined-hold release -> `admin_review_recorded`.
+
+Each activity entry carries the authenticated actor ID/role, caller-provided model timestamp, request reference, monotonically increasing sequence, and previous-event ID. The activity ledger is frozen and earlier snapshots remain unchanged. If activity validation fails, the model has not yet mutated its request/hold/event state.
+
+Added tests for the complete submission/review/release history and immutable previous entries.
+
+CI run [43696337258](https://github.com/Aminzaki1972/Web3Market/actions/runs/43696337258) passed: **139 passed, 0 failed**.
+
+Limitations: this is still an in-memory composition of domain models. It does not provide durable database atomicity, trusted server time, cryptographic tamper evidence, DB append-only permissions, JWT verification, or a live payout hold. The system ledger's event history is not yet persisted to PostgreSQL or wired to deployed Edge Functions.
