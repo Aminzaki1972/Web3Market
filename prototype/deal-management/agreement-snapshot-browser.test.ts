@@ -39,6 +39,9 @@ Deno.test("deal preview binds every demo approval to the current terms fingerpri
     "document.querySelectorAll('#assets input[data-asset]').forEach(input=>input.addEventListener('change'",
     "document.querySelectorAll('#agreementTerms input,#agreementTerms textarea,#agreementTerms select').forEach",
     "approvalHashes[k]===currentFingerprint",
+    "const live=await hashDealAgreementSnapshot(agreementTermsPayload())",
+    "live.termsHash!==currentFingerprint",
+    "Previous approvals were invalidated.",
     "approvalHashes={buyer:null,seller:null,platform:null};agreementVersion=1",
   ]) {
     if (!html.includes(required)) throw new Error("Missing agreement fingerprint integration contract: " + required);
