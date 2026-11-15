@@ -11,6 +11,12 @@ Deno.test("Deal Room never treats a timestamp-only row as agreement acceptance",
   assert(!source.includes("loadAgreement"));
   assertStringIncludes(renderTerms, "Immutable EIP-712 deal agreement");
   assertStringIncludes(renderTerms, "showCanonicalAgreementReview");
+  const reviewStart = source.indexOf(" async function showCanonicalAgreementReview(info){");
+  const reviewEnd = source.indexOf(" async function renderTerms(){", reviewStart);
+  const review = source.slice(reviewStart, reviewEnd);
+  assertStringIncludes(review, "info.agreementDocument.text");
+  assertStringIncludes(review, "info.agreementDocument.sha256");
+  assertStringIncludes(review, "Full legal agreement");
   assertStringIncludes(renderTerms, "signAndSubmitW3MDealAgreement");
   assertStringIncludes(renderTerms, "import('/js/w3m-deal-agreement-client.js')");
   assertStringIncludes(renderTerms, "sb.auth.getSession()");
