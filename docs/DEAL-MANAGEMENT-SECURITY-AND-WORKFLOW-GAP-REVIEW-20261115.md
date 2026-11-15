@@ -157,3 +157,8 @@ Added `prototype/deal-management/agreement-snapshot.ts` and tests. The sandbox p
 Tests cover key-order invariance, array-order sensitivity, Unicode normalization, unsupported values, unsafe keys, and top-level object validation.
 
 This is a tested deterministic serialization primitive only. It is not yet called by a trusted Edge Function, does not persist immutable agreement versions, and does not verify wallet signatures or platform approval authority. The platform approval decision gate remains open. No database migration or deployment was performed.
+
+
+## Latest sandbox verification (2026-11-15)
+
+The latest relevant workflow run after adding the canonical agreement snapshot tests and the Deal Room syntax check completed successfully: run `43667434900`, with **114 passed, 0 failed** in the Deno sandbox suite and the `node --check js/deal-room.js` step successful. This run tested commit `44d0a699c359451359413cbef7d638b53ccc6615`; the current branch head contains only a subsequent documentation/PR-description update.
