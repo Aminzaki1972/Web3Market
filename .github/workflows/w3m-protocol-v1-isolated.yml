@@ -498,6 +498,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261115010000_w3m_protocol_v1_bind_legal_agreement_document.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261115214326_w3m_protocol_v1_immutable_dispute_decisions.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116010000_w3m_protocol_v1_safe_snapshot_dispute_decision.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107070000_w3m_protocol_v1_atomic_safe_prepare.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107080000_w3m_protocol_v1_atomic_safe_sign.sql
