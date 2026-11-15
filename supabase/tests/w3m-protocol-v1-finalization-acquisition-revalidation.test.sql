@@ -112,7 +112,7 @@ begin
   -- No dispute may be bypassed by a generic closed state. Seller release
   -- after a dispute requires the immutable seller_wins decision record;
   -- buyer_wins is deliberately excluded from the seller-release path.
-  v_finalizer_compact := regexp_replace(upper(v_finalizer), '\\s+', '', 'g');
+  v_finalizer_compact := regexp_replace(upper(v_finalizer), '\s+', '', 'g');
   if position('PUBLIC.DEAL_DISPUTES' in v_finalizer_compact) = 0
      or position('NOTIN(''RESOLVED'')' in v_finalizer_compact) = 0
      or position('V_DEAL.DISPUTE_STATUSISNULL' in v_finalizer_compact) = 0
