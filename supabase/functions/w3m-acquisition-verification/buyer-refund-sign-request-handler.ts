@@ -53,7 +53,7 @@ export function createBuyerRefundSignRequestHandler(deps:BuyerRefundSignDependen
   try{
    const c=await deps.loadFreshContext({actorId:actor.userId,dealId,requestId,decisionId,safeTransactionHash:txHash});
    if(c.action!=="refund_to_buyer"||c.dealId!==dealId||c.requestId!==requestId||c.decisionId!==decisionId||c.safeTransactionHash.toLowerCase()!==txHash.toLowerCase()||c.chainId!==56||c.status!=="awaiting_signatures")return json(409,{ok:false,error:"REFUND_REQUEST_CONTEXT_MISMATCH"});
-   if(!HASH.test(c.decisionHash)||!/^([0-9a-f]{64})$/i.test(c.termsHash)||!ADDRESS.test(c.safeAddress)||!ADDRESS.test(c.verifiedWallet)||!ADDRESS.test(c.buyerWallet)||!/^([0-9]+)$/.test(c.safeNonce))return json(409,{ok:false,error:"REFUND_SIGN_CONTEXT_INVALID"});
+   if(!/^((0x)?[0-9a-f]{64})$/i.test(c.decisionHash)||!/^([0-9a-f]{64})$/i.test(c.termsHash)||!ADDRESS.test(c.safeAddress)||!ADDRESS.test(c.verifiedWallet)||!ADDRESS.test(c.buyerWallet)||!/^([0-9]+)$/.test(c.safeNonce))return json(409,{ok:false,error:"REFUND_SIGN_CONTEXT_INVALID"});
    if(c.signerRole!=="buyer"&&c.signerRole!=="seller")return json(403,{ok:false,error:"REFUND_SIGNER_ROLE_INVALID"});
    if((c.signerRole==="buyer"&&c.verifiedWallet.toLowerCase()!==c.buyerWallet.toLowerCase())||
       (c.signerRole==="seller"&&c.verifiedWallet.toLowerCase()===c.buyerWallet.toLowerCase()))return json(403,{ok:false,error:"REFUND_SIGNER_WALLET_ROLE_MISMATCH"});
