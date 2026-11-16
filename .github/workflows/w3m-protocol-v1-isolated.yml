@@ -45,6 +45,8 @@ on:
       - "supabase/migrations/20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql"
       - "supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql"
       - "supabase/migrations/20261116010000_w3m_protocol_v1_safe_snapshot_dispute_decision.sql"
+      - "supabase/migrations/20261116020000_w3m_protocol_v1_buyer_refund_signature_registry.sql"
+      - "supabase/tests/w3m-protocol-v1-buyer-refund-signature-registry.test.sql"
       - "supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql"
       - "supabase/migrations/20261107065000_w3m_protocol_v1_dealroom_code_audit_snapshot.sql"
       - "supabase/migrations/20261107066000_w3m_protocol_v1_completed_audit_immutability.sql"
@@ -117,6 +119,8 @@ on:
       - "supabase/migrations/20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql"
       - "supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql"
       - "supabase/migrations/20261116010000_w3m_protocol_v1_safe_snapshot_dispute_decision.sql"
+      - "supabase/migrations/20261116020000_w3m_protocol_v1_buyer_refund_signature_registry.sql"
+      - "supabase/tests/w3m-protocol-v1-buyer-refund-signature-registry.test.sql"
       - "supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql"
       - "supabase/migrations/20261107065000_w3m_protocol_v1_dealroom_code_audit_snapshot.sql"
       - "supabase/migrations/20261107066000_w3m_protocol_v1_completed_audit_immutability.sql"
@@ -519,6 +523,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261115214326_w3m_protocol_v1_immutable_dispute_decisions.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116010000_w3m_protocol_v1_safe_snapshot_dispute_decision.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116020000_w3m_protocol_v1_buyer_refund_signature_registry.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107070000_w3m_protocol_v1_atomic_safe_prepare.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107080000_w3m_protocol_v1_atomic_safe_sign.sql
@@ -530,6 +535,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-prepare-policy-reader.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-atomic-safe-prepare.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-atomic-safe-sign.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-buyer-refund-signature-registry.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-snapshot-reader.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-deal-agreement-acceptances.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE audit_immutability_test;"
