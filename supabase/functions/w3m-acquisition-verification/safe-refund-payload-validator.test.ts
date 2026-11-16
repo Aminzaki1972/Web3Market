@@ -117,3 +117,7 @@ Deno.test("rejects malformed amounts and invalid fee", () => {
   assertDenied(input({ buyerRefundAmount: "-1" }), "AMOUNT_FORMAT_INVALID");
   assertDenied(input({ platformFeeAmount: "1" }), "PLATFORM_FEE_NOT_7_5_PERCENT_OF_ORIGINAL_DEAL");
 });
+
+Deno.test("rejects confirmed funding that differs from original deal amount",()=>{
+  assertDenied(input({confirmedFundedAmount:(101n*UNIT).toString()}),"CONFIRMED_FUNDING_DOES_NOT_MATCH_ORIGINAL_DEAL_AMOUNT");
+});
