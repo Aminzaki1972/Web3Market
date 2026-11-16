@@ -65,6 +65,7 @@ Deno.serve(async (request) => {
         decisionHash: result.decisionHash,
         outcome: result.outcome,
         state: result.dealDisputeStatus,
+        buyerRefundAmount: result.buyerRefundAmount,
       };
     },
   });
