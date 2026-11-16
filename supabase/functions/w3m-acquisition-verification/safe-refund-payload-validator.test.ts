@@ -62,13 +62,19 @@ Deno.test("rejects a refund plus fixed fee that exceeds Safe balance", () => {
   assertDenied(x, "SAFE_BALANCE_INSUFFICIENT_FOR_REFUND_AND_FEE");
 });
 
-Deno.test("accepts a full original-value refund when Safe also holds the fixed fee", () => {
+Deno.test("rejects a full-value refund plus fee when the confirmed deal funding cannot cover both", () => {
   const x = input({
     buyerRefundAmount: (100n * UNIT).toString(),
     confirmedSafeBalance: (1075n * UNIT / 10n).toString(),
   });
   x.calls[0].amount = x.buyerRefundAmount;
-  assertValid(x, "full refund plus separately funded fixed fee");
+  assertDenied(x, "PARTIAL_REFUND_ALLOCATION_NOT_APPROVED");
+});
+
+Deno.test("rejects partial refunds when the seller residual is not explicitly allocated", () => {
+  const x = input({ buyerRefundAmount: (50n * UNIT).toString() });
+  x.calls[0].amount = x.buyerRefundAmount;
+  assertDenied(x, "PARTIAL_REFUND_ALLOCATION_NOT_APPROVED");
 });
 
 Deno.test("bounds the refund by confirmed funding even if Safe has excess funds", () => {
