@@ -225,7 +225,11 @@ begin
      or lower(p_verified_receipt->>'tokenContract') is distinct from v_request.token_address
      or lower(p_verified_receipt->>'buyerWallet') is distinct from v_request.buyer_wallet
      or lower(p_verified_receipt->>'platformWallet') is distinct from v_request.platform_wallet
-     or coalesce(p_verified_receipt->>'buyerRefundAmount','') !~ '^(0|[1-9][0-9]*)([.][0-9]{1,18})?     or v_confirmations < 6 then
+     or coalesce(p_verified_receipt->>'buyerRefundAmount','') !~ '^[0-9]+([.][0-9]{1,18})?$'
+     or coalesce(p_verified_receipt->>'platformFeeAmount','') !~ '^[0-9]+([.][0-9]{1,18})?$'
+     or (p_verified_receipt->>'buyerRefundAmount')::numeric is distinct from v_refund
+     or (p_verified_receipt->>'platformFeeAmount')::numeric is distinct from v_fee
+     or v_confirmations < 6 then
     raise exception 'Receipt transfers or chain confirmations do not match the immutable refund request' using errcode='23514';
   end if;
 
