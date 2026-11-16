@@ -30,7 +30,12 @@ create table public.w3m_deal_dispute_decisions (
   check (canonical_payload->>'buyerRefundAmount' is not distinct from buyer_refund_amount),
   check (case when outcome='buyer_wins' then
     buyer_refund_amount is not null
-    and buyer_refund_amount ~ '^(0|[1-9][0-9]*)([.][0-9]{1,18})?  check (canonical_payload->>'termsVersionId' = terms_version_id::text),
+    and buyer_refund_amount ~ '^(0|[1-9][0-9]*)([.][0-9]{1,18})?$'
+    and buyer_refund_amount !~ '[.][0-9]*0$'
+    and case when buyer_refund_amount ~ '^(0|[1-9][0-9]*)([.][0-9]{1,18})?$'
+      then buyer_refund_amount::numeric > 0 else false end
+    else buyer_refund_amount is null end),
+  check (canonical_payload->>'termsVersionId' = terms_version_id::text),
   check (canonical_payload->>'termsVersion' = terms_version::text),
   check (canonical_payload->>'termsHash' = terms_hash),
   check (canonical_payload->>'decidedBy' = decided_by::text)
