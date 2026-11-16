@@ -173,6 +173,9 @@ export async function verifyBnbSafeBuyerRefundReceipt(
   if (originalDealRaw <= 0n || expectedFeeRaw !== fixedFeeRaw) {
     throw new BnbSafeRefundReceiptVerificationError("Platform fee is not exactly 7.5% of the original signed deal value.");
   }
+  if (expectedBuyerRaw + expectedFeeRaw !== originalDealRaw) {
+    throw new BnbSafeRefundReceiptVerificationError("Buyer refund and platform fee do not allocate the full confirmed deal funding; seller residual allocation is not approved.");
+  }
 
   let success = 0;
   let failure = 0;
