@@ -14,6 +14,7 @@ create table public.w3m_buyer_refund_requests (
   refund_amount numeric(38,18) not null check (refund_amount > 0),
   platform_fee_amount numeric(38,18) not null check (platform_fee_amount > 0),
   funded_amount numeric(38,18) not null check (funded_amount > 0),
+  safe_balance numeric(38,18) not null check (safe_balance > 0),
   buyer_wallet text not null check (buyer_wallet ~ '^0x[0-9a-f]{40}$'),
   platform_wallet text not null check (platform_wallet = lower('0x2B15cC63eE3b833F502C065767695Fa2B584f8c9')),
   token_address text not null check (token_address = lower('0x55d398326f99059ff775485246999027b3197955')),
@@ -30,7 +31,8 @@ create table public.w3m_buyer_refund_requests (
   created_by uuid not null references auth.users(id) on delete restrict,
   created_at timestamptz not null default now(),
   check (refund_amount <= funded_amount),
-  check (refund_amount + platform_fee_amount <= funded_amount + (refund_amount + platform_fee_amount - funded_amount)),
+  check (platform_fee_amount = round(original_deal_amount * 0.075,18)),
+  check (refund_amount + platform_fee_amount <= safe_balance),
   unique (deal_id, dispute_id)
 );
 create index w3m_buyer_refund_requests_deal_idx
@@ -149,8 +151,7 @@ begin
   select * into v_seller from public.profiles where id=v_deal.seller_id for share;
   if v_buyer.wallet_verified is distinct from true
      or v_seller.wallet_verified is distinct from true
-     or lower(v_buyer.wallet_address) <> v_request.buyer_wallet
-     or lower(v_buyer.wallet_address) <> lower(v_server_authorization->>'buyer_wallet') then
+     or lower(v_buyer.wallet_address) <> v_request.buyer_wallet then
     raise exception 'Buyer verified wallet changed or is not bound' using errcode='42501';
   end if;
 
