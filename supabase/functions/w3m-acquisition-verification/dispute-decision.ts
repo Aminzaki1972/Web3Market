@@ -156,7 +156,7 @@ export function parseW3MDisputeDecisionCommand(value: unknown): W3MDisputeDecisi
   }
   let buyerRefundAmount: string | undefined;
   if (row.outcome === "buyer_wins") {
-    if (typeof row.buyerRefundAmount !== "string" || !/^(0|[1-9][0-9]*)(\\.[0-9]{1,18})?$/.test(row.buyerRefundAmount)) {
+    if (typeof row.buyerRefundAmount !== "string" || !/^(0|[1-9][0-9]*)(\.[0-9]{1,18})?$/.test(row.buyerRefundAmount)) {
       throw new Error("Buyer-win decisions require a positive canonical refund amount with at most 18 decimals.");
     }
     const [whole, fraction = ""] = row.buyerRefundAmount.split(".");
@@ -188,7 +188,7 @@ export async function buildW3MCanonicalDisputeDecision(
   if (!OUTCOMES.includes(input.outcome)) throw new Error("Dispute outcome is unsupported.");
   let buyerRefundAmount: string | null = null;
   if (input.outcome === "buyer_wins") {
-    if (typeof input.buyerRefundAmount !== "string" || !/^(0|[1-9][0-9]*)(\\.[0-9]{1,18})?$/.test(input.buyerRefundAmount)) {
+    if (typeof input.buyerRefundAmount !== "string" || !/^(0|[1-9][0-9]*)(\.[0-9]{1,18})?$/.test(input.buyerRefundAmount)) {
       throw new Error("Buyer-win decisions require a positive canonical refund amount.");
     }
     const [whole, fraction = ""] = input.buyerRefundAmount.split(".");
