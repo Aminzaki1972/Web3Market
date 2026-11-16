@@ -140,6 +140,7 @@ begin
 
   if v_original <= 0 or v_refund <= 0 or v_funded <= 0 or v_balance <= 0
      or v_refund > v_funded
+     or v_funded is distinct from v_original
      or v_fee <> round(v_original * 0.075,18)
      or v_refund + v_fee > v_balance
      or (p_intent->>'confirmedFundedAmount')::numeric <> v_funded
@@ -277,7 +278,10 @@ begin
       'safe_transaction_id',v_tx.id,'safe_tx_hash',v_hash,
       'refund_amount',v_refund::text,'original_deal_amount',v_original::text,
       'platform_fee_amount',v_fee::text,'safe_nonce',v_nonce,
-      'safe_block_number',v_block_number,'safe_block_hash',lower(p_safe_facts->>'block_hash')
+      'safe_block_number',v_block_number,'safe_block_hash',lower(p_safe_facts->>'block_hash'),
+      'funding_tx_hash',lower(p_funding_facts->>'tx_hash'),
+      'funding_block_hash',lower(p_funding_facts->>'block_hash'),
+      'confirmed_funded_amount',v_funded::text
     ),v_now
   );
 
