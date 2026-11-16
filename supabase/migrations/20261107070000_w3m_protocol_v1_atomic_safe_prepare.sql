@@ -80,7 +80,7 @@ begin
   fee_percent_value := (p_policy->>'fee_percent')::numeric;
   fee_value := (p_policy->>'fee_amount')::numeric;
   seller_net_value := (p_policy->>'seller_net_amount')::numeric;
-  if amount_value <= 0 or fee_percent_value < 0 or fee_percent_value > 100
+  if amount_value <= 0 or fee_percent_value <> 7.5
      or fee_value <> round(amount_value * fee_percent_value / 100,18)
      or seller_net_value <> amount_value - fee_value then
     raise exception 'Exact 18-decimal fee arithmetic mismatch' using errcode='23514';
@@ -92,20 +92,46 @@ begin
   if p_actor_id not in (d.buyer_id,d.seller_id) then
     raise exception 'Actor is not a deal participant' using errcode='42501';
   end if;
-  if d.status not in ('funded','in_progress') or d.payment_status <> 'confirmed'
-     or d.payment_tx_hash is null or d.payment_tx_hash !~ '^0x[0-9a-fA-F]{64}$'
+  if (d.status not in ('funded','in_progress')
+       and not (d.status='disputed' and d.dispute_status='resolved_seller'))
+     or d.payment_status <> 'confirmed'
+     or d.payment_tx_hash is null or length(d.payment_tx_hash) <> 66
+     or d.payment_tx_hash !~ '^0x[0-9a-fA-F]{64}$'
      or d.chain_id is distinct from 56 or lower(coalesce(d.safe_address,'')) <> safe_addr
      or lower(coalesce(d.token_contract,'')) <> token_addr
      or upper(coalesce(d.token_symbol,d.currency,'')) <> 'USDT'
-     or coalesce(d.dispute_status,'') not in ('none','closed')
+     or coalesce(d.dispute_status,'') not in ('none','resolved_seller')
+     or (d.dispute_status='resolved_seller' and d.status is distinct from 'disputed')
      or d.delivery_status <> 'accepted' or d.buyer_approved_at is null
      or d.amount is distinct from amount_value or d.platform_fee_percent is distinct from fee_percent_value then
     raise exception 'Current deal/payment/delivery/dispute/amount state is not eligible' using errcode='23514';
   end if;
-  if exists(select 1 from public.deal_disputes x where x.deal_id=p_deal_id
-      and lower(coalesce(x.status,'open')) not in
-      ('','none','resolved','closed','dismissed','rejected','cancelled','canceled','withdrawn')) then
-    raise exception 'Unresolved dispute blocks PREPARE' using errcode='23514';
+
+  if d.dispute_status='none' then
+    if exists(select 1 from public.deal_disputes x where x.deal_id=p_deal_id) then
+      raise exception 'A dispute record exists while the parent deal is marked no-dispute' using errcode='23514';
+    end if;
+  elsif d.dispute_status='resolved_seller' then
+    if not exists (
+      select 1
+        from public.deal_disputes x
+        join public.w3m_deal_dispute_decisions decision
+          on decision.deal_id=x.deal_id and decision.dispute_id=x.id
+       where x.deal_id=p_deal_id
+         and x.status='resolved'
+         and x.resolution='seller_wins'
+         and decision.outcome='seller_wins'
+         and decision.terms_hash=p_w3m_authorization->>'deal_terms_hash'
+         and decision.terms_version_id = (
+           select tv.id from public.w3m_deal_terms_versions tv
+            where tv.deal_id=p_deal_id
+            order by tv.terms_version desc limit 1
+         )
+    ) then
+      raise exception 'Seller release after dispute requires an immutable seller-wins decision bound to the latest signed terms' using errcode='23514';
+    end if;
+  else
+    raise exception 'Dispute state blocks seller PREPARE' using errcode='23514';
   end if;
 
   select lower(wallet_address) into buyer_wallet from public.profiles
@@ -235,4 +261,10 @@ revoke all on function public.w3m_commit_safe_prepare(uuid,uuid,jsonb,jsonb,json
 grant execute on function public.w3m_commit_safe_prepare(uuid,uuid,jsonb,jsonb,jsonb) to service_role;
 comment on function public.w3m_commit_safe_prepare(uuid,uuid,jsonb,jsonb,jsonb) is
  'Atomic service-role-only W3M PREPARE persistence. Caller must verify signed W3M PASS and live canonical BNB Safe facts. Isolated draft; not deployed.';
+
+-- Enforce the V1 success-fee rule for all newly inserted or updated release policies.
+-- NOT VALID preserves legacy rows for explicit reconciliation while blocking new deviations.
+alter table public.deal_release_policies
+  add constraint deal_release_policies_w3m_v1_fee_percent_check
+  check (fee_percent = 7.5) not valid;
 commit;

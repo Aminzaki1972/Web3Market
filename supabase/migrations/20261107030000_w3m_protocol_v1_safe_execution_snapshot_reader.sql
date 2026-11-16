@@ -20,9 +20,11 @@ declare
   v_buyer_profile jsonb;
   v_seller_profile jsonb;
   v_transactions jsonb;
+  v_refund_transactions jsonb;
   v_signers jsonb;
   v_agreements jsonb;
   v_dispute jsonb;
+  v_dispute_decision jsonb;
 begin
   if p_deal_id is null then
     raise exception 'Deal ID is required' using errcode = '22023';
@@ -100,6 +102,39 @@ begin
   where t.deal_id = p_deal_id
     and t.action = 'release_to_seller';
 
+  -- Keep refund requests separate from seller releases. This read-only snapshot
+  -- exposes the existing refund action without weakening seller-only checks.
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', t.id::text,
+    'deal_id', t.deal_id::text,
+    'action', t.action,
+    'safe_tx_hash', t.safe_tx_hash,
+    'tx_hash', t.tx_hash,
+    'status', t.status,
+    'confirmations_count', t.confirmations_count,
+    'required_signatures', t.required_signatures,
+    'safe_nonce', t.safe_nonce::text,
+    'to_address', t.to_address,
+    'data', t.data,
+    'value_wei', t.value_wei::text,
+    'operation', t.operation,
+    'safe_tx_gas', t.safe_tx_gas::text,
+    'base_gas', t.base_gas::text,
+    'gas_price', t.gas_price::text,
+    'gas_token', t.gas_token,
+    'refund_receiver', t.refund_receiver,
+    'signatures', t.signatures,
+    'amount', t.amount::text,
+    'token_symbol', t.token_symbol,
+    'chain_id', t.chain_id::text,
+    'safe_address', t.safe_address,
+    'updated_at', t.updated_at::text
+  ) order by t.created_at desc), '[]'::jsonb)
+  into v_refund_transactions
+  from public.deal_multisig_transactions t
+  where t.deal_id = p_deal_id
+    and t.action = 'refund_to_buyer';
+
   select coalesce(jsonb_agg(jsonb_build_object(
     'deal_id', s.deal_id::text,
     'signer_role', s.signer_role,
@@ -133,6 +168,21 @@ begin
   ) into v_dispute
   from public.deal_disputes d
   where d.deal_id = p_deal_id;
+
+  select jsonb_build_object(
+    'id', decision.id::text,
+    'deal_id', decision.deal_id::text,
+    'dispute_id', decision.dispute_id::text,
+    'outcome', decision.outcome,
+    'decision_hash', decision.decision_hash,
+    'terms_version_id', decision.terms_version_id::text,
+    'terms_version', decision.terms_version::text,
+    'terms_hash', decision.terms_hash,
+    'decided_by', decision.decided_by::text,
+    'decided_at', decision.decided_at::text
+  ) into v_dispute_decision
+  from public.w3m_deal_dispute_decisions decision
+  where decision.deal_id = p_deal_id;
 
   return jsonb_build_object(
     'deal', jsonb_build_object(
@@ -186,9 +236,11 @@ begin
     'buyer_profile', v_buyer_profile,
     'seller_profile', v_seller_profile,
     'release_transactions', v_transactions,
+    'refund_transactions', v_refund_transactions,
     'signers', v_signers,
     'party_agreements', v_agreements,
     'dispute', v_dispute,
+    'dispute_decision', v_dispute_decision,
     'agreement_binding_supported', false
   );
 end;
@@ -200,6 +252,6 @@ grant execute on function public.w3m_read_safe_execution_snapshot(uuid)
   to service_role;
 
 comment on function public.w3m_read_safe_execution_snapshot(uuid) is
-  'Read-only server-side snapshot for W3M Safe EXECUTE. Returns exact numeric text and legacy agreement/transaction records. Isolated draft; not deployed.';
+  'Read-only server-side snapshot for W3M Safe EXECUTE. Returns separate exact numeric-text seller-release and buyer-refund transaction collections. Isolated draft; not deployed.';
 
 commit;

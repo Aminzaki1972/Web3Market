@@ -70,6 +70,7 @@ export interface SafeExecutionDatabaseSnapshot {
   agreementAcceptances: SafeExecutionSnapshotAgreementAcceptance[];
   codeAudit: DealCodeAuditBinding;
   dispute: Record<string, unknown> | null;
+  disputeDecision: Record<string, unknown> | null;
   blockers: string[];
 }
 
@@ -282,6 +283,11 @@ export async function loadSafeExecutionDatabaseSnapshot(
       throw new Error("Safe execution snapshot terms version is not a positive integer.");
     }
     const canonicalTerms = object(row.canonical_terms, "canonical terms");
+    const agreementDocument = object(canonicalTerms.agreementDocument, "pinned legal agreement document");
+    if (agreementDocument.documentId !== "W3M-AGREEMENT" || agreementDocument.version !== "1.0" ||
+        agreementDocument.locale !== "ar" || agreementDocument.sha256 !== "721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531") {
+      throw new Error("Canonical terms do not contain the exact approved W3M V1 legal agreement.");
+    }
     const termsHash = text(row.terms_hash, "canonical terms hash");
     if (!/^[0-9a-f]{64}$/.test(termsHash)) {
       throw new Error("Safe execution snapshot terms hash is malformed.");
@@ -380,7 +386,10 @@ export async function loadSafeExecutionDatabaseSnapshot(
         acceptance: {
           dealId, projectId: termsVersion.projectId, buyerId: termsVersion.buyerId,
           sellerId: termsVersion.sellerId, safeAddress: termsVersion.safeAddress,
-          termsHash: termsVersion.termsHash, termsVersion: termsVersion.termsVersion,
+          termsHash: termsVersion.termsHash,
+          agreementDocumentVersion: String(agreementDocument.version),
+          agreementDocumentHash: String(agreementDocument.sha256),
+          termsVersion: termsVersion.termsVersion,
           partyRole: accepted.partyRole,
         },
         signature: accepted.signature,
@@ -406,7 +415,34 @@ export async function loadSafeExecutionDatabaseSnapshot(
       !agreementAcceptances.some((row) => row.partyRole === "seller")) {
     blockers.push("IMMUTABLE_AGREEMENT_ACCEPTANCES_INCOMPLETE");
   }
-  if (deal.dispute_status !== "none" || root.dispute !== null) {
+  const dispute = root.dispute === null || root.dispute === undefined
+    ? null
+    : object(root.dispute, "dispute");
+  const disputeDecision = root.dispute_decision === null || root.dispute_decision === undefined
+    ? null
+    : object(root.dispute_decision, "dispute decision");
+  const noDispute = deal.dispute_status === "none" && dispute === null && disputeDecision === null;
+  const sellerWinDecisionVerified = deal.status === "disputed" &&
+    deal.dispute_status === "resolved_seller" &&
+    dispute !== null &&
+    dispute.id === disputeDecision?.dispute_id &&
+    dispute.deal_id === dealId &&
+    dispute.status === "resolved" &&
+    dispute.resolution === "seller_wins" &&
+    dispute.resolved_by === disputeDecision?.decided_by &&
+    dispute.resolved_at === disputeDecision?.decided_at &&
+    disputeDecision?.id !== undefined &&
+    UUID.test(String(disputeDecision.id)) &&
+    disputeDecision.deal_id === dealId &&
+    disputeDecision.outcome === "seller_wins" &&
+    typeof disputeDecision.decision_hash === "string" &&
+    /^[0-9a-f]{64}$/.test(disputeDecision.decision_hash) &&
+    disputeDecision.terms_version_id === termsVersion?.id &&
+    disputeDecision.terms_version === termsVersion?.termsVersion &&
+    disputeDecision.terms_hash === termsVersion?.termsHash &&
+    UUID.test(String(disputeDecision.decided_by ?? "")) &&
+    timestamp(disputeDecision.decided_at) !== null;
+  if (!noDispute && !sellerWinDecisionVerified) {
     blockers.push("DEAL_DISPUTE_STATE_NOT_CLEAR");
   }
   if (deal.payment_status !== "confirmed" || !HASH.test(String(deal.payment_tx_hash ?? ""))) {
@@ -445,7 +481,8 @@ export async function loadSafeExecutionDatabaseSnapshot(
     termsVersion,
     agreementAcceptances,
     codeAudit,
-    dispute: root.dispute === null ? null : object(root.dispute, "dispute"),
+    dispute,
+    disputeDecision,
     blockers: [...new Set(blockers)],
   };
 }

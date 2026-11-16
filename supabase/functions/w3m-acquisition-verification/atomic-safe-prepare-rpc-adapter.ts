@@ -96,6 +96,9 @@ export async function commitAtomicSafePrepare(
   const p = input.policy;
   const amount = canonicalDecimal(p.dealAmount, "Deal amount");
   const feePercent = canonicalDecimal(p.feePercent, "Fee percent");
+  if (Number(feePercent) !== 7.5) {
+    throw new Error("W3M V1 requires the platform's locked 7.5% success fee.");
+  }
   const feeAmount = canonicalDecimal(p.feeAmount, "Fee amount");
   const sellerNet = canonicalDecimal(p.sellerNetAmount, "Seller net amount");
   const sellerWallet = lowerAddress(p.sellerWallet, "Seller wallet");

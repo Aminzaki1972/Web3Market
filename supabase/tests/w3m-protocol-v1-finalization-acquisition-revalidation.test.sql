@@ -2,6 +2,7 @@
 do $test$
 declare
   v_finalizer text;
+  v_finalizer_compact text;
   v_pin text;
   v_evidence_lock text;
   v_dispute_guard text;
@@ -108,12 +109,22 @@ begin
     raise exception 'W3M finalizer must lock and revalidate current project ownership before settlement';
   end if;
 
-  if position('PUBLIC.DEAL_DISPUTES' in upper(v_finalizer)) = 0
-     or position('NOT IN (''RESOLVED'',''CLOSED'')' in upper(v_finalizer)) = 0
-     or position('V_DEAL.DISPUTE_STATUS IS DISTINCT FROM ''NONE''' in upper(v_finalizer)) = 0
-     or position('PUBLIC.DEAL_DISPUTES' in upper(v_finalizer)) >
-        position('UPDATE PUBLIC.DEAL_MULTISIG_TRANSACTIONS' in upper(v_finalizer)) then
-    raise exception 'W3M finalizer must reject active, unresolved, or unclassified dispute state before settlement';
+  -- No dispute may be bypassed by a generic closed state. Seller release
+  -- after a dispute requires the immutable seller_wins decision record;
+  -- buyer_wins is deliberately excluded from the seller-release path.
+  v_finalizer_compact := regexp_replace(upper(v_finalizer), '\s+', '', 'g');
+  if position('PUBLIC.DEAL_DISPUTES' in v_finalizer_compact) = 0
+     or (position('NOTIN(''RESOLVED'')' in v_finalizer_compact) = 0
+         and position('<>''RESOLVED''' in v_finalizer_compact) = 0)
+     or position('V_DEAL.DISPUTE_STATUSISNULL' in v_finalizer_compact) = 0
+     or position('V_DEAL.DISPUTE_STATUSNOTIN(''NONE'',''RESOLVED_SELLER'')' in v_finalizer_compact) = 0
+     or position('W3M_DEAL_DISPUTE_DECISIONS' in v_finalizer_compact) = 0
+     or position('DECISION.OUTCOME=''SELLER_WINS''' in v_finalizer_compact) = 0
+     or position('DECISION.TERMS_VERSION_ID' in v_finalizer_compact) = 0
+     or position('DECISION.TERMS_HASH' in v_finalizer_compact) = 0
+     or position('PUBLIC.DEAL_DISPUTES' in v_finalizer_compact) >
+        position('UPDATEPUBLIC.DEAL_MULTISIG_TRANSACTIONS' in v_finalizer_compact) then
+    raise exception 'W3M finalizer must require an immutable seller-wins decision for disputed seller release and block buyer-wins';
   end if;
 
   if to_regprocedure('public.w3m_lock_deal_dispute_mutation()') is null

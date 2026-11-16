@@ -15,6 +15,8 @@ const base: DealTermsAcceptanceInput = {
   sellerId: "74000000-0000-4000-8000-000000000004",
   safeAddress: "0x2222222222222222222222222222222222222222",
   termsHash: "ab".repeat(32),
+  agreementDocumentVersion: "1.0",
+  agreementDocumentHash: "721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531",
   termsVersion: "1",
   partyRole: "buyer",
 };
@@ -39,6 +41,8 @@ Deno.test("builds EIP-712 typed data bound to BNB Chain 56 and exact acquisition
   assertEquals(typed.message.partyRole, 1);
   assertEquals(typed.message.safeAddress, base.safeAddress.toLowerCase());
   assertEquals(typed.message.termsHash, "0x" + base.termsHash);
+  assertEquals(typed.message.agreementDocumentVersion, "1.0");
+  assertEquals(typed.message.agreementDocumentHash, "0x" + base.agreementDocumentHash);
 });
 
 Deno.test("buyer and seller roles produce different EIP-712 digests for identical terms", () => {
@@ -88,4 +92,10 @@ Deno.test("case-normalized UUIDs and Safe addresses produce the same digest", ()
     ...base, dealId: base.dealId.toUpperCase(), safeAddress: base.safeAddress.toUpperCase(),
   });
   assertEquals(digest, normalized);
+});
+
+Deno.test("changing legal agreement version or document digest changes the EIP-712 digest", () => {
+  const original = computeDealTermsAcceptanceDigest(base);
+  assertEquals(computeDealTermsAcceptanceDigest({ ...base, agreementDocumentVersion: "1.1" }) === original, false);
+  assertEquals(computeDealTermsAcceptanceDigest({ ...base, agreementDocumentHash: "cd".repeat(32) }) === original, false);
 });

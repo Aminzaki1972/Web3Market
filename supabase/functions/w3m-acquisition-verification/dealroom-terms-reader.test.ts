@@ -40,9 +40,31 @@ const row: DealRoomTermsSnapshotRow = {
   policy_safe_nonce: "7", policy_status: "locked",
 };
 
-function client(data: unknown, error: unknown = null): DealRoomTermsRpcClient & W3MRegistryReadClient {
+function client(
+  data: unknown,
+  error: unknown = null,
+  disputeData?: unknown,
+): DealRoomTermsRpcClient & W3MRegistryReadClient {
+  const first = Array.isArray(data) && data.length === 1 && typeof data[0] === "object" && data[0] !== null
+    ? data[0] as Record<string, unknown>
+    : null;
+  const defaultDisputeData = first ? {
+    deal_id: first.deal_id,
+    deal_status: first.deal_status,
+    dispute_status: first.dispute_status,
+    dispute: null,
+    decision: null,
+  } : null;
   return {
-    rpc() { return Promise.resolve({ data, error }); },
+    rpc(name: string) {
+      if (name === "w3m_read_dealroom_terms_snapshot") {
+        return Promise.resolve({ data, error });
+      }
+      if (name === "w3m_read_dealroom_dispute_decision_snapshot") {
+        return Promise.resolve({ data: disputeData ?? defaultDisputeData, error: null });
+      }
+      return Promise.resolve({ data: null, error: new Error("unexpected RPC") });
+    },
     from(table: string) {
       return {
         select() {
@@ -85,7 +107,82 @@ Deno.test("exact snapshot loader feeds exact financial text into the W3M gate", 
   });
   assertEquals(result.authorized, false);
   assertEquals(result.dealTermsHash.length, 64);
+});
+
+Deno.test("exact snapshot loader allows only a decision-bound seller win", async () => {
+  const disputeId = "82000000-0000-4000-8000-000000000002";
+  const decisionSnapshot = {
+    deal_id: "deal-reader-1",
+    deal_status: "disputed",
+    dispute_status: "resolved_seller",
+    dispute: {
+      id: disputeId, deal_id: "deal-reader-1",
+      status: "resolved", resolution: "seller_wins",
+      resolved_by: "85000000-0000-4000-8000-000000000005",
+      resolved_at: "2026-11-15T20:00:00Z",
+    },
+    decision: {
+      id: "83000000-0000-4000-8000-000000000003",
+      deal_id: "deal-reader-1", dispute_id: disputeId,
+      outcome: "seller_wins", decision_hash: "a".repeat(64),
+      terms_version_id: "84000000-0000-4000-8000-000000000004",
+      terms_version: "1", terms_hash: "b".repeat(64),
+      decided_by: "85000000-0000-4000-8000-000000000005",
+      decided_at: "2026-11-15T20:00:00Z",
+    },
+  };
+  const result = await checkDealRoomFromExactSnapshot({
+    client: client([{ ...row, deal_status: "disputed", dispute_status: "resolved_seller" }], null, decisionSnapshot),
+    dealId: "deal-reader-1", stage: "PREPARE",
+    now: "2026-11-15T21:00:00Z", codeAudit: auditFixture,
+    safeFacts: {
+      chainId: 56,
+      safeAddress: "0x2222222222222222222222222222222222222222",
+      owners: [
+        "0x4444444444444444444444444444444444444444",
+        "0x5555555555555555555555555555555555555555",
+        "0x2B15cC63eE3b833F502C065767695Fa2B584f8c9",
+      ],
+      threshold: 2, version: "1.4.1", nonce: "7",
+      expectedBuyerWallet: "0x5555555555555555555555555555555555555555",
+      expectedSellerWallet: "0x4444444444444444444444444444444444444444",
+    },
+  });
+  assertEquals(result.authorized, false);
+  assertEquals(result.decision.issues.some((issue) => issue.code === "OPEN_DISPUTE"), false);
   assertEquals(result.reportVerificationIssues.includes("REPORT_ROW_INVALID"), true);
+});
+
+Deno.test("exact snapshot loader blocks buyer wins and mismatched seller-win decisions", async () => {
+  const disputeId = "82000000-0000-4000-8000-000000000002";
+  const base = {
+    deal_id: "deal-reader-1", deal_status: "disputed", dispute_status: "resolved_buyer",
+    dispute: { id: disputeId, deal_id: "deal-reader-1", status: "resolved", resolution: "buyer_wins" },
+    decision: {
+      id: "83000000-0000-4000-8000-000000000003",
+      deal_id: "deal-reader-1", dispute_id: disputeId, outcome: "buyer_wins",
+      decision_hash: "a".repeat(64), terms_version_id: "84000000-0000-4000-8000-000000000004",
+      terms_version: "1", terms_hash: "b".repeat(64),
+      decided_by: "85000000-0000-4000-8000-000000000005", decided_at: "2026-11-15T20:00:00Z",
+    },
+  };
+  const safeFacts = {
+    chainId: 56,
+    safeAddress: "0x2222222222222222222222222222222222222222",
+    owners: [
+      "0x4444444444444444444444444444444444444444",
+      "0x5555555555555555555555555555555555555555",
+      "0x2B15cC63eE3b833F502C065767695Fa2B584f8c9",
+    ],
+    threshold: 2, version: "1.4.1", nonce: "7",
+    expectedBuyerWallet: "0x5555555555555555555555555555555555555555",
+    expectedSellerWallet: "0x4444444444444444444444444444444444444444",
+  };
+  await assertRejects(() => checkDealRoomFromExactSnapshot({
+    client: client([{ ...row, deal_status: "disputed", dispute_status: "resolved_buyer" }], null, base),
+    dealId: "deal-reader-1", stage: "PREPARE",
+    now: "2026-11-15T21:00:00Z", codeAudit: auditFixture, safeFacts,
+  }));
 });
 
 Deno.test("exact snapshot loader rejects missing policy", async () => {

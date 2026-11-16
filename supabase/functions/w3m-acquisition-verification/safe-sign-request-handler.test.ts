@@ -18,7 +18,7 @@ function deps(overrides: Record<string, unknown> = {}) {
     loadFreshContext: async ({ dealId: id, safeTransactionHash }: { dealId: string; safeTransactionHash: string }) => {
       calls.load++;
       return {
-        authorization: { authorized: true, phase: "SIGN" as const, dealId: id, safeTransactionHash, issues: [] },
+        authorization: { authorized: true, phase: "SIGN" as const, dealId: id, safeTransactionHash, dealTermsHash: "a".repeat(64), issues: [] },
         verifiedWallet: "0x" + "1".repeat(40),
         signerRole: "buyer" as const,
         transactionStatus: "awaiting_signatures" as const,
@@ -51,7 +51,7 @@ Deno.test("SIGN derives actor from authentication and never accepts browser acto
     loadFreshContext: async ({ actorId }: { actorId: string }) => {
       seen = actorId;
       return {
-        authorization: { authorized: true, phase: "SIGN", dealId: deal, safeTransactionHash: hash, issues: [] },
+        authorization: { authorized: true, phase: "SIGN", dealId: deal, safeTransactionHash: hash, dealTermsHash: "a".repeat(64), issues: [] },
         verifiedWallet: "0x" + "1".repeat(40), signerRole: "buyer", transactionStatus: "awaiting_signatures",
       };
     },
@@ -75,7 +75,7 @@ Deno.test("SIGN blocks missing W3M PASS before signature verification or persist
 Deno.test("SIGN binds exact deal and Safe hash", async () => {
   const d = deps({
     loadFreshContext: async () => ({
-      authorization: { authorized: true, phase: "SIGN", dealId: deal, safeTransactionHash: "0x" + "c".repeat(64), issues: [] },
+      authorization: { authorized: true, phase: "SIGN", dealId: deal, safeTransactionHash: "0x" + "c".repeat(64), dealTermsHash: "a".repeat(64), issues: [] },
       verifiedWallet: "0x" + "1".repeat(40), signerRole: "buyer", transactionStatus: "awaiting_signatures",
     }),
   });

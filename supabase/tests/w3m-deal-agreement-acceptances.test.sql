@@ -186,6 +186,7 @@ begin
     'currency','USDT','expectedAmount','100','chainId',56,
     'safeAddress','0x2222222222222222222222222222222222222222',
     'tokenContract','0x3333333333333333333333333333333333333333',
+    'agreementDocument',jsonb_build_object('documentId','W3M-AGREEMENT','version','1.0','locale','ar','sha256','721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531'),
     'codeAudit',jsonb_build_object(
       'auditId','87000000-0000-4000-8000-000000000007',
       'repositoryOwner','Aminzaki1972',
@@ -218,6 +219,10 @@ begin
     raise exception 'First terms version was not created';
   end if;
   v_version_id := (v_version->>'terms_version_id')::uuid;
+  if (select canonical_terms->'agreementDocument'->>'version' from public.w3m_deal_terms_versions where id=v_version_id) <> '1.0'
+     or (select canonical_terms->'agreementDocument'->>'sha256' from public.w3m_deal_terms_versions where id=v_version_id) <> '721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531' then
+    raise exception 'Registered deal terms did not pin the exact approved agreement document version and SHA-256';
+  end if;
 
   v_version := public.w3m_register_deal_terms_version(v_deal,v_hash,v_canonical);
   if v_version->>'terms_version' <> '1'
@@ -420,9 +425,12 @@ begin
     raise exception 'Prior signed version was not preserved as immutable history';
   end if;
 
-  -- The second version cannot be accepted if project ownership drifts after
-  -- its canonical terms were registered.
+  -- Simulate an out-of-band trusted ownership change. Ordinary authenticated
+  -- callers are blocked by the project owner guard; this test models a
+  -- privileged mutation so it can verify the agreement acceptance fails closed.
+  perform set_config('request.jwt.claim.role','service_role',true);
   update public.projects set owner_id=v_buyer where id=v_project;
+  perform set_config('request.jwt.claim.role','',true);
   begin
     perform public.w3m_insert_deal_agreement_acceptance(
       v_deal,2,'buyer',v_buyer,'0x5555555555555555555555555555555555555555',
@@ -431,7 +439,9 @@ begin
     raise exception 'Agreement acceptance was allowed after project ownership changed';
   exception when check_violation then null;
   end;
+  perform set_config('request.jwt.claim.role','service_role',true);
   update public.projects set owner_id=v_seller where id=v_project;
+  perform set_config('request.jwt.claim.role','',true);
 
   -- Even if only one party is signing, both current verified wallets must remain distinct.
   update public.profiles

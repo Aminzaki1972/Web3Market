@@ -82,6 +82,7 @@ const snapshot = {
     { party_role: "seller", party_id: sellerId, agreed_at: "2026-11-06T18:00:00Z" },
   ],
   dispute: null,
+  dispute_decision: null,
   agreement_binding_supported: false,
 };
 
@@ -234,9 +235,12 @@ async function snapshotWithSignedAgreements() {
     },
   });
   const termsVersionId = "77000000-0000-4000-8000-000000000007";
+  const agreementDocument = terms.canonicalTerms.agreementDocument as Record<string, string>;
   const baseAcceptance = {
     dealId, projectId: String(deal.project_id), buyerId, sellerId,
     safeAddress: String(policy.safe_address), termsHash: terms.dealTermsHash,
+    agreementDocumentVersion: agreementDocument.version,
+    agreementDocumentHash: agreementDocument.sha256,
     termsVersion: "1",
   };
   const buyerDigest = computeDealTermsAcceptanceDigest({ ...baseAcceptance, partyRole: "buyer" });
@@ -282,6 +286,64 @@ Deno.test("snapshot clears immutable agreement blocker only after both real EIP-
   assertEquals(result.agreementAcceptances.length, 2);
   assertEquals(result.blockers.includes("IMMUTABLE_AGREEMENT_TERMS_BINDING_UNSUPPORTED"), false);
   assertEquals(result.blockers.includes("IMMUTABLE_AGREEMENT_ACCEPTANCES_INCOMPLETE"), false);
+});
+
+Deno.test("snapshot permits a seller-win dispute only when immutable decision matches latest signed terms", async () => {
+  const data = await snapshotWithSignedAgreements();
+  const disputeId = "82000000-0000-4000-8000-000000000002";
+  const sellerWin = {
+    ...data,
+    deal: { ...data.deal, status: "disputed", dispute_status: "resolved_seller" },
+    dispute: {
+      id: disputeId, deal_id: dealId, status: "resolved", resolution: "seller_wins",
+      resolved_by: "85000000-0000-4000-8000-000000000005",
+      resolved_at: "2026-11-15T20:00:00Z",
+    },
+    dispute_decision: {
+      id: "83000000-0000-4000-8000-000000000003",
+      deal_id: dealId, dispute_id: disputeId, outcome: "seller_wins",
+      decision_hash: "a".repeat(64),
+      terms_version_id: data.terms_version.id,
+      terms_version: data.terms_version.terms_version,
+      terms_hash: data.terms_version.terms_hash,
+      decided_by: "85000000-0000-4000-8000-000000000005",
+      decided_at: "2026-11-15T20:00:00Z",
+    },
+  };
+  const result = await loadSafeExecutionDatabaseSnapshot(client(sellerWin), dealId);
+  assertEquals(result.blockers.includes("DEAL_DISPUTE_STATE_NOT_CLEAR"), false);
+  assertEquals(result.disputeDecision?.outcome, "seller_wins");
+});
+
+Deno.test("snapshot continues to block buyer-win disputes and seller decisions bound to stale terms", async () => {
+  const data = await snapshotWithSignedAgreements();
+  const disputeId = "82000000-0000-4000-8000-000000000002";
+  const baseDecision = {
+    id: "83000000-0000-4000-8000-000000000003",
+    deal_id: dealId, dispute_id: disputeId, decision_hash: "a".repeat(64),
+    terms_version_id: data.terms_version.id,
+    terms_version: data.terms_version.terms_version,
+    terms_hash: data.terms_version.terms_hash,
+    decided_by: "85000000-0000-4000-8000-000000000005",
+    decided_at: "2026-11-15T20:00:00Z",
+  };
+  const buyerWin = {
+    ...data,
+    deal: { ...data.deal, status: "disputed", dispute_status: "resolved_buyer" },
+    dispute: { id: disputeId, deal_id: dealId, status: "resolved", resolution: "buyer_wins" },
+    dispute_decision: { ...baseDecision, outcome: "buyer_wins" },
+  };
+  const buyerResult = await loadSafeExecutionDatabaseSnapshot(client(buyerWin), dealId);
+  assertEquals(buyerResult.blockers.includes("DEAL_DISPUTE_STATE_NOT_CLEAR"), true);
+
+  const staleSellerWin = {
+    ...data,
+    deal: { ...data.deal, status: "disputed", dispute_status: "resolved_seller" },
+    dispute: { id: disputeId, deal_id: dealId, status: "resolved", resolution: "seller_wins" },
+    dispute_decision: { ...baseDecision, outcome: "seller_wins", terms_hash: "b".repeat(64) },
+  };
+  const staleResult = await loadSafeExecutionDatabaseSnapshot(client(staleSellerWin), dealId);
+  assertEquals(staleResult.blockers.includes("DEAL_DISPUTE_STATE_NOT_CLEAR"), true);
 });
 
 Deno.test("snapshot rejects an invalid EIP-712 agreement signature", async () => {

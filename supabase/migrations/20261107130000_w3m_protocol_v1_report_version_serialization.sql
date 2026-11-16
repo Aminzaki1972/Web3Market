@@ -19,6 +19,25 @@ begin
   -- Serialize every report append for this deal before reading its latest version.
   perform pg_advisory_xact_lock(hashtextextended(new.deal_id, 0));
 
+  -- A report may not supersede the evidence basis after settlement. Because
+  -- finalization takes this same advisory lock before checking the latest
+  -- report and commits the completed deal before releasing it, this guard
+  -- deterministically rejects any append that loses the race to finalization.
+  if exists (
+    select 1
+      from public.deals d
+     where d.id::text = new.deal_id
+       and (d.status = 'completed' or d.release_tx_hash is not null)
+  ) or exists (
+    select 1
+      from public.w3m_safe_execution_attempts a
+     where a.deal_id::text = new.deal_id
+       and a.state = 'CONFIRMED'
+  ) then
+    raise exception 'W3M acquisition reports cannot be appended after Safe settlement is confirmed'
+      using errcode = '23514';
+  end if;
+
   select id, report_version
     into v_latest_report_id, v_latest_report_version
     from public.w3m_acquisition_reports

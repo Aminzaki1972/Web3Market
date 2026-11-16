@@ -107,6 +107,7 @@ export async function authorizeSafeHandlerPhase(
       phase,
       dealId: fresh.dealId,
       safeTransactionHash: fresh.safeTransactionHash ?? safeTransactionHash ?? null,
+      dealTermsHash: fresh.agreementBinding?.termsHash,
       reportId: result.decision.reportId,
       reportVersion: result.decision.reportVersion,
     };

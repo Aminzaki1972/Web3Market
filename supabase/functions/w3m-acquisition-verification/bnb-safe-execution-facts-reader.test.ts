@@ -1,7 +1,7 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1";
 import { keccak_256 } from "jsr:@noble/hashes@1.7.1/sha3";
 import type { JsonRpcClient } from "./bnb-revenue-adapter.ts";
-import { readCanonicalBnbSafeExecutionFacts } from "./bnb-safe-execution-facts-reader.ts";
+import { readCanonicalBnbSafeExecutionFacts, readCanonicalBnbSafeTransactionFacts } from "./bnb-safe-execution-facts-reader.ts";
 
 const SAFE = "0x2222222222222222222222222222222222222222";
 const BUYER = "0x5555555555555555555555555555555555555555";
@@ -103,4 +103,25 @@ Deno.test("canonical BNB Safe snapshot rejects malformed block headers", async (
     },
   };
   await assertRejects(() => readCanonicalBnbSafeExecutionFacts(rpc, expected));
+});
+
+
+Deno.test("canonical BNB Safe transaction reader computes hash from live Safe and validates owners and nonce", async () => {
+  const { rpc, calls } = makeRpc();
+  const { storedSafeTransactionHash: _unused, ...withoutStoredHash } = expected;
+  const result = await readCanonicalBnbSafeTransactionFacts(rpc, withoutStoredHash);
+  assertEquals(result.valid, true);
+  assertEquals(result.safeTransactionHash, HASH);
+  assertEquals(result.readBlockNumber, BLOCK);
+  assertEquals(result.readBlockHash, BLOCK_HASH);
+  assertEquals(calls.filter((method) => method === "eth_getBlockByNumber").length, 2);
+  assertEquals(calls.filter((method) => method === "eth_call").length >= 6, true);
+});
+
+Deno.test("canonical BNB Safe transaction reader rejects a reorg while computing the hash", async () => {
+  const { rpc } = makeRpc(true);
+  const { storedSafeTransactionHash: _unused, ...withoutStoredHash } = expected;
+  const result = await readCanonicalBnbSafeTransactionFacts(rpc, withoutStoredHash);
+  assertEquals(result.valid, false);
+  assertEquals(result.issues.includes("SAFE_READ_BLOCK_NOT_CANONICAL"), true);
 });

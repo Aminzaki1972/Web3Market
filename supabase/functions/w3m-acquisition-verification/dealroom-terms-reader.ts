@@ -11,6 +11,7 @@ import type { DealCodeAuditBinding } from "./deal-code-audit-binding.ts";
 
 export interface DealRoomTermsSnapshotRow {
   deal_id: unknown; deal_status: unknown; project_id: unknown; buyer_id: unknown; seller_id: unknown;
+  seller_win_decision_verified?: unknown;
   project_owner_id: unknown; project_status: unknown;
   buyer_wallet: unknown; buyer_wallet_verified: unknown; buyer_wallet_verified_at: unknown;
   seller_wallet: unknown; seller_wallet_verified: unknown; seller_wallet_verified_at: unknown;
@@ -55,6 +56,8 @@ export interface CheckDealRoomFromSnapshotInput {
 const PLATFORM_WALLET = "0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
 const BNB_USDT = "0x55d398326f99059ff775485246999027b3197955";
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const HASH = /^[0-9a-f]{64}$/;
 
 function sameAddressSet(actual: readonly string[], expected: readonly string[]): boolean {
   if (actual.length !== expected.length || actual.some((value) => !ADDRESS.test(value)) ||
@@ -140,14 +143,19 @@ export async function evaluateDealRoomTermsSnapshotRow(
   if (String(row.currency ?? "").toUpperCase() !== "USDT") {
     throw new Error("W3M V1 settlement requires USDT denomination.");
   }
-  if (!["funded", "in_progress"].includes(String(row.deal_status ?? "").toLowerCase())) {
+  const dealStatus = String(row.deal_status ?? "").toLowerCase();
+  const disputeStatus = String(row.dispute_status ?? "").toLowerCase();
+  const noDispute = ["funded", "in_progress"].includes(dealStatus) && disputeStatus === "none";
+  const sellerWin = dealStatus === "disputed" && disputeStatus === "resolved_seller" &&
+    row.seller_win_decision_verified === true;
+  if (!noDispute && !sellerWin) {
     throw new Error("Deal is not in a releasable state; W3M settlement is blocked.");
   }
   if (row.policy_deal_id === null || row.policy_deal_id === undefined) {
     throw new Error("W3M release policy is missing; settlement is blocked.");
   }
   const deal: DealRoomDealRow = {
-    id: row.deal_id, project_id: row.project_id, buyer_id: row.buyer_id,
+    id: row.deal_id, status: row.deal_status, project_id: row.project_id, buyer_id: row.buyer_id,
     seller_id: row.seller_id, amount: row.deal_amount, currency: row.currency,
     expected_amount: row.expected_amount, chain_id: row.deal_chain_id,
     safe_address: row.deal_safe_address, token_contract: row.deal_token_contract,
@@ -171,6 +179,7 @@ export async function evaluateDealRoomTermsSnapshotRow(
     stage: input.stage,
     now: input.now,
     safeConfigurationMatches: safeConfigurationMatches(row, input.safeFacts, input.now),
+    sellerWinDecisionVerified: sellerWin,
   }, recoverAndVerify);
 }
 
@@ -186,9 +195,55 @@ export async function checkDealRoomFromExactSnapshot(
   if (!Array.isArray(result.data) || result.data.length !== 1 || !record(result.data[0])) {
     throw new Error("W3M exact Deal Room snapshot is missing or ambiguous.");
   }
+  const row = result.data[0] as unknown as DealRoomTermsSnapshotRow;
+  const disputeResult = await input.client.rpc("w3m_read_dealroom_dispute_decision_snapshot", {
+    p_deal_id: input.dealId,
+  });
+  if (disputeResult.error || !record(disputeResult.data)) {
+    throw new Error("W3M dispute decision snapshot read failed.");
+  }
+  const disputeSnapshot = disputeResult.data;
+  if (disputeSnapshot.dispute !== null && !record(disputeSnapshot.dispute)) {
+    throw new Error("W3M dispute snapshot record is malformed.");
+  }
+  if (disputeSnapshot.decision !== null && !record(disputeSnapshot.decision)) {
+    throw new Error("W3M dispute decision snapshot record is malformed.");
+  }
+  const dispute = disputeSnapshot.dispute as Record<string, unknown> | null;
+  const decision = disputeSnapshot.decision as Record<string, unknown> | null;
+  if (disputeSnapshot.deal_id !== input.dealId ||
+      disputeSnapshot.deal_status !== row.deal_status ||
+      disputeSnapshot.dispute_status !== row.dispute_status) {
+    throw new Error("W3M dispute snapshot does not match the Deal Room snapshot.");
+  }
+  const noDispute = row.dispute_status === "none" &&
+    ["funded", "in_progress"].includes(String(row.deal_status).toLowerCase()) &&
+    dispute === null && decision === null;
+  const sellerWinDecisionVerified = row.deal_status === "disputed" &&
+    row.dispute_status === "resolved_seller" &&
+    dispute !== null && decision !== null &&
+    UUID.test(String(dispute.id)) &&
+    typeof decision.id === "string" && UUID.test(decision.id) &&
+    dispute.id === decision.dispute_id &&
+    dispute.deal_id === input.dealId &&
+    dispute.status === "resolved" &&
+    dispute.resolution === "seller_wins" &&
+    decision.deal_id === input.dealId &&
+    decision.outcome === "seller_wins" &&
+    typeof decision.decision_hash === "string" && HASH.test(decision.decision_hash) &&
+    typeof decision.terms_hash === "string" && HASH.test(decision.terms_hash) &&
+    typeof decision.terms_version === "string" && /^[1-9][0-9]*$/.test(decision.terms_version) &&
+    typeof decision.terms_version_id === "string" && UUID.test(decision.terms_version_id) &&
+    typeof decision.decided_by === "string" && UUID.test(decision.decided_by) &&
+    dispute.resolved_by === decision.decided_by &&
+    typeof decision.decided_at === "string" && Number.isFinite(Date.parse(decision.decided_at)) &&
+    dispute.resolved_at === decision.decided_at;
+  if (!noDispute && !sellerWinDecisionVerified) {
+    throw new Error("W3M seller-win decision is missing, inconsistent, or invalid.");
+  }
   return await evaluateDealRoomTermsSnapshotRow(
     input,
-    result.data[0] as unknown as DealRoomTermsSnapshotRow,
+    { ...row, seller_win_decision_verified: sellerWinDecisionVerified },
     recoverAndVerify,
   );
 }

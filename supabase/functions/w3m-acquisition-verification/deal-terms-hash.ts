@@ -4,6 +4,7 @@
 
 import { canonicalJson, sha256Hex } from "./decision-engine.ts";
 import type { DealCodeAuditBinding } from "./deal-code-audit-binding.ts";
+import { W3M_AGREEMENT_DOCUMENT_ID, W3M_AGREEMENT_DOCUMENT_VERSION, W3M_AGREEMENT_DOCUMENT_LOCALE, W3M_AGREEMENT_DOCUMENT_SHA256 } from "./deal-agreement-document.ts";
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const DECIMAL = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
@@ -22,6 +23,7 @@ export interface DealTermsSnapshot {
   safeAddress: string;
   tokenContract: string;
   codeAudit: DealCodeAuditBinding;
+  agreementDocument?: { documentId: string; version: string; locale: string; sha256: string };
   policy: {
     dealAmount: string;
     feePercent: string;
@@ -84,6 +86,18 @@ export async function computeDealTermsHash(snapshot: DealTermsSnapshot): Promise
   requiredText(snapshot.sellerId, "Seller ID");
   if (snapshot.buyerId === snapshot.sellerId) throw new Error("Buyer and seller must be distinct.");
   requiredText(snapshot.currency, "Deal currency");
+  const agreementDocument = snapshot.agreementDocument ?? {
+    documentId: W3M_AGREEMENT_DOCUMENT_ID, version: W3M_AGREEMENT_DOCUMENT_VERSION,
+    locale: W3M_AGREEMENT_DOCUMENT_LOCALE, sha256: W3M_AGREEMENT_DOCUMENT_SHA256,
+  };
+  requiredText(agreementDocument.documentId, "Agreement document ID");
+  if (agreementDocument.documentId !== W3M_AGREEMENT_DOCUMENT_ID ||
+      agreementDocument.version !== W3M_AGREEMENT_DOCUMENT_VERSION ||
+      agreementDocument.locale !== W3M_AGREEMENT_DOCUMENT_LOCALE ||
+      agreementDocument.sha256 !== W3M_AGREEMENT_DOCUMENT_SHA256 ||
+      !/^[0-9a-f]{64}$/.test(agreementDocument.sha256)) {
+    throw new Error("Agreement document version, locale, or SHA-256 is not the pinned W3M V1 document.");
+  }
   if (snapshot.chainId !== 56) throw new Error("W3M V1 release terms must be pinned to BNB Chain 56.");
   if (snapshot.policy.status !== "locked" && snapshot.policy.status !== "ready") {
     throw new Error("Release policy must be locked or ready.");
@@ -133,6 +147,12 @@ export async function computeDealTermsHash(snapshot: DealTermsSnapshot): Promise
     chainId: snapshot.chainId,
     safeAddress: address(snapshot.safeAddress, "Safe address"),
     tokenContract: address(snapshot.tokenContract, "Token contract"),
+    agreementDocument: {
+      documentId: agreementDocument.documentId,
+      version: agreementDocument.version,
+      locale: agreementDocument.locale,
+      sha256: agreementDocument.sha256.toLowerCase(),
+    },
     codeAudit: {
       auditId: audit.auditId,
       repositoryOwner: audit.repositoryOwner,

@@ -145,6 +145,14 @@ Deno.test("prepare derives the buyer role and returns the exact server-built EIP
   assertEquals(prepared.walletAddress,buyerSigner.wallet);
   assertEquals(prepared.typedData.domain.chainId,56);
   assertEquals(prepared.typedData.message.partyRole,1);
+  assertEquals(prepared.agreementDocument.version,"1.0");
+  assertEquals(prepared.agreementDocument.sha256,"721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531");
+  assertEquals(prepared.agreementDocument.text.length > 1000,true);
+  assertEquals(prepared.canonicalTerms.dealId,dealId);
+  assertEquals(prepared.canonicalTerms.projectId,projectId);
+  assertEquals(prepared.canonicalTerms.amount,"100");
+  assertEquals((prepared.canonicalTerms.releasePolicy as Record<string, unknown>).feePercent,"7.5");
+  assertEquals((prepared.canonicalTerms.releasePolicy as Record<string, unknown>).sellerNetAmount,"92.5");
   assertEquals(calls.map(x=>x.name),[
     "w3m_read_deal_agreement_signing_snapshot","w3m_register_deal_terms_version",
   ]);
@@ -173,6 +181,7 @@ Deno.test("accept verifies the current verified wallet and persists only the rec
   const prepared = await prepareDealAgreementAcceptance(mockClient(), {dealId,actorId:buyerId});
   const digest = computeDealTermsAcceptanceDigest({
     dealId,projectId,buyerId,sellerId,safeAddress,
+    agreementDocumentVersion: "1.0", agreementDocumentHash: "721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531",
     termsHash:prepared.termsHash,termsVersion:prepared.termsVersion,partyRole:"buyer",
   });
   const signature = buyerSigner.sign(digest.slice(2));
@@ -216,6 +225,7 @@ Deno.test("public agreement acceptance revalidates and persists the audit snapsh
   );
   const digest = computeDealTermsAcceptanceDigest({
     dealId,projectId,buyerId,sellerId,safeAddress,
+    agreementDocumentVersion: "1.0", agreementDocumentHash: "721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531",
     termsHash:preparation.termsHash,termsVersion:preparation.termsVersion,partyRole:"buyer",
   });
   const signature = buyerSigner.sign(digest.slice(2));
@@ -231,4 +241,26 @@ Deno.test("public agreement acceptance revalidates and persists the audit snapsh
     "w3m_register_deal_terms_version",
     "w3m_insert_deal_agreement_acceptance",
   ]);
+});
+
+
+Deno.test("a buyer signature prepared for old terms is rejected if the deal snapshot changes before acceptance", async () => {
+  const prepared = await prepareDealAgreementAcceptance(mockClient(), { dealId, actorId: buyerId });
+  const oldDigest = computeDealTermsAcceptanceDigest({
+    dealId, projectId, buyerId, sellerId, safeAddress,
+    agreementDocumentVersion: "1.0", agreementDocumentHash: "721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531",
+    termsHash: prepared.termsHash, termsVersion: prepared.termsVersion, partyRole: "buyer",
+  });
+  const oldSignature = buyerSigner.sign(oldDigest.slice(2));
+  const changedSnapshot = {
+    ...rawSnapshot,
+    deal: { ...rawSnapshot.deal, amount: "101.000000", expected_amount: "101.000000" },
+    policy: { ...rawSnapshot.policy, deal_amount: "101.000000", fee_amount: "7.575000", seller_net_amount: "93.425000" },
+  };
+  const calls: Array<{name:string,args:Record<string,unknown>}> = [];
+  await assertRejects(() => acceptDealAgreement(
+    mockClient(calls, changedSnapshot),
+    { dealId, actorId: buyerId, signature: oldSignature },
+  ));
+  assertEquals(calls.some(call => call.name === "w3m_insert_deal_agreement_acceptance"), false);
 });

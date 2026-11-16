@@ -1,4 +1,12 @@
 -- Disposable PostgreSQL fixture only; never run against production.
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY);
+CREATE OR REPLACE FUNCTION auth.uid()
+RETURNS uuid LANGUAGE sql STABLE
+AS $auth_uid$
+  SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+$auth_uid$;
+
 CREATE TABLE public.projects (
   id uuid PRIMARY KEY,
   owner_id uuid,
@@ -26,6 +34,7 @@ CREATE TABLE public.deals (
   delivery_status text NOT NULL,
   buyer_approved_at timestamptz,
   dispute_status text,
+  disputed_at timestamptz,
   chain_id bigint,
   safe_address text,
   token_contract text,
@@ -139,8 +148,25 @@ CREATE TABLE public.profiles (
   id uuid PRIMARY KEY,
   wallet_address text,
   wallet_verified boolean NOT NULL DEFAULT false,
-  wallet_verified_at timestamptz
+  wallet_verified_at timestamptz,
+  role text NOT NULL DEFAULT 'user'
 );
+
+CREATE SCHEMA IF NOT EXISTS private;
+CREATE OR REPLACE FUNCTION private.support_is_admin()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $support_admin$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles p
+     WHERE p.id = (SELECT auth.uid())
+       AND lower(coalesce(p.role,'')) = 'admin'
+  )
+$support_admin$;
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean LANGUAGE sql STABLE SET search_path = ''
+AS $is_admin$
+  SELECT private.support_is_admin()
+$is_admin$;
 
 CREATE TABLE public.deal_multisig_signers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -155,6 +181,39 @@ CREATE TABLE public.deal_multisig_signers (
   UNIQUE (deal_id, signer_role)
 );
 
+CREATE TABLE public.deal_messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  deal_id uuid NOT NULL REFERENCES public.deals(id) ON DELETE CASCADE,
+  sender_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  message text NOT NULL CHECK (length(trim(message)) BETWEEN 1 AND 2000),
+  sender_role text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.deal_assets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  deal_id uuid NOT NULL REFERENCES public.deals(id) ON DELETE CASCADE,
+  asset_name text NOT NULL,
+  status text NOT NULL DEFAULT 'pending',
+  delivery_url text,
+  evidence text,
+  delivered_by uuid REFERENCES auth.users(id),
+  delivered_at timestamptz,
+  accepted_by uuid REFERENCES auth.users(id),
+  accepted_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.deal_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  deal_id uuid NOT NULL REFERENCES public.deals(id) ON DELETE CASCADE,
+  actor_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  event_type text NOT NULL,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE public.deal_party_agreements (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   deal_id uuid NOT NULL REFERENCES public.deals(id) ON DELETE CASCADE,
@@ -167,8 +226,44 @@ CREATE TABLE public.deal_party_agreements (
 CREATE TABLE public.deal_disputes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   deal_id uuid NOT NULL UNIQUE REFERENCES public.deals(id) ON DELETE CASCADE,
-  status text NOT NULL,
+  opened_by uuid NOT NULL REFERENCES auth.users(id),
+  reason text NOT NULL,
+  evidence jsonb NOT NULL DEFAULT '[]'::jsonb,
+  status text NOT NULL DEFAULT 'open'
+    CHECK (status IN ('open','under_review','resolved','cancelled')),
   resolution text,
-  resolved_by uuid,
-  resolved_at timestamptz
+  resolved_by uuid REFERENCES auth.users(id),
+  resolved_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Narrow test double for the live projects owner-protection trigger.
+-- Mirrors the production rule: ordinary authenticated updates cannot change
+-- owner_id; trusted service-role workflows may do so inside atomic finalization.
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE OR REPLACE FUNCTION auth.role()
+RETURNS text LANGUAGE sql STABLE
+AS $auth_role$
+  SELECT coalesce(
+    nullif(current_setting('request.jwt.claim.role', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role')
+  )::text
+$auth_role$;
+
+CREATE OR REPLACE FUNCTION public.w3m_test_protect_project_owner()
+RETURNS trigger LANGUAGE plpgsql
+AS $owner_guard$
+BEGIN
+  IF NEW.owner_id IS DISTINCT FROM OLD.owner_id
+     AND auth.role() IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'Project owner cannot be changed'
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$owner_guard$;
+
+CREATE TRIGGER trg_test_protect_project_owner
+BEFORE UPDATE OF owner_id ON public.projects
+FOR EACH ROW EXECUTE FUNCTION public.w3m_test_protect_project_owner();

@@ -51,6 +51,25 @@ begin
     '0x55d398326f99059ff775485246999027b3197955','USDT',now()
   );
 
+  -- A deal configured with a non-V1 commission must be rejected before any PREPARE writes.
+  update public.deals set platform_fee_percent=8 where id=v_deal_id;
+  policy := jsonb_set(policy,'{fee_percent}',to_jsonb('8'::text));
+  policy := jsonb_set(policy,'{fee_amount}',to_jsonb('8'::text));
+  policy := jsonb_set(policy,'{seller_net_amount}',to_jsonb('92'::text));
+  begin
+    perform public.w3m_commit_safe_prepare(v_deal_id,actor_id,policy,safe_facts,auth);
+    raise exception 'Non-V1 8%% success fee unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+  if exists(select 1 from public.deal_release_policies where deal_id=v_deal_id)
+     or exists(select 1 from public.deal_multisig_transactions where deal_id=v_deal_id and action='release_to_seller') then
+    raise exception 'Rejected fee policy left partial PREPARE rows';
+  end if;
+  update public.deals set platform_fee_percent=7.5 where id=v_deal_id;
+  policy := jsonb_set(policy,'{fee_percent}',to_jsonb('7.5'::text));
+  policy := jsonb_set(policy,'{fee_amount}',to_jsonb('7.5'::text));
+  policy := jsonb_set(policy,'{seller_net_amount}',to_jsonb('92.5'::text));
+
   result := public.w3m_commit_safe_prepare(v_deal_id,actor_id,policy,safe_facts,auth);
   if result->>'committed' <> 'true' or result->>'idempotent_replay' <> 'false' then
     raise exception 'First PREPARE call did not commit exactly once: %',result;

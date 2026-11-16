@@ -94,7 +94,7 @@ Deno.test("finalization acquisition adapter rejects a superseded report version"
   await assertRejects(
     () => verifySafeFinalizationAcquisitionBundle(db, ATTEMPT_ID, NOW),
     Error,
-    "not the latest",
+    "no longer the latest",
   );
   if (db.calls.length !== 1) throw new Error("Superseded report must fail before external source reads.");
 });
@@ -144,4 +144,93 @@ Deno.test("finalization acquisition adapter rejects an invalid attempt identity"
     "attempt ID",
   );
   if (db.calls.length !== 0) throw new Error("Invalid attempt identity must not call the database.");
+});
+
+Deno.test("finalization acquisition adapter rejects cross-deal and cross-project report bindings", async () => {
+  for (const changed of [
+    { ...baseBundle.report_row, deal_id: "78000000-0000-4000-8000-000000000008" },
+    { ...baseBundle.report_row, project_id: "79000000-0000-4000-8000-000000000009" },
+    { ...baseBundle.report_row, buyer_id: SELLER_ID },
+  ]) {
+    const db = rpcClient({ ...baseBundle, report_row: changed });
+    await assertRejects(
+      () => verifySafeFinalizationAcquisitionBundle(db, ATTEMPT_ID, NOW),
+      Error,
+      "not bound to the exact deal",
+    );
+    if (db.calls.length !== 1) throw new Error("Misbound report must fail before external source reads.");
+  }
+});
+
+Deno.test("finalization acquisition adapter rejects current deal-terms hash drift", async () => {
+  const db = rpcClient({ ...baseBundle, current_deal_terms_hash: "d".repeat(64) });
+  await assertRejects(
+    () => verifySafeFinalizationAcquisitionBundle(db, ATTEMPT_ID, NOW),
+    Error,
+    "no longer matches",
+  );
+  if (db.calls.length !== 1) throw new Error("Terms drift must fail before external source reads.");
+});
+
+
+Deno.test("finalization acquisition adapter rejects stale or malformed mandatory Code Audit evidence", async () => {
+  const validAuditEvidence = {
+    id: "evidence-row-audit",
+    report_id: REPORT_ID,
+    evidence_type: "CODE_AUDIT",
+    mandatory: true,
+    source_table: "code_audits",
+    source_record_id: "audit-record-1",
+    source_version: "abcdef123456",
+    evidence_hash: "d".repeat(64),
+    result: "PASS",
+    valid_until: "2026-11-12T06:00:00.000Z",
+    observed_at: "2026-11-12T04:00:00.000Z",
+    details: {
+      auditManifestVersion: "w3m-audit-manifest-v1",
+      auditManifestHash: "d".repeat(64),
+      commitSha: "abcdef123456",
+      auditFileCount: 2,
+      auditFindingCount: 0,
+    },
+  };
+  const cases = [
+    {
+      name: "expired evidence",
+      row: { ...validAuditEvidence, valid_until: "2026-11-12T04:59:59.000Z" },
+    },
+    {
+      name: "future-observed evidence",
+      row: { ...validAuditEvidence, observed_at: "2026-11-12T05:00:01.000Z" },
+    },
+    {
+      name: "wrong source table",
+      row: { ...validAuditEvidence, source_table: "code_audit_files" },
+    },
+    {
+      name: "non-PASS evidence",
+      row: { ...validAuditEvidence, result: "FAIL" },
+    },
+    {
+      name: "manifest digest mismatch",
+      row: {
+        ...validAuditEvidence,
+        details: { ...validAuditEvidence.details, auditManifestHash: "e".repeat(64) },
+      },
+    },
+  ];
+  for (const testCase of cases) {
+    const db = rpcClient({
+      ...baseBundle,
+      evidence_rows: [testCase.row],
+    });
+    await assertRejects(
+      () => verifySafeFinalizationAcquisitionBundle(db, ATTEMPT_ID, NOW),
+      Error,
+      "stale or malformed",
+    );
+    if (db.calls.length !== 1) {
+      throw new Error("Invalid " + testCase.name + " must fail before Code Audit manifest reads.");
+    }
+  }
 });

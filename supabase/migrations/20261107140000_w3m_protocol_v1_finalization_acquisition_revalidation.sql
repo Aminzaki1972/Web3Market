@@ -91,6 +91,8 @@ begin
 end;
 $lock$;
 revoke all on function public.w3m_lock_evidence_append() from public, anon, authenticated, service_role;
+drop trigger if exists w3m_acquisition_evidence_serialize_append
+  on public.w3m_acquisition_evidence;
 create trigger w3m_acquisition_evidence_serialize_append
 before insert on public.w3m_acquisition_evidence
 for each row execute function public.w3m_lock_evidence_append();
@@ -285,19 +287,46 @@ begin
       using errcode = '23514';
   end if;
 
-  -- The deal row is already locked above. A newly opened dispute must block
-  -- settlement even when the previously signed acquisition report passed.
-  -- The parent deal lock serializes dispute inserts and status changes. Avoid
-  -- locking child dispute rows here: UPDATE already locks its child row before
-  -- the trigger takes the parent lock, so the parent lock alone avoids inversion.
-  -- Keep every non-terminal dispute fail-closed; resolved/closed records remain auditable.
-  if v_deal.dispute_status is distinct from 'none'
+  -- Dispute outcomes are not interchangeable. A seller release is allowed
+  -- only when the immutable admin decision explicitly says seller_wins.
+  -- Buyer wins remain blocked here until the separate Safe-to-buyer refund
+  -- lifecycle is chain-confirmed. No generic "closed" state may bypass a decision.
+  if v_deal.dispute_status is null
+     or v_deal.dispute_status not in ('none','resolved_seller')
      or exists (
        select 1 from public.deal_disputes d
         where d.deal_id = v_deal.id
-          and lower(coalesce(d.status,'')) not in ('resolved','closed')
+          and lower(coalesce(d.status,'')) not in ('resolved')
+     )
+     or (
+       v_deal.dispute_status = 'none'
+       and exists (select 1 from public.deal_disputes d where d.deal_id = v_deal.id)
+     )
+     or (
+       v_deal.dispute_status = 'resolved_seller'
+       and not exists (
+         select 1
+           from public.w3m_deal_dispute_decisions decision
+           join public.deal_disputes dispute
+             on dispute.id = decision.dispute_id
+            and dispute.deal_id = decision.deal_id
+          where decision.deal_id = v_deal.id
+            and decision.outcome = 'seller_wins'
+            and dispute.status = 'resolved'
+            and dispute.resolution = 'seller_wins'
+            and decision.terms_version_id = (
+              select tv.id from public.w3m_deal_terms_versions tv
+               where tv.deal_id = v_deal.id
+               order by tv.terms_version desc limit 1
+            )
+            and decision.terms_hash = (
+              select tv.terms_hash from public.w3m_deal_terms_versions tv
+               where tv.deal_id = v_deal.id
+               order by tv.terms_version desc limit 1
+            )
+       )
      ) then
-    raise exception 'An open, unresolved, or unclassified dispute blocks Safe settlement'
+    raise exception 'Safe seller release requires no dispute or an immutable seller-wins decision; buyer-wins refunds use the separate Safe refund path'
       using errcode = '23514';
   end if;
 
@@ -430,6 +459,7 @@ begin
      or lower(coalesce(p_receipt_evidence->>'token_contract','')) <> lower(v_policy.token_contract)
      or lower(coalesce(v_deal.token_contract,'')) <> lower(v_policy.token_contract)
      or v_policy.status not in ('locked','ready')
+     or v_policy.fee_percent is distinct from 7.5
      or v_policy.deal_amount is distinct from v_deal.amount
      or v_policy.seller_wallet is null
      or v_policy.platform_wallet is null
