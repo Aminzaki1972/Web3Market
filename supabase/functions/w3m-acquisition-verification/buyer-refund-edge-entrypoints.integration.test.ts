@@ -63,7 +63,7 @@ function makeRpc() {
 class QueryMock {
   private filters: Array<[string, unknown]> = [];
   private inFilters: Array<[string, unknown[]]> = [];
-  constructor(private table: string, private rows: Record<string, unknown[]>) {}
+  constructor(private table: string, private rows: Record<string, Record<string, unknown>[]>) {}
   select(_columns?: string) { return this; }
   eq(column: string, value: unknown) { this.filters.push([column, value]); return this; }
   neq(column: string, value: unknown) { this.filters.push(["!" + column, value]); return this; }
@@ -85,7 +85,7 @@ class QueryMock {
     return Promise.resolve(this.result()).then(resolve, reject);
   }
 }
-function fakeSupabase(input: { userId: string; rows?: Record<string, unknown[]>; rpcData?: Record<string, unknown> }) {
+function fakeSupabase(input: { userId: string; rows?: Record<string, Record<string, unknown>[]>; rpcData?: Record<string, unknown> }) {
   const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const rows = input.rows ?? {};
   return {
