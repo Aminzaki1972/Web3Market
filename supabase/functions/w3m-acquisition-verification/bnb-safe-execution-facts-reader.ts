@@ -65,3 +65,47 @@ export async function readCanonicalBnbSafeExecutionFacts(
     readBlockHash: before.hash,
   };
 }
+
+
+export interface CanonicalBnbSafeTransactionFacts extends CanonicalBnbSafeExecutionFacts {
+  safeTransactionHash: string;
+}
+
+/**
+ * Computes a Safe transaction hash from the live Safe contract at one pinned
+ * BNB block, then verifies the same Safe owner/threshold/nonce/version facts.
+ * The block hash is checked before and after all reads to fail closed on reorg.
+ */
+export async function readCanonicalBnbSafeTransactionFacts(
+  rpc: JsonRpcClient,
+  expected: Omit<SafeLiveExecutionExpectation, "storedSafeTransactionHash">,
+): Promise<CanonicalBnbSafeTransactionFacts> {
+  const blockTag = await getBnbSafeReadBlockTag(rpc);
+  const before = await readBlockHeader(rpc, blockTag);
+  const client = createBnbSafeLiveReadClient(rpc, blockTag);
+  const safeTransactionHash = await client.getTransactionHash(
+    expected.safeAddress,
+    expected.transaction,
+  );
+  const facts = await readAndVerifySafeLiveExecutionFacts(client, {
+    ...expected,
+    storedSafeTransactionHash: safeTransactionHash,
+  });
+  const after = await readBlockHeader(rpc, blockTag);
+  if (before.hash !== after.hash) {
+    return {
+      ...facts,
+      valid: false,
+      readBlockNumber: blockTag,
+      readBlockHash: before.hash,
+      safeTransactionHash,
+      issues: [...new Set([...facts.issues, "SAFE_READ_BLOCK_NOT_CANONICAL"])],
+    };
+  }
+  return {
+    ...facts,
+    readBlockNumber: blockTag,
+    readBlockHash: before.hash,
+    safeTransactionHash,
+  };
+}
