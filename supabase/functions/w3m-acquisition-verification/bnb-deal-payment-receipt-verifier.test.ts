@@ -1,7 +1,7 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import { verifyBnbDealPaymentReceipt, BnbDealPaymentReceiptError } from "./bnb-deal-payment-receipt-verifier.ts";
 
-const BUYER="0x"+"1".repeat(40), SAFE="0x"+"2".repeat(40), TOKEN="0x"+"3".repeat(40);
+const BUYER="0x"+"1".repeat(40), SAFE="0x"+"2".repeat(40), TOKEN="0x55d398326f99059ff775485246999027b3197955";
 const TX="0x"+"4".repeat(64), BLOCK="0x"+"5".repeat(64);
 const topic=(a:string)=>"0x"+a.slice(2).toLowerCase().padStart(64,"0");
 const TRANSFER="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
@@ -25,6 +25,9 @@ function mock(overrides:Record<string,unknown>={}) {
 Deno.test("accepts one exact transfer in a canonical BNB receipt",async()=>{
  const {rpc}=mock();const result=await verifyBnbDealPaymentReceipt(rpc,expected);
  assertEquals(result.chainId,56);assertEquals(result.amountBaseUnits,"1000");assertEquals(result.logIndex,"0");assertEquals(result.confirmations,13);
+});
+Deno.test("rejects a token other than the pinned BNB USDT contract",async()=>{
+ await assertRejects(()=>verifyBnbDealPaymentReceipt(mock().rpc,{...expected,tokenContract:"0x"+"3".repeat(40)}),BnbDealPaymentReceiptError,"expectations are invalid");
 });
 Deno.test("rejects wrong chain before transaction lookup",async()=>{
  const {rpc,calls}=mock({chainId:"0x1"});
