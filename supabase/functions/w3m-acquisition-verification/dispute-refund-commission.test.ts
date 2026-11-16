@@ -108,3 +108,10 @@ Deno.test("rejects zero original deal value and zero buyer refund", () => {
     throw new Error("Expected non-positive deal/refund values to be rejected.");
   }
 });
+
+Deno.test("rejects confirmed funding that differs from the immutable original deal value", () => {
+  const result = evaluate({ confirmedFundedAmount: "99" });
+  if (result.valid || !result.issues.includes("CONFIRMED_FUNDING_DOES_NOT_MATCH_ORIGINAL_DEAL_VALUE")) {
+    throw new Error("Refund allocation must be bound to the exact confirmed deal funding.");
+  }
+});
