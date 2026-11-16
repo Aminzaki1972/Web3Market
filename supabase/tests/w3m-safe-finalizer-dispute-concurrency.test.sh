@@ -123,7 +123,7 @@ FINALIZER_AFTER_PID=$!
 wait_for_query "w3m-finalizer-after-dispute" "w3m_finalize_safe_execution_attempt" "Lock"
 wait "$FINALIZER_AFTER_PID" || true
 wait "$DISPUTE_PID"
-if ! grep -q "An open, unresolved, or unclassified dispute blocks Safe settlement" /tmp/w3m-finalizer-after-dispute.log; then
+if ! grep -q "Safe seller release requires no dispute or an immutable seller-wins decision" /tmp/w3m-finalizer-after-dispute.log; then
   echo "FAIL: finalizer was not rejected for the expected open-dispute reason:"
   cat /tmp/w3m-finalizer-after-dispute.log
   exit 1
