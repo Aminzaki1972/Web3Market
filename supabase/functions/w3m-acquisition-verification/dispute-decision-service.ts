@@ -25,6 +25,7 @@ export interface PersistedW3MDisputeDecision {
   dealDisputeStatus: "resolved_buyer" | "resolved_seller";
   dealStatus: "disputed";
   idempotentReplay: boolean;
+  buyerRefundAmount: string | null;
 }
 
 function object(value: unknown): Record<string, unknown> {
@@ -48,6 +49,7 @@ export async function persistW3MDisputeDecision(
     p_outcome: command.outcome,
     p_reason: command.reason,
     p_evidence_refs: command.evidenceRefs,
+    p_buyer_refund_amount: command.buyerRefundAmount ?? null,
     p_actor_id: input.actorId.toLowerCase(),
   });
   if (error) throw new Error("W3M dispute decision could not be persisted.");
@@ -72,5 +74,6 @@ export async function persistW3MDisputeDecision(
     dealDisputeStatus,
     dealStatus: "disputed",
     idempotentReplay: row.idempotent_replay,
+    buyerRefundAmount: command.buyerRefundAmount ?? null,
   };
 }
