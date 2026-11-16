@@ -386,6 +386,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-signature-persistence-adapter.test.ts
       - name: Test canonical BNB Safe buyer refund receipt verification
         run: deno test supabase/functions/w3m-acquisition-verification/bnb-safe-refund-receipt-verifier.test.ts
+      - name: Test canonical BNB deal payment receipt verification
+        run: deno test supabase/functions/w3m-acquisition-verification/bnb-deal-payment-receipt-verifier.test.ts
       - name: Test authenticated buyer refund receipt finalization boundary
         run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-finalization-handler.test.ts
       - name: Test strict buyer refund amount parser
