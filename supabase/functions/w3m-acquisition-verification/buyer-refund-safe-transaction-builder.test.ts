@@ -16,7 +16,7 @@ const TERMS_HASH = "b".repeat(64);
 
 function intent() {
   return buildBuyerRefundRequestIntent({
-    decision: { id: DECISION, dealId: DEAL, disputeId: DISPUTE, outcome: "buyer_wins", decisionHash: "c".repeat(64), termsHash: TERMS_HASH, buyerRefundAmount: "50" },
+    decision: { id: DECISION, dealId: DEAL, disputeId: DISPUTE, outcome: "buyer_wins", decisionHash: "c".repeat(64), termsHash: TERMS_HASH, buyerRefundAmount: "92.5" },
     terms: { dealId: DEAL, termsHash: TERMS_HASH, originalDealAmount: "100", chainId: 56, safeAddress: SAFE, buyerId: BUYER_ID, sellerId: SELLER_ID, buyerAccepted: true, sellerAccepted: true },
     deal: { id: DEAL, buyerId: BUYER_ID, sellerId: SELLER_ID, status: "disputed", disputeStatus: "resolved_buyer", chainId: 56, safeAddress: SAFE, tokenAddress: W3M_BNB_USDT },
     buyer: { id: BUYER_ID, wallet: BUYER, verified: true },
@@ -42,7 +42,7 @@ Deno.test("builds exact two-transfer buyer refund MultiSend calldata", () => {
     tokenAddress: W3M_BNB_USDT, expectedTokenAddress: W3M_BNB_USDT,
     buyerWallet: BUYER, platformWallet: W3M_PLATFORM_WALLET,
     originalDealAmount: "100000000000000000000",
-    buyerRefundAmount: "50000000000000000000",
+    buyerRefundAmount: "92500000000000000000",
     confirmedFundedAmount: "100000000000000000000",
     platformFeeAmount: "7500000000000000000",
     confirmedSafeBalance: "107500000000000000000",
@@ -66,4 +66,14 @@ Deno.test("blocks transfer recipient or amount substitution before encoding", ()
   let blocked = false;
   try { buildBuyerRefundSafeTransaction(altered, "7"); } catch { blocked = true; }
   assert(blocked, "platform fee must not be redirected to the buyer");
+});
+
+Deno.test("blocks partial refund amounts that leave an unapproved seller residual", () => {
+  const value = intent();
+  const partial = { ...value, buyerRefundAmount: "50", transfers: [
+    { ...value.transfers[0], amount: "50" }, value.transfers[1],
+  ] };
+  let blocked = false;
+  try { buildBuyerRefundSafeTransaction(partial, "7"); } catch { blocked = true; }
+  assert(blocked, "partial refund without a signed seller-residual allocation must fail closed");
 });
