@@ -27,11 +27,11 @@ begin
   end if;
 
   if not has_function_privilege('service_role',
-       'public.w3m_admin_decide_deal_dispute(uuid,uuid,text,text,jsonb,uuid)','EXECUTE')
+       'public.w3m_admin_decide_deal_dispute(uuid,uuid,text,text,jsonb,text,uuid)','EXECUTE')
      or has_function_privilege('anon',
-       'public.w3m_admin_decide_deal_dispute(uuid,uuid,text,text,jsonb,uuid)','EXECUTE')
+       'public.w3m_admin_decide_deal_dispute(uuid,uuid,text,text,jsonb,text,uuid)','EXECUTE')
      or has_function_privilege('authenticated',
-       'public.w3m_admin_decide_deal_dispute(uuid,uuid,text,text,jsonb,uuid)','EXECUTE') then
+       'public.w3m_admin_decide_deal_dispute(uuid,uuid,text,text,jsonb,text,uuid)','EXECUTE') then
     raise exception 'Dispute decision RPC must be service-role-only';
   end if;
 
@@ -63,7 +63,7 @@ begin
   end if;
 
   select pg_get_functiondef(
-    'public.w3m_admin_decide_deal_dispute(uuid,uuid,text,text,jsonb,uuid)'::regprocedure
+    'public.w3m_admin_decide_deal_dispute(uuid,uuid,text,text,jsonb,text,uuid)'::regprocedure
   ) into v_decision_function;
   if position('SELECT * INTO V_DISPUTE' in upper(v_decision_function))=0
      or position('SELECT * INTO V_DEAL' in upper(v_decision_function))=0
@@ -249,7 +249,7 @@ begin
       v_deal1,v_dispute1,'buyer_wins',
       'Cross-deal evidence must never be accepted as proof.',
       jsonb_build_array(jsonb_build_object('source','deal_message','recordId',v_message2::text)),
-      v_admin
+      '50',v_admin
     );
   exception when check_violation then v_blocked := true;
   end;
@@ -264,7 +264,7 @@ begin
       v_deal2,v_dispute2,'seller_wins',
       'The seller delivered the agreed assets and evidence.',
       jsonb_build_array(jsonb_build_object('source','deal_message','recordId',v_message2::text)),
-      v_nonadmin
+      null,v_nonadmin
     );
   exception when insufficient_privilege then v_blocked := true;
   end;
@@ -277,11 +277,24 @@ begin
       v_deal3,v_dispute3,'buyer_wins',
       'The latest terms version was not accepted by both parties.',
       jsonb_build_array(jsonb_build_object('source','deal_message','recordId',v_message3::text)),
-      v_admin
+      '100',v_admin
     );
   exception when check_violation then v_blocked := true;
   end;
   if not v_blocked then raise exception 'Decision accepted stale/incomplete latest terms'; end if;
+
+  -- Buyer refund must not exceed the confirmed agreed deal value.
+  v_blocked := false;
+  begin
+    perform public.w3m_admin_decide_deal_dispute(
+      v_deal3,v_dispute3,'buyer_wins',
+      'The requested refund exceeds the original agreed deal amount.',
+      jsonb_build_array(jsonb_build_object('source','deal_message','recordId',v_message3::text)),
+      '301',v_admin
+    );
+  exception when check_violation then v_blocked := true;
+  end;
+  if not v_blocked then raise exception 'Over-funded buyer refund amount was incorrectly accepted'; end if;
 
   -- Buyer wins: immutable decision includes snapshots and hashes for all
   -- supported evidence sources; no Safe transaction is created here.
@@ -294,7 +307,7 @@ begin
       jsonb_build_object('source','deal_asset','recordId',v_asset1::text),
       jsonb_build_object('source','deal_message','recordId',v_message1::text)
     ),
-    v_admin
+    '50',v_admin
   );
   v_decision_id := (v_result->>'decision_id')::uuid;
   v_decision_hash := v_result->>'decision_hash';
@@ -307,9 +320,9 @@ begin
     raise exception 'Buyer-win decision returned an invalid state/result';
   end if;
 
-  if (select count(*) from public.w3m_deal_dispute_decisions where id=v_decision_id) <> 1
+  if (select count(*) from public.w3m_deal_dispute_decisions where id=v_decision_id and buyer_refund_amount='50') <> 1
      or (select count(*) from public.w3m_deal_dispute_decisions
-          where id=v_decision_id and jsonb_array_length(evidence_refs)=4
+          where id=v_decision_id and canonical_payload->>'buyerRefundAmount'='50' and jsonb_array_length(evidence_refs)=4
             and decision_hash=encode(extensions.digest(convert_to(canonical_payload::text,'UTF8'),'sha256'),'hex')) <> 1 then
     raise exception 'Immutable decision row or canonical hash is missing';
   end if;
@@ -345,7 +358,7 @@ begin
       jsonb_build_object('source','deal_event','recordId',v_event1::text),
       jsonb_build_object('source','deal_audit_log','recordId',v_audit1::text)
     ),
-    v_admin
+    '50',v_admin
   );
   if (v_result->>'decision_id')::uuid <> v_decision_id
      or v_result->>'idempotent_replay' <> 'true' then
@@ -358,7 +371,7 @@ begin
       v_deal1,v_dispute1,'seller_wins',
       'A conflicting decision must never replace the original decision.',
       jsonb_build_array(jsonb_build_object('source','deal_message','recordId',v_message1::text)),
-      v_admin
+      null,v_admin
     );
   exception when unique_violation then v_blocked := true;
   end;
@@ -370,7 +383,7 @@ begin
     v_deal2,v_dispute2,'seller_wins',
     'The seller delivered the agreed assets and evidence.',
     jsonb_build_array(jsonb_build_object('source','deal_message','recordId',v_message2::text)),
-    v_admin
+    null,v_admin
   );
   if v_result->>'outcome' <> 'seller_wins'
      or v_result->>'deal_dispute_status' <> 'resolved_seller'
@@ -385,6 +398,7 @@ begin
      or v_snapshot->'dispute'->>'status' <> 'resolved'
      or v_snapshot->'dispute'->>'resolution' <> 'seller_wins'
      or v_snapshot->'decision'->>'outcome' <> 'seller_wins'
+     or v_snapshot->'decision'->>'buyer_refund_amount' is not null
      or length(v_snapshot->'decision'->>'decision_hash') <> 64
      or v_snapshot->'decision'->>'terms_version_id' <> v_terms2::text
      or v_snapshot->'decision'->>'terms_version' <> '1'
@@ -393,7 +407,8 @@ begin
   end if;
 
   v_snapshot := public.w3m_read_dealroom_dispute_decision_snapshot(v_deal1);
-  if v_snapshot->'decision'->>'outcome' <> 'buyer_wins' then
+  if v_snapshot->'decision'->>'outcome' <> 'buyer_wins'
+     or v_snapshot->'decision'->>'buyer_refund_amount' <> '50' then
     raise exception 'Server dispute snapshot did not preserve buyer-wins outcome';
   end if;
 
