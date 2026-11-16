@@ -11,6 +11,7 @@ on:
   pull_request:
     paths:
       - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/functions/w3m-protocol-v1-buyer-refund-request/**"
       - "supabase/functions/verify-deal-payment/**"
       - "supabase/functions/deal-payment-monitor/**"
       - "supabase/migrations/20261116050000_w3m_protocol_v1_atomic_deal_payment_finalization.sql"
@@ -214,6 +215,7 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/dispute-refund-commission.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-refund-payload-validator.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-refund-payload-validator.test.ts
+          deno check supabase/functions/w3m-protocol-v1-buyer-refund-request/index.ts
           deno check supabase/functions/w3m-acquisition-verification/buyer-refund-agreement-acceptance-verifier.ts
           deno check supabase/functions/w3m-acquisition-verification/buyer-refund-agreement-acceptance-verifier.test.ts
           deno check supabase/functions/w3m-acquisition-verification/buyer-refund-request-builder.ts
