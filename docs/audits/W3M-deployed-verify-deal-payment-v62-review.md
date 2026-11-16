@@ -72,3 +72,18 @@ The read-only Edge Function inventory showed the active `verify-deal-payment` fu
 4. Only after isolated CI and independent security review should a separately approved deployment be considered.
 
 **Release decision:** do not deploy this verifier change or enable live buyer refunds based on the current evidence. This document is an audit record, not a deployment instruction.
+
+## Related deployed monitor review: `deal-payment-monitor` version 44
+
+A second read-only source inspection found the active `deal-payment-monitor` function (version 44). It automatically scans for buyer-to-Safe token transfers and uses the same general Safe owner/threshold checks. It also requires three confirmations. Its source hash is `efa56456ed919f977568e4f85058a445ef86f7b24708e987418546360e4c41d6`.
+
+Additional observations:
+- It does not assert `eth_chainId == 56` on the selected RPC provider.
+- It does not compare the receipt block hash against a canonical block fetched by number.
+- It selects the first matching transfer log and does not enforce exactly one strict, canonical Transfer event.
+- Safe and token-decimal reads use `latest`, not a pinned canonical block.
+- It does validate the 7.5% fee before its writes (unlike the manual verifier), but its blockchain transaction upsert, deal update and audit insert are still separate operations; the audit insert result is ignored.
+- The deal update is conditional on `payment_tx_hash IS NULL`, which is safer than the manual verifier's unconditional update, but the transaction upsert occurs before that compare-and-set and can leave a transaction row if the deal update loses a race.
+- If the Safe deployment receipt is unavailable, the scan start falls back to `latest - 10000`; that fallback can omit older funding transfers and should be replaced by a trusted deployment block or explicit fail-closed state.
+
+These findings reinforce that both live payment paths need a shared canonical receipt/log verifier and an atomic persistence boundary before their results are used as buyer-refund funding attestations.
