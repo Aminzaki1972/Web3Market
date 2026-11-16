@@ -32,6 +32,7 @@ create table public.w3m_buyer_refund_requests (
   created_at timestamptz not null default now(),
   check (refund_amount <= funded_amount),
   check (platform_fee_amount = round(original_deal_amount * 0.075,18)),
+  check (refund_amount + platform_fee_amount = funded_amount),
   check (refund_amount + platform_fee_amount <= safe_balance),
   unique (deal_id, dispute_id)
 );
