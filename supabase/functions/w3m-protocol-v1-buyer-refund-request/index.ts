@@ -7,10 +7,13 @@ import type { JsonRpcClient } from "../w3m-acquisition-verification/bnb-revenue-
 import { createAllowlistedBnbRpcClient } from "../w3m-acquisition-verification/bnb-revenue-adapter.ts";
 import { handleW3MBuyerRefundRequest } from "../w3m-acquisition-verification/buyer-refund-request-handler.ts";
 import { readBuyerRefundRequestSnapshot } from "../w3m-acquisition-verification/buyer-refund-request-snapshot-adapter.ts";
+import { canonicalJson, sha256Hex } from "../w3m-acquisition-verification/decision-engine.ts";
 import { verifyBuyerRefundAgreementAcceptances } from "../w3m-acquisition-verification/buyer-refund-agreement-acceptance-verifier.ts";
 import type { BuyerRefundAgreementAcceptanceRow } from "../w3m-acquisition-verification/buyer-refund-agreement-acceptance-verifier.ts";
 import {
+  W3M_AGREEMENT_DOCUMENT_ID,
   W3M_AGREEMENT_DOCUMENT_VERSION,
+  W3M_AGREEMENT_DOCUMENT_LOCALE,
   W3M_AGREEMENT_DOCUMENT_SHA256,
 } from "../w3m-acquisition-verification/deal-agreement-document.ts";
 import {
@@ -161,6 +164,8 @@ Deno.serve(async (request) => {
       }
       const canonicalTerms = object(terms.canonical_terms, "Canonical signed terms");
       const dealAmount = text(deal.amount, "Deal amount");
+      const signedDocument = object(canonicalTerms.agreementDocument, "Signed agreement document");
+      const signedPolicy = object(canonicalTerms.releasePolicy, "Signed release policy");
       if (decimalUnits(text(canonicalTerms.amount, "Signed terms amount")) !== decimalUnits(dealAmount) ||
           text(canonicalTerms.dealId, "Signed terms deal ID") !== dealIdFromSnapshot ||
           text(canonicalTerms.projectId, "Signed terms project ID") !== projectId ||
@@ -168,9 +173,22 @@ Deno.serve(async (request) => {
           text(canonicalTerms.sellerId, "Signed terms seller ID") !== sellerId ||
           address(canonicalTerms.safeAddress, "Signed terms Safe") !== safeAddress ||
           address(canonicalTerms.tokenContract, "Signed terms token") !== W3M_BNB_USDT ||
-          Number(canonicalTerms.chainId) !== 56) {
-        throw new Error("Canonical signed terms do not match the current deal");
+          Number(canonicalTerms.chainId) !== 56 ||
+          signedDocument.documentId !== W3M_AGREEMENT_DOCUMENT_ID ||
+          signedDocument.version !== W3M_AGREEMENT_DOCUMENT_VERSION ||
+          signedDocument.locale !== W3M_AGREEMENT_DOCUMENT_LOCALE ||
+          signedDocument.sha256 !== W3M_AGREEMENT_DOCUMENT_SHA256 ||
+          text(signedPolicy.dealAmount, "Signed policy deal amount") !== text(canonicalTerms.amount, "Signed terms amount") ||
+          text(signedPolicy.feePercent, "Signed policy fee percent") !== "7.5" ||
+          address(signedPolicy.safeAddress, "Signed policy Safe") !== safeAddress ||
+          address(signedPolicy.tokenContract, "Signed policy token") !== W3M_BNB_USDT ||
+          address(signedPolicy.sellerWallet, "Signed policy seller wallet") !== sellerWallet ||
+          address(signedPolicy.platformWallet, "Signed policy platform wallet") !== PLATFORM ||
+          Number(signedPolicy.chainId) !== 56) {
+        throw new Error("Canonical signed terms do not match the current deal or pinned agreement");
       }
+      const recomputedTermsHash = await sha256Hex(canonicalJson(canonicalTerms));
+      if (recomputedTermsHash !== termsHash) throw new Error("Stored canonical terms do not reproduce the signed terms hash");
 
       const buyerAcceptance = snapshot.acceptances.find((row) => row.party_role === "buyer");
       const sellerAcceptance = snapshot.acceptances.find((row) => row.party_role === "seller");
