@@ -136,7 +136,8 @@ export async function verifyBnbSafeBuyerRefundReceipt(
   if (chainId !== 56n) throw new BnbSafeRefundReceiptVerificationError("RPC is not BNB Chain mainnet (56).");
   const rawReceipt = await rpc.request<unknown>("eth_getTransactionReceipt", [expected.broadcastTxHash]);
   if (!record(rawReceipt) || !same(rawReceipt.transactionHash, expected.broadcastTxHash) ||
-      rawReceipt.status !== "0x1" || typeof rawReceipt.blockHash !== "string" ||
+      !same(rawReceipt.to, expected.safeAddress) || rawReceipt.status !== "0x1" ||
+      typeof rawReceipt.blockHash !== "string" ||
       !HASH.test(rawReceipt.blockHash) || !Array.isArray(rawReceipt.logs)) {
     throw new BnbSafeRefundReceiptVerificationError("BNB refund receipt is unsuccessful or malformed.");
   }
