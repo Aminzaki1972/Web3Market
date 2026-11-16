@@ -103,10 +103,10 @@ declare
   v_status text;
 begin
   if p_request_id is null or p_actor_id is null
-     or p_signer_role not in ('buyer','seller','platform')
-     or p_verified_wallet !~ '^0x[0-9a-fA-F]{40}$'
-     or p_safe_tx_hash !~ '^0x[0-9a-fA-F]{64}$'
-     or p_signature !~ '^0x[0-9a-fA-F]{130}$'
+     or p_signer_role is null or p_signer_role not in ('buyer','seller','platform')
+     or p_verified_wallet is null or p_verified_wallet !~ '^0x[0-9a-fA-F]{40}$'
+     or p_safe_tx_hash is null or p_safe_tx_hash !~ '^0x[0-9a-fA-F]{64}$'
+     or p_signature is null or p_signature !~ '^0x[0-9a-fA-F]{130}$'
      or jsonb_typeof(p_server_authorization) is distinct from 'object'
      or p_server_authorization->>'authorized' is distinct from 'true'
      or p_server_authorization->>'phase' is distinct from 'SIGN'
@@ -118,11 +118,15 @@ begin
   end if;
 
   -- Lock order: parent deal, refund request, then Safe transaction.
-  select * into v_request from public.w3m_buyer_refund_requests
-   where id=p_request_id for update;
+  -- First read only to discover the parent key, then acquire locks in the
+  -- documented parent-deal -> request -> transaction order.
+  select * into v_request from public.w3m_buyer_refund_requests where id=p_request_id;
   if not found then raise exception 'Buyer refund request not found' using errcode='P0002'; end if;
   select * into v_deal from public.deals where id=v_request.deal_id for update;
   if not found then raise exception 'Deal not found' using errcode='P0002'; end if;
+  select * into v_request from public.w3m_buyer_refund_requests
+   where id=p_request_id and deal_id=v_deal.id for update;
+  if not found then raise exception 'Buyer refund request changed during lock acquisition' using errcode='40001'; end if;
 
   select * into v_decision from public.w3m_deal_dispute_decisions
    where id=v_request.decision_id and deal_id=v_request.deal_id
