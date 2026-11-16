@@ -72,7 +72,8 @@ Deno.serve(async req=>{
    const {data:s}=await db.from("profiles").select("wallet_address,wallet_verified").eq("id",d.seller_id).maybeSingle();
    if(!b?.wallet_address||b.wallet_verified!==true||!s?.wallet_address||s.wallet_verified!==true){results.push({deal_id:d.id,skipped:"wallet_not_verified"});continue}
    await safeCheck(p,d.safe_address,b.wallet_address,s.wallet_address);
-   if(String(d.token_contract||"").toLowerCase()!=="0x55d398326f99059ff775485246999027b3197955")throw Error("Deal token is not the approved BNB USDT contract");\n   const dec=18,expected=units(String(d.expected_amount??d.amount),dec);
+   if(String(d.token_contract||"").toLowerCase()!=="0x55d398326f99059ff775485246999027b3197955")throw Error("Deal token is not the approved BNB USDT contract");
+   const dec=18,expected=units(String(d.expected_amount??d.amount),dec);
    const dep=String(d.safe_deployment_tx_hash||"");const dr=await rpc(p,"eth_getTransactionReceipt",[dep]);const depBlock=dr?.blockNumber?Number(bi(dr.blockNumber)):latest-10000;
    const cursor=d.payment_scan_last_block==null?depBlock:Number(d.payment_scan_last_block);
    const from=Math.max(depBlock,cursor+1),to=Math.min(latest,from+199);
