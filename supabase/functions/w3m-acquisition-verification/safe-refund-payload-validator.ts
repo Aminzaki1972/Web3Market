@@ -84,6 +84,7 @@ export function validateSafeRefundPayload(input: SafeRefundPayloadInput): SafeRe
     if (funded <= 0n) issues.push("CONFIRMED_FUNDED_AMOUNT_INVALID");
     if (refund > funded) issues.push("BUYER_REFUND_EXCEEDS_CONFIRMED_FUNDED_AMOUNT");
     if (fee !== expectedFee) issues.push("PLATFORM_FEE_NOT_7_5_PERCENT_OF_ORIGINAL_DEAL");
+    if (refund + fee !== funded) issues.push("PARTIAL_REFUND_ALLOCATION_NOT_APPROVED");
     if (refund + fee > balance) issues.push("SAFE_BALANCE_INSUFFICIENT_FOR_REFUND_AND_FEE");
   }
 
