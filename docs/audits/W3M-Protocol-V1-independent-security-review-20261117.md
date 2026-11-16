@@ -1,0 +1,80 @@
+# W3M Protocol V1 — Independent Internal Security Review
+
+Date: 2026-11-17  
+Branch: `w3m-v1-completion-20261116`  
+Scope: source-level review of buyer-refund REQUEST / SIGN / FINALIZE, payment verification candidates, Safe readers, atomic SQL persistence, and isolated tests. This is an internal review performed separately from the CI pass/fail result; it is **not** a third-party audit or a live-chain integration certification.
+
+## Executive decision
+
+**Do not merge or deploy yet.** The branch contains substantial fail-closed controls and atomic persistence candidates, but the three real HTTP entrypoints have only just gained injectable test seams and mocked integration tests. Their new CI run must complete successfully on the final commit. Production payment functions are still the previously deployed versions and have not been replaced.
+
+No production Supabase migration, Edge Function deployment, live-site change, Safe signature, transaction broadcast, or funds movement was performed during this review.
+
+## Reviewed security boundaries
+
+- REQUEST accepts only the deal identifier from the browser; derives the actor from Supabase bearer authentication and requires a server-side admin profile.
+- REQUEST reloads a dedicated service-role snapshot, checks immutable buyer-win dispute decision and signed terms, verifies both EIP-712 agreement acceptances, verifies the original buyer-to-Safe BNB USDT funding receipt, reads the 2-of-3 Safe configuration and balance at a canonical block, decodes the exact two-transfer MultiSend payload, and persists through a service-role-only atomic RPC.
+- SIGN derives the participant from Supabase Auth, reloads request/deal/dispute/decision/terms/profile/transaction/signature state, binds the role to the current verified participant wallet, recomputes the Safe transaction hash against canonical BNB Safe facts, recovers the raw-digest signature, and persists through the atomic SIGN RPC. The server does not sign or broadcast.
+- FINALIZE is admin-gated, reloads the refund request and participant state, checks the Safe owner set and threshold, verifies the BNB receipt and exact refund/fee transfer evidence, then invokes the atomic finalization RPC. It does not sign or broadcast.
+- SQL registries are RLS-enabled, direct table privileges are revoked, mutation is performed through service-role-only RPCs, and immutable receipt/signature records are protected by triggers.
+- Payment candidate paths use fresh database-derived expectations, canonical BNB USDT/chain policy, strict receipt verification, and atomic payment finalization with transaction-hash uniqueness controls.
+
+## Findings and remediation
+
+### P1 — Production payment endpoints remain on the old deployed versions
+
+The read-only production inventory identified `verify-deal-payment` ACTIVE version 62 and `deal-payment-monitor` ACTIVE version 44. Their recovered deployed sources had non-atomic multi-write persistence and weaker Transfer-log / canonical receipt binding. The branch contains candidate replacements and an atomic payment RPC, but those candidates have not been deployed.
+
+**Disposition:** open production risk until a separately approved rollout replaces the deployed functions after review, data preflight, and integration validation. Do not treat branch code as a production fix.
+
+### P1 — Refund finalization SQL used an inconsistent row-lock order
+
+The dispute decision RPC and refund request RPC lock the dispute row before the parent deal. The finalization RPC originally locked the deal before the dispute, creating a reverse lock edge and a possible deadlock under concurrent dispute/refund activity.
+
+**Remediation committed:** finalization now locks dispute → deal → Safe transaction, matching the decision/request order. The disposable SQL contract test now asserts dispute-before-deal ordering.
+
+Commits: `9a97bda9a5eafba2db797ad830197ea6938b0b69`, `c7a13924a67742899bd410e36e36fc8d6fa64368`.
+
+### P2 — Idempotent finalization replay did not compare all stored receipt economics
+
+The original idempotent branch returned success when request/deal/decision/Safe transaction/broadcast hash/block hash matched, before validating that the retry carried the same buyer refund amount, platform fee, block number, and minimum confirmation evidence as the immutable receipt row.
+
+**Remediation committed:** idempotent replay now binds the existing receipt to chain, Safe, token, buyer/platform wallets, exact block number/hash, both amounts, successful execution, and at least six confirmations. The SQL contract test checks these fields are part of the replay guard.
+
+Commits: `1e89d580793b54a1c938855148d9193d9d5e5323`, `fad89dd03f5f92cda0811ef76fdbc655c75126ca`.
+
+### P1 — Real Edge Function HTTP orchestration had not previously been exercised
+
+The earlier lifecycle suite exercised handler-level dependencies, while the source-contract suite inspected source text. Neither actually invoked the three deployable Edge Function entrypoints with Supabase and BNB RPC substitutes.
+
+**Remediation in progress:** the three entrypoints now expose injectable dependency factories while retaining `Deno.serve` as the production entrypoint. A new integration suite invokes the actual exported HTTP handlers and supplies mocked Supabase Auth/query/RPC and mocked BNB JSON-RPC clients. It checks the REQUEST atomic RPC, SIGN atomic signature RPC, and FINALIZE atomic receipt RPC. The test is wired into the isolated workflow.
+
+Commits: `d3740c10c9c6de8bd2e85e18421c37c47e44f3d8`, `306cf815e0bd3ea5c5ea6f9bae9c1f2a660a74f2`, `4bf57e74cfca0d26b1f2642fcf2399c88a7f06db`, `cb56f112df3d1366e170e5ffa23859c88aeddb4d`, `f7dea8cd73c732c05e7c440b565756368a7a33cd`.
+
+**Status:** not yet accepted as passing. Earlier CI attempts exposed stale source-contract assertions, which are being corrected; the new HTTP suite must complete on the final head. Do not claim this gate closed until the full CI run succeeds.
+
+### P2 — Safe runtime code hash is not pinned
+
+The Safe configuration reader verifies the expected v1.4.1 singleton address through storage slot 0 and `masterCopy()`, and checks that singleton code exists at the pinned block. It does not yet compare the singleton runtime bytecode hash against an independently pinned expected code hash.
+
+**Disposition:** open hardening item. Before production use, pin and verify the exact canonical runtime code hash (including a documented compiler/metadata policy) or obtain an equivalent independently verified implementation identity.
+
+### P2 — Production integration and operational controls remain unverified
+
+Mocked HTTP tests cannot prove live Supabase schema compatibility, production JWT/role claims, provider consistency, actual BNB reorg behavior, RPC availability, or the real Safe execution path. The refund functions are not deployed and there has been no live-chain refund rehearsal.
+
+**Disposition:** require a separate approved staging/integration rehearsal with non-production wallets and funds, RPC/provider failover tests, and a rollback plan before production rollout. This review did not use production credentials or send transactions.
+
+## Required gates before merge
+
+1. The latest isolated CI run on the exact PR head completes successfully, including the new actual-entrypoint mocked HTTP suite and both disposable PostgreSQL migration passes.
+2. Review the test logs to confirm each endpoint actually reaches its expected mocked RPC and atomic Supabase RPC, and add negative cases for non-admin, wrong participant, stale Safe hash/nonce, malformed receipt, wrong chain, and persistence error with zero unintended writes.
+3. Close or explicitly accept the Safe runtime-code-hash hardening item.
+4. Complete a second-person security review of the final diff, especially the three entrypoints, both payment candidates, and all four refund/payment migrations.
+5. Keep production rollout separate: verify live schema/data preconditions, test in an isolated staging project, then obtain explicit approval for production migration/deployment.
+
+## Release isolation
+
+- PR #198 remains Draft and unmerged, targeting the development base branch, not `main`.
+- This review and all changes described here are branch-only.
+- No production Supabase changes, migrations, Edge Function deployments, website updates, Safe signatures, transaction broadcasts, or funds movement occurred.
