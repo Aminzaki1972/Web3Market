@@ -1,5 +1,6 @@
 // W3M Protocol V1 — authenticated, fail-closed buyer-refund receipt finalization boundary.
 // This handler verifies an already-broadcast Safe transaction; it never signs or broadcasts.
+import {extractW3MBearerToken} from "./bearer-token.ts";
 import type {
   BnbSafeRefundReceiptExpectation,
   VerifiedBnbSafeRefundReceipt,
@@ -45,11 +46,10 @@ export interface BuyerRefundFinalizationDependencies {
 }
 export async function handleBuyerRefundFinalization(request:Request,deps:BuyerRefundFinalizationDependencies):Promise<Response>{
   if(request.method!=="POST")return json(405,{ok:false,error:"POST_REQUIRED"});
-  const authorization=request.headers.get("authorization")??"";
-  const match=/^Bearer\s+(\S+)$/i.exec(authorization);
-  if(!match)return json(401,{ok:false,error:"AUTHENTICATION_REQUIRED"});
+  const token=extractW3MBearerToken(request.headers.get("authorization"));
+  if(!token)return json(401,{ok:false,error:"AUTHENTICATION_REQUIRED"});
   let actorId:string|null;
-  try{actorId=await deps.authenticate(match[1]);}catch{return json(401,{ok:false,error:"AUTHENTICATION_FAILED"});}
+  try{actorId=await deps.authenticate(token);}catch{return json(401,{ok:false,error:"AUTHENTICATION_FAILED"});}
   if(!actorId||!UUID.test(actorId))return json(401,{ok:false,error:"AUTHENTICATION_FAILED"});
   try{if(await deps.isAdmin(actorId)!==true)return json(403,{ok:false,error:"ADMIN_REQUIRED"});}catch{return json(403,{ok:false,error:"ADMIN_AUTHORIZATION_FAILED"});}
   let body:unknown;
