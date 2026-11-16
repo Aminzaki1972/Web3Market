@@ -151,10 +151,312 @@ begin
 
   select * into v_existing from public.w3m_buyer_refund_receipts where request_id=p_request_id;
   if found then
-    if v_existing.deal_id=p_deal_id and v_existing.decision_id=p_decision_id
+    if v_existing.deal_id=p_deal_id and v_existing.dispute_id=v_request.dispute_id
+       and v_existing.decision_id=p_decision_id and v_existing.safe_transaction_id=v_request.safe_transaction_id
        and v_existing.decision_hash=p_decision_hash and v_existing.terms_hash=p_terms_hash
        and v_existing.safe_tx_hash=p_safe_tx_hash and v_existing.broadcast_tx_hash=p_broadcast_tx_hash
-       and v_existing.receipt_block_hash=v_block_hash then
+       and v_existing.chain_id=56 and v_existing.safe_address=lower(p_verified_receipt->>'safeAddress')
+       and v_existing.token_address=lower(p_verified_receipt->>'tokenContract')
+       and v_existing.buyer_wallet=lower(p_verified_receipt->>'buyerWallet')
+       and v_existing.platform_wallet=lower(p_verified_receipt->>'platformWallet')
+       and v_existing.receipt_block_number=v_block_number
+       and v_existing.receipt_block_hash=v_block_hash
+       and v_existing.confirmations>=6 and v_confirmations>=6
+       and v_existing.execution_success is true
+       and case when coalesce(p_verified_receipt->>'buyerRefundAmount','') ~ '^[0-9]+([.][0-9]{1,18})?      return jsonb_build_object('finalized',true,'idempotent_replay',true,
+        'receipt_id',v_existing.id,'request_id',p_request_id,'deal_id',p_deal_id,
+        'status','confirmed','broadcast_tx_hash',v_existing.broadcast_tx_hash);
+    end if;
+    raise exception 'Refund request already finalized with conflicting receipt evidence' using errcode='23505';
+  end if;
+
+  select * into v_decision from public.w3m_deal_dispute_decisions
+   where id=p_decision_id and deal_id=p_deal_id and dispute_id=v_request.dispute_id for share;
+  if not found or v_decision.outcome is distinct from 'buyer_wins'
+     or v_decision.decision_hash is distinct from p_decision_hash
+     or v_decision.terms_hash is distinct from p_terms_hash
+     or v_decision.id is distinct from v_request.decision_id
+     or v_request.decision_hash is distinct from p_decision_hash
+     or v_request.terms_hash is distinct from p_terms_hash
+     or v_decision.buyer_refund_amount is null
+     or v_decision.buyer_refund_amount::numeric is distinct from v_request.refund_amount then
+    raise exception 'Immutable buyer-win decision binding mismatch' using errcode='23514';
+  end if;
+
+  select * into v_terms from public.w3m_deal_terms_versions
+   where id=v_decision.terms_version_id and deal_id=p_deal_id for share;
+  if not found or v_terms.terms_hash is distinct from p_terms_hash
+     or v_terms.terms_version is distinct from v_decision.terms_version
+     or v_terms.project_id is distinct from v_deal.project_id
+     or v_terms.buyer_id is distinct from v_deal.buyer_id
+     or v_terms.seller_id is distinct from v_deal.seller_id
+     or v_terms.chain_id is distinct from 56
+     or lower(v_terms.safe_address) is distinct from v_request.safe_address then
+    raise exception 'Signed deal terms no longer match the refund decision' using errcode='23514';
+  end if;
+
+  v_original := v_request.original_deal_amount;
+  v_refund := v_request.refund_amount;
+  v_fee := v_request.platform_fee_amount;
+  if v_original is distinct from v_request.funded_amount
+     or v_original is distinct from v_deal.amount
+     or v_fee <> round(v_original * 0.075,18)
+     or v_refund + v_fee <> v_original
+     or v_refund + v_fee > v_request.safe_balance then
+    raise exception 'Buyer refund and fixed 7.5%% commission do not fully allocate confirmed funding' using errcode='23514';
+  end if;
+
+  if v_deal.status is distinct from 'disputed'
+     or v_deal.dispute_status is distinct from 'resolved_buyer'
+     or v_deal.payment_status is distinct from 'confirmed'
+     or v_deal.chain_id is distinct from 56
+     or lower(coalesce(v_deal.safe_address,'')) is distinct from v_request.safe_address
+     or lower(coalesce(v_deal.token_contract,'')) is distinct from v_request.token_address
+     or v_dispute.status is distinct from 'resolved'
+     or v_dispute.resolution is distinct from 'buyer_wins' then
+    raise exception 'Deal or dispute is not in the exact buyer-refund settlement state' using errcode='23514';
+  end if;
+
+  if v_request.status is distinct from 'awaiting_signatures'
+     or v_tx.action is distinct from 'refund_to_buyer'
+     or v_tx.chain_id is distinct from 56
+     or lower(coalesce(v_tx.safe_address,'')) is distinct from v_request.safe_address
+     or lower(coalesce(v_tx.safe_tx_hash,'')) is distinct from p_safe_tx_hash
+     or v_tx.safe_nonce is distinct from v_request.safe_nonce
+     or v_tx.amount is distinct from v_refund
+     or v_tx.required_signatures is distinct from 2
+     or v_tx.confirmations_count is distinct from 2
+     or v_tx.status is null or v_tx.status not in ('signed','submitted')
+     or (v_tx.tx_hash is not null and lower(v_tx.tx_hash) is distinct from p_broadcast_tx_hash) then
+    raise exception 'Persisted Safe refund transaction does not match the verified broadcast' using errcode='23514';
+  end if;
+
+  if lower(p_verified_receipt->>'safeAddress') is distinct from v_request.safe_address
+     or lower(p_verified_receipt->>'tokenContract') is distinct from v_request.token_address
+     or lower(p_verified_receipt->>'buyerWallet') is distinct from v_request.buyer_wallet
+     or lower(p_verified_receipt->>'platformWallet') is distinct from v_request.platform_wallet
+     or coalesce(p_verified_receipt->>'buyerRefundAmount','') !~ '^[0-9]+([.][0-9]{1,18})?$'
+     or coalesce(p_verified_receipt->>'platformFeeAmount','') !~ '^[0-9]+([.][0-9]{1,18})?$'
+     or (p_verified_receipt->>'buyerRefundAmount')::numeric is distinct from v_refund
+     or (p_verified_receipt->>'platformFeeAmount')::numeric is distinct from v_fee
+     or v_confirmations < 6 then
+    raise exception 'Receipt transfers or chain confirmations do not match the immutable refund request' using errcode='23514';
+  end if;
+
+  select count(*),count(distinct signer_id),count(distinct lower(wallet_address))
+    into v_signature_count,v_distinct_signers,v_distinct_wallets
+    from public.w3m_buyer_refund_signatures s
+   where s.request_id=p_request_id and lower(s.safe_tx_hash)=p_safe_tx_hash
+     and v_request.safe_owners @> jsonb_build_array(lower(s.wallet_address));
+  if v_signature_count <> 2 or v_distinct_signers <> 2 or v_distinct_wallets <> 2 then
+    raise exception 'Two distinct recorded Safe-owner signatures are required' using errcode='23514';
+  end if;
+
+  insert into public.w3m_buyer_refund_receipts(
+    id,request_id,deal_id,dispute_id,decision_id,safe_transaction_id,
+    decision_hash,terms_hash,safe_tx_hash,broadcast_tx_hash,chain_id,
+    safe_address,token_address,buyer_wallet,buyer_refund_amount,
+    platform_wallet,platform_fee_amount,receipt_block_number,receipt_block_hash,
+    confirmations,execution_success,verified_receipt,server_authorization,
+    finalized_by,finalized_at
+  ) values (
+    v_receipt_id,p_request_id,p_deal_id,v_request.dispute_id,p_decision_id,
+    v_request.safe_transaction_id,p_decision_hash,p_terms_hash,p_safe_tx_hash,
+    p_broadcast_tx_hash,56,v_request.safe_address,v_request.token_address,
+    v_request.buyer_wallet,v_refund,v_request.platform_wallet,v_fee,
+    v_block_number,v_block_hash,v_confirmations,true,p_verified_receipt,
+    p_server_authorization,p_actor_id,v_now
+  );
+
+  update public.deal_multisig_transactions
+     set tx_hash=p_broadcast_tx_hash,status='confirmed',updated_at=v_now
+   where id=v_tx.id;
+
+  -- The project is not transferred to the buyer on a buyer-win refund.
+  -- The deal is cancelled only after the canonical Safe refund is confirmed.
+  update public.deals
+     set status='cancelled',dispute_status='closed',updated_at=v_now
+   where id=p_deal_id;
+
+  insert into public.deal_audit_logs(
+    deal_id,actor_id,action,old_status,new_status,metadata,created_at
+  ) values (
+    p_deal_id,p_actor_id,'w3m_buyer_refund_confirmed','disputed','cancelled',
+    jsonb_build_object(
+      'receipt_id',v_receipt_id,'request_id',p_request_id,
+      'decision_id',p_decision_id,'decision_hash',p_decision_hash,
+      'terms_hash',p_terms_hash,'safe_tx_hash',p_safe_tx_hash,
+      'broadcast_tx_hash',p_broadcast_tx_hash,'receipt_block_number',v_block_number,
+      'receipt_block_hash',v_block_hash,'confirmations',v_confirmations,
+      'buyer_refund_amount',v_refund::text,'platform_fee_amount',v_fee::text,
+      'chain_id',56,'safe_address',v_request.safe_address
+    ),v_now
+  );
+
+  return jsonb_build_object('finalized',true,'idempotent_replay',false,
+    'receipt_id',v_receipt_id,'request_id',p_request_id,'deal_id',p_deal_id,
+    'status','confirmed','broadcast_tx_hash',p_broadcast_tx_hash);
+end;
+$finalize_refund$;
+
+revoke all on function public.w3m_finalize_buyer_refund(uuid,uuid,uuid,uuid,text,text,text,text,jsonb,jsonb)
+  from public,anon,authenticated,service_role;
+grant execute on function public.w3m_finalize_buyer_refund(uuid,uuid,uuid,uuid,text,text,text,text,jsonb,jsonb)
+  to service_role;
+
+comment on function public.w3m_finalize_buyer_refund(uuid,uuid,uuid,uuid,text,text,text,text,jsonb,jsonb) is
+  'Atomic service-role-only buyer refund finalizer. Persists an immutable server-attested receipt, confirms the exact refund Safe transaction, cancels the deal only after verified settlement, and appends an audit event. Does not query the blockchain; canonical receipt verification belongs to the trusted Edge Function.';
+
+commit;
+
+         then (p_verified_receipt->>'buyerRefundAmount')::numeric=v_existing.buyer_refund_amount else false end
+       and case when coalesce(p_verified_receipt->>'platformFeeAmount','') ~ '^[0-9]+([.][0-9]{1,18})?      return jsonb_build_object('finalized',true,'idempotent_replay',true,
+        'receipt_id',v_existing.id,'request_id',p_request_id,'deal_id',p_deal_id,
+        'status','confirmed','broadcast_tx_hash',v_existing.broadcast_tx_hash);
+    end if;
+    raise exception 'Refund request already finalized with conflicting receipt evidence' using errcode='23505';
+  end if;
+
+  select * into v_decision from public.w3m_deal_dispute_decisions
+   where id=p_decision_id and deal_id=p_deal_id and dispute_id=v_request.dispute_id for share;
+  if not found or v_decision.outcome is distinct from 'buyer_wins'
+     or v_decision.decision_hash is distinct from p_decision_hash
+     or v_decision.terms_hash is distinct from p_terms_hash
+     or v_decision.id is distinct from v_request.decision_id
+     or v_request.decision_hash is distinct from p_decision_hash
+     or v_request.terms_hash is distinct from p_terms_hash
+     or v_decision.buyer_refund_amount is null
+     or v_decision.buyer_refund_amount::numeric is distinct from v_request.refund_amount then
+    raise exception 'Immutable buyer-win decision binding mismatch' using errcode='23514';
+  end if;
+
+  select * into v_terms from public.w3m_deal_terms_versions
+   where id=v_decision.terms_version_id and deal_id=p_deal_id for share;
+  if not found or v_terms.terms_hash is distinct from p_terms_hash
+     or v_terms.terms_version is distinct from v_decision.terms_version
+     or v_terms.project_id is distinct from v_deal.project_id
+     or v_terms.buyer_id is distinct from v_deal.buyer_id
+     or v_terms.seller_id is distinct from v_deal.seller_id
+     or v_terms.chain_id is distinct from 56
+     or lower(v_terms.safe_address) is distinct from v_request.safe_address then
+    raise exception 'Signed deal terms no longer match the refund decision' using errcode='23514';
+  end if;
+
+  v_original := v_request.original_deal_amount;
+  v_refund := v_request.refund_amount;
+  v_fee := v_request.platform_fee_amount;
+  if v_original is distinct from v_request.funded_amount
+     or v_original is distinct from v_deal.amount
+     or v_fee <> round(v_original * 0.075,18)
+     or v_refund + v_fee <> v_original
+     or v_refund + v_fee > v_request.safe_balance then
+    raise exception 'Buyer refund and fixed 7.5%% commission do not fully allocate confirmed funding' using errcode='23514';
+  end if;
+
+  if v_deal.status is distinct from 'disputed'
+     or v_deal.dispute_status is distinct from 'resolved_buyer'
+     or v_deal.payment_status is distinct from 'confirmed'
+     or v_deal.chain_id is distinct from 56
+     or lower(coalesce(v_deal.safe_address,'')) is distinct from v_request.safe_address
+     or lower(coalesce(v_deal.token_contract,'')) is distinct from v_request.token_address
+     or v_dispute.status is distinct from 'resolved'
+     or v_dispute.resolution is distinct from 'buyer_wins' then
+    raise exception 'Deal or dispute is not in the exact buyer-refund settlement state' using errcode='23514';
+  end if;
+
+  if v_request.status is distinct from 'awaiting_signatures'
+     or v_tx.action is distinct from 'refund_to_buyer'
+     or v_tx.chain_id is distinct from 56
+     or lower(coalesce(v_tx.safe_address,'')) is distinct from v_request.safe_address
+     or lower(coalesce(v_tx.safe_tx_hash,'')) is distinct from p_safe_tx_hash
+     or v_tx.safe_nonce is distinct from v_request.safe_nonce
+     or v_tx.amount is distinct from v_refund
+     or v_tx.required_signatures is distinct from 2
+     or v_tx.confirmations_count is distinct from 2
+     or v_tx.status is null or v_tx.status not in ('signed','submitted')
+     or (v_tx.tx_hash is not null and lower(v_tx.tx_hash) is distinct from p_broadcast_tx_hash) then
+    raise exception 'Persisted Safe refund transaction does not match the verified broadcast' using errcode='23514';
+  end if;
+
+  if lower(p_verified_receipt->>'safeAddress') is distinct from v_request.safe_address
+     or lower(p_verified_receipt->>'tokenContract') is distinct from v_request.token_address
+     or lower(p_verified_receipt->>'buyerWallet') is distinct from v_request.buyer_wallet
+     or lower(p_verified_receipt->>'platformWallet') is distinct from v_request.platform_wallet
+     or coalesce(p_verified_receipt->>'buyerRefundAmount','') !~ '^[0-9]+([.][0-9]{1,18})?$'
+     or coalesce(p_verified_receipt->>'platformFeeAmount','') !~ '^[0-9]+([.][0-9]{1,18})?$'
+     or (p_verified_receipt->>'buyerRefundAmount')::numeric is distinct from v_refund
+     or (p_verified_receipt->>'platformFeeAmount')::numeric is distinct from v_fee
+     or v_confirmations < 6 then
+    raise exception 'Receipt transfers or chain confirmations do not match the immutable refund request' using errcode='23514';
+  end if;
+
+  select count(*),count(distinct signer_id),count(distinct lower(wallet_address))
+    into v_signature_count,v_distinct_signers,v_distinct_wallets
+    from public.w3m_buyer_refund_signatures s
+   where s.request_id=p_request_id and lower(s.safe_tx_hash)=p_safe_tx_hash
+     and v_request.safe_owners @> jsonb_build_array(lower(s.wallet_address));
+  if v_signature_count <> 2 or v_distinct_signers <> 2 or v_distinct_wallets <> 2 then
+    raise exception 'Two distinct recorded Safe-owner signatures are required' using errcode='23514';
+  end if;
+
+  insert into public.w3m_buyer_refund_receipts(
+    id,request_id,deal_id,dispute_id,decision_id,safe_transaction_id,
+    decision_hash,terms_hash,safe_tx_hash,broadcast_tx_hash,chain_id,
+    safe_address,token_address,buyer_wallet,buyer_refund_amount,
+    platform_wallet,platform_fee_amount,receipt_block_number,receipt_block_hash,
+    confirmations,execution_success,verified_receipt,server_authorization,
+    finalized_by,finalized_at
+  ) values (
+    v_receipt_id,p_request_id,p_deal_id,v_request.dispute_id,p_decision_id,
+    v_request.safe_transaction_id,p_decision_hash,p_terms_hash,p_safe_tx_hash,
+    p_broadcast_tx_hash,56,v_request.safe_address,v_request.token_address,
+    v_request.buyer_wallet,v_refund,v_request.platform_wallet,v_fee,
+    v_block_number,v_block_hash,v_confirmations,true,p_verified_receipt,
+    p_server_authorization,p_actor_id,v_now
+  );
+
+  update public.deal_multisig_transactions
+     set tx_hash=p_broadcast_tx_hash,status='confirmed',updated_at=v_now
+   where id=v_tx.id;
+
+  -- The project is not transferred to the buyer on a buyer-win refund.
+  -- The deal is cancelled only after the canonical Safe refund is confirmed.
+  update public.deals
+     set status='cancelled',dispute_status='closed',updated_at=v_now
+   where id=p_deal_id;
+
+  insert into public.deal_audit_logs(
+    deal_id,actor_id,action,old_status,new_status,metadata,created_at
+  ) values (
+    p_deal_id,p_actor_id,'w3m_buyer_refund_confirmed','disputed','cancelled',
+    jsonb_build_object(
+      'receipt_id',v_receipt_id,'request_id',p_request_id,
+      'decision_id',p_decision_id,'decision_hash',p_decision_hash,
+      'terms_hash',p_terms_hash,'safe_tx_hash',p_safe_tx_hash,
+      'broadcast_tx_hash',p_broadcast_tx_hash,'receipt_block_number',v_block_number,
+      'receipt_block_hash',v_block_hash,'confirmations',v_confirmations,
+      'buyer_refund_amount',v_refund::text,'platform_fee_amount',v_fee::text,
+      'chain_id',56,'safe_address',v_request.safe_address
+    ),v_now
+  );
+
+  return jsonb_build_object('finalized',true,'idempotent_replay',false,
+    'receipt_id',v_receipt_id,'request_id',p_request_id,'deal_id',p_deal_id,
+    'status','confirmed','broadcast_tx_hash',p_broadcast_tx_hash);
+end;
+$finalize_refund$;
+
+revoke all on function public.w3m_finalize_buyer_refund(uuid,uuid,uuid,uuid,text,text,text,text,jsonb,jsonb)
+  from public,anon,authenticated,service_role;
+grant execute on function public.w3m_finalize_buyer_refund(uuid,uuid,uuid,uuid,text,text,text,text,jsonb,jsonb)
+  to service_role;
+
+comment on function public.w3m_finalize_buyer_refund(uuid,uuid,uuid,uuid,text,text,text,text,jsonb,jsonb) is
+  'Atomic service-role-only buyer refund finalizer. Persists an immutable server-attested receipt, confirms the exact refund Safe transaction, cancels the deal only after verified settlement, and appends an audit event. Does not query the blockchain; canonical receipt verification belongs to the trusted Edge Function.';
+
+commit;
+
+         then (p_verified_receipt->>'platformFeeAmount')::numeric=v_existing.platform_fee_amount else false end then
       return jsonb_build_object('finalized',true,'idempotent_replay',true,
         'receipt_id',v_existing.id,'request_id',p_request_id,'deal_id',p_deal_id,
         'status','confirmed','broadcast_tx_hash',v_existing.broadcast_tx_hash);
