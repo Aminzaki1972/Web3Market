@@ -26,7 +26,7 @@ import { buildBuyerRefundSafeTransaction } from "../w3m-acquisition-verification
 import { decodeSafeMultiSendCalldata } from "../w3m-acquisition-verification/safe-multisend-decoder.ts";
 import { verifyBnbDealPaymentReceipt } from "../w3m-acquisition-verification/bnb-deal-payment-receipt-verifier.ts";
 import { readCanonicalBnbSafeConfigurationFacts } from "../w3m-acquisition-verification/bnb-safe-configuration-facts-reader.ts";
-import { readCanonicalBnbSafeTransactionFacts } from "../w3m-acquisition-verification/bnb-safe-execution-facts-reader.ts";
+import { readCanonicalBnbSafeTransactionFactsAtBlock } from "../w3m-acquisition-verification/bnb-safe-execution-facts-reader.ts";
 import { readCanonicalBnbUsdtBalance } from "../w3m-acquisition-verification/bnb-safe-usdt-balance-reader.ts";
 import { persistBuyerRefundRequestAtomically } from "../w3m-acquisition-verification/buyer-refund-request-persistence-adapter.ts";
 import type { W3MRpcClient } from "../w3m-acquisition-verification/supabase-rpc-adapter.ts";
@@ -297,7 +297,7 @@ Deno.serve(async (request) => {
         throw new Error("Decoded MultiSend payload does not match the two approved refund transfers");
       }
 
-      const safeTxFacts = await readCanonicalBnbSafeTransactionFacts(rpc, {
+      const safeTxFacts = await readCanonicalBnbSafeTransactionFactsAtBlock(rpc, {
         safeAddress, expectedSafeAddress: safeAddress, expectedOwners,
         expectedThreshold: 2, expectedVersion: "1.4.1", expectedChainId: 56,
         expectedNonce: safeConfig.nonce,
@@ -308,7 +308,7 @@ Deno.serve(async (request) => {
           gasPrice: built.safeTransaction.gasPrice, gasToken: built.safeTransaction.gasToken,
           refundReceiver: built.safeTransaction.refundReceiver, nonce: built.safeTransaction.nonce,
         },
-      });
+      }, { blockNumber: safeBlockNumber, blockHash: safeConfig.readBlockHash });
       if (!safeTxFacts.valid || safeTxFacts.chainId !== 56 ||
           safeTxFacts.nonce !== safeConfig.nonce ||
           safeTxFacts.readBlockNumber.toLowerCase() !== safeConfig.readBlockNumber.toLowerCase() ||
