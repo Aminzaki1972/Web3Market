@@ -209,6 +209,7 @@ jobs:
         with:
           deno-version: v2.x
       - name: Type-check isolated decision and settlement gate engines
+        timeout-minutes: 15
         run: |
           deno check supabase/functions/w3m-acquisition-verification/decision-engine.ts
           deno check supabase/functions/w3m-acquisition-verification/settlement-gate.ts
