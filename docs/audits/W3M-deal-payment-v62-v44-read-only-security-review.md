@@ -77,3 +77,14 @@ Do not deploy or treat live deal funding as protocol-complete until:
 3. payment persistence is atomic and transaction-hash uniqueness is guaranteed by database constraints/RPC;
 4. tests cover concurrency, replay, partial-write failure, wrong-chain RPC, wrong token, duplicate events, removed logs, reorg/canonicality, and stale deal state;
 5. CI passes and the change is reviewed separately before any production deployment.
+
+
+## Follow-up implementation on the isolated branch
+
+A pure server-context builder was added at `supabase/functions/w3m-acquisition-verification/fresh-bnb-deal-payment-context.ts`. It derives the verifier expectation from the freshly loaded deal, buyer profile and seller profile rows; binds the authenticated actor to the buyer; requires pending payment state; pins BNB chain 56 and the canonical BNB USDT contract; validates verified wallets; and converts the database amount to 18-decimal base units without floating-point arithmetic.
+
+Its isolated tests are in `fresh-bnb-deal-payment-context.test.ts` and are included in the W3M Protocol V1 CI workflow. This helper is not yet called by the recovered production Edge Function, and does not persist or change any database state.
+
+The canonical receipt-verifier test suite also exposed and fixed one incorrect test expectation: transaction/receipt block metadata mismatch is rejected at the receipt validation guard. The verifier itself remains read-only and is not deployed.
+
+Latest branch head at this update: `4490d7a3bdcdd006bf74f2f39853caafbf3cab18`. CI run `43912149380` is queued/in progress; no passing result is claimed yet.
