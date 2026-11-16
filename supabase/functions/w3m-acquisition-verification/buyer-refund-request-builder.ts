@@ -90,6 +90,7 @@ export function buildBuyerRefundRequestIntent(c: BuyerRefundRequestContext): Buy
   const refund = parseDecimal(c.decision.buyerRefundAmount);
   const balance = parseDecimal(c.safe.balance);
   if (original <= 0n || funded <= 0n || refund <= 0n || refund > funded) throw new Error("REFUND_AMOUNT_OUT_OF_CONFIRMED_FUNDING_BOUNDS");
+  if (funded !== original) throw new Error("CONFIRMED_FUNDING_DOES_NOT_MATCH_SIGNED_DEAL_VALUE");
   const fee = (original * 75n + 500n) / 1000n;
   if (refund + fee !== funded) throw new Error("PARTIAL_REFUND_ALLOCATION_NOT_APPROVED");
   if (refund + fee > balance) throw new Error("SAFE_BALANCE_INSUFFICIENT_FOR_REFUND_AND_FIXED_PLATFORM_FEE");
