@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildFreshBnbDealPaymentContext } from "../w3m-acquisition-verification/fresh-bnb-deal-payment-context.ts";
 import { verifyBnbDealPaymentReceipt } from "../w3m-acquisition-verification/bnb-deal-payment-receipt-verifier.ts";
 import { finalizeVerifiedDealPayment } from "../w3m-acquisition-verification/deal-payment-finalization-rpc-adapter.ts";
+import { readCanonicalBnbSafeConfigurationFacts } from "../w3m-acquisition-verification/bnb-safe-configuration-facts-reader.ts";
 
 const TRANSFER="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const DECIMALS="0x313ce567";
@@ -17,7 +18,7 @@ async function rpc(u:string,m:string,p:unknown[]){const r=await fetch(u,{method:
 function rpcCandidates(){const raw=[Deno.env.get("BSC_RPC_URLS"),Deno.env.get("BSC_RPC_URL"),"https://bsc-rpc.publicnode.com","https://bsc-dataseed.binance.org","https://bsc.publicnode.com"].filter(Boolean).join(",");return [...new Set(raw.split(",").map(x=>x.trim()).filter(Boolean))]}
 async function providers(){const ok:string[]=[];for(const u of rpcCandidates()){try{const chain=bi(await rpc(u,"eth_chainId",[]));if(chain!==56n)continue;await rpc(u,"eth_blockNumber",[]);ok.push(u)}catch{}}if(!ok.length)throw Error("No BNB Chain (56) RPC provider available");return ok}
 function ownerList(raw:string){const h=raw.replace(/^0x/,"");if(h.length<128)return[];const off=Number(bi("0x"+h.slice(0,64)))*2,n=Number(bi("0x"+h.slice(off,off+64)));return Array.from({length:n},(_,i)=>"0x"+h.slice(off+64+i*64+24,off+64+(i+1)*64)).filter(x=>x.length===42).map(x=>x.toLowerCase())}
-async function safeCheck(p:string,safe:string,buyer:string,seller:string){const code=await rpc(p,"eth_getCode",[safe,"latest"]);if(!code||code==="0x")throw Error("Safe contract missing");const os=ownerList(String(await rpc(p,"eth_call",[{to:safe,data:OWNERS},"latest"])));const th=Number(bi(await rpc(p,"eth_call",[{to:safe,data:THRESHOLD},"latest"])));const set=new Set(os);if(os.length!==3||set.size!==3||th!==2||![buyer,seller,PLATFORM].every(x=>set.has(x.toLowerCase())))throw Error("Safe owner/threshold mismatch")}
+async function safeCheck(p:string,safe:string,buyer:string,seller:string){const client={async request<T>(method:string,params:unknown[]=[]):Promise<T>{return await rpc(p,method,params) as T}};const facts=await readCanonicalBnbSafeConfigurationFacts(client,{safeAddress:safe,expectedSafeAddress:safe,expectedOwners:[buyer,seller,PLATFORM],expectedThreshold:2,expectedVersion:"1.4.1",expectedChainId:56});if(!facts.valid)throw Error("Canonical Safe configuration mismatch: "+facts.issues.join(","));return facts;}
 
 async function sleep(ms:number){await new Promise(r=>setTimeout(r,ms))}
 async function scanTransferLogs(rpcUrls:string[],token:string,buyer:string,safe:string,expected:bigint,start:number,end:number){
