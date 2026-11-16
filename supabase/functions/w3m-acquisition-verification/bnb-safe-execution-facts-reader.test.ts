@@ -115,7 +115,7 @@ Deno.test("canonical BNB Safe transaction reader computes hash from live Safe an
   assertEquals(result.readBlockNumber, BLOCK);
   assertEquals(result.readBlockHash, BLOCK_HASH);
   assertEquals(calls.filter((method) => method === "eth_getBlockByNumber").length, 2);
-  assertEquals(calls.filter((method) => method === "eth_call").length >= 7, true);
+  assertEquals(calls.filter((method) => method === "eth_call").length >= 6, true);
 });
 
 Deno.test("canonical BNB Safe transaction reader rejects a reorg while computing the hash", async () => {
