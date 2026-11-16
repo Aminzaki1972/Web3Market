@@ -2,6 +2,7 @@ name: W3M Protocol V1 isolated checks
 # Includes fail-closed Safe SIGN and atomic signature persistence checks.
 # Includes refund receipt finalization boundary and persistence-adapter checks; SQL finalizer remains a separate pending gate.
 # Buyer-win decisions/refund requests must allocate all confirmed deal funding; unsupported seller residuals fail closed.
+# Dispute decision tests also cover rejection of partial buyer allocations without an approved seller residual.
 # The signer-race shell test uses two independent PostgreSQL sessions and a persistent disposable fixture;
 # keep both its fixture and script in pull_request path filters so namespace/cleanup edits run the full DB job.
 
