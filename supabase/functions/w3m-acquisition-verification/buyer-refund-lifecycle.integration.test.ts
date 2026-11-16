@@ -95,7 +95,8 @@ Deno.test("mocked buyer refund lifecycle: request → buyer/seller SIGN → rece
   const buyerRequest = post("https://w3m.test/sign", { deal_id: DEAL, request_id: REQUEST, decision_id: DECISION, safe_tx_hash: SAFE_TX_HASH, signature: SIG_BUYER });
   const buyerHeaders = new Headers(buyerRequest.headers); buyerHeaders.set("x-user-id", BUYER);
   const buyerSignResponse = await signHandler(new Request(buyerRequest, { headers: buyerHeaders }));
-  assert(buyerSignResponse.status === 200 && signatures.length === 1, "buyer signature was not recorded");
+  const buyerSignBody = await buyerSignResponse.clone().text();
+  assert(buyerSignResponse.status === 200 && signatures.length === 1, "buyer signature was not recorded; status=" + buyerSignResponse.status + "; body=" + buyerSignBody + "; writes=" + signatures.length);
   const sellerRequest = post("https://w3m.test/sign", { deal_id: DEAL, request_id: REQUEST, decision_id: DECISION, safe_tx_hash: SAFE_TX_HASH, signature: SIG_SELLER });
   const sellerHeaders = new Headers(sellerRequest.headers); sellerHeaders.set("x-user-id", SELLER);
   const sellerSignResponse = await signHandler(new Request(sellerRequest, { headers: sellerHeaders }));
