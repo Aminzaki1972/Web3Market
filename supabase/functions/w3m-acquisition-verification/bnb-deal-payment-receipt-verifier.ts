@@ -86,12 +86,14 @@ export async function verifyBnbDealPaymentReceipt(
   const receipt = await rpc.request<unknown>("eth_getTransactionReceipt", [expected.transactionHash]);
   if (!record(receipt) || !same(receipt.transactionHash, expected.transactionHash) ||
       receipt.status !== "0x1" || !HASH.test(String(receipt.blockHash ?? "")) ||
-      !Array.isArray(receipt.logs)) {
+      !Array.isArray(receipt.logs) || !same(tx.blockHash, String(receipt.blockHash)) ||
+      !same(tx.blockNumber, String(receipt.blockNumber))) {
     throw new BnbDealPaymentReceiptError("Payment receipt is unsuccessful or malformed.");
   }
   const blockNumber = quantity(receipt.blockNumber, "receipt block number");
   const head = quantity(await rpc.request<string>("eth_blockNumber", []), "head block");
-  if (head < blockNumber || head - blockNumber + 1n < BigInt(expected.minConfirmations)) {
+  const confirmationCount = head >= blockNumber ? head - blockNumber + 1n : 0n;
+  if (confirmationCount < BigInt(expected.minConfirmations) || confirmationCount > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new BnbDealPaymentReceiptError("Payment receipt has insufficient confirmations.");
   }
   const block = await rpc.request<unknown>("eth_getBlockByNumber", [hexQuantity(blockNumber), false]);
@@ -108,6 +110,11 @@ export async function verifyBnbDealPaymentReceipt(
       throw new BnbDealPaymentReceiptError("Payment receipt contains a removed or malformed log.");
     }
     if (!same(candidate.address, expected.tokenContract)) continue;
+    if (!same(candidate.transactionHash, expected.transactionHash) ||
+        !same(candidate.blockHash, String(receipt.blockHash)) ||
+        !same(candidate.blockNumber, String(receipt.blockNumber))) {
+      throw new BnbDealPaymentReceiptError("Token log is not bound to the verified transaction receipt block.");
+    }
     if (candidate.topics.length === 0 || typeof candidate.topics[0] !== "string" ||
         candidate.topics[0].toLowerCase() !== TRANSFER_TOPIC) continue;
     if (candidate.topics.length !== 3) {
@@ -142,7 +149,7 @@ export async function verifyBnbDealPaymentReceipt(
     transactionHash: expected.transactionHash.toLowerCase(),
     blockHash: String(receipt.blockHash).toLowerCase(),
     blockNumber: blockNumber.toString(),
-    confirmations: Number(head - blockNumber + 1n),
+    confirmations: Number(confirmationCount),
     buyerWallet: expected.buyerWallet.toLowerCase(),
     safeAddress: expected.safeAddress.toLowerCase(),
     tokenContract: expected.tokenContract.toLowerCase(),
