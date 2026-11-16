@@ -60,6 +60,9 @@ begin
      or p_server_authorization->>'safe_hash_verified' is distinct from 'true'
      or p_server_authorization->>'safe_block_canonical' is distinct from 'true'
      or p_server_authorization->>'funding_receipt_verified' is distinct from 'true'
+     or p_server_authorization->>'funding_block_canonical' is distinct from 'true'
+     or p_server_authorization->>'payload_verified' is distinct from 'true'
+     or lower(coalesce(p_server_authorization->>'safe_block_hash','')) is distinct from lower(p_safe_facts->>'block_hash')
      or lower(coalesce(p_server_authorization->>'safe_tx_hash','')) !~ '^0x[0-9a-f]{64}$'
      or jsonb_typeof(p_server_authorization->'issues') is distinct from 'array'
      or jsonb_array_length(p_server_authorization->'issues') <> 0 then
