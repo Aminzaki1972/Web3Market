@@ -45,7 +45,7 @@ export interface BuyerRefundFinalizationDependencies {
 export async function handleBuyerRefundFinalization(request:Request,deps:BuyerRefundFinalizationDependencies):Promise<Response>{
   if(request.method!=="POST")return json(405,{ok:false,error:"POST_REQUIRED"});
   const authorization=request.headers.get("authorization")??"";
-  const match=/^Bearer\\s+(\\S+)$/i.exec(authorization);
+  const match=/^Bearer\s+(\S+)$/i.exec(authorization);
   if(!match)return json(401,{ok:false,error:"AUTHENTICATION_REQUIRED"});
   let actorId:string|null;
   try{actorId=await deps.authenticate(match[1]);}catch{return json(401,{ok:false,error:"AUTHENTICATION_FAILED"});}
