@@ -136,10 +136,10 @@ begin
      or v_decision.terms_hash <> v_request.terms_hash then
     raise exception 'Immutable buyer-win decision binding mismatch' using errcode='23514';
   end if;
-  if v_deal.status <> 'disputed' or v_deal.dispute_status <> 'resolved_buyer'
-     or v_deal.chain_id <> 56 or v_deal.payment_status <> 'confirmed'
-     or lower(v_deal.safe_address) <> v_request.safe_address
-     or lower(v_deal.token_contract) <> v_request.token_address then
+  if v_deal.status is distinct from 'disputed' or v_deal.dispute_status is distinct from 'resolved_buyer'
+     or v_deal.chain_id is distinct from 56 or v_deal.payment_status is distinct from 'confirmed'
+     or v_deal.safe_address is null or lower(v_deal.safe_address) <> v_request.safe_address
+     or v_deal.token_contract is null or lower(v_deal.token_contract) <> v_request.token_address then
     raise exception 'Deal state or Safe/token binding blocks refund signature' using errcode='23514';
   end if;
 
@@ -153,8 +153,9 @@ begin
 
   select * into v_buyer from public.profiles where id=v_deal.buyer_id for share;
   select * into v_seller from public.profiles where id=v_deal.seller_id for share;
-  if v_buyer.wallet_verified is distinct from true
-     or v_seller.wallet_verified is distinct from true
+  if v_buyer.wallet_verified is distinct from true or v_buyer.wallet_verified_at is null
+     or v_seller.wallet_verified is distinct from true or v_seller.wallet_verified_at is null
+     or v_buyer.wallet_address is null or v_seller.wallet_address is null
      or lower(v_buyer.wallet_address) <> v_request.buyer_wallet then
     raise exception 'Buyer verified wallet changed or is not bound' using errcode='42501';
   end if;
@@ -189,11 +190,11 @@ begin
   select * into v_tx from public.deal_multisig_transactions
    where id=v_request.safe_transaction_id and deal_id=v_deal.id
      and action='refund_to_buyer' for update;
-  if not found or lower(v_tx.safe_tx_hash) <> lower(p_safe_tx_hash)
-     or lower(v_tx.safe_address) <> v_request.safe_address
-     or v_tx.chain_id <> 56 or v_tx.safe_nonce <> v_request.safe_nonce
-     or v_tx.required_signatures <> 2
-     or v_tx.status not in ('awaiting_signatures','signed') then
+  if not found or v_tx.safe_tx_hash is null or lower(v_tx.safe_tx_hash) <> lower(p_safe_tx_hash)
+     or v_tx.safe_address is null or lower(v_tx.safe_address) <> v_request.safe_address
+     or v_tx.chain_id is distinct from 56 or v_tx.safe_nonce is distinct from v_request.safe_nonce
+     or v_tx.required_signatures is distinct from 2
+     or v_tx.status is null or v_tx.status not in ('awaiting_signatures','signed') then
     raise exception 'Safe refund transaction row mismatch' using errcode='23514';
   end if;
 
