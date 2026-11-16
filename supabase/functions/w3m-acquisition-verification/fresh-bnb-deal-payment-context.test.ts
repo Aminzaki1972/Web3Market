@@ -45,6 +45,12 @@ Deno.test("allows an idempotent retry only for the same confirmed deal hash",()=
  assertEquals(result.expectation.transactionHash,TX);
  assertThrows(()=>buildFreshBnbDealPaymentContext({...input,deal:{...deal,status:"funded",payment_status:"confirmed",payment_tx_hash:"0x"+"9".repeat(64)}}),Error,"status");
 });
+Deno.test("allows same-hash confirmed retry after the deal advances beyond funded",()=>{
+ for (const status of ["in_progress", "completed", "disputed"]) {
+  const result=buildFreshBnbDealPaymentContext({...input,deal:{...deal,status,payment_status:"confirmed",payment_tx_hash:TX}});
+  assertEquals(result.expectation.transactionHash,TX);
+ }
+});
 Deno.test("rejects transaction replay against another deal binding",()=>{
  assertThrows(()=>buildFreshBnbDealPaymentContext({...input,deal:{...deal,payment_tx_hash:"0x"+"9".repeat(64)}}),Error,"different payment transaction");
 });
