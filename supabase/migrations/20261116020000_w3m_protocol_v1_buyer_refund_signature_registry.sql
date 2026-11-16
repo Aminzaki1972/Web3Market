@@ -106,7 +106,9 @@ begin
   if p_request_id is null or p_actor_id is null
      or p_signer_role is null or p_signer_role not in ('buyer','seller','platform')
      or p_verified_wallet is null or p_verified_wallet !~ '^0x[0-9a-fA-F]{40}$'
-     or p_safe_tx_hash is null or p_safe_tx_hash !~ '^0x[0-9a-fA-F]{64} is null or p_signature !~ '^0x[0-9a-fA-F]{130}$'
+     or p_safe_tx_hash is null or p_safe_tx_hash !~ '^0x[0-9a-fA-F]{64}$'
+     or p_safe_nonce is null or p_safe_nonce !~ '^(0|[1-9][0-9]*)$'
+     or p_signature is null or p_signature !~ '^0x[0-9a-fA-F]{130}$'
      or jsonb_typeof(p_server_authorization) is distinct from 'object'
      or p_server_authorization->>'authorized' is distinct from 'true'
      or p_server_authorization->>'phase' is distinct from 'SIGN'
@@ -199,7 +201,8 @@ begin
      or v_tx.amount is distinct from v_request.refund_amount
      or lower(coalesce(v_tx.to_address,'')) <> '0x9641d764fc13c8b624c04430c7356c1c7c8102e2'
      or v_tx.operation is distinct from 1 or v_tx.value_wei is distinct from 0
-     or v_tx.data is null or v_tx.data !~ '^0x([0-9a-fA-F]{2})+
+     or v_tx.data is null or v_tx.data !~ '^0x([0-9a-fA-F]{2})+$'
+     or v_tx.required_signatures is distinct from 2
      or v_tx.status is null or v_tx.status not in ('awaiting_signatures','signed') then
     raise exception 'Safe refund transaction row mismatch' using errcode='23514';
   end if;
