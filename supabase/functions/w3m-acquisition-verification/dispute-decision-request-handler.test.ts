@@ -24,7 +24,7 @@ Deno.test("decision HTTP boundary derives admin actor from verified session and 
     isAdmin: async (id) => id === actorId,
     decide: async (input) => {
       captured = input;
-      return { decisionId: "83000000-0000-4000-8000-000000000003", decisionHash: "ab".repeat(32), outcome: "buyer_wins", state: "DECIDED" };
+      return { decisionId: "83000000-0000-4000-8000-000000000003", decisionHash: "ab".repeat(32), outcome: "buyer_wins", state: "DECIDED", buyerRefundAmount: "92.5" };
     },
   });
   assertEquals(response.status, 200);
