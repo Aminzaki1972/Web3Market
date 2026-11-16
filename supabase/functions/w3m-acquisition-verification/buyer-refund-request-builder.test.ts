@@ -76,3 +76,26 @@ Deno.test("rejects confirmed funding that differs from the signed deal value",()
   const x=fixture(); x.funding.amount="101";
   rejects(()=>buildBuyerRefundRequestIntent(x),"CONFIRMED_FUNDING_DOES_NOT_MATCH_SIGNED_DEAL_VALUE");
 });
+
+Deno.test("matches PostgreSQL 18-decimal half-up fee rounding at sub-cent boundaries",()=>{
+  const belowHalf=fixture();
+  belowHalf.terms.originalDealAmount="0.000000000000000006";
+  belowHalf.funding.amount="0.000000000000000006";
+  belowHalf.decision.buyerRefundAmount="0.000000000000000006";
+  belowHalf.safe.balance="0.000000000000000006";
+  const below=buildBuyerRefundRequestIntent(belowHalf);
+  if(below.platformFeeAmount!=="0"||below.buyerRefundAmount!=="0.000000000000000006"){
+    throw new Error("Fee below half of the smallest USDT unit must round to zero.");
+  }
+
+  const aboveHalf=fixture();
+  aboveHalf.terms.originalDealAmount="0.000000000000000007";
+  aboveHalf.funding.amount="0.000000000000000007";
+  aboveHalf.decision.buyerRefundAmount="0.000000000000000006";
+  aboveHalf.safe.balance="0.000000000000000007";
+  const above=buildBuyerRefundRequestIntent(aboveHalf);
+  if(above.platformFeeAmount!=="0.000000000000000001"||
+     above.buyerRefundAmount!=="0.000000000000000006"){
+    throw new Error("Fee at/above half of the smallest USDT unit must round up identically to PostgreSQL numeric round().");
+  }
+});
