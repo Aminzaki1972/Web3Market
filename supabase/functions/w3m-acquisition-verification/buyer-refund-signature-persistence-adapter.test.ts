@@ -31,7 +31,7 @@ Deno.test("buyer refund signature adapter rejects malformed input before RPC",as
 
 Deno.test("buyer refund signature adapter rejects platform role outside the participant SIGN boundary",async()=>{
  let calls=0;const client:W3MRpcClient={rpc:async()=>{calls++;return {data:null,error:null}}};
- try{await persistBuyerRefundSignatureAtomically(client,{...input,signerRole:"platform" as "buyer"});throw new Error("Expected rejection")}
+ try{await persistBuyerRefundSignatureAtomically(client,{...input,signerRole:"platform" as unknown as "buyer"});throw new Error("Expected rejection")}
  catch(e){if(!(e instanceof Error)||!e.message.includes("malformed"))throw e}
  if(calls!==0)throw new Error("Platform role reached participant SIGN persistence");
 });
