@@ -242,6 +242,11 @@ begin
     raise exception 'A conflicting refund request already exists for this dispute' using errcode='23505';
   end if;
 
+  if exists(select 1 from public.deal_multisig_transactions t
+     where t.deal_id=p_deal_id and t.action='refund_to_buyer') then
+    raise exception 'An orphaned or legacy refund Safe transaction requires reconciliation' using errcode='23514';
+  end if;
+
   insert into public.deal_multisig_transactions(
     id,deal_id,action,amount,token_symbol,chain_id,safe_address,
     tx_hash,safe_tx_hash,safe_nonce,to_address,data,value_wei,operation,
