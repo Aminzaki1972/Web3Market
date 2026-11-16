@@ -48,7 +48,7 @@ Deno.test("rejects wrong amount, duplicate matching events and removed logs",asy
  await assertRejects(()=>verifyBnbDealPaymentReceipt(mock({receipt:{logs:[{...log,removed:true}]}}).rpc,expected),BnbDealPaymentReceiptError,"removed or malformed");
 });
 Deno.test("rejects logs or transaction metadata not bound to the receipt block",async()=>{
- await assertRejects(()=>verifyBnbDealPaymentReceipt(mock({tx:{hash:TX,from:BUYER,to:TOKEN,blockHash:"0x"+"9".repeat(64),blockNumber:"0x64"}}).rpc,expected),BnbDealPaymentReceiptError,"identity");
+ await assertRejects(()=>verifyBnbDealPaymentReceipt(mock({tx:{hash:TX,from:BUYER,to:TOKEN,blockHash:"0x"+"9".repeat(64),blockNumber:"0x64"}}).rpc,expected),BnbDealPaymentReceiptError,"malformed");
  await assertRejects(()=>verifyBnbDealPaymentReceipt(mock({receipt:{logs:[{...log,blockHash:"0x"+"9".repeat(64)}]}}).rpc,expected),BnbDealPaymentReceiptError,"not bound");
 });
 Deno.test("rejects malformed address topic padding and malformed amount",async()=>{
