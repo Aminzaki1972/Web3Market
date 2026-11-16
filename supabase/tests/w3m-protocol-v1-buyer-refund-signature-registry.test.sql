@@ -3,6 +3,9 @@
 begin;
 
 do $schema$
+declare
+  v_sign_definition text;
+  v_snapshot_definition text;
 begin
   if not exists (
     select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace
@@ -32,6 +35,20 @@ begin
      or not has_function_privilege('service_role',
        'public.w3m_record_buyer_refund_signature(uuid,uuid,text,text,text,text,jsonb)','EXECUTE') then
     raise exception 'Buyer refund SIGN RPC must be service-role-only';
+  end if;
+
+  select pg_get_functiondef(
+    'public.w3m_record_buyer_refund_signature(uuid,uuid,text,text,text,text,jsonb)'::regprocedure
+  ) into v_sign_definition;
+  if position('buyer_refund_amount::numeric <> v_request.refund_amount' in lower(v_sign_definition)) = 0 then
+    raise exception 'Buyer refund SIGN RPC does not bind request amount to immutable decision amount';
+  end if;
+
+  select pg_get_functiondef(
+    'public.w3m_read_safe_execution_snapshot(uuid)'::regprocedure
+  ) into v_snapshot_definition;
+  if position('buyer_refund_amount' in lower(v_snapshot_definition)) = 0 then
+    raise exception 'Safe execution snapshot omits the immutable buyer refund amount';
   end if;
 
   if not exists(select 1 from pg_trigger where tgname='w3m_buyer_refund_requests_immutable' and not tgisinternal)
