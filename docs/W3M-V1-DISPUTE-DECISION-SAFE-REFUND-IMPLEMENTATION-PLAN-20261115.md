@@ -106,6 +106,8 @@ The isolated TypeScript boundary and persistence adapter now define the intended
 - Same request + same broadcast hash + identical verified receipt must return an idempotent replay. A different hash, receipt, block binding, decision, or transfer set for an already-finalized request must fail closed without changing any row.
 - Expected RPC response: `finalized=true`, exact `request_id` and `deal_id`, `status='confirmed'`, `idempotent_replay`, `receipt_id`, and exact `broadcast_tx_hash`. This matches the current isolated TypeScript adapter contract.
 
+The current request builder, Safe transaction builder, decoded-payload validator, request RPC, and receipt verifier are now deliberately restricted to a complete two-transfer allocation where `buyer_refund_amount + fixed_platform_fee = confirmed_funded_amount = original_signed_deal_value`. Any positive seller residual is rejected with `PARTIAL_REFUND_ALLOCATION_NOT_APPROVED`; the current immutable decision schema has no separately authorized seller-residual amount, so the system must not infer or leave that remainder in the Safe. A future partial allocation requires an explicit immutable decision field, exact recipient/amount binding, a three-transfer Safe payload where appropriate, and matching signature/receipt tests. The prior partial-refund test fixtures have been updated to prove that only the complete funded allocation is accepted.
+
 This is a design contract only. The RPC, ledger, SQL fixture/tests, concurrency tests, and composed Edge Function must be implemented and pass disposable PostgreSQL CI before this path is usable. No production schema change is authorized.
 
 ### D. Seller-win outcome
