@@ -109,3 +109,47 @@ export async function readCanonicalBnbSafeTransactionFacts(
     safeTransactionHash,
   };
 }
+
+
+/**
+ * Computes a Safe transaction hash against an already captured canonical block.
+ * This avoids sampling a second "latest" block between Safe configuration and
+ * balance reads during PREPARE/refund request assembly.
+ */
+export async function readCanonicalBnbSafeTransactionFactsAtBlock(
+  rpc: JsonRpcClient,
+  expected: Omit<SafeLiveExecutionExpectation, "storedSafeTransactionHash">,
+  snapshot: { blockNumber: string; blockHash: string },
+): Promise<CanonicalBnbSafeTransactionFacts> {
+  if (!/^(0|[1-9][0-9]*)$/.test(snapshot.blockNumber) || !HASH.test(snapshot.blockHash)) {
+    throw new Error("Pinned Safe transaction snapshot is malformed.");
+  }
+  const blockTag = "0x" + BigInt(snapshot.blockNumber).toString(16);
+  const before = await readBlockHeader(rpc, blockTag);
+  if (before.hash !== snapshot.blockHash.toLowerCase()) {
+    throw new Error("Pinned Safe transaction block is no longer canonical.");
+  }
+  const client = createBnbSafeLiveReadClient(rpc, blockTag);
+  const safeTransactionHash = await client.getTransactionHash(expected.safeAddress, expected.transaction);
+  const facts = await readAndVerifySafeLiveExecutionFacts(client, {
+    ...expected,
+    storedSafeTransactionHash: safeTransactionHash,
+  });
+  const after = await readBlockHeader(rpc, blockTag);
+  if (before.hash !== after.hash) {
+    return {
+      ...facts,
+      valid: false,
+      readBlockNumber: blockTag,
+      readBlockHash: before.hash,
+      safeTransactionHash,
+      issues: [...new Set([...facts.issues, "SAFE_READ_BLOCK_NOT_CANONICAL"])],
+    };
+  }
+  return {
+    ...facts,
+    readBlockNumber: blockTag,
+    readBlockHash: before.hash,
+    safeTransactionHash,
+  };
+}
