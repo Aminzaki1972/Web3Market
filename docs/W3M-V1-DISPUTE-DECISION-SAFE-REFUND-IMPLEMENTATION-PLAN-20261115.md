@@ -118,13 +118,22 @@ All race tests must use independent PostgreSQL sessions and the actual RPC/final
 
 ## 5. Commission/legal blocker
 
-The owner-approved Arabic 20-article agreement is now present in the isolated repository at `docs/legal/W3M-DEAL-AGREEMENT-AR-V1.0.md`, registered as `W3M-AGREEMENT-V1.0` with SHA-256 `721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531`. The isolated EIP-712 acceptance flow binds the canonical document version/hash. This does not establish final independent legal review, jurisdiction-specific enforceability, production activation, or signatures by actual deal parties.
+The owner-approved Arabic 20-article agreement is present at `docs/legal/W3M-DEAL-AGREEMENT-AR-V1.0.md`, registered as `W3M-AGREEMENT-V1.0` with SHA-256 `721aaabcef891b8cdd43cdc34e1980f2166ce32282162d927da942ef8ec10531`. The isolated EIP-712 acceptance flow binds the canonical document version/hash. The owner's 2026-11-16 commission-base decision is a subsequent material clarification and is not covered by the old V1.0 hash or prior acceptances; create a new immutable version/addendum and obtain both parties' acceptance for future deals before using the clarified rule. This does not establish final independent legal review, jurisdiction-specific enforceability, production activation, or signatures by actual deal parties.
 
-The agreement preserves W3M's 7.5% commission and prohibits bypassing or waiving the platform fee without authorization. It does not provide a sufficiently precise executable arithmetic allocation for every partial buyer-refund scenario. Therefore:
-- preserve the locked 7.5% commission policy and the exact signed deal terms;
-- do not invent pro-rata, full-retention, or waived-fee arithmetic for partial refunds;
-- keep any refund case whose fee allocation is not expressly determined by the signed agreement fail-closed;
-- implement and test the decision and Safe mechanics independently of unresolved refund arithmetic, without creating or signing a Safe transaction for a blocked case.
+The owner has now explicitly decided (recorded on Issue #195 on 2026-11-16) that the 7.5% Web3Market commission is calculated on the **original agreed deal value**, for both full and partial buyer-refund outcomes, and is deducted from funds held in the deal Safe rather than collected separately from the seller. The commission base does not shrink with the refund amount.
+
+Canonical arithmetic rule:
+- `commission_base = original_agreed_deal_value` from the immutable, signed deal terms / locked deal amount; never use the refund amount, seller residual, or post-dispute balance as the base.
+- `platform_fee = round(commission_base * 7.5 / 100, 18)`, using the same exact decimal precision and rounding convention already enforced by the V1 release policy.
+- Calculate and bind this fee once to the original deal terms. Full and partial refunds do not prorate, waive, or recalculate it.
+- The buyer refund amount remains a separately authorized amount in the immutable dispute decision; do not infer it from the commission formula.
+- The exact Safe transfer set must account for the fixed platform fee and the approved buyer refund (and any separately authorized seller residual, if applicable) without exceeding the confirmed Safe-held balance. If the decision, signed terms, or available balance cannot support the exact allocation, fail closed and create no Safe request.
+- Do not alter the existing seller-release validator's exact two-transfer invariants to accommodate refunds. Buyer refunds require their own action-specific validator and tests.
+
+Agreement/version gate:
+- The currently approved `W3M-AGREEMENT-V1.0` text and SHA-256 remain immutable; its Article 5 currently leaves the commission base to deal details and does not yet state this newly approved original-value rule explicitly.
+- Before this rule is used for a newly signed deal, publish a new immutable agreement version or explicit signed addendum, compute its new SHA-256, bind it into the EIP-712 terms flow, and require both parties to accept that exact version/hash.
+- Do not rewrite the V1.0 file in place or claim old signatures cover the amendment. Existing deals remain governed by their own exact signed terms; do not retroactively change them without valid agreement by the parties.
 
 ## 6. Implementation order
 
@@ -140,4 +149,4 @@ The agreement preserves W3M's 7.5% commission and prohibits bypassing or waiving
 
 ## 7. Current status
 
-The owner-approved Arabic V1.0 agreement and SHA-256 registry are committed; Issue #192 is complete on the isolated branch. For Issue #195, the immutable decision table, service-role-only decision RPC, admin-only Edge Function, evidence snapshots/content hashes, latest-terms and both-party acceptance checks, and seller-wins-only Safe release gate are now implemented on the isolated branch. TypeScript checks/tests have passed; the current disposable PostgreSQL migration/test run is still in progress. The RPC writes `deal_disputes.status='resolved'`, `resolution='buyer_wins'|'seller_wins'`, and parent `deals.dispute_status='resolved_buyer'|'resolved_seller'`, while `deals.status` remains `disputed` until the matching Safe settlement is chain-confirmed. Buyer refund request/signature/receipt/finalization and the admin Deal Room review UI remain pending; refund arithmetic is deliberately fail-closed. The generated migration has not been applied to production. No merge, deployment, wallet signing, or fund movement has occurred.
+The owner-approved Arabic V1.0 agreement and SHA-256 registry are committed; Issue #192 is complete on the isolated branch. For Issue #195, the immutable decision table, service-role-only decision RPC, admin-only Edge Function, evidence snapshots/content hashes, latest-terms and both-party acceptance checks, and seller-wins-only Safe release gate are now implemented on the isolated branch. TypeScript checks/tests have passed; the current disposable PostgreSQL migration/test run is still in progress. The RPC writes `deal_disputes.status='resolved'`, `resolution='buyer_wins'|'seller_wins'`, and parent `deals.dispute_status='resolved_buyer'|'resolved_seller'`, while `deals.status` remains `disputed` until the matching Safe settlement is chain-confirmed. Buyer refund request/signature/receipt/finalization and the admin Deal Room review UI remain pending. The commission base is now specified as the original agreed deal value, but refund transfer allocation must still be explicitly bound to the dispute decision and available Safe balance; any insufficient or ambiguous allocation remains fail-closed. The generated migration has not been applied to production. No merge, deployment, wallet signing, or fund movement has occurred.
