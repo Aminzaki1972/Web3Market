@@ -39,9 +39,9 @@ function formatUnits(value: bigint): string {
 
 /**
  * Calculates W3M's 7.5% fee once from the original agreed deal value, then
- * checks whether that fixed fee plus the separately authorized buyer refund
- * fits within the confirmed Safe balance. It never allocates any residual
- * balance to the seller and never creates/signs/submits a Safe transaction.
+ * checks that the buyer refund plus fixed fee exactly distributes the confirmed
+ * deal funding. Any seller residual is rejected until separately authorized.
+ * Extra Safe balance outside this deal allocation remains untouched.
  */
 export function calculateW3MDisputeRefundFunding(
   input: W3MDisputeRefundFundingInput,
@@ -90,10 +90,10 @@ export function calculateW3MDisputeRefundFunding(
   result.confirmedSafeBalance = formatUnits(balance);
   result.requiredSafeBalance = formatUnits(required);
 
-  if (required > balance) {
-    result.issues.push("SAFE_BALANCE_INSUFFICIENT_FOR_FIXED_FEE_AND_REFUND");
-    return result;
-  }
+  if (funded !== original) result.issues.push("CONFIRMED_FUNDING_DOES_NOT_MATCH_ORIGINAL_DEAL_VALUE");
+  if (required !== funded) result.issues.push("PARTIAL_REFUND_ALLOCATION_NOT_APPROVED");
+  if (required > balance) result.issues.push("SAFE_BALANCE_INSUFFICIENT_FOR_FIXED_FEE_AND_REFUND");
+  if (result.issues.length) return result;
 
   result.unallocatedSafeBalance = formatUnits(balance - required);
   result.valid = true;
