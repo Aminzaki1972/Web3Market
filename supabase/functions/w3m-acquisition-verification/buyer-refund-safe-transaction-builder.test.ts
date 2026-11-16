@@ -22,7 +22,7 @@ function intent() {
     buyer: { id: BUYER_ID, wallet: BUYER, verified: true },
     seller: { id: SELLER_ID, wallet: SELLER, verified: true },
     funding: { confirmed: true, chainId: 56, tokenAddress: W3M_BNB_USDT, safeAddress: SAFE, amount: "100", txHash: HASH, blockHash: HASH, confirmations: 20 },
-    safe: { address: SAFE, chainId: 56, nonce: "7", blockNumber: "90000000", blockHash: HASH, owners: [BUYER, SELLER, W3M_PLATFORM_WALLET], threshold: 2, balance: "107.5" },
+    safe: { address: SAFE, chainId: 56, nonce: "7", blockNumber: "90000000", blockHash: HASH, owners: [BUYER, SELLER, W3M_PLATFORM_WALLET], threshold: 2, balance: "100" },
   });
 }
 function assert(ok: boolean, message: string) { if (!ok) throw new Error(message); }
@@ -45,7 +45,7 @@ Deno.test("builds exact two-transfer buyer refund MultiSend calldata", () => {
     buyerRefundAmount: "92500000000000000000",
     confirmedFundedAmount: "100000000000000000000",
     platformFeeAmount: "7500000000000000000",
-    confirmedSafeBalance: "107500000000000000000",
+    confirmedSafeBalance: "100000000000000000000",
     calls: decoded.calls,
   });
   assert(decision.valid, JSON.stringify(decision.issues));
