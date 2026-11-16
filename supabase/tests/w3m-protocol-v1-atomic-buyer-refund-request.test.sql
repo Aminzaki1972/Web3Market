@@ -86,3 +86,16 @@ end;
 $fail_closed$;
 
 rollback;
+
+-- Cross-runtime rounding contract: TypeScript computes the 7.5% fee in integer
+-- 18-decimal units; PostgreSQL numeric round() must produce the same result.
+do $rounding$
+begin
+  if round(0.000000000000000006::numeric * 0.075,18) <> 0::numeric then
+    raise exception 'PostgreSQL fee rounding below half of the smallest 18-decimal unit diverges from the TypeScript builder';
+  end if;
+  if round(0.000000000000000007::numeric * 0.075,18) <> 0.000000000000000001::numeric then
+    raise exception 'PostgreSQL fee rounding at/above half of the smallest 18-decimal unit diverges from the TypeScript builder';
+  end if;
+end;
+$rounding$;
