@@ -28,6 +28,7 @@ export interface BnbSafeRefundReceiptExpectation {
   tokenContract: string;
   buyerWallet: string;
   buyerRefundAmount: string; // exact decimal amount from immutable decision
+  originalDealAmount: string; // exact value from latest immutable signed terms
   platformWallet: string;
   platformFeeAmount: string; // fixed 7.5% of original signed deal value
   minConfirmations: number;
@@ -122,8 +123,10 @@ export async function verifyBnbSafeBuyerRefundReceipt(
     throw new BnbSafeRefundReceiptVerificationError("Pinned buyer-refund expectations are invalid.");
   }
   const buyerExpected = expected.buyerRefundAmount;
+  const originalExpected = expected.originalDealAmount;
   const feeExpected = expected.platformFeeAmount;
   if (!/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(buyerExpected) ||
+      !/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(originalExpected) ||
       !/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(feeExpected) ||
       buyerExpected === "0" || feeExpected === "0") {
     throw new BnbSafeRefundReceiptVerificationError("Pinned buyer-refund or platform-fee amount is invalid.");
@@ -163,7 +166,12 @@ export async function verifyBnbSafeBuyerRefundReceipt(
   if (decimalsBig > 36n) throw new BnbSafeRefundReceiptVerificationError("USDT decimals exceed supported precision.");
   const decimalsCount = Number(decimalsBig);
   const expectedBuyerRaw = parseDecimal(buyerExpected, decimalsCount, "buyer refund");
+  const originalDealRaw = parseDecimal(originalExpected, decimalsCount, "original deal value");
   const expectedFeeRaw = parseDecimal(feeExpected, decimalsCount, "platform fee");
+  const fixedFeeRaw = (originalDealRaw * 75n + 500n) / 1000n;
+  if (originalDealRaw <= 0n || expectedFeeRaw !== fixedFeeRaw) {
+    throw new BnbSafeRefundReceiptVerificationError("Platform fee is not exactly 7.5% of the original signed deal value.");
+  }
 
   let success = 0;
   let failure = 0;
