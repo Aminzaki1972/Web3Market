@@ -8,6 +8,7 @@ import { createAllowlistedBnbRpcClient } from "../w3m-acquisition-verification/b
 import { handleW3MBuyerRefundRequest } from "../w3m-acquisition-verification/buyer-refund-request-handler.ts";
 import { readBuyerRefundRequestSnapshot } from "../w3m-acquisition-verification/buyer-refund-request-snapshot-adapter.ts";
 import { verifyBuyerRefundAgreementAcceptances } from "../w3m-acquisition-verification/buyer-refund-agreement-acceptance-verifier.ts";
+import type { BuyerRefundAgreementAcceptanceRow } from "../w3m-acquisition-verification/buyer-refund-agreement-acceptance-verifier.ts";
 import {
   W3M_AGREEMENT_DOCUMENT_VERSION,
   W3M_AGREEMENT_DOCUMENT_SHA256,
@@ -181,7 +182,9 @@ Deno.serve(async (request) => {
         termsVersionId: termsId, termsVersion, termsHash, safeAddress,
         agreementDocumentVersion: W3M_AGREEMENT_DOCUMENT_VERSION,
         agreementDocumentHash: W3M_AGREEMENT_DOCUMENT_SHA256,
-        buyerWallet, sellerWallet, buyerAcceptance, sellerAcceptance,
+        buyerWallet, sellerWallet,
+        buyerAcceptance: buyerAcceptance as unknown as BuyerRefundAgreementAcceptanceRow,
+        sellerAcceptance: sellerAcceptance as unknown as BuyerRefundAgreementAcceptanceRow,
       });
 
       const fundingTxHash = hash(deal.payment_tx_hash, "Confirmed funding transaction hash");
