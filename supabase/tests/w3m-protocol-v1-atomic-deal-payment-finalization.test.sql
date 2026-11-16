@@ -169,7 +169,7 @@ begin
     perform public.w3m_finalize_deal_payment(
       '93000000-0000-4000-8000-000000000003',
       '91000000-0000-4000-8000-000000000001','0x' || repeat('c',64),
-      jsonb_set(jsonb_set(v_receipt,'{transactionHash}',to_jsonb('0x' || repeat('c',64))),'{safeAddress}','"0x7777777777777777777777777777777777777777"')
+      jsonb_set(jsonb_set(jsonb_set(v_receipt,'{transactionHash}',to_jsonb('0x' || repeat('c',64))),'{safeAddress}','"0x7777777777777777777777777777777777777777"'),'{amountBaseUnits}','"999"')
     );
     raise exception 'RPC unexpectedly accepted a mismatched payment amount';
   exception when others then
