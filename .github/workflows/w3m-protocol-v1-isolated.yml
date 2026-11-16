@@ -390,6 +390,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/bnb-deal-payment-receipt-verifier.test.ts
       - name: Test fresh server-derived BNB deal payment context
         run: deno test supabase/functions/w3m-acquisition-verification/fresh-bnb-deal-payment-context.test.ts
+      - name: Test atomic deal payment finalization RPC adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/deal-payment-finalization-rpc-adapter.test.ts
       - name: Test authenticated buyer refund receipt finalization boundary
         run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-finalization-handler.test.ts
       - name: Test strict buyer refund amount parser
@@ -579,6 +581,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116020000_w3m_protocol_v1_buyer_refund_signature_registry.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116030000_w3m_protocol_v1_atomic_buyer_refund_request.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116040000_w3m_protocol_v1_atomic_buyer_refund_finalization.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116050000_w3m_protocol_v1_atomic_deal_payment_finalization.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107070000_w3m_protocol_v1_atomic_safe_prepare.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107080000_w3m_protocol_v1_atomic_safe_sign.sql
@@ -593,6 +596,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-buyer-refund-signature-registry.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-atomic-buyer-refund-request.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-atomic-buyer-refund-finalization.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-atomic-deal-payment-finalization.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-snapshot-reader.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-deal-agreement-acceptances.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE audit_immutability_test;"
