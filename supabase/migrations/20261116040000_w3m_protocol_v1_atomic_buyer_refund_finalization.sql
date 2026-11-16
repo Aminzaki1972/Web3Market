@@ -149,6 +149,12 @@ begin
     raise exception 'Verified administrator required to finalize buyer refund' using errcode='42501';
   end if;
 
+  if coalesce(p_verified_receipt->>'buyerRefundAmount','') !~ '^[0-9]+([.][0-9]{1,18})?$'
+     or coalesce(p_verified_receipt->>'platformFeeAmount','') !~ '^[0-9]+([.][0-9]{1,18})?$'
+     or v_confirmations < 6 then
+    raise exception 'Verified refund receipt amounts or confirmations are invalid' using errcode='23514';
+  end if;
+
   select * into v_existing from public.w3m_buyer_refund_receipts where request_id=p_request_id;
   if found then
     if v_existing.deal_id=p_deal_id and v_existing.dispute_id=v_request.dispute_id
@@ -163,10 +169,8 @@ begin
        and v_existing.receipt_block_hash=v_block_hash
        and v_existing.confirmations>=6 and v_confirmations>=6
        and v_existing.execution_success is true
-       and case when coalesce(p_verified_receipt->>'buyerRefundAmount','') ~ '^[0-9]+([.][0-9]{1,18})?$'
-         then (p_verified_receipt->>'buyerRefundAmount')::numeric=v_existing.buyer_refund_amount else false end
-       and case when coalesce(p_verified_receipt->>'platformFeeAmount','') ~ '^[0-9]+([.][0-9]{1,18})?$'
-         then (p_verified_receipt->>'platformFeeAmount')::numeric=v_existing.platform_fee_amount else false end then
+       and (p_verified_receipt->>'buyerRefundAmount')::numeric=v_existing.buyer_refund_amount
+       and (p_verified_receipt->>'platformFeeAmount')::numeric=v_existing.platform_fee_amount then
       return jsonb_build_object('finalized',true,'idempotent_replay',true,
         'receipt_id',v_existing.id,'request_id',p_request_id,'deal_id',p_deal_id,
         'status','confirmed','broadcast_tx_hash',v_existing.broadcast_tx_hash);
