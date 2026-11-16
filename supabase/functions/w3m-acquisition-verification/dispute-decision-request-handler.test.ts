@@ -7,6 +7,7 @@ const command = {
   disputeId: "82000000-0000-4000-8000-000000000002",
   outcome: "buyer_wins",
   reason: "The seller did not transfer the agreed project ownership.",
+  buyerRefundAmount: "92.5",
   evidenceRefs: [{ source: "deal_message", recordId: "86000000-0000-4000-8000-000000000006" }],
 };
 function request(body: unknown, authorization = "Bearer valid-session", method = "POST") {
@@ -44,7 +45,7 @@ Deno.test("decision HTTP boundary rejects missing authentication and non-admin a
 
 Deno.test("decision HTTP boundary rejects browser-supplied actor and refund authority fields", async () => {
   let called = false;
-  const response = await handleW3MDisputeDecisionRequest(request({ ...command, actorId, refundAmount: "100" }), {
+  const response = await handleW3MDisputeDecisionRequest(request({ ...command, actorId, refundRecipient: "0x1111111111111111111111111111111111111111" }), {
     authenticate: async () => actorId, isAdmin: async () => true,
     decide: async () => { called = true; throw new Error("must not run"); },
   });
