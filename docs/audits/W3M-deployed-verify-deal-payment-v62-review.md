@@ -87,3 +87,17 @@ Additional observations:
 - If the Safe deployment receipt is unavailable, the scan start falls back to `latest - 10000`; that fallback can omit older funding transfers and should be replaced by a trusted deployment block or explicit fail-closed state.
 
 These findings reinforce that both live payment paths need a shared canonical receipt/log verifier and an atomic persistence boundary before their results are used as buyer-refund funding attestations.
+
+
+## Source recovery and repository preservation (2026-11-16)
+
+The exact deployed source files were recovered through a read-only Supabase Edge Function inspection and committed to the development branch for reproducible review:
+
+- `supabase/functions/verify-deal-payment/index.ts` — deployed version 62, source SHA-256 `dae5138b9a5c30345097c512a613db4697a08b6ce8e27ac10977ae55baad88aa`; repository commit `305decdbd777a56fdf857eeddf668724b5e642cf`.
+- `supabase/functions/deal-payment-monitor/index.ts` — deployed version 44, source SHA-256 `efa56456ed919f977568e4f85058a445ef86f7b24708e987418546360e4c41d6`; repository commit `d62ed4c31f7449ef9869417c9ddd4cdba2ab1a20`.
+
+Both committed files were fetched back from the development branch and compared byte-for-byte with the source returned by Supabase; both comparisons matched exactly. This is source preservation only. No deployed function, database object, secret, setting, production site, or transaction was changed.
+
+The earlier statement that the deployed source was absent from the development branch is now superseded: it was absent before this recovery and is now preserved in the branch. It remains unverified whether the deployed source corresponds to any older commit or external backup.
+
+**Release status remains blocked.** The source copies are intentionally the deployed baseline, not a security fix. The findings above remain open: chain ID assertion, canonical receipt/block binding, strict unique Transfer-log validation, block-pinned Safe facts, fee validation before any writes, and atomic persistence are still required before live refund funding evidence can rely on these functions.
