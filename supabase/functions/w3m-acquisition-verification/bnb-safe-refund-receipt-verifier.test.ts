@@ -45,7 +45,11 @@ Deno.test("verifies canonical buyer refund and fixed original-value platform fee
  assertEquals(result.buyerRefundAmount,"25");assertEquals(result.platformFeeAmount,"7.5");
  assertEquals(result.decisionId,"decision-1");assertEquals(result.confirmations,13);
 });
-Deno.test("rejects a successful receipt whose outer transaction did not target the expected Safe",async()=>{\n const wrongTarget=mock({receipt:{to:"0x"+"9".repeat(40)}});\n await assertRejects(()=>verifyBnbSafeBuyerRefundReceipt(wrongTarget.rpc,expected),BnbSafeRefundReceiptVerificationError,"unsuccessful or malformed");\n});\nDeno.test("rejects wrong chain before reading receipt",async()=>{
+Deno.test("rejects a successful receipt whose outer transaction did not target the expected Safe",async()=>{
+ const wrongTarget=mock({receipt:{to:"0x"+"9".repeat(40)}});
+ await assertRejects(()=>verifyBnbSafeBuyerRefundReceipt(wrongTarget.rpc,expected),BnbSafeRefundReceiptVerificationError,"unsuccessful or malformed");
+});
+Deno.test("rejects wrong chain before reading receipt",async()=>{
  const {rpc,calls}=mock({chainId:"0x1"});
  await assertRejects(()=>verifyBnbSafeBuyerRefundReceipt(rpc,expected),BnbSafeRefundReceiptVerificationError,"not BNB Chain");
  assertEquals(calls,["eth_chainId"]);
