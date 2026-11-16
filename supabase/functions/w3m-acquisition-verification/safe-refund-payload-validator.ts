@@ -24,6 +24,7 @@ export interface SafeRefundPayloadInput {
   platformWallet: string;
   originalDealAmount: string; // token base units from immutable signed terms
   buyerRefundAmount: string; // separately authorized by immutable dispute decision
+  confirmedFundedAmount: string; // canonical confirmed funding for this deal
   platformFeeAmount: string; // fixed 7.5% of originalDealAmount
   confirmedSafeBalance: string;
   calls: DecodedSafeRefundCall[];
@@ -65,6 +66,7 @@ export function validateSafeRefundPayload(input: SafeRefundPayloadInput): SafeRe
   const amounts = [
     input.originalDealAmount,
     input.buyerRefundAmount,
+    input.confirmedFundedAmount,
     input.platformFeeAmount,
     input.confirmedSafeBalance,
   ];
@@ -73,11 +75,14 @@ export function validateSafeRefundPayload(input: SafeRefundPayloadInput): SafeRe
   } else {
     const original = BigInt(input.originalDealAmount);
     const refund = BigInt(input.buyerRefundAmount);
+    const funded = BigInt(input.confirmedFundedAmount);
     const fee = BigInt(input.platformFeeAmount);
     const balance = BigInt(input.confirmedSafeBalance);
     const expectedFee = (original * 75n + 500n) / 1000n;
     if (original <= 0n) issues.push("ORIGINAL_DEAL_AMOUNT_INVALID");
     if (refund <= 0n) issues.push("BUYER_REFUND_AMOUNT_INVALID");
+    if (funded <= 0n) issues.push("CONFIRMED_FUNDED_AMOUNT_INVALID");
+    if (refund > funded) issues.push("BUYER_REFUND_EXCEEDS_CONFIRMED_FUNDED_AMOUNT");
     if (fee !== expectedFee) issues.push("PLATFORM_FEE_NOT_7_5_PERCENT_OF_ORIGINAL_DEAL");
     if (refund + fee > balance) issues.push("SAFE_BALANCE_INSUFFICIENT_FOR_REFUND_AND_FEE");
   }
