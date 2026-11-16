@@ -43,6 +43,11 @@ begin
   if position('buyer_refund_amount::numeric <> v_request.refund_amount' in lower(v_sign_definition)) = 0 then
     raise exception 'Buyer refund SIGN RPC does not bind request amount to immutable decision amount';
   end if;
+  if position('p_safe_nonce' in lower(v_sign_definition)) = 0
+     or position('v_tx.amount is distinct from v_request.refund_amount' in lower(v_sign_definition)) = 0
+     or position('v_tx.data is null' in lower(v_sign_definition)) = 0 then
+    raise exception 'Buyer refund SIGN RPC does not bind the Safe nonce and transaction payload';
+  end if;
 
   select pg_get_functiondef(
     'public.w3m_read_safe_execution_snapshot(uuid)'::regprocedure
