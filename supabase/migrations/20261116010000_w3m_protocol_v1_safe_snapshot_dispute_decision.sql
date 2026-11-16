@@ -101,6 +101,7 @@ begin
     'dispute_id',decision.dispute_id::text,
     'deal_id',decision.deal_id::text,
     'outcome',decision.outcome,
+    'buyer_refund_amount',decision.buyer_refund_amount,
     'reason',decision.reason,
     'evidence_refs',decision.evidence_refs,
     'prior_state',decision.prior_state,
