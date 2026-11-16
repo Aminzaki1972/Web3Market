@@ -71,3 +71,8 @@ Deno.test("blocks partial refunds when the seller residual has no approved alloc
   const x=fixture(); x.decision.buyerRefundAmount="50";
   rejects(()=>buildBuyerRefundRequestIntent(x),"PARTIAL_REFUND_ALLOCATION_NOT_APPROVED");
 });
+
+Deno.test("rejects confirmed funding that differs from the signed deal value",()=>{
+  const x=fixture(); x.funding.amount="101";
+  rejects(()=>buildBuyerRefundRequestIntent(x),"CONFIRMED_FUNDING_DOES_NOT_MATCH_SIGNED_DEAL_VALUE");
+});
