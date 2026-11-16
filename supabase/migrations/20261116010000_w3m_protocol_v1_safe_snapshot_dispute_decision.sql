@@ -16,6 +16,7 @@ declare
   v_buyer_profile jsonb;
   v_seller_profile jsonb;
   v_transactions jsonb;
+  v_refund_transactions jsonb;
   v_signers jsonb;
   v_legacy_agreements jsonb;
   v_dispute jsonb;
@@ -56,6 +57,26 @@ begin
   ) order by t.created_at desc),'[]'::jsonb)
   into v_transactions from public.deal_multisig_transactions t
   where t.deal_id = p_deal_id and t.action = 'release_to_seller';
+
+
+  -- Keep buyer refund requests separate from seller release rows.
+  -- This snapshot is read-only; it does not authorize or create a refund.
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id',t.id::text,'deal_id',t.deal_id::text,'action',t.action,
+    'safe_tx_hash',t.safe_tx_hash,'tx_hash',t.tx_hash,'status',t.status,
+    'confirmations_count',t.confirmations_count,'required_signatures',t.required_signatures,
+    'safe_nonce',t.safe_nonce::text,'to_address',t.to_address,'data',t.data,
+    'value_wei',t.value_wei::text,'operation',t.operation,
+    'safe_tx_gas',t.safe_tx_gas::text,'base_gas',t.base_gas::text,
+    'gas_price',t.gas_price::text,'gas_token',t.gas_token,
+    'refund_receiver',t.refund_receiver,'signatures',t.signatures,
+    'amount',t.amount::text,'token_symbol',t.token_symbol,
+    'chain_id',t.chain_id::text,'safe_address',t.safe_address,
+    'updated_at',t.updated_at::text
+  ) order by t.created_at desc),'[]'::jsonb)
+  into v_refund_transactions
+  from public.deal_multisig_transactions t
+  where t.deal_id = p_deal_id and t.action = 'refund_to_buyer';
 
   select coalesce(jsonb_agg(jsonb_build_object(
     'deal_id',s.deal_id::text,'signer_role',s.signer_role,
@@ -148,7 +169,7 @@ begin
       'release_tx_hash',v_policy.release_tx_hash,'updated_at',v_policy.updated_at::text
     ) end,
     'project',v_project,'buyer_profile',v_buyer_profile,'seller_profile',v_seller_profile,
-    'release_transactions',v_transactions,'signers',v_signers,
+    'release_transactions',v_transactions,'refund_transactions',v_refund_transactions,'signers',v_signers,
     'party_agreements',v_legacy_agreements,'dispute',v_dispute,
     'dispute_decision',v_dispute_decision,
     'terms_version',v_terms_version,'agreement_acceptances',v_acceptances,
