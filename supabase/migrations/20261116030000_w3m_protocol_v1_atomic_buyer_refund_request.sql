@@ -185,7 +185,7 @@ begin
      or v_decision.terms_hash is distinct from p_intent->>'termsHash'
      or v_decision.buyer_refund_amount is null
      or v_decision.buyer_refund_amount::numeric <> v_refund
-     or v_decision.buyer_refund_amount is distinct from p_intent->>'buyerRefundAmount' then
+     or v_decision.buyer_refund_amount is distinct from (p_intent->>'buyerRefundAmount')::numeric then
     raise exception 'Immutable buyer-win decision and exact refund amount do not match' using errcode='23514';
   end if;
 
