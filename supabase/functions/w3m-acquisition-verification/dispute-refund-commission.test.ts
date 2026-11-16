@@ -6,7 +6,7 @@ import {
 function evaluate(overrides: Partial<W3MDisputeRefundFundingInput> = {}) {
   return calculateW3MDisputeRefundFunding({
     originalAgreedDealValue: "100",
-    authorizedBuyerRefundAmount: "20",
+    authorizedBuyerRefundAmount: "92.5",
     confirmedFundedAmount: "100",
     confirmedSafeBalance: "100",
     ...overrides,
@@ -21,11 +21,14 @@ Deno.test("uses original agreed deal value as the fixed commission base", () => 
   }
 });
 
-Deno.test("partial refund size does not change the original-value commission", () => {
+Deno.test("keeps the fee fixed but rejects partial refunds without seller-residual authorization", () => {
   const small = evaluate({ authorizedBuyerRefundAmount: "20" });
   const large = evaluate({ authorizedBuyerRefundAmount: "80" });
-  if (small.platformFeeAmount !== "7.5" || large.platformFeeAmount !== "7.5") {
-    throw new Error("Commission must remain fixed for partial refunds.");
+  if (small.platformFeeAmount !== "7.5" || large.platformFeeAmount !== "7.5" ||
+      small.valid || large.valid ||
+      !small.issues.includes("PARTIAL_REFUND_ALLOCATION_NOT_APPROVED") ||
+      !large.issues.includes("PARTIAL_REFUND_ALLOCATION_NOT_APPROVED")) {
+    throw new Error("Commission must remain fixed and unapproved residuals must fail closed.");
   }
 });
 
@@ -37,23 +40,23 @@ Deno.test("allows a refund plus fixed fee when both fit in confirmed Safe balanc
   }
 });
 
-Deno.test("fails closed when a full original-value refund plus fixed fee exceeds Safe balance", () => {
+Deno.test("fails closed when a full original-value refund plus fee exceeds confirmed deal funding", () => {
   const result = evaluate({ authorizedBuyerRefundAmount: "100" });
   if (result.valid ||
+      !result.issues.includes("PARTIAL_REFUND_ALLOCATION_NOT_APPROVED") ||
       !result.issues.includes("SAFE_BALANCE_INSUFFICIENT_FOR_FIXED_FEE_AND_REFUND")) {
-    throw new Error("Expected insufficient Safe balance to block refund funding.");
+    throw new Error("Refund plus fixed fee must not exceed the confirmed deal allocation.");
   }
 });
 
-Deno.test("permits a full original-value refund only when Safe balance also covers the fixed fee", () => {
+Deno.test("rejects using extra Safe funds to supplement an unapproved buyer refund allocation", () => {
   const result = evaluate({
     authorizedBuyerRefundAmount: "100",
     confirmedFundedAmount: "100",
     confirmedSafeBalance: "107.5",
   });
-  if (!result.valid || result.requiredSafeBalance !== "107.5" ||
-      result.unallocatedSafeBalance !== "0") {
-    throw new Error("A full refund plus fee should pass when the confirmed Safe balance covers both.");
+  if (result.valid || !result.issues.includes("PARTIAL_REFUND_ALLOCATION_NOT_APPROVED")) {
+    throw new Error("Extra Safe balance must not be treated as part of this deal funding.");
   }
 });
 
@@ -68,17 +71,18 @@ Deno.test("bounds the buyer refund by confirmed funded amount even when Safe has
   }
 });
 
-Deno.test("does not assign residual Safe balance to seller", () => {
+Deno.test("rejects positive deal residual until an explicit seller allocation is approved", () => {
   const result = evaluate({ authorizedBuyerRefundAmount: "90" });
-  if (!result.valid || result.unallocatedSafeBalance !== "2.5") {
-    throw new Error("Expected residual balance to remain unallocated.");
+  if (result.valid || !result.issues.includes("PARTIAL_REFUND_ALLOCATION_NOT_APPROVED")) {
+    throw new Error("Unallocated seller residual must fail closed.");
   }
 });
 
 Deno.test("uses exact 18-decimal arithmetic without floating point", () => {
   const result = evaluate({
     originalAgreedDealValue: "100.000000000000000001",
-    authorizedBuyerRefundAmount: "92.5",
+    authorizedBuyerRefundAmount: "92.500000000000000001",
+    confirmedFundedAmount: "100.000000000000000001",
     confirmedSafeBalance: "100.000000000000000001",
   });
   if (!result.valid || result.platformFeeAmount !== "7.5" ||
