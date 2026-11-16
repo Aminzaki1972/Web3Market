@@ -20,7 +20,10 @@ export async function finalizeBuyerRefundAtomically(client:W3MRpcClient,input:Bu
     r.safeTxHash.toLowerCase()!==input.safeTransactionHash.toLowerCase()||r.decisionId!==input.decisionId||
     r.decisionHash.replace(/^0x/i,"").toLowerCase()!==input.decisionHash.replace(/^0x/i,"").toLowerCase()||
     r.termsHash.replace(/^0x/i,"").toLowerCase()!==input.termsHash.replace(/^0x/i,"").toLowerCase()||
-    !HASH.test(r.blockHash)||!HASH.test(r.transactionHash))throw new Error("Verified buyer refund receipt is not bound to the immutable request.");
+    r.safeAddress.toLowerCase()!==input.receipt.safeAddress.toLowerCase()||r.tokenContract.toLowerCase()!==input.receipt.tokenContract.toLowerCase()||
+    r.buyerWallet.toLowerCase()!==input.receipt.buyerWallet.toLowerCase()||r.buyerRefundAmount!==input.receipt.buyerRefundAmount||
+    r.platformWallet.toLowerCase()!==input.receipt.platformWallet.toLowerCase()||r.platformFeeAmount!==input.receipt.platformFeeAmount||
+    r.confirmations<1||!HASH.test(r.blockHash)||!HASH.test(r.transactionHash))throw new Error("Verified buyer refund receipt is not bound to the immutable request.");
  if(a.authorized!==true||a.phase!=="FINALIZE_BUYER_REFUND"||a.requestId!==input.requestId||
     a.decisionHash!==input.decisionHash||a.termsHash!==input.termsHash||a.broadcastTxHash.toLowerCase()!==input.broadcastTxHash.toLowerCase()||
     a.receiptBlockHash.toLowerCase()!==r.blockHash.toLowerCase()||a.issues.length!==0)throw new Error("Fresh server finalization authorization is missing or misbound.");
