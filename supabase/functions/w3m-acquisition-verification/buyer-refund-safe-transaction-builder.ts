@@ -78,7 +78,7 @@ export function buildBuyerRefundSafeTransaction(
   const expectedFeeUnits = (originalUnits * 75n + 500n) / 1000n;
   if (originalUnits <= 0n || refundUnits <= 0n || fundedUnits <= 0n ||
       refundUnits > fundedUnits || feeUnits !== expectedFeeUnits ||
-      refundUnits + feeUnits > balanceUnits) {
+      refundUnits + feeUnits !== fundedUnits || refundUnits + feeUnits > balanceUnits) {
     throw new Error("REFUND_SAFE_TX_AMOUNT_OR_FIXED_FEE_BINDING_INVALID");
   }
   const transfers = intent.transfers;
