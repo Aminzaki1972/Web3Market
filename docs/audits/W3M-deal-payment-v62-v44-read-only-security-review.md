@@ -113,3 +113,14 @@ Important release caveats:
 - The monitor's scan-cursor update on the no-candidate path remains a separate non-financial write; funding itself now goes only through the atomic RPC.
 - Before any production rollout, inspect existing data for case-insensitive duplicate hashes, confirm RPC role claims in a disposable Supabase-compatible environment, run the full CI workflow, and review the monitor's secret-auth RPC and provider behavior.
 - The original deployed versions remain unchanged in Supabase.
+
+
+## Additional hardening after the atomic-payment candidate
+
+- Both isolated payment entrypoints now use `readCanonicalBnbSafeConfigurationFacts` instead of reading Safe owners/threshold/code at the mutable `latest` tag.
+- The Safe configuration reader captures one BNB block, pins `eth_getCode` and all Safe calls to that block, verifies chain ID 56, the exact buyer/seller/platform owner set, threshold 2, Safe version 1.4.1, and re-reads the block hash after the calls to reject a reorged snapshot.
+- The monitor and manual verifier both fail closed when the pinned Safe configuration is invalid. This is candidate branch code only; neither Edge Function has been deployed.
+- Added a retry-state test for the same already-confirmed payment hash after the deal progresses to `in_progress`, `completed`, or `disputed`. Different hashes and unconfirmed states remain rejected.
+- A disposable SQL test collision was traced to several older fixtures reusing the same payment hash under the new case-insensitive unique index. The affected fixture hashes have been made distinct; no production records were changed.
+
+Current isolated branch head: `3c7e40ae776ac180a5b502c0e0304111c6a36d44`. CI runs for the latest commits are still in progress and have not yet established a passing result. PR 198 remains Draft and unmerged. No production deployment or Supabase migration was performed.
