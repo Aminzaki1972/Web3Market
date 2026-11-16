@@ -40,7 +40,7 @@ export interface BuyerRefundFinalizationDependencies {
   isAdmin(actorId:string):Promise<boolean>;
   loadFreshContext(input:{actorId:string;requestId:string;broadcastTxHash:string}):Promise<BuyerRefundFinalizationContext>;
   verifyReceipt(expectation:BnbSafeRefundReceiptExpectation):Promise<VerifiedBnbSafeRefundReceipt>;
-  finalizeAtomically(input:{actorId:string;dealId:string;requestId:string;decisionId:string;decisionHash:string;termsHash:string;safeTransactionHash:string;broadcastTxHash:string;receipt:VerifiedBnbSafeRefundReceipt;serverAuthorization:{authorized:true;phase:"FINALIZE_BUYER_REFUND";requestId:string;decisionHash:string;termsHash:string;broadcastTxHash:string;receiptBlockHash:string;issues:[]}}):Promise<BuyerRefundFinalizationResult>;
+  finalizeAtomically(input:{actorId:string;dealId:string;requestId:string;decisionId:string;decisionHash:string;termsHash:string;safeTransactionHash:string;broadcastTxHash:string;expectation:BnbSafeRefundReceiptExpectation;receipt:VerifiedBnbSafeRefundReceipt;serverAuthorization:{authorized:true;phase:"FINALIZE_BUYER_REFUND";requestId:string;decisionHash:string;termsHash:string;broadcastTxHash:string;receiptBlockHash:string;issues:[]}}):Promise<BuyerRefundFinalizationResult>;
 }
 export async function handleBuyerRefundFinalization(request:Request,deps:BuyerRefundFinalizationDependencies):Promise<Response>{
   if(request.method!=="POST")return json(405,{ok:false,error:"POST_REQUIRED"});
@@ -86,7 +86,7 @@ export async function handleBuyerRefundFinalization(request:Request,deps:BuyerRe
     }
     const result=await deps.finalizeAtomically({actorId,dealId:c.dealId,requestId:c.requestId,decisionId:c.decisionId,
       decisionHash:c.decisionHash,termsHash:c.termsHash,safeTransactionHash:c.safeTransactionHash,
-      broadcastTxHash:row.broadcast_tx_hash.toLowerCase(),receipt,
+      broadcastTxHash:row.broadcast_tx_hash.toLowerCase(),expectation:e,receipt,
       serverAuthorization:{authorized:true,phase:"FINALIZE_BUYER_REFUND",requestId:c.requestId,decisionHash:c.decisionHash,
         termsHash:c.termsHash,broadcastTxHash:row.broadcast_tx_hash.toLowerCase(),receiptBlockHash:receipt.blockHash,issues:[]}});
     if(!result||result.finalized!==true||typeof result.idempotentReplay!=="boolean"||!UUID.test(result.receiptId)||result.status!=="confirmed")return json(502,{ok:false,error:"ATOMIC_REFUND_FINALIZATION_RESPONSE_INVALID"});
