@@ -37,6 +37,10 @@ begin
      or position('round(v_original * 0.075,18)' in lower(v_definition))=0
      or position('safe_hash_verified' in lower(v_definition))=0
      or position('payload_verified' in lower(v_definition))=0
+     or position('agreement_acceptances_verified' in lower(v_definition))=0
+     or position('buyer_acceptance_digest' in lower(v_definition))=0
+     or position('seller_acceptance_digest' in lower(v_definition))=0
+     or position('w3m_deal_agreement_acceptances' in lower(v_definition))=0
      or position('funding_block_canonical' in lower(v_definition))=0
      or position('v_funded is distinct from v_original' in lower(v_definition))=0
      or position('v_refund + v_fee <> v_funded' in lower(v_definition))=0
