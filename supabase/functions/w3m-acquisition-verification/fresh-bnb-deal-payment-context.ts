@@ -67,7 +67,7 @@ export function buildFreshBnbDealPaymentContext(
     fail("deal token is not the approved BNB USDT contract");
   }
   const isIdempotentRetry =
-    deal.status === "funded" &&
+    ["funded", "in_progress", "completed", "disputed"].includes(deal.status) &&
     String(deal.payment_status ?? "").toLowerCase() === "confirmed" &&
     typeof deal.payment_tx_hash === "string" &&
     deal.payment_tx_hash.toLowerCase() === transactionHash.toLowerCase();
