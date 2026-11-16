@@ -7,6 +7,7 @@ function evaluate(overrides: Partial<W3MDisputeRefundFundingInput> = {}) {
   return calculateW3MDisputeRefundFunding({
     originalAgreedDealValue: "100",
     authorizedBuyerRefundAmount: "20",
+    confirmedFundedAmount: "100",
     confirmedSafeBalance: "100",
     ...overrides,
   });
@@ -47,11 +48,23 @@ Deno.test("fails closed when a full original-value refund plus fixed fee exceeds
 Deno.test("permits a full original-value refund only when Safe balance also covers the fixed fee", () => {
   const result = evaluate({
     authorizedBuyerRefundAmount: "100",
+    confirmedFundedAmount: "100",
     confirmedSafeBalance: "107.5",
   });
   if (!result.valid || result.requiredSafeBalance !== "107.5" ||
       result.unallocatedSafeBalance !== "0") {
     throw new Error("A full refund plus fee should pass when the confirmed Safe balance covers both.");
+  }
+});
+
+Deno.test("bounds the buyer refund by confirmed funded amount even when Safe has extra funds", () => {
+  const result = evaluate({
+    authorizedBuyerRefundAmount: "101",
+    confirmedFundedAmount: "100",
+    confirmedSafeBalance: "200",
+  });
+  if (result.valid || !result.issues.includes("BUYER_REFUND_EXCEEDS_CONFIRMED_FUNDED_AMOUNT")) {
+    throw new Error("Buyer refund must not exceed the confirmed deal funding.");
   }
 });
 
