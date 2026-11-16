@@ -4,6 +4,7 @@ import type { JsonRpcClient } from "./bnb-revenue-adapter.ts";
 import { readCanonicalBnbSafeConfigurationFacts } from "./bnb-safe-configuration-facts-reader.ts";
 
 const SAFE="0x1111111111111111111111111111111111111111";
+const SINGLETON="0x41675c099f32341bf84bfc5382af534df5c7461a";
 const BUYER="0x2222222222222222222222222222222222222222";
 const SELLER="0x3333333333333333333333333333333333333333";
 const PLATFORM="0x4444444444444444444444444444444444444444";
@@ -19,8 +20,11 @@ function makeRpc(reorg=false){const calls:string[]=[];let headers=0;const rpc:Js
  else if(method==="eth_blockNumber")result=BLOCK;
  else if(method==="eth_getBlockByNumber"){headers++;result={number:BLOCK,hash:reorg&&headers>1?"0x"+"8".repeat(64):BLOCK_HASH};}
  else if(method==="eth_getCode")result="0x60016000";
+ else if(method==="eth_getStorageAt")result="0x"+addressWord(SINGLETON);
+
  else if(method==="eth_call"){const data=String((params[0] as Record<string,unknown>).data),sig=data.slice(0,10).toLowerCase();
-  if(sig===selector("getOwners()"))result=ownersResult();
+  if(sig==="0xa619486e")result="0x"+addressWord(SINGLETON);
+  else if(sig===selector("getOwners()"))result=ownersResult();
   else if(sig===selector("getThreshold()"))result="0x"+word(2n);
   else if(sig===selector("nonce()"))result="0x"+word(7n);
   else if(sig===selector("VERSION()"))result=stringResult("1.4.1");
@@ -30,7 +34,7 @@ const expected={safeAddress:SAFE,expectedSafeAddress:SAFE,expectedOwners:[BUYER,
 
 Deno.test("PREPARE Safe configuration reads at one canonical BNB block without requiring a transaction hash",async()=>{
  const {rpc,calls}=makeRpc();const result=await readCanonicalBnbSafeConfigurationFacts(rpc,expected);
- assertEquals(result.valid,true);assertEquals(result.nonce,"7");assertEquals(result.readBlockNumber,BLOCK);
+ assertEquals(result.valid,true);assertEquals(result.nonce,"7");assertEquals(result.singletonAddress,SINGLETON);assertEquals(result.readBlockNumber,BLOCK);
  assertEquals(result.readBlockHash,BLOCK_HASH);assertEquals(calls.filter(x=>x==="eth_getBlockByNumber").length,2);
  assertEquals(calls.includes("eth_call"),true);
 });
