@@ -101,6 +101,7 @@ on:
       - "supabase/functions/w3m-protocol-v1-prepare-deal-release/**"
       - "supabase/functions/w3m-protocol-v1-safe-sign/**"
       - "supabase/functions/w3m-protocol-v1-buyer-refund-finalize/**"
+      - "supabase/functions/w3m-protocol-v1-buyer-refund-sign/**"
       - "supabase/functions/w3m-protocol-v1-safe-wallet-package/**"
       - "supabase/functions/w3m-protocol-v1-safe-wallet-submit/**"
       - "js/w3m-deal-agreement-client.js"
