@@ -86,3 +86,12 @@ Mocked HTTP tests cannot prove live Supabase schema compatibility, production JW
 - It uses a fake Supabase client for Auth, table queries and RPC calls, plus a fake BNB JSON-RPC client. REQUEST, SIGN and FINALIZE happy paths each reach their expected atomic RPC. Negative cases verify non-admin REQUEST, non-participant SIGN, and non-admin FINALIZE are rejected without RPC writes or BNB RPC reads.
 - The earlier FINALIZE fixture failure was a test-fixture defect: the mocked signature rows were missing their `request_id` filter key. The fixture was corrected; production logic was not weakened.
 - On head `974104401d4f4540937e82a515f7e319f805a207`, workflow run [43977214533](https://github.com/Aminzaki1972/Web3Market/actions/runs/43977214533) passed the dedicated entrypoint integration step (step 30). The overall 108-step workflow is still running at this update, so the full CI gate remains open until the run completes successfully.
+
+
+## Final isolated CI verification for the reviewed code head (2026-11-17)
+
+- Reconstructed the finalization migration from the clean lock-order-corrected revision after the first idempotency-guard insertion produced a malformed SQL file. The final migration is a single transaction with one `COMMIT`; receipt amount formats are validated before the idempotent replay branch, then numeric values are compared directly to the immutable stored receipt.
+- Final code head: `e1a2d227213e9ec42e630477e5af749c65c8b814`.
+- Push workflow [43978094744](https://github.com/Aminzaki1972/Web3Market/actions/runs/43978094744) and pull-request workflow [43978103289](https://github.com/Aminzaki1972/Web3Market/actions/runs/43978103289) both completed with conclusion `success` on that exact head.
+- Each run completed all 109 job steps successfully, including the actual REQUEST/SIGN/FINALIZE mocked HTTP entrypoint suite, the mocked refund lifecycle and adversarial cases, disposable PostgreSQL migration application, and timestamp-sorted migration replay on a second disposable database.
+- This closes the current isolated CI gate for code head `e1a2d227...`. It does not close the second-person review, Safe runtime-code-hash pinning, live Supabase/BNB integration, or the production deployment gate.
