@@ -56,9 +56,8 @@ Deno.test("rejects commission prorated from the partial refund amount", () => {
   assertDenied(x, "PLATFORM_FEE_NOT_7_5_PERCENT_OF_ORIGINAL_DEAL");
 });
 
-Deno.test("rejects a refund plus fixed fee that exceeds Safe balance", () => {
-  const x = input({ buyerRefundAmount: (100n * UNIT).toString() });
-  x.calls[0].amount = x.buyerRefundAmount;
+Deno.test("rejects a fully allocated refund when Safe balance is below the exact transfer total", () => {
+  const x = input({ confirmedSafeBalance: (9999n * UNIT / 100n).toString() });
   assertDenied(x, "SAFE_BALANCE_INSUFFICIENT_FOR_REFUND_AND_FEE");
 });
 
