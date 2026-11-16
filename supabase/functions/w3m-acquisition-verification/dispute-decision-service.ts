@@ -56,6 +56,7 @@ export async function persistW3MDisputeDecision(
   const row = object(data);
   const decisionId = row.decision_id;
   const decisionHash = row.decision_hash;
+  const buyerRefundAmount = command.buyerRefundAmount ?? null;
   const dealDisputeStatus = command.outcome === "buyer_wins" ? "resolved_buyer" : "resolved_seller";
   if (typeof decisionId !== "string" || !UUID.test(decisionId) ||
       typeof decisionHash !== "string" || !HASH.test(decisionHash) ||
@@ -63,7 +64,8 @@ export async function persistW3MDisputeDecision(
       row.dispute_record_status !== "resolved" ||
       row.deal_dispute_status !== dealDisputeStatus ||
       row.deal_status !== "disputed" ||
-      typeof row.idempotent_replay !== "boolean") {
+      typeof row.idempotent_replay !== "boolean" ||
+      row.buyer_refund_amount !== buyerRefundAmount) {
     throw new Error("W3M dispute decision RPC returned a mismatched state or decision binding.");
   }
   return {
@@ -74,6 +76,6 @@ export async function persistW3MDisputeDecision(
     dealDisputeStatus,
     dealStatus: "disputed",
     idempotentReplay: row.idempotent_replay,
-    buyerRefundAmount: command.buyerRefundAmount ?? null,
+    buyerRefundAmount,
   };
 }
