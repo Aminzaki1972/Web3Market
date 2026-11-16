@@ -13,6 +13,7 @@ const result = {
   decision_id: "83000000-0000-4000-8000-000000000003",
   decision_hash: "ab".repeat(32),
   outcome: "seller_wins",
+  buyer_refund_amount: null,
   dispute_record_status: "resolved",
   deal_dispute_status: "resolved_seller",
   deal_status: "disputed",
