@@ -38,7 +38,10 @@ begin
   select * into v_dispute
     from public.deal_disputes d
    where d.deal_id=p_deal_id
-   order by d.created_at desc
+   order by case when exists (
+     select 1 from public.w3m_deal_dispute_decisions x
+      where x.dispute_id=d.id and x.outcome='buyer_wins'
+   ) then 0 when d.status in ('open','under_review') then 1 else 2 end, d.id desc
    limit 1;
   if not found then
     return jsonb_build_object(
