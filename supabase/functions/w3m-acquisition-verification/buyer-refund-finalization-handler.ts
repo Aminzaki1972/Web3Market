@@ -22,6 +22,9 @@ export interface BuyerRefundFinalizationContext {
   safeNonce:string;
   chainId:56;
   signerCount:number;
+  signatureWallets:string[];
+  currentOwners:string[];
+  currentThreshold:number;
   requiredSignatures:2;
   transactionStatus:"signed"|"submitted";
   expectation:BnbSafeRefundReceiptExpectation;
@@ -58,7 +61,10 @@ export async function handleBuyerRefundFinalization(request:Request,deps:BuyerRe
     if(c.actorId!==actorId||c.requestId!==row.request_id||!UUID.test(c.dealId)||!UUID.test(c.decisionId)||
        !HASH.test(c.decisionHash)||!/^([0-9a-f]{64})$/i.test(c.termsHash)||!ADDRESS.test(c.safeAddress)||
        !HASH.test(c.safeTransactionHash)||!/^([0-9]+)$/.test(c.safeNonce)||c.chainId!==56||
-       c.transactionStatus!=="signed"&&c.transactionStatus!=="submitted"||c.signerCount!==2||c.requiredSignatures!==2){
+       c.transactionStatus!=="signed"&&c.transactionStatus!=="submitted"||c.signerCount!==2||c.requiredSignatures!==2||
+       !Array.isArray(c.signatureWallets)||c.signatureWallets.length!==2||new Set(c.signatureWallets.map(x=>x.toLowerCase())).size!==2||
+       !Array.isArray(c.currentOwners)||c.currentOwners.length!==3||new Set(c.currentOwners.map(x=>x.toLowerCase())).size!==3||
+       c.currentOwners.some(x=>!ADDRESS.test(x))||c.signatureWallets.some(x=>!ADDRESS.test(x)||!c.currentOwners.map(y=>y.toLowerCase()).includes(x.toLowerCase()))||c.currentThreshold!==2){
       return json(409,{ok:false,error:"FRESH_SIGNED_REFUND_CONTEXT_INVALID"});
     }
     const e=c.expectation;
