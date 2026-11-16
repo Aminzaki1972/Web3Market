@@ -141,8 +141,8 @@ begin
      or v_refund + v_fee > v_balance
      or (p_intent->>'confirmedFundedAmount')::numeric <> v_funded
      or (p_intent->>'confirmedSafeBalance')::numeric <> v_balance
-     or lower(p_intent->>'safeSnapshotBlockHash') is distinct from lower(p_safe_facts->>'block_hash')
-     or p_intent->>'safeSnapshotBlockNumber' is distinct from p_safe_facts->>'block_number' then
+     or lower(p_intent->'safeSnapshot'->>'blockHash') is distinct from lower(p_safe_facts->>'block_hash')
+     or p_intent->'safeSnapshot'->>'blockNumber' is distinct from p_safe_facts->>'block_number' then
     raise exception 'Refund arithmetic or canonical Safe snapshot binding failed' using errcode='23514';
   end if;
 
