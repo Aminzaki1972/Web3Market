@@ -131,6 +131,8 @@ on:
       - "supabase/tests/w3m-protocol-v1-buyer-refund-signature-registry.test.sql"
       - "supabase/migrations/20261116030000_w3m_protocol_v1_atomic_buyer_refund_request.sql"
       - "supabase/tests/w3m-protocol-v1-atomic-buyer-refund-request.test.sql"
+      - "supabase/migrations/20261116040000_w3m_protocol_v1_atomic_buyer_refund_finalization.sql"
+      - "supabase/tests/w3m-protocol-v1-atomic-buyer-refund-finalization.test.sql"
       - "supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql"
       - "supabase/migrations/20261107065000_w3m_protocol_v1_dealroom_code_audit_snapshot.sql"
       - "supabase/migrations/20261107066000_w3m_protocol_v1_completed_audit_immutability.sql"
