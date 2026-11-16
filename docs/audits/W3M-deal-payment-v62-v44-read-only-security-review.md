@@ -123,4 +123,4 @@ Important release caveats:
 - Added a retry-state test for the same already-confirmed payment hash after the deal progresses to `in_progress`, `completed`, or `disputed`. Different hashes and unconfirmed states remain rejected.
 - A disposable SQL test collision was traced to several older fixtures reusing the same payment hash under the new case-insensitive unique index. The affected fixture hashes have been made distinct; no production records were changed.
 
-Current isolated branch head: `3c7e40ae776ac180a5b502c0e0304111c6a36d44`. CI runs for the latest commits are still in progress and have not yet established a passing result. PR 198 remains Draft and unmerged. No production deployment or Supabase migration was performed.
+Code head immediately before this audit-note update: `3c7e40ae776ac180a5b502c0e0304111c6a36d44`. CI runs for the latest commits are still in progress and have not yet established a passing result. PR 198 remains Draft and unmerged. No production deployment or Supabase migration was performed.
