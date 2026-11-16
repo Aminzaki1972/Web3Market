@@ -297,6 +297,22 @@ begin
   end;
   if not v_blocked then raise exception 'Over-funded buyer refund amount was incorrectly accepted'; end if;
 
+  -- Partial buyer refunds are blocked until an immutable seller-residual allocation exists.
+  v_blocked := false;
+  begin
+    perform public.w3m_admin_decide_deal_dispute(
+      v_deal1,v_dispute1,'buyer_wins',
+      'A partial buyer refund cannot leave an unapproved residual in the deal Safe.',
+      jsonb_build_array(jsonb_build_object('source','deal_message','recordId',v_message1::text)),
+      '50',v_admin
+    );
+  exception when check_violation then v_blocked := true;
+  end;
+  if not v_blocked then raise exception 'Unallocated partial buyer refund decision was incorrectly accepted'; end if;
+  if exists(select 1 from public.w3m_deal_dispute_decisions where dispute_id=v_dispute1) then
+    raise exception 'Rejected partial buyer refund created an immutable decision';
+  end if;
+
   -- Buyer wins: immutable decision includes snapshots and hashes for all
   -- supported evidence sources; no Safe transaction is created here.
   v_result := public.w3m_admin_decide_deal_dispute(
