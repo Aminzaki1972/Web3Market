@@ -195,7 +195,11 @@ Deno.serve(async (request) => {
       }
       const { data: signatureRows, error: signatureError } = await supabase.from("w3m_buyer_refund_signatures")
         .select("signer_id,signer_role,wallet_address,safe_tx_hash").eq("request_id", requestId);
-      if (signatureError || !Array.isArray(signatureRows) || signatureRows.length >= 2) throw new Error("Refund signature registry is unavailable or complete");
+      if (signatureError || !Array.isArray(signatureRows) || signatureRows.length > 2) throw new Error("Refund signature registry is unavailable or malformed");
+      const alreadySignedByActor = signatureRows.some((row: Record<string, unknown>) =>
+        row.signer_id === actorId && String(row.wallet_address ?? "").toLowerCase() === verifiedWallet &&
+        String(row.safe_tx_hash ?? "").toLowerCase() === safeTransactionHash.toLowerCase());
+      if (signatureRows.length >= 2 && !alreadySignedByActor) throw new Error("Refund Safe already has its required signatures");
       return {
         action: "refund_to_buyer" as const,
         dealId, disputeId, requestId, decisionId,
