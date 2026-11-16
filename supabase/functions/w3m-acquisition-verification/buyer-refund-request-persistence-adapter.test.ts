@@ -22,7 +22,7 @@ function fixture():BuyerRefundRequestPersistenceInput{
   safe_hash_verified:true,safe_block_canonical:true,funding_receipt_verified:true,
   funding_block_canonical:true,payload_verified:true,safe_tx_hash:HASH,safe_block_hash:HASH,issues:[]};
  return {dealId:DEAL,actorId:ACTOR,
-  intent:{action:"refund_to_buyer",decisionId:DECISION,disputeId:DISPUTE,decisionHash:"b".repeat(64),
+  intent:{action:"refund_to_buyer",chainId:56,decisionId:DECISION,disputeId:DISPUTE,decisionHash:"b".repeat(64),
    termsHash:"c".repeat(64),safeAddress:SAFE,buyerRecipient:BUYER,safeSnapshot:{blockNumber:"500",blockHash:HASH}},
   safeTransaction:{to:"0x9641d764fc13c8b624c04430c7356c1c7c8102e2",data:"0x1234",operation:1,value:"0",nonce:"9",
    safeTxGas:"0",baseGas:"0",gasPrice:"0",gasToken:"0x0000000000000000000000000000000000000000",
