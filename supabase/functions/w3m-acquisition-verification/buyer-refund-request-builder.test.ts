@@ -30,7 +30,7 @@ Deno.test("builds buyer refund intent from immutable decision and live 2-of-3 Sa
      result.originalDealAmount!=="100" || result.platformFeeAmount!=="7.5" ||
      result.decisionHash!=="a".repeat(64) ||
      result.safeNonce!=="9" || result.transfers.length!==2 ||
-     result.transfers[0].recipient!==BUYER || result.transfers[1].recipient!==W3M_PLATFORM_WALLET) {
+     result.transfers[0].recipient!==BUYER || result.transfers[1].recipient!==W3M_PLATFORM_WALLET.toLowerCase()) {
     throw new Error("Buyer refund intent did not preserve the exact approved bindings.");
   }
 });
