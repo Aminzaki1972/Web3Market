@@ -133,7 +133,9 @@ begin
      and dispute_id=v_request.dispute_id for share;
   if not found or v_decision.outcome <> 'buyer_wins'
      or v_decision.decision_hash <> v_request.decision_hash
-     or v_decision.terms_hash <> v_request.terms_hash then
+     or v_decision.terms_hash <> v_request.terms_hash
+     or v_decision.buyer_refund_amount is null
+     or v_decision.buyer_refund_amount::numeric <> v_request.refund_amount then
     raise exception 'Immutable buyer-win decision binding mismatch' using errcode='23514';
   end if;
   if v_deal.status is distinct from 'disputed' or v_deal.dispute_status is distinct from 'resolved_buyer'
