@@ -10,6 +10,7 @@ on:
   # Validate changes on the isolated branch without deploying production.
   pull_request:
     paths:
+      - ".github/workflows/w3m-protocol-v1-isolated.yml"
       - "supabase/functions/w3m-acquisition-verification/**"
       - "supabase/functions/w3m-protocol-v1-buyer-refund-request/**"
       - "supabase/functions/verify-deal-payment/**"
@@ -103,6 +104,7 @@ on:
       - w3m-v1-finalization-adapter-tests-20261112
       - w3m-v1-completion-20261116
     paths:
+      - ".github/workflows/w3m-protocol-v1-isolated.yml"
       - "supabase/functions/w3m-acquisition-verification/**"
       - "supabase/functions/w3m-protocol-v1-buyer-refund-request/**"
       - "supabase/functions/verify-deal-payment/**"
