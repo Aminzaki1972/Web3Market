@@ -161,7 +161,7 @@ Deno.serve(async (request) => {
       }
       const canonicalTerms = object(terms.canonical_terms, "Canonical signed terms");
       const dealAmount = text(deal.amount, "Deal amount");
-      if (text(canonicalTerms.amount, "Signed terms amount") !== dealAmount ||
+      if (decimalUnits(text(canonicalTerms.amount, "Signed terms amount")) !== decimalUnits(dealAmount) ||
           text(canonicalTerms.dealId, "Signed terms deal ID") !== dealIdFromSnapshot ||
           text(canonicalTerms.projectId, "Signed terms project ID") !== projectId ||
           text(canonicalTerms.buyerId, "Signed terms buyer ID") !== buyerId ||
