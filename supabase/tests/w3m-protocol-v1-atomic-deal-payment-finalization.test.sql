@@ -53,10 +53,10 @@ declare
   v_fee numeric;
   v_seller_net numeric;
   v_count integer;
-  v_tx text := '0x' || repeat('a', 64);
+  v_tx text := '0x' || repeat('9', 64);
   v_receipt jsonb := jsonb_build_object(
     'chainId', 56,
-    'transactionHash', '0x' || repeat('a', 64),
+    'transactionHash', '0x' || repeat('9', 64),
     'blockHash', '0x' || repeat('b', 64),
     'blockNumber', '123456',
     'confirmations', 5,
@@ -168,8 +168,8 @@ begin
   begin
     perform public.w3m_finalize_deal_payment(
       '93000000-0000-4000-8000-000000000002',
-      '91000000-0000-4000-8000-000000000003','0x' || repeat('A',64),
-      jsonb_set(jsonb_set(jsonb_set(v_receipt,'{transactionHash}',to_jsonb('0x' || repeat('A',64))),'{buyerWallet}','"0x4444444444444444444444444444444444444444"'),'{safeAddress}','"0x6666666666666666666666666666666666666666"')
+      '91000000-0000-4000-8000-000000000003','0x' || repeat('9',64),
+      jsonb_set(jsonb_set(jsonb_set(v_receipt,'{transactionHash}',to_jsonb('0x' || repeat('9',64))),'{buyerWallet}','"0x4444444444444444444444444444444444444444"'),'{safeAddress}','"0x6666666666666666666666666666666666666666"')
     );
     raise exception 'RPC unexpectedly accepted a transaction hash already bound to another deal';
   exception when others then
