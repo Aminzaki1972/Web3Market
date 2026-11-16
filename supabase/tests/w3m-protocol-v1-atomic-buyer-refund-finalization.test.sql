@@ -28,6 +28,12 @@ begin
   end if;
 
   select pg_get_functiondef(v_fn) into v_definition;
+  if position('from public.deal_disputes' in lower(v_definition))=0
+     or position('from public.deals' in lower(v_definition))=0
+     or position('from public.deal_disputes' in lower(v_definition)) >
+        position('from public.deals' in lower(v_definition)) then
+    raise exception 'Refund finalizer lock order must be dispute -> deal -> Safe transaction';
+  end if;
   if position('for update' in lower(v_definition))=0
      or position('buyer_wins' in lower(v_definition))=0
      or position('round(v_original * 0.075,18)' in lower(v_definition))=0
