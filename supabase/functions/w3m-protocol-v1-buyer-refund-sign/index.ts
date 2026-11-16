@@ -62,7 +62,7 @@ function owners(value: unknown): string[] {
 
 export function createW3MBuyerRefundSignEndpoint(overrides: Partial<W3MRefundSignEndpointDependencies> = {}) {
   const deps: W3MRefundSignEndpointDependencies = {
-    getEnv: (name) => deps.getEnv(name),
+    getEnv: (name) => Deno.env.get(name),
     createClient,
     createRpcClient: createAllowlistedBnbRpcClient,
     readSafeExecutionFacts: readCanonicalBnbSafeExecutionFacts,
