@@ -328,3 +328,61 @@ Deno.test("FINALIZE Edge Function entrypoint verifies receipt and commits throug
   assert(supabase.rpcCalls.some((call) => call.name === "w3m_finalize_buyer_refund"), "FINALIZE did not call atomic finalization RPC");
   assert(rpc.methods.includes("eth_chainId"), "FINALIZE did not exercise mocked BNB RPC boundary");
 });
+
+
+Deno.test("actual refund Edge Function entrypoints reject wrong authority before any atomic write", async () => {
+  const requestDb = fakeSupabase({
+    userId: ADMIN,
+    rows: { profiles: [{ id: ADMIN, role: "user" }] },
+  });
+  const requestRpc = makeRpc();
+  const requestEndpoint = createW3MBuyerRefundRequestEndpoint(endpointOverrides(requestDb, requestRpc) as never);
+  const requestResponse = await requestEndpoint(request("request", { deal_id: DEAL }));
+  assert(requestResponse.status === 403, "REQUEST accepted a non-admin session");
+  assert(requestDb.rpcCalls.length === 0 && requestRpc.methods.length === 0,
+    "non-admin REQUEST performed a database or BNB write/read");
+
+  const safeTx = {
+    id: SAFE_TX_ROW, deal_id: DEAL, action: "refund_to_buyer", status: "awaiting_signatures",
+    safe_address: SAFE, safe_tx_hash: TX_HASH, safe_nonce: "7", to_address: MULTISEND,
+    data: "0x1234", value_wei: "0", operation: 1, safe_tx_gas: "0", base_gas: "0",
+    gas_price: "0", gas_token: ZERO, refund_receiver: ZERO, required_signatures: 2,
+  };
+  const refund = {
+    id: REQUEST, deal_id: DEAL, dispute_id: DISPUTE, decision_id: DECISION,
+    safe_transaction_id: SAFE_TX_ROW, status: "awaiting_signatures", safe_tx_hash: TX_HASH,
+    decision_hash: DECISION_HASH, terms_hash: TERMS_HASH, safe_address: SAFE,
+    token_address: W3M_BNB_USDT, safe_nonce: "7", safe_owners: owners,
+  };
+  const signDb = fakeSupabase({
+    userId: ADMIN,
+    rows: {
+      w3m_buyer_refund_requests: [refund], deals: [dealRow], deal_multisig_transactions: [safeTx],
+      w3m_deal_dispute_decisions: [decisionRow], deal_disputes: [disputeRow],
+      w3m_deal_terms_versions: [termsRow], profiles: [buyerProfile, sellerProfile],
+      w3m_buyer_refund_signatures: [],
+    },
+  });
+  const signRpc = makeRpc();
+  const signEndpoint = createW3MBuyerRefundSignEndpoint(endpointOverrides(signDb, signRpc) as never);
+  const signResponse = await signEndpoint(request("sign", {
+    deal_id: DEAL, request_id: REQUEST, decision_id: DECISION,
+    safe_tx_hash: TX_HASH, signature: BUYER_SIG,
+  }));
+  assert(signResponse.status === 409, "SIGN accepted an actor who is not a deal participant");
+  assert(signDb.rpcCalls.length === 0 && signRpc.methods.length === 0,
+    "non-participant SIGN reached BNB verification or signature persistence");
+
+  const finalizeDb = fakeSupabase({
+    userId: ADMIN,
+    rows: { profiles: [{ id: ADMIN, role: "user" }] },
+  });
+  const finalizeRpc = makeRpc();
+  const finalizeEndpoint = createW3MBuyerRefundFinalizeEndpoint(endpointOverrides(finalizeDb, finalizeRpc) as never);
+  const finalizeResponse = await finalizeEndpoint(request("finalize", {
+    request_id: REQUEST, broadcast_tx_hash: BROADCAST_HASH,
+  }));
+  assert(finalizeResponse.status === 403, "FINALIZE accepted a non-admin session");
+  assert(finalizeDb.rpcCalls.length === 0 && finalizeRpc.methods.length === 0,
+    "non-admin FINALIZE reached BNB verification or atomic finalization");
+});
