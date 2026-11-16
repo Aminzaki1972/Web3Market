@@ -29,16 +29,16 @@ begin
   end if;
 
   if has_function_privilege('anon',
-       'public.w3m_record_buyer_refund_signature(uuid,uuid,text,text,text,text,jsonb)','EXECUTE')
+       'public.w3m_record_buyer_refund_signature(uuid,uuid,text,text,text,text,text,jsonb)','EXECUTE')
      or has_function_privilege('authenticated',
-       'public.w3m_record_buyer_refund_signature(uuid,uuid,text,text,text,text,jsonb)','EXECUTE')
+       'public.w3m_record_buyer_refund_signature(uuid,uuid,text,text,text,text,text,jsonb)','EXECUTE')
      or not has_function_privilege('service_role',
-       'public.w3m_record_buyer_refund_signature(uuid,uuid,text,text,text,text,jsonb)','EXECUTE') then
+       'public.w3m_record_buyer_refund_signature(uuid,uuid,text,text,text,text,text,jsonb)','EXECUTE') then
     raise exception 'Buyer refund SIGN RPC must be service-role-only';
   end if;
 
   select pg_get_functiondef(
-    'public.w3m_record_buyer_refund_signature(uuid,uuid,text,text,text,text,jsonb)'::regprocedure
+    'public.w3m_record_buyer_refund_signature(uuid,uuid,text,text,text,text,text,jsonb)'::regprocedure
   ) into v_sign_definition;
   if position('buyer_refund_amount::numeric <> v_request.refund_amount' in lower(v_sign_definition)) = 0 then
     raise exception 'Buyer refund SIGN RPC does not bind request amount to immutable decision amount';
@@ -84,7 +84,7 @@ do $fail_closed$
 begin
   begin
     perform public.w3m_record_buyer_refund_signature(
-      null,null,null,null,null,null,null
+      null,null,null,null,null,null,null,null
     );
     raise exception 'Malformed buyer refund SIGN call was accepted';
   exception when insufficient_privilege then null;
