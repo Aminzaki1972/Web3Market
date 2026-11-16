@@ -33,7 +33,10 @@ begin
     raise exception 'Buyer refund snapshot reader is missing an authorization or fresh-context field';
   end if;
 
-  if lower(v_definition) ~ '\\m(insert|update|delete|truncate)\\M' then
+  if position('insert into ' in lower(v_definition))>0
+     or position('update public.' in lower(v_definition))>0
+     or position('delete from ' in lower(v_definition))>0
+     or position('truncate ' in lower(v_definition))>0 then
     raise exception 'Buyer refund snapshot reader must be read-only';
   end if;
 end;
