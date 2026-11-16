@@ -39,6 +39,12 @@ Deno.test("rejects unverified wallets and invalid deal states",()=>{
  assertThrows(()=>buildFreshBnbDealPaymentContext({...input,deal:{...deal,status:"completed"}}),Error,"status");
  assertThrows(()=>buildFreshBnbDealPaymentContext({...input,deal:{...deal,payment_status:"confirmed"}}),Error,"not pending");
 });
+Deno.test("allows an idempotent retry only for the same confirmed deal hash",()=>{
+ const result=buildFreshBnbDealPaymentContext({...input,deal:{...deal,status:"funded",payment_status:"confirmed",payment_tx_hash:TX}});
+ assertEquals(result.dealId,"deal-1");
+ assertEquals(result.expectation.transactionHash,TX);
+ assertThrows(()=>buildFreshBnbDealPaymentContext({...input,deal:{...deal,status:"funded",payment_status:"confirmed",payment_tx_hash:"0x"+"9".repeat(64)}}),Error,"status");
+});
 Deno.test("rejects transaction replay against another deal binding",()=>{
  assertThrows(()=>buildFreshBnbDealPaymentContext({...input,deal:{...deal,payment_tx_hash:"0x"+"9".repeat(64)}}),Error,"different payment transaction");
 });
