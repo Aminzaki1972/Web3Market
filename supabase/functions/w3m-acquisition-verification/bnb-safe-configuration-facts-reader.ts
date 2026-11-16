@@ -13,6 +13,8 @@ import {
 } from "./safe-live-configuration-facts.ts";
 
 const HASH = /^0x[0-9a-f]{64}$/i;
+const SAFE_V141_SINGLETON = "0x41675c099f32341bf84bfc5382af534df5c7461a";
+const MASTER_COPY_SELECTOR = "0xa619486e";
 interface BlockHeader { number: string; hash: string; }
 
 async function readBlockHeader(rpc: JsonRpcClient, blockTag: string): Promise<BlockHeader> {
@@ -31,6 +33,7 @@ async function readBlockHeader(rpc: JsonRpcClient, blockTag: string): Promise<Bl
 export interface CanonicalBnbSafeConfigurationFacts extends SafeConfigurationFacts {
   readBlockNumber: string;
   readBlockHash: string;
+  singletonAddress: string | null;
 }
 
 export async function readCanonicalBnbSafeConfigurationFacts(
@@ -40,7 +43,26 @@ export async function readCanonicalBnbSafeConfigurationFacts(
   const blockTag = await getBnbSafeReadBlockTag(rpc);
   const before = await readBlockHeader(rpc, blockTag);
   const client = createBnbSafeLiveReadClient(rpc, blockTag);
-  const facts = await readAndVerifySafeConfigurationFacts(client, expected);
+  const [facts, singletonStorage, masterCopyRaw, singletonCode] = await Promise.all([
+    readAndVerifySafeConfigurationFacts(client, expected),
+    rpc.request<unknown>("eth_getStorageAt", [expected.safeAddress, "0x0", blockTag]),
+    rpc.request<unknown>("eth_call", [{ to: expected.safeAddress, data: MASTER_COPY_SELECTOR }, blockTag]),
+    rpc.request<unknown>("eth_getCode", [SAFE_V141_SINGLETON, blockTag]),
+  ]);
+  const storageValid = typeof singletonStorage === "string" &&
+    /^0x[0-9a-f]{64}$/i.test(singletonStorage) &&
+    /^0{24}$/i.test(singletonStorage.slice(2, 26)) &&
+    ("0x" + singletonStorage.slice(-40)).toLowerCase() === SAFE_V141_SINGLETON;
+  const getterValid = typeof masterCopyRaw === "string" &&
+    /^0x[0-9a-f]{64}$/i.test(masterCopyRaw) &&
+    /^0{24}$/i.test(masterCopyRaw.slice(2, 26)) &&
+    ("0x" + masterCopyRaw.slice(-40)).toLowerCase() === SAFE_V141_SINGLETON;
+  const implementationCodeValid = typeof singletonCode === "string" &&
+    /^0x(?:[0-9a-f]{2})+$/i.test(singletonCode);
+  const singletonIssues: string[] = [];
+  if (expected.expectedVersion !== "1.4.1") singletonIssues.push("SAFE_SINGLETON_VERSION_NOT_PINNED");
+  if (!storageValid || !getterValid) singletonIssues.push("SAFE_V141_SINGLETON_MISMATCH");
+  if (!implementationCodeValid) singletonIssues.push("SAFE_V141_SINGLETON_CODE_MISSING");
   const after = await readBlockHeader(rpc, blockTag);
   if (before.hash !== after.hash) {
     return {
@@ -48,8 +70,17 @@ export async function readCanonicalBnbSafeConfigurationFacts(
       valid: false,
       readBlockNumber: blockTag,
       readBlockHash: before.hash,
-      issues: [...new Set([...facts.issues, "SAFE_READ_BLOCK_NOT_CANONICAL"])],
+      singletonAddress: storageValid && getterValid ? SAFE_V141_SINGLETON : null,
+      issues: [...new Set([...facts.issues, ...singletonIssues, "SAFE_READ_BLOCK_NOT_CANONICAL"])],
     };
   }
-  return { ...facts, readBlockNumber: blockTag, readBlockHash: before.hash };
+  const issues = [...new Set([...facts.issues, ...singletonIssues])];
+  return {
+    ...facts,
+    valid: issues.length === 0,
+    readBlockNumber: blockTag,
+    readBlockHash: before.hash,
+    singletonAddress: storageValid && getterValid && implementationCodeValid ? SAFE_V141_SINGLETON : null,
+    issues,
+  };
 }
