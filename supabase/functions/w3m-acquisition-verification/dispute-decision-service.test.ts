@@ -34,13 +34,13 @@ Deno.test("decision service passes only parsed command and verified actor to the
 });
 
 Deno.test("decision service forwards the verified admin's buyer refund amount to the immutable RPC", async () => {
-  let args: Record<string, unknown> | null = null;
+  let args: Record<string, unknown> = {};
   const buyerCommand = { ...command, outcome: "buyer_wins", buyerRefundAmount: "92.5" };
   const buyerResult = { ...result, outcome: "buyer_wins", buyer_refund_amount: "92.5", deal_dispute_status: "resolved_buyer" };
   const saved = await persistW3MDisputeDecision({
     rpc: async (_name, input) => { args = input; return { data: buyerResult, error: null }; },
   }, { command: buyerCommand, actorId });
-  assertEquals(args?.p_buyer_refund_amount, "92.5");
+  assertEquals(args.p_buyer_refund_amount, "92.5");
   assertEquals(saved.buyerRefundAmount, "92.5");
 });
 
