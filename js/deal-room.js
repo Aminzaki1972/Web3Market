@@ -45,7 +45,7 @@
  const params=new URLSearchParams(location.search),dealId=params.get('deal')||params.get('id');
  if(!dealId){root.innerHTML='<div class="status">Deal not specified.</div>';return}
  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
- let deal=null,participant=null,channel=null,disposed=false,safeDeploymentError='',safeDeploymentBusy=false,safeDeploymentLog=[];
+ let deal=null,participant=null,channel=null,disposed=false,safeDeploymentError='',safeDeploymentBusy=false,safeDeploymentLog=[],termsRenderRequest=0;
 
  const setStatus=(text,kind='')=>{const el=document.querySelector('#dealStatus');if(el){el.textContent=text;el.className='status'+(kind?' '+kind:'')}};
  const safeLogBox=()=>document.querySelector('#safeStatus');
@@ -145,15 +145,15 @@
   addSafeLog('Starting Safe deployment flow.');
   const createBtn=document.querySelector('#createSafeBtn');
   if(createBtn){createBtn.disabled=true;createBtn.textContent='Creating Safe…'}
-  if(!deal || String(deal.status||'').toLowerCase()!=='accepted'){addSafeLog('Stopped: deal is not in accepted status.');return false;}
-  addSafeLog('Deal verified: accepted / BNB Smart Chain (56).');
+  try{
+   if(!deal || String(deal.status||'').toLowerCase()!=='accepted'){addSafeLog('Stopped: deal is not in accepted status.');return false;}
+   addSafeLog('Deal verified: accepted / BNB Smart Chain (56).');
   if(String(deal.safe_deployment_status||'').toLowerCase()==='deployed' && /^0x[a-fA-F0-9]{40}$/.test(String(deal.safe_address||''))){addSafeLog('Safe is already deployed: '+deal.safe_address);return true;}
   const box=document.querySelector('#safeStatus');
   addSafeLog('Preparing a dedicated 2-of-3 Safe for this deal.');
   addSafeLog('The platform wallet is intended to pay the BNB deployment gas.');
   addSafeLog('No USDT is moved during Safe creation.');
   if(canonicalWalletAddress)addSafeLog('Current verified profile wallet: '+canonicalWalletAddress);
-  try{
    let session=null;
    try{
     const current=await sb.auth.getSession();
@@ -278,13 +278,66 @@
    box.innerHTML=`<div class="safe-panel ${ok?'ok':'warn'}"><strong>Safe 2-of-3 verification</strong><br>${code!=='0x'?'Contract detected':'Not a contract'} · ${owners.length} owner(s) · threshold ${Number(threshold)}<br>Nonce: ${esc(nonce)}<div class="safe-note">${ok?'The Safe configuration is valid. Web3Market cannot release funds alone.':'Expected exactly 3 owners with a 2-signature threshold.'}</div>${ok?`<a class="btn primary" href="https://app.safe.global/transactions/queue?safe=bnb:${encodeURIComponent(safe)}" target="_blank" rel="noopener noreferrer">Open Safe Queue</a>`:''}</div>`;
   }catch(e){console.error('safe verification',e);box.innerHTML='<div class="safe-panel warn"><strong>Safe could not be verified.</strong><br>No release action will be enabled.</div>'}
  }
+ async function getW3MAgreementGate(){
+  try{
+   const [{classifyW3MAgreementGate},{data:{session},error:sessionError}]=await Promise.all([
+    import('/js/w3m-deal-room-legacy-gate.js'),
+    sb.auth.getSession()
+   ]);
+   if(sessionError||!session?.access_token)return 'blocked';
+   const response=await fetch('https://hzhqlexnhtukfljcvnyd.supabase.co/functions/v1/w3m-acquisition-verification',{
+    method:'POST',
+    headers:{
+     'Content-Type':'application/json',
+     'apikey':'sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI',
+     'Authorization':'Bearer '+session.access_token
+    },
+    body:JSON.stringify({action:'status',deal_id:deal.id}),
+    cache:'no-store'
+   });
+   const payload=await response.json().catch(()=>({}));
+   return classifyW3MAgreementGate(response.status,payload);
+  }catch(error){
+   console.warn('W3M agreement rollout gate unavailable',error);
+   return 'blocked';
+  }
+ }
  async function renderTerms(){
   if(!deal)return;
-  const rows=await loadAgreement(),mine=rows.find(x=>x.party_role===participant&&String(x.party_id)===String(user.id)),buyer=rows.find(x=>x.party_role==='buyer')?.agreed_at,seller=rows.find(x=>x.party_role==='seller')?.agreed_at,actions=document.querySelector('#actions');
+  const renderId=++termsRenderRequest;
+  const actions=document.querySelector('#actions');
   if(!actions)return;
+  actions.innerHTML='<div class="notice">Checking the current agreement status…</div>';
+  const gate=await getW3MAgreementGate();
+  if(renderId!==termsRenderRequest)return;
+  if(gate==='v1'){
+   actions.innerHTML='<div class="notice"><strong>W3M Protocol V1 agreement published.</strong><br>The legacy agreement and Model B dispute controls are disabled for this deal. V1 digital signing remains disabled until the agreement wording receives final legal and commercial approval.</div>';
+   return;
+  }
+  if(gate==='blocked'){
+   actions.innerHTML='<div class="notice warn"><strong>Agreement status could not be verified.</strong><br>For safety, agreement acceptance and dispute controls are temporarily disabled. Please refresh or contact support.</div>';
+   return;
+  }
+  const rows=await loadAgreement();
+  if(renderId!==termsRenderRequest)return;
+  const mine=rows.find(x=>x.party_role===participant&&String(x.party_id)===String(user.id)),buyer=rows.find(x=>x.party_role==='buyer')?.agreed_at,seller=rows.find(x=>x.party_role==='seller')?.agreed_at;
   actions.innerHTML=`<div class="notice"><strong>Dispute Resolution — Model B</strong><br>Buyer and Seller agree that Web3Market acts as the dispute resolution party. Funds are held by the 2-of-3 Safe, not by Web3Market. ${buyer?'Buyer ✓':'Buyer pending'} · ${seller?'Seller ✓':'Seller pending'}</div>${participant==='platform'?'<div class="notice ok">Platform moderator view — monitoring and dispute resolution only.</div>':''}<button id="agreeBtn" class="btn primary" ${participant==='platform'||mine?.agreed_at?'disabled':''}>${mine?.agreed_at?'Terms Accepted':'I Agree to Deal Terms'}</button><button id="disputeBtn" class="btn" style="background:#fff7ed;color:#9a3412">Open Dispute</button>`;
   const agreeBtn=document.querySelector('#agreeBtn');
-  if(agreeBtn&&!mine?.agreed_at&&participant!=='platform')agreeBtn.onclick=async()=>{agreeBtn.disabled=true;const {error}=await sb.from('deal_party_agreements').upsert({deal_id:deal.id,party_role:participant,party_id:user.id,agreed_at:new Date().toISOString()},{onConflict:'deal_id,party_role,party_id'});if(error){alert(error.message||'Could not save agreement');agreeBtn.disabled=false;return}await renderTerms()};
+  if(agreeBtn&&!mine?.agreed_at&&participant!=='platform')agreeBtn.onclick=async()=>{
+   agreeBtn.disabled=true;
+   const {error}=await sb.from('deal_party_agreements').insert({
+    deal_id:deal.id,party_role:participant,party_id:user.id,agreed_at:new Date().toISOString()
+   });
+   if(error){
+    if(error.code==='23505'){
+     const refreshed=await loadAgreement();
+     const existing=refreshed.find(x=>x.party_role===participant&&String(x.party_id)===String(user.id));
+     if(existing?.agreed_at){await renderTerms();return;}
+    }
+    alert(error.message||'Could not save agreement');agreeBtn.disabled=false;return;
+   }
+   await renderTerms();
+  };
   const db=document.querySelector('#disputeBtn');
   if(db)db.onclick=()=>openDisputeModal();
  }

@@ -1,0 +1,78 @@
+name: W3M Deal Protocol Track Registry Tests
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20261108180000_w3m_deal_protocol_track_registry.sql"
+      - "tests/w3m-deal-protocol-track.sql"
+      - ".github/workflows/w3m-deal-protocol-track-tests.yml"
+  push:
+    branches:
+      - "feat/w3m-audit-fingerprint-binding-20261107"
+    paths:
+      - "supabase/migrations/20261108180000_w3m_deal_protocol_track_registry.sql"
+      - "tests/w3m-deal-protocol-track.sql"
+      - ".github/workflows/w3m-deal-protocol-track-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-protocol-track-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: w3m_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d w3m_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Prepare isolated Supabase role and deals stubs
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 <<'SQL'
+          create role anon nologin;
+          create role authenticated nologin;
+          create role service_role nologin bypassrls;
+          create schema auth;
+          create function auth.jwt() returns jsonb
+            language sql stable
+            as $auth$ select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $auth$;
+          create table public.deals (
+            id uuid primary key,
+            project_id uuid not null,
+            buyer_id uuid not null,
+            seller_id uuid not null,
+            status text not null,
+            dispute_status text not null
+              check (dispute_status in ('none','open','under_review','resolved_buyer','resolved_seller','closed')),
+            release_tx_hash text
+          );
+          -- Seed a pre-existing deal to prove the migration backfills old rows.
+          insert into public.deals
+            (id,project_id,buyer_id,seller_id,status,dispute_status)
+          values
+            ('70000000-0000-4000-8000-000000000007',
+             '72000000-0000-4000-8000-000000000007',
+             '73000000-0000-4000-8000-000000000007',
+             '74000000-0000-4000-8000-000000000007',
+             'pending','none');
+          SQL
+      - name: Apply protocol-track registry migration
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261108180000_w3m_deal_protocol_track_registry.sql
+      - name: Verify backfill, automatic legacy classification, immutability, and least privilege
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d w3m_test -v ON_ERROR_STOP=1 -f tests/w3m-deal-protocol-track.sql
