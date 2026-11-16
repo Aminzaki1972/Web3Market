@@ -88,3 +88,28 @@ Its isolated tests are in `fresh-bnb-deal-payment-context.test.ts` and are inclu
 The canonical receipt-verifier test suite also exposed and fixed one incorrect test expectation: transaction/receipt block metadata mismatch is rejected at the receipt validation guard. The verifier itself remains read-only and is not deployed.
 
 Latest branch head at this update: `4490d7a3bdcdd006bf74f2f39853caafbf3cab18`. CI run `43912149380` is queued/in progress; no passing result is claimed yet.
+
+
+## Atomic payment finalization candidate — isolated branch only
+
+The development branch now contains a candidate replacement path for both recovered Edge Functions:
+
+- `verify-deal-payment/index.ts` now derives expectations from the fresh server-loaded deal and verified buyer/seller profile rows, calls the canonical BNB receipt verifier, and sends its typed evidence to `w3m_finalize_deal_payment`.
+- `deal-payment-monitor/index.ts` still discovers candidate transfers through bounded `eth_getLogs` scans, but now pins providers to chain ID 56, pins the scan token to BNB USDT, re-verifies each candidate through the same canonical receipt verifier, and uses the same atomic finalization RPC. It no longer writes a confirmed transaction and funded deal through separate upserts/updates.
+- Same-hash retry requests are no longer short-circuited before receipt verification. The fresh-context builder permits only the exact same already-funded/confirmed deal/hash retry; the SQL RPC then returns idempotent success only if the matching confirmed payment row already exists.
+- The RPC inserts rather than upserts the transaction row, locks the deal row, revalidates buyer/profile, chain/token/Safe, exact expected base units and 7.5% fee, then writes transaction, deal funding, fee split, and audit event in one database transaction.
+- Added case-insensitive unique indexes on `lower(blockchain_transactions.tx_hash)` and `lower(deals.payment_tx_hash)`. They intentionally fail closed if existing case-variant duplicates are present; those records must be reconciled before applying this migration.
+- Added a disposable schema fixture, SQL contract test, TypeScript RPC adapter test, and CI type-check steps for both candidate Edge Functions.
+
+Files:
+- `supabase/migrations/20261116050000_w3m_protocol_v1_atomic_deal_payment_finalization.sql`
+- `supabase/tests/w3m-protocol-v1-atomic-deal-payment-finalization.test.sql`
+- `supabase/tests/w3m-deal-payment-finalization-fixture.sql`
+- `supabase/functions/w3m-acquisition-verification/deal-payment-finalization-rpc-adapter.ts`
+- `supabase/functions/w3m-acquisition-verification/deal-payment-finalization-rpc-adapter.test.ts`
+
+Important release caveats:
+- This migration and both modified Edge Function entrypoints are candidate code on the development branch only. They have not been applied/deployed.
+- The monitor's scan-cursor update on the no-candidate path remains a separate non-financial write; funding itself now goes only through the atomic RPC.
+- Before any production rollout, inspect existing data for case-insensitive duplicate hashes, confirm RPC role claims in a disposable Supabase-compatible environment, run the full CI workflow, and review the monitor's secret-auth RPC and provider behavior.
+- The original deployed versions remain unchanged in Supabase.
