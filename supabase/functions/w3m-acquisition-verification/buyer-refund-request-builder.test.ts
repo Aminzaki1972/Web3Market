@@ -66,3 +66,8 @@ Deno.test("rejects a disputed deal without buyer-win state",()=>{
   const x=fixture(); x.deal.disputeStatus="open";
   rejects(()=>buildBuyerRefundRequestIntent(x),"DEAL_NOT_IN_BUYER_REFUND_STATE");
 });
+
+Deno.test("blocks partial refunds when the seller residual has no approved allocation",()=>{
+  const x=fixture(); x.decision.buyerRefundAmount="50";
+  rejects(()=>buildBuyerRefundRequestIntent(x),"PARTIAL_REFUND_ALLOCATION_NOT_APPROVED");
+});
