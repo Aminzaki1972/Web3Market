@@ -99,7 +99,7 @@ Deno.test("mocked buyer refund lifecycle: request → buyer/seller SIGN → rece
   const sellerRequest = post("https://w3m.test/sign", { deal_id: DEAL, request_id: REQUEST, decision_id: DECISION, safe_tx_hash: SAFE_TX_HASH, signature: SIG_SELLER });
   const sellerHeaders = new Headers(sellerRequest.headers); sellerHeaders.set("x-user-id", SELLER);
   const sellerSignResponse = await signHandler(new Request(sellerRequest, { headers: sellerHeaders }));
-  assert(sellerSignResponse.status === 200 && signatures.length === 2, "seller signature was not recorded");
+  assert(sellerSignResponse.status === 200 && Number(signatures.length) === 2, "seller signature was not recorded");
   assert(new Set(signatures.map((row) => row.wallet)).size === 2, "two distinct participant wallets are required");
 
   const finalizationContext: BuyerRefundFinalizationContext = {
