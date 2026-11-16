@@ -25,6 +25,7 @@ function input(overrides: Partial<SafeRefundPayloadInput> = {}): SafeRefundPaylo
     platformWallet: PLATFORM,
     originalDealAmount: (100n * UNIT).toString(),
     buyerRefundAmount: (92n * UNIT + UNIT / 2n).toString(),
+    confirmedFundedAmount: (100n * UNIT).toString(),
     platformFeeAmount: (75n * UNIT / 10n).toString(),
     confirmedSafeBalance: (100n * UNIT).toString(),
     calls: [
@@ -68,6 +69,16 @@ Deno.test("accepts a full original-value refund when Safe also holds the fixed f
   });
   x.calls[0].amount = x.buyerRefundAmount;
   assertValid(x, "full refund plus separately funded fixed fee");
+});
+
+Deno.test("bounds the refund by confirmed funding even if Safe has excess funds", () => {
+  const x = input({
+    buyerRefundAmount: (101n * UNIT).toString(),
+    confirmedFundedAmount: (100n * UNIT).toString(),
+    confirmedSafeBalance: (200n * UNIT).toString(),
+  });
+  x.calls[0].amount = x.buyerRefundAmount;
+  assertDenied(x, "BUYER_REFUND_EXCEEDS_CONFIRMED_FUNDED_AMOUNT");
 });
 
 Deno.test("rejects extra or missing transfer calls", () => {
