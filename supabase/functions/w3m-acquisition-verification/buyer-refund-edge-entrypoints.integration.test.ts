@@ -298,13 +298,18 @@ Deno.test("FINALIZE Edge Function entrypoint verifies receipt and commits throug
     },
   });
   const rpc = makeRpc();
+  let safeReadReached = false;
+  let receiptVerifyReached = false;
+  let atomicFinalizeReached = false;
   const endpoint = createW3MBuyerRefundFinalizeEndpoint({
     ...endpointOverrides(supabase, rpc),
     readSafeConfiguration: (async (client: { request<T>(method: string, params: unknown[]): Promise<T> }) => {
+      safeReadReached = true;
       await client.request("eth_chainId", []);
       return { valid: true, chainId: 56, threshold: 2, version: "1.4.1", owners, nonce: "7", issues: [] };
     }) as never,
     verifyReceipt: (async (client: { request<T>(method: string, params: unknown[]): Promise<T> }, expectation: Record<string, unknown>) => {
+      receiptVerifyReached = true;
       await client.request("eth_chainId", []);
       return {
         chainId: 56, transactionHash: BROADCAST_HASH, blockHash: BLOCK_HASH,
@@ -316,6 +321,7 @@ Deno.test("FINALIZE Edge Function entrypoint verifies receipt and commits throug
       };
     }) as never,
     finalizeAtomically: (async (database: { rpc(name: string, args: Record<string, unknown>): Promise<unknown> }) => {
+      atomicFinalizeReached = true;
       await database.rpc("w3m_finalize_buyer_refund", {});
       return { finalized: true, idempotentReplay: false, receiptId: RECEIPT, status: "confirmed" };
     }) as never,
@@ -324,7 +330,10 @@ Deno.test("FINALIZE Edge Function entrypoint verifies receipt and commits throug
     request_id: REQUEST, broadcast_tx_hash: BROADCAST_HASH,
   }, "admin-session"));
   const body = await response.json();
-  assert(response.status === 200 && body.finalized === true, "FINALIZE entrypoint failed: " + JSON.stringify(body));
+  assert(response.status === 200 && body.finalized === true,
+    "FINALIZE entrypoint failed: " + JSON.stringify(body) +
+    "; safeRead=" + safeReadReached + "; receiptVerify=" + receiptVerifyReached +
+    "; atomicFinalize=" + atomicFinalizeReached + "; rpcMethods=" + rpc.methods.join(","));
   assert(supabase.rpcCalls.some((call) => call.name === "w3m_finalize_buyer_refund"), "FINALIZE did not call atomic finalization RPC");
   assert(rpc.methods.includes("eth_chainId"), "FINALIZE did not exercise mocked BNB RPC boundary");
 });
