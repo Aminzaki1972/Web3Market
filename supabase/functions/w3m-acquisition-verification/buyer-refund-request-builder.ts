@@ -11,7 +11,7 @@ export const W3M_BNB_USDT = "0x55d398326f99059ff775485246999027b3197955";
 export const W3M_PLATFORM_WALLET = "0x2B15cC63eE3b833F502C065767695Fa2B584f8c9";
 
 export interface BuyerRefundRequestContext {
-  decision: { id: string; dealId: string; disputeId: string; outcome: "buyer_wins" | "seller_wins"; decisionHash: string; termsHash: string; refundAmount: string };
+  decision: { id: string; dealId: string; disputeId: string; outcome: "buyer_wins" | "seller_wins"; decisionHash: string; termsHash: string; buyerRefundAmount: string };
   terms: { dealId: string; termsHash: string; originalDealAmount: string; chainId: number; safeAddress: string; buyerId: string; sellerId: string; buyerAccepted: boolean; sellerAccepted: boolean };
   deal: { id: string; buyerId: string; sellerId: string; status: string; disputeStatus: string; chainId: number; safeAddress: string; tokenAddress: string };
   buyer: { id: string; wallet: string; verified: boolean };
@@ -87,7 +87,7 @@ export function buildBuyerRefundRequestIntent(c: BuyerRefundRequestContext): Buy
       c.safe.threshold !== 2) throw new Error("LIVE_SAFE_MUST_MATCH_EXACT_2_OF_3_OWNER_SET");
   const original = parseDecimal(c.terms.originalDealAmount);
   const funded = parseDecimal(c.funding.amount);
-  const refund = parseDecimal(c.decision.refundAmount);
+  const refund = parseDecimal(c.decision.buyerRefundAmount);
   const balance = parseDecimal(c.safe.balance);
   if (original <= 0n || funded <= 0n || refund <= 0n || refund > funded) throw new Error("REFUND_AMOUNT_OUT_OF_CONFIRMED_FUNDING_BOUNDS");
   const fee = (original * 75n + 500n) / 1000n;
