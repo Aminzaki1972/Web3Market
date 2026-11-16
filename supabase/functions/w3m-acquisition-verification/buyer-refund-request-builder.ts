@@ -79,10 +79,11 @@ export function buildBuyerRefundRequestIntent(c: BuyerRefundRequestContext): Buy
   if (!UINT.test(c.safe.nonce) || !UINT.test(c.safe.blockNumber) || !HASH.test(c.safe.blockHash)) throw new Error("SAFE_SNAPSHOT_INVALID");
   const buyer = address(c.buyer.wallet);
   const seller = address(c.seller.wallet);
-  if (buyer === seller || buyer === W3M_PLATFORM_WALLET || seller === W3M_PLATFORM_WALLET) throw new Error("SAFE_OWNER_ROLES_MUST_BE_DISTINCT");
+  const platformWallet = address(W3M_PLATFORM_WALLET);
+  if (buyer === seller || buyer === platformWallet || seller === platformWallet) throw new Error("SAFE_OWNER_ROLES_MUST_BE_DISTINCT");
   const owners = c.safe.owners.map(address);
   if (owners.length !== 3 || new Set(owners).size !== 3 ||
-      ![buyer, seller, W3M_PLATFORM_WALLET].every((owner) => owners.includes(owner)) ||
+      ![buyer, seller, platformWallet].every((owner) => owners.includes(owner)) ||
       c.safe.threshold !== 2) throw new Error("LIVE_SAFE_MUST_MATCH_EXACT_2_OF_3_OWNER_SET");
   const original = parseDecimal(c.terms.originalDealAmount);
   const funded = parseDecimal(c.funding.amount);
@@ -111,7 +112,7 @@ export function buildBuyerRefundRequestIntent(c: BuyerRefundRequestContext): Buy
     confirmedSafeBalance: formatDecimal(balance),
     transfers: [
       { to: W3M_BNB_USDT, method: "transfer", recipient: buyer, amount: formatDecimal(refund) },
-      { to: W3M_BNB_USDT, method: "transfer", recipient: W3M_PLATFORM_WALLET, amount: formatDecimal(fee) },
+      { to: W3M_BNB_USDT, method: "transfer", recipient: platformWallet, amount: formatDecimal(fee) },
     ],
   };
 }
