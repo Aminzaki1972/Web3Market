@@ -6,6 +6,7 @@ const ADDRESS = /^0x[0-9a-f]{40}$/i;
 const HASH = /^0x[0-9a-f]{64}$/i;
 const QUANTITY = /^0x(?:0|[1-9a-f][0-9a-f]*)$/i;
 const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+const W3M_BNB_USDT = "0x55d398326f99059ff775485246999027b3197955";
 
 export class BnbDealPaymentReceiptError extends Error {
   constructor(message: string) {
@@ -66,6 +67,7 @@ export async function verifyBnbDealPaymentReceipt(
   if (!HASH.test(expected.transactionHash) || !ADDRESS.test(expected.buyerWallet) ||
       !ADDRESS.test(expected.safeAddress) || !ADDRESS.test(expected.tokenContract) ||
       expected.buyerWallet.toLowerCase() === expected.safeAddress.toLowerCase() ||
+      expected.tokenContract.toLowerCase() !== W3M_BNB_USDT ||
       !/^(0|[1-9][0-9]*)$/.test(expected.expectedAmountBaseUnits) ||
       BigInt(expected.expectedAmountBaseUnits) <= 0n ||
       !Number.isSafeInteger(expected.minConfirmations) || expected.minConfirmations < 1) {
