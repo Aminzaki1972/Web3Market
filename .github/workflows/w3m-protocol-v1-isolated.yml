@@ -11,6 +11,11 @@ on:
   pull_request:
     paths:
       - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/functions/verify-deal-payment/**"
+      - "supabase/functions/deal-payment-monitor/**"
+      - "supabase/migrations/20261116050000_w3m_protocol_v1_atomic_deal_payment_finalization.sql"
+      - "supabase/tests/w3m-protocol-v1-atomic-deal-payment-finalization.test.sql"
+      - "supabase/tests/w3m-deal-payment-finalization-fixture.sql"
       - "supabase/functions/w3m-protocol-v1-dispute-decision/**"
       - "supabase/migrations/*_w3m_protocol_v1_immutable_dispute_decisions.sql"
       - "supabase/tests/w3m-protocol-v1-dispute-decisions.test.sql"
@@ -94,6 +99,11 @@ on:
       - w3m-v1-completion-20261116
     paths:
       - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/functions/verify-deal-payment/**"
+      - "supabase/functions/deal-payment-monitor/**"
+      - "supabase/migrations/20261116050000_w3m_protocol_v1_atomic_deal_payment_finalization.sql"
+      - "supabase/tests/w3m-protocol-v1-atomic-deal-payment-finalization.test.sql"
+      - "supabase/tests/w3m-deal-payment-finalization-fixture.sql"
       - "supabase/migrations/*_w3m_protocol_v1_immutable_dispute_decisions.sql"
       - "supabase/tests/w3m-protocol-v1-dispute-decisions.test.sql"
       - "supabase/functions/w3m-protocol-v1-finalize-safe-release/**"
