@@ -25,7 +25,7 @@ const logs=[
  {address:TOKEN,topics:[transfer,wordAddress(SAFE),wordAddress(PLATFORM)],data:wordUint(75n*10n**17n),logIndex:"0x2"},
 ];
 function mock(overrides:Record<string,unknown>={}) {
- const receipt={transactionHash:expected.broadcastTxHash,blockHash,blockNumber:"0x64",status:"0x1",logs,...((overrides.receipt as Record<string,unknown>|undefined)??{})};
+ const receipt={transactionHash:expected.broadcastTxHash,to:SAFE,blockHash,blockNumber:"0x64",status:"0x1",logs,...((overrides.receipt as Record<string,unknown>|undefined)??{})};
  const calls:string[]=[];
  const rpc={async request<T>(method:string):Promise<T>{
    calls.push(method); let value:unknown;
@@ -45,7 +45,7 @@ Deno.test("verifies canonical buyer refund and fixed original-value platform fee
  assertEquals(result.buyerRefundAmount,"25");assertEquals(result.platformFeeAmount,"7.5");
  assertEquals(result.decisionId,"decision-1");assertEquals(result.confirmations,13);
 });
-Deno.test("rejects wrong chain before reading receipt",async()=>{
+Deno.test("rejects a successful receipt whose outer transaction did not target the expected Safe",async()=>{\n const wrongTarget=mock({receipt:{to:"0x"+"9".repeat(40)}});\n await assertRejects(()=>verifyBnbSafeBuyerRefundReceipt(wrongTarget.rpc,expected),BnbSafeRefundReceiptVerificationError,"unsuccessful or malformed");\n});\nDeno.test("rejects wrong chain before reading receipt",async()=>{
  const {rpc,calls}=mock({chainId:"0x1"});
  await assertRejects(()=>verifyBnbSafeBuyerRefundReceipt(rpc,expected),BnbSafeRefundReceiptVerificationError,"not BNB Chain");
  assertEquals(calls,["eth_chainId"]);
