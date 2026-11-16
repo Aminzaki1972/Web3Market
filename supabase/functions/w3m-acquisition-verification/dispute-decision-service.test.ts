@@ -26,9 +26,10 @@ Deno.test("decision service passes only parsed command and verified actor to the
   }, { command, actorId });
   assertEquals(calls[0].name, "w3m_admin_decide_deal_dispute");
   assertEquals(calls[0].args.p_actor_id, actorId);
-  assertEquals("p_refund_amount" in calls[0].args, false);
+  assertEquals(calls[0].args.p_buyer_refund_amount, null);
   assertEquals(persisted.dealDisputeStatus, "resolved_seller");
   assertEquals(persisted.dealStatus, "disputed");
+  assertEquals(persisted.buyerRefundAmount, null);
 });
 
 Deno.test("decision service rejects invalid actor and browser-supplied authority fields before RPC", async () => {
