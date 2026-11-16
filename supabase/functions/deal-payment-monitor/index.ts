@@ -72,7 +72,7 @@ Deno.serve(async req=>{
    const {data:s}=await db.from("profiles").select("wallet_address,wallet_verified").eq("id",d.seller_id).maybeSingle();
    if(!b?.wallet_address||b.wallet_verified!==true||!s?.wallet_address||s.wallet_verified!==true){results.push({deal_id:d.id,skipped:"wallet_not_verified"});continue}
    await safeCheck(p,d.safe_address,b.wallet_address,s.wallet_address);
-   const dec=Number(bi(await rpc(p,"eth_call",[{to:d.token_contract,data:DECIMALS},"latest"]))),expected=units(String(d.expected_amount??d.amount),dec);
+   if(String(d.token_contract||"").toLowerCase()!=="0x55d398326f99059ff775485246999027b3197955")throw Error("Deal token is not the approved BNB USDT contract");\n   const dec=18,expected=units(String(d.expected_amount??d.amount),dec);
    const dep=String(d.safe_deployment_tx_hash||"");const dr=await rpc(p,"eth_getTransactionReceipt",[dep]);const depBlock=dr?.blockNumber?Number(bi(dr.blockNumber)):latest-10000;
    const cursor=d.payment_scan_last_block==null?depBlock:Number(d.payment_scan_last_block);
    const from=Math.max(depBlock,cursor+1),to=Math.min(latest,from+199);
@@ -80,11 +80,15 @@ Deno.serve(async req=>{
    if(!found.length){await db.from("deals").update({payment_scan_from_block:depBlock,payment_scan_last_block:to,payment_scan_updated_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",d.id);results.push({deal_id:d.id,found:false,scanned_from:from,scanned_to:to});continue}
    let confirmed=false;
    for(const h of found){
-    const context=buildFreshBnbDealPaymentContext({actorUserId:d.buyer_id,deal:d,buyer:b,seller:s,transactionHash:h,minConfirmations:3});
-    const receiptRpc={async request<T>(method:string,params:unknown[]=[]):Promise<T>{return await rpc(p,method,params) as T}};
-    const verifiedReceipt=await verifyBnbDealPaymentReceipt(receiptRpc,context.expectation);
-    const finalized=await finalizeVerifiedDealPayment({async rpc(functionName,args){const {data,error}=await db.rpc(functionName,args);return {data,error}}},{dealId:context.dealId,actorId:d.buyer_id,receipt:verifiedReceipt});
-    confirmed=true;results.push({deal_id:d.id,verified:true,tx_hash:h,confirmations:verifiedReceipt.confirmations,idempotent:finalized.idempotent});break;
+    try{
+     const context=buildFreshBnbDealPaymentContext({actorUserId:d.buyer_id,deal:d,buyer:b,seller:s,transactionHash:h,minConfirmations:3});
+     const receiptRpc={async request<T>(method:string,params:unknown[]=[]):Promise<T>{return await rpc(p,method,params) as T}};
+     const verifiedReceipt=await verifyBnbDealPaymentReceipt(receiptRpc,context.expectation);
+     const finalized=await finalizeVerifiedDealPayment({async rpc(functionName,args){const {data,error}=await db.rpc(functionName,args);return {data,error}}},{dealId:context.dealId,actorId:d.buyer_id,receipt:verifiedReceipt});
+     confirmed=true;results.push({deal_id:d.id,verified:true,tx_hash:h,confirmations:verifiedReceipt.confirmations,idempotent:finalized.idempotent});break;
+    }catch(candidateError){
+     results.push({deal_id:d.id,candidate_tx_hash:h,candidate_rejected:candidateError instanceof Error?candidateError.message:String(candidateError)});
+    }
    }
    if(!confirmed)results.push({deal_id:d.id,found:true,verified:false,candidates:found.length});
   }catch(e){results.push({deal_id:d.id,error:e instanceof Error?e.message:String(e)})}
