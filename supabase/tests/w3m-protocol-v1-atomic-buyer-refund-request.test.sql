@@ -50,7 +50,8 @@ begin
   if not exists(
     select 1 from pg_indexes where schemaname='public'
      and tablename='w3m_buyer_refund_requests'
-     and indexdef ilike '%unique (deal_id, dispute_id)%'
+     and indexdef ilike 'CREATE UNIQUE INDEX%'
+     and indexdef ilike '%USING btree (deal_id, dispute_id)%'
   ) then
     raise exception 'One refund request per deal/dispute uniqueness is missing';
   end if;
