@@ -12,7 +12,7 @@ const wordUint=(n:bigint)=>"0x"+n.toString(16).padStart(64,"0");
 const SAFE="0x"+"1".repeat(40), TOKEN="0x"+"2".repeat(40), BUYER="0x"+"3".repeat(40), PLATFORM="0x"+"4".repeat(40);
 const expected:BnbSafeRefundReceiptExpectation={
   broadcastTxHash:"0x"+"5".repeat(64),safeTxHash:"0x"+"6".repeat(64),safeAddress:SAFE,
-  tokenContract:TOKEN,buyerWallet:BUYER,buyerRefundAmount:"25",originalDealAmount:"100",platformWallet:PLATFORM,
+  tokenContract:TOKEN,buyerWallet:BUYER,buyerRefundAmount:"92.5",originalDealAmount:"100",platformWallet:PLATFORM,
   platformFeeAmount:"7.5",minConfirmations:6,decisionId:"decision-1",
   decisionHash:"a".repeat(64),termsHash:"b".repeat(64),
 };
@@ -21,7 +21,7 @@ const transfer="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3
 const blockHash="0x"+"c".repeat(64);
 const logs=[
  {address:SAFE,topics:[success,expected.safeTxHash],data:wordUint(0n),logIndex:"0x0"},
- {address:TOKEN,topics:[transfer,wordAddress(SAFE),wordAddress(BUYER)],data:wordUint(25n*10n**18n),logIndex:"0x1"},
+ {address:TOKEN,topics:[transfer,wordAddress(SAFE),wordAddress(BUYER)],data:wordUint(925n*10n**17n),logIndex:"0x1"},
  {address:TOKEN,topics:[transfer,wordAddress(SAFE),wordAddress(PLATFORM)],data:wordUint(75n*10n**17n),logIndex:"0x2"},
 ];
 function mock(overrides:Record<string,unknown>={}) {
@@ -42,7 +42,7 @@ function mock(overrides:Record<string,unknown>={}) {
 Deno.test("verifies canonical buyer refund and fixed original-value platform fee",async()=>{
  const {rpc}=mock(); const result=await verifyBnbSafeBuyerRefundReceipt(rpc,expected);
  assertEquals(result.chainId,56);assertEquals(result.executionSuccess,true);
- assertEquals(result.buyerRefundAmount,"25");assertEquals(result.platformFeeAmount,"7.5");
+ assertEquals(result.buyerRefundAmount,"92.5");assertEquals(result.platformFeeAmount,"7.5");
  assertEquals(result.decisionId,"decision-1");assertEquals(result.confirmations,13);
 });
 Deno.test("rejects a successful receipt whose outer transaction did not target the expected Safe",async()=>{
