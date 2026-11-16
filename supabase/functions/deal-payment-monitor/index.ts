@@ -6,9 +6,6 @@ import { finalizeVerifiedDealPayment } from "../w3m-acquisition-verification/dea
 import { readCanonicalBnbSafeConfigurationFacts } from "../w3m-acquisition-verification/bnb-safe-configuration-facts-reader.ts";
 
 const TRANSFER="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
-const DECIMALS="0x313ce567";
-const OWNERS="0xa0e67e2b";
-const THRESHOLD="0xe75235b8";
 const PLATFORM="0x2B15cC63eE3b833F502C065767695Fa2B584f8c9";
 const json=(x:unknown,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{"Content-Type":"application/json"}});
 const bi=(x:string)=>BigInt(x||"0x0");
@@ -17,7 +14,6 @@ const units=(v:string,d:number)=>{const [w,f=""]=String(v).trim().split(".");if(
 async function rpc(u:string,m:string,p:unknown[]){const r=await fetch(u,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:m,params:p})});if(!r.ok)throw Error("RPC HTTP "+r.status);const j=await r.json();if(j.error)throw Error(j.error.message||"RPC error");return j.result}
 function rpcCandidates(){const raw=[Deno.env.get("BSC_RPC_URLS"),Deno.env.get("BSC_RPC_URL"),"https://bsc-rpc.publicnode.com","https://bsc-dataseed.binance.org","https://bsc.publicnode.com"].filter(Boolean).join(",");return [...new Set(raw.split(",").map(x=>x.trim()).filter(Boolean))]}
 async function providers(){const ok:string[]=[];for(const u of rpcCandidates()){try{const chain=bi(await rpc(u,"eth_chainId",[]));if(chain!==56n)continue;await rpc(u,"eth_blockNumber",[]);ok.push(u)}catch{}}if(!ok.length)throw Error("No BNB Chain (56) RPC provider available");return ok}
-function ownerList(raw:string){const h=raw.replace(/^0x/,"");if(h.length<128)return[];const off=Number(bi("0x"+h.slice(0,64)))*2,n=Number(bi("0x"+h.slice(off,off+64)));return Array.from({length:n},(_,i)=>"0x"+h.slice(off+64+i*64+24,off+64+(i+1)*64)).filter(x=>x.length===42).map(x=>x.toLowerCase())}
 async function safeCheck(p:string,safe:string,buyer:string,seller:string){const client={async request<T>(method:string,params:unknown[]=[]):Promise<T>{return await rpc(p,method,params) as T}};const facts=await readCanonicalBnbSafeConfigurationFacts(client,{safeAddress:safe,expectedSafeAddress:safe,expectedOwners:[buyer,seller,PLATFORM],expectedThreshold:2,expectedVersion:"1.4.1",expectedChainId:56});if(!facts.valid)throw Error("Canonical Safe configuration mismatch: "+facts.issues.join(","));return facts;}
 
 async function sleep(ms:number){await new Promise(r=>setTimeout(r,ms))}
