@@ -3,6 +3,7 @@ import type { W3MRpcClient } from "./supabase-rpc-adapter.ts";
 
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH=/^0x[0-9a-f]{64}$/i;
+const DECISION_HASH=/^[0-9a-f]{64}$/i;
 const ADDRESS=/^0x[0-9a-f]{40}$/i;
 const SIGNATURE=/^0x[0-9a-f]{130}$/i;
 
@@ -22,7 +23,7 @@ export async function persistBuyerRefundSignatureAtomically(
   client:W3MRpcClient,input:BuyerRefundSignaturePersistenceInput,
 ):Promise<BuyerRefundSignaturePersistenceResult>{
   if(!UUID.test(input.actorId)||!UUID.test(input.dealId)||!UUID.test(input.requestId)||
-     !UUID.test(input.decisionId)||!HASH.test(input.decisionHash)||!HASH.test(input.safeTransactionHash)||
+     !UUID.test(input.decisionId)||!DECISION_HASH.test(input.decisionHash)||!HASH.test(input.safeTransactionHash)||
      !/^[0-9a-f]{64}$/i.test(input.termsHash)||!ADDRESS.test(input.safeAddress)||
      !ADDRESS.test(input.verifiedWallet)||!ADDRESS.test(input.buyerWallet)||
      !SIGNATURE.test(input.signature)||! /^(0|[1-9][0-9]*)$/.test(input.safeNonce)||
