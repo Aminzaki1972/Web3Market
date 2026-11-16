@@ -249,7 +249,7 @@ begin
       v_deal1,v_dispute1,'buyer_wins',
       'Cross-deal evidence must never be accepted as proof.',
       jsonb_build_array(jsonb_build_object('source','deal_message','recordId',v_message2::text)),
-      '50',v_admin
+      '92.5',v_admin
     );
   exception when check_violation then v_blocked := true;
   end;
@@ -277,7 +277,7 @@ begin
       v_deal3,v_dispute3,'buyer_wins',
       'The latest terms version was not accepted by both parties.',
       jsonb_build_array(jsonb_build_object('source','deal_message','recordId',v_message3::text)),
-      '100',v_admin
+      '277.5',v_admin
     );
   exception when check_violation then v_blocked := true;
   end;
@@ -307,7 +307,7 @@ begin
       jsonb_build_object('source','deal_asset','recordId',v_asset1::text),
       jsonb_build_object('source','deal_message','recordId',v_message1::text)
     ),
-    '50',v_admin
+    '92.5',v_admin
   );
   v_decision_id := (v_result->>'decision_id')::uuid;
   v_decision_hash := v_result->>'decision_hash';
@@ -320,9 +320,9 @@ begin
     raise exception 'Buyer-win decision returned an invalid state/result';
   end if;
 
-  if (select count(*) from public.w3m_deal_dispute_decisions where id=v_decision_id and buyer_refund_amount='50') <> 1
+  if (select count(*) from public.w3m_deal_dispute_decisions where id=v_decision_id and buyer_refund_amount='92.5') <> 1
      or (select count(*) from public.w3m_deal_dispute_decisions
-          where id=v_decision_id and canonical_payload->>'buyerRefundAmount'='50' and jsonb_array_length(evidence_refs)=4
+          where id=v_decision_id and canonical_payload->>'buyerRefundAmount'='92.5' and jsonb_array_length(evidence_refs)=4
             and decision_hash=encode(extensions.digest(convert_to(canonical_payload::text,'UTF8'),'sha256'),'hex')) <> 1 then
     raise exception 'Immutable decision row or canonical hash is missing';
   end if;
@@ -358,7 +358,7 @@ begin
       jsonb_build_object('source','deal_event','recordId',v_event1::text),
       jsonb_build_object('source','deal_audit_log','recordId',v_audit1::text)
     ),
-    '50',v_admin
+    '92.5',v_admin
   );
   if (v_result->>'decision_id')::uuid <> v_decision_id
      or v_result->>'idempotent_replay' <> 'true' then
@@ -408,7 +408,7 @@ begin
 
   v_snapshot := public.w3m_read_dealroom_dispute_decision_snapshot(v_deal1);
   if v_snapshot->'decision'->>'outcome' <> 'buyer_wins'
-     or v_snapshot->'decision'->>'buyer_refund_amount' <> '50' then
+     or v_snapshot->'decision'->>'buyer_refund_amount' <> '92.5' then
     raise exception 'Server dispute snapshot did not preserve buyer-wins outcome';
   end if;
 
