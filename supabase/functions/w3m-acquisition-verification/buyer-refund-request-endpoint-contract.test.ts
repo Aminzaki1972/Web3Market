@@ -52,7 +52,7 @@ Deno.test("manual and automatic payment paths share strict receipt verification 
     requireText(source, /buildFreshBnbDealPaymentContext\(/, label + " fresh server-derived deal context");
     requireText(source, /verifyBnbDealPaymentReceipt\(/, label + " exact canonical receipt verification");
     requireText(source, /finalizeVerifiedDealPayment\(/, label + " atomic payment finalization RPC");
-    requireText(source, /readSafeConfiguration:\s*readCanonicalBnbSafeConfigurationFacts/, label + " canonical 2-of-3 Safe configuration");
+    requireText(source, /readCanonicalBnbSafeConfigurationFacts\(/, label + " canonical 2-of-3 Safe configuration");
     forbidText(source, /from\(["']blockchain_transactions["']\)\.(insert|update|upsert|delete)\s*\(/, label + " direct blockchain transaction table writes");
   }
 });
