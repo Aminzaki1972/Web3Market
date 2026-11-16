@@ -127,6 +127,7 @@ Canonical arithmetic rule:
 - `platform_fee = round(commission_base * 7.5 / 100, 18)`, using the same exact decimal precision and rounding convention already enforced by the V1 release policy.
 - Calculate and bind this fee once to the original deal terms. Full and partial refunds do not prorate, waive, or recalculate it.
 - The buyer refund amount remains a separately authorized amount in the immutable dispute decision; do not infer it from the commission formula.
+- Preserve the agreement's distinction between a full refund and a partial refund. A full refund of the original deal value plus the fixed 7.5% fee requires a confirmed Safe balance sufficient for both amounts (for example, a 100 USDT refund plus 7.5 USDT fee requires at least 107.5 USDT). If the Safe contains only the original 100 USDT, do not silently relabel a 92.5 USDT net payment as a "full refund"; fail closed until the authorized decision/settlement and the new signed agreement wording resolve the allocation.
 - The exact Safe transfer set must account for the fixed platform fee and the approved buyer refund (and any separately authorized seller residual, if applicable) without exceeding the confirmed Safe-held balance. If the decision, signed terms, or available balance cannot support the exact allocation, fail closed and create no Safe request.
 - Do not alter the existing seller-release validator's exact two-transfer invariants to accommodate refunds. Buyer refunds require their own action-specific validator and tests.
 
