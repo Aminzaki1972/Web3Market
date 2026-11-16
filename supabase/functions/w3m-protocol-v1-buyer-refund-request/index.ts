@@ -63,7 +63,7 @@ function hash(value: unknown, label: string): string {
   return result.toLowerCase();
 }
 function decimalUnits(value: string): string {
-  if (!/^(0|[1-9][0-9]*)(?:\\.[0-9]{1,18})?$/.test(value)) throw new Error("Deal amount is not an exact 18-decimal value");
+  if (!/^(0|[1-9][0-9]*)(?:[.[0-9]{1,18})?$/.test(value)) throw new Error("Deal amount is not an exact 18-decimal value");
   const [whole, fraction = ""] = value.split(".");
   return (BigInt(whole) * (10n ** 18n) + BigInt((fraction + "0".repeat(18)).slice(0, 18))).toString();
 }
