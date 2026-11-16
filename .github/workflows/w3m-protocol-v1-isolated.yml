@@ -21,6 +21,7 @@ on:
       - "supabase/functions/w3m-protocol-v1-prepare-deal-release/**"
       - "supabase/functions/w3m-protocol-v1-safe-sign/**"
       - "supabase/functions/w3m-protocol-v1-buyer-refund-finalize/**"
+      - "supabase/functions/w3m-protocol-v1-buyer-refund-sign/**"
       - "supabase/functions/w3m-protocol-v1-safe-wallet-package/**"
       - "supabase/functions/w3m-protocol-v1-safe-wallet-submit/**"
       - "js/w3m-safe-wallet-execution-client.js"
@@ -257,6 +258,7 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/safe-sign-context-composer.ts
           deno check supabase/functions/w3m-protocol-v1-safe-sign/index.ts
           deno check supabase/functions/w3m-protocol-v1-buyer-refund-finalize/index.ts
+          deno check supabase/functions/w3m-protocol-v1-buyer-refund-sign/index.ts
           deno check supabase/functions/w3m-acquisition-verification/bearer-token.ts
           deno check supabase/functions/w3m-acquisition-verification/bearer-token.test.ts
           deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.ts
