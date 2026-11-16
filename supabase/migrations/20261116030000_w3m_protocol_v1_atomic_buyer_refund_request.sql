@@ -164,7 +164,13 @@ begin
     raise exception 'Verified administrator required to create a Safe refund request' using errcode='42501';
   end if;
 
-  -- Global lock order is parent deal, then dispute, then refund request/transaction.
+  -- Match the immutable dispute-decision RPC lock order: dispute row first,
+  -- then parent deal, then refund request/transaction. Safe finalization locks
+  -- only the parent deal and never takes a child-dispute lock.
+  select * into v_dispute from public.deal_disputes
+   where id=(p_intent->>'disputeId')::uuid and deal_id=p_deal_id for update;
+  if not found then raise exception 'Dispute not found for this deal' using errcode='P0002'; end if;
+
   select * into v_deal from public.deals where id=p_deal_id for update;
   if not found then raise exception 'Deal not found' using errcode='P0002'; end if;
   if v_deal.status is distinct from 'disputed'
@@ -177,10 +183,7 @@ begin
      or v_deal.amount is distinct from v_original then
     raise exception 'Deal is not in the exact buyer-refund state or funding binding changed' using errcode='23514';
   end if;
-
-  select * into v_dispute from public.deal_disputes
-   where id=(p_intent->>'disputeId')::uuid and deal_id=p_deal_id for update;
-  if not found or v_dispute.status is distinct from 'resolved'
+  if v_dispute.status is distinct from 'resolved'
      or v_dispute.resolution is distinct from 'buyer_wins' then
     raise exception 'Buyer-win dispute decision state is not resolved' using errcode='23514';
   end if;
