@@ -40,6 +40,7 @@ export async function persistBuyerRefundSignatureAtomically(
     p_request_id:input.requestId,p_actor_id:input.actorId,p_signer_role:input.signerRole,
     p_verified_wallet:input.verifiedWallet.toLowerCase(),
     p_safe_tx_hash:input.safeTransactionHash.toLowerCase(),
+    p_safe_nonce:input.safeNonce,
     p_signature:input.signature.toLowerCase(),
     p_server_authorization:{
       authorized:true,phase:"SIGN",request_id:input.requestId,
