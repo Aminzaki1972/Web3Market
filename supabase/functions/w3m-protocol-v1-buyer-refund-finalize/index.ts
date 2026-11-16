@@ -51,7 +51,7 @@ function txHash(value: unknown, label: string): string {
 }
 function amount(value: unknown, label: string): string {
   const v = required(value, label);
-  if (!/^(0|[1-9][0-9]*)(?:\\.[0-9]{1,18})?$/.test(v)) throw new Error(label + " malformed");
+  if (!/^(0|[1-9][0-9]*)(?:\.[0-9]{1,18})?$/.test(v)) throw new Error(label + " malformed");
   return v;
 }
 function ownerList(value: unknown): string[] {
