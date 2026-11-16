@@ -411,7 +411,7 @@ jobs:
       - name: Test authenticated buyer refund request boundary
         run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-request-handler.test.ts
       - name: Test buyer refund request endpoint security composition
-        run: deno test --allow-read=supabase/functions/w3m-protocol-v1-buyer-refund-request/index.ts,supabase/functions/w3m-acquisition-verification/buyer-refund-request-handler.ts,supabase/functions/verify-deal-payment/index.ts,supabase/functions/deal-payment-monitor/index.ts supabase/functions/w3m-acquisition-verification/buyer-refund-request-endpoint-contract.test.ts
+        run: deno test --allow-read=supabase/functions/w3m-protocol-v1-buyer-refund-request/index.ts,supabase/functions/w3m-protocol-v1-buyer-refund-sign/index.ts,supabase/functions/w3m-protocol-v1-buyer-refund-finalize/index.ts,supabase/functions/w3m-acquisition-verification/buyer-refund-request-handler.ts,supabase/functions/verify-deal-payment/index.ts,supabase/functions/deal-payment-monitor/index.ts supabase/functions/w3m-acquisition-verification/buyer-refund-request-endpoint-contract.test.ts
       - name: Test buyer refund Safe signing boundary
         run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-sign-request-handler.test.ts
       - name: Test atomic buyer refund signature persistence adapter
