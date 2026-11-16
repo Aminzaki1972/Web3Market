@@ -71,7 +71,7 @@ begin
   insert into auth.users(id) values (v_buyer),(v_seller) on conflict do nothing;
   -- Earlier disposable SQL tests may have already created these auth/profile
   -- identities. Reuse the exact fixture wallets instead of failing on a
-  -- harmless primary-key collision; this file is never run against production.
+  -- harmless primary-key collision; this fixture runs only in disposable PostgreSQL.
   insert into public.profiles (id,wallet_address,wallet_verified,wallet_verified_at) values
     (v_buyer,'0x3333333333333333333333333333333333333333',true,now()),
     (v_seller,'0x4444444444444444444444444444444444444444',true,now())
