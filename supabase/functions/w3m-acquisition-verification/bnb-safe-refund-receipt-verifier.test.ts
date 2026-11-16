@@ -75,7 +75,7 @@ Deno.test("rejects Safe failure, missing or duplicate execution success",async()
 });
 Deno.test("rejects platform fee not equal to 7.5% of original signed deal value",async()=>{
  const wrongFee=mock({receipt:{logs:[logs[0],logs[1],{...logs[2],data:wordUint(7n*10n**18n)}]}});
- await assertRejects(()=>verifyBnbSafeBuyerRefundReceipt(wrongFee.rpc,expected),BnbSafeRefundReceiptVerificationError,"not exactly 7.5%");
+ await assertRejects(()=>verifyBnbSafeBuyerRefundReceipt(wrongFee.rpc,{...expected,platformFeeAmount:"7"}),BnbSafeRefundReceiptVerificationError,"not exactly 7.5%");
 });
 
 Deno.test("rejects duplicate transfer log index and malformed expectations",async()=>{
