@@ -1,7 +1,7 @@
 // W3M Protocol V1 — exact unsigned Safe MultiSend transaction builder for buyer refunds.
 // Pure deterministic encoding only. Safe hash must be read from the live Safe contract
 // at a canonical BNB block by the caller. This module never signs or broadcasts.
-import type { BuyerRefundRequestIntent } from "./buyer-refund-request-builder.ts";
+import { W3M_BNB_USDT, W3M_PLATFORM_WALLET, type BuyerRefundRequestIntent } from "./buyer-refund-request-builder.ts";
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const UINT = /^(0|[1-9][0-9]*)$/;
@@ -68,6 +68,19 @@ export function buildBuyerRefundSafeTransaction(
   const safe = address(intent.safeAddress);
   const token = address(intent.tokenAddress);
   const buyer = address(intent.buyerRecipient);
+  const platform = address(W3M_PLATFORM_WALLET);
+  if (token !== address(W3M_BNB_USDT)) throw new Error("REFUND_SAFE_TX_TOKEN_NOT_OFFICIAL_BNB_USDT");
+  const originalUnits = units(intent.originalDealAmount);
+  const refundUnits = units(intent.buyerRefundAmount);
+  const feeUnits = units(intent.platformFeeAmount);
+  const fundedUnits = units(intent.confirmedFundedAmount);
+  const balanceUnits = units(intent.confirmedSafeBalance);
+  const expectedFeeUnits = (originalUnits * 75n + 500n) / 1000n;
+  if (originalUnits <= 0n || refundUnits <= 0n || fundedUnits <= 0n ||
+      refundUnits > fundedUnits || feeUnits !== expectedFeeUnits ||
+      refundUnits + feeUnits > balanceUnits) {
+    throw new Error("REFUND_SAFE_TX_AMOUNT_OR_FIXED_FEE_BINDING_INVALID");
+  }
   const transfers = intent.transfers;
   if (!Array.isArray(transfers) || transfers.length !== 2) {
     throw new Error("REFUND_SAFE_TX_REQUIRES_EXACTLY_TWO_TRANSFERS");
@@ -75,16 +88,14 @@ export function buildBuyerRefundSafeTransaction(
   const feeRecipient = address(transfers[1].recipient);
   if (address(transfers[0].to) !== token || transfers[0].method !== "transfer" ||
       address(transfers[0].recipient) !== buyer ||
-      units(transfers[0].amount) !== units(intent.buyerRefundAmount) ||
+      units(transfers[0].amount) !== refundUnits ||
       address(transfers[1].to) !== token || transfers[1].method !== "transfer" ||
-      feeRecipient !== address(transfers[1].recipient) ||
-      units(transfers[1].amount) !== units(intent.platformFeeAmount) ||
-      buyer === feeRecipient || units(intent.buyerRefundAmount) <= 0n ||
-      units(intent.platformFeeAmount) <= 0n) {
+      feeRecipient !== platform ||
+      units(transfers[1].amount) !== feeUnits ||
+      buyer === feeRecipient) {
     throw new Error("REFUND_SAFE_TX_TRANSFER_BINDING_MISMATCH");
   }
-  const buyerUnits = units(intent.buyerRefundAmount);
-  const feeUnits = units(intent.platformFeeAmount);
+  const buyerUnits = refundUnits;
   const calldata = multiSendCalldata([
     packedCall(token, transferData(buyer, buyerUnits)),
     packedCall(token, transferData(feeRecipient, feeUnits)),
