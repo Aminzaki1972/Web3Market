@@ -24,6 +24,7 @@ export interface BuyerRefundFinalizationContext {
   signerCount:number;
   signatureWallets:string[];
   currentOwners:string[];
+  recordedOwners:string[];
   currentThreshold:number;
   requiredSignatures:2;
   transactionStatus:"signed"|"submitted";
@@ -64,7 +65,10 @@ export async function handleBuyerRefundFinalization(request:Request,deps:BuyerRe
        c.transactionStatus!=="signed"&&c.transactionStatus!=="submitted"||c.signerCount!==2||c.requiredSignatures!==2||
        !Array.isArray(c.signatureWallets)||c.signatureWallets.length!==2||new Set(c.signatureWallets.map(x=>x.toLowerCase())).size!==2||
        !Array.isArray(c.currentOwners)||c.currentOwners.length!==3||new Set(c.currentOwners.map(x=>x.toLowerCase())).size!==3||
-       c.currentOwners.some(x=>!ADDRESS.test(x))||c.signatureWallets.some(x=>!ADDRESS.test(x)||!c.currentOwners.map(y=>y.toLowerCase()).includes(x.toLowerCase()))||c.currentThreshold!==2){
+       c.currentOwners.some(x=>!ADDRESS.test(x))||!Array.isArray(c.recordedOwners)||c.recordedOwners.length!==3||
+       new Set(c.recordedOwners.map(x=>x.toLowerCase())).size!==3||c.recordedOwners.some(x=>!ADDRESS.test(x))||
+       c.currentOwners.map(x=>x.toLowerCase()).sort().join(":")!==c.recordedOwners.map(x=>x.toLowerCase()).sort().join(":")||
+       c.signatureWallets.some(x=>!ADDRESS.test(x)||!c.currentOwners.map(y=>y.toLowerCase()).includes(x.toLowerCase()))||c.currentThreshold!==2){
       return json(409,{ok:false,error:"FRESH_SIGNED_REFUND_CONTEXT_INVALID"});
     }
     const e=c.expectation;
