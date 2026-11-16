@@ -207,6 +207,6 @@ begin
     and (payment_status <> 'pending' or payment_tx_hash is not null or status <> 'accepted');
   if v_count <> 0 then raise exception 'failed payment attempt partially updated the deal'; end if;
 end;
-$;
+$$;
 
 rollback;
