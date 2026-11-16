@@ -1,5 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { buildFreshBnbDealPaymentContext } from "../w3m-acquisition-verification/fresh-bnb-deal-payment-context.ts";
+import { verifyBnbDealPaymentReceipt } from "../w3m-acquisition-verification/bnb-deal-payment-receipt-verifier.ts";
+import { finalizeVerifiedDealPayment } from "../w3m-acquisition-verification/deal-payment-finalization-rpc-adapter.ts";
 
 const TRANSFER="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const DECIMALS="0x313ce567";
@@ -12,7 +15,7 @@ const topic=(a:string)=>"0x"+a.toLowerCase().replace(/^0x/,"").padStart(64,"0");
 const units=(v:string,d:number)=>{const [w,f=""]=String(v).trim().split(".");if(!/^\d+$/.test(w)||!/^\d*$/.test(f)||f.length>d)throw Error("Invalid expected amount");return BigInt(w)*(10n**BigInt(d))+BigInt((f+"0".repeat(d)).slice(0,d)||"0")};
 async function rpc(u:string,m:string,p:unknown[]){const r=await fetch(u,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:m,params:p})});if(!r.ok)throw Error("RPC HTTP "+r.status);const j=await r.json();if(j.error)throw Error(j.error.message||"RPC error");return j.result}
 function rpcCandidates(){const raw=[Deno.env.get("BSC_RPC_URLS"),Deno.env.get("BSC_RPC_URL"),"https://bsc-rpc.publicnode.com","https://bsc-dataseed.binance.org","https://bsc.publicnode.com"].filter(Boolean).join(",");return [...new Set(raw.split(",").map(x=>x.trim()).filter(Boolean))]}
-async function providers(){const ok:string[]=[];for(const u of rpcCandidates()){try{await rpc(u,"eth_blockNumber",[]);ok.push(u)}catch{}}if(!ok.length)throw Error("BSC RPC unavailable");return ok}
+async function providers(){const ok:string[]=[];for(const u of rpcCandidates()){try{const chain=bi(await rpc(u,"eth_chainId",[]));if(chain!==56n)continue;await rpc(u,"eth_blockNumber",[]);ok.push(u)}catch{}}if(!ok.length)throw Error("No BNB Chain (56) RPC provider available");return ok}
 function ownerList(raw:string){const h=raw.replace(/^0x/,"");if(h.length<128)return[];const off=Number(bi("0x"+h.slice(0,64)))*2,n=Number(bi("0x"+h.slice(off,off+64)));return Array.from({length:n},(_,i)=>"0x"+h.slice(off+64+i*64+24,off+64+(i+1)*64)).filter(x=>x.length===42).map(x=>x.toLowerCase())}
 async function safeCheck(p:string,safe:string,buyer:string,seller:string){const code=await rpc(p,"eth_getCode",[safe,"latest"]);if(!code||code==="0x")throw Error("Safe contract missing");const os=ownerList(String(await rpc(p,"eth_call",[{to:safe,data:OWNERS},"latest"])));const th=Number(bi(await rpc(p,"eth_call",[{to:safe,data:THRESHOLD},"latest"])));const set=new Set(os);if(os.length!==3||set.size!==3||th!==2||![buyer,seller,PLATFORM].every(x=>set.has(x.toLowerCase())))throw Error("Safe owner/threshold mismatch")}
 
@@ -77,17 +80,11 @@ Deno.serve(async req=>{
    if(!found.length){await db.from("deals").update({payment_scan_from_block:depBlock,payment_scan_last_block:to,payment_scan_updated_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",d.id);results.push({deal_id:d.id,found:false,scanned_from:from,scanned_to:to});continue}
    let confirmed=false;
    for(const h of found){
-    const tx=await rpc(p,"eth_getTransactionByHash",[h]);const rc=await rpc(p,"eth_getTransactionReceipt",[h]);if(!tx||!rc||rc.status!=="0x1")continue;
-    if(String(tx.from).toLowerCase()!==b.wallet_address.toLowerCase()||String(tx.to).toLowerCase()!==d.token_contract.toLowerCase())continue;
-    const conf=latest-Number(bi(rc.blockNumber))+1;if(conf<3)continue;
-    let amount:null|bigint=null;for(const l of rc.logs||[]){if(String(l.address).toLowerCase()===d.token_contract.toLowerCase()&&String(l.topics?.[0]).toLowerCase()===TRANSFER&&String(l.topics?.[1]).toLowerCase()===topic(b.wallet_address)&&String(l.topics?.[2]).toLowerCase()===topic(d.safe_address)){amount=bi(l.data||"0x0");break}}
-    if(amount!==expected)continue;
-    const feePct=Number(d.platform_fee_percent??7.5);if(feePct!==7.5)throw Error("Deal fee configuration is invalid");const fee=Number(d.amount)*feePct/100;
-    const old=String(d.status),next=["accepted","pending","in_progress"].includes(old)?"funded":old;
-    const ins=await db.from("blockchain_transactions").upsert({user_id:d.buyer_id,deal_id:d.id,chain_id:56,tx_hash:h,transaction_type:"payment",token_symbol:d.token_symbol||d.currency,amount:d.expected_amount??d.amount,to_address:d.safe_address,from_address:b.wallet_address.toLowerCase(),status:"confirmed",block_number:Number(bi(rc.blockNumber)),confirmed_at:new Date().toISOString(),metadata:{verified_by:"deal-payment-monitor",discovery:"bsc-rpc-eth_getLogs",confirmations:conf,token_decimals:dec}},{onConflict:"tx_hash"});if(ins.error)throw ins.error;
-    const up=await db.from("deals").update({payment_tx_hash:h,payment_status:"confirmed",status:next,funded_at:new Date().toISOString(),platform_fee_amount:fee,seller_net_amount:Number(d.amount)-fee,platform_fee:fee,fee_locked_at:new Date().toISOString(),payment_scan_from_block:depBlock,payment_scan_last_block:to,payment_scan_updated_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",d.id).is("payment_tx_hash",null);if(up.error)throw up.error;
-    await db.from("deal_audit_logs").insert({deal_id:d.id,actor_id:null,action:"payment_verified_automatically",old_status:old,new_status:next,metadata:{tx_hash:h,confirmations:conf,discovery:"bsc-rpc-eth_getLogs"}});
-    confirmed=true;results.push({deal_id:d.id,verified:true,tx_hash:h,confirmations:conf});break;
+    const context=buildFreshBnbDealPaymentContext({actorUserId:d.buyer_id,deal:d,buyer:b,seller:s,transactionHash:h,minConfirmations:3});
+    const receiptRpc={async request<T>(method:string,params:unknown[]=[]):Promise<T>{return await rpc(p,method,params) as T}};
+    const verifiedReceipt=await verifyBnbDealPaymentReceipt(receiptRpc,context.expectation);
+    const finalized=await finalizeVerifiedDealPayment({async rpc(functionName,args){const {data,error}=await db.rpc(functionName,args);return {data,error}}},{dealId:context.dealId,actorId:d.buyer_id,receipt:verifiedReceipt});
+    confirmed=true;results.push({deal_id:d.id,verified:true,tx_hash:h,confirmations:verifiedReceipt.confirmations,idempotent:finalized.idempotent});break;
    }
    if(!confirmed)results.push({deal_id:d.id,found:true,verified:false,candidates:found.length});
   }catch(e){results.push({deal_id:d.id,error:e instanceof Error?e.message:String(e)})}
