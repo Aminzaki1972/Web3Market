@@ -16,14 +16,14 @@ function forbidText(source: string, pattern: RegExp, label: string): void {
 Deno.test("buyer refund request entrypoint composes fresh authorization and canonical evidence", () => {
   requireText(endpoint, /supabase\.auth\.getUser\(token\)/, "Supabase bearer-session authentication");
   requireText(endpoint, /from\(["']profiles["']\)\.select\(["']id,role["']\)/, "server-side admin role lookup");
-  requireText(endpoint, /readBuyerRefundRequestSnapshot\(/, "fresh service-side refund snapshot");
-  requireText(endpoint, /verifyBuyerRefundAgreementAcceptances\(/, "cryptographic buyer and seller agreement acceptances");
-  requireText(endpoint, /verifyBnbDealPaymentReceipt\(/, "canonical confirmed funding receipt");
-  requireText(endpoint, /readCanonicalBnbSafeConfigurationFacts\(/, "canonical Safe owners, threshold, singleton and version");
-  requireText(endpoint, /readCanonicalBnbUsdtBalance\(/, "block-pinned Safe USDT balance");
-  requireText(endpoint, /readCanonicalBnbSafeTransactionFactsAtBlock\(/, "Safe transaction hash at the same canonical block");
-  requireText(endpoint, /decodeSafeMultiSendCalldata\(/, "decoded exact MultiSend transfer payload");
-  requireText(endpoint, /persistBuyerRefundRequestAtomically\(/, "single atomic request persistence boundary");
+  requireText(endpoint, /readSnapshot:\s*readBuyerRefundRequestSnapshot/, "fresh service-side refund snapshot");
+  requireText(endpoint, /verifyAcceptances:\s*verifyBuyerRefundAgreementAcceptances/, "cryptographic buyer and seller agreement acceptances");
+  requireText(endpoint, /verifyFundingReceipt:\s*verifyBnbDealPaymentReceipt/, "canonical confirmed funding receipt");
+  requireText(endpoint, /readSafeConfiguration:\s*readCanonicalBnbSafeConfigurationFacts/, "canonical Safe owners, threshold, singleton and version");
+  requireText(endpoint, /readUsdtBalance:\s*readCanonicalBnbUsdtBalance/, "block-pinned Safe USDT balance");
+  requireText(endpoint, /readSafeTransactionFacts:\s*readCanonicalBnbSafeTransactionFactsAtBlock/, "Safe transaction hash at the same canonical block");
+  requireText(endpoint, /decodeMultiSend:\s*decodeSafeMultiSendCalldata/, "decoded exact MultiSend transfer payload");
+  requireText(endpoint, /persistRequest:\s*persistBuyerRefundRequestAtomically/, "single atomic request persistence boundary");
 });
 
 Deno.test("buyer refund request entrypoint remains read-only on chain and non-custodial", () => {
@@ -50,9 +50,9 @@ const monitorPayment = await Deno.readTextFile(monitorPaymentUrl);
 Deno.test("manual and automatic payment paths share strict receipt verification and atomic finalization", () => {
   for (const [label, source] of [["manual verifier", manualPayment], ["automatic monitor", monitorPayment]] as const) {
     requireText(source, /buildFreshBnbDealPaymentContext\(/, label + " fresh server-derived deal context");
-    requireText(source, /verifyBnbDealPaymentReceipt\(/, label + " exact canonical receipt verification");
+    requireText(source, /verifyFundingReceipt:\s*verifyBnbDealPaymentReceipt/, label + " exact canonical receipt verification");
     requireText(source, /finalizeVerifiedDealPayment\(/, label + " atomic payment finalization RPC");
-    requireText(source, /readCanonicalBnbSafeConfigurationFacts\(/, label + " canonical 2-of-3 Safe configuration");
+    requireText(source, /readSafeConfiguration:\s*readCanonicalBnbSafeConfigurationFacts/, label + " canonical 2-of-3 Safe configuration");
     forbidText(source, /from\(["']blockchain_transactions["']\)\.(insert|update|upsert|delete)\s*\(/, label + " direct blockchain transaction table writes");
   }
 });
@@ -71,11 +71,11 @@ const finalizeEndpoint = await Deno.readTextFile(finalizeEndpointUrl);
 
 Deno.test("buyer refund SIGN entrypoint verifies participant signature against fresh canonical Safe state", () => {
   requireText(signEndpoint, /supabase\.auth\.getUser\(/, "authenticated participant session");
-  requireText(signEndpoint, /createBuyerRefundSignRequestHandler\(/, "strict participant SIGN handler");
+  requireText(signEndpoint, /createSignHandler:\s*createBuyerRefundSignRequestHandler/, "strict participant SIGN handler");
   requireText(signEndpoint, /loadFreshContext:\s*async/, "fresh database-derived signing context");
-  requireText(signEndpoint, /readCanonicalBnbSafeExecutionFacts\(/, "canonical BNB Safe transaction and owner verification");
-  requireText(signEndpoint, /verifyEthereumRawDigestSignature\(/, "cryptographic raw-digest signature recovery");
-  requireText(signEndpoint, /persistBuyerRefundSignatureAtomically\(/, "atomic signature registry persistence");
+  requireText(signEndpoint, /readSafeExecutionFacts:\s*readCanonicalBnbSafeExecutionFacts/, "canonical BNB Safe transaction and owner verification");
+  requireText(signEndpoint, /verifyRawDigestSignature:\s*verifyEthereumRawDigestSignature/, "cryptographic raw-digest signature recovery");
+  requireText(signEndpoint, /persistSignature:\s*persistBuyerRefundSignatureAtomically/, "atomic signature registry persistence");
   forbidText(signEndpoint, /eth_sendRawTransaction|eth_sendTransaction/i, "chain transaction broadcast");
   forbidText(signEndpoint, /\.sendTransaction\s*\(|\.signTransaction\s*\(|\.signMessage\s*\(|\.signTypedData\s*\(/, "server-side wallet signing");
   forbidText(signEndpoint, /private[_-]?key|mnemonic|seedPhrase/i, "private key or seed material");
@@ -86,8 +86,8 @@ Deno.test("buyer refund FINALIZE entrypoint is admin-gated and receipt-verified 
   requireText(finalizeEndpoint, /supabase\.auth\.getUser\(/, "authenticated administrator session");
   requireText(finalizeEndpoint, /isAdmin:\s*async/, "server-side administrator authorization");
   requireText(finalizeEndpoint, /String\(data\.role \?\? ""\)\.toLowerCase\(\) === "admin"/, "admin role is read from trusted profile row");
-  requireText(finalizeEndpoint, /verifyBnbSafeBuyerRefundReceipt\(/, "canonical BNB Safe refund receipt verification");
-  requireText(finalizeEndpoint, /finalizeBuyerRefundAtomically\(/, "atomic refund receipt and deal finalization");
+  requireText(finalizeEndpoint, /verifyReceipt:\s*verifyBnbSafeBuyerRefundReceipt/, "canonical BNB Safe refund receipt verification");
+  requireText(finalizeEndpoint, /finalizeAtomically:\s*finalizeBuyerRefundAtomically/, "atomic refund receipt and deal finalization");
   forbidText(finalizeEndpoint, /eth_sendRawTransaction|eth_sendTransaction/i, "chain transaction broadcast");
   forbidText(finalizeEndpoint, /\.sendTransaction\s*\(|\.signTransaction\s*\(|\.signMessage\s*\(|\.signTypedData\s*\(/, "server-side wallet signing");
   forbidText(finalizeEndpoint, /private[_-]?key|mnemonic|seedPhrase/i, "private key or seed material");
