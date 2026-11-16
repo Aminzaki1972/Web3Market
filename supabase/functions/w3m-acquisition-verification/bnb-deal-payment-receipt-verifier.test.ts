@@ -8,7 +8,8 @@ const TRANSFER="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3
 const log={address:TOKEN,topics:[TRANSFER,topic(BUYER),topic(SAFE)],data:"0x"+1000n.toString(16).padStart(64,"0"),logIndex:"0x0",transactionHash:TX,blockHash:BLOCK,blockNumber:"0x64"};
 const expected={transactionHash:TX,buyerWallet:BUYER,safeAddress:SAFE,tokenContract:TOKEN,expectedAmountBaseUnits:"1000",minConfirmations:3};
 function mock(overrides:Record<string,unknown>={}) {
- const receiptOverride=overrides.receipt && typeof overrides.receipt==="object" ? overrides.receipt as Record<string,unknown> : {};\n const receipt={transactionHash:TX,status:"0x1",blockHash:BLOCK,blockNumber:"0x64",logs:[log],...receiptOverride};
+ const receiptOverride=overrides.receipt && typeof overrides.receipt==="object" ? overrides.receipt as Record<string,unknown> : {};
+ const receipt={transactionHash:TX,status:"0x1",blockHash:BLOCK,blockNumber:"0x64",logs:[log],...receiptOverride};
  const calls:string[]=[];
  const rpc={async request<T>(method:string):Promise<T>{
   calls.push(method);let v:unknown;
