@@ -65,7 +65,8 @@ begin
   select pg_get_functiondef(
     'public.w3m_admin_decide_deal_dispute(uuid,uuid,text,text,jsonb,text,uuid)'::regprocedure
   ) into v_decision_function;
-  if position('SELECT * INTO V_DISPUTE' in upper(v_decision_function))=0
+  if position('V_REFUND_AMOUNT + ROUND(V_DEAL.AMOUNT * 0.075,18) <> V_DEAL.AMOUNT' in upper(v_decision_function))=0
+     or position('SELECT * INTO V_DISPUTE' in upper(v_decision_function))=0
      or position('SELECT * INTO V_DEAL' in upper(v_decision_function))=0
      or position('SELECT * INTO V_DISPUTE' in upper(v_decision_function)) >
         position('SELECT * INTO V_DEAL' in upper(v_decision_function)) then
