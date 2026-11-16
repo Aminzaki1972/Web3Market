@@ -74,24 +74,6 @@ begin
     raise exception 'W3M_PAYMENT_FEE_CONFIGURATION_INVALID';
   end if;
 
-  if v_deal.status not in ('accepted', 'pending', 'in_progress')
-     or lower(coalesce(v_deal.payment_status, '')) not in ('pending', '') then
-    if v_deal.payment_status = 'confirmed'
-       and lower(coalesce(v_deal.payment_tx_hash, '')) = lower(p_tx_hash) then
-      select bt.* into v_existing
-      from public.blockchain_transactions bt
-      where lower(bt.tx_hash) = lower(p_tx_hash)
-      limit 1;
-      if found and v_existing.deal_id = v_deal.id
-         and v_existing.transaction_type = 'payment'
-         and v_existing.status = 'confirmed' then
-        return jsonb_build_object('ok', true, 'verified', true, 'idempotent', true,
-          'deal_id', v_deal.id, 'tx_hash', lower(p_tx_hash));
-      end if;
-    end if;
-    raise exception 'W3M_PAYMENT_DEAL_STATE_INVALID';
-  end if;
-
   if v_deal.payment_tx_hash is not null
      and lower(v_deal.payment_tx_hash) <> lower(p_tx_hash) then
     raise exception 'W3M_PAYMENT_DIFFERENT_HASH_ALREADY_RECORDED';
@@ -129,7 +111,7 @@ begin
 
   select bt.* into v_existing
   from public.blockchain_transactions bt
-  where bt.tx_hash = lower(p_tx_hash)
+  where lower(bt.tx_hash) = lower(p_tx_hash)
   limit 1;
 
   if found then
@@ -137,9 +119,25 @@ begin
        or v_existing.transaction_type is distinct from 'payment' then
       raise exception 'W3M_PAYMENT_TRANSACTION_HASH_ALREADY_BOUND';
     end if;
-    if v_existing.status <> 'confirmed' then
-      raise exception 'W3M_PAYMENT_TRANSACTION_HASH_ALREADY_EXISTS';
+    if v_existing.status <> 'confirmed'
+       or v_existing.chain_id is distinct from 56
+       or v_existing.amount is distinct from v_expected_amount
+       or lower(coalesce(v_existing.to_address, '')) is distinct from lower(v_deal.safe_address)
+       or lower(coalesce(v_existing.from_address, '')) is distinct from lower(v_buyer.wallet_address) then
+      raise exception 'W3M_PAYMENT_EXISTING_TRANSACTION_ROW_MISMATCH';
     end if;
+  end if;
+
+  if v_deal.status not in ('accepted', 'pending', 'in_progress')
+     or lower(coalesce(v_deal.payment_status, '')) not in ('pending', '') then
+    if v_deal.status in ('funded', 'in_progress', 'completed', 'disputed')
+       and v_deal.payment_status = 'confirmed'
+       and lower(coalesce(v_deal.payment_tx_hash, '')) = lower(p_tx_hash)
+       and found then
+      return jsonb_build_object('ok', true, 'verified', true, 'idempotent', true,
+        'deal_id', v_deal.id, 'tx_hash', lower(p_tx_hash));
+    end if;
+    raise exception 'W3M_PAYMENT_DEAL_STATE_INVALID';
   end if;
 
   v_fee := round(v_deal.amount * 0.075, 18);
