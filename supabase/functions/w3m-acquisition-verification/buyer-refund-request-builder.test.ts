@@ -11,7 +11,7 @@ const HASH="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const UUID="11111111-1111-4111-8111-111111111111";
 function fixture(): BuyerRefundRequestContext {
   return {
-    decision:{id:UUID,dealId:UUID,disputeId:"22222222-2222-4222-8222-222222222222",outcome:"buyer_wins",decisionHash:"a".repeat(64),termsHash:"b".repeat(64),refundAmount:"92.5"},
+    decision:{id:UUID,dealId:UUID,disputeId:"22222222-2222-4222-8222-222222222222",outcome:"buyer_wins",decisionHash:"a".repeat(64),termsHash:"b".repeat(64),buyerRefundAmount:"92.5"},
     terms:{dealId:UUID,termsHash:"b".repeat(64),originalDealAmount:"100",chainId:56,safeAddress:SAFE,buyerId:"buyer-id",sellerId:"seller-id",buyerAccepted:true,sellerAccepted:true},
     deal:{id:UUID,buyerId:"buyer-id",sellerId:"seller-id",status:"disputed",disputeStatus:"resolved_buyer",chainId:56,safeAddress:SAFE,tokenAddress:W3M_BNB_USDT},
     buyer:{id:"buyer-id",wallet:BUYER,verified:true},
@@ -57,7 +57,7 @@ Deno.test("requires exact live Safe owner set and 2-of-3 threshold",()=>{
   rejects(()=>buildBuyerRefundRequestIntent(y),"LIVE_SAFE_MUST_MATCH_EXACT_2_OF_3_OWNER_SET");
 });
 Deno.test("bounds refund by confirmed deal funding and actual Safe balance",()=>{
-  const x=fixture(); x.decision.refundAmount="101"; x.safe.balance="200";
+  const x=fixture(); x.decision.buyerRefundAmount="101"; x.safe.balance="200";
   rejects(()=>buildBuyerRefundRequestIntent(x),"REFUND_AMOUNT_OUT_OF_CONFIRMED_FUNDING_BOUNDS");
   const y=fixture(); y.safe.balance="99.99";
   rejects(()=>buildBuyerRefundRequestIntent(y),"SAFE_BALANCE_INSUFFICIENT_FOR_REFUND_AND_FIXED_PLATFORM_FEE");
