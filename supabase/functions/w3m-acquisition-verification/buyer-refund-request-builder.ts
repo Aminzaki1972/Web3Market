@@ -58,7 +58,7 @@ export function buildBuyerRefundRequestIntent(c: BuyerRefundRequestContext): Buy
   if (c.deal.status !== "disputed" || c.deal.disputeStatus !== "resolved_buyer") throw new Error("DEAL_NOT_IN_BUYER_REFUND_STATE");
   if (c.decision.dealId !== c.deal.id || c.decision.disputeId === "" || c.terms.dealId !== c.deal.id) throw new Error("DECISION_DEAL_BINDING_MISMATCH");
   if (c.decision.termsHash !== c.terms.termsHash || !/^[0-9a-f]{64}$/.test(c.terms.termsHash)) throw new Error("DECISION_TERMS_HASH_MISMATCH");
-  hash(c.decision.decisionHash);
+  if (!/^[0-9a-f]{64}$/i.test(c.decision.decisionHash)) throw new Error("REFUND_DECISION_HASH_INVALID");
   if (c.terms.buyerId !== c.deal.buyerId || c.terms.sellerId !== c.deal.sellerId ||
       c.buyer.id !== c.deal.buyerId || c.seller.id !== c.deal.sellerId ||
       !c.buyer.verified || !c.seller.verified || !c.terms.buyerAccepted || !c.terms.sellerAccepted) {
@@ -94,7 +94,7 @@ export function buildBuyerRefundRequestIntent(c: BuyerRefundRequestContext): Buy
   return {
     action: "refund_to_buyer",
     decisionId: c.decision.id,
-    decisionHash: hash(c.decision.decisionHash),
+    decisionHash: c.decision.decisionHash.toLowerCase(),
     disputeId: c.decision.disputeId,
     dealId: c.deal.id,
     termsHash: c.terms.termsHash,
