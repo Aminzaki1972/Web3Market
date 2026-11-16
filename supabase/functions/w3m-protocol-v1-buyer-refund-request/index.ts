@@ -31,6 +31,26 @@ import { readCanonicalBnbUsdtBalance } from "../w3m-acquisition-verification/bnb
 import { persistBuyerRefundRequestAtomically } from "../w3m-acquisition-verification/buyer-refund-request-persistence-adapter.ts";
 import type { W3MRpcClient } from "../w3m-acquisition-verification/supabase-rpc-adapter.ts";
 
+
+type W3MRefundRequestEndpointDependencies = {
+  getEnv(name: string): string | undefined;
+  createClient: typeof createClient;
+  createRpcClient: typeof createAllowlistedBnbRpcClient;
+  handleRequest: typeof handleW3MBuyerRefundRequest;
+  readSnapshot: typeof readBuyerRefundRequestSnapshot;
+  canonicalJson: typeof canonicalJson;
+  sha256Hex: typeof sha256Hex;
+  verifyAcceptances: typeof verifyBuyerRefundAgreementAcceptances;
+  buildIntent: typeof buildBuyerRefundRequestIntent;
+  buildSafeTransaction: typeof buildBuyerRefundSafeTransaction;
+  decodeMultiSend: typeof decodeSafeMultiSendCalldata;
+  verifyFundingReceipt: typeof verifyBnbDealPaymentReceipt;
+  readSafeConfiguration: typeof readCanonicalBnbSafeConfigurationFacts;
+  readSafeTransactionFacts: typeof readCanonicalBnbSafeTransactionFactsAtBlock;
+  readUsdtBalance: typeof readCanonicalBnbUsdtBalance;
+  persistRequest: typeof persistBuyerRefundRequestAtomically;
+};
+
 const ORIGINS = new Set(["https://web3market.xyz", "https://www.web3market.xyz"]);
 const PLATFORM = W3M_PLATFORM_WALLET.toLowerCase();
 const ADDRESS = /^0x[0-9a-f]{40}$/i;
@@ -86,27 +106,47 @@ function sameAddressSet(actual: string[], expected: string[]): boolean {
   return actual.map((v) => v.toLowerCase()).sort().join(":") === expected.map((v) => v.toLowerCase()).sort().join(":");
 }
 
-Deno.serve(async (request) => {
+export function createW3MBuyerRefundRequestEndpoint(overrides: Partial<W3MRefundRequestEndpointDependencies> = {}) {
+  const deps: W3MRefundRequestEndpointDependencies = {
+    getEnv: (name) => deps.getEnv(name),
+    createClient,
+    createRpcClient: createAllowlistedBnbRpcClient,
+    handleRequest: handleW3MBuyerRefundRequest,
+    readSnapshot: readBuyerRefundRequestSnapshot,
+    canonicalJson,
+    sha256Hex,
+    verifyAcceptances: verifyBuyerRefundAgreementAcceptances,
+    buildIntent: buildBuyerRefundRequestIntent,
+    buildSafeTransaction: buildBuyerRefundSafeTransaction,
+    decodeMultiSend: decodeSafeMultiSendCalldata,
+    verifyFundingReceipt: verifyBnbDealPaymentReceipt,
+    readSafeConfiguration: readCanonicalBnbSafeConfigurationFacts,
+    readSafeTransactionFacts: readCanonicalBnbSafeTransactionFactsAtBlock,
+    readUsdtBalance: readCanonicalBnbUsdtBalance,
+    persistRequest: persistBuyerRefundRequestAtomically,
+    ...overrides,
+  };
+  return async (request: Request) => {
   const origin = request.headers.get("origin") ?? "";
   if (!ORIGINS.has(origin)) return new Response(null, { status: 403 });
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(origin) });
   if (request.method !== "POST") return json(405, { ok: false, error: "POST_REQUIRED" }, origin);
 
-  const url = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const url = deps.getEnv("SUPABASE_URL");
+  const serviceKey = deps.getEnv("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !serviceKey) return json(503, { ok: false, error: "W3M_REFUND_REQUEST_NOT_CONFIGURED" }, origin);
 
   let rpc: JsonRpcClient;
   try {
-    rpc = createAllowlistedBnbRpcClient({
-      rpcUrl: Deno.env.get("BSC_RPC_URL") ?? "https://bsc-rpc.publicnode.com",
+    rpc = deps.createRpcClient({
+      rpcUrl: deps.getEnv("BSC_RPC_URL") ?? "https://bsc-rpc.publicnode.com",
       allowedHosts: ["bsc-rpc.publicnode.com"],
     });
   } catch {
     return json(503, { ok: false, error: "W3M_BNB_RPC_NOT_ALLOWED" }, origin);
   }
 
-  const supabase = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const supabase = deps.createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const database: W3MRpcClient = {
     async rpc(name, args) {
       const result = await supabase.rpc(name, args);
@@ -114,7 +154,7 @@ Deno.serve(async (request) => {
     },
   };
 
-  const response = await handleW3MBuyerRefundRequest(request, {
+  const response = await deps.handleRequest(request, {
     authenticate: async (token) => {
       const { data, error } = await supabase.auth.getUser(token);
       return error || !data.user?.id ? null : data.user.id;
@@ -125,7 +165,7 @@ Deno.serve(async (request) => {
       return data?.id === actorId && String(data.role ?? "").toLowerCase() === "admin";
     },
     prepare: async ({ dealId, actorId }) => {
-      const snapshot = await readBuyerRefundRequestSnapshot(database, { dealId, actorId });
+      const snapshot = await deps.readSnapshot(database, { dealId, actorId });
       const deal = snapshot.deal;
       const dispute = snapshot.dispute;
       const decision = snapshot.decision;
@@ -193,7 +233,7 @@ Deno.serve(async (request) => {
             ((BigInt(decimalUnits(dealAmount)) * 75n + 500n) / 1000n)) {
         throw new Error("Canonical signed terms do not match the current deal or pinned agreement");
       }
-      const recomputedTermsHash = await sha256Hex(canonicalJson(canonicalTerms));
+      const recomputedTermsHash = await deps.sha256Hex(deps.canonicalJson(canonicalTerms));
       if (recomputedTermsHash !== termsHash) throw new Error("Stored canonical terms do not reproduce the signed terms hash");
 
       const buyerAcceptance = snapshot.acceptances.find((row) => row.party_role === "buyer");
@@ -201,7 +241,7 @@ Deno.serve(async (request) => {
       if (!buyerAcceptance || !sellerAcceptance || snapshot.acceptances.length !== 2) {
         throw new Error("Exactly one buyer and one seller agreement acceptance are required");
       }
-      const acceptance = verifyBuyerRefundAgreementAcceptances({
+      const acceptance = deps.verifyAcceptances({
         dealId: dealIdFromSnapshot, projectId, buyerId, sellerId,
         termsVersionId: termsId, termsVersion, termsHash, safeAddress,
         agreementDocumentVersion: W3M_AGREEMENT_DOCUMENT_VERSION,
@@ -212,7 +252,7 @@ Deno.serve(async (request) => {
       });
 
       const fundingTxHash = hash(deal.payment_tx_hash, "Confirmed funding transaction hash");
-      const verifiedFunding = await verifyBnbDealPaymentReceipt(rpc, {
+      const verifiedFunding = await deps.verifyFundingReceipt(rpc, {
         transactionHash: fundingTxHash,
         buyerWallet,
         safeAddress,
@@ -234,7 +274,7 @@ Deno.serve(async (request) => {
       };
 
       const expectedOwners = [buyerWallet, sellerWallet, PLATFORM];
-      const safeConfig = await readCanonicalBnbSafeConfigurationFacts(rpc, {
+      const safeConfig = await deps.readSafeConfiguration(rpc, {
         safeAddress,
         expectedSafeAddress: safeAddress,
         expectedOwners,
@@ -248,7 +288,7 @@ Deno.serve(async (request) => {
         throw new Error("Canonical Safe configuration is not the required 2-of-3 deployment");
       }
       const safeBlockNumber = decimalBlock(safeConfig.readBlockNumber);
-      const safeBalance = await readCanonicalBnbUsdtBalance(rpc, {
+      const safeBalance = await deps.readUsdtBalance(rpc, {
         safeAddress, blockNumber: safeBlockNumber, blockHash: safeConfig.readBlockHash,
       });
       if (safeBalance.blockHash !== safeConfig.readBlockHash ||
@@ -284,9 +324,9 @@ Deno.serve(async (request) => {
           owners: safeConfig.owners, threshold: 2, balance: safeBalance.balance,
         },
       };
-      const intent = buildBuyerRefundRequestIntent(context);
-      const built = buildBuyerRefundSafeTransaction(intent, safeConfig.nonce);
-      const decoded = decodeSafeMultiSendCalldata(built.safeTransaction.data);
+      const intent = deps.buildIntent(context);
+      const built = deps.buildSafeTransaction(intent, safeConfig.nonce);
+      const decoded = deps.decodeMultiSend(built.safeTransaction.data);
       if (!decoded.valid || decoded.calls.length !== 2 ||
           decoded.calls.some((call) => call.operation !== 0 || call.value !== "0" ||
             call.to.toLowerCase() !== W3M_BNB_USDT || call.method !== "transfer") ||
@@ -297,7 +337,7 @@ Deno.serve(async (request) => {
         throw new Error("Decoded MultiSend payload does not match the two approved refund transfers");
       }
 
-      const safeTxFacts = await readCanonicalBnbSafeTransactionFactsAtBlock(rpc, {
+      const safeTxFacts = await deps.readSafeTransactionFacts(rpc, {
         safeAddress, expectedSafeAddress: safeAddress, expectedOwners,
         expectedThreshold: 2, expectedVersion: "1.4.1", expectedChainId: 56,
         expectedNonce: safeConfig.nonce,
@@ -354,11 +394,14 @@ Deno.serve(async (request) => {
         serverAuthorization,
       };
     },
-    persist: async (input) => await persistBuyerRefundRequestAtomically(database, input),
+    persist: async (input) => await deps.persistRequest(database, input),
   });
 
   const headers = new Headers(response.headers);
   for (const [key, value] of Object.entries(cors(origin))) headers.set(key, value);
   headers.set("cache-control", "no-store");
   return new Response(response.body, { status: response.status, headers });
-});
+  };
+}
+
+if (import.meta.main) Deno.serve(createW3MBuyerRefundRequestEndpoint());
