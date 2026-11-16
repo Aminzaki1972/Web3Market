@@ -52,12 +52,23 @@ export async function persistBuyerRefundRequestAtomically(
  requiredText(safeFacts.block_hash,"Canonical Safe block hash");
  requiredText(fundingFacts.tx_hash,"Confirmed funding transaction hash");
  requiredText(fundingFacts.block_hash,"Canonical funding block hash");
- if(!UUID.test(intent.decisionId)||!UUID.test(intent.disputeId)||
+ if(intent.action!=="refund_to_buyer"||intent.chainId!==56||
+    !UUID.test(intent.decisionId)||!UUID.test(intent.disputeId)||
     !/^[0-9a-f]{64}$/i.test(intent.decisionHash.replace(/^0x/i,""))||
     !/^[0-9a-f]{64}$/i.test(intent.termsHash)||
     !ADDRESS.test(intent.safeAddress)||!ADDRESS.test(intent.buyerRecipient)||
     !HASH.test(safeFacts.safe_tx_hash as string)||!HASH.test(safeFacts.block_hash as string)||
     !HASH.test(fundingFacts.tx_hash as string)||!HASH.test(fundingFacts.block_hash as string)||
+    safeFacts.chain_id!==56||safeFacts.threshold!==2||!ADDRESS.test(String(safeFacts.safe_address??""))||
+    !/^(0|[1-9][0-9]*)$/.test(String(safeFacts.nonce??""))||
+    !/^(0|[1-9][0-9]*)$/.test(String(safeFacts.block_number??""))||
+    !/^(0|[1-9][0-9]*)([.][0-9]{1,18})?$/.test(String(safeFacts.balance??""))||
+    !Array.isArray(safeFacts.owners)||safeFacts.owners.length!==3||
+    fundingFacts.chain_id!==56||fundingFacts.confirmed!==true||
+    !/^[1-9][0-9]*$/.test(String(fundingFacts.confirmations??""))||
+    !/^(0|[1-9][0-9]*)([.][0-9]{1,18})?$/.test(String(fundingFacts.amount??""))||
+    !ADDRESS.test(String(fundingFacts.token_address??""))||
+    !ADDRESS.test(String(fundingFacts.safe_address??""))||
     !/^0x([0-9a-f]{2})+$/i.test(safeTransaction.data as string)){
   throw new Error("Buyer refund request persistence bindings are malformed.");
  }
@@ -65,8 +76,8 @@ export async function persistBuyerRefundRequestAtomically(
     authorization.deal_id!==input.dealId||authorization.safe_hash_verified!==true||
     authorization.safe_block_canonical!==true||authorization.funding_receipt_verified!==true||
     authorization.funding_block_canonical!==true||authorization.payload_verified!==true||
-    authorization.safe_tx_hash!==safeFacts.safe_tx_hash||
-    authorization.safe_block_hash!==safeFacts.block_hash||
+    typeof authorization.safe_tx_hash!=="string"||authorization.safe_tx_hash.toLowerCase()!==(safeFacts.safe_tx_hash as string).toLowerCase()||
+    typeof authorization.safe_block_hash!=="string"||authorization.safe_block_hash.toLowerCase()===(safeFacts.block_hash as string).toLowerCase()===false||
     !Array.isArray(authorization.issues)||authorization.issues.length!==0){
   throw new Error("Fresh canonical Safe/funding/payload authorization is required.");
  }
