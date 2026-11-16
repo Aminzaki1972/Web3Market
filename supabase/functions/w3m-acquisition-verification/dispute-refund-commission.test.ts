@@ -44,6 +44,17 @@ Deno.test("fails closed when a full original-value refund plus fixed fee exceeds
   }
 });
 
+Deno.test("permits a full original-value refund only when Safe balance also covers the fixed fee", () => {
+  const result = evaluate({
+    authorizedBuyerRefundAmount: "100",
+    confirmedSafeBalance: "107.5",
+  });
+  if (!result.valid || result.requiredSafeBalance !== "107.5" ||
+      result.unallocatedSafeBalance !== "0") {
+    throw new Error("A full refund plus fee should pass when the confirmed Safe balance covers both.");
+  }
+});
+
 Deno.test("does not assign residual Safe balance to seller", () => {
   const result = evaluate({ authorizedBuyerRefundAmount: "90" });
   if (!result.valid || result.unallocatedSafeBalance !== "2.5") {
