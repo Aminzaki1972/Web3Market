@@ -63,7 +63,11 @@ function makeRpc() {
 class QueryMock {
   private filters: Array<[string, unknown]> = [];
   private inFilters: Array<[string, unknown[]]> = [];
-  constructor(private table: string, private rows: Record<string, Record<string, unknown>[]>) {}
+  constructor(
+    private table: string,
+    private rows: Record<string, Record<string, unknown>[]>,
+    private onResolve?: (trace: Record<string, unknown>) => void,
+  ) {}
   select(_columns?: string) { return this; }
   eq(column: string, value: unknown) { this.filters.push([column, value]); return this; }
   neq(column: string, value: unknown) { this.filters.push(["!" + column, value]); return this; }
@@ -79,22 +83,27 @@ class QueryMock {
   }
   async maybeSingle() {
     const result = this.result();
+    this.onResolve?.({ table: this.table, filters: this.filters, inFilters: this.inFilters, count: result.data.length, first: result.data[0] ?? null });
     return { data: result.data[0] ?? null, error: null };
   }
   then(resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) {
-    return Promise.resolve(this.result()).then(resolve, reject);
+    const result = this.result();
+    this.onResolve?.({ table: this.table, filters: this.filters, inFilters: this.inFilters, count: result.data.length, first: result.data[0] ?? null });
+    return Promise.resolve(result).then(resolve, reject);
   }
 }
 function fakeSupabase(input: { userId: string; rows?: Record<string, Record<string, unknown>[]>; rpcData?: Record<string, unknown> }) {
   const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+  const queryCalls: Array<Record<string, unknown>> = [];
   const rows = input.rows ?? {};
   return {
     rpcCalls,
+    queryCalls,
     client: {
       auth: {
         async getUser(_token?: string) { return { data: { user: { id: input.userId } }, error: null }; },
       },
-      from(table: string) { return new QueryMock(table, rows); },
+      from(table: string) { return new QueryMock(table, rows, (trace) => queryCalls.push(trace)); },
       async rpc(name: string, args: Record<string, unknown>) {
         rpcCalls.push({ name, args });
         return { data: input.rpcData?.[name] ?? null, error: null };
@@ -333,7 +342,8 @@ Deno.test("FINALIZE Edge Function entrypoint verifies receipt and commits throug
   assert(response.status === 200 && body.finalized === true,
     "FINALIZE entrypoint failed: " + JSON.stringify(body) +
     "; safeRead=" + safeReadReached + "; receiptVerify=" + receiptVerifyReached +
-    "; atomicFinalize=" + atomicFinalizeReached + "; rpcMethods=" + rpc.methods.join(","));
+    "; atomicFinalize=" + atomicFinalizeReached + "; rpcMethods=" + rpc.methods.join(",") +
+    "; queries=" + JSON.stringify(supabase.queryCalls));
   assert(supabase.rpcCalls.some((call) => call.name === "w3m_finalize_buyer_refund"), "FINALIZE did not call atomic finalization RPC");
   assert(rpc.methods.includes("eth_chainId"), "FINALIZE did not exercise mocked BNB RPC boundary");
 });
