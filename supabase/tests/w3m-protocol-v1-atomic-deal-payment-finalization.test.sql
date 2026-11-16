@@ -156,6 +156,17 @@ begin
 
   begin
     perform public.w3m_finalize_deal_payment(
+      '93000000-0000-4000-8000-000000000001',
+      '91000000-0000-4000-8000-000000000001',v_tx,
+      jsonb_set(v_receipt,'{amountBaseUnits}','"1"')
+    );
+    raise exception 'idempotent retry bypassed receipt amount validation';
+  exception when others then
+    if sqlerrm not like '%W3M_PAYMENT_AMOUNT_MISMATCH%' then raise; end if;
+  end;
+
+  begin
+    perform public.w3m_finalize_deal_payment(
       '93000000-0000-4000-8000-000000000002',
       '91000000-0000-4000-8000-000000000003',v_tx,
       jsonb_set(jsonb_set(v_receipt,'{buyerWallet}','"0x4444444444444444444444444444444444444444"'),'{safeAddress}','"0x6666666666666666666666666666666666666666"')
