@@ -66,10 +66,15 @@ export function buildFreshBnbDealPaymentContext(
   if (deal.token_contract.toLowerCase() !== BNB_USDT) {
     fail("deal token is not the approved BNB USDT contract");
   }
-  if (!["accepted", "pending", "in_progress"].includes(deal.status)) {
-    fail("deal status does not permit initial payment verification");
+  const isIdempotentRetry =
+    deal.status === "funded" &&
+    String(deal.payment_status ?? "").toLowerCase() === "confirmed" &&
+    typeof deal.payment_tx_hash === "string" &&
+    deal.payment_tx_hash.toLowerCase() === transactionHash.toLowerCase();
+  if (!["accepted", "pending", "in_progress"].includes(deal.status) && !isIdempotentRetry) {
+    fail("deal status does not permit payment verification");
   }
-  if (String(deal.payment_status ?? "pending").toLowerCase() !== "pending") {
+  if (String(deal.payment_status ?? "pending").toLowerCase() !== "pending" && !isIdempotentRetry) {
     fail("deal payment is not pending");
   }
   if (deal.payment_tx_hash && deal.payment_tx_hash.toLowerCase() !== transactionHash.toLowerCase()) {
