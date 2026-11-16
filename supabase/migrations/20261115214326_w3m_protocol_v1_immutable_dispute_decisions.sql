@@ -422,7 +422,7 @@ $decide$;
 
 revoke all on function public.w3m_admin_decide_deal_dispute(uuid,uuid,text,text,jsonb,text,uuid)
   from public, anon, authenticated, service_role;
-grant execute on function public.w3m_admin_decide_deal_dispute(uuid,uuid,text,text,jsonb,uuid)
+grant execute on function public.w3m_admin_decide_deal_dispute(uuid,uuid,text,text,jsonb,text,uuid)
   to service_role;
 
 
