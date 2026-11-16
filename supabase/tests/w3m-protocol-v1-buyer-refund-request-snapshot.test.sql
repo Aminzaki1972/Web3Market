@@ -29,7 +29,8 @@ begin
      or position('w3m_deal_agreement_acceptances' in lower(v_definition))=0
      or position('wallet_verified' in lower(v_definition))=0
      or position('payment_tx_hash' in lower(v_definition))=0
-     or position('signature' in lower(v_definition))=0 then
+     or position('signature' in lower(v_definition))=0
+     or position('v_decision.buyer_refund_amount::text' in lower(v_definition))=0 then
     raise exception 'Buyer refund snapshot reader is missing an authorization or fresh-context field';
   end if;
 
