@@ -25,6 +25,7 @@ export interface W3MDisputeDecisionCommand {
   outcome: W3MDisputeOutcome;
   reason: string;
   evidenceRefs: W3MDisputeEvidenceReference[];
+  buyerRefundAmount?: string;
 }
 
 export interface W3MDisputePriorState {
@@ -59,6 +60,7 @@ export interface W3MCanonicalDisputeDecision {
     termsVersionId: string;
     termsVersion: string;
     termsHash: string;
+    buyerRefundAmount: string | null;
   };
   canonicalJson: string;
   decisionHash: string;
@@ -142,15 +144,27 @@ function parseEvidenceRefs(value: unknown): W3MDisputeEvidenceReference[] {
   );
 }
 
-/** Parse only browser-controllable decision fields; authority, amount, recipient, and Safe fields are rejected. */
+/** Parse the verified-admin decision command; refund amount is allowed only as a proposed buyer-win decision value and is revalidated by the database. */
 export function parseW3MDisputeDecisionCommand(value: unknown): W3MDisputeDecisionCommand {
   const row = record(value, "Dispute decision command");
-  const allowed = new Set(["dealId", "disputeId", "outcome", "reason", "evidenceRefs"]);
+  const allowed = new Set(["dealId", "disputeId", "outcome", "reason", "evidenceRefs", "buyerRefundAmount"]);
   if (Object.keys(row).some((key) => !allowed.has(key))) {
     throw new Error("Dispute decision command contains server-controlled or unsupported fields.");
   }
   if (typeof row.outcome !== "string" || !OUTCOMES.includes(row.outcome as W3MDisputeOutcome)) {
     throw new Error("Dispute outcome must be buyer_wins or seller_wins.");
+  }
+  let buyerRefundAmount: string | undefined;
+  if (row.outcome === "buyer_wins") {
+    if (typeof row.buyerRefundAmount !== "string" || !/^(0|[1-9][0-9]*)(\\.[0-9]{1,18})?$/.test(row.buyerRefundAmount)) {
+      throw new Error("Buyer-win decisions require a positive canonical refund amount with at most 18 decimals.");
+    }
+    const [whole, fraction = ""] = row.buyerRefundAmount.split(".");
+    const normalizedFraction = fraction.replace(/0+$/, "");
+    buyerRefundAmount = whole + (normalizedFraction ? "." + normalizedFraction : "");
+    if (!/[1-9]/.test(buyerRefundAmount)) throw new Error("Buyer refund amount must be greater than zero.");
+  } else if (Object.prototype.hasOwnProperty.call(row, "buyerRefundAmount")) {
+    throw new Error("Seller-win decisions cannot include a buyer refund amount.");
   }
   return {
     dealId: uuid(row.dealId, "Deal ID"),
@@ -158,6 +172,7 @@ export function parseW3MDisputeDecisionCommand(value: unknown): W3MDisputeDecisi
     outcome: row.outcome as W3MDisputeOutcome,
     reason: boundedText(row.reason, "Decision reason", 20, 5000),
     evidenceRefs: parseEvidenceRefs(row.evidenceRefs),
+    ...(buyerRefundAmount ? { buyerRefundAmount } : {}),
   };
 }
 
@@ -171,6 +186,18 @@ export async function buildW3MCanonicalDisputeDecision(
   const decidedBy = uuid(input.decidedBy, "Decision maker ID");
   const termsVersionId = uuid(input.termsVersionId, "Terms version ID");
   if (!OUTCOMES.includes(input.outcome)) throw new Error("Dispute outcome is unsupported.");
+  let buyerRefundAmount: string | null = null;
+  if (input.outcome === "buyer_wins") {
+    if (typeof input.buyerRefundAmount !== "string" || !/^(0|[1-9][0-9]*)(\\.[0-9]{1,18})?$/.test(input.buyerRefundAmount)) {
+      throw new Error("Buyer-win decisions require a positive canonical refund amount.");
+    }
+    const [whole, fraction = ""] = input.buyerRefundAmount.split(".");
+    const normalizedFraction = fraction.replace(/0+$/, "");
+    buyerRefundAmount = whole + (normalizedFraction ? "." + normalizedFraction : "");
+    if (!/[1-9]/.test(buyerRefundAmount)) throw new Error("Buyer refund amount must be greater than zero.");
+  } else if (input.buyerRefundAmount !== undefined) {
+    throw new Error("Seller-win decisions cannot include a buyer refund amount.");
+  }
   const reason = boundedText(input.reason, "Decision reason", 20, 5000);
   const termsVersion = boundedText(input.termsVersion, "Terms version", 1, 32);
   if (!/^[1-9][0-9]*$/.test(termsVersion)) throw new Error("Terms version must be a positive integer.");
@@ -200,6 +227,7 @@ export async function buildW3MCanonicalDisputeDecision(
     priorState: normalizedPriorState,
     decidedBy, decidedAt, termsVersionId, termsVersion,
     termsHash: input.termsHash.toLowerCase(),
+    buyerRefundAmount,
   };
   const serialized = canonicalJson(payload);
   return { payload, canonicalJson: serialized, decisionHash: await sha256Hex(serialized) };
