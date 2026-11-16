@@ -193,7 +193,7 @@ begin
      or v_fee <> round(v_original * 0.075,18)
      or v_refund + v_fee <> v_original
      or v_refund + v_fee > v_request.safe_balance then
-    raise exception 'Buyer refund and fixed 7.5% commission do not fully allocate confirmed funding' using errcode='23514';
+    raise exception 'Buyer refund and fixed 7.5%% commission do not fully allocate confirmed funding' using errcode='23514';
   end if;
 
   if v_deal.status is distinct from 'disputed'
