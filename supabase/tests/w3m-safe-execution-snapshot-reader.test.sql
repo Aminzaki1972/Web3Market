@@ -9,6 +9,7 @@ declare
   v_buyer uuid := '73000000-0000-4000-8000-000000000003';
   v_seller uuid := '74000000-0000-4000-8000-000000000004';
   v_tx uuid := '75000000-0000-4000-8000-000000000005';
+  v_refund_tx uuid := '75100000-0000-4000-8000-000000000005';
   v_snapshot jsonb;
   v_tx_rows jsonb;
   v_agreements jsonb;
@@ -71,6 +72,20 @@ begin
     '0x0000000000000000000000000000000000000000','[]'::jsonb
   );
 
+  insert into public.deal_multisig_transactions(
+    id,deal_id,action,status,safe_tx_hash,chain_id,safe_address,safe_nonce,
+    amount,token_symbol,required_signatures,confirmations_count,to_address,data,
+    value_wei,operation,safe_tx_gas,base_gas,gas_price,gas_token,refund_receiver,signatures
+  ) values (
+    v_refund_tx,v_deal,'refund_to_buyer','awaiting_signatures',null,56,
+    '0x2222222222222222222222222222222222222222',8,
+    25,'USDT',2,0,
+    '0x5555555555555555555555555555555555555555',
+    '0x' || repeat('0',64),0,1,0,0,0,
+    '0x0000000000000000000000000000000000000000',
+    '0x0000000000000000000000000000000000000000','[]'::jsonb
+  );
+
   insert into public.deal_multisig_signers(
     deal_id,signer_role,signer_id,wallet_address,signature_status,signed_at,
     safe_tx_hash,signature
@@ -110,6 +125,16 @@ begin
      or v_tx_rows->0->>'value_wei' <> '0'
      or v_tx_rows->0->>'safe_nonce' <> '7' then
     raise exception 'Safe release transaction snapshot is incomplete or inexact';
+  end if;
+
+  if jsonb_typeof(v_snapshot->'refund_transactions') <> 'array'
+     or jsonb_array_length(v_snapshot->'refund_transactions') <> 1
+     or v_snapshot->'refund_transactions'->0->>'id' <> v_refund_tx::text
+     or v_snapshot->'refund_transactions'->0->>'action' <> 'refund_to_buyer'
+     or v_snapshot->'refund_transactions'->0->>'amount' <> '25'
+     or v_snapshot->'refund_transactions'->0->>'safe_nonce' <> '8'
+     or jsonb_array_length(v_tx_rows) <> 1 then
+    raise exception 'Buyer refund transaction snapshot must be separate, exact, and must not contaminate seller release rows';
   end if;
 
   if jsonb_array_length(v_snapshot->'signers') <> 2 then
