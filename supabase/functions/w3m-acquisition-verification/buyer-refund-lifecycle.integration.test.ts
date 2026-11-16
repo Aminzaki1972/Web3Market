@@ -143,3 +143,86 @@ Deno.test("mocked buyer refund lifecycle: request → buyer/seller SIGN → rece
   const responseBody = await finalizeResponse.json();
   assert(responseBody.finalized === true && responseBody.status === "confirmed", "finalization response was not confirmed");
 });
+
+
+Deno.test("mocked buyer refund lifecycle rejects forged authority, invalid signer, and mismatched receipt without writes", async () => {
+  let prepareCalls = 0;
+  let requestWrites = 0;
+  const deniedRequest = await handleW3MBuyerRefundRequest(
+    post("https://w3m.test/request", { deal_id: DEAL, buyer_wallet: BUYER_WALLET }),
+    {
+      authenticate: async () => ADMIN,
+      isAdmin: async () => true,
+      prepare: async () => { prepareCalls++; throw new Error("must not prepare"); },
+      persist: async () => { requestWrites++; throw new Error("must not persist"); },
+    },
+  );
+  assert(deniedRequest.status === 400 && prepareCalls === 0 && requestWrites === 0,
+    "browser-supplied wallet authority must be rejected before preparation");
+
+  let signatureWrites = 0;
+  const forgedSignHandler = createBuyerRefundSignRequestHandler({
+    authenticate: async () => ({ userId: BUYER }),
+    loadFreshContext: async () => ({
+      action: "refund_to_buyer", dealId: DEAL, disputeId: DISPUTE, requestId: REQUEST,
+      decisionId: DECISION, decisionHash: DECISION_HASH, termsHash: TERMS_HASH,
+      safeTransactionHash: SAFE_TX_HASH, safeAddress: SAFE, chainId: 56, safeNonce: "9",
+      currentOwners: [BUYER_WALLET, SELLER_WALLET, PLATFORM_WALLET], threshold: 2,
+      verifiedWallet: BUYER_WALLET, buyerWallet: BUYER_WALLET,
+      w3mAuthorization: { authorized: true, phase: "SIGN", requestId: REQUEST, safeTransactionHash: SAFE_TX_HASH, issues: [] },
+      signerRole: "buyer", status: "awaiting_signatures",
+    }),
+    verifySafeDigest: async () => false,
+    persistSignatureAtomically: async () => {
+      signatureWrites++;
+      return { recorded: true, idempotentReplay: false, confirmationsCount: 1, requiredSignatures: 2, status: "awaiting_signatures" };
+    },
+  });
+  const forgedSign = await forgedSignHandler(post("https://w3m.test/sign", {
+    deal_id: DEAL, request_id: REQUEST, decision_id: DECISION,
+    safe_tx_hash: SAFE_TX_HASH, signature: SIG_BUYER,
+  }));
+  assert(forgedSign.status === 403 && signatureWrites === 0,
+    "invalid Safe signature must never reach atomic persistence");
+
+  let receiptChecks = 0;
+  let finalizationWrites = 0;
+  const validContext: BuyerRefundFinalizationContext = {
+    actorId: ADMIN, dealId: DEAL, requestId: REQUEST, decisionId: DECISION,
+    decisionHash: DECISION_HASH, termsHash: TERMS_HASH, safeAddress: SAFE,
+    safeTransactionHash: SAFE_TX_HASH, safeNonce: "9", chainId: 56,
+    signerCount: 2, signatureWallets: [BUYER_WALLET, SELLER_WALLET],
+    currentOwners: [BUYER_WALLET, SELLER_WALLET, PLATFORM_WALLET],
+    recordedOwners: [BUYER_WALLET, SELLER_WALLET, PLATFORM_WALLET],
+    currentThreshold: 2, requiredSignatures: 2, transactionStatus: "signed",
+    expectation: {
+      broadcastTxHash: BROADCAST_TX_HASH, safeTxHash: SAFE_TX_HASH, safeAddress: SAFE,
+      tokenContract: TOKEN, buyerWallet: BUYER_WALLET, buyerRefundAmount: "9.25",
+      originalDealAmount: "10", platformWallet: PLATFORM_WALLET, platformFeeAmount: "0.75",
+      minConfirmations: 12, decisionId: DECISION, decisionHash: DECISION_HASH, termsHash: TERMS_HASH,
+    },
+  };
+  const mismatchReceipt: VerifiedBnbSafeRefundReceipt = {
+    chainId: 56, transactionHash: "0x" + "f".repeat(64), blockHash: "0x" + "e".repeat(64),
+    blockNumber: "123456", blockTimestamp: "2026-11-16T12:00:00.000Z", confirmations: 12,
+    safeAddress: SAFE, safeTxHash: SAFE_TX_HASH, tokenContract: TOKEN,
+    buyerWallet: BUYER_WALLET, buyerRefundAmount: "9.25", platformWallet: PLATFORM_WALLET,
+    platformFeeAmount: "0.75", decisionId: DECISION, decisionHash: DECISION_HASH,
+    termsHash: TERMS_HASH, executionSuccess: true,
+  };
+  const deniedFinalize = await handleBuyerRefundFinalization(
+    post("https://w3m.test/finalize", { request_id: REQUEST, broadcast_tx_hash: BROADCAST_TX_HASH }),
+    {
+      authenticate: async () => ADMIN,
+      isAdmin: async () => true,
+      loadFreshContext: async () => validContext,
+      verifyReceipt: async () => { receiptChecks++; return mismatchReceipt; },
+      finalizeAtomically: async () => {
+        finalizationWrites++;
+        return { finalized: true, idempotentReplay: false, receiptId: RECEIPT, status: "confirmed" };
+      },
+    },
+  );
+  assert(deniedFinalize.status === 409 && receiptChecks === 1 && finalizationWrites === 0,
+    "receipt for another transaction must never reach atomic finalization");
+});
