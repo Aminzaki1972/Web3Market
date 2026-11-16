@@ -12,6 +12,17 @@ import { createBuyerRefundSignRequestHandler } from "../w3m-acquisition-verifica
 import { persistBuyerRefundSignatureAtomically } from "../w3m-acquisition-verification/buyer-refund-signature-persistence-adapter.ts";
 import type { W3MRpcClient } from "../w3m-acquisition-verification/supabase-rpc-adapter.ts";
 
+
+type W3MRefundSignEndpointDependencies = {
+  getEnv(name: string): string | undefined;
+  createClient: typeof createClient;
+  createRpcClient: typeof createAllowlistedBnbRpcClient;
+  readSafeExecutionFacts: typeof readCanonicalBnbSafeExecutionFacts;
+  verifyRawDigestSignature: typeof verifyEthereumRawDigestSignature;
+  createSignHandler: typeof createBuyerRefundSignRequestHandler;
+  persistSignature: typeof persistBuyerRefundSignatureAtomically;
+};
+
 const ORIGINS = new Set(["https://web3market.xyz", "https://www.web3market.xyz"]);
 const PLATFORM = "0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
 const ADDRESS = /^0x[0-9a-f]{40}$/i;
@@ -49,24 +60,35 @@ function owners(value: unknown): string[] {
   return result;
 }
 
-Deno.serve(async (request) => {
+export function createW3MBuyerRefundSignEndpoint(overrides: Partial<W3MRefundSignEndpointDependencies> = {}) {
+  const deps: W3MRefundSignEndpointDependencies = {
+    getEnv: (name) => deps.getEnv(name),
+    createClient,
+    createRpcClient: createAllowlistedBnbRpcClient,
+    readSafeExecutionFacts: readCanonicalBnbSafeExecutionFacts,
+    verifyRawDigestSignature: verifyEthereumRawDigestSignature,
+    createSignHandler: createBuyerRefundSignRequestHandler,
+    persistSignature: persistBuyerRefundSignatureAtomically,
+    ...overrides,
+  };
+  return async (request: Request) => {
   const origin = request.headers.get("origin") ?? "";
   if (!ORIGINS.has(origin)) return new Response(null, { status: 403 });
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(origin) });
   if (request.method !== "POST") return json(405, { ok: false, error: "POST_REQUIRED" }, origin);
-  const url = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const url = deps.getEnv("SUPABASE_URL");
+  const serviceKey = deps.getEnv("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !serviceKey) return json(503, { ok: false, error: "W3M_REFUND_SIGN_NOT_CONFIGURED" }, origin);
   let rpc: JsonRpcClient;
   try {
-    rpc = createAllowlistedBnbRpcClient({
-      rpcUrl: Deno.env.get("BSC_RPC_URL") ?? "https://bsc-rpc.publicnode.com",
+    rpc = deps.createRpcClient({
+      rpcUrl: deps.getEnv("BSC_RPC_URL") ?? "https://bsc-rpc.publicnode.com",
       allowedHosts: ["bsc-rpc.publicnode.com"],
     });
   } catch {
     return json(503, { ok: false, error: "W3M_BNB_RPC_NOT_ALLOWED" }, origin);
   }
-  const supabase = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const supabase = deps.createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const database: W3MRpcClient = {
     async rpc(name, args) {
       const result = await supabase.rpc(name, args);
@@ -74,7 +96,7 @@ Deno.serve(async (request) => {
     },
   };
 
-  const handler = createBuyerRefundSignRequestHandler({
+  const handler = deps.createSignHandler({
     authenticate: async (incoming) => {
       const authorization = incoming.headers.get("authorization") ?? "";
       const match = /^Bearer\s+(.+)$/i.exec(authorization);
@@ -186,7 +208,7 @@ Deno.serve(async (request) => {
           nonce: safeNonce,
         },
       };
-      const live = await readCanonicalBnbSafeExecutionFacts(rpc, expected);
+      const live = await deps.readSafeExecutionFacts(rpc, expected);
       if (!live.valid || live.chainId !== 56 || live.threshold !== 2 ||
           live.version !== "1.4.1" || live.nonce !== safeNonce ||
           live.recomputedSafeTransactionHash?.toLowerCase() !== safeTransactionHash.toLowerCase() ||
@@ -221,13 +243,16 @@ Deno.serve(async (request) => {
       };
     },
     verifySafeDigest: async ({ digest, signature, expectedWallet }) =>
-      await verifyEthereumRawDigestSignature({ digestHex: digest, signature, expectedAddress: expectedWallet }),
+      await deps.verifyRawDigestSignature({ digestHex: digest, signature, expectedAddress: expectedWallet }),
     persistSignatureAtomically: async (input) =>
-      await persistBuyerRefundSignatureAtomically(database, input),
+      await deps.persistSignature(database, input),
   });
   const response = await handler(request);
   const headers = new Headers(response.headers);
   for (const [key, value] of Object.entries(cors(origin))) headers.set(key, value);
   headers.set("cache-control", "no-store");
   return new Response(response.body, { status: response.status, headers });
-});
+  };
+}
+
+if (import.meta.main) Deno.serve(createW3MBuyerRefundSignEndpoint());
