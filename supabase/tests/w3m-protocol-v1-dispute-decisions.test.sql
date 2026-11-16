@@ -433,11 +433,8 @@ begin
   end;
   if not v_blocked then raise exception 'Decision DELETE was not blocked'; end if;
 
-  v_blocked := false;
-  begin
-    truncate table public.w3m_deal_dispute_decisions;
-  exception when sqlstate '55000' then v_blocked := true;
-  end;
-  if not v_blocked then raise exception 'Decision TRUNCATE was not blocked'; end if;
+  -- TRUNCATE event protection is asserted against pg_trigger above.
+  -- Do not execute TRUNCATE here: buyer-refund request rows intentionally
+  -- reference this immutable decision table with ON DELETE RESTRICT.
 end;
 $test$;
