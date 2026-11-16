@@ -10,6 +10,7 @@ export interface W3MDisputeDecisionRequestDependencies {
     decisionHash: string;
     outcome: "buyer_wins" | "seller_wins";
     state: string;
+    buyerRefundAmount: string | null;
   }>;
 }
 
