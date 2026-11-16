@@ -21,7 +21,7 @@ function sign(digest:string,keyByte:number){
 }
 function row(context:typeof base,role:"buyer"|"seller",keyByte:number):BuyerRefundAgreementAcceptanceRow{
  const partyId=role==="buyer"?context.buyerId:context.sellerId;
- const signed=sign(computeDealTermsAcceptanceDigest({...context,partyRole:role}).slice(2),keyByte);
+ const signed=sign(computeDealTermsAcceptanceDigest({...context,partyRole:role}),keyByte);
  return {id:role==="buyer"?"76000000-0000-4000-8000-000000000006":"77000000-0000-4000-8000-000000000007",
   terms_version_id:context.termsVersionId,deal_id:context.dealId,terms_version:context.termsVersion,
   party_role:role,party_id:partyId,wallet_address:signed.wallet,chain_id:56,safe_address:context.safeAddress,
