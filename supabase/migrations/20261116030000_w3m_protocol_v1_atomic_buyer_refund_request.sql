@@ -142,6 +142,7 @@ begin
      or v_refund > v_funded
      or v_funded is distinct from v_original
      or v_fee <> round(v_original * 0.075,18)
+     or v_refund + v_fee <> v_funded
      or v_refund + v_fee > v_balance
      or (p_intent->>'confirmedFundedAmount')::numeric <> v_funded
      or (p_intent->>'confirmedSafeBalance')::numeric <> v_balance
