@@ -17,7 +17,10 @@ export async function finalizeBuyerRefundAtomically(client:W3MRpcClient,input:Bu
     !HASH.test(input.safeTransactionHash)||!HASH.test(input.broadcastTxHash))throw new Error("Buyer refund finalization identity or hash is malformed.");
  const r=input.receipt,a=input.serverAuthorization;
  const e=input.expectation;
- if(r.chainId!==56||r.executionSuccess!==true||r.transactionHash.toLowerCase()!==input.broadcastTxHash.toLowerCase()||
+ if(e.broadcastTxHash.toLowerCase()!==input.broadcastTxHash.toLowerCase()||e.safeTxHash.toLowerCase()!==input.safeTransactionHash.toLowerCase()||
+    e.decisionId!==input.decisionId||e.decisionHash.replace(/^0x/i,"").toLowerCase()!==input.decisionHash.replace(/^0x/i,"").toLowerCase()||
+    e.termsHash.replace(/^0x/i,"").toLowerCase()!==input.termsHash.replace(/^0x/i,"").toLowerCase()||
+    r.chainId!==56||r.executionSuccess!==true||r.transactionHash.toLowerCase()!==input.broadcastTxHash.toLowerCase()||
     r.safeTxHash.toLowerCase()!==input.safeTransactionHash.toLowerCase()||r.decisionId!==input.decisionId||
     r.decisionHash.replace(/^0x/i,"").toLowerCase()!==input.decisionHash.replace(/^0x/i,"").toLowerCase()||
     r.termsHash.replace(/^0x/i,"").toLowerCase()!==input.termsHash.replace(/^0x/i,"").toLowerCase()||
