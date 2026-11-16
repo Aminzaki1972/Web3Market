@@ -61,6 +61,15 @@ Deno.test("rejects a refund plus fixed fee that exceeds Safe balance", () => {
   assertDenied(x, "SAFE_BALANCE_INSUFFICIENT_FOR_REFUND_AND_FEE");
 });
 
+Deno.test("accepts a full original-value refund when Safe also holds the fixed fee", () => {
+  const x = input({
+    buyerRefundAmount: (100n * UNIT).toString(),
+    confirmedSafeBalance: (1075n * UNIT / 10n).toString(),
+  });
+  x.calls[0].amount = x.buyerRefundAmount;
+  assertValid(x, "full refund plus separately funded fixed fee");
+});
+
 Deno.test("rejects extra or missing transfer calls", () => {
   const extra = input();
   extra.calls.push({ operation: 0, to: TOKEN, value: "0", method: "transfer", recipient: BUYER, amount: "1" });
