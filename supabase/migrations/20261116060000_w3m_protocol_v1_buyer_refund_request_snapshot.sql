@@ -102,7 +102,7 @@ begin
     ),
     'decision',case when v_decision.id is null then null else jsonb_build_object(
       'id',v_decision.id,'deal_id',v_decision.deal_id,'dispute_id',v_decision.dispute_id,
-      'outcome',v_decision.outcome,'buyer_refund_amount',v_decision.buyer_refund_amount,
+      'outcome',v_decision.outcome,'buyer_refund_amount',v_decision.buyer_refund_amount::text,
       'terms_version_id',v_decision.terms_version_id,'terms_version',v_decision.terms_version,
       'terms_hash',v_decision.terms_hash,'decision_hash',v_decision.decision_hash,
       'canonical_payload',v_decision.canonical_payload,'decided_at',v_decision.decided_at
