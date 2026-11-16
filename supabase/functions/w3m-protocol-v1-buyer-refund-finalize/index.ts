@@ -71,7 +71,7 @@ function ownerList(value: unknown): string[] {
 
 export function createW3MBuyerRefundFinalizeEndpoint(overrides: Partial<W3MRefundFinalizeEndpointDependencies> = {}) {
   const deps: W3MRefundFinalizeEndpointDependencies = {
-    getEnv: (name) => deps.getEnv(name),
+    getEnv: (name) => Deno.env.get(name),
     createClient,
     createRpcClient: createAllowlistedBnbRpcClient,
     readSafeConfiguration: readCanonicalBnbSafeConfigurationFacts,
