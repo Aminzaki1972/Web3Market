@@ -108,7 +108,7 @@ function sameAddressSet(actual: string[], expected: string[]): boolean {
 
 export function createW3MBuyerRefundRequestEndpoint(overrides: Partial<W3MRefundRequestEndpointDependencies> = {}) {
   const deps: W3MRefundRequestEndpointDependencies = {
-    getEnv: (name) => deps.getEnv(name),
+    getEnv: (name) => Deno.env.get(name),
     createClient,
     createRpcClient: createAllowlistedBnbRpcClient,
     handleRequest: handleW3MBuyerRefundRequest,
