@@ -40,6 +40,9 @@ begin
      or position('two distinct recorded safe-owner signatures' in lower(v_definition))=0
      or position('w3m_buyer_refund_confirmed' in lower(v_definition))=0
      or position('receipt_block_hash' in lower(v_definition))=0
+     or position('v_existing.buyer_refund_amount' in lower(v_definition))=0
+     or position('v_existing.platform_fee_amount' in lower(v_definition))=0
+     or position('v_existing.receipt_block_number' in lower(v_definition))=0
      or position('status=''cancelled''' in lower(v_definition))=0 then
     raise exception 'Atomic buyer refund finalizer is missing a required lock, binding, fee, or state transition';
   end if;
