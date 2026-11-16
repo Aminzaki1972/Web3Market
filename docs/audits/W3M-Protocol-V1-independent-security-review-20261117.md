@@ -78,3 +78,11 @@ Mocked HTTP tests cannot prove live Supabase schema compatibility, production JW
 - PR #198 remains Draft and unmerged, targeting the development base branch, not `main`.
 - This review and all changes described here are branch-only.
 - No production Supabase changes, migrations, Edge Function deployments, website updates, Safe signatures, transaction broadcasts, or funds movement occurred.
+
+
+## Update — actual HTTP entrypoint suite reached success (2026-11-17)
+
+- The mocked HTTP integration suite now executes all three exported production entrypoint handlers, not only the underlying handlers.
+- It uses a fake Supabase client for Auth, table queries and RPC calls, plus a fake BNB JSON-RPC client. REQUEST, SIGN and FINALIZE happy paths each reach their expected atomic RPC. Negative cases verify non-admin REQUEST, non-participant SIGN, and non-admin FINALIZE are rejected without RPC writes or BNB RPC reads.
+- The earlier FINALIZE fixture failure was a test-fixture defect: the mocked signature rows were missing their `request_id` filter key. The fixture was corrected; production logic was not weakened.
+- On head `974104401d4f4540937e82a515f7e319f805a207`, workflow run [43977214533](https://github.com/Aminzaki1972/Web3Market/actions/runs/43977214533) passed the dedicated entrypoint integration step (step 30). The overall 108-step workflow is still running at this update, so the full CI gate remains open until the run completes successfully.
