@@ -109,7 +109,7 @@ begin
      or lower(coalesce(p_verified_receipt->>'decisionId','')) is distinct from p_decision_id::text
      or lower(coalesce(p_verified_receipt->>'decisionHash','')) is distinct from p_decision_hash
      or lower(coalesce(p_verified_receipt->>'termsHash','')) is distinct from p_terms_hash
-     or coalesce(p_verified_receipt->>'blockNumber','') !~ '^(0|[1-9][0-9]*)
+     or coalesce(p_verified_receipt->>'blockNumber','') !~ '^[0-9]+$'
      or lower(coalesce(p_verified_receipt->>'blockHash','')) !~ '^0x[0-9a-f]{64}$'
      or coalesce(p_verified_receipt->>'confirmations','') !~ '^[1-9][0-9]*$'
      or coalesce(p_verified_receipt->>'safeAddress','') !~ '^0x[0-9a-f]{40}$'
