@@ -38,6 +38,7 @@ begin
      or position('safe_hash_verified' in lower(v_definition))=0
      or position('payload_verified' in lower(v_definition))=0
      or position('funding_block_canonical' in lower(v_definition))=0
+     or position('v_funded is distinct from v_original' in lower(v_definition))=0
      or position('w3m_buyer_refund_request_created' in lower(v_definition))=0 then
     raise exception 'Atomic buyer refund RPC is missing a required validation or audit binding';
   end if;
