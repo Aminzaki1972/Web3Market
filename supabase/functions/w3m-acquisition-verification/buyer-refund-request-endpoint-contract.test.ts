@@ -31,7 +31,7 @@ Deno.test("buyer refund request entrypoint remains read-only on chain and non-cu
   forbidText(endpoint, /\.sendTransaction\s*\(|\.signTransaction\s*\(|\.signMessage\s*\(|\.signTypedData\s*\(/, "wallet signing or transaction submission");
   forbidText(endpoint, /private[_-]?key|mnemonic|seedPhrase/i, "private key or seed material");
   forbidText(endpoint, /\.insert\s*\(|\.update\s*\(|\.upsert\s*\(|\.delete\s*\(/, "direct table mutation outside the atomic RPC");
-  requireText(endpoint, /supabase\\.rpc\\(name,args\\)/, "database access is routed through RPC adapter");
+  requireText(endpoint, /supabase\.rpc\(name,args\)/, "database access is routed through RPC adapter");
 });
 
 Deno.test("buyer refund HTTP handler rejects all browser authority except deal_id", () => {
