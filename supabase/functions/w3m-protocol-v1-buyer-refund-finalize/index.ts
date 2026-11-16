@@ -14,6 +14,17 @@ import { finalizeBuyerRefundAtomically } from "../w3m-acquisition-verification/b
 import type { W3MRpcClient } from "../w3m-acquisition-verification/supabase-rpc-adapter.ts";
 import { parseW3MRefundAmount } from "../w3m-acquisition-verification/buyer-refund-amount-validator.ts";
 
+
+type W3MRefundFinalizeEndpointDependencies = {
+  getEnv(name: string): string | undefined;
+  createClient: typeof createClient;
+  createRpcClient: typeof createAllowlistedBnbRpcClient;
+  readSafeConfiguration: typeof readCanonicalBnbSafeConfigurationFacts;
+  verifyReceipt: typeof verifyBnbSafeBuyerRefundReceipt;
+  handleFinalization: typeof handleBuyerRefundFinalization;
+  finalizeAtomically: typeof finalizeBuyerRefundAtomically;
+};
+
 const ORIGINS = new Set(["https://web3market.xyz", "https://www.web3market.xyz"]);
 const PLATFORM = "0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
 const USDT = "0x55d398326f99059ff775485246999027b3197955";
@@ -58,34 +69,45 @@ function ownerList(value: unknown): string[] {
   return result;
 }
 
-Deno.serve(async (request) => {
+export function createW3MBuyerRefundFinalizeEndpoint(overrides: Partial<W3MRefundFinalizeEndpointDependencies> = {}) {
+  const deps: W3MRefundFinalizeEndpointDependencies = {
+    getEnv: (name) => deps.getEnv(name),
+    createClient,
+    createRpcClient: createAllowlistedBnbRpcClient,
+    readSafeConfiguration: readCanonicalBnbSafeConfigurationFacts,
+    verifyReceipt: verifyBnbSafeBuyerRefundReceipt,
+    handleFinalization: handleBuyerRefundFinalization,
+    finalizeAtomically: finalizeBuyerRefundAtomically,
+    ...overrides,
+  };
+  return async (request: Request) => {
   const origin = request.headers.get("origin") ?? "";
   if (!ORIGINS.has(origin)) return new Response(null, { status: 403 });
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(origin) });
   if (request.method !== "POST") return json(405, { ok: false, error: "POST_REQUIRED" }, origin);
 
-  const url = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const url = deps.getEnv("SUPABASE_URL");
+  const serviceKey = deps.getEnv("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !serviceKey) return json(503, { ok: false, error: "W3M_REFUND_FINALIZE_NOT_CONFIGURED" }, origin);
 
   let rpc: JsonRpcClient;
   try {
-    rpc = createAllowlistedBnbRpcClient({
-      rpcUrl: Deno.env.get("BSC_RPC_URL") ?? "https://bsc-rpc.publicnode.com",
+    rpc = deps.createRpcClient({
+      rpcUrl: deps.getEnv("BSC_RPC_URL") ?? "https://bsc-rpc.publicnode.com",
       allowedHosts: ["bsc-rpc.publicnode.com"],
     });
   } catch {
     return json(503, { ok: false, error: "W3M_BNB_RPC_NOT_ALLOWED" }, origin);
   }
 
-  const supabase = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const supabase = deps.createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const database: W3MRpcClient = {
     async rpc(name, args) {
       const result = await supabase.rpc(name, args);
       return { data: result.data, error: result.error };
     },
   };
-  const response = await handleBuyerRefundFinalization(request, {
+  const response = await deps.handleFinalization(request, {
     authenticate: async (token) => {
       const { data, error } = await supabase.auth.getUser(token);
       return error || !data.user?.id ? null : data.user.id;
@@ -170,7 +192,7 @@ Deno.serve(async (request) => {
         throw new Error("Refund Safe transaction does not match request");
       }
 
-      const live = await readCanonicalBnbSafeConfigurationFacts(rpc, {
+      const live = await deps.readSafeConfiguration(rpc, {
         safeAddress, expectedSafeAddress: safeAddress, expectedOwners: recordedOwners,
         expectedThreshold: 2, expectedVersion: "1.4.1", expectedChainId: 56,
       });
@@ -205,12 +227,15 @@ Deno.serve(async (request) => {
         transactionStatus: tx.status as "signed" | "submitted", expectation,
       };
     },
-    verifyReceipt: async (expectation) => await verifyBnbSafeBuyerRefundReceipt(rpc, expectation),
-    finalizeAtomically: async (input) => await finalizeBuyerRefundAtomically(database, input),
+    verifyReceipt: async (expectation) => await deps.verifyReceipt(rpc, expectation),
+    finalizeAtomically: async (input) => await deps.finalizeAtomically(database, input),
   });
 
   const headers = new Headers(response.headers);
   for (const [key, value] of Object.entries(cors(origin))) headers.set(key, value);
   headers.set("cache-control", "no-store");
   return new Response(response.body, { status: response.status, headers });
-});
+  };
+}
+
+if (import.meta.main) Deno.serve(createW3MBuyerRefundFinalizeEndpoint());
