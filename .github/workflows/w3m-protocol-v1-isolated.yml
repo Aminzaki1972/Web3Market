@@ -182,6 +182,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/safe-refund-payload-validator.test.ts
           deno check supabase/functions/w3m-acquisition-verification/buyer-refund-request-builder.ts
           deno check supabase/functions/w3m-acquisition-verification/buyer-refund-request-builder.test.ts
+          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-sign-request-handler.ts
+          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-sign-request-handler.test.ts
           deno check supabase/functions/w3m-acquisition-verification/bnb-safe-refund-receipt-verifier.ts
           deno check supabase/functions/w3m-acquisition-verification/bnb-safe-refund-receipt-verifier.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-multisend-decoder.ts
@@ -337,6 +339,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/safe-refund-payload-validator.test.ts
       - name: Test buyer refund request intent builder
         run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-request-builder.test.ts
+      - name: Test buyer refund Safe signing boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-sign-request-handler.test.ts
       - name: Test canonical BNB Safe buyer refund receipt verification
         run: deno test supabase/functions/w3m-acquisition-verification/bnb-safe-refund-receipt-verifier.test.ts
       - name: Test Safe MultiSend decoder
