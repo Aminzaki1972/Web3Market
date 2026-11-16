@@ -41,3 +41,24 @@ Deno.test("buyer refund HTTP handler rejects all browser authority except deal_i
   requireText(handler, /deps\.isAdmin\(actorId\)/, "server-side administrator authorization");
   requireText(handler, /input\.dealId!==row\.deal_id\|\|input\.actorId!==actorId/, "fresh context actor and deal binding");
 });
+
+const manualPaymentUrl = new URL("../verify-deal-payment/index.ts", import.meta.url);
+const monitorPaymentUrl = new URL("../deal-payment-monitor/index.ts", import.meta.url);
+const manualPayment = await Deno.readTextFile(manualPaymentUrl);
+const monitorPayment = await Deno.readTextFile(monitorPaymentUrl);
+
+Deno.test("manual and automatic payment paths share strict receipt verification and atomic finalization", () => {
+  for (const [label, source] of [["manual verifier", manualPayment], ["automatic monitor", monitorPayment]] as const) {
+    requireText(source, /buildFreshBnbDealPaymentContext\(/, label + " fresh server-derived deal context");
+    requireText(source, /verifyBnbDealPaymentReceipt\(/, label + " exact canonical receipt verification");
+    requireText(source, /finalizeVerifiedDealPayment\(/, label + " atomic payment finalization RPC");
+    requireText(source, /readCanonicalBnbSafeConfigurationFacts\(/, label + " canonical 2-of-3 Safe configuration");
+    forbidText(source, /from\(["']blockchain_transactions["']\)\.(insert|update|upsert|delete)\s*\(/, label + " direct blockchain transaction table writes");
+  }
+});
+
+Deno.test("automatic payment monitor checks BNB chain identity before scanning", () => {
+  requireText(monitorPayment, /eth_chainId/, "RPC chain ID query");
+  requireText(monitorPayment, /chain!==56n/, "reject non-BNB RPC providers");
+  requireText(monitorPayment, /0x55d398326f99059ff775485246999027b3197955/i, "canonical BNB USDT token");
+});
