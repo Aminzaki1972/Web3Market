@@ -12,7 +12,7 @@ const wordUint=(n:bigint)=>"0x"+n.toString(16).padStart(64,"0");
 const SAFE="0x"+"1".repeat(40), TOKEN="0x"+"2".repeat(40), BUYER="0x"+"3".repeat(40), PLATFORM="0x"+"4".repeat(40);
 const expected:BnbSafeRefundReceiptExpectation={
   broadcastTxHash:"0x"+"5".repeat(64),safeTxHash:"0x"+"6".repeat(64),safeAddress:SAFE,
-  tokenContract:TOKEN,buyerWallet:BUYER,buyerRefundAmount:"25",platformWallet:PLATFORM,
+  tokenContract:TOKEN,buyerWallet:BUYER,buyerRefundAmount:"25",originalDealAmount:"100",platformWallet:PLATFORM,
   platformFeeAmount:"7.5",minConfirmations:6,decisionId:"decision-1",
   decisionHash:"a".repeat(64),termsHash:"b".repeat(64),
 };
@@ -73,6 +73,11 @@ Deno.test("rejects Safe failure, missing or duplicate execution success",async()
  const duplicate=mock({receipt:{logs:[...logs,logs[0]]}});
  await assertRejects(()=>verifyBnbSafeBuyerRefundReceipt(duplicate.rpc,expected),BnbSafeRefundReceiptVerificationError,"ExecutionSuccess");
 });
+Deno.test("rejects platform fee not equal to 7.5% of original signed deal value",async()=>{
+ const wrongFee=mock({receipt:{logs:[logs[0],logs[1],{...logs[2],data:wordUint(7n*10n**18n)}]}});
+ await assertRejects(()=>verifyBnbSafeBuyerRefundReceipt(wrongFee.rpc,expected),BnbSafeRefundReceiptVerificationError,"not exactly 7.5%");
+});
+
 Deno.test("rejects duplicate transfer log index and malformed expectations",async()=>{
  const dup=mock({receipt:{logs:[logs[0],logs[1],{...logs[2],logIndex:"0x1"}]}});
  await assertRejects(()=>verifyBnbSafeBuyerRefundReceipt(dup.rpc,expected),BnbSafeRefundReceiptVerificationError,"duplicate Transfer log");
