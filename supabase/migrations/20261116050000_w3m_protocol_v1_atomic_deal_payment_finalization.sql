@@ -1,5 +1,13 @@
 begin;
 
+-- Case-insensitive replay protection for EVM transaction hashes.
+-- Existing duplicates cause a safe migration failure and must be reconciled explicitly.
+create unique index if not exists blockchain_transactions_tx_hash_lower_uq
+  on public.blockchain_transactions (lower(tx_hash)) where tx_hash is not null;
+
+create unique index if not exists deals_payment_tx_hash_lower_uq
+  on public.deals (lower(payment_tx_hash)) where payment_tx_hash is not null;
+
 create or replace function public.w3m_finalize_deal_payment(
   p_deal_id uuid,
   p_actor_id uuid,
@@ -72,7 +80,7 @@ begin
        and lower(coalesce(v_deal.payment_tx_hash, '')) = lower(p_tx_hash) then
       select bt.* into v_existing
       from public.blockchain_transactions bt
-      where bt.tx_hash = lower(p_tx_hash)
+      where lower(bt.tx_hash) = lower(p_tx_hash)
       limit 1;
       if found and v_existing.deal_id = v_deal.id
          and v_existing.transaction_type = 'payment'
