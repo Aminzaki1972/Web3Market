@@ -61,7 +61,7 @@ Deno.test("rejects noncanonical or underconfirmed receipt",async()=>{
  await assertRejects(()=>verifyBnbSafeBuyerRefundReceipt(pending.rpc,expected),BnbSafeRefundReceiptVerificationError,"insufficient confirmations");
 });
 Deno.test("rejects wrong buyer refund amount, extra transfer, and wrong token",async()=>{
- const wrongAmount=mock({receipt:{logs:[logs[0],{...logs[1],data:wordUint(24n*10n**18n)},logs[2]]}});
+ const wrongAmount=mock({receipt:{logs:[logs[0],{...logs[1],data:wordUint(924n*10n**17n)},logs[2]]}});
  await assertRejects(()=>verifyBnbSafeBuyerRefundReceipt(wrongAmount.rpc,expected),BnbSafeRefundReceiptVerificationError,"unexpected recipient or amount");
  const extra={...logs[2],logIndex:"0x3",topics:[transfer,wordAddress(SAFE),wordAddress("0x"+"7".repeat(40))]};
  const extraTransfer=mock({receipt:{logs:[...logs,extra]}});
