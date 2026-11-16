@@ -13,7 +13,7 @@ Deno.test("buyer refund signature adapter calls only the dedicated atomic RPC",a
  const client:W3MRpcClient={rpc:async(n,a)=>{name=n;args=a;return {data:{recorded:true,idempotent_replay:false,confirmations_count:1,required_signatures:2,status:"awaiting_signatures"},error:null}}};
  const result=await persistBuyerRefundSignatureAtomically(client,input);
  if(name!=="w3m_record_buyer_refund_signature")throw new Error("Wrong RPC selected");
- if(args.p_request_id!==input.requestId||args.p_actor_id!==input.actorId||args.p_signer_role!=="buyer")throw new Error("Refund request identity binding lost");
+ if(args.p_request_id!==input.requestId||args.p_actor_id!==input.actorId||args.p_signer_role!=="buyer"||args.p_safe_nonce!==input.safeNonce)throw new Error("Refund request identity binding lost");
  if(result.confirmationsCount!==1||result.status!=="awaiting_signatures")throw new Error("RPC result mapping failed");
 });
 Deno.test("buyer refund signature adapter rejects stale authorization before RPC",async()=>{
