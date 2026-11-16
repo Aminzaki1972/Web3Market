@@ -45,6 +45,7 @@ declare
   v_owners jsonb;
   v_hash text;
   v_acceptance_count integer;
+  v_acceptance_role_count integer;
   v_buyer_acceptance public.w3m_deal_agreement_acceptances%rowtype;
   v_seller_acceptance public.w3m_deal_agreement_acceptances%rowtype;
 begin
@@ -230,7 +231,7 @@ begin
   -- Require both immutable agreement rows for the exact latest terms and current verified wallets.
   -- Cryptographic EIP-712 recovery is performed by the trusted Edge Function and
   -- attested here; SQL independently binds the stored rows and recovered digests.
-  select count(*) into v_acceptance_count
+  select count(*), count(distinct a.party_role) into v_acceptance_count, v_acceptance_role_count
     from public.w3m_deal_agreement_acceptances a
    where a.terms_version_id=v_terms.id and a.deal_id=p_deal_id
      and a.terms_version=v_terms.terms_version and a.chain_id=56
@@ -244,7 +245,7 @@ begin
         and lower(a.wallet_address)=lower(v_seller.wallet_address)
         and lower(a.typed_data_digest)=lower(p_server_authorization->>'seller_acceptance_digest'))
      );
-  if v_acceptance_count <> 2 then
+  if v_acceptance_count <> 2 or v_acceptance_role_count <> 2 then
     raise exception 'Both current cryptographically verified EIP-712 agreement acceptances are required'
       using errcode='23514';
   end if;
