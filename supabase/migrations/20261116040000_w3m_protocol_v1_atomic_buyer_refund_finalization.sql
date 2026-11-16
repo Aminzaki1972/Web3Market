@@ -132,12 +132,14 @@ begin
     raise exception 'Buyer refund request not found for this deal' using errcode='P0002';
   end if;
 
-  -- Global order: parent deal -> dispute -> refund transaction. Registry rows are immutable.
-  select * into v_deal from public.deals where id=p_deal_id for update;
-  if not found then raise exception 'Deal not found' using errcode='P0002'; end if;
+  -- Global lock order matches dispute decisions and refund requests:
+  -- dispute row first, then parent deal, then refund Safe transaction.
+  -- The initial request read above is deliberately unlocked to discover dispute_id.
   select * into v_dispute from public.deal_disputes
    where id=v_request.dispute_id and deal_id=p_deal_id for update;
   if not found then raise exception 'Bound dispute not found' using errcode='P0002'; end if;
+  select * into v_deal from public.deals where id=p_deal_id for update;
+  if not found then raise exception 'Deal not found' using errcode='P0002'; end if;
   select * into v_tx from public.deal_multisig_transactions
    where id=v_request.safe_transaction_id and deal_id=p_deal_id for update;
   if not found then raise exception 'Bound refund Safe transaction not found' using errcode='P0002'; end if;
