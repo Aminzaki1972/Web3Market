@@ -242,6 +242,12 @@ begin
       raise exception 'Buyer refund amount exceeds the confirmed agreed deal amount'
         using errcode = '23514';
     end if;
+    -- The current V1 buyer-refund payload has exactly two transfers (buyer + W3M).
+    -- Do not persist a partial allocation that would leave an unapproved seller residual.
+    if v_refund_amount + round(v_deal.amount * 0.075,18) <> v_deal.amount then
+      raise exception 'Buyer refund plus fixed original-value W3M fee must allocate the full confirmed deal funding; partial residual allocation is not approved'
+        using errcode = '23514';
+    end if;
   end if;
 
   -- Bind the decision to the latest immutable terms and both parties'
