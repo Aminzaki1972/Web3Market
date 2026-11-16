@@ -435,6 +435,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-finalization-persistence-adapter.test.ts
       - name: Test mocked end-to-end buyer refund lifecycle
         run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-lifecycle.integration.test.ts
+      - name: Test all three buyer refund Edge Function HTTP entrypoints with mocked Supabase and BNB RPC
+        run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-edge-entrypoints.integration.test.ts
       - name: Test Safe MultiSend decoder
         run: deno test supabase/functions/w3m-acquisition-verification/safe-multisend-decoder.test.ts
       - name: Test Safe payload pipeline
