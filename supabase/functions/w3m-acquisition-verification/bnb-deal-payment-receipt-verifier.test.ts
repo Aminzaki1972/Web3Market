@@ -5,7 +5,7 @@ const BUYER="0x"+"1".repeat(40), SAFE="0x"+"2".repeat(40), TOKEN="0x55d398326f99
 const TX="0x"+"4".repeat(64), BLOCK="0x"+"5".repeat(64);
 const topic=(a:string)=>"0x"+a.slice(2).toLowerCase().padStart(64,"0");
 const TRANSFER="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
-const log={address:TOKEN,topics:[TRANSFER,topic(BUYER),topic(SAFE)],data:"0x"+1000n.toString(16).padStart(64,"0"),logIndex:"0x0"};
+const log={address:TOKEN,topics:[TRANSFER,topic(BUYER),topic(SAFE)],data:"0x"+1000n.toString(16).padStart(64,"0"),logIndex:"0x0",transactionHash:TX,blockHash:BLOCK,blockNumber:"0x64"};
 const expected={transactionHash:TX,buyerWallet:BUYER,safeAddress:SAFE,tokenContract:TOKEN,expectedAmountBaseUnits:"1000",minConfirmations:3};
 function mock(overrides:Record<string,unknown>={}) {
  const receipt={transactionHash:TX,status:"0x1",blockHash:BLOCK,blockNumber:"0x64",logs:[log],...(overrides.receipt as object??{})};
@@ -13,7 +13,7 @@ function mock(overrides:Record<string,unknown>={}) {
  const rpc={async request<T>(method:string):Promise<T>{
   calls.push(method);let v:unknown;
   if(method==="eth_chainId")v=overrides.chainId??"0x38";
-  else if(method==="eth_getTransactionByHash")v=overrides.tx??{hash:TX,from:BUYER,to:TOKEN};
+  else if(method==="eth_getTransactionByHash")v=overrides.tx??{hash:TX,from:BUYER,to:TOKEN,blockHash:BLOCK,blockNumber:"0x64"};
   else if(method==="eth_getTransactionReceipt")v=receipt;
   else if(method==="eth_blockNumber")v=overrides.head??"0x70";
   else if(method==="eth_getBlockByNumber")v={hash:overrides.canonicalHash??BLOCK};
@@ -46,6 +46,10 @@ Deno.test("rejects wrong amount, duplicate matching events and removed logs",asy
  await assertRejects(()=>verifyBnbDealPaymentReceipt(mock({receipt:{logs:[{...log,data:"0x"+999n.toString(16).padStart(64,"0")}]}}).rpc,expected),BnbDealPaymentReceiptError,"amount does not match");
  await assertRejects(()=>verifyBnbDealPaymentReceipt(mock({receipt:{logs:[log,{...log,logIndex:"0x1"}]}}).rpc,expected),BnbDealPaymentReceiptError,"exactly one");
  await assertRejects(()=>verifyBnbDealPaymentReceipt(mock({receipt:{logs:[{...log,removed:true}]}}).rpc,expected),BnbDealPaymentReceiptError,"removed or malformed");
+});
+Deno.test("rejects logs or transaction metadata not bound to the receipt block",async()=>{
+ await assertRejects(()=>verifyBnbDealPaymentReceipt(mock({tx:{hash:TX,from:BUYER,to:TOKEN,blockHash:"0x"+"9".repeat(64),blockNumber:"0x64"}}).rpc,expected),BnbDealPaymentReceiptError,"identity");
+ await assertRejects(()=>verifyBnbDealPaymentReceipt(mock({receipt:{logs:[{...log,blockHash:"0x"+"9".repeat(64)}]}}).rpc,expected),BnbDealPaymentReceiptError,"not bound");
 });
 Deno.test("rejects malformed address topic padding and malformed amount",async()=>{
  const malformed={...log,topics:[TRANSFER,"0x"+"f".repeat(64),topic(SAFE)]};
