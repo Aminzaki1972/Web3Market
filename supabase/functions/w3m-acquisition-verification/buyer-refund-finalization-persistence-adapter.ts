@@ -2,6 +2,7 @@
 // The RPC must revalidate immutable decision/terms, request, signatures and transaction state in one DB transaction.
 import type {W3MRpcClient} from "./supabase-rpc-adapter.ts";
 import type {BnbSafeRefundReceiptExpectation,VerifiedBnbSafeRefundReceipt} from "./bnb-safe-refund-receipt-verifier.ts";
+import {calculateW3MDisputeRefundFunding} from "./dispute-refund-commission.ts";
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH=/^0x[0-9a-f]{64}$/i;
 export interface BuyerRefundFinalizationPersistenceInput {
@@ -17,6 +18,8 @@ export async function finalizeBuyerRefundAtomically(client:W3MRpcClient,input:Bu
     !HASH.test(input.safeTransactionHash)||!HASH.test(input.broadcastTxHash))throw new Error("Buyer refund finalization identity or hash is malformed.");
  const r=input.receipt,a=input.serverAuthorization;
  const e=input.expectation;
+ const allocation=calculateW3MDisputeRefundFunding({originalAgreedDealValue:e.originalDealAmount,authorizedBuyerRefundAmount:e.buyerRefundAmount,confirmedFundedAmount:e.originalDealAmount,confirmedSafeBalance:e.originalDealAmount});
+ if(!allocation.valid||allocation.platformFeeAmount!==e.platformFeeAmount)throw new Error("Buyer refund expectation does not fully allocate the original deal value and fixed 7.5% fee.");
  if(e.broadcastTxHash.toLowerCase()!==input.broadcastTxHash.toLowerCase()||e.safeTxHash.toLowerCase()!==input.safeTransactionHash.toLowerCase()||
     e.decisionId!==input.decisionId||e.decisionHash.replace(/^0x/i,"").toLowerCase()!==input.decisionHash.replace(/^0x/i,"").toLowerCase()||
     e.termsHash.replace(/^0x/i,"").toLowerCase()!==input.termsHash.replace(/^0x/i,"").toLowerCase()||
