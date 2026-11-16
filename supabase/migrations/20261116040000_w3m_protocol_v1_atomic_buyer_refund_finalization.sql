@@ -207,12 +207,15 @@ begin
     raise exception 'Deal or dispute is not in the exact buyer-refund settlement state' using errcode='23514';
   end if;
 
-  if v_tx.action is distinct from 'refund_to_buyer'
+  if v_request.status is distinct from 'awaiting_signatures'
+     or v_tx.action is distinct from 'refund_to_buyer'
      or v_tx.chain_id is distinct from 56
      or lower(coalesce(v_tx.safe_address,'')) is distinct from v_request.safe_address
      or lower(coalesce(v_tx.safe_tx_hash,'')) is distinct from p_safe_tx_hash
      or v_tx.safe_nonce is distinct from v_request.safe_nonce
      or v_tx.amount is distinct from v_refund
+     or v_tx.required_signatures is distinct from 2
+     or v_tx.confirmations_count is distinct from 2
      or v_tx.status is null or v_tx.status not in ('signed','submitted')
      or (v_tx.tx_hash is not null and lower(v_tx.tx_hash) is distinct from p_broadcast_tx_hash) then
     raise exception 'Persisted Safe refund transaction does not match the verified broadcast' using errcode='23514';
