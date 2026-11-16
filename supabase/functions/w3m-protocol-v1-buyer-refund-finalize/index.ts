@@ -12,6 +12,7 @@ import { handleBuyerRefundFinalization } from "../w3m-acquisition-verification/b
 import type { BuyerRefundFinalizationContext } from "../w3m-acquisition-verification/buyer-refund-finalization-handler.ts";
 import { finalizeBuyerRefundAtomically } from "../w3m-acquisition-verification/buyer-refund-finalization-persistence-adapter.ts";
 import type { W3MRpcClient } from "../w3m-acquisition-verification/supabase-rpc-adapter.ts";
+import { parseW3MRefundAmount } from "../w3m-acquisition-verification/buyer-refund-amount-validator.ts";
 
 const ORIGINS = new Set(["https://web3market.xyz", "https://www.web3market.xyz"]);
 const PLATFORM = "0x2b15cc63ee3b833f502c065767695fa2b584f8c9";
@@ -49,11 +50,7 @@ function txHash(value: unknown, label: string): string {
   if (!HASH.test(v)) throw new Error(label + " malformed");
   return v.toLowerCase();
 }
-function amount(value: unknown, label: string): string {
-  const v = required(value, label);
-  if (!/^(0|[1-9][0-9]*)(?:\.[0-9]{1,18})?$/.test(v)) throw new Error(label + " malformed");
-  return v;
-}
+const amount = parseW3MRefundAmount;
 function ownerList(value: unknown): string[] {
   if (!Array.isArray(value) || value.length !== 3) throw new Error("Safe owner snapshot malformed");
   const result = value.map((v) => addr(v, "Safe owner"));
