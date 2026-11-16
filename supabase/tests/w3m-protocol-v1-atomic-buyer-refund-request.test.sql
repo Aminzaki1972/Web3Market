@@ -7,6 +7,8 @@ do $schema$
 declare
   v_definition text;
   v_signature regprocedure;
+  v_dispute_lock_position integer;
+  v_deal_lock_position integer;
 begin
   v_signature := 'public.w3m_create_buyer_refund_request(uuid,uuid,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure;
 
@@ -47,6 +49,13 @@ begin
      or lower(v_definition) !~ '(?s)buyer_refund_amount.*is distinct from.*buyerrefundamount.*numeric'
      or position('w3m_buyer_refund_request_created' in lower(v_definition))=0 then
     raise exception 'Atomic buyer refund RPC is missing a required validation or audit binding';
+  end if;
+
+  v_dispute_lock_position := position('select * into v_dispute from public.deal_disputes' in lower(v_definition));
+  v_deal_lock_position := position('select * into v_deal from public.deals' in lower(v_definition));
+  if v_dispute_lock_position = 0 or v_deal_lock_position = 0
+     or v_dispute_lock_position >= v_deal_lock_position then
+    raise exception 'Refund request lock order must match dispute decision: dispute row before parent deal';
   end if;
 
   if not exists(select 1 from pg_trigger where tgname='w3m_buyer_refund_requests_immutable' and not tgisinternal) then
