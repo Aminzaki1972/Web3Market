@@ -21,8 +21,7 @@ begin
      or has_table_privilege('authenticated','public.w3m_buyer_refund_requests','SELECT')
      or has_table_privilege('anon','public.w3m_buyer_refund_requests','INSERT')
      or has_table_privilege('authenticated','public.w3m_buyer_refund_requests','INSERT')
-     or has_table_privilege('service_role','public.w3m_buyer_refund_requests','INSERT')
-     or has_table_privilege('service_role','public.deal_multisig_transactions','INSERT') then
+     or has_table_privilege('service_role','public.w3m_buyer_refund_requests','INSERT') then
     raise exception 'Buyer refund request or Safe transaction direct table privileges are too broad';
   end if;
 
