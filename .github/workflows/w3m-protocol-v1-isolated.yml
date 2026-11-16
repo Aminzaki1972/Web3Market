@@ -556,6 +556,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-attempts-fixture.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-terms-reader-fixture.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-prepare-policy-reader-fixture.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-deal-payment-finalization-fixture.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql
@@ -626,6 +627,7 @@ jobs:
           psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-attempts-fixture.sql
           psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-terms-reader-fixture.sql
           psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-prepare-policy-reader-fixture.sql
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-deal-payment-finalization-fixture.sql
           while IFS= read -r migration; do
             echo "Applying timestamp-sorted migration: $migration"
             psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f "$migration"
