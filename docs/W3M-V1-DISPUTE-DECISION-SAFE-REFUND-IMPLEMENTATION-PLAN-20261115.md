@@ -93,6 +93,21 @@ Before finalizing, independently verify:
 
 One database transaction must then mark the Safe transaction confirmed, record tx/receipt references, resolve the dispute/deal to the buyer outcome, update the refund state, and append immutable audit events. Replaying the same verified tx must be idempotent; a different tx or payload must fail closed.
 
+### C1. Atomic buyer-refund finalization RPC contract (implementation pending)
+
+The isolated TypeScript boundary and persistence adapter now define the intended server contract, but no SQL function or receipt ledger exists yet.
+
+- RPC name: `public.w3m_finalize_buyer_refund`; execute permission must be revoked from `PUBLIC`, `anon`, and `authenticated`, and granted only to `service_role`.
+- Adapter arguments: `p_actor_id`, `p_deal_id`, `p_request_id`, `p_decision_id`, `p_decision_hash`, `p_terms_hash`, `p_safe_tx_hash`, `p_broadcast_tx_hash`, `p_verified_receipt`, and `p_server_authorization`. The RPC must not trust these values merely because the adapter sent them; it must validate every binding against locked database rows.
+- The receipt ledger must be a separate append-only table (for example, `w3m_buyer_refund_finalizations`) with one unique finalization per request and a unique broadcast transaction hash. Store the immutable request/deal/dispute/decision IDs, Safe transaction hash, broadcast hash, canonical block number/hash, receipt confirmation count, exact token/Safe/recipient/fee transfer facts, and server-recorded timestamp. Enable RLS and grant no direct table access to browser roles.
+- Lock order must be documented and consistent with the existing refund request/SIGN path: parent deal, dispute/decision, immutable refund request, linked Safe transaction, then signature rows/receipt ledger. Revalidate the buyer-win decision hash and exact terms hash, deal remains disputed with `resolved_buyer`, request is the sole request for that decision, Safe transaction action is `refund_to_buyer`, transaction is `signed` or `submitted`, and exactly two distinct signatures belong to two of the three owners in the immutable 2-of-3 request snapshot.
+- Validate the server attestation's BNB Chain ID 56, successful receipt status, canonical block reference and confirmation depth, outer transaction recipient equals the expected Safe, Safe `ExecutionSuccess` for the exact Safe transaction hash, exact USDT contract, exact buyer refund transfer, exact 7.5%-of-original-value platform transfer, and absence of any extra/duplicate/ambiguous transfers. Bind decision and terms hashes and all exact amounts to the immutable request/decision/terms.
+- In one transaction, insert the immutable receipt-ledger row, set the linked `deal_multisig_transactions` row to `confirmed` and persist the broadcast hash, transition the parent deal from `disputed` to `cancelled` with dispute status `closed`, and append an audit event. Do not change project ownership or mark the project sold on a buyer-win refund. Do not UPDATE the immutable refund request or signature rows; the request's `status` column is its creation-time snapshot, while the linked Safe transaction is the live lifecycle state.
+- Same request + same broadcast hash + identical verified receipt must return an idempotent replay. A different hash, receipt, block binding, decision, or transfer set for an already-finalized request must fail closed without changing any row.
+- Expected RPC response: `finalized=true`, exact `request_id` and `deal_id`, `status='confirmed'`, `idempotent_replay`, `receipt_id`, and exact `broadcast_tx_hash`. This matches the current isolated TypeScript adapter contract.
+
+This is a design contract only. The RPC, ledger, SQL fixture/tests, concurrency tests, and composed Edge Function must be implemented and pass disposable PostgreSQL CI before this path is usable. No production schema change is authorized.
+
 ### D. Seller-win outcome
 
 Resolve/close the dispute without creating a buyer refund. Any subsequent seller release must still pass the existing seller-release finalizer and all acquisition, agreement, signer, Safe, and evidence gates. The dispute decision must not directly release funds.
