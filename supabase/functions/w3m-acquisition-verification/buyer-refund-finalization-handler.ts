@@ -78,7 +78,10 @@ export async function handleBuyerRefundFinalization(request:Request,deps:BuyerRe
     if(receipt.chainId!==56||receipt.transactionHash.toLowerCase()!==row.broadcast_tx_hash.toLowerCase()||
        receipt.safeTxHash.toLowerCase()!==c.safeTransactionHash.toLowerCase()||receipt.safeAddress.toLowerCase()!==c.safeAddress.toLowerCase()||
        receipt.decisionId!==c.decisionId||receipt.decisionHash.replace(/^0x/i,"").toLowerCase()!==c.decisionHash.replace(/^0x/i,"").toLowerCase()||
-       receipt.termsHash.replace(/^0x/i,"").toLowerCase()!==c.termsHash.replace(/^0x/i,"").toLowerCase()||receipt.executionSuccess!==true){
+       receipt.termsHash.replace(/^0x/i,"").toLowerCase()!==c.termsHash.replace(/^0x/i,"").toLowerCase()||
+       receipt.tokenContract.toLowerCase()!==e.tokenContract.toLowerCase()||receipt.buyerWallet.toLowerCase()!==e.buyerWallet.toLowerCase()||
+       receipt.buyerRefundAmount!==e.buyerRefundAmount||receipt.platformWallet.toLowerCase()!==e.platformWallet.toLowerCase()||
+       receipt.platformFeeAmount!==e.platformFeeAmount||receipt.confirmations<e.minConfirmations||!HASH.test(receipt.blockHash)||receipt.executionSuccess!==true){
       return json(409,{ok:false,error:"VERIFIED_RECEIPT_BINDING_MISMATCH"});
     }
     const result=await deps.finalizeAtomically({actorId,dealId:c.dealId,requestId:c.requestId,decisionId:c.decisionId,
