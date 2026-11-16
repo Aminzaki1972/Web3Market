@@ -141,6 +141,7 @@ Deno.serve(async (request) => {
       const buyerId = text(deal.buyer_id, "Buyer ID");
       const sellerId = text(deal.seller_id, "Seller ID");
       const projectId = text(terms.project_id, "Terms project ID");
+      if (projectId !== text(deal.project_id, "Deal project ID")) throw new Error("Terms project does not match deal project");
       const termsId = text(terms.id, "Terms ID");
       const termsVersion = String(terms.terms_version ?? "");
       const termsHash = text(terms.terms_hash, "Terms hash");
@@ -184,7 +185,12 @@ Deno.serve(async (request) => {
           address(signedPolicy.tokenContract, "Signed policy token") !== W3M_BNB_USDT ||
           address(signedPolicy.sellerWallet, "Signed policy seller wallet") !== sellerWallet ||
           address(signedPolicy.platformWallet, "Signed policy platform wallet") !== PLATFORM ||
-          Number(signedPolicy.chainId) !== 56) {
+          Number(signedPolicy.chainId) !== 56 ||
+          !["locked", "ready"].includes(String(signedPolicy.status)) ||
+          (BigInt(decimalUnits(text(signedPolicy.feeAmount, "Signed policy fee amount"))) +
+            BigInt(decimalUnits(text(signedPolicy.sellerNetAmount, "Signed policy seller net"))) !== BigInt(decimalUnits(dealAmount))) ||
+          BigInt(decimalUnits(text(signedPolicy.feeAmount, "Signed policy fee amount"))) !==
+            ((BigInt(decimalUnits(dealAmount)) * 75n + 500n) / 1000n)) {
         throw new Error("Canonical signed terms do not match the current deal or pinned agreement");
       }
       const recomputedTermsHash = await sha256Hex(canonicalJson(canonicalTerms));
