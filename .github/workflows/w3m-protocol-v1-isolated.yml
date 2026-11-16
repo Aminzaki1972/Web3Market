@@ -176,6 +176,8 @@ jobs:
           deno check supabase/functions/w3m-acquisition-verification/decision-engine.ts
           deno check supabase/functions/w3m-acquisition-verification/settlement-gate.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-payload-validator.ts
+          deno check supabase/functions/w3m-acquisition-verification/dispute-refund-commission.ts
+          deno check supabase/functions/w3m-acquisition-verification/dispute-refund-commission.test.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-multisend-decoder.ts
           deno check supabase/functions/w3m-acquisition-verification/asset-transfer-orchestrator.ts
           deno check supabase/functions/w3m-acquisition-verification/safe-payload-pipeline.test.ts
@@ -323,6 +325,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/settlement-gate.test.ts
       - name: Test Safe payload validator
         run: deno test supabase/functions/w3m-acquisition-verification/safe-payload-validator.test.ts
+      - name: Test fixed original-value dispute refund commission
+        run: deno test supabase/functions/w3m-acquisition-verification/dispute-refund-commission.test.ts
       - name: Test Safe MultiSend decoder
         run: deno test supabase/functions/w3m-acquisition-verification/safe-multisend-decoder.test.ts
       - name: Test Safe payload pipeline
