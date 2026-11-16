@@ -8,6 +8,7 @@ import type {
 
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH=/^0x[0-9a-f]{64}$/i;
+const HEX64=/^[0-9a-f]{64}$/i;
 const ADDRESS=/^0x[0-9a-f]{40}$/i;
 const json=(status:number,body:Record<string,unknown>)=>new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
 
@@ -60,7 +61,7 @@ export async function handleBuyerRefundFinalization(request:Request,deps:BuyerRe
   try{
     const c=await deps.loadFreshContext({actorId,requestId:row.request_id,broadcastTxHash:row.broadcast_tx_hash.toLowerCase()});
     if(c.actorId!==actorId||c.requestId!==row.request_id||!UUID.test(c.dealId)||!UUID.test(c.decisionId)||
-       !HASH.test(c.decisionHash)||!/^([0-9a-f]{64})$/i.test(c.termsHash)||!ADDRESS.test(c.safeAddress)||
+       !HEX64.test(c.decisionHash)||!HEX64.test(c.termsHash)||!ADDRESS.test(c.safeAddress)||
        !HASH.test(c.safeTransactionHash)||!/^([0-9]+)$/.test(c.safeNonce)||c.chainId!==56||
        c.transactionStatus!=="signed"&&c.transactionStatus!=="submitted"||c.signerCount!==2||c.requiredSignatures!==2||
        !Array.isArray(c.signatureWallets)||c.signatureWallets.length!==2||new Set(c.signatureWallets.map(x=>x.toLowerCase())).size!==2||
