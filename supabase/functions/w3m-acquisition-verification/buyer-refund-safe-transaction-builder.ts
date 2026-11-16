@@ -5,7 +5,7 @@ import { W3M_BNB_USDT, W3M_PLATFORM_WALLET, type BuyerRefundRequestIntent } from
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const UINT = /^(0|[1-9][0-9]*)$/;
-const DECIMAL = /^(0|[1-9][0-9]*)(?:\\.([0-9]{1,18}))?$/;
+const DECIMAL = /^(0|[1-9][0-9]*)(?:\.([0-9]{1,18}))?$/;
 export const W3M_BNB_MULTISEND_CALL_ONLY = "0x9641d764fc13c8b624c04430c7356c1c7c8102e2";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const SCALE = 10n ** 18n;
