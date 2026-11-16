@@ -17,6 +17,7 @@ const assetId = "87000000-0000-4000-8000-000000000007";
 const command: W3MDisputeDecisionCommand = {
   dealId, disputeId, outcome: "buyer_wins",
   reason: "The seller did not transfer the agreed project ownership.",
+  buyerRefundAmount: "92.5",
   evidenceRefs: [
     { source: "deal_asset", recordId: assetId },
     { source: "deal_message", recordId: messageId },
@@ -51,6 +52,9 @@ Deno.test("decision command rejects caller-supplied authority, timestamps, terms
 
 Deno.test("decision command rejects unsupported outcomes, weak reasons, invalid IDs and duplicate evidence", async () => {
   await assertRejects(async () => parseW3MDisputeDecisionCommand({ ...command, outcome: "split" }));
+  await assertRejects(async () => parseW3MDisputeDecisionCommand({ ...command, buyerRefundAmount: "0" }));
+  await assertRejects(async () => parseW3MDisputeDecisionCommand({ ...command, buyerRefundAmount: "1.1234567890123456789" }));
+  await assertRejects(async () => parseW3MDisputeDecisionCommand({ ...command, outcome: "seller_wins" }));
   await assertRejects(async () => parseW3MDisputeDecisionCommand({ ...command, reason: "too short" }));
   await assertRejects(async () => parseW3MDisputeDecisionCommand({ ...command, disputeId: "not-a-uuid" }));
   await assertRejects(async () => parseW3MDisputeDecisionCommand({
@@ -76,7 +80,7 @@ Deno.test("canonical decision hash is stable across evidence reference ordering"
 Deno.test("canonical decision hash changes when outcome, reason, evidence, or terms version changes", async () => {
   const base = await buildW3MCanonicalDisputeDecision(canonicalInput);
   const variants = await Promise.all([
-    buildW3MCanonicalDisputeDecision({ ...canonicalInput, outcome: "seller_wins" }),
+    buildW3MCanonicalDisputeDecision({ ...canonicalInput, outcome: "seller_wins", buyerRefundAmount: undefined }),
     buildW3MCanonicalDisputeDecision({ ...canonicalInput, reason: canonicalInput.reason + " Additional finding." }),
     buildW3MCanonicalDisputeDecision({ ...canonicalInput, evidenceRefs: [{ source: "deal_message", recordId: assetId, contentHash: "33".repeat(32) }] }),
     buildW3MCanonicalDisputeDecision({ ...canonicalInput, termsVersion: "3" }),
