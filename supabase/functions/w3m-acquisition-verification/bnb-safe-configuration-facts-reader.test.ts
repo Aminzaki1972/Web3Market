@@ -14,16 +14,16 @@ function word(v:bigint){return v.toString(16).padStart(64,"0");}
 function addressWord(v:string){return v.slice(2).toLowerCase().padStart(64,"0");}
 function stringResult(v:string){const b=Array.from(new TextEncoder().encode(v),x=>x.toString(16).padStart(2,"0")).join("");return "0x"+word(32n)+word(BigInt(b.length/2))+b.padEnd(Math.ceil(b.length/64)*64,"0");}
 function ownersResult(){return "0x"+word(32n)+word(3n)+addressWord(BUYER)+addressWord(SELLER)+addressWord(PLATFORM);}
-function makeRpc(reorg=false){const calls:string[]=[];let headers=0;const rpc:JsonRpcClient={async request<T>(method:string,params:unknown[]):Promise<T>{
+function makeRpc(reorg=false,badSingleton=false){const calls:string[]=[];let headers=0;const rpc:JsonRpcClient={async request<T>(method:string,params:unknown[]):Promise<T>{
  calls.push(method);let result:unknown;
  if(method==="eth_chainId")result="0x38";
  else if(method==="eth_blockNumber")result=BLOCK;
  else if(method==="eth_getBlockByNumber"){headers++;result={number:BLOCK,hash:reorg&&headers>1?"0x"+"8".repeat(64):BLOCK_HASH};}
- else if(method==="eth_getCode")result="0x60016000";
- else if(method==="eth_getStorageAt")result="0x"+addressWord(SINGLETON);
+ else if(method==="eth_getCode")result=badSingleton && String(params[0]).toLowerCase()===SINGLETON?"0x":"0x60016000";
+ else if(method==="eth_getStorageAt")result="0x"+addressWord(badSingleton?BUYER:SINGLETON);
 
  else if(method==="eth_call"){const data=String((params[0] as Record<string,unknown>).data),sig=data.slice(0,10).toLowerCase();
-  if(sig==="0xa619486e")result="0x"+addressWord(SINGLETON);
+  if(sig==="0xa619486e")result="0x"+addressWord(badSingleton?BUYER:SINGLETON);
   else if(sig===selector("getOwners()"))result=ownersResult();
   else if(sig===selector("getThreshold()"))result="0x"+word(2n);
   else if(sig===selector("nonce()"))result="0x"+word(7n);
@@ -51,4 +51,12 @@ Deno.test("PREPARE Safe configuration rejects malformed block headers",async()=>
   throw new Error("Unexpected RPC method");
  }};
  await assertRejects(()=>readCanonicalBnbSafeConfigurationFacts(rpc,expected));
+});
+
+
+Deno.test("PREPARE Safe configuration rejects a noncanonical singleton implementation",async()=>{
+ const {rpc}=makeRpc(false,true);const result=await readCanonicalBnbSafeConfigurationFacts(rpc,expected);
+ assertEquals(result.valid,false);
+ assertEquals(result.issues.includes("SAFE_V141_SINGLETON_MISMATCH"),true);
+ assertEquals(result.singletonAddress,null);
 });
