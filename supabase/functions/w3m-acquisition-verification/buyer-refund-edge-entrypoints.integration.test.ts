@@ -301,8 +301,8 @@ Deno.test("FINALIZE Edge Function entrypoint verifies receipt and commits throug
       profiles: [{ id: ADMIN, role: "admin" }, buyerProfile, sellerProfile],
       w3m_buyer_refund_requests: [refund], deals: [dealRow], deal_multisig_transactions: [safeTx],
       w3m_buyer_refund_signatures: [
-        { signer_id: BUYER, signer_role: "buyer", wallet_address: BUYER_WALLET, safe_tx_hash: TX_HASH },
-        { signer_id: SELLER, signer_role: "seller", wallet_address: SELLER_WALLET, safe_tx_hash: TX_HASH },
+        { request_id: REQUEST, signer_id: BUYER, signer_role: "buyer", wallet_address: BUYER_WALLET, safe_tx_hash: TX_HASH },
+        { request_id: REQUEST, signer_id: SELLER, signer_role: "seller", wallet_address: SELLER_WALLET, safe_tx_hash: TX_HASH },
       ],
     },
   });
