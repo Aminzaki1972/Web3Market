@@ -1,6 +1,7 @@
-// Static deployment-boundary regression tests for the buyer refund request Edge Function.
-// The HTTP handler and each verifier have behavioral unit tests; this guards the composition
-// entrypoint against accidentally dropping a mandatory verifier or adding signing/broadcast.
+// Static source-composition regression tests for buyer refund REQUEST, SIGN, and FINALIZE Edge Functions.
+// These checks verify required dependencies and prohibit signing/broadcast/direct writes.
+// They do NOT execute the Deno.serve HTTP entrypoints with mocked Supabase or BNB RPC clients;
+// full endpoint orchestration tests remain a separate required pre-release task.
 const endpointUrl = new URL("../w3m-protocol-v1-buyer-refund-request/index.ts", import.meta.url);
 const handlerUrl = new URL("./buyer-refund-request-handler.ts", import.meta.url);
 const endpoint = await Deno.readTextFile(endpointUrl);
