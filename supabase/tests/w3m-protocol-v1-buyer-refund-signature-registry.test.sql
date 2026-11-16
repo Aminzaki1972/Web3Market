@@ -55,7 +55,7 @@ begin
   exception when sqlstate '55000' then null;
   end;
   begin
-    truncate table public.w3m_buyer_refund_requests;
+    truncate table public.w3m_buyer_refund_signatures, public.w3m_buyer_refund_requests;
     raise exception 'Buyer refund request TRUNCATE was not blocked';
   exception when sqlstate '55000' then null;
   end;
