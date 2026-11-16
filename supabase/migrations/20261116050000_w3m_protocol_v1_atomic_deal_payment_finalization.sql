@@ -80,7 +80,7 @@ begin
   end if;
 
   if lower(coalesce(p_verified_receipt->>'transactionHash', '')) <> lower(p_tx_hash)
-     or p_verified_receipt->>'chainId' <> '56'
+     or coalesce(p_verified_receipt->>'chainId', '') <> '56'
      or lower(coalesce(p_verified_receipt->>'buyerWallet', '')) <> lower(v_buyer.wallet_address)
      or lower(coalesce(p_verified_receipt->>'safeAddress', '')) <> lower(v_deal.safe_address)
      or lower(coalesce(p_verified_receipt->>'tokenContract', '')) <> v_token
