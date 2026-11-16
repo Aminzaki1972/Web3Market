@@ -104,6 +104,7 @@ on:
       - w3m-v1-completion-20261116
     paths:
       - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/functions/w3m-protocol-v1-buyer-refund-request/**"
       - "supabase/functions/verify-deal-payment/**"
       - "supabase/functions/deal-payment-monitor/**"
       - "supabase/migrations/20261116050000_w3m_protocol_v1_atomic_deal_payment_finalization.sql"
