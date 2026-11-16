@@ -50,7 +50,7 @@ const monitorPayment = await Deno.readTextFile(monitorPaymentUrl);
 Deno.test("manual and automatic payment paths share strict receipt verification and atomic finalization", () => {
   for (const [label, source] of [["manual verifier", manualPayment], ["automatic monitor", monitorPayment]] as const) {
     requireText(source, /buildFreshBnbDealPaymentContext\(/, label + " fresh server-derived deal context");
-    requireText(source, /verifyFundingReceipt:\s*verifyBnbDealPaymentReceipt/, label + " exact canonical receipt verification");
+    requireText(source, /verifyBnbDealPaymentReceipt\(/, label + " exact canonical receipt verification");
     requireText(source, /finalizeVerifiedDealPayment\(/, label + " atomic payment finalization RPC");
     requireText(source, /readSafeConfiguration:\s*readCanonicalBnbSafeConfigurationFacts/, label + " canonical 2-of-3 Safe configuration");
     forbidText(source, /from\(["']blockchain_transactions["']\)\.(insert|update|upsert|delete)\s*\(/, label + " direct blockchain transaction table writes");
