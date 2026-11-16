@@ -77,7 +77,7 @@ export async function persistBuyerRefundRequestAtomically(
     authorization.safe_block_canonical!==true||authorization.funding_receipt_verified!==true||
     authorization.funding_block_canonical!==true||authorization.payload_verified!==true||
     typeof authorization.safe_tx_hash!=="string"||authorization.safe_tx_hash.toLowerCase()!==(safeFacts.safe_tx_hash as string).toLowerCase()||
-    typeof authorization.safe_block_hash!=="string"||authorization.safe_block_hash.toLowerCase()===(safeFacts.block_hash as string).toLowerCase()===false||
+    typeof authorization.safe_block_hash!=="string"||authorization.safe_block_hash.toLowerCase()!==(safeFacts.block_hash as string).toLowerCase()||
     !Array.isArray(authorization.issues)||authorization.issues.length!==0){
   throw new Error("Fresh canonical Safe/funding/payload authorization is required.");
  }
