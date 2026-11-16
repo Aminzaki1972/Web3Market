@@ -84,7 +84,7 @@ begin
     id, project_id, buyer_id, seller_id, amount, payment_status, payment_tx_hash,
     delivery_status, buyer_approved_at, dispute_status, chain_id, safe_address, token_contract
   ) values (
-    v_deal,v_project,v_buyer,v_seller,100,'confirmed','0x' || repeat('a',64),'accepted',now(),'none',56,
+    v_deal,v_project,v_buyer,v_seller,100,'confirmed','0x' || repeat('5',64),'accepted',now(),'none',56,
     '0x2222222222222222222222222222222222222222',
     '0x55d398326f99059ff775485246999027b3197955'
   );
