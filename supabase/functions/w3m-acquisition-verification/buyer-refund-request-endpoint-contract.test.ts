@@ -70,27 +70,27 @@ const signEndpoint = await Deno.readTextFile(signEndpointUrl);
 const finalizeEndpoint = await Deno.readTextFile(finalizeEndpointUrl);
 
 Deno.test("buyer refund SIGN entrypoint verifies participant signature against fresh canonical Safe state", () => {
-  requireText(signEndpoint, /supabase\\.auth\\.getUser\\(/, "authenticated participant session");
-  requireText(signEndpoint, /createBuyerRefundSignRequestHandler\\(/, "strict participant SIGN handler");
-  requireText(signEndpoint, /loadFreshContext:\\s*async/, "fresh database-derived signing context");
-  requireText(signEndpoint, /readCanonicalBnbSafeExecutionFacts\\(/, "canonical BNB Safe transaction and owner verification");
-  requireText(signEndpoint, /verifyEthereumRawDigestSignature\\(/, "cryptographic raw-digest signature recovery");
-  requireText(signEndpoint, /persistBuyerRefundSignatureAtomically\\(/, "atomic signature registry persistence");
+  requireText(signEndpoint, /supabase\.auth\.getUser\(/, "authenticated participant session");
+  requireText(signEndpoint, /createBuyerRefundSignRequestHandler\(/, "strict participant SIGN handler");
+  requireText(signEndpoint, /loadFreshContext:\s*async/, "fresh database-derived signing context");
+  requireText(signEndpoint, /readCanonicalBnbSafeExecutionFacts\(/, "canonical BNB Safe transaction and owner verification");
+  requireText(signEndpoint, /verifyEthereumRawDigestSignature\(/, "cryptographic raw-digest signature recovery");
+  requireText(signEndpoint, /persistBuyerRefundSignatureAtomically\(/, "atomic signature registry persistence");
   forbidText(signEndpoint, /eth_sendRawTransaction|eth_sendTransaction/i, "chain transaction broadcast");
-  forbidText(signEndpoint, /\\.sendTransaction\\s*\\(|\\.signTransaction\\s*\\(|\\.signMessage\\s*\\(|\\.signTypedData\\s*\\(/, "server-side wallet signing");
+  forbidText(signEndpoint, /\.sendTransaction\s*\(|\.signTransaction\s*\(|\.signMessage\s*\(|\.signTypedData\s*\(/, "server-side wallet signing");
   forbidText(signEndpoint, /private[_-]?key|mnemonic|seedPhrase/i, "private key or seed material");
-  forbidText(signEndpoint, /\\.insert\\s*\\(|\\.update\\s*\\(|\\.upsert\\s*\\(|\\.delete\\s*\\(/, "direct table mutation outside the atomic SIGN RPC");
+  forbidText(signEndpoint, /\.insert\s*\(|\.update\s*\(|\.upsert\s*\(|\.delete\s*\(/, "direct table mutation outside the atomic SIGN RPC");
 });
 
 Deno.test("buyer refund FINALIZE entrypoint is admin-gated and receipt-verified before atomic commit", () => {
-  requireText(finalizeEndpoint, /supabase\\.auth\\.getUser\\(/, "authenticated administrator session");
-  requireText(finalizeEndpoint, /isAdmin:\\s*async/, "server-side administrator authorization");
-  requireText(finalizeEndpoint, /String\\(data\\.role \\?\\? ""\\)\\.toLowerCase\\(\\) === "admin"/, "admin role is read from trusted profile row");
-  requireText(finalizeEndpoint, /verifyBnbSafeBuyerRefundReceipt\\(/, "canonical BNB Safe refund receipt verification");
-  requireText(finalizeEndpoint, /finalizeBuyerRefundAtomically\\(/, "atomic refund receipt and deal finalization");
+  requireText(finalizeEndpoint, /supabase\.auth\.getUser\(/, "authenticated administrator session");
+  requireText(finalizeEndpoint, /isAdmin:\s*async/, "server-side administrator authorization");
+  requireText(finalizeEndpoint, /String\(data\.role \?\? ""\)\.toLowerCase\(\) === "admin"/, "admin role is read from trusted profile row");
+  requireText(finalizeEndpoint, /verifyBnbSafeBuyerRefundReceipt\(/, "canonical BNB Safe refund receipt verification");
+  requireText(finalizeEndpoint, /finalizeBuyerRefundAtomically\(/, "atomic refund receipt and deal finalization");
   forbidText(finalizeEndpoint, /eth_sendRawTransaction|eth_sendTransaction/i, "chain transaction broadcast");
-  forbidText(finalizeEndpoint, /\\.sendTransaction\\s*\\(|\\.signTransaction\\s*\\(|\\.signMessage\\s*\\(|\\.signTypedData\\s*\\(/, "server-side wallet signing");
+  forbidText(finalizeEndpoint, /\.sendTransaction\s*\(|\.signTransaction\s*\(|\.signMessage\s*\(|\.signTypedData\s*\(/, "server-side wallet signing");
   forbidText(finalizeEndpoint, /private[_-]?key|mnemonic|seedPhrase/i, "private key or seed material");
-  forbidText(finalizeEndpoint, /\\.insert\\s*\\(|\\.update\\s*\\(|\\.upsert\\s*\\(|\\.delete\\s*\\(/, "direct table mutation outside the atomic finalization RPC");
-  requireText(finalizeEndpoint, /supabase\\.rpc\\(name, args\\)/, "database mutation is routed through the RPC adapter");
+  forbidText(finalizeEndpoint, /\.insert\s*\(|\.update\s*\(|\.upsert\s*\(|\.delete\s*\(/, "direct table mutation outside the atomic finalization RPC");
+  requireText(finalizeEndpoint, /supabase\.rpc\(name, args\)/, "database mutation is routed through the RPC adapter");
 });
