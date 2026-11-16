@@ -84,6 +84,7 @@ Deno.test("canonical decision hash changes when outcome, reason, evidence, or te
     buildW3MCanonicalDisputeDecision({ ...canonicalInput, reason: canonicalInput.reason + " Additional finding." }),
     buildW3MCanonicalDisputeDecision({ ...canonicalInput, evidenceRefs: [{ source: "deal_message", recordId: assetId, contentHash: "33".repeat(32) }] }),
     buildW3MCanonicalDisputeDecision({ ...canonicalInput, termsVersion: "3" }),
+    buildW3MCanonicalDisputeDecision({ ...canonicalInput, buyerRefundAmount: "91" }),
   ]);
   for (const variant of variants) assertEquals(variant.decisionHash === base.decisionHash, false);
 });
