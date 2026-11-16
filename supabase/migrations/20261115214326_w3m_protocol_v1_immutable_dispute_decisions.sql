@@ -30,9 +30,9 @@ create table public.w3m_deal_dispute_decisions (
   check (canonical_payload->>'buyerRefundAmount' is not distinct from buyer_refund_amount),
   check (case when outcome='buyer_wins' then
     buyer_refund_amount is not null
-    and buyer_refund_amount ~ '^(0|[1-9][0-9]*)([.][0-9]{1,18})?$'
-    and buyer_refund_amount !~ '[.][0-9]*0$'
-    and case when buyer_refund_amount ~ '^(0|[1-9][0-9]*)([.][0-9]{1,18})?$'
+    and buyer_refund_amount ~ '^(0|[1-9][0-9]{0,59})([.][0-9]{1,18})?$'
+    and buyer_refund_amount !~ '[.][0-9]{0,59}0$'
+    and case when buyer_refund_amount ~ '^(0|[1-9][0-9]{0,59})([.][0-9]{1,18})?$'
       then buyer_refund_amount::numeric > 0 else false end
     else buyer_refund_amount is null end),
   check (canonical_payload->>'termsVersionId' = terms_version_id::text),
@@ -101,8 +101,8 @@ begin
   end if;
   if p_outcome = 'buyer_wins' then
     if p_buyer_refund_amount is null
-       or p_buyer_refund_amount !~ '^(0|[1-9][0-9]*)([.][0-9]{1,18})?$'
-       or p_buyer_refund_amount ~ '[.][0-9]*0$' then
+       or p_buyer_refund_amount !~ '^(0|[1-9][0-9]{0,59})([.][0-9]{1,18})?$'
+       or p_buyer_refund_amount ~ '[.][0-9]{0,59}0$' then
       raise exception 'Buyer-win decisions require a positive canonical refund amount'
         using errcode = '22023';
     end if;
