@@ -233,7 +233,7 @@ Deno.serve(async (request) => {
         decision: {
           id: text(decision.id, "Decision ID"), dealId: dealIdFromSnapshot,
           disputeId: text(dispute.id, "Dispute ID"), outcome: "buyer_wins",
-          decisionHash: text(decision.decision_hash, "Decision hash"),
+          decisionHash: text(decision.decision_hash, "Decision hash").replace(/^0x/i, ""),
           termsHash, buyerRefundAmount: text(decision.buyer_refund_amount, "Buyer refund amount"),
         },
         terms: {
