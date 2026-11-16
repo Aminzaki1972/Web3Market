@@ -7,6 +7,7 @@ const DECIMAL = /^(0|[1-9][0-9]*)(?:\.([0-9]{1,18}))?$/;
 export interface W3MDisputeRefundFundingInput {
   originalAgreedDealValue: string;
   authorizedBuyerRefundAmount: string;
+  confirmedFundedAmount: string;
   confirmedSafeBalance: string;
 }
 
@@ -59,10 +60,12 @@ export function calculateW3MDisputeRefundFunding(
 
   let original: bigint;
   let refund: bigint;
+  let funded: bigint;
   let balance: bigint;
   try {
     original = parseUnits(input.originalAgreedDealValue);
     refund = parseUnits(input.authorizedBuyerRefundAmount);
+    funded = parseUnits(input.confirmedFundedAmount);
     balance = parseUnits(input.confirmedSafeBalance);
   } catch (error) {
     result.issues.push(error instanceof Error ? error.message : "AMOUNT_FORMAT_INVALID");
@@ -71,6 +74,8 @@ export function calculateW3MDisputeRefundFunding(
 
   if (original <= 0n) result.issues.push("ORIGINAL_DEAL_VALUE_MUST_BE_POSITIVE");
   if (refund <= 0n) result.issues.push("BUYER_REFUND_MUST_BE_POSITIVE");
+  if (funded <= 0n) result.issues.push("CONFIRMED_FUNDED_AMOUNT_MUST_BE_POSITIVE");
+  if (refund > funded) result.issues.push("BUYER_REFUND_EXCEEDS_CONFIRMED_FUNDED_AMOUNT");
   if (balance < 0n) result.issues.push("SAFE_BALANCE_MUST_NOT_BE_NEGATIVE");
   if (result.issues.length) return result;
 
