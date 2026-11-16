@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { auditPriority, buildAuditChunks, calculateAuditCoverage, isTransientAuditError, selectAuditBatch, selectAuditCandidates } from "./audit-selection.ts";
+import { auditPriority, buildAuditChunks, calculateAuditCoverage, isTransientAuditError, parseRetryAfterSeconds, hasSoliditySource, selectAuditBatch, selectAuditCandidates } from "./audit-selection.ts";
 
 Deno.test("production source is prioritized ahead of harnesses and tests", () => {
   const tree = [
@@ -83,6 +83,16 @@ Deno.test("full-repository mode returns every eligible candidate without a fixed
   assertEquals(result.candidates.length, 257);
 });
 
+Deno.test("Solidity detection checks the full repository, not only the current file batch", () => {
+  const files = Array.from({ length: 150 }, (_, i) => ({ path: "src/file" + i + ".ts" }));
+  files[125] = { path: "contracts/Token.sol" };
+  const firstBatch = selectAuditBatch(files, 0, 100);
+  assertEquals(firstBatch.candidates.some((file) => file.path.toLowerCase().endsWith(".sol")), false);
+  assertEquals(hasSoliditySource(files), true);
+  assertEquals(hasSoliditySource([{ path: "README.md" }]), false);
+});
+
+
 Deno.test("file batches are deterministic, bounded, and cover each candidate exactly once", async () => {
   const files = Array.from({ length: 257 }, (_, i) => ({ path: "src/file" + i + ".ts" }));
   const first = selectAuditBatch(files, 0, 100);
@@ -110,4 +120,12 @@ Deno.test("transient Gemini HTTP failures remain resumable and permanent failure
   assertEquals(isTransientAuditError("Gemini API 429: quota exhausted"), true);
   assertEquals(isTransientAuditError("Gemini-only audit could not complete chunk 1 (HTTP 404): model not found."), false);
   assertEquals(isTransientAuditError("Invalid JSON returned by Gemini"), false);
+});
+
+
+Deno.test("Retry-After supports delta seconds and HTTP dates", () => {
+  assertEquals(parseRetryAfterSeconds("12", 0), 12);
+  assertEquals(parseRetryAfterSeconds("invalid", 0), 0);
+  assertEquals(parseRetryAfterSeconds("Thu, 01 Jan 1970 00:00:20 GMT", 0), 20);
+  assertEquals(parseRetryAfterSeconds("Thu, 01 Jan 1970 00:00:05 GMT", 10000), 0);
 });
