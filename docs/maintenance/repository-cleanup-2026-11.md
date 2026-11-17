@@ -229,3 +229,16 @@ This follow-up is documentation-only. It does not change Edge Function runtime c
 The latest CI run for the branch head before this documentation update completed seven of eight checks successfully. The only failure was the live public-repository audit integration test receiving HTTP 403 from GitHub's unauthenticated API; its local unit tests passed. This was an external API rate-limit/access failure, not a failed selection assertion.
 
 The integration test now accepts an optional `GITHUB_TOKEN`, and its GitHub Actions step supplies the workflow's short-lived token with read-only repository permissions. Local runs remain possible without a token, though they remain subject to anonymous API limits. The workflow still performs no deployment or write operation. The updated job must run before calling this fix verified.
+
+
+## Follow-up static-analysis dependency correction — 2026-11-17
+
+The W3M Static Analysis workflow failed at the pinned Aderyn installer checksum step. Investigation of the publisher's official GitHub release metadata for `aderyn-v0.6.8` established that Aderyn was retired and official installer/binary downloads were withdrawn on 2026-11-13. The historical installer URL now serves a retirement response rather than the previously pinned installer; the mismatch is an upstream retirement event, not a reason to weaken checksum verification.
+
+The workflow now:
+- keeps the pinned Slither installation and vulnerable-fixture smoke test;
+- does not download, execute, or silently replace the retired Aderyn binary;
+- records Aderyn status as `retired` with an explicit warning and empty placeholder report (which is not evidence of zero vulnerabilities);
+- allows normalization to preserve Slither findings while clearly marking Aderyn as unavailable.
+
+Aderyn remains a historical/integrated engine in the normalizer and prior report schema, but it is not currently an active scanner. Any future replacement requires a separately selected, maintained tool and explicit integration tests; no replacement was added in this change.

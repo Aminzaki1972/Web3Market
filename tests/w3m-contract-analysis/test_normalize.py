@@ -102,6 +102,10 @@ class NormalizeTests(unittest.TestCase):
         self.assertTrue(all(row["triage_status"] == "needs_ai_triage" for row in rows))
         self.assertTrue(all(row["confirmed"] is False for row in rows))
 
+    def test_retired_aderyn_placeholder_produces_no_findings(self):
+        data = {"high_issues": {"issues": []}, "low_issues": {"issues": []}}
+        self.assertEqual(NORMALIZER.normalize_aderyn(data), [])
+
     def test_no_automatic_cross_engine_confirmation(self):
         a = NORMALIZER.make_finding("slither", "detector-a", "Same area", "x",
                                     "High", "High", "src/A.sol", 9, 9)

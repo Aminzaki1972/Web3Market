@@ -229,7 +229,7 @@ def main() -> None:
     parser.add_argument("--audit-id", default=None)
     parser.add_argument("--slither-exit", type=int, default=0)
     parser.add_argument("--aderyn-exit", type=int, default=0)
-    parser.add_argument("--aderyn-status", choices=("completed", "unsupported_evm_target", "failed"), default="completed")
+    parser.add_argument("--aderyn-status", choices=("completed", "unsupported_evm_target", "failed", "retired"), default="completed")
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
 
@@ -273,6 +273,7 @@ def main() -> None:
         "cross_engine_correlations": correlations,
         "findings": findings,
         "limitations": [
+            "Aderyn 0.6.8 is retired upstream; retired status means no Aderyn scan ran and must not be interpreted as zero findings.",
             "Static-analysis output is a set of candidates, not proof of exploitability.",
             "A shared file/line location is only a correlation hint; findings are not automatically merged.",
             "Compilation failures, missing dependencies, unsupported compiler versions, and skipped paths must be reviewed in raw logs.",
