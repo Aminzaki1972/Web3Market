@@ -20,7 +20,7 @@ At the baseline commit, the repository tree contained 561 tracked files:
 
 The project is a static-site application with Supabase Edge Functions and Deno-based checks. No root `package.json` was present, so a Node package manifest was not invented. A Git-object scan found no exact duplicate file blobs, zero-byte files, oversized files above 500 KB, or committed dependency/build/cache directories.
 
-After the cleanup edits, the branch contains 561 tracked files: 346 under `supabase/`, 55 under `js/`, 55 under `docs/`, 15 GitHub Actions workflows (down from 17), and 51 root-level HTML pages. The file count is unchanged from baseline because two obsolete workflows were removed while the `.gitignore` and maintenance report were added.
+After the latest cleanup edits, the branch contains 556 tracked files: 346 under `supabase/`, 51 under `js/`, 55 under `docs/`, 15 GitHub Actions workflows (down from 17), and 51 root-level HTML pages. Five unreferenced legacy JavaScript files were removed; `.gitignore` and the maintenance report account for two additions.
 
 ## Changes made in this pass
 
@@ -30,6 +30,7 @@ After the cleanup edits, the branch contains 561 tracked files: 346 under `supab
 4. Corrected double-escaped shell grouping in the timestamp-sorted migration-order check. The complete isolated protocol workflow rerun `44079080578` completed successfully: 110 steps, no failed steps. The GitHub Actions result is available at https://github.com/Aminzaki1972/Web3Market/actions/runs/44079080578.
 5. Removed two obsolete push-triggered automation workflows: `fix-seller-entry.yml` and `fix-web3market-logo.yml`. Both ran on every push to `main`, had `contents: write`, rewrote site files, and pushed commits automatically. Their intended one-time changes are not suitable as permanent push automation; the actual current homepage and hero asset remain untouched by this cleanup branch.
 6. Corrected the extra-escaped six-digit TOTP regex in `admin-mfa-v2.html`, matching the working `admin-mfa.html` behavior. This prevents valid 6-digit authenticator codes from being rejected by the v2 page.
+7. Removed five unreferenced legacy scripts after checking all current HTML/JS code-search references and their role against active replacements: `wallet.js` (root; current verification page uses `wallet-manager.js` and `seller-wallet.js`), `js/buyer-wallet.js` (buyer dashboard uses `buyer-wallet-compat.js` and `buyer-wallet-v2.js`), `js/marketplace-intelligence.js` (marketplace uses `marketplace-intelligence-v2.js`), `js/offer-actions.js` (no consumer of `window.Web3MarketOffers` or its RPC wrapper exists), and `js/marketplace-active-filter.js` (no page loads it; its old active-listing enforcement is not part of the live marketplace path).
 
 ## Findings requiring further review
 
