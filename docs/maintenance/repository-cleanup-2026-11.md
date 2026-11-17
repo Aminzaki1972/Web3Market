@@ -181,3 +181,48 @@ A safe staging run still requires all of the following, none of which was perfor
 8. Independent external security review before any production activation.
 
 **Decision:** repository CI is green, but the protocol is not yet staging-ready or production-ready. No source runtime was changed in this follow-up. No Supabase project was created or modified, no secret was set, no migration was applied to any hosted database, no Edge Function was deployed, and no wallet/Safe/transaction was invoked. Keep PR #201 Draft and retain all legacy production Deal Room routes until every staging gate above is passed.
+
+## Follow-up finalization race and staging profile review — 2026-11-17
+
+### Correction to the earlier source-level note
+
+A fresh read of the current branch head `ebc8acd2460ec6234ab5eb5b4bf6aa45d62b7fb5` confirms that `bnb-safe-receipt-verifier.ts` now calls `verifySafeFinalizationAcquisitionBundle` before the receipt verifier and atomic finalization RPC. The earlier statement in the historical source-level audit that the finalization composition did not call the persisted-report guard is superseded by this current call graph. The SQL finalizer also now locks and rechecks the pinned report, latest report version, deal/project/party binding, report expiry/status, pinned terms, signer status, agreement acceptances, dispute state, and evidence row count/mandatory status. This is meaningful progress, but it does not close every integrity race described below.
+
+### Remaining finalization integrity gap — release blocking
+
+The cryptographic report/evidence revalidation in `safe-finalization-acquisition-adapter.ts` happens in a read RPC before `w3m_finalize_safe_execution_attempt` starts its database transaction. The SQL finalizer subsequently locks the report and evidence rows, but the reviewed migration does not install UPDATE/DELETE rejection triggers for `w3m_acquisition_reports` or `w3m_acquisition_evidence`.
+
+The SQL finalizer verifies that the supplied acquisition attestation matches the attempt's pinned report/evidence hashes and that the current evidence row count matches the report payload count; it also checks mandatory evidence result/expiry. It does not independently recompute the evidence manifest hash from the locked evidence rows, nor does it prove that the report payload and signature still hash to the pinned report hash inside the transaction. Therefore, a privileged mutation occurring after the TypeScript preflight but before the SQL locks could leave the preflight attestation stale while still satisfying the SQL's narrower count/status checks. Row locks protect against mutations after they are acquired, not changes that occur between the preflight read and lock acquisition.
+
+Required closure before any live release:
+1. Make report and evidence records immutable at the database layer, including privileged/service-role mutation paths, or otherwise serialize all mutations with the same per-deal lock used by finalization.
+2. Ensure report/evidence mutation triggers reject UPDATE/DELETE and ensure evidence INSERT uses the same per-deal advisory lock. Include tests proving the behavior under service_role and concurrent sessions.
+3. Bind the exact report/evidence/source-manifest versions to the finalization transaction. Either move the cryptographic recomputation into a database-verifiable transaction-safe design or use a robust versioned attestation plus immutable rows and compare all locked row identities/counts/hashes to that attestation.
+4. Add disposable-PostgreSQL race tests: mutate report payload, evidence hash/details/result/validity, add/remove evidence, and alter source audit manifest between preflight and finalization. Every mutation must be rejected or finalization must fail without changing any deal/Safe state.
+5. Verify the trusted-signer revocation path and evidence/report mutation paths use compatible locks, and test revocation racing finalization.
+
+This is a source-level finding, not a claim that an exploit has occurred. No migration was changed or applied in this review.
+
+### Staging chain profile — design constraints
+
+The current five endpoint entrypoints hard-code the PublicNode BNB mainnet RPC and its host allowlist. The canonical Safe readers and receipt verifier explicitly enforce chain ID 56; the Safe singleton/runtime code-hash expectation is also mainnet-specific. Replacing only the RPC URL or adding a `CHAIN_ID` environment variable would be unsafe and incomplete.
+
+A future isolated staging profile must treat these as one validated deployment profile, not independent free-form settings:
+- environment identity (staging only) and exact approved browser origin;
+- expected chain ID and RPC URL/host allowlist;
+- Safe version, singleton/factory deployment addresses, and verified runtime code hashes for that exact chain;
+- test USDT/token address, decimals, and expected transfer semantics;
+- Safe transaction service/indexer assumptions, if any;
+- minimum confirmation policy;
+- explicit refusal to start if any required value is missing, inconsistent, or identifies mainnet while the runtime is in staging mode.
+
+Do not assume a BNB testnet Safe singleton or test token address. Resolve and verify official deployment data and deploy/verify a dedicated test Safe/token setup before setting those values. Keep mainnet chain ID 56 and production addresses in a separately pinned production profile; do not permit an environment variable to silently redirect production to a different chain.
+
+### Report issuer and signer custody remain separate blockers
+
+The repository contains the pure report request handler, protocol orchestration, batch persistence, and a verified-report issuance helper. The helper requires an authoritative `ProtocolOrchestratorInput`, a signer callback, and a service-role client. The reviewed five Safe endpoints do not compose the full report issuer. The authoritative deal/evidence loader and protected signing-key adapter remain necessary before a complete staging lifecycle can be exercised. A signer key must not be embedded in source, browser code, ordinary client configuration, or logs.
+
+### Review boundary and next safe action
+
+This follow-up is documentation-only. It does not change Edge Function runtime code, SQL migrations, Supabase configuration, production secrets, wallet behavior, or any live deal. The next engineering work should be a separately reviewed, isolated patch that adds report/evidence immutability and deterministic race tests first; only after that should chain-profile parameterization be implemented and tested. PR #201 must remain Draft, and the legacy production Deal Room routes must remain available until staging and external security review pass.
+
