@@ -84,3 +84,38 @@ Documentation note: this report update itself was committed immediately after th
 5. Reviewed public homepage links against sitemap.xml. The homepage links to code-audit.html, w3m-protocol.html, and w3m-whitepaper.html, but sitemap currently lists only five URLs. robots.txt allows crawling and points to the sitemap. No sitemap URLs were added or removed in this pass: canonical and indexability metadata should be checked against the live published pages and analytics/backlinks before changing search-engine discovery.
 
 No diagnostic/admin page, Supabase function, migration, wallet, Safe, payment, or deal-room file was deleted or modified in this follow-up. These are retention decisions based on current source references and documented operational purpose, not a claim that every page has been runtime-tested.
+
+
+## Follow-up compatibility review — Deal Room / W3M Safe routes — 2026-11-17
+
+### Current branch call graph
+
+The Deal Room release client on this branch (js/release-signing-fix.js importing js/w3m-safe-wallet-execution-client.js) now calls these isolated W3M routes:
+
+| Client operation | Edge Function directory present on this branch | Source status |
+|---|---|---|
+| PREPARE release | w3m-protocol-v1-prepare-deal-release | Explicitly marked isolated and not deployed |
+| Compose connected-wallet package | w3m-protocol-v1-safe-wallet-package | Explicitly marked isolated and not deployed |
+| Record Safe signature | w3m-protocol-v1-safe-sign | Explicitly marked isolated and not deployed; does not replace deployed legacy signer |
+| Record wallet-submitted transaction hash | w3m-protocol-v1-safe-wallet-submit | Authenticated persistence only; submitted hash is unverified and this function does not broadcast or finalize |
+| Verify receipt and finalize | w3m-protocol-v1-finalize-safe-release | Explicitly marked isolated; does not replace deployed legacy finalizer |
+
+The browser-side client obtains a one-use execution package, submits Safe.execTransaction through the connected owner wallet, then records the returned transaction hash. The server-side finalizer is a separate receipt-verification step. The submission-hash endpoint explicitly does not treat the browser hash as proof.
+
+### Legacy routes still present
+
+- js/deal-room.js still invokes the existing create-safe endpoint and calls verify-deal-payment.
+- The old direct execute-safe-release / finalize-safe-release route is no longer present in deal-room.html; the page loads the W3M release-signing module instead.
+- The read-only deployed-source snapshot records legacy active versions as of 2026-11-06: create-safe v56, prepare-deal-release v43, prepare-safe-release-tx v37, record-safe-release-signature v24, execute-safe-release v28, and finalize-safe-release v25. These versions were retrieved for static review only and were not changed.
+
+### Merge/deployment gate
+
+**Do not merge or deploy this branch as a live Deal Room release until all five W3M endpoints above have been deployed to an isolated staging project and the exact client/server contract has passed authenticated integration tests.** The old production endpoints must remain available for rollback until the new flow is proven end-to-end. Do not point the W3M browser client at production while its endpoint directories are undeployed.
+
+This is a compatibility and deployment-readiness finding, not a claim that the production Deal Room has changed. No endpoint was invoked, deployed, or modified; no migration was applied; no wallet, Safe, payment, or production database operation occurred.
+
+### CI and pull request state at review
+
+- Commit 04cadb143d2d091684648e7aa8dd860b75b32a1f: all eight reported checks completed successfully, including Cloudflare Pages, JavaScript syntax, CDN SRI, audit selection, decision-engine/schema, trust badge, passport scope, and profile-guard migration.
+- Cloudflare Pages reported a successful build check; this does not by itself prove a production deployment or a browser end-to-end Deal Room test.
+- PR #201 remains open as a Draft and unmerged; the cleanup branch is 44 commits ahead of the unchanged main baseline and 0 behind at this review.
