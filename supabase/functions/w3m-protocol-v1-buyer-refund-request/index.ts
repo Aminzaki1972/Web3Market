@@ -139,7 +139,7 @@ export function createW3MBuyerRefundRequestEndpoint(overrides: Partial<W3MRefund
   let rpc: JsonRpcClient;
   try {
     rpc = deps.createRpcClient({
-      rpcUrl: deps.getEnv("BSC_RPC_URL") ?? "https://bsc-rpc.publicnode.com",
+      rpcUrl: "https://bsc-rpc.publicnode.com",
       allowedHosts: ["bsc-rpc.publicnode.com"],
     });
   } catch {
