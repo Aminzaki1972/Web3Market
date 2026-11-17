@@ -2,14 +2,21 @@ import { assertEquals, assert } from "jsr:@std/assert@1";
 import { selectAuditBatch, selectAuditCandidates } from "./audit-selection.ts";
 
 // Pinned public repository commit: this is a live GitHub tree integration test,
-// not a Gemini/Supabase end-to-end audit. It uses no credentials or paid services.
+// not a Gemini/Supabase end-to-end audit. It uses an optional read-only Actions token
+// to avoid anonymous GitHub API rate limits; local runs may omit the token.
 Deno.test("real public repository tree is covered across every bounded batch", async () => {
   const owner = "OpenZeppelin";
   const repo = "openzeppelin-contracts";
   const sha = "11565e5f6277a320408025e649240056ba6a3919";
+  const headers: Record<string, string> = {
+    "User-Agent": "Web3Market-W3M-Audit-Integration-Test",
+    "Accept": "application/vnd.github+json",
+  };
+  const token = Deno.env.get("GITHUB_TOKEN");
+  if (token) headers.Authorization = `Bearer ${token}`;
   const response = await fetch(
     `https://api.github.com/repos/${owner}/${repo}/git/trees/${sha}?recursive=1`,
-    { headers: { "User-Agent": "Web3Market-W3M-Audit-Integration-Test", "Accept": "application/vnd.github+json" } },
+    { headers },
   );
   assert(response.ok, `GitHub tree request failed: HTTP ${response.status}`);
   const tree = await response.json();

@@ -180,7 +180,7 @@ A safe staging run still requires all of the following, none of which was perfor
 7. Authenticated browser/wallet end-to-end tests for PREPARE → package → SIGN → connected-wallet execution → hash reconciliation → receipt verification → FINALIZE, including negative cases and rollback/recovery.
 8. Independent external security review before any production activation.
 
-**Decision:** repository CI is green, but the protocol is not yet staging-ready or production-ready. No source runtime was changed in this follow-up. No Supabase project was created or modified, no secret was set, no migration was applied to any hosted database, no Edge Function was deployed, and no wallet/Safe/transaction was invoked. Keep PR #201 Draft and retain all legacy production Deal Room routes until every staging gate above is passed.
+**Decision at the previous review:** the earlier code-head CI checks had passed, but the protocol was not yet staging-ready or production-ready. No source runtime was changed in this follow-up. No Supabase project was created or modified, no secret was set, no migration was applied to any hosted database, no Edge Function was deployed, and no wallet/Safe/transaction was invoked. Keep PR #201 Draft and retain all legacy production Deal Room routes until every staging gate above is passed.
 
 ## Follow-up finalization race and staging profile review — 2026-11-17
 
@@ -188,20 +188,17 @@ A safe staging run still requires all of the following, none of which was perfor
 
 A fresh read of the current branch head `ebc8acd2460ec6234ab5eb5b4bf6aa45d62b7fb5` confirms that `bnb-safe-receipt-verifier.ts` now calls `verifySafeFinalizationAcquisitionBundle` before the receipt verifier and atomic finalization RPC. The earlier statement in the historical source-level audit that the finalization composition did not call the persisted-report guard is superseded by this current call graph. The SQL finalizer also now locks and rechecks the pinned report, latest report version, deal/project/party binding, report expiry/status, pinned terms, signer status, agreement acceptances, dispute state, and evidence row count/mandatory status. This is meaningful progress, but it does not close every integrity race described below.
 
-### Remaining finalization integrity gap — release blocking
+### Finalization report/evidence integrity — protections confirmed
 
-The cryptographic report/evidence revalidation in `safe-finalization-acquisition-adapter.ts` happens in a read RPC before `w3m_finalize_safe_execution_attempt` starts its database transaction. The SQL finalizer subsequently locks the report and evidence rows, but the reviewed migration does not install UPDATE/DELETE rejection triggers for `w3m_acquisition_reports` or `w3m_acquisition_evidence`.
+A broader ordered migration review corrected the previous gap assessment. The protections are present in the branch and are applied before the finalization revalidation migration:
 
-The SQL finalizer verifies that the supplied acquisition attestation matches the attempt's pinned report/evidence hashes and that the current evidence row count matches the report payload count; it also checks mandatory evidence result/expiry. It does not independently recompute the evidence manifest hash from the locked evidence rows, nor does it prove that the report payload and signature still hash to the pinned report hash inside the transaction. Therefore, a privileged mutation occurring after the TypeScript preflight but before the SQL locks could leave the preflight attestation stale while still satisfying the SQL's narrower count/status checks. Row locks protect against mutations after they are acquired, not changes that occur between the preflight read and lock acquisition.
+- `20261107110000_w3m_protocol_v1_append_only_registry.sql` installs a database trigger on the report and evidence registries that rejects UPDATE, DELETE, and TRUNCATE. The trigger is active regardless of whether the caller is the application service role; direct service-role UPDATE/DELETE grants are also absent.
+- `20261107130000_w3m_protocol_v1_report_version_serialization.sql` serializes report INSERTs on the per-deal advisory lock and rejects appends after settlement. The finalizer takes the same lock and checks the latest report version.
+- `20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql` serializes evidence INSERTs against execution-attempt pinning, freezes the evidence manifest once an attempt pins the report, and locks/rechecks the pinned report, evidence rows, signer, terms, and dispute state during finalization.
+- `w3m-protocol-v1-append-only-registry.test.sql` explicitly tests report UPDATE and evidence DELETE rejection and verifies service-role mutation privileges are absent.
+- The isolated workflow executes the append-only registry test and the independent-session report/evidence/signer race scripts against disposable PostgreSQL.
 
-Required closure before any live release:
-1. Make report and evidence records immutable at the database layer, including privileged/service-role mutation paths, or otherwise serialize all mutations with the same per-deal lock used by finalization.
-2. Ensure report/evidence mutation triggers reject UPDATE/DELETE and ensure evidence INSERT uses the same per-deal advisory lock. Include tests proving the behavior under service_role and concurrent sessions.
-3. Bind the exact report/evidence/source-manifest versions to the finalization transaction. Either move the cryptographic recomputation into a database-verifiable transaction-safe design or use a robust versioned attestation plus immutable rows and compare all locked row identities/counts/hashes to that attestation.
-4. Add disposable-PostgreSQL race tests: mutate report payload, evidence hash/details/result/validity, add/remove evidence, and alter source audit manifest between preflight and finalization. Every mutation must be rejected or finalization must fail without changing any deal/Safe state.
-5. Verify the trusted-signer revocation path and evidence/report mutation paths use compatible locks, and test revocation racing finalization.
-
-This is a source-level finding, not a claim that an exploit has occurred. No migration was changed or applied in this review.
+**Conclusion:** the previously described report/evidence UPDATE/DELETE race is not supported by the current migration sequence; the required immutability and serialization protections are already implemented. The remaining assurance is to confirm the current workflow run completes those DB/race tests successfully and to retain independent review. This correction is based on source and test inspection, not a claim of an external security certification.
 
 ### Staging chain profile — design constraints
 
@@ -226,3 +223,9 @@ The repository contains the pure report request handler, protocol orchestration,
 
 This follow-up is documentation-only. It does not change Edge Function runtime code, SQL migrations, Supabase configuration, production secrets, wallet behavior, or any live deal. The next engineering work should be a separately reviewed, isolated patch that adds report/evidence immutability and deterministic race tests first; only after that should chain-profile parameterization be implemented and tested. PR #201 must remain Draft, and the legacy production Deal Room routes must remain available until staging and external security review pass.
 
+
+## Follow-up CI reliability fix — 2026-11-17
+
+The latest CI run for the branch head before this documentation update completed seven of eight checks successfully. The only failure was the live public-repository audit integration test receiving HTTP 403 from GitHub's unauthenticated API; its local unit tests passed. This was an external API rate-limit/access failure, not a failed selection assertion.
+
+The integration test now accepts an optional `GITHUB_TOKEN`, and its GitHub Actions step supplies the workflow's short-lived token with read-only repository permissions. Local runs remain possible without a token, though they remain subject to anonymous API limits. The workflow still performs no deployment or write operation. The updated job must run before calling this fix verified.
