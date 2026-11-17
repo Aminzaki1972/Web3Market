@@ -72,7 +72,10 @@ export async function persistBuyerRefundRequestAtomically(
     !/^0x([0-9a-f]{2})+$/i.test(safeTransaction.data as string)){
   throw new Error("Buyer refund request persistence bindings are malformed.");
  }
- if(authorization.authorized!==true||authorization.phase!=="CREATE_REFUND_REQUEST"||
+ if(authorization.agreement_acceptances_verified!==true||
+    typeof authorization.buyer_acceptance_digest!=="string"||!/^0x[0-9a-f]{64}$/i.test(authorization.buyer_acceptance_digest)||
+    typeof authorization.seller_acceptance_digest!=="string"||!/^0x[0-9a-f]{64}$/i.test(authorization.seller_acceptance_digest)||
+    authorization.authorized!==true||authorization.phase!=="CREATE_REFUND_REQUEST"||
     authorization.deal_id!==input.dealId||authorization.safe_hash_verified!==true||
     authorization.safe_block_canonical!==true||authorization.funding_receipt_verified!==true||
     authorization.funding_block_canonical!==true||authorization.payload_verified!==true||

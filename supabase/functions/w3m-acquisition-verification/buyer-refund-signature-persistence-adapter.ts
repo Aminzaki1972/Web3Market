@@ -11,7 +11,7 @@ export interface BuyerRefundSignaturePersistenceInput {
   actorId:string; dealId:string; requestId:string; decisionId:string;
   decisionHash:string; termsHash:string; safeTransactionHash:string;
   safeAddress:string; safeNonce:string; signature:string; verifiedWallet:string;
-  signerRole:"buyer"|"seller"|"platform";
+  signerRole:"buyer"|"seller";
   buyerWallet:string;
   authorization:{authorized:true;phase:"SIGN";requestId:string;safeTransactionHash:string;issues:[]};
 }
@@ -23,11 +23,11 @@ export async function persistBuyerRefundSignatureAtomically(
   client:W3MRpcClient,input:BuyerRefundSignaturePersistenceInput,
 ):Promise<BuyerRefundSignaturePersistenceResult>{
   if(!UUID.test(input.actorId)||!UUID.test(input.dealId)||!UUID.test(input.requestId)||
-     !UUID.test(input.decisionId)||!DECISION_HASH.test(input.decisionHash)||!HASH.test(input.safeTransactionHash)||
+     !UUID.test(input.decisionId)||!DECISION_HASH.test(input.decisionHash.replace(/^0x/i,""))||!HASH.test(input.safeTransactionHash)||
      !/^[0-9a-f]{64}$/i.test(input.termsHash)||!ADDRESS.test(input.safeAddress)||
      !ADDRESS.test(input.verifiedWallet)||!ADDRESS.test(input.buyerWallet)||
      !SIGNATURE.test(input.signature)||! /^(0|[1-9][0-9]*)$/.test(input.safeNonce)||
-     !["buyer","seller","platform"].includes(input.signerRole)){
+     !["buyer","seller"].includes(input.signerRole)){
     throw new Error("W3M buyer refund SIGN persistence input is malformed.");
   }
   const a=input.authorization;

@@ -44,6 +44,10 @@ declare
   v_now timestamptz := clock_timestamp();
   v_owners jsonb;
   v_hash text;
+  v_acceptance_count integer;
+  v_acceptance_role_count integer;
+  v_buyer_acceptance public.w3m_deal_agreement_acceptances%rowtype;
+  v_seller_acceptance public.w3m_deal_agreement_acceptances%rowtype;
 begin
   if p_deal_id is null or p_actor_id is null
      or jsonb_typeof(p_intent) is distinct from 'object'
@@ -62,7 +66,11 @@ begin
      or p_server_authorization->>'funding_receipt_verified' is distinct from 'true'
      or p_server_authorization->>'funding_block_canonical' is distinct from 'true'
      or p_server_authorization->>'payload_verified' is distinct from 'true'
+     or p_server_authorization->>'agreement_acceptances_verified' is distinct from 'true'
+     or lower(coalesce(p_server_authorization->>'buyer_acceptance_digest','')) !~ '^0x[0-9a-f]{64}$'
+     or lower(coalesce(p_server_authorization->>'seller_acceptance_digest','')) !~ '^0x[0-9a-f]{64}$'
      or lower(coalesce(p_server_authorization->>'safe_block_hash','')) is distinct from lower(p_safe_facts->>'block_hash')
+     or lower(coalesce(p_server_authorization->>'funding_block_hash','')) is distinct from lower(p_funding_facts->>'block_hash')
      or lower(coalesce(p_server_authorization->>'safe_tx_hash','')) !~ '^0x[0-9a-f]{64}$'
      or jsonb_typeof(p_server_authorization->'issues') is distinct from 'array'
      or jsonb_array_length(p_server_authorization->'issues') <> 0 then
@@ -156,7 +164,13 @@ begin
     raise exception 'Verified administrator required to create a Safe refund request' using errcode='42501';
   end if;
 
-  -- Global lock order is parent deal, then dispute, then refund request/transaction.
+  -- Match the immutable dispute-decision RPC lock order: dispute row first,
+  -- then parent deal, then refund request/transaction. Safe finalization locks
+  -- only the parent deal and never takes a child-dispute lock.
+  select * into v_dispute from public.deal_disputes
+   where id=(p_intent->>'disputeId')::uuid and deal_id=p_deal_id for update;
+  if not found then raise exception 'Dispute not found for this deal' using errcode='P0002'; end if;
+
   select * into v_deal from public.deals where id=p_deal_id for update;
   if not found then raise exception 'Deal not found' using errcode='P0002'; end if;
   if v_deal.status is distinct from 'disputed'
@@ -169,10 +183,7 @@ begin
      or v_deal.amount is distinct from v_original then
     raise exception 'Deal is not in the exact buyer-refund state or funding binding changed' using errcode='23514';
   end if;
-
-  select * into v_dispute from public.deal_disputes
-   where id=(p_intent->>'disputeId')::uuid and deal_id=p_deal_id for update;
-  if not found or v_dispute.status is distinct from 'resolved'
+  if v_dispute.status is distinct from 'resolved'
      or v_dispute.resolution is distinct from 'buyer_wins' then
     raise exception 'Buyer-win dispute decision state is not resolved' using errcode='23514';
   end if;
@@ -185,7 +196,7 @@ begin
      or v_decision.terms_hash is distinct from p_intent->>'termsHash'
      or v_decision.buyer_refund_amount is null
      or v_decision.buyer_refund_amount::numeric <> v_refund
-     or v_decision.buyer_refund_amount is distinct from p_intent->>'buyerRefundAmount' then
+     or v_decision.buyer_refund_amount is distinct from (p_intent->>'buyerRefundAmount')::numeric then
     raise exception 'Immutable buyer-win decision and exact refund amount do not match' using errcode='23514';
   end if;
 
@@ -220,6 +231,28 @@ begin
      or lower(v_seller.wallet_address)=v_platform then
     raise exception 'Current verified buyer/seller wallet binding failed' using errcode='42501';
   end if;
+  -- Require both immutable agreement rows for the exact latest terms and current verified wallets.
+  -- Cryptographic EIP-712 recovery is performed by the trusted Edge Function and
+  -- attested here; SQL independently binds the stored rows and recovered digests.
+  select count(*), count(distinct a.party_role) into v_acceptance_count, v_acceptance_role_count
+    from public.w3m_deal_agreement_acceptances a
+   where a.terms_version_id=v_terms.id and a.deal_id=p_deal_id
+     and a.terms_version=v_terms.terms_version and a.chain_id=56
+     and lower(a.safe_address)=v_safe and lower(a.terms_hash)=lower(v_terms.terms_hash)
+     and (
+       (a.party_role='buyer' and a.party_id=v_deal.buyer_id
+        and lower(a.wallet_address)=lower(v_buyer.wallet_address)
+        and lower(a.typed_data_digest)=lower(p_server_authorization->>'buyer_acceptance_digest'))
+       or
+       (a.party_role='seller' and a.party_id=v_deal.seller_id
+        and lower(a.wallet_address)=lower(v_seller.wallet_address)
+        and lower(a.typed_data_digest)=lower(p_server_authorization->>'seller_acceptance_digest'))
+     );
+  if v_acceptance_count <> 2 or v_acceptance_role_count <> 2 then
+    raise exception 'Both current cryptographically verified EIP-712 agreement acceptances are required'
+      using errcode='23514';
+  end if;
+
   if (select count(distinct lower(value)) from jsonb_array_elements_text(v_owners)) <> 3
      or exists(select 1 from jsonb_array_elements_text(v_owners) x(value) where lower(x.value) !~ '^0x[0-9a-f]{40}$')
      or not (v_owners @> jsonb_build_array(lower(v_buyer.wallet_address)))

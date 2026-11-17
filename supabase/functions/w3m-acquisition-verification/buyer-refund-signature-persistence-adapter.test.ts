@@ -28,3 +28,15 @@ Deno.test("buyer refund signature adapter rejects malformed input before RPC",as
  catch(e){if(!(e instanceof Error)||!e.message.includes("malformed"))throw e}
  if(calls!==0)throw new Error("Malformed input reached RPC");
 });
+
+Deno.test("buyer refund signature adapter rejects platform role outside the participant SIGN boundary",async()=>{
+ let calls=0;const client:W3MRpcClient={rpc:async()=>{calls++;return {data:null,error:null}}};
+ try{await persistBuyerRefundSignatureAtomically(client,{...input,signerRole:"platform" as unknown as "buyer"});throw new Error("Expected rejection")}
+ catch(e){if(!(e instanceof Error)||!e.message.includes("malformed"))throw e}
+ if(calls!==0)throw new Error("Platform role reached participant SIGN persistence");
+});
+Deno.test("buyer refund signature adapter accepts a 0x-prefixed immutable decision hash",async()=>{
+ const client:W3MRpcClient={rpc:async()=>({data:{recorded:true,idempotent_replay:false,confirmations_count:1,required_signatures:2,status:"awaiting_signatures"},error:null})};
+ const result=await persistBuyerRefundSignatureAtomically(client,{...input,decisionHash:"0x"+input.decisionHash});
+ if(result.recorded!==true)throw new Error("Prefixed decision hash was rejected");
+});

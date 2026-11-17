@@ -1,7 +1,7 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1";
 import { keccak_256 } from "jsr:@noble/hashes@1.7.1/sha3";
 import type { JsonRpcClient } from "./bnb-revenue-adapter.ts";
-import { readCanonicalBnbSafeExecutionFacts, readCanonicalBnbSafeTransactionFacts } from "./bnb-safe-execution-facts-reader.ts";
+import { readCanonicalBnbSafeExecutionFacts, readCanonicalBnbSafeTransactionFacts, readCanonicalBnbSafeTransactionFactsAtBlock } from "./bnb-safe-execution-facts-reader.ts";
 
 const SAFE = "0x2222222222222222222222222222222222222222";
 const BUYER = "0x5555555555555555555555555555555555555555";
@@ -124,4 +124,39 @@ Deno.test("canonical BNB Safe transaction reader rejects a reorg while computing
   const result = await readCanonicalBnbSafeTransactionFacts(rpc, withoutStoredHash);
   assertEquals(result.valid, false);
   assertEquals(result.issues.includes("SAFE_READ_BLOCK_NOT_CANONICAL"), true);
+});
+
+
+Deno.test("Safe transaction hash reader reuses the captured canonical block", async () => {
+  const { rpc, calls } = makeRpc();
+  const { storedSafeTransactionHash: _unused, ...withoutStoredHash } = expected;
+  const result = await readCanonicalBnbSafeTransactionFactsAtBlock(rpc, withoutStoredHash, {
+    blockNumber: BigInt(BLOCK).toString(),
+    blockHash: BLOCK_HASH,
+  });
+  assertEquals(result.valid, true);
+  assertEquals(result.safeTransactionHash, HASH);
+  assertEquals(result.readBlockNumber, BLOCK);
+  assertEquals(result.readBlockHash, BLOCK_HASH);
+  assertEquals(calls.filter((method) => method === "eth_getBlockByNumber").length, 2);
+});
+
+Deno.test("Safe transaction hash reader rejects a changed captured block", async () => {
+  const { rpc } = makeRpc(true);
+  const { storedSafeTransactionHash: _unused, ...withoutStoredHash } = expected;
+  const result = await readCanonicalBnbSafeTransactionFactsAtBlock(rpc, withoutStoredHash, {
+    blockNumber: BigInt(BLOCK).toString(),
+    blockHash: BLOCK_HASH,
+  });
+  assertEquals(result.valid, false);
+  assertEquals(result.issues.includes("SAFE_READ_BLOCK_NOT_CANONICAL"), true);
+});
+
+Deno.test("Safe transaction hash reader rejects a stale captured block before calls", async () => {
+  const { rpc } = makeRpc();
+  const { storedSafeTransactionHash: _unused, ...withoutStoredHash } = expected;
+  await assertRejects(() => readCanonicalBnbSafeTransactionFactsAtBlock(rpc, withoutStoredHash, {
+    blockNumber: BigInt(BLOCK).toString(),
+    blockHash: "0x" + "8".repeat(64),
+  }));
 });

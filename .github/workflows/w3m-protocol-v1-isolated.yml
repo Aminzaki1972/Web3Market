@@ -10,7 +10,16 @@ on:
   # Validate changes on the isolated branch without deploying production.
   pull_request:
     paths:
+      - ".github/workflows/w3m-protocol-v1-isolated.yml"
       - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/functions/w3m-protocol-v1-buyer-refund-request/**"
+      - "supabase/functions/verify-deal-payment/**"
+      - "supabase/functions/deal-payment-monitor/**"
+      - "supabase/migrations/20261116050000_w3m_protocol_v1_atomic_deal_payment_finalization.sql"
+      - "supabase/migrations/20261116060000_w3m_protocol_v1_buyer_refund_request_snapshot.sql"
+      - "supabase/tests/w3m-protocol-v1-atomic-deal-payment-finalization.test.sql"
+      - "supabase/tests/w3m-protocol-v1-buyer-refund-request-snapshot.test.sql"
+      - "supabase/tests/w3m-deal-payment-finalization-fixture.sql"
       - "supabase/functions/w3m-protocol-v1-dispute-decision/**"
       - "supabase/migrations/*_w3m_protocol_v1_immutable_dispute_decisions.sql"
       - "supabase/tests/w3m-protocol-v1-dispute-decisions.test.sql"
@@ -20,6 +29,8 @@ on:
       - "supabase/functions/w3m-protocol-v1-deal-agreement/**"
       - "supabase/functions/w3m-protocol-v1-prepare-deal-release/**"
       - "supabase/functions/w3m-protocol-v1-safe-sign/**"
+      - "supabase/functions/w3m-protocol-v1-buyer-refund-finalize/**"
+      - "supabase/functions/w3m-protocol-v1-buyer-refund-sign/**"
       - "supabase/functions/w3m-protocol-v1-safe-wallet-package/**"
       - "supabase/functions/w3m-protocol-v1-safe-wallet-submit/**"
       - "js/w3m-safe-wallet-execution-client.js"
@@ -34,7 +45,6 @@ on:
       - "supabase/migrations/20261107150000_w3m_protocol_v1_report_signer_lock.sql"
       - "supabase/migrations/20261107160000_w3m_protocol_v1_atomic_project_ownership_transfer.sql"
       - "supabase/migrations/20261107170000_w3m_protocol_v1_dispute_open_rpc_contract.sql"
-      - "supabase/migrations/20261115010000_w3m_protocol_v1_bind_legal_agreement_document.sql"
       - "supabase/tests/w3m-protocol-v1-report-signer-lock.test.sql"
       - "supabase/tests/w3m-protocol-v1-report-version-serialization.test.sql"
       - "supabase/tests/w3m-protocol-v1-finalization-acquisition-revalidation.test.sql"
@@ -52,6 +62,8 @@ on:
       - "supabase/tests/w3m-protocol-v1-buyer-refund-signature-registry.test.sql"
       - "supabase/migrations/20261116030000_w3m_protocol_v1_atomic_buyer_refund_request.sql"
       - "supabase/tests/w3m-protocol-v1-atomic-buyer-refund-request.test.sql"
+      - "supabase/migrations/20261116040000_w3m_protocol_v1_atomic_buyer_refund_finalization.sql"
+      - "supabase/tests/w3m-protocol-v1-atomic-buyer-refund-finalization.test.sql"
       - "supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql"
       - "supabase/migrations/20261107065000_w3m_protocol_v1_dealroom_code_audit_snapshot.sql"
       - "supabase/migrations/20261107066000_w3m_protocol_v1_completed_audit_immutability.sql"
@@ -79,25 +91,33 @@ on:
       - "supabase/functions/w3m-acquisition-verification/deal-room-legacy-consent.test.ts"
       - "js/deal-room.js"
       - "supabase/tests/w3m-protocol-v1-schema.test.sql"
-      - "supabase/tests/w3m-dealroom-terms-reader-fixture.sql"
-      - "supabase/tests/w3m-dealroom-terms-reader.test.sql"
       - "supabase/tests/w3m-protocol-v1-trusted-signer-schema.test.sql"
-      - ".github/workflows/w3m-protocol-v1-isolated.yml"
+      - "js/w3m-deal-agreement-client.js"
   push:
-    branches:
-      - w3m-protocol-v1-isolated-20261105
-      - w3m-v1-finalization-adapter-tests-20261112
     paths:
+      - ".github/workflows/w3m-protocol-v1-isolated.yml"
       - "supabase/functions/w3m-acquisition-verification/**"
+      - "supabase/functions/w3m-protocol-v1-buyer-refund-request/**"
+      - "supabase/functions/verify-deal-payment/**"
+      - "supabase/functions/deal-payment-monitor/**"
+      - "supabase/migrations/20261116050000_w3m_protocol_v1_atomic_deal_payment_finalization.sql"
+      - "supabase/migrations/20261116060000_w3m_protocol_v1_buyer_refund_request_snapshot.sql"
+      - "supabase/tests/w3m-protocol-v1-atomic-deal-payment-finalization.test.sql"
+      - "supabase/tests/w3m-protocol-v1-buyer-refund-request-snapshot.test.sql"
+      - "supabase/tests/w3m-deal-payment-finalization-fixture.sql"
+      - "supabase/functions/w3m-protocol-v1-dispute-decision/**"
       - "supabase/migrations/*_w3m_protocol_v1_immutable_dispute_decisions.sql"
       - "supabase/tests/w3m-protocol-v1-dispute-decisions.test.sql"
+      - "docs/legal/**"
+      - "supabase/migrations/20261115010000_w3m_protocol_v1_bind_legal_agreement_document.sql"
       - "supabase/functions/w3m-protocol-v1-finalize-safe-release/**"
       - "supabase/functions/w3m-protocol-v1-deal-agreement/**"
       - "supabase/functions/w3m-protocol-v1-prepare-deal-release/**"
       - "supabase/functions/w3m-protocol-v1-safe-sign/**"
+      - "supabase/functions/w3m-protocol-v1-buyer-refund-finalize/**"
+      - "supabase/functions/w3m-protocol-v1-buyer-refund-sign/**"
       - "supabase/functions/w3m-protocol-v1-safe-wallet-package/**"
       - "supabase/functions/w3m-protocol-v1-safe-wallet-submit/**"
-      - "js/w3m-deal-agreement-client.js"
       - "js/w3m-safe-wallet-execution-client.js"
       - "js/release-signing-fix.js"
       - "deal-room.html"
@@ -120,7 +140,6 @@ on:
       - "supabase/migrations/20261106240000_w3m_protocol_v1_safe_execution_finalizer.sql"
       - "supabase/migrations/20261107010000_w3m_protocol_v1_dealroom_terms_reader.sql"
       - "supabase/migrations/20261107020000_w3m_protocol_v1_safe_finalization_snapshot_reader.sql"
-      - "supabase/migrations/20261107030000_w3m_protocol_v1_safe_execution_snapshot_reader.sql"
       - "supabase/migrations/20261107040000_w3m_protocol_v1_deal_agreement_acceptances.sql"
       - "supabase/migrations/20261107050000_w3m_protocol_v1_safe_snapshot_agreement_binding.sql"
       - "supabase/migrations/20261116010000_w3m_protocol_v1_safe_snapshot_dispute_decision.sql"
@@ -128,6 +147,8 @@ on:
       - "supabase/tests/w3m-protocol-v1-buyer-refund-signature-registry.test.sql"
       - "supabase/migrations/20261116030000_w3m_protocol_v1_atomic_buyer_refund_request.sql"
       - "supabase/tests/w3m-protocol-v1-atomic-buyer-refund-request.test.sql"
+      - "supabase/migrations/20261116040000_w3m_protocol_v1_atomic_buyer_refund_finalization.sql"
+      - "supabase/tests/w3m-protocol-v1-atomic-buyer-refund-finalization.test.sql"
       - "supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql"
       - "supabase/migrations/20261107065000_w3m_protocol_v1_dealroom_code_audit_snapshot.sql"
       - "supabase/migrations/20261107066000_w3m_protocol_v1_completed_audit_immutability.sql"
@@ -135,14 +156,14 @@ on:
       - "supabase/tests/w3m-dealroom-terms-reader-fixture.sql"
       - "supabase/tests/w3m-dealroom-terms-reader.test.sql"
       - "supabase/migrations/20261107070000_w3m_protocol_v1_atomic_safe_prepare.sql"
+      - "supabase/migrations/20261107080000_w3m_protocol_v1_atomic_safe_sign.sql"
       - "supabase/tests/w3m-protocol-v1-atomic-safe-prepare.test.sql"
-      - "supabase/tests/w3m-safe-execution-attempts-fixture.sql"
+      - "supabase/tests/w3m-protocol-v1-atomic-safe-sign.test.sql"
       - "supabase/tests/w3m-dealroom-prepare-policy-reader-fixture.sql"
       - "supabase/tests/w3m-dealroom-prepare-policy-reader.test.sql"
-      - "supabase/tests/w3m-safe-execution-snapshot-reader.test.sql"
       - "supabase/tests/w3m-deal-agreement-acceptances.test.sql"
-      - "supabase/tests/w3m-dealroom-terms-reader-fixture.sql"
-      - "supabase/tests/w3m-dealroom-terms-reader.test.sql"
+      - "supabase/migrations/20261107030000_w3m_protocol_v1_safe_execution_snapshot_reader.sql"
+      - "supabase/tests/w3m-safe-execution-snapshot-reader.test.sql"
       - "supabase/tests/w3m-safe-execution-attempts-fixture.sql"
       - "supabase/tests/w3m-safe-execution-attempts.test.sql"
       - "supabase/tests/w3m-protocol-v1-dispute-concurrency.test.sh"
@@ -154,9 +175,9 @@ on:
       - "supabase/tests/w3m-safe-finalizer-evidence-concurrency.test.sh"
       - "supabase/functions/w3m-acquisition-verification/deal-room-legacy-consent.test.ts"
       - "js/deal-room.js"
-      - "supabase/tests/w3m-protocol-v1-trusted-signer-schema.test.sql"
       - "supabase/tests/w3m-protocol-v1-schema.test.sql"
-      - ".github/workflows/w3m-protocol-v1-isolated.yml"
+      - "supabase/tests/w3m-protocol-v1-trusted-signer-schema.test.sql"
+      - "js/w3m-deal-agreement-client.js"
 
 permissions:
   contents: read
@@ -164,6 +185,7 @@ permissions:
 jobs:
   decision-engine-and-schema:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:16
@@ -182,174 +204,192 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Type-check isolated decision and settlement gate engines
+      - name: Verify deployed Safe v1.4.1 runtime bytecode hash on BNB Chain
+        timeout-minutes: 3
+        run: deno run --allow-net --allow-env supabase/functions/w3m-acquisition-verification/verify-bnb-safe-v141-runtime-code-hash.ts
+      - name: Type-check isolated decision, settlement, payment, and refund modules
+        timeout-minutes: 15
         run: |
-          deno check supabase/functions/w3m-acquisition-verification/decision-engine.ts
-          deno check supabase/functions/w3m-acquisition-verification/settlement-gate.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-payload-validator.ts
-          deno check supabase/functions/w3m-acquisition-verification/dispute-refund-commission.ts
-          deno check supabase/functions/w3m-acquisition-verification/dispute-refund-commission.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-refund-payload-validator.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-refund-payload-validator.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-request-builder.ts
-          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-request-builder.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-safe-transaction-builder.ts
-          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-safe-transaction-builder.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-sign-request-handler.ts
-          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-sign-request-handler.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-signature-persistence-adapter.ts
-          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-signature-persistence-adapter.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-request-persistence-adapter.ts
-          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-request-persistence-adapter.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-request-handler.ts
-          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-request-handler.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-refund-receipt-verifier.ts
-          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-refund-receipt-verifier.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-finalization-handler.ts
-          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-finalization-handler.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-finalization-persistence-adapter.ts
-          deno check supabase/functions/w3m-acquisition-verification/buyer-refund-finalization-persistence-adapter.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-multisend-decoder.ts
-          deno check supabase/functions/w3m-acquisition-verification/asset-transfer-orchestrator.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-payload-pipeline.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/unified-evidence-aggregator.ts
-          deno check supabase/functions/w3m-acquisition-verification/report-envelope.ts
-          deno check supabase/functions/w3m-acquisition-verification/report-registry-batch.ts
-          deno check supabase/functions/w3m-acquisition-verification/protocol-orchestrator.ts
-          deno check supabase/functions/w3m-acquisition-verification/protocol-orchestrator.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/signature-verifier.ts
-          deno check supabase/functions/w3m-acquisition-verification/signature-verifier.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.ts
-          deno check supabase/functions/w3m-acquisition-verification/dispute-decision.ts
-          deno check supabase/functions/w3m-acquisition-verification/dispute-decision-service.ts
-          deno check supabase/functions/w3m-acquisition-verification/dispute-decision-service.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/dispute-decision.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/dispute-decision-request-handler.ts
-          deno check supabase/functions/w3m-acquisition-verification/dispute-decision-request-handler.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.ts
-          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-service.ts
-          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-service.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-request-handler.ts
-          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-request-handler.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/report-issue-request-handler.ts
-          deno check supabase/functions/w3m-acquisition-verification/verified-report-issuance.ts
-          deno check supabase/functions/w3m-acquisition-verification/report-issue-request-handler.test.ts
-          deno check supabase/functions/w3m-protocol-v1-deal-agreement/index.ts
-          deno check supabase/functions/w3m-acquisition-verification/deal-agreement-client.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-signature-set-validator.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-signature-set-validator.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-sign-request-handler.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-sign-request-handler.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-signature-persistence-adapter.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-signature-persistence-adapter.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-sign-context-composer.ts
-          deno check supabase/functions/w3m-protocol-v1-safe-sign/index.ts
-          deno check supabase/functions/w3m-acquisition-verification/bearer-token.ts
-          deno check supabase/functions/w3m-acquisition-verification/bearer-token.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.ts
-          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/fresh-safe-handler-context.ts
-          deno check supabase/functions/w3m-acquisition-verification/trusted-signer-registry-adapter.ts
-          deno check supabase/functions/w3m-acquisition-verification/trusted-signer-registry-adapter.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/supabase-rpc-adapter.ts
-          deno check supabase/functions/w3m-acquisition-verification/supabase-rpc-adapter.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/atomic-safe-prepare-rpc-adapter.ts
-          deno check supabase/functions/w3m-acquisition-verification/atomic-safe-prepare-rpc-adapter.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/protocol-service.ts
-          deno check supabase/functions/w3m-acquisition-verification/protocol-service.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/report-sequence.ts
-          deno check supabase/functions/w3m-acquisition-verification/report-sequence.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/persisted-report-guard.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-acquisition-adapter.ts
-          deno check supabase/functions/w3m-acquisition-verification/persisted-report-guard.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/deal-terms-hash.ts
-          deno check supabase/functions/w3m-acquisition-verification/deal-terms-hash.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/deal-code-audit-binding.ts
-          deno check supabase/functions/w3m-acquisition-verification/deal-code-audit-binding.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/code-audit-evidence-selector.ts
-          deno check supabase/functions/w3m-acquisition-verification/code-audit-evidence-selector.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/audit-manifest.ts
-          deno check supabase/functions/w3m-acquisition-verification/audit-manifest.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/audit-manifest-loader.ts
-          deno check supabase/functions/w3m-acquisition-verification/audit-manifest-supabase-adapter.ts
-          deno check supabase/functions/w3m-acquisition-verification/audit-manifest-supabase-adapter.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-persistence.ts
-          deno check supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-persistence.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-service.ts
-          deno check supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-service.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/audit-manifest-binding.ts
-          deno check supabase/functions/w3m-acquisition-verification/audit-manifest-loader.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/dealroom-w3m-gate.ts
-          deno check supabase/functions/w3m-acquisition-verification/dealroom-w3m-gate.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/persisted-report-loader.ts
-          deno check supabase/functions/w3m-acquisition-verification/persisted-report-loader.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/dealroom-w3m-service.ts
-          deno check supabase/functions/w3m-acquisition-verification/dealroom-w3m-service.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/dealroom-supabase-adapter.ts
-          deno check supabase/functions/w3m-acquisition-verification/dealroom-supabase-adapter.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/dealroom-terms-reader.ts
-          deno check supabase/functions/w3m-acquisition-verification/dealroom-terms-reader.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-edge-w3m-boundary.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-edge-w3m-boundary.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-edge-w3m-phase-boundary.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-edge-w3m-phase-boundary.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-handler-w3m-authorizer.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-handler-w3m-authorizer.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-guard.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-guard.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-snapshot-adapter.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-snapshot-adapter.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-receipt-verifier.ts
-          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-receipt-verifier.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-execution-coordinator.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-execution-coordinator.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-execute-request-handler.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-execute-request-handler.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-package-context-composer.ts
-          deno check supabase/functions/w3m-protocol-v1-safe-wallet-package/index.ts
-          deno check supabase/functions/w3m-protocol-v1-safe-wallet-submit/index.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-package-request-handler.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-package-request-handler.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-submission-request-handler.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-submission-request-handler.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-execution-client.test.ts
-          deno check js/w3m-safe-wallet-execution-client.js
-          deno check js/release-signing-fix.js
-          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-execution-package.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-wallet-execution-package.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-live-execution-facts.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-live-execution-facts.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-live-configuration-facts.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-live-configuration-facts.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-configuration-facts-reader.ts
-          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-configuration-facts-reader.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/fresh-safe-prepare-context.ts
-          deno check supabase/functions/w3m-acquisition-verification/fresh-safe-prepare-context.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-gate.ts
-          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-gate.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-boundary.ts
-          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-boundary.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-commit.ts
-          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-commit.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.ts
-          deno check supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.test.ts
-          deno check supabase/functions/w3m-protocol-v1-prepare-deal-release/index.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.ts
-          deno check supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-live-read-client.ts
-          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-live-read-client.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-execution-facts-reader.ts
-          deno check supabase/functions/w3m-acquisition-verification/bnb-safe-execution-facts-reader.test.ts
-          deno check supabase/functions/w3m-acquisition-verification/fresh-safe-handler-context.ts
-          deno check supabase/functions/w3m-acquisition-verification/fresh-safe-handler-context.test.ts
-          deno check supabase/functions/w3m-protocol-v1-finalize-safe-release/index.ts
-          deno check supabase/functions/w3m-protocol-v1-dispute-decision/index.ts
+          deno check \
+            supabase/functions/w3m-acquisition-verification/decision-engine.ts \
+            supabase/functions/w3m-acquisition-verification/settlement-gate.ts \
+            supabase/functions/w3m-acquisition-verification/safe-payload-validator.ts \
+            supabase/functions/w3m-acquisition-verification/dispute-refund-commission.ts \
+            supabase/functions/w3m-acquisition-verification/dispute-refund-commission.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-refund-payload-validator.ts \
+            supabase/functions/w3m-acquisition-verification/safe-refund-payload-validator.test.ts \
+            supabase/functions/w3m-protocol-v1-buyer-refund-request/index.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-agreement-acceptance-verifier.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-agreement-acceptance-verifier.test.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-request-builder.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-request-builder.test.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-safe-transaction-builder.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-safe-transaction-builder.test.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-sign-request-handler.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-sign-request-handler.test.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-signature-persistence-adapter.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-signature-persistence-adapter.test.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-request-persistence-adapter.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-request-persistence-adapter.test.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-request-snapshot-adapter.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-request-snapshot-adapter.test.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-request-handler.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-request-handler.test.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-request-endpoint-contract.test.ts \
+            supabase/functions/w3m-acquisition-verification/bnb-safe-refund-receipt-verifier.ts \
+            supabase/functions/w3m-acquisition-verification/bnb-safe-refund-receipt-verifier.test.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-finalization-handler.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-finalization-handler.test.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-finalization-persistence-adapter.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-finalization-persistence-adapter.test.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-lifecycle.integration.test.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-amount-validator.ts \
+            supabase/functions/w3m-acquisition-verification/buyer-refund-amount-validator.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-multisend-decoder.ts \
+            supabase/functions/w3m-acquisition-verification/asset-transfer-orchestrator.ts \
+            supabase/functions/w3m-acquisition-verification/safe-payload-pipeline.test.ts \
+            supabase/functions/w3m-acquisition-verification/unified-evidence-aggregator.ts \
+            supabase/functions/w3m-acquisition-verification/report-envelope.ts \
+            supabase/functions/w3m-acquisition-verification/report-registry-batch.ts \
+            supabase/functions/w3m-acquisition-verification/protocol-orchestrator.ts \
+            supabase/functions/w3m-acquisition-verification/protocol-orchestrator.test.ts \
+            supabase/functions/w3m-acquisition-verification/signature-verifier.ts \
+            supabase/functions/w3m-acquisition-verification/signature-verifier.test.ts \
+            supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.ts \
+            supabase/functions/w3m-acquisition-verification/dispute-decision.ts \
+            supabase/functions/w3m-acquisition-verification/dispute-decision-service.ts \
+            supabase/functions/w3m-acquisition-verification/dispute-decision-service.test.ts \
+            supabase/functions/w3m-acquisition-verification/dispute-decision.test.ts \
+            supabase/functions/w3m-acquisition-verification/dispute-decision-request-handler.ts \
+            supabase/functions/w3m-acquisition-verification/dispute-decision-request-handler.test.ts \
+            supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.ts \
+            supabase/functions/w3m-acquisition-verification/deal-agreement-eip712.test.ts \
+            supabase/functions/w3m-acquisition-verification/deal-agreement-service.ts \
+            supabase/functions/w3m-acquisition-verification/deal-agreement-service.test.ts \
+            supabase/functions/w3m-acquisition-verification/deal-agreement-request-handler.ts \
+            supabase/functions/w3m-acquisition-verification/deal-agreement-request-handler.test.ts \
+            supabase/functions/w3m-acquisition-verification/report-issue-request-handler.ts \
+            supabase/functions/w3m-acquisition-verification/verified-report-issuance.ts \
+            supabase/functions/w3m-acquisition-verification/report-issue-request-handler.test.ts \
+            supabase/functions/w3m-protocol-v1-deal-agreement/index.ts \
+            supabase/functions/w3m-acquisition-verification/deal-agreement-client.test.ts \
+            supabase/functions/w3m-acquisition-verification/ethereum-signature-adapter.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-signature-set-validator.ts \
+            supabase/functions/w3m-acquisition-verification/safe-signature-set-validator.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-sign-request-handler.ts \
+            supabase/functions/w3m-acquisition-verification/safe-sign-request-handler.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-signature-persistence-adapter.ts \
+            supabase/functions/w3m-acquisition-verification/safe-signature-persistence-adapter.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-sign-context-composer.ts \
+            supabase/functions/w3m-protocol-v1-safe-sign/index.ts \
+            supabase/functions/w3m-protocol-v1-buyer-refund-finalize/index.ts \
+            supabase/functions/w3m-protocol-v1-buyer-refund-sign/index.ts \
+            supabase/functions/w3m-acquisition-verification/bearer-token.ts \
+            supabase/functions/w3m-acquisition-verification/bearer-token.test.ts \
+            supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.ts \
+            supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.ts \
+            supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.test.ts \
+            supabase/functions/w3m-acquisition-verification/fresh-safe-handler-context.ts \
+            supabase/functions/w3m-acquisition-verification/trusted-signer-registry-adapter.ts \
+            supabase/functions/w3m-acquisition-verification/trusted-signer-registry-adapter.test.ts \
+            supabase/functions/w3m-acquisition-verification/supabase-rpc-adapter.ts \
+            supabase/functions/w3m-acquisition-verification/supabase-rpc-adapter.test.ts \
+            supabase/functions/w3m-acquisition-verification/atomic-safe-prepare-rpc-adapter.ts \
+            supabase/functions/w3m-acquisition-verification/atomic-safe-prepare-rpc-adapter.test.ts \
+            supabase/functions/w3m-acquisition-verification/protocol-service.ts \
+            supabase/functions/w3m-acquisition-verification/protocol-service.test.ts \
+            supabase/functions/w3m-acquisition-verification/report-sequence.ts \
+            supabase/functions/w3m-acquisition-verification/report-sequence.test.ts \
+            supabase/functions/w3m-acquisition-verification/persisted-report-guard.ts \
+            supabase/functions/w3m-acquisition-verification/safe-finalization-acquisition-adapter.ts \
+            supabase/functions/w3m-acquisition-verification/persisted-report-guard.test.ts \
+            supabase/functions/w3m-acquisition-verification/deal-terms-hash.ts \
+            supabase/functions/w3m-acquisition-verification/deal-terms-hash.test.ts \
+            supabase/functions/w3m-acquisition-verification/deal-code-audit-binding.ts \
+            supabase/functions/w3m-acquisition-verification/deal-code-audit-binding.test.ts \
+            supabase/functions/w3m-acquisition-verification/code-audit-evidence-selector.ts \
+            supabase/functions/w3m-acquisition-verification/code-audit-evidence-selector.test.ts \
+            supabase/functions/w3m-acquisition-verification/audit-manifest.ts \
+            supabase/functions/w3m-acquisition-verification/audit-manifest.test.ts \
+            supabase/functions/w3m-acquisition-verification/audit-manifest-loader.ts \
+            supabase/functions/w3m-acquisition-verification/audit-manifest-supabase-adapter.ts \
+            supabase/functions/w3m-acquisition-verification/audit-manifest-supabase-adapter.test.ts \
+            supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-persistence.ts \
+            supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-persistence.test.ts \
+            supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-service.ts \
+            supabase/functions/w3m-acquisition-verification/deal-audit-snapshot-service.test.ts \
+            supabase/functions/w3m-acquisition-verification/audit-manifest-binding.ts \
+            supabase/functions/w3m-acquisition-verification/audit-manifest-loader.test.ts \
+            supabase/functions/w3m-acquisition-verification/dealroom-w3m-gate.ts \
+            supabase/functions/w3m-acquisition-verification/dealroom-w3m-gate.test.ts \
+            supabase/functions/w3m-acquisition-verification/persisted-report-loader.ts \
+            supabase/functions/w3m-acquisition-verification/persisted-report-loader.test.ts \
+            supabase/functions/w3m-acquisition-verification/dealroom-w3m-service.ts \
+            supabase/functions/w3m-acquisition-verification/dealroom-w3m-service.test.ts \
+            supabase/functions/w3m-acquisition-verification/dealroom-supabase-adapter.ts \
+            supabase/functions/w3m-acquisition-verification/dealroom-supabase-adapter.test.ts \
+            supabase/functions/w3m-acquisition-verification/dealroom-terms-reader.ts \
+            supabase/functions/w3m-acquisition-verification/dealroom-terms-reader.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-edge-w3m-boundary.ts \
+            supabase/functions/w3m-acquisition-verification/safe-edge-w3m-boundary.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-edge-w3m-phase-boundary.ts \
+            supabase/functions/w3m-acquisition-verification/safe-edge-w3m-phase-boundary.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-handler-w3m-authorizer.ts \
+            supabase/functions/w3m-acquisition-verification/safe-handler-w3m-authorizer.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-finalization-guard.ts \
+            supabase/functions/w3m-acquisition-verification/safe-finalization-guard.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-finalization-snapshot-adapter.ts \
+            supabase/functions/w3m-acquisition-verification/safe-finalization-snapshot-adapter.test.ts \
+            supabase/functions/w3m-acquisition-verification/bnb-safe-receipt-verifier.ts \
+            supabase/functions/w3m-acquisition-verification/bnb-safe-receipt-verifier.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.ts \
+            supabase/functions/w3m-acquisition-verification/safe-finalization-request-handler.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-execution-coordinator.ts \
+            supabase/functions/w3m-acquisition-verification/safe-execution-coordinator.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-execute-request-handler.ts \
+            supabase/functions/w3m-acquisition-verification/safe-execute-request-handler.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-wallet-package-context-composer.ts \
+            supabase/functions/w3m-protocol-v1-safe-wallet-package/index.ts \
+            supabase/functions/w3m-protocol-v1-safe-wallet-submit/index.ts \
+            supabase/functions/w3m-acquisition-verification/safe-wallet-package-request-handler.ts \
+            supabase/functions/w3m-acquisition-verification/safe-wallet-package-request-handler.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-wallet-submission-request-handler.ts \
+            supabase/functions/w3m-acquisition-verification/safe-wallet-submission-request-handler.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-wallet-execution-client.test.ts \
+            js/w3m-safe-wallet-execution-client.js \
+            js/release-signing-fix.js \
+            supabase/functions/w3m-acquisition-verification/safe-wallet-execution-package.ts \
+            supabase/functions/w3m-acquisition-verification/safe-wallet-execution-package.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-live-execution-facts.ts \
+            supabase/functions/w3m-acquisition-verification/safe-live-execution-facts.test.ts \
+            supabase/functions/w3m-acquisition-verification/safe-live-configuration-facts.ts \
+            supabase/functions/w3m-acquisition-verification/safe-live-configuration-facts.test.ts \
+            supabase/functions/w3m-acquisition-verification/bnb-safe-configuration-facts-reader.ts \
+            supabase/functions/w3m-acquisition-verification/bnb-safe-configuration-facts-reader.test.ts \
+            supabase/functions/w3m-acquisition-verification/bnb-safe-usdt-balance-reader.ts \
+            supabase/functions/w3m-acquisition-verification/bnb-safe-usdt-balance-reader.test.ts \
+            supabase/functions/w3m-acquisition-verification/fresh-safe-prepare-context.ts \
+            supabase/functions/w3m-acquisition-verification/fresh-safe-prepare-context.test.ts \
+            supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-gate.ts \
+            supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-gate.test.ts \
+            supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-boundary.ts \
+            supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-boundary.test.ts \
+            supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-commit.ts \
+            supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-commit.test.ts \
+            supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.ts \
+            supabase/functions/w3m-acquisition-verification/prelock-safe-prepare-request-handler.test.ts \
+            supabase/functions/w3m-protocol-v1-prepare-deal-release/index.ts \
+            supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.ts \
+            supabase/functions/w3m-acquisition-verification/safe-execution-snapshot-adapter.test.ts \
+            supabase/functions/w3m-acquisition-verification/bnb-safe-live-read-client.ts \
+            supabase/functions/w3m-acquisition-verification/bnb-safe-live-read-client.test.ts \
+            supabase/functions/w3m-acquisition-verification/bnb-safe-execution-facts-reader.ts \
+            supabase/functions/w3m-acquisition-verification/bnb-safe-execution-facts-reader.test.ts \
+            supabase/functions/w3m-acquisition-verification/fresh-safe-handler-context.ts \
+            supabase/functions/w3m-acquisition-verification/fresh-safe-handler-context.test.ts \
+            supabase/functions/w3m-protocol-v1-finalize-safe-release/index.ts \
+            supabase/functions/w3m-protocol-v1-dispute-decision/index.ts
       - name: Test decision engine
         run: deno test supabase/functions/w3m-acquisition-verification/decision-engine.test.ts
       - name: Test settlement gate
@@ -360,20 +400,46 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/dispute-refund-commission.test.ts
       - name: Test buyer refund Safe payload validator
         run: deno test supabase/functions/w3m-acquisition-verification/safe-refund-payload-validator.test.ts
+      - name: Test cryptographic buyer refund agreement acceptances
+        run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-agreement-acceptance-verifier.test.ts
+      - name: Test buyer refund atomic persistence adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-request-persistence-adapter.test.ts
+      - name: Test fresh buyer refund snapshot adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-request-snapshot-adapter.test.ts
       - name: Test buyer refund request intent builder
         run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-request-builder.test.ts
       - name: Test exact buyer refund Safe MultiSend transaction builder
         run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-safe-transaction-builder.test.ts
+      - name: Test authenticated buyer refund request boundary
+        run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-request-handler.test.ts
+      - name: Test buyer refund request endpoint security composition
+        run: deno test --allow-read=supabase/functions/w3m-protocol-v1-buyer-refund-request/index.ts,supabase/functions/w3m-protocol-v1-buyer-refund-sign/index.ts,supabase/functions/w3m-protocol-v1-buyer-refund-finalize/index.ts,supabase/functions/w3m-acquisition-verification/buyer-refund-request-handler.ts,supabase/functions/verify-deal-payment/index.ts,supabase/functions/deal-payment-monitor/index.ts supabase/functions/w3m-acquisition-verification/buyer-refund-request-endpoint-contract.test.ts
       - name: Test buyer refund Safe signing boundary
         run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-sign-request-handler.test.ts
       - name: Test atomic buyer refund signature persistence adapter
         run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-signature-persistence-adapter.test.ts
       - name: Test canonical BNB Safe buyer refund receipt verification
         run: deno test supabase/functions/w3m-acquisition-verification/bnb-safe-refund-receipt-verifier.test.ts
+      - name: Test canonical BNB deal payment receipt verification
+        run: deno test supabase/functions/w3m-acquisition-verification/bnb-deal-payment-receipt-verifier.test.ts
+      - name: Test fresh server-derived BNB deal payment context
+        run: deno test supabase/functions/w3m-acquisition-verification/fresh-bnb-deal-payment-context.test.ts
+      - name: Test atomic deal payment finalization RPC adapter
+        run: deno test supabase/functions/w3m-acquisition-verification/deal-payment-finalization-rpc-adapter.test.ts
+      - name: Type-check candidate deal payment Edge Function
+        run: deno check supabase/functions/verify-deal-payment/index.ts
+      - name: Type-check candidate automatic deal payment monitor
+        run: deno check supabase/functions/deal-payment-monitor/index.ts
       - name: Test authenticated buyer refund receipt finalization boundary
         run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-finalization-handler.test.ts
+      - name: Test strict buyer refund amount parser
+        run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-amount-validator.test.ts
       - name: Test strict buyer refund finalization RPC adapter
         run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-finalization-persistence-adapter.test.ts
+      - name: Test mocked end-to-end buyer refund lifecycle
+        run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-lifecycle.integration.test.ts
+      - name: Test all three buyer refund Edge Function HTTP entrypoints with mocked Supabase and BNB RPC
+        run: deno test supabase/functions/w3m-acquisition-verification/buyer-refund-edge-entrypoints.integration.test.ts
       - name: Test Safe MultiSend decoder
         run: deno test supabase/functions/w3m-acquisition-verification/safe-multisend-decoder.test.ts
       - name: Test Safe payload pipeline
@@ -486,6 +552,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/safe-live-configuration-facts.test.ts
       - name: Test canonical-block BNB Safe configuration facts for PREPARE
         run: deno test supabase/functions/w3m-acquisition-verification/bnb-safe-configuration-facts-reader.test.ts
+      - name: Test canonical-block BNB USDT Safe balance reader
+        run: deno test supabase/functions/w3m-acquisition-verification/bnb-safe-usdt-balance-reader.test.ts
       - name: Test fresh pre-transaction W3M PREPARE context
         run: deno test supabase/functions/w3m-acquisition-verification/fresh-safe-prepare-context.test.ts
       - name: Test pre-lock W3M PREPARE gate
@@ -530,6 +598,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-attempts-fixture.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-terms-reader-fixture.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-prepare-policy-reader-fixture.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-deal-payment-finalization-fixture.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql
@@ -554,6 +623,9 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116010000_w3m_protocol_v1_safe_snapshot_dispute_decision.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116020000_w3m_protocol_v1_buyer_refund_signature_registry.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116030000_w3m_protocol_v1_atomic_buyer_refund_request.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116040000_w3m_protocol_v1_atomic_buyer_refund_finalization.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116050000_w3m_protocol_v1_atomic_deal_payment_finalization.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116060000_w3m_protocol_v1_buyer_refund_request_snapshot.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107070000_w3m_protocol_v1_atomic_safe_prepare.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107080000_w3m_protocol_v1_atomic_safe_sign.sql
@@ -567,6 +639,9 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-atomic-safe-sign.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-buyer-refund-signature-registry.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-atomic-buyer-refund-request.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-buyer-refund-request-snapshot.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-atomic-buyer-refund-finalization.test.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-protocol-v1-atomic-deal-payment-finalization.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-snapshot-reader.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-deal-agreement-acceptances.test.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE audit_immutability_test;"
@@ -596,6 +671,7 @@ jobs:
           psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-safe-execution-attempts-fixture.sql
           psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-terms-reader-fixture.sql
           psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-dealroom-prepare-policy-reader-fixture.sql
+          psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f supabase/tests/w3m-deal-payment-finalization-fixture.sql
           while IFS= read -r migration; do
             echo "Applying timestamp-sorted migration: $migration"
             psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f "$migration"

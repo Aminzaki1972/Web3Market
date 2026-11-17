@@ -18,10 +18,11 @@ function fixture():BuyerRefundRequestPersistenceInput{
   owners:[BUYER,"0x3333333333333333333333333333333333333333","0x2b15cc63ee3b833f502c065767695fa2b584f8c9"],
   threshold:2,balance:"107.5",safe_tx_hash:HASH};
  const authorization={authorized:true,phase:"CREATE_REFUND_REQUEST",deal_id:DEAL,
+  agreement_acceptances_verified:true,buyer_acceptance_digest:HASH,seller_acceptance_digest:"0x"+"b".repeat(64),
   safe_hash_verified:true,safe_block_canonical:true,funding_receipt_verified:true,
   funding_block_canonical:true,payload_verified:true,safe_tx_hash:HASH,safe_block_hash:HASH,issues:[]};
  return {dealId:DEAL,actorId:ACTOR,
-  intent:{action:"refund_to_buyer",decisionId:DECISION,disputeId:DISPUTE,decisionHash:"b".repeat(64),
+  intent:{action:"refund_to_buyer",chainId:56,decisionId:DECISION,disputeId:DISPUTE,decisionHash:"b".repeat(64),
    termsHash:"c".repeat(64),safeAddress:SAFE,buyerRecipient:BUYER,safeSnapshot:{blockNumber:"500",blockHash:HASH}},
   safeTransaction:{to:"0x9641d764fc13c8b624c04430c7356c1c7c8102e2",data:"0x1234",operation:1,value:"0",nonce:"9",
    safeTxGas:"0",baseGas:"0",gasPrice:"0",gasToken:"0x0000000000000000000000000000000000000000",
@@ -62,4 +63,17 @@ Deno.test("rejects an RPC response bound to a different Safe transaction hash",a
   safe_transaction_id:TX,safe_tx_hash:"0x"+"f".repeat(64),status:"awaiting_signatures"},()=>{});
  try{await persistBuyerRefundRequestAtomically(client,input);}catch{blocked=true;}
  if(!blocked)throw new Error("Mismatched Safe hash response was accepted");
+});
+
+Deno.test("rejects absent or malformed EIP-712 acceptance attestations before RPC",async()=>{
+ for(const patch of [
+  {agreement_acceptances_verified:false},
+  {buyer_acceptance_digest:"bad"},
+  {seller_acceptance_digest:null},
+ ]){
+  const input=fixture();Object.assign(input.serverAuthorization,patch);
+  let called=false;const client=fakeClient({},()=>{called=true;});
+  let blocked=false;try{await persistBuyerRefundRequestAtomically(client,input);}catch{blocked=true;}
+  if(!blocked||called)throw new Error("Unverified agreement acceptance reached atomic refund RPC");
+ }
 });

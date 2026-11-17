@@ -16,7 +16,7 @@ insert into public.deals(
  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
  '11111111-1111-4111-8111-111111111111',
  '33333333-3333-4333-8333-333333333333',
- 100,'USDT','USDT','confirmed','0x' || repeat('a',64),
+ 100,'USDT','USDT','confirmed','0x' || repeat('8',64),
  'accepted',now(),'none',56,
  '0x4444444444444444444444444444444444444444',
  '0x5555555555555555555555555555555555555555','funded'

@@ -7,6 +7,8 @@ do $schema$
 declare
   v_definition text;
   v_signature regprocedure;
+  v_dispute_lock_position integer;
+  v_deal_lock_position integer;
 begin
   v_signature := 'public.w3m_create_buyer_refund_request(uuid,uuid,jsonb,jsonb,jsonb,jsonb,jsonb)'::regprocedure;
 
@@ -37,11 +39,23 @@ begin
      or position('round(v_original * 0.075,18)' in lower(v_definition))=0
      or position('safe_hash_verified' in lower(v_definition))=0
      or position('payload_verified' in lower(v_definition))=0
+     or position('agreement_acceptances_verified' in lower(v_definition))=0
+     or position('buyer_acceptance_digest' in lower(v_definition))=0
+     or position('seller_acceptance_digest' in lower(v_definition))=0
+     or position('w3m_deal_agreement_acceptances' in lower(v_definition))=0
      or position('funding_block_canonical' in lower(v_definition))=0
      or position('v_funded is distinct from v_original' in lower(v_definition))=0
      or position('v_refund + v_fee <> v_funded' in lower(v_definition))=0
+     or lower(v_definition) !~ '(?s)buyer_refund_amount.*is distinct from.*buyerrefundamount.*numeric'
      or position('w3m_buyer_refund_request_created' in lower(v_definition))=0 then
     raise exception 'Atomic buyer refund RPC is missing a required validation or audit binding';
+  end if;
+
+  v_dispute_lock_position := position('select * into v_dispute from public.deal_disputes' in lower(v_definition));
+  v_deal_lock_position := position('select * into v_deal from public.deals' in lower(v_definition));
+  if v_dispute_lock_position = 0 or v_deal_lock_position = 0
+     or v_dispute_lock_position >= v_deal_lock_position then
+    raise exception 'Refund request lock order must match dispute decision: dispute row before parent deal';
   end if;
 
   if not exists(select 1 from pg_trigger where tgname='w3m_buyer_refund_requests_immutable' and not tgisinternal) then
@@ -85,3 +99,16 @@ end;
 $fail_closed$;
 
 rollback;
+
+-- Cross-runtime rounding contract: TypeScript computes the 7.5% fee in integer
+-- 18-decimal units; PostgreSQL numeric round() must produce the same result.
+do $rounding$
+begin
+  if round(0.000000000000000006::numeric * 0.075,18) <> 0::numeric then
+    raise exception 'PostgreSQL fee rounding below half of the smallest 18-decimal unit diverges from the TypeScript builder';
+  end if;
+  if round(0.000000000000000007::numeric * 0.075,18) <> 0.000000000000000001::numeric then
+    raise exception 'PostgreSQL fee rounding at/above half of the smallest 18-decimal unit diverges from the TypeScript builder';
+  end if;
+end;
+$rounding$;
