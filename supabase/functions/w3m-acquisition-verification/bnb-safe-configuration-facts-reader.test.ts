@@ -33,7 +33,7 @@ function makeRpc(reorg=false,badSingleton=false,singletonCode="0x60016000"){cons
 const expected={safeAddress:SAFE,expectedSafeAddress:SAFE,expectedOwners:[BUYER,SELLER,PLATFORM],expectedThreshold:2,expectedVersion:"1.4.1",expectedChainId:56,expectedNonce:"7"};
 const OFFICIAL_RUNTIME_HASH="1fe2df852ba3299d6534ef416eefa406e56ced995bca886ab7a553e6d0c5e1c4";
 const WRONG_RUNTIME_HASH="0".repeat(64);
-const testRuntimeHasher=(bytes:Uint8Array)=>bytes[0]===0x60?Uint8Array.from(OFFICIAL_RUNTIME_HASH.match(/../g)!.map(x=>parseInt(x,16))):Uint8Array.from(WRONG_RUNTIME_HASH.match(/../g)!.map(x=>parseInt(x,16)));
+const testRuntimeHasher=(bytes:Uint8Array)=>bytes[1]===0x01?Uint8Array.from(OFFICIAL_RUNTIME_HASH.match(/../g)!.map(x=>parseInt(x,16))):Uint8Array.from(WRONG_RUNTIME_HASH.match(/../g)!.map(x=>parseInt(x,16)));
 
 Deno.test("PREPARE Safe configuration reads at one canonical BNB block without requiring a transaction hash",async()=>{
  const {rpc,calls}=makeRpc();const result=await readCanonicalBnbSafeConfigurationFacts(rpc,expected,testRuntimeHasher);
