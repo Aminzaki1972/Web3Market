@@ -88,3 +88,7 @@ Deno.test("PREPARE Safe configuration rejects empty singleton runtime code",asyn
   assertEquals(result.issues.includes("SAFE_V141_SINGLETON_CODE_MISSING"),true);
   assertEquals(result.singletonAddress,null);
 });
+
+Deno.test("Safe v1.4.1 runtime hash helper uses real Keccak-256 by default",()=>{
+  assertEquals(matchesSafeV141SingletonRuntimeCodeHash("0x60016000"),false);
+});
