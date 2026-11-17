@@ -34,7 +34,7 @@ After the latest cleanup edits, the branch contains 555 tracked files: 346 under
 
 ## Findings requiring further review
 
-- The previous isolated protocol workflow failed because `20261117085142_harden_acquisition_event_trigger_search_path.sql` altered `public.w3m_reject_acquisition_event_mutation()` before the disposable database had applied the migration that creates that function. This is a test-fixture/migration-sequence defect; it is not evidence that production data should be changed.
+- An earlier isolated protocol run exposed a test-fixture migration-order defect: `20261117085142_harden_acquisition_event_trigger_search_path.sql` ran before the migration creating `public.w3m_reject_acquisition_event_mutation()`. The disposable-database setup order was corrected in this branch, and the latest isolated protocol run completed successfully (110 steps, no failures). This did not require or justify any production database change.
 - Three MFA-related root pages exist: `admin-mfa-setup-20260926.html`, `admin-mfa.html`, and `admin-mfa-v2.html`. The two latter pages are now byte-identical after a one-character escaping defect in the v2 page's six-digit TOTP regex was corrected on this branch. Both pages remain explicitly included in the security workflow path filters, and `admin-review.html` routes users through `admin-mfa.html`. The dated setup page has no match in the default-branch code search, but it is a directly addressable administrator security route. All three are retained pending administrator auth-flow confirmation; do not delete based only on apparent duplication.
 - A Cloudflare Pages branch preview was automatically built for the cleanup branch (`https://chore-repository-cleanup-202.web3market.pages.dev`). This is a preview deployment. No Supabase production deployment or migration was run; Cloudflare's handling of the brief, reverted documentation-only main commit could not be independently verified.
 - Diagnostic pages and the Safe diagnostic script are retained. Their operational status and references need a full call-site audit before removal.
@@ -52,8 +52,12 @@ No source file is deleted solely because a repository search did not find a refe
 
 ## Validation
 
-- Latest security-remediation workflow run `44082718852` passed all three jobs: browser JavaScript syntax (including current wallet scripts), CDN SRI integrity, and disposable PostgreSQL profile-guard migration. Run: https://github.com/Aminzaki1972/Web3Market/actions/runs/44082718852.
-- Latest isolated trust-badge workflow run `44082718892` passed. Run: https://github.com/Aminzaki1972/Web3Market/actions/runs/44082718892.
-- Latest W3M Protocol V1 isolated workflow run `44082718874` is still running; 46 steps passed with no failures at the last check. Do not merge until it completes successfully.
-- Cloudflare Pages built the code-change commit `0de449d` successfully as a PR preview: https://14212a9b.web3market.pages.dev. This is a preview, not a production deployment.
-- Pull request #201 remains a draft for review. Do not merge to `main` or deploy to production as part of this cleanup pass.
+Validation was rerun on the latest cleanup code snapshot (commit `dd982803aca047ea9c9f97e16da3cd73d87a536f`):
+
+- Security-remediation workflow run [`44083193198`](https://github.com/Aminzaki1972/Web3Market/actions/runs/44083193198) passed all three jobs: browser JavaScript syntax, CDN SRI integrity, and disposable PostgreSQL profile-guard migration.
+- Isolated trust-badge workflow run [`44083192886`](https://github.com/Aminzaki1972/Web3Market/actions/runs/44083192886) passed.
+- Isolated W3M Protocol V1 workflow run [`44083193045`](https://github.com/Aminzaki1972/Web3Market/actions/runs/44083193045) completed successfully with 110 steps and no failed steps.
+- The branch comparison reports 15 changed files: six legacy JavaScript removals, two obsolete workflow removals, one new `.gitignore`, this maintenance report, and five targeted edits. No Supabase source or migration files are changed by this cleanup PR.
+- Cloudflare Pages built an earlier code-change commit as a PR preview: https://14212a9b.web3market.pages.dev. This is a preview, not a production deployment.
+- Pull request [#201](https://github.com/Aminzaki1972/Web3Market/pull/201) remains a draft. No merge, production deployment, or production Supabase migration was performed.
+
