@@ -10,9 +10,7 @@ on:
       - 'js/ai-passport-history.js'
       - 'js/auth.js'
       - 'js/delete-account.js'
-      - 'js/wallet-manager.js'
-      - 'js/buyer-wallet-v2.js'
-      - 'js/verification.js'
+      - 'wallet.js'
       - 'auth-callback.html'
       - 'deal-room.html'
       - 'index.html'
@@ -50,9 +48,7 @@ jobs:
             js/ai-passport-history.js \
             js/auth.js \
             js/delete-account.js \
-            js/wallet-manager.js \
-            js/buyer-wallet-v2.js \
-            js/verification.js; do
+            wallet.js; do
             node --check "$file"
           done
           node tests/security/check-cdn-sri.mjs

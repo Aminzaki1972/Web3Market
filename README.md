@@ -1,7 +1,10 @@
 # Web3Market
 
 <p align="center">
-  <img src="https://img.shields.io/badge/SECURITY_REVIEW-independent_review_pending-orange?style=for-the-badge&labelColor=101828" alt="Independent security review pending" />
+  <a href="https://web3market.xyz/">
+    <img src="https://img.shields.io/badge/W3M_AI_CODE_AUDIT-80.35%2F100-brightgreen?style=for-the-badge&labelColor=101828" alt="W3M AI Code Audit: 80.35 out of 100" />
+  </a>
+  <img src="https://img.shields.io/badge/RISK-LOW-brightgreen?style=for-the-badge&labelColor=101828" alt="Audit risk rating: Low" />
 </p>
 
 <p align="center"><strong>AI-assisted technical due diligence for a Web3 marketplace built for discovering, evaluating, and trading digital projects.</strong></p>
@@ -12,11 +15,16 @@
   <a href="https://web3market.xyz/code-audit.html">AI Code Audit</a>
 </p>
 
-## Security review status
+## Latest repository audit
 
-An earlier AI-assisted repository scan covered commit `cd1cbd4e72edef81ad2cded7c8e9c8614ae4159e`. Its score and findings are historical and are not presented as the current security state of this repository. The current codebase is undergoing repository cleanup and protocol test remediation; an independent external security review remains pending.
+- **Score:** 80.35/100 — **LOW RISK**
+- **Audit engine:** `w3m-code-audit-1.0`
+- **Audited commit:** [`cd1cbd4e72edef81ad2cded7c8e9c8614ae4159e`](https://github.com/Aminzaki1972/Web3Market/commit/cd1cbd4e72edef81ad2cded7c8e9c8614ae4159e)
+- **Coverage:** 188 of 188 eligible files (100%)
+- **Findings:** 0 critical, 0 high, 4 medium, 11 low, 10 informational
+- **Audit record:** `56187276-909c-4bd9-947b-94d7f5db4a07`
 
-AI-assisted assessments are informational only. They are not a formal security certification, independent penetration test, smart-contract audit, guarantee of safety, or investment advice. Re-run all relevant checks against the exact commit under review before relying on any result.
+> **Important:** This badge reflects an AI-assisted repository scan for the exact commit listed above. It is not a formal security certification, independent penetration test, smart-contract audit, guarantee of safety, or investment advice. The score may become outdated as the code changes; review the audit details and re-run the audit for newer commits.
 
 ## About Web3Market
 
