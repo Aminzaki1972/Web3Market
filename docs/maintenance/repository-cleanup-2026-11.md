@@ -145,3 +145,39 @@ Static client/handler response shapes are consistent for the five W3M endpoints 
 
 - The previous cleanup commit ac80bf74a5f2d921192730323567cfcd9a787c6f completed all eight GitHub checks successfully, including Cloudflare Pages build, JavaScript syntax, CDN SRI, audit selection, passport scope, profile-guard migration, trust badge, and decision-engine/schema checks.
 - PR #201 remains open as Draft and unmerged. This documentation-only follow-up does not authorize or perform merge, production deployment, or Supabase changes.
+
+## Follow-up staging-readiness configuration review — 2026-11-17
+
+### Latest repository CI
+
+- The latest cleanup head reviewed was `49f480d23e2208c866937399b13f0683736c099d`.
+- All eight GitHub checks on that head completed successfully after retrying the failed `audit-selection-tests` job. The first attempt failed while Deno was downloading `@supabase/functions-js` metadata from `jsr.io` and the remote connection reset; the retry completed successfully. This was a transient dependency-network failure, not a failing audit-selection assertion.
+- Cloudflare Pages check succeeded. It is a branch preview/build result, not a production deployment or browser end-to-end test.
+- PR #201 remains open, Draft, and unmerged.
+
+### Five isolated endpoint runtime configuration
+
+Static inspection of the five isolated W3M entrypoints found:
+
+- Each endpoint uses `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` for server-side Supabase access. The service-role client disables session persistence/refresh. Caller identity is separately checked through `supabase.auth.getUser(token)`; handlers derive actor identity from that authenticated user rather than accepting a browser-supplied actor ID.
+- The five entrypoints allow only `https://web3market.xyz` and `https://www.web3market.xyz` as browser origins. A staging hostname or local browser origin is not currently allowlisted. Do not weaken CORS to `*`; add only the explicitly approved staging origin when a staging environment is selected.
+- The four request-handler paths that were inspected enforce POST in their handler layer (PREPARE, SIGN, FINALIZE, and wallet submission); wallet-package also checks POST at the entrypoint. OPTIONS is handled as CORS preflight.
+- BNB RPC configuration is currently hard-coded to `https://bsc-rpc.publicnode.com` in the isolated endpoint compositions. The canonical Safe reader and receipt verifier explicitly require chain ID 56 (BNB mainnet). The finalizer reads `W3M_BNB_MIN_CONFIRMATIONS`, defaulting to six and rejecting invalid/out-of-range values.
+- Consequently, these endpoint compositions are **not configurable for BNB testnet** as currently written. A separate Supabase staging project alone would not make a safe testnet lifecycle possible. Before staging, the chain/RPC and Safe/token deployment configuration must be deliberately parameterized and covered by chain-mismatch tests; do not point this candidate at a production Safe or use real deal funds as a substitute for testnet.
+- `supabase/config.toml` currently identifies a local audit-test project and disables automatic migration discovery. It does not define a staging project, staging secrets, or deployment targets for these five functions. The isolated CI workflow uses a disposable PostgreSQL service and fixtures; it does not provision Supabase staging or deploy Edge Functions.
+- The report-issuer composition and protected signing-key custody remain open blockers in the protocol readiness notes. The five endpoint entrypoints do not, by themselves, complete authoritative evidence loading and signed report issuance. The six active legacy Deal Room/Safe Edge Functions also remain unpatched to call the W3M gate.
+
+### Staging gate — not yet satisfied
+
+A safe staging run still requires all of the following, none of which was performed in this review:
+
+1. An explicitly separate Supabase staging project and verified project reference.
+2. An approved staging browser origin, added narrowly to the five endpoint CORS allowlists.
+3. A chain-aware RPC/Safe/token configuration that supports a controlled BNB testnet and fails closed on wrong chain ID, wrong Safe, and wrong token.
+4. Staging-only secrets and provider credentials, with protected signer custody selected and documented; never copy production service-role or signing secrets into a public repository or CI logs.
+5. The authoritative report-issuer runtime and evidence-source mapping completed, then the isolated endpoint functions deployed only to staging.
+6. Ordered staging-only migrations applied and inspected against the staging schema.
+7. Authenticated browser/wallet end-to-end tests for PREPARE → package → SIGN → connected-wallet execution → hash reconciliation → receipt verification → FINALIZE, including negative cases and rollback/recovery.
+8. Independent external security review before any production activation.
+
+**Decision:** repository CI is green, but the protocol is not yet staging-ready or production-ready. No source runtime was changed in this follow-up. No Supabase project was created or modified, no secret was set, no migration was applied to any hosted database, no Edge Function was deployed, and no wallet/Safe/transaction was invoked. Keep PR #201 Draft and retain all legacy production Deal Room routes until every staging gate above is passed.
