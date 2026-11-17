@@ -75,7 +75,7 @@ Deno.test("client never submits a malformed wallet signature", async () => {
   let submits = 0;
   await assertRejects(() => signAndSubmitW3MDealAgreement({
     dealId, accessToken: "session", walletAddress: wallet,
-    request: async (body) => {
+    request: async (body: Record<string, unknown>) => {
       if ((body as {mode:string}).mode === "prepare") return prepared();
       submits++; return {};
     },
