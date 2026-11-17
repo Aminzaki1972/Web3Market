@@ -65,7 +65,7 @@ Deno.serve(async (request) => {
   let bnbRpc: JsonRpcClient;
   try {
     bnbRpc = createAllowlistedBnbRpcClient({
-      rpcUrl: Deno.env.get("BSC_RPC_URL") ?? "https://bsc-rpc.publicnode.com",
+      rpcUrl: "https://bsc-rpc.publicnode.com",
       allowedHosts: ["bsc-rpc.publicnode.com"],
     });
   } catch {
