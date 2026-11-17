@@ -1,0 +1,324 @@
+// W3M Protocol V1 — server-only Supabase RPC boundary.
+// This adapter accepts already-verified protocol outputs. It does not create
+// evidence, sign reports, verify BNB receipts, or expose browser authorization.
+
+import type { RegistryBatch } from "./report-registry-batch.ts";
+
+export interface W3MRpcClient {
+  rpc(name: string, args: Record<string, unknown>): Promise<{
+    data: unknown;
+    error: unknown;
+  }>;
+}
+
+export interface RegistryPersistenceResult {
+  reportId: string;
+  evidenceRows: number;
+  eventRows: number;
+  atomic: true;
+}
+
+export interface SafeFinalizationRpcInput {
+  attemptId: string;
+  broadcastTxHash: string;
+  actorId: string;
+  /** Must be constructed only after independent BNB receipt and log verification. */
+  receiptEvidence: Record<string, unknown>;
+}
+
+export interface SafeFinalizationRpcResult {
+  attemptId: string;
+  broadcastTxHash: string;
+  state: "CONFIRMED";
+  idempotentReplay: boolean;
+}
+
+function asObject(value: unknown, label: string): Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(label + " RPC returned a malformed response.");
+  }
+  return value as Record<string, unknown>;
+}
+
+function requireText(value: unknown, label: string): asserts value is string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(label + " is required.");
+  }
+}
+
+export async function persistAcquisitionRegistryBatch(
+  client: W3MRpcClient,
+  batch: RegistryBatch,
+): Promise<RegistryPersistenceResult> {
+  const { data, error } = await client.rpc("w3m_insert_acquisition_registry_batch", {
+    p_report: batch.report,
+    p_evidence: batch.evidence,
+    p_events: batch.events,
+  });
+  if (error) throw new Error("W3M registry batch persistence failed.");
+  const result = asObject(data, "Registry persistence");
+  const expectedEvents = batch.events.length;
+  if (result.atomic !== true ||
+      result.report_id !== batch.report.id ||
+      result.evidence_rows !== batch.evidence.length ||
+      result.event_rows !== expectedEvents) {
+    throw new Error("W3M registry RPC response does not match the submitted batch.");
+  }
+  return {
+    reportId: batch.report.id,
+    evidenceRows: batch.evidence.length,
+    eventRows: expectedEvents,
+    atomic: true,
+  };
+}
+
+export async function finalizeSafeExecutionAttempt(
+  client: W3MRpcClient,
+  input: SafeFinalizationRpcInput,
+): Promise<SafeFinalizationRpcResult> {
+  requireText(input.attemptId, "Execution attempt ID");
+  requireText(input.broadcastTxHash, "Broadcast transaction hash");
+  requireText(input.actorId, "Finalization actor ID");
+  if (!/^0x[0-9a-f]{64}$/i.test(input.broadcastTxHash)) {
+    throw new Error("Broadcast transaction hash must be a 32-byte hex hash.");
+  }
+  const { data, error } = await client.rpc("w3m_finalize_safe_execution_attempt", {
+    p_attempt_id: input.attemptId,
+    p_broadcast_tx_hash: input.broadcastTxHash,
+    p_actor_id: input.actorId,
+    p_receipt_evidence: input.receiptEvidence,
+  });
+  if (error) throw new Error("W3M Safe finalization RPC failed.");
+  const result = asObject(data, "Safe finalization");
+  if (result.finalized !== true ||
+      result.attempt_id !== input.attemptId ||
+      result.state !== "CONFIRMED" ||
+      typeof result.idempotent_replay !== "boolean" ||
+      typeof result.broadcast_tx_hash !== "string" ||
+      result.broadcast_tx_hash.toLowerCase() !== input.broadcastTxHash.toLowerCase()) {
+    throw new Error("W3M Safe finalization response does not match the requested attempt.");
+  }
+  return {
+    attemptId: input.attemptId,
+    broadcastTxHash: input.broadcastTxHash,
+    state: "CONFIRMED",
+    idempotentReplay: result.idempotent_replay,
+  };
+}
+
+
+export interface SafeExecutionClaimInput {
+  dealId: string;
+  transactionId: string;
+  reportId: string;
+  safeTxHash: string;
+  executorRef: string;
+  idempotencyKey: string;
+}
+
+export interface SafeExecutionClaimResult {
+  attemptId: string;
+  state: "CLAIMED" | "BROADCAST" | "RECONCILIATION_REQUIRED";
+  claimed: boolean;
+  idempotentReplay: boolean;
+}
+
+export async function claimSafeExecutionAttempt(
+  client: W3MRpcClient,
+  input: SafeExecutionClaimInput,
+): Promise<SafeExecutionClaimResult> {
+  requireText(input.dealId, "Deal ID");
+  requireText(input.transactionId, "Safe transaction ID");
+  requireText(input.reportId, "W3M report ID");
+  requireText(input.executorRef, "Executor reference");
+  requireText(input.idempotencyKey, "Idempotency key");
+  if (!/^0x[0-9a-f]{64}$/i.test(input.safeTxHash)) {
+    throw new Error("Safe transaction hash must be a 32-byte hex hash.");
+  }
+  const { data, error } = await client.rpc("w3m_claim_safe_execution_attempt", {
+    p_deal_id: input.dealId,
+    p_transaction_id: input.transactionId,
+    p_report_id: input.reportId,
+    p_safe_tx_hash: input.safeTxHash,
+    p_executor_ref: input.executorRef,
+    p_idempotency_key: input.idempotencyKey,
+  });
+  if (error) throw new Error("W3M Safe execution claim failed.");
+  const result = asObject(data, "Safe execution claim");
+  const state = result.state;
+  if (typeof result.attempt_id !== "string" ||
+      typeof result.claimed !== "boolean" ||
+      typeof result.idempotent_replay !== "boolean" ||
+      (state !== "CLAIMED" && state !== "BROADCAST" && state !== "RECONCILIATION_REQUIRED")) {
+    throw new Error("W3M Safe execution claim returned an invalid result.");
+  }
+  return {
+    attemptId: result.attempt_id,
+    state,
+    claimed: result.claimed,
+    idempotentReplay: result.idempotent_replay,
+  };
+}
+
+export async function recordSafeExecutionBroadcast(
+  client: W3MRpcClient,
+  attemptId: string,
+  broadcastTxHash: string,
+): Promise<{ recorded: true; idempotentReplay: boolean; state: "BROADCAST" | "RECONCILIATION_REQUIRED" }> {
+  requireText(attemptId, "Execution attempt ID");
+  if (!/^0x[0-9a-f]{64}$/i.test(broadcastTxHash)) {
+    throw new Error("Broadcast transaction hash must be a 32-byte hex hash.");
+  }
+  const { data, error } = await client.rpc("w3m_record_safe_execution_broadcast", {
+    p_attempt_id: attemptId,
+    p_broadcast_tx_hash: broadcastTxHash,
+  });
+  if (error) throw new Error("W3M broadcast hash recording failed.");
+  const result = asObject(data, "Broadcast recording");
+  if (result.recorded !== true ||
+      typeof result.idempotent_replay !== "boolean" ||
+      (result.state !== "BROADCAST" && result.state !== "RECONCILIATION_REQUIRED")) {
+    throw new Error("W3M broadcast recording returned an invalid result.");
+  }
+  return {
+    recorded: true,
+    idempotentReplay: result.idempotent_replay,
+    state: result.state,
+  };
+}
+
+export async function markSafeExecutionReconciliationRequired(
+  client: W3MRpcClient,
+  attemptId: string,
+  errorCode: string,
+): Promise<{ updated: true; idempotentReplay: boolean; state: "RECONCILIATION_REQUIRED" }> {
+  requireText(attemptId, "Execution attempt ID");
+  requireText(errorCode, "Reconciliation error code");
+  if (errorCode.length > 100) throw new Error("Reconciliation error code is too long.");
+  const { data, error } = await client.rpc("w3m_mark_safe_execution_reconciliation_required", {
+    p_attempt_id: attemptId,
+    p_error_code: errorCode,
+  });
+  if (error) throw new Error("W3M reconciliation transition failed.");
+  const result = asObject(data, "Reconciliation transition");
+  if (result.updated !== true ||
+      typeof result.idempotent_replay !== "boolean" ||
+      result.state !== "RECONCILIATION_REQUIRED") {
+    throw new Error("W3M reconciliation transition returned an invalid result.");
+  }
+  return {
+    updated: true,
+    idempotentReplay: result.idempotent_replay,
+    state: "RECONCILIATION_REQUIRED",
+  };
+}
+
+
+export interface SafeWalletPackageIssuanceResult {
+  attemptId: string;
+  packageHash: string;
+  expiresAt: string;
+  package: Record<string, unknown>;
+  idempotentReplay: boolean;
+}
+
+export async function issueSafeWalletExecutionPackage(
+  client: W3MRpcClient,
+  input: {
+    attemptId: string;
+    actorId: string;
+    packageHash: string;
+    package: Record<string, unknown>;
+    expiresAt: string;
+  },
+): Promise<SafeWalletPackageIssuanceResult> {
+  requireText(input.attemptId, "Execution attempt ID");
+  requireText(input.actorId, "Package actor ID");
+  requireText(input.expiresAt, "Package expiry");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.actorId) ||
+      !/^[0-9a-f]{64}$/i.test(input.packageHash) ||
+      !Number.isFinite(Date.parse(input.expiresAt)) ||
+      !input.package || input.package.protocol !== "W3M_PROTOCOL_V1" ||
+      input.package.expiresAt !== input.expiresAt) {
+    throw new Error("Safe wallet package issuance fields are malformed.");
+  }
+  const { data, error } = await client.rpc("w3m_issue_safe_execution_package", {
+    p_attempt_id: input.attemptId,
+    p_actor_id: input.actorId,
+    p_package_hash: input.packageHash.toLowerCase(),
+    p_package: input.package,
+    p_expires_at: input.expiresAt,
+  });
+  if (error) throw new Error("W3M Safe wallet package issuance failed.");
+  const result = asObject(data, "Safe wallet package issuance");
+  const storedPackage = result.package;
+  if (!storedPackage || typeof storedPackage !== "object" || Array.isArray(storedPackage) ||
+      result.issued !== true ||
+      result.attempt_id !== input.attemptId ||
+      typeof result.idempotent_replay !== "boolean" ||
+      typeof result.package_hash !== "string" ||
+      !/^[0-9a-f]{64}$/i.test(result.package_hash) ||
+      (result.idempotent_replay === false &&
+        result.package_hash.toLowerCase() !== input.packageHash.toLowerCase()) ||
+      typeof result.expires_at !== "string" ||
+      !Number.isFinite(Date.parse(result.expires_at)) ||
+      (storedPackage as Record<string, unknown>).protocol !== "W3M_PROTOCOL_V1" ||
+      (storedPackage as Record<string, unknown>).expiresAt !== result.expires_at) {
+    throw new Error("W3M Safe wallet package issuance response does not match the stored package.");
+  }
+  return {
+    attemptId: input.attemptId,
+    packageHash: result.package_hash.toLowerCase(),
+    expiresAt: result.expires_at,
+    package: storedPackage as Record<string, unknown>,
+    idempotentReplay: result.idempotent_replay,
+  };
+}
+
+
+export interface SafeWalletSubmissionPersistenceResult {
+  attemptId: string;
+  broadcastTxHash: string;
+  state: "BROADCAST" | "RECONCILIATION_REQUIRED";
+  idempotentReplay: boolean;
+}
+
+export async function recordSafeWalletSubmission(
+  client: W3MRpcClient,
+  input: {
+    attemptId: string;
+    actorId: string;
+    packageHash: string;
+    broadcastTxHash: string;
+  },
+): Promise<SafeWalletSubmissionPersistenceResult> {
+  requireText(input.attemptId, "Execution attempt ID");
+  requireText(input.actorId, "Wallet submission actor ID");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.actorId) ||
+      !/^[0-9a-f]{64}$/i.test(input.packageHash) ||
+      !/^0x[0-9a-f]{64}$/i.test(input.broadcastTxHash)) {
+    throw new Error("Safe wallet submission bindings are malformed.");
+  }
+  const { data, error } = await client.rpc("w3m_record_safe_wallet_submission", {
+    p_attempt_id: input.attemptId,
+    p_actor_id: input.actorId,
+    p_package_hash: input.packageHash.toLowerCase(),
+    p_broadcast_tx_hash: input.broadcastTxHash.toLowerCase(),
+  });
+  if (error) throw new Error("W3M Safe wallet submission persistence failed.");
+  const result = asObject(data, "Safe wallet submission");
+  if (result.recorded !== true ||
+      result.attempt_id !== input.attemptId ||
+      typeof result.idempotent_replay !== "boolean" ||
+      (result.state !== "BROADCAST" && result.state !== "RECONCILIATION_REQUIRED") ||
+      typeof result.broadcast_tx_hash !== "string" ||
+      result.broadcast_tx_hash.toLowerCase() !== input.broadcastTxHash.toLowerCase()) {
+    throw new Error("W3M Safe wallet submission response does not match the exact attempt and transaction.");
+  }
+  return {
+    attemptId: input.attemptId,
+    broadcastTxHash: input.broadcastTxHash.toLowerCase(),
+    state: result.state,
+    idempotentReplay: result.idempotent_replay,
+  };
+}
