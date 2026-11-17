@@ -41,6 +41,9 @@ on:
       - "supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql"
       - "supabase/migrations/20261107120000_w3m_protocol_v1_immutable_agreements.sql"
       - "supabase/migrations/20261107130000_w3m_protocol_v1_report_version_serialization.sql"
+      - "supabase/migrations/20261107130100_w3m_v1_acceptance_ledger.sql"
+      - "supabase/migrations/20261117084120_harden_buyer_refund_registry_trigger_function_execute.sql"
+      - "supabase/migrations/20261117085142_harden_acquisition_event_trigger_search_path.sql"
       - "supabase/migrations/20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql"
       - "supabase/migrations/20261107150000_w3m_protocol_v1_report_signer_lock.sql"
       - "supabase/migrations/20261107160000_w3m_protocol_v1_atomic_project_ownership_transfer.sql"
@@ -127,6 +130,9 @@ on:
       - "supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql"
       - "supabase/migrations/20261107120000_w3m_protocol_v1_immutable_agreements.sql"
       - "supabase/migrations/20261107130000_w3m_protocol_v1_report_version_serialization.sql"
+      - "supabase/migrations/20261107130100_w3m_v1_acceptance_ledger.sql"
+      - "supabase/migrations/20261117084120_harden_buyer_refund_registry_trigger_function_execute.sql"
+      - "supabase/migrations/20261117085142_harden_acquisition_event_trigger_search_path.sql"
       - "supabase/migrations/20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql"
       - "supabase/migrations/20261107150000_w3m_protocol_v1_report_signer_lock.sql"
       - "supabase/migrations/20261107160000_w3m_protocol_v1_atomic_project_ownership_transfer.sql"
@@ -614,6 +620,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107066000_w3m_protocol_v1_completed_audit_immutability.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107120000_w3m_protocol_v1_immutable_agreements.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_w3m_protocol_v1_report_version_serialization.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130100_w3m_v1_acceptance_ledger.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107140000_w3m_protocol_v1_finalization_acquisition_revalidation.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107150000_w3m_protocol_v1_report_signer_lock.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107160000_w3m_protocol_v1_atomic_project_ownership_transfer.sql
@@ -627,6 +634,8 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116040000_w3m_protocol_v1_atomic_buyer_refund_finalization.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116050000_w3m_protocol_v1_atomic_deal_payment_finalization.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261116060000_w3m_protocol_v1_buyer_refund_request_snapshot.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261117084120_harden_buyer_refund_registry_trigger_function_execute.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261117085142_harden_acquisition_event_trigger_search_path.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107060000_w3m_protocol_v1_prepare_policy_reader.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107070000_w3m_protocol_v1_atomic_safe_prepare.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107080000_w3m_protocol_v1_atomic_safe_sign.sql
@@ -676,4 +685,4 @@ jobs:
           while IFS= read -r migration; do
             echo "Applying timestamp-sorted migration: $migration"
             psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f "$migration"
-          done < <(find supabase/migrations -maxdepth 1 -type f -name '*_w3m_protocol_v1_*.sql' -print | sort)
+          done < <(find supabase/migrations -maxdepth 1 -type f \\( -name '*_w3m_protocol_v1_*.sql' -o -name '*_w3m_v1_*.sql' -o -name '*_harden_*_trigger_*.sql' \\) -print | sort)
