@@ -20,7 +20,7 @@ At the baseline commit, the repository tree contained 561 tracked files:
 
 The project is a static-site application with Supabase Edge Functions and Deno-based checks. No root `package.json` was present, so a Node package manifest was not invented. A Git-object scan found no exact duplicate file blobs, zero-byte files, oversized files above 500 KB, or committed dependency/build/cache directories.
 
-After the latest cleanup edits, the branch contains 555 tracked files: 346 under `supabase/`, 51 under `js/`, 55 under `docs/`, 15 GitHub Actions workflows (down from 17), and 51 root-level HTML pages. Six unreferenced legacy JavaScript files were removed; `.gitignore` and the maintenance report account for two additions.
+After the latest cleanup edits, the branch contains 555 tracked files: 346 under `supabase/`, 50 under `js/`, 55 under `docs/`, 15 GitHub Actions workflows (down from 17), and 51 root-level HTML pages. Six unreferenced legacy JavaScript files were removed; `.gitignore` and the maintenance report account for two additions.
 
 ## Changes made in this pass
 
