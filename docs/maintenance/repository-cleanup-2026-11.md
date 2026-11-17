@@ -24,6 +24,7 @@ The project is a static-site application with Supabase Edge Functions and Deno-b
 1. Added a conservative root `.gitignore` for local environment files, dependency/build output, local Supabase state, editor files, and logs. It does not ignore source, migrations, functions, or tests.
 2. Removed an old 80.35/100 LOW RISK badge from README and relabeled the associated scan as historical. The prior scan targeted a different commit and must not be represented as a current audit.
 3. Corrected the isolated protocol workflow's disposable-PostgreSQL setup: it now applies `20261106000100_w3m_protocol_v1_acquisition_verification.sql` before the later migration that hardens the trigger function created by it. The migration was also added to both push and pull-request path filters.
+4. Corrected double-escaped shell grouping in the timestamp-sorted migration-order check. The first explicit PostgreSQL migration/test step passed after item 3; the second all-migrations check exposed this shell syntax issue, which is now corrected and awaiting rerun.
 
 ## Findings requiring further review
 
@@ -43,7 +44,7 @@ No source file is deleted solely because a repository search did not find a refe
 
 ## Validation still required
 
-- Confirm the corrected workflow run completes, including the PostgreSQL migration-order job.
+- Confirm the corrected workflow rerun completes, including both disposable PostgreSQL migration checks.
 - Run the repository's available audit, security, and application tests on this branch.
 - Review remaining root-level pages and duplicated implementations with explicit dependency evidence.
 - Open a pull request for review; do not merge to `main` or deploy to production as part of this cleanup pass.
