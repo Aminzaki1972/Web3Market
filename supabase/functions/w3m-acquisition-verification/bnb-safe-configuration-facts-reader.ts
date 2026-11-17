@@ -2,6 +2,7 @@
 // All contract reads use one fixed BNB block; the block hash is checked again
 // after reads. No transaction hash, signature, send, or broadcast is required.
 import type { JsonRpcClient } from "./bnb-revenue-adapter.ts";
+import { keccak_256 } from "jsr:@noble/hashes@1.7.1/sha3";
 import {
   createBnbSafeLiveReadClient,
   getBnbSafeReadBlockTag,
@@ -14,6 +15,25 @@ import {
 
 const HASH = /^0x[0-9a-f]{64}$/i;
 const SAFE_V141_SINGLETON = "0x41675c099f32341bf84bfc5382af534df5c7461a";
+// Official @safe-global/safe-deployments v1.4.1 safe.json codeHash.
+// BNB Smart Chain (chainId 56) maps to this canonical deployment.
+const SAFE_V141_RUNTIME_CODE_HASH = "0x1fe2df852ba3299d6534ef416eefa406e56ced995bca886ab7a553e6d0c5e1c4";
+type RuntimeCodeHasher = (code: Uint8Array) => Uint8Array;
+
+export function matchesSafeV141SingletonRuntimeCodeHash(
+  code: unknown,
+  hashRuntimeCode: RuntimeCodeHasher = keccak_256,
+): boolean {
+  if (typeof code !== "string" || !/^0x(?:[0-9a-f]{2})+$/i.test(code)) return false;
+  const hex = code.slice(2);
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  const digest = hashRuntimeCode(bytes);
+  const actual = "0x" + Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return actual.toLowerCase() === SAFE_V141_RUNTIME_CODE_HASH;
+}
 const MASTER_COPY_SELECTOR = "0xa619486e";
 interface BlockHeader { number: string; hash: string; }
 
@@ -39,6 +59,7 @@ export interface CanonicalBnbSafeConfigurationFacts extends SafeConfigurationFac
 export async function readCanonicalBnbSafeConfigurationFacts(
   rpc: JsonRpcClient,
   expected: SafeConfigurationExpectation,
+  hashRuntimeCode: RuntimeCodeHasher = keccak_256,
 ): Promise<CanonicalBnbSafeConfigurationFacts> {
   const blockTag = await getBnbSafeReadBlockTag(rpc);
   const before = await readBlockHeader(rpc, blockTag);
@@ -57,12 +78,15 @@ export async function readCanonicalBnbSafeConfigurationFacts(
     /^0x[0-9a-f]{64}$/i.test(masterCopyRaw) &&
     /^0{24}$/i.test(masterCopyRaw.slice(2, 26)) &&
     ("0x" + masterCopyRaw.slice(-40)).toLowerCase() === SAFE_V141_SINGLETON;
-  const implementationCodeValid = typeof singletonCode === "string" &&
+  const implementationCodePresent = typeof singletonCode === "string" &&
     /^0x(?:[0-9a-f]{2})+$/i.test(singletonCode);
+  const implementationCodeHashValid = implementationCodePresent &&
+    matchesSafeV141SingletonRuntimeCodeHash(singletonCode, hashRuntimeCode);
   const singletonIssues: string[] = [];
   if (expected.expectedVersion !== "1.4.1") singletonIssues.push("SAFE_SINGLETON_VERSION_NOT_PINNED");
   if (!storageValid || !getterValid) singletonIssues.push("SAFE_V141_SINGLETON_MISMATCH");
-  if (!implementationCodeValid) singletonIssues.push("SAFE_V141_SINGLETON_CODE_MISSING");
+  if (!implementationCodePresent) singletonIssues.push("SAFE_V141_SINGLETON_CODE_MISSING");
+  else if (!implementationCodeHashValid) singletonIssues.push("SAFE_V141_SINGLETON_CODE_HASH_MISMATCH");
   const after = await readBlockHeader(rpc, blockTag);
   if (before.hash !== after.hash) {
     return {
@@ -80,7 +104,7 @@ export async function readCanonicalBnbSafeConfigurationFacts(
     valid: issues.length === 0,
     readBlockNumber: blockTag,
     readBlockHash: before.hash,
-    singletonAddress: storageValid && getterValid && implementationCodeValid ? SAFE_V141_SINGLETON : null,
+    singletonAddress: storageValid && getterValid && implementationCodeHashValid ? SAFE_V141_SINGLETON : null,
     issues,
   };
 }
