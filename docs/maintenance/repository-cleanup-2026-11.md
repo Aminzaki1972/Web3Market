@@ -61,3 +61,13 @@ Validation was rerun on the latest cleanup code snapshot (commit `dd982803aca047
 - Cloudflare Pages built an earlier code-change commit as a PR preview: https://14212a9b.web3market.pages.dev. This is a preview, not a production deployment.
 - Pull request [#201](https://github.com/Aminzaki1972/Web3Market/pull/201) remains a draft. No merge, production deployment, or production Supabase migration was performed.
 
+
+
+## Follow-up hardening — 2026-11-17
+
+1. Restricted both production Supabase deployment jobs (deploy-external-passport-persist.yml and deploy-external-project-passport.yml) to github.ref == refs/heads/main. Their existing push trigger remains limited to main; manual dispatch from a non-main ref now skips the deploy job. This changes workflow configuration only and does not deploy functions.
+2. Added explicit workflow-level contents: read permissions to audit-file-selection-tests.yml, passport-scope-check.yml, and security-remediation.yml. A fresh audit of all 15 remaining workflows found that the other 12 already declare contents: read, while w3m-contract-analysis.yml declares permissions: {} at workflow and job level. No remaining workflow requires repository write permissions for its stated checks.
+3. Retained the overlapping audit-selection workflows. audit-file-selection-tests.yml runs the broader audit/payment/autofix regression suite on relevant source changes; audit-selection-priority.yml is a narrower selection/archive check with manual dispatch. They overlap but are not exact duplicates.
+4. Sitemap review: the current sitemap lists only the homepage, marketplace, passports, AI Passport, and roadmap. The homepage also links to code-audit.html; the repository contains w3m-protocol.html, w3m-whitepaper.html, and listing-guide.html, which are not in the sitemap. These pages were not added automatically because canonical/indexing metadata is inconsistent or absent on some pages. SEO inclusion should be handled as a deliberate canonical/robots review, not guessed during code cleanup.
+
+Current cleanup branch head after this follow-up: a6b885dc66c738f83fc896bdbce047e7d90de74c. It is 41 commits ahead of the unchanged main baseline 390ca09baccf45526ffae573465f794e3ef655bf, with no commits behind. PR #201 remains draft and unmerged.
