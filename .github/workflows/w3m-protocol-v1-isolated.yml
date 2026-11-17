@@ -688,4 +688,4 @@ jobs:
           while IFS= read -r migration; do
             echo "Applying timestamp-sorted migration: $migration"
             psql -h localhost -U postgres -d w3m_protocol_migration_order_test -v ON_ERROR_STOP=1 -f "$migration"
-          done < <(find supabase/migrations -maxdepth 1 -type f \\( -name '*_w3m_protocol_v1_*.sql' -o -name '*_w3m_v1_*.sql' -o -name '*_harden_*_trigger_*.sql' \\) -print | sort)
+          done < <(find supabase/migrations -maxdepth 1 -type f \( -name '*_w3m_protocol_v1_*.sql' -o -name '*_w3m_v1_*.sql' -o -name '*_harden_*_trigger_*.sql' \) -print | sort)
