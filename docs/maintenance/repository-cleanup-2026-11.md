@@ -30,7 +30,7 @@ The project is a static-site application with Supabase Edge Functions and Deno-b
 - The previous isolated protocol workflow failed because `20261117085142_harden_acquisition_event_trigger_search_path.sql` altered `public.w3m_reject_acquisition_event_mutation()` before the disposable database had applied the migration that creates that function. This is a test-fixture/migration-sequence defect; it is not evidence that production data should be changed.
 - Three MFA-related root pages exist. `admin-review.html` directly redirects to `admin-mfa.html`, and both `admin-mfa.html` and `admin-mfa-v2.html` are included in a security workflow's path filters. They are therefore retained until the authentication flow and inbound links are fully mapped.
 - Diagnostic pages and the Safe diagnostic script are retained. Their operational status and references need a full call-site audit before removal.
-- Multiple Future Lab articles are retained because they have distinct canonical URLs and appear to be independently published content.
+- The Future Lab contains a likely duplicate-topic pair: `future-ai-agents-blockchain.html` and `future-lab-ai-agents.html` cover AI agents and blockchain. The older-looking URL is not linked from the Future Lab index or current sitemap, while the newer page is linked from the index. Keep both temporarily; assess analytics/backlinks before converting the older URL into a canonical redirect/retired-page notice.
 - No `package.json` was added because the root app is not a conventional Node build and adding one without a verified build/test contract would create misleading tooling.
 
 ## Deletion policy
