@@ -247,28 +247,37 @@
   }
   function openWalletRoute(url, fallbackUrl, notice) {
     if (!url) return false;
+
+    // Navigate synchronously from the wallet button's trusted click event.
+    // A hidden anchor's programmatic click is blocked by some Android browsers
+    // and wallet in-app browsers, making every wallet option appear unresponsive.
+    var opened = false;
     try {
-      var a = document.createElement("a");
-      a.href = url;
-      a.rel = "noopener";
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(function(){ try { a.remove(); } catch (_) {} }, 1000);
-      if (fallbackUrl) {
-        setTimeout(function () {
-          try {
-            if (document.visibilityState === "visible") window.location.assign(fallbackUrl);
-          } catch (_) {}
-        }, 1100);
-      }
-      return true;
+      window.location.assign(url);
+      opened = true;
     } catch (e) {
-      try { window.location.assign(fallbackUrl || url); return true; } catch (_) {
-        if (notice) notice("Could not open the wallet app. Please open its Web3 browser and visit Web3Market.");
-        return false;
-      }
+      try {
+        window.location.href = url;
+        opened = true;
+      } catch (_) {}
     }
+
+    // Custom wallet schemes (for example OKX or SafePal) may be unavailable.
+    // Only use the web fallback if the browser stayed visible after the attempt.
+    if (fallbackUrl && fallbackUrl !== url) {
+      setTimeout(function () {
+        try {
+          if (document.visibilityState === "visible") window.location.assign(fallbackUrl);
+        } catch (_) {
+          try { window.location.href = fallbackUrl; } catch (__) {}
+        }
+      }, 1800);
+    }
+
+    if (!opened && notice) {
+      notice("Could not open the wallet app. Please open its Web3 browser and visit Web3Market.");
+    }
+    return opened;
   }
 
   function launch(name, notice) {
