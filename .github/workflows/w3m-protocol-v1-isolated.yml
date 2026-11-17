@@ -206,6 +206,8 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      - name: Verify deployed Safe v1.4.1 runtime bytecode hash on BNB Chain
+        run: deno run --allow-net --allow-env supabase/functions/w3m-acquisition-verification/verify-bnb-safe-v141-runtime-code-hash.ts
       - name: Type-check isolated decision, settlement, payment, and refund modules
         timeout-minutes: 15
         run: |
