@@ -6,7 +6,7 @@
 - Cleanup branch: `chore/repository-cleanup-2026-11`
 - Baseline commit: `64d0fddacc1df957e3f78b12b29a322323c9aafa`
 - The final `main` tree has been restored to the exact baseline tree SHA `f4f14ce8358b3cf894166ee57d69e54ba7139d54`; legacy Git branches are untouched.
-- No wallet, Safe, payment, deal-room, RLS, Edge Function, or production migration behavior was deleted or rewritten as part of this cleanup pass.
+- No active wallet, Safe, payment, deal-room, RLS, Edge Function, or production migration behavior was deleted or rewritten. Only unreferenced legacy browser scripts were removed after checking their current call sites; active wallet and deal-room entry points remain.
 - A documentation-only cleanup report was briefly committed to `main` because one update omitted the explicit branch parameter, then immediately reverted in commit `9c16b7603db0481ea7ef59fe3e99bdd475b66328`. The final tracked tree matches the baseline exactly. No application/runtime code or Supabase resources changed in that transient commit; whether Cloudflare Pages processed the brief documentation-only commit could not be independently verified.
 
 ## Baseline inventory
