@@ -221,7 +221,7 @@ The repository contains the pure report request handler, protocol orchestration,
 
 ### Review boundary and next safe action
 
-This follow-up is documentation-only. It does not change Edge Function runtime code, SQL migrations, Supabase configuration, production secrets, wallet behavior, or any live deal. The next engineering work should be a separately reviewed, isolated patch that adds report/evidence immutability and deterministic race tests first; only after that should chain-profile parameterization be implemented and tested. PR #201 must remain Draft, and the legacy production Deal Room routes must remain available until staging and external security review pass.
+This follow-up is documentation-only. It does not change Edge Function runtime code, SQL migrations, Supabase configuration, production secrets, wallet behavior, or any live deal. The report/evidence append-only protections and deterministic race tests are present in the branch and have passed the disposable-PostgreSQL workflow. The next engineering blockers are the authoritative report-issuer composition with protected signer custody, followed by a fully pinned chain deployment profile and isolated staging end-to-end validation. PR #201 must remain Draft, and the legacy production Deal Room routes must remain available until staging and external security review pass.
 
 
 ## Follow-up CI reliability fix — 2026-11-17
