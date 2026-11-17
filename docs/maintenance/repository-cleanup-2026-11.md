@@ -17,7 +17,7 @@ At the baseline commit, the repository tree contained 561 tracked files:
 - 17 GitHub Actions workflows
 - 61 files at repository root
 
-The project is a static-site application with Supabase Edge Functions and Deno-based checks. No root `package.json` was present, so a Node package manifest was not invented.
+The project is a static-site application with Supabase Edge Functions and Deno-based checks. No root `package.json` was present, so a Node package manifest was not invented. A Git-object scan found no exact duplicate file blobs, zero-byte files, oversized files above 500 KB, or committed dependency/build/cache directories.
 
 ## Changes made in this pass
 
