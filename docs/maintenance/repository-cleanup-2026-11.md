@@ -119,3 +119,29 @@ This is a compatibility and deployment-readiness finding, not a claim that the p
 - Commit 04cadb143d2d091684648e7aa8dd860b75b32a1f: all eight reported checks completed successfully, including Cloudflare Pages, JavaScript syntax, CDN SRI, audit selection, decision-engine/schema, trust badge, passport scope, and profile-guard migration.
 - Cloudflare Pages reported a successful build check; this does not by itself prove a production deployment or a browser end-to-end Deal Room test.
 - PR #201 remains open as a Draft and unmerged; the cleanup branch is 44 commits ahead of the unchanged main baseline and 0 behind at this review.
+
+## Follow-up API contract and test review — 2026-11-17
+
+### Static request/response contract comparison
+
+- PREPARE: browser sends only deal_id; request handler derives actor from bearer auth and server context. The handler returns result.committed with camelCase policyId, transactionId, status, and idempotentReplay, matching the browser client's required fields.
+- Wallet package: browser sends only deal_id. Handler returns PACKAGE_ISSUED, attempt_id, package_hash, and package; client validates those fields and the exact deal binding.
+- SIGN: browser sends deal_id, safe_tx_hash, and signature. Handler reloads the verified signer context, independently verifies the typed-data signature, and calls atomic signature persistence. The response fields (recorded, idempotent_replay, confirmations_count, required_signatures, status) match the client checks.
+- Wallet submission: browser sends attempt_id, package_hash, and transaction_hash. Handler returns BROADCAST_UNVERIFIED or RECONCILIATION_REQUIRED with receipt_verified=false and finalized=false; client accepts only these states and preserves the hash for reconciliation.
+- FINALIZE: browser sends only attempt_id. Handler derives actor from the verified session. The receipt composition reloads a fresh attempt snapshot, revalidates the persisted acquisition report, verifies the BNB Safe receipt, and calls the atomic finalization RPC. The RPC adapter returns attemptId, broadcastTxHash, and CONFIRMED, matching the browser client's final confirmation contract.
+
+### Test coverage and its limits
+
+- Focused Deno unit tests exist for PREPARE request handling and atomic RPC persistence, wallet-package issuance, SIGN, wallet-submission persistence, finalization request handling, Safe package construction/submission, and finalization receipt guards.
+- The browser execution-client tests cover request shapes and mocked response contracts for PREPARE, package issuance, wallet submission/recovery, SIGN, and FINALIZE.
+- These are isolated unit/contract tests with injected mocks. They do not prove deployed Supabase Edge Function behavior, production schema compatibility, real BNB RPC behavior, wallet-provider behavior, or a full browser Deal Room transaction. The eight GitHub checks passing therefore establish repository CI success, not production integration readiness.
+- The isolated Edge Function entrypoints remain explicitly marked not deployed. Their directory presence and passing tests must not be interpreted as deployment status.
+
+### Decision
+
+Static client/handler response shapes are consistent for the five W3M endpoints reviewed. No definite request/response mismatch was found in this pass. The remaining blocker is operational integration: deploy only to a separate staging Supabase project, apply only staging migrations there, configure a controlled BNB test environment, then run authenticated PREPARE → SIGN → connected-wallet submission → receipt verification → FINALIZE end-to-end tests. Production endpoints and the previously successful live deal path must remain untouched until staging passes and an external security review approves the change.
+
+### Latest cleanup commit status
+
+- The previous cleanup commit ac80bf74a5f2d921192730323567cfcd9a787c6f completed all eight GitHub checks successfully, including Cloudflare Pages build, JavaScript syntax, CDN SRI, audit selection, passport scope, profile-guard migration, trust badge, and decision-engine/schema checks.
+- PR #201 remains open as Draft and unmerged. This documentation-only follow-up does not authorize or perform merge, production deployment, or Supabase changes.
