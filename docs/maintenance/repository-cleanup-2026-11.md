@@ -52,8 +52,8 @@ No source file is deleted solely because a repository search did not find a refe
 
 ## Validation
 
-- Latest security-remediation workflow run `44081548734` passed all three jobs: browser JavaScript syntax (including the current wallet scripts), CDN SRI integrity, and disposable PostgreSQL profile-guard migration. Run: https://github.com/Aminzaki1972/Web3Market/actions/runs/44081548734.
-- Latest isolated trust-badge workflow run `44081548725` passed. Run: https://github.com/Aminzaki1972/Web3Market/actions/runs/44081548725.
-- Latest W3M Protocol V1 isolated workflow run `44081548809` is still running; it has passed 30 steps so far, including the earlier schema/decision checks, with no failed steps at the last check. Do not merge until it completes successfully.
+- Latest security-remediation workflow run `44082718852` passed all three jobs: browser JavaScript syntax (including current wallet scripts), CDN SRI integrity, and disposable PostgreSQL profile-guard migration. Run: https://github.com/Aminzaki1972/Web3Market/actions/runs/44082718852.
+- Latest isolated trust-badge workflow run `44082718892` passed. Run: https://github.com/Aminzaki1972/Web3Market/actions/runs/44082718892.
+- Latest W3M Protocol V1 isolated workflow run `44082718874` is still running; 46 steps passed with no failures at the last check. Do not merge until it completes successfully.
 - Cloudflare Pages built the code-change commit `0de449d` successfully as a PR preview: https://14212a9b.web3market.pages.dev. This is a preview, not a production deployment.
 - Pull request #201 remains a draft for review. Do not merge to `main` or deploy to production as part of this cleanup pass.
