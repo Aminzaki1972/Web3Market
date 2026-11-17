@@ -10,7 +10,9 @@ on:
       - 'js/ai-passport-history.js'
       - 'js/auth.js'
       - 'js/delete-account.js'
-      - 'wallet.js'
+      - 'js/wallet-manager.js'
+      - 'js/buyer-wallet-v2.js'
+      - 'js/verification.js'
       - 'auth-callback.html'
       - 'deal-room.html'
       - 'index.html'
@@ -30,6 +32,9 @@ on:
   push:
     branches: [security/audit-25-remediation-20261101]
 
+permissions:
+  contents: read
+
 jobs:
   javascript-syntax:
     runs-on: ubuntu-latest
@@ -48,7 +53,9 @@ jobs:
             js/ai-passport-history.js \
             js/auth.js \
             js/delete-account.js \
-            wallet.js; do
+            js/wallet-manager.js \
+            js/buyer-wallet-v2.js \
+            js/verification.js; do
             node --check "$file"
           done
           node tests/security/check-cdn-sri.mjs

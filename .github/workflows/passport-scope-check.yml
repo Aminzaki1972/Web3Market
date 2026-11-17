@@ -10,6 +10,9 @@ on:
       - "supabase/functions/external-passport-persist/**"
       - ".github/workflows/passport-scope-check.yml"
 
+permissions:
+  contents: read
+
 jobs:
   passport-scope:
     runs-on: ubuntu-latest

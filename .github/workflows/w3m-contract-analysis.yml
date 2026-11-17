@@ -1,4 +1,4 @@
-name: W3M Slither + Aderyn Contract Analysis
+name: W3M Slither Contract Analysis (Aderyn retired)
 run-name: W3M Static Analysis ${{ inputs.audit_id }}
 
 on:
@@ -197,15 +197,18 @@ jobs:
           solc-select use "$SOLC_VERSION"
           solc --version
 
-      - name: Install pinned Aderyn with installer checksum verification
+      - name: Record Aderyn retirement explicitly
+        if: steps.source.outputs.has_solidity == 'true'
+        id: aderyn
         shell: bash
         run: |
           set -euo pipefail
-          curl --proto '=https' --tlsv1.2 -fsSL             "https://github.com/Cyfrin/aderyn/releases/download/aderyn-v0.6.8/aderyn-installer.sh"             -o /tmp/aderyn-installer.sh
-          echo "6c005c222681f1349caa31aa7c9d55b0fd0ae779c0faad65e8eaa6dc872f8faf  /tmp/aderyn-installer.sh" | sha256sum -c -
-          sh /tmp/aderyn-installer.sh
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          "$HOME/.cargo/bin/aderyn" --version
+          echo "::warning::Aderyn v0.6.8 was retired by its publisher; official installer downloads were withdrawn on 2026-11-13. No replacement binary is trusted or substituted."
+          printf '{"high_issues":{"issues":[]},"low_issues":{"issues":[]}}\\n' > "$GITHUB_WORKSPACE/aderyn.json"
+          printf 'Aderyn is retired upstream; this report intentionally contains no Aderyn findings.\\n' > "$GITHUB_WORKSPACE/aderyn.stdout.log"
+          : > "$GITHUB_WORKSPACE/aderyn.stderr.log"
+          echo "exit_code=127" >> "$GITHUB_OUTPUT"
+          echo "status=retired" >> "$GITHUB_OUTPUT"
 
       - name: Smoke-test Slither on the intentionally vulnerable fixture
         shell: bash
@@ -223,17 +226,6 @@ jobs:
           if [ ! -s "$GITHUB_WORKSPACE/smoke-slither.json" ]; then cat "$GITHUB_WORKSPACE/smoke-slither.stderr.log"; exit 1; fi
           python3 -m json.tool "$GITHUB_WORKSPACE/smoke-slither.json" > /dev/null
 
-      - name: Smoke-test Aderyn on the intentionally vulnerable fixture
-        shell: bash
-        run: |
-          set +e
-          cd w3m-tools/tests/w3m-contract-analysis/fixtures
-          aderyn . --output "$GITHUB_WORKSPACE/smoke-aderyn.json" > "$GITHUB_WORKSPACE/smoke-aderyn.stdout.log" 2> "$GITHUB_WORKSPACE/smoke-aderyn.stderr.log"
-          CODE=$?
-          echo "Aderyn fixture process exit: $CODE"
-          if [ ! -s "$GITHUB_WORKSPACE/smoke-aderyn.json" ]; then cat "$GITHUB_WORKSPACE/smoke-aderyn.stderr.log"; exit 1; fi
-          python3 -m json.tool "$GITHUB_WORKSPACE/smoke-aderyn.json" > /dev/null
-
       - name: Upload isolated engine smoke-test reports
         uses: actions/upload-artifact@v4
         with:
@@ -242,9 +234,6 @@ jobs:
             smoke-slither.json
             smoke-slither.stdout.log
             smoke-slither.stderr.log
-            smoke-aderyn.json
-            smoke-aderyn.stdout.log
-            smoke-aderyn.stderr.log
           if-no-files-found: error
           retention-days: 14
       - name: Restore target Solidity compiler for Slither analysis
@@ -375,38 +364,6 @@ jobs:
           PY
           echo "exit_code=$MAX_EXIT" >> "$GITHUB_OUTPUT"
           echo "Slither analyzed $ANALYZED_CONTRACTS contract(s) across ${#SOL_FILES[@]} Solidity file(s); findings: $(python3 -c 'import json; print(len(json.load(open("slither.json"))["results"]["detectors"]))')"
-
-      - name: Run Aderyn (preserve scan when engine cannot compile target)
-        if: steps.source.outputs.has_solidity == 'true'
-        id: aderyn
-        shell: bash
-        env:
-          FOUNDRY_EVM_VERSION: osaka
-        run: |
-          set +e
-          cd target
-          aderyn . --output ../aderyn.json > ../aderyn.stdout.log 2> ../aderyn.stderr.log
-          CODE=$?
-          set -e
-          STATUS="completed"
-          if [ ! -s ../aderyn.json ]; then
-            if grep -Eiq 'clz.*only available.*osaka|only available for Osaka-compatible VMs|currently compiling for "prague"' ../aderyn.stdout.log ../aderyn.stderr.log; then
-              STATUS="unsupported_evm_target"
-              echo "::warning::Aderyn could not compile this Osaka target (known upstream EVM-target limitation). Slither results will be retained; Aderyn is explicitly marked unavailable."
-            else
-              STATUS="failed"
-              echo "::warning::Aderyn did not produce JSON. The overall scan will retain Slither output and explicitly report Aderyn failure."
-            fi
-            printf '{"high_issues":{"issues":[]},"low_issues":{"issues":[]}}\n' > ../aderyn.json
-            echo "----- Aderyn stdout -----"
-            cat ../aderyn.stdout.log || true
-            echo "----- Aderyn stderr -----"
-            cat ../aderyn.stderr.log || true
-          else
-            python3 -m json.tool ../aderyn.json > /dev/null
-          fi
-          echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
-          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
 
       - name: Set up Deno
         uses: denoland/setup-deno@v2
