@@ -94,7 +94,7 @@ export async function readCanonicalBnbSafeConfigurationFacts(
       valid: false,
       readBlockNumber: blockTag,
       readBlockHash: before.hash,
-      singletonAddress: storageValid && getterValid ? SAFE_V141_SINGLETON : null,
+      singletonAddress: storageValid && getterValid && implementationCodeHashValid ? SAFE_V141_SINGLETON : null,
       issues: [...new Set([...facts.issues, ...singletonIssues, "SAFE_READ_BLOCK_NOT_CANONICAL"])],
     };
   }
