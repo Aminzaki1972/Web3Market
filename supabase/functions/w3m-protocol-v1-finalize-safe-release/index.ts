@@ -42,7 +42,9 @@ Deno.serve(async (request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const minConfirmationsRaw = Deno.env.get("W3M_BNB_MIN_CONFIRMATIONS");
-  const minConfirmations = Number(minConfirmationsRaw);
+  // Six confirmations is the fail-closed production default; operators may
+  // raise it with W3M_BNB_MIN_CONFIRMATIONS but cannot lower it below one.
+  const minConfirmations = minConfirmationsRaw === undefined ? 6 : Number(minConfirmationsRaw);
   if (!supabaseUrl || !serviceRoleKey ||
       !Number.isSafeInteger(minConfirmations) ||
       minConfirmations < 1 || minConfirmations > 1000) {
