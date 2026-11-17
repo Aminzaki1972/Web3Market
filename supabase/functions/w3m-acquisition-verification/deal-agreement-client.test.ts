@@ -25,14 +25,14 @@ Deno.test("client requests exact terms, signs with verified connected wallet, th
   const calls: unknown[] = [];
   const result = await signAndSubmitW3MDealAgreement({
     dealId, accessToken: "session", walletAddress: wallet,
-    request: async (body, token) => {
+    request: async (body: Record<string, unknown>, token: string) => {
       calls.push({ body, token });
       return (body as {mode:string}).mode === "prepare" ? prepared() : {
         ok: true, result: { dealId, partyRole: "buyer", termsVersion: "3",
           acceptanceId: "76000000-0000-4000-8000-000000000006", idempotentReplay: false },
       };
     },
-    signTypedData: async (address, typedData) => {
+    signTypedData: async (address: string, typedData: Record<string, unknown>) => {
       assertEquals(address, wallet);
       assertEquals((typedData as {domain:{chainId:number}}).domain.chainId, 56);
       return signature;
@@ -64,7 +64,7 @@ Deno.test("client refuses a typed-data domain or party-role substitution", async
 Deno.test("client rejects acceptance for changed terms version after signing", async () => {
   await assertRejects(() => signAndSubmitW3MDealAgreement({
     dealId, accessToken: "session", walletAddress: wallet,
-    request: async (body) => (body as {mode:string}).mode === "prepare" ? prepared() : ({
+    request: async (body: Record<string, unknown>) => (body as {mode:string}).mode === "prepare" ? prepared() : ({
       ok: true, result: { dealId, partyRole: "buyer", termsVersion: "4",
         acceptanceId: "76000000-0000-4000-8000-000000000006", idempotentReplay: false },
     }),
