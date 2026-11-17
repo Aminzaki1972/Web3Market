@@ -10,6 +10,9 @@ on:
     paths:
       - "supabase/functions/w3m-code-audit/**"
       - ".github/workflows/audit-file-selection-tests.yml"
+permissions:
+  contents: read
+
 jobs:
   audit-selection-tests:
     runs-on: ubuntu-latest

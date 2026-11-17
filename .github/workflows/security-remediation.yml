@@ -32,6 +32,9 @@ on:
   push:
     branches: [security/audit-25-remediation-20261101]
 
+permissions:
+  contents: read
+
 jobs:
   javascript-syntax:
     runs-on: ubuntu-latest
