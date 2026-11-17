@@ -42,11 +42,11 @@
   </article>
   <article class="audit-engine-card">
     <h3>Aderyn</h3>
-    <p class="muted">A Solidity-focused static analyzer that reports potential smart-contract security findings for further review.</p>
+    <p class="muted"><strong>Retired upstream:</strong> Cyfrin withdrew official Aderyn installer and binary downloads on 2026-11-13. Its historical report format remains supported, but this platform does not currently execute Aderyn.</p>
     <a href="https://github.com/Cyfrin/aderyn" target="_blank" rel="noopener noreferrer">Official project ↗</a>
   </article>
 </div>
-<p class="muted"><strong>Integration status:</strong> The Slither + Aderyn workflow is present on the production repository default branch, and the W3M audit Edge Function is deployed with server-side dispatch and report retrieval. The engines are intended for Smart Contract and Complete audits when Solidity files are found. End-to-end execution against a live customer audit is still pending final operational verification. Findings remain unconfirmed candidates for AI/human review, not confirmed vulnerabilities or a certification of security. Tool availability may depend on Solidity/EVM compatibility and successful execution.</p>
+<p class="muted"><strong>Integration status:</strong> Slither is the active Solidity static-analysis engine in the isolated W3M workflow. Aderyn is retained as a historical integration only and is marked unavailable because its publisher retired it and withdrew official downloads. The current workflow reports this limitation explicitly and does not treat the empty Aderyn placeholder as a clean scan. Live customer-audit execution and end-to-end production verification remain pending. Findings are unconfirmed candidates for AI/human review, not confirmed vulnerabilities or a security certification.</p>
 </section>
 <style>
 .audit-engine-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
