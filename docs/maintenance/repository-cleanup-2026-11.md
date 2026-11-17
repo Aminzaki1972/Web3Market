@@ -198,7 +198,7 @@ A broader ordered migration review corrected the previous gap assessment. The pr
 - `w3m-protocol-v1-append-only-registry.test.sql` explicitly tests report UPDATE and evidence DELETE rejection and verifies service-role mutation privileges are absent.
 - The isolated workflow executes the append-only registry test and the independent-session report/evidence/signer race scripts against disposable PostgreSQL.
 
-**Conclusion:** the previously described report/evidence UPDATE/DELETE race is not supported by the current migration sequence; the required immutability and serialization protections are already implemented. The remaining assurance is to confirm the current workflow run completes those DB/race tests successfully and to retain independent review. This correction is based on source and test inspection, not a claim of an external security certification.
+**Conclusion:** the previously described report/evidence UPDATE/DELETE race is not supported by the current migration sequence; the required immutability and serialization protections are implemented. The disposable-PostgreSQL and independent-session checks subsequently passed on commit `f6218c658e0585113116ae85d020e45e7862035f` as part of the successful W3M Protocol decision-engine/schema workflow. This is CI evidence, not an external security certification.
 
 ### Staging chain profile — design constraints
 
@@ -228,7 +228,7 @@ This follow-up is documentation-only. It does not change Edge Function runtime c
 
 The latest CI run for the branch head before this documentation update completed seven of eight checks successfully. The only failure was the live public-repository audit integration test receiving HTTP 403 from GitHub's unauthenticated API; its local unit tests passed. This was an external API rate-limit/access failure, not a failed selection assertion.
 
-The integration test now accepts an optional `GITHUB_TOKEN`, and its GitHub Actions step supplies the workflow's short-lived token with read-only repository permissions. Local runs remain possible without a token, though they remain subject to anonymous API limits. The workflow still performs no deployment or write operation. The updated job must run before calling this fix verified.
+The integration test now accepts an optional `GITHUB_TOKEN`, and its GitHub Actions step supplies the workflow's short-lived token with read-only repository permissions. Local runs remain possible without a token, though they remain subject to anonymous API limits. The workflow still performs no deployment or write operation. The authenticated integration job subsequently passed on commit `d27d41911530e1d14e1f60c0431e26159a53aa8b`; the same test passed again on the later cleanup head.
 
 
 ## Follow-up static-analysis dependency correction — 2026-11-17
@@ -242,3 +242,15 @@ The workflow now:
 - allows normalization to preserve Slither findings while clearly marking Aderyn as unavailable.
 
 Aderyn remains a historical/integrated engine in the normalizer and prior report schema, but it is not currently an active scanner. Any future replacement requires a separately selected, maintained tool and explicit integration tests; no replacement was added in this change.
+
+
+## Latest verified branch snapshot — 2026-11-17
+
+- Branch head: `f6218c658e0585113116ae85d020e45e7862035f`.
+- Comparison against unchanged `main` baseline `390ca09baccf45526ffae573465f794e3ef655bf`: 52 commits ahead, 0 behind; 24 changed files. The changed-file set is limited to cleanup/workflow/docs/audit-page/test support files; no Supabase migration, deployed Edge Function runtime, wallet, Safe, or deal-room application source is changed by PR #201.
+- All 13 reported checks on this head completed successfully: Cloudflare Pages build, isolated Solidity static analysis (Slither active; Aderyn explicitly retired), decision-engine/schema suite, trust-badge, CDN SRI, JavaScript syntax, disposable PostgreSQL entitlement test, local Supabase Edge Function smoke test, guest checkout browser script, audit selection, passport scope, profile-guard migration, and transfer verification.
+- The decision-engine/schema job passed the full listed W3M test suite, including authenticated report-issuance request boundary, protocol orchestration, trusted signer verification, report persistence/read-back, append-only registry and migration-order checks, Safe PREPARE/SIGN/EXECUTE/FINALIZE boundaries, and disposable PostgreSQL migration tests.
+- The local Supabase smoke job passed type-checking and exercised the three Audit V2 Edge Function HTTP handlers using local test-only provider settings. It did not deploy or exercise the W3M Safe endpoints against a hosted project.
+- The static-analysis job passed pinned Slither installation, the intentionally vulnerable fixture smoke test, Deno dispatcher/type checks, and normalizer tests. Aderyn is no longer executed because its publisher retired it and withdrew official downloads; its placeholder output is explicitly not a clean scan.
+- PR #201 remains open, Draft, unmerged, and mergeable at this snapshot. No production deployment, production Supabase migration, secret change, live wallet/Safe call, or transaction was performed.
+- Remaining protocol blockers are unchanged: authoritative server-side report/evidence loader and issuer runtime composition, protected signer custody, fully pinned chain profile, isolated staging lifecycle, and independent external security review. Passing CI does not close these gates.
