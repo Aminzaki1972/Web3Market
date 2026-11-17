@@ -71,3 +71,5 @@ Validation was rerun on the latest cleanup code snapshot (commit `dd982803aca047
 4. Sitemap review: the current sitemap lists only the homepage, marketplace, passports, AI Passport, and roadmap. The homepage also links to code-audit.html; the repository contains w3m-protocol.html, w3m-whitepaper.html, and listing-guide.html, which are not in the sitemap. These pages were not added automatically because canonical/indexing metadata is inconsistent or absent on some pages. SEO inclusion should be handled as a deliberate canonical/robots review, not guessed during code cleanup.
 
 Current cleanup branch head after this follow-up: a6b885dc66c738f83fc896bdbce047e7d90de74c. It is 41 commits ahead of the unchanged main baseline 390ca09baccf45526ffae573465f794e3ef655bf, with no commits behind. PR #201 remains draft and unmerged.
+
+Documentation note: this report update itself was committed immediately after the workflow-hardening commit above; the resulting branch head is 9fd6586ab8e48fbfd0bf86711a2a3f1cc1b4d4b0. This final documentation-only commit does not alter runtime code, workflow behavior, or Supabase resources.
