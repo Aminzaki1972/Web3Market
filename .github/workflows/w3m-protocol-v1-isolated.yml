@@ -38,6 +38,7 @@ on:
       - "deal-room.html"
       - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
       - "supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql"
+      - "supabase/migrations/20261106000100_w3m_protocol_v1_acquisition_verification.sql"
       - "supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql"
       - "supabase/migrations/20261107120000_w3m_protocol_v1_immutable_agreements.sql"
       - "supabase/migrations/20261107130000_w3m_protocol_v1_report_version_serialization.sql"
@@ -127,6 +128,7 @@ on:
       - "deal-room.html"
       - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
       - "supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql"
+      - "supabase/migrations/20261106000100_w3m_protocol_v1_acquisition_verification.sql"
       - "supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql"
       - "supabase/migrations/20261107120000_w3m_protocol_v1_immutable_agreements.sql"
       - "supabase/migrations/20261107130000_w3m_protocol_v1_report_version_serialization.sql"
@@ -608,6 +610,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/w3m-deal-payment-finalization-fixture.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261106000100_w3m_protocol_v1_acquisition_verification.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261106230000_w3m_protocol_v1_safe_execution_attempts.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261107090000_w3m_protocol_v1_wallet_package_issuance.sql
