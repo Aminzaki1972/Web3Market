@@ -5,8 +5,9 @@
 - Repository: `Aminzaki1972/Web3Market`
 - Cleanup branch: `chore/repository-cleanup-2026-11`
 - Baseline commit: `64d0fddacc1df957e3f78b12b29a322323c9aafa`
-- Production `main`, live website, Supabase production project, and legacy Git branches are intentionally unchanged.
+- The final `main` tree has been restored to the exact baseline tree SHA `f4f14ce8358b3cf894166ee57d69e54ba7139d54`; legacy Git branches are untouched.
 - No wallet, Safe, payment, deal-room, RLS, Edge Function, or production migration behavior was deleted or rewritten as part of this cleanup pass.
+- A documentation-only cleanup report was briefly committed to `main` because one update omitted the explicit branch parameter, then immediately reverted in commit `9c16b7603db0481ea7ef59fe3e99bdd475b66328`. The final tracked tree matches the baseline exactly. No application/runtime code or Supabase resources changed in that transient commit; whether Cloudflare Pages processed the brief documentation-only commit could not be independently verified.
 
 ## Baseline inventory
 
@@ -34,9 +35,10 @@ After the cleanup edits, the branch contains 561 tracked files: 346 under `supab
 
 - The previous isolated protocol workflow failed because `20261117085142_harden_acquisition_event_trigger_search_path.sql` altered `public.w3m_reject_acquisition_event_mutation()` before the disposable database had applied the migration that creates that function. This is a test-fixture/migration-sequence defect; it is not evidence that production data should be changed.
 - Three MFA-related root pages exist: `admin-mfa-setup-20260926.html`, `admin-mfa.html`, and `admin-mfa-v2.html`. The two latter pages are now byte-identical after a one-character escaping defect in the v2 page's six-digit TOTP regex was corrected on this branch. Both pages remain explicitly included in the security workflow path filters, and `admin-review.html` routes users through `admin-mfa.html`. The dated setup page has no match in the default-branch code search, but it is a directly addressable administrator security route. All three are retained pending administrator auth-flow confirmation; do not delete based only on apparent duplication.
-- A Cloudflare Pages branch preview was automatically built for the cleanup branch (`https://chore-repository-cleanup-202.web3market.pages.dev`). This is a preview deployment only; no production site deployment or Supabase deployment/migration was run.
+- A Cloudflare Pages branch preview was automatically built for the cleanup branch (`https://chore-repository-cleanup-202.web3market.pages.dev`). This is a preview deployment. No Supabase production deployment or migration was run; Cloudflare's handling of the brief, reverted documentation-only main commit could not be independently verified.
 - Diagnostic pages and the Safe diagnostic script are retained. Their operational status and references need a full call-site audit before removal.
 - The Future Lab contains a likely duplicate-topic pair: `future-ai-agents-blockchain.html` and `future-lab-ai-agents.html` cover AI agents and blockchain. The older-looking URL is not linked from the Future Lab index or current sitemap, while the newer page is linked from the index. Keep both temporarily; assess analytics/backlinks before converting the older URL into a canonical redirect/retired-page notice.
+- `supabase/cleanup/legacy-external-passport-cleanup.sql` is intentionally retained and was not executed. It deletes external passport/search-history records after hard-coded row-count guards; this is a destructive operational script, not a migration. It requires a fresh read-only count review and a verified restorable backup before any future use.
 - No `package.json` was added because the root app is not a conventional Node build and adding one without a verified build/test contract would create misleading tooling.
 
 ## Deletion policy
