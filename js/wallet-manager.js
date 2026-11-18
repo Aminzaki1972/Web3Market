@@ -10,6 +10,7 @@
   var VERSION = "ROLE-ACCOUNT-WALLET-20260920-3";
   var LINKED_PROVIDER_KEY = "web3market-linked-wallet-provider";
   var LINKED_ROUTE_PREFIX = "web3market-wallet-route:";
+  var announcedProviders = [];
 
   function esc(v) {
     return String(v == null ? "" : v).replace(/[&<>\"']/g, function (m) {
@@ -73,6 +74,7 @@
     if (eth && eth.providers && eth.providers.length) {
       eth.providers.forEach(function (p) { if (p && out.indexOf(p) === -1) out.push(p); });
     }
+    announcedProviders.forEach(function (p) { if (p && out.indexOf(p) === -1) out.push(p); });
     return out;
   }
   function isTrustWalletBrowser() { try { return /trustwallet|trust wallet/i.test(String(navigator.userAgent || "")) || /trustwallet|trust wallet/i.test(String(navigator.vendor || "")); } catch (_) { return false; } }
@@ -125,10 +127,10 @@
   function getDetected(name) { return findByName(name); }
   async function refreshWalletProviders() {
     var announced = [];
-    function onAnnounce(event) { var detail = event && event.detail; if (detail && detail.provider && announced.indexOf(detail.provider) === -1) announced.push(detail.provider); }
+    function onAnnounce(event) { var detail = event && event.detail; if (detail && detail.provider && announced.indexOf(detail.provider) === -1) { try { detail.provider._web3marketEip6963Info = detail.info || detail.provider._web3marketEip6963Info || null; } catch (_) {} announced.push(detail.provider); } }
     try { window.addEventListener("eip6963:announceProvider", onAnnounce); window.dispatchEvent(new Event("eip6963:requestProvider")); await new Promise(function(resolve){ setTimeout(resolve, 350); }); }
     finally { window.removeEventListener("eip6963:announceProvider", onAnnounce); }
-    announced.forEach(function(provider){ var info = provider && provider._web3marketEip6963Info; if (info && ((info.rdns && /trust/i.test(info.rdns)) || (info.name && /trust wallet/i.test(info.name)))) provider.isTrust = true; });
+    announced.forEach(function(provider){ if (announcedProviders.indexOf(provider) === -1) announcedProviders.push(provider); var info = provider && provider._web3marketEip6963Info; if (info && ((info.rdns && /trust/i.test(info.rdns)) || (info.name && /trust wallet/i.test(info.name)))) provider.isTrust = true; });
     return announced;
   }
   function getLinkedWalletName() { try { return localStorage.getItem(LINKED_PROVIDER_KEY) || ""; } catch (_) { return ""; } }
@@ -297,10 +299,12 @@
     // These routes are intentionally opened directly from the user's click.
     // Mobile browsers can block a delayed/custom-scheme navigation if it is
     // triggered after an async operation.
-    var current = location.href;
+    var target = new URL(location.href);
+    target.searchParams.set("wm_wallet", requested);
+    var current = target.toString();
     var routes = {
       "metamask": {
-        app: "https://metamask.app.link/dapp/" + location.host + location.pathname,
+        app: "https://metamask.app.link/dapp/" + location.host + location.pathname + target.search,
         fallback: "https://metamask.app.link/dapp/" + location.host + location.pathname
       },
       "trust wallet": {

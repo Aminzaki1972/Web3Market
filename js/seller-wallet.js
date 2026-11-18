@@ -12,7 +12,7 @@
         let script=document.getElementById("web3market-wallet-manager-dynamic");
         if(!script){
           script=document.createElement("script");script.id="web3market-wallet-manager-dynamic";
-          script.src="/js/wallet-manager.js?v=20261118-wallet-click-fix1";script.async=true;
+          script.src="/js/wallet-manager.js?v=20261118-wallet-signature-fix3";script.async=true;
           const loaded=new Promise((resolve,reject)=>{script.addEventListener("load",resolve,{once:true});script.addEventListener("error",()=>reject(new Error("Wallet manager script failed to load.")),{once:true})});
           document.head.appendChild(script);await loaded;
         }
@@ -133,10 +133,14 @@
     if(m&&!m.dataset.bound){m.dataset.bound="1";m.addEventListener("click",e=>{if(e.target===m)closeModal()});m.addEventListener("touchstart",e=>{if(e.target===m)closeModal()},{passive:true})}
   }
   async function boot(){
+    bind();
     const wm=await ensureManager();
     if(!wm){const n=document.getElementById("walletNotice");if(n)n.textContent="Wallet connection engine could not load. Please refresh the page."; const b=document.getElementById("connectSellerWallet"); if(b){b.disabled=false;b.removeAttribute("disabled");b.style.pointerEvents="auto";b.style.cursor="pointer";} return}
     bind();
-    // Do not open the wallet modal automatically on dashboard load.\n    // The user must explicitly press Connect Wallet.\n    loadWalletState();
+    await wm.refreshWalletProviders?.();
+    autoConnect();
+    // Auto-connect only when returning from a wallet app with wm_wallet in the URL.
+    loadWalletState();
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 })();
