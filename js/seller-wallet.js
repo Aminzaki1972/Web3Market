@@ -24,7 +24,7 @@
         let script=document.getElementById("web3market-wallet-manager-dynamic");
         if(!script){
           script=document.createElement("script");script.id="web3market-wallet-manager-dynamic";
-          script.src="/js/wallet-manager.js?v=20261118-wallet-signature-fix3";script.async=true;
+          script.src="/js/wallet-manager.js?v=20261118-wallet-deeplink-v1";script.async=true;
           const loaded=new Promise((resolve,reject)=>{script.addEventListener("load",resolve,{once:true});script.addEventListener("error",()=>reject(new Error("Wallet manager script failed to load.")),{once:true})});
           document.head.appendChild(script);await loaded;
         }
