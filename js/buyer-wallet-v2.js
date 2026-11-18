@@ -81,11 +81,33 @@
       window.dispatchEvent(new CustomEvent("web3market:buyer-wallet-connected",{detail:{address:result.address,walletName:name}}));
     }catch(e){console.error("Web3Market buyer wallet connect:",e);notice.textContent=e?.message||"Wallet connection failed.";if(button){button.disabled=false;button.removeAttribute("disabled");button.style.pointerEvents="auto";button.style.cursor="pointer";button.textContent="Connect Wallet"}}
   }
+  function ensureBuyerWalletStyles(){
+    if(document.getElementById("w3m-buyer-wallet-premium-style"))return;
+    const style=document.createElement("style");style.id="w3m-buyer-wallet-premium-style";
+    style.textContent=`
+      #buyerWalletModal{padding:16px!important;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+      #buyerWalletModal>div{width:min(460px,100%)!important;max-height:min(82vh,720px);overflow:auto;padding:24px!important;border:1px solid #e8eaf2!important;background:#fff!important;color:#111827!important;box-shadow:0 28px 90px rgba(10,16,35,.32)!important}
+      #buyerWalletModal>div>div:first-child strong{font-size:20px!important;letter-spacing:-.45px;color:#111827}
+      #buyerWalletClose{width:36px!important;height:36px!important;padding:0!important;border-radius:11px!important;background:#f3f4f6!important;border:0!important;color:#475569!important;font-size:22px!important}
+      #buyerWalletList{display:grid;grid-template-columns:1fr;gap:10px;margin-top:16px}
+      #buyerWalletList .w3m-wallet-option{width:100%;min-height:76px;box-sizing:border-box;display:grid;grid-template-columns:48px minmax(0,1fr) 22px;align-items:center;gap:14px;margin:0!important;padding:12px 15px!important;text-align:left;border:1px solid #e5e7eb!important;border-radius:15px!important;background:#fff!important;color:#111827!important;box-shadow:0 2px 7px rgba(15,23,42,.035);cursor:pointer!important;transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease}
+      #buyerWalletList .w3m-wallet-option:active{transform:scale(.985);border-color:#7c3aed!important}
+      #buyerWalletList .w3m-wallet-option:hover{border-color:#a5b4fc!important;box-shadow:0 8px 22px rgba(79,70,229,.10)}
+      #buyerWalletList .w3m-wallet-icon{width:48px;height:48px;display:grid;place-items:center;border-radius:13px;background:#f6f7fb;color:#4f46e5;font-size:24px;overflow:hidden}
+      #buyerWalletList .w3m-wallet-icon img{width:34px;height:34px;object-fit:contain}
+      #buyerWalletList strong{display:block;font-size:14px;font-weight:800;line-height:1.35;color:#111827}
+      #buyerWalletList small{display:block;margin-top:4px;font-size:11px;line-height:1.35;color:#64748b}
+      #buyerWalletList .w3m-wallet-arrow{font-size:25px;color:#94a3b8;text-align:center}
+      @media(max-width:480px){#buyerWalletModal>div{padding:18px!important;border-radius:18px!important}#buyerWalletList .w3m-wallet-option{min-height:70px;grid-template-columns:42px minmax(0,1fr) 18px;gap:11px;padding:10px 12px!important}#buyerWalletList .w3m-wallet-icon{width:42px;height:42px}}
+    `;
+    document.head.appendChild(style);
+  }
   function open(){
+    ensureBuyerWalletStyles();
     const wm=manager();if(!wm)return;const m=ensureModal(),list=m.querySelector("#buyerWalletList");list.innerHTML="";
     wm.listWallets().forEach(row=>{
-      const b=document.createElement("button");b.type="button";b.style.cssText="width:100%;display:flex;align-items:center;gap:12px;margin:8px 0;padding:13px;border:1px solid #3a3158;border-radius:12px;background:#18152b;color:#fff;cursor:pointer;text-align:left;touch-action:manipulation;pointer-events:auto;position:relative;z-index:2";
-      b.innerHTML='<span style="font-size:20px;pointer-events:none">◈</span><span style="flex:1;pointer-events:none"><strong style="display:block;font-size:12px">'+wm.esc(row.name)+'</strong><small style="display:block;color:#89829f;margin-top:3px">'+(row.detected?"Detected on this device":"Open wallet app / browser")+'</small></span><span style="color:#7c3aed;pointer-events:none">›</span>';
+      const b=document.createElement("button");b.type="button";b.className="w3m-wallet-option";b.style.cssText="touch-action:manipulation;pointer-events:auto;position:relative;z-index:2";
+      b.innerHTML='<span class="w3m-wallet-icon" style="pointer-events:none">'+(row.icon?'<img src="'+wm.esc(row.icon)+'" alt="">':'◈')+'</span><span style="flex:1;pointer-events:none"><strong>'+wm.esc(row.name)+'</strong><small>'+(row.detected?"Detected on this device":"Open wallet app / browser")+'</small></span><span class="w3m-wallet-arrow" style="pointer-events:none">›</span>';
       activate(b,()=>{
         const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||"");
         if(row.provider) connect({provider:row.provider},row.name,m);
