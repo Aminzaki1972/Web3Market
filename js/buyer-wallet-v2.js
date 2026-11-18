@@ -10,16 +10,21 @@
     });
   }
   function manager(){return window.Web3MarketWalletManager||null}
+  function activate(button,action){
+    let last=0;
+    const run=e=>{const now=Date.now();e.preventDefault();e.stopPropagation();if(now-last<700)return;last=now;action(e)};
+    button.disabled=false;button.removeAttribute("disabled");button.style.pointerEvents="auto";button.style.touchAction="manipulation";button.style.position="relative";button.style.zIndex="2";
+    button.addEventListener("pointerup",run,{capture:true,passive:false});
+    button.addEventListener("click",run,{capture:true,passive:false});
+  }
   function ensureModal(){
     let m=document.getElementById("buyerWalletModal");if(m)return m;
-    m=document.createElement("div");m.id="buyerWalletModal";m.hidden=true;m.style.cssText="position:fixed;inset:0;z-index:99999;background:rgba(3,5,15,.78);backdrop-filter:blur(7px);display:grid;place-items:center;padding:18px";
+    m=document.createElement("div");m.id="buyerWalletModal";m.hidden=true;m.style.cssText="position:fixed;inset:0;z-index:2147483647;pointer-events:auto;background:rgba(3,5,15,.78);backdrop-filter:blur(7px);display:grid;place-items:center;padding:18px";
     m.innerHTML='<div style="width:min(430px,100%);max-height:85vh;overflow:auto;background:#15132a;border:1px solid #443270;border-radius:18px;padding:18px;color:#fff"><div style="display:flex;justify-content:space-between;align-items:center"><div><strong style="font-size:17px">Connect Web3 Wallet</strong><div style="font-size:10px;color:#aaa3c3;margin-top:4px">Choose your wallet to connect and verify ownership</div></div><button id="buyerWalletClose" type="button" aria-label="Close wallet list" title="Close" style="width:44px;height:44px;display:grid;place-items:center;border:1px solid #4a3b68;border-radius:12px;background:#211b35;color:#fff;font-size:28px;line-height:1;cursor:pointer;pointer-events:auto;touch-action:manipulation;-webkit-tap-highlight-color:transparent;flex:0 0 auto">×</button></div><div id="buyerWalletList"></div><div id="buyerWalletNotice" style="font-size:10px;color:#a9a2bd;margin-top:10px;line-height:1.5"></div></div>';
     document.body.appendChild(m);
     m.addEventListener("click",e=>{if(e.target===m)closeModal(m)});m.addEventListener("touchstart",e=>{if(e.target===m)closeModal(m)},{passive:true});
     const closeBtn=m.querySelector("#buyerWalletClose");
-    if(closeBtn){
-      ["click","pointerup","touchend","mousedown"].forEach(type=>closeBtn.addEventListener(type,e=>{e.preventDefault();e.stopImmediatePropagation();closeModal(m)}, {capture:true,passive:false}));
-    }
+    if(closeBtn)activate(closeBtn,()=>closeModal(m));
     return m;
   }
   function closeModal(m){
@@ -79,10 +84,9 @@
   function open(){
     const wm=manager();if(!wm)return;const m=ensureModal(),list=m.querySelector("#buyerWalletList");list.innerHTML="";
     wm.listWallets().forEach(row=>{
-      const b=document.createElement("button");b.type="button";b.style.cssText="width:100%;display:flex;align-items:center;gap:12px;margin:8px 0;padding:13px;border:1px solid #3a3158;border-radius:12px;background:#18152b;color:#fff;cursor:pointer;text-align:left;touch-action:manipulation";
-      b.innerHTML='<span style="font-size:20px">◈</span><span style="flex:1"><strong style="display:block;font-size:12px">'+wm.esc(row.name)+'</strong><small style="display:block;color:#89829f;margin-top:3px">'+(row.detected?"Detected on this device":"Open wallet app / browser")+'</small></span><span style="color:#7c3aed">›</span>';
-      b.addEventListener("click",e=>{
-        e.preventDefault();e.stopPropagation();
+      const b=document.createElement("button");b.type="button";b.style.cssText="width:100%;display:flex;align-items:center;gap:12px;margin:8px 0;padding:13px;border:1px solid #3a3158;border-radius:12px;background:#18152b;color:#fff;cursor:pointer;text-align:left;touch-action:manipulation;pointer-events:auto;position:relative;z-index:2";
+      b.innerHTML='<span style="font-size:20px;pointer-events:none">◈</span><span style="flex:1;pointer-events:none"><strong style="display:block;font-size:12px">'+wm.esc(row.name)+'</strong><small style="display:block;color:#89829f;margin-top:3px">'+(row.detected?"Detected on this device":"Open wallet app / browser")+'</small></span><span style="color:#7c3aed;pointer-events:none">›</span>';
+      activate(b,()=>{
         const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||"");
         if(row.provider) connect({provider:row.provider},row.name,m);
         else if(mobile){closeModal(m);wm.launch(row.name,null)}
