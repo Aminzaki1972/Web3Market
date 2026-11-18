@@ -7,7 +7,7 @@
   var AUTH_TOKEN = SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token";
   var STORAGE_KEY = "web3market-auth";
   var CHAIN_HEX = "0x38";
-  var VERSION = "ROLE-ACCOUNT-WALLET-20260920-3";
+  var VERSION = "ROLE-ACCOUNT-WALLET-20261118-DEEPLINK-1";
   var LINKED_PROVIDER_KEY = "web3market-linked-wallet-provider";
   var LINKED_ROUTE_PREFIX = "web3market-wallet-route:";
   var announcedProviders = [];
@@ -304,8 +304,8 @@
     var current = target.toString();
     var routes = {
       "metamask": {
-        app: "https://metamask.app.link/dapp/" + location.host + location.pathname + target.search,
-        fallback: "https://metamask.app.link/dapp/" + location.host + location.pathname
+        app: "https://link.metamask.io/dapp/" + encodeURIComponent(current),
+        fallback: ""
       },
       "trust wallet": {
         app: "https://link.trustwallet.com/open_url?coin_id=20000714&url=" + encodeURIComponent(current),
