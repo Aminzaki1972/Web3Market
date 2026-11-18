@@ -2,6 +2,13 @@
 (function(){
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   function manager(){return window.Web3MarketWalletManager||null}
+  function activate(button,action){
+    let last=0;
+    const run=e=>{const now=Date.now();e.preventDefault();e.stopPropagation();if(now-last<700)return;last=now;action(e)};
+    button.disabled=false;button.removeAttribute("disabled");button.style.pointerEvents="auto";button.style.touchAction="manipulation";button.style.position="relative";button.style.zIndex="2";
+    button.addEventListener("pointerup",run,{capture:true,passive:false});
+    button.addEventListener("click",run,{capture:true,passive:false});
+  }
   let managerLoadPromise=null;
   async function ensureManager(){
     const ready=manager();if(ready)return ready;
@@ -29,9 +36,9 @@
     if(!wm||!modal||!list)return;
     list.innerHTML="";
     wm.listWallets().forEach(row=>{
-      const b=document.createElement("button");b.type="button";b.className="wallet-option"+(row.detected?"":" unavailable");b.style.touchAction="manipulation";
-      b.innerHTML=`<span class="wallet-icon">${row.icon?`<img src="${wm.esc(row.icon)}" alt="">`:"◈"}</span><span><strong>${wm.esc(row.name)}</strong><small>${row.detected?"Detected on this device":"Open wallet app / browser"}</small></span><span class="wallet-arrow">›</span>`;
-      b.addEventListener("click",async e=>{e.preventDefault();e.stopPropagation();const notice=document.getElementById("walletNotice");if(row.provider){closeModal();await connect(row.provider,row.name)}else wm.launch(row.name,notice)});
+      const b=document.createElement("button");b.type="button";b.disabled=false;b.className="wallet-option"+(row.detected?"":" unavailable");b.style.cssText="touch-action:manipulation;pointer-events:auto;position:relative;z-index:2;";
+      b.innerHTML=`<span class="wallet-icon" style="pointer-events:none">${row.icon?`<img src="${wm.esc(row.icon)}" alt="">`:"◈"}</span><span style="pointer-events:none"><strong>${wm.esc(row.name)}</strong><small>${row.detected?"Detected on this device":"Open wallet app / browser"}</small></span><span class="wallet-arrow" style="pointer-events:none">›</span>`;
+      activate(b,async()=>{const notice=document.getElementById("walletNotice");if(row.provider){closeModal();await connect(row.provider,row.name)}else wm.launch(row.name,notice)});
       list.appendChild(b);
     });
     modal.hidden=false;modal.style.setProperty("display","grid","important");
@@ -128,7 +135,7 @@
     const b=document.getElementById("connectSellerWallet");
     if(b&&!b.dataset.bound){b.dataset.bound="1";b.addEventListener("click",e=>{e.preventDefault();renderModal()})}
     const c=document.getElementById("walletModalClose");
-    if(c&&!c.dataset.bound){c.dataset.bound="1";["click","pointerup","touchend"].forEach(function(type){c.addEventListener(type,function(e){e.preventDefault();e.stopPropagation();closeModal()},{passive:false})})}
+    if(c&&!c.dataset.bound){c.dataset.bound="1";activate(c,closeModal)}
     const m=document.getElementById("walletModal");
     if(m&&!m.dataset.bound){m.dataset.bound="1";m.addEventListener("click",e=>{if(e.target===m)closeModal()});m.addEventListener("touchstart",e=>{if(e.target===m)closeModal()},{passive:true})}
   }
