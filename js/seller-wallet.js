@@ -3,11 +3,16 @@
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   function manager(){return window.Web3MarketWalletManager||null}
   function activate(button,action){
-    let last=0;
-    const run=e=>{const now=Date.now();e.preventDefault();e.stopPropagation();if(now-last<700)return;last=now;action(e)};
-    button.disabled=false;button.removeAttribute("disabled");button.style.pointerEvents="auto";button.style.touchAction="manipulation";button.style.position="relative";button.style.zIndex="2";
-    button.addEventListener("pointerup",run,{capture:true,passive:false});
-    button.addEventListener("click",run,{capture:true,passive:false});
+    // Use the trusted click event only. Preventing pointerup on Android Chrome
+    // can suppress the subsequent click and break external wallet app handoff.
+    button.disabled=false;button.removeAttribute("disabled");
+    button.style.pointerEvents="auto";button.style.touchAction="manipulation";
+    button.style.position="relative";button.style.zIndex="2";
+    button.addEventListener("click",function(e){
+      e.preventDefault();e.stopPropagation();
+      if(e.isTrusted===false)return;
+      action(e);
+    },{capture:true,passive:false});
   }
   let managerLoadPromise=null;
   async function ensureManager(){
