@@ -16,11 +16,11 @@
     button.disabled=false;button.removeAttribute("disabled");
     button.style.pointerEvents="auto";button.style.touchAction="manipulation";
     button.style.position="relative";button.style.zIndex="2";
-    button.addEventListener("click",function(e){
-      e.preventDefault();e.stopPropagation();
-      if(e.isTrusted===false)return;
-      action(e);
-    },{capture:true,passive:false});
+    button.onclick=function(e){
+      if(e){e.preventDefault();e.stopPropagation();if(e.isTrusted===false)return;}
+      try{action(e)}catch(err){console.error("Buyer wallet action failed",err);const n=document.getElementById("buyerWalletNotice");if(n)n.textContent=err&&err.message?err.message:"Wallet action failed."}
+      return false;
+    };
   }
   function ensureModal(){
     let m=document.getElementById("buyerWalletModal");if(m)return m;
@@ -154,14 +154,17 @@
     if(!wm)return;
     showModal(m);
     const notice=m.querySelector("#buyerWalletNotice");
-    if(notice)notice.textContent="Wallet opened. Waiting for its secure connection…";
     try{await wm.refreshWalletProviders?.()}catch(e){}
     for(let i=0;i<40;i++){
       const provider=wm.getDetected(target);
-      if(provider){await connect({provider:provider},target,m);return}
+      if(provider){
+        if(notice)notice.textContent=target+" is ready. Tap the "+target+" button below to connect, then approve the free ownership signature.";
+        open();
+        return;
+      }
       await sleep(250);
     }
-    if(notice)notice.textContent=target+" opened, but the wallet provider was not detected. Tap the wallet option again inside its browser.";
+    if(notice)notice.textContent=target+" opened, but its provider was not detected. Open Web3Market inside the wallet browser, then tap the wallet option.";
   }
   function bind(){
     document.querySelectorAll("#walletBtn,.wallet-card .btn.full").forEach(b=>{
