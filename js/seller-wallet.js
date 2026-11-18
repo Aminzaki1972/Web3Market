@@ -137,7 +137,10 @@
     const wm=await ensureManager();
     if(!wm){const n=document.getElementById("walletNotice");if(n)n.textContent="Wallet connection engine could not load. Please refresh the page."; const b=document.getElementById("connectSellerWallet"); if(b){b.disabled=false;b.removeAttribute("disabled");b.style.pointerEvents="auto";b.style.cursor="pointer";} return}
     bind();
-    // Do not open the wallet modal automatically on dashboard load.\n    // The user must explicitly press Connect Wallet.\n    loadWalletState();
+    await wm.refreshWalletProviders?.();
+    autoConnect();
+    // Auto-connect only when returning from a wallet app with wm_wallet in the URL.
+    loadWalletState();
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 })();

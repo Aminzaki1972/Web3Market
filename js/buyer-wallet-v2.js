@@ -116,22 +116,6 @@
       await refresh();if(notice)notice.textContent="Wallet disconnected from your Buyer profile.";
     }catch(e){if(button){button.disabled=false;button.textContent="Disconnect"}if(notice)notice.textContent=e?.message||"Wallet disconnect failed."}
   }
-  async function autoConnect(){
-    const target=new URLSearchParams(location.search).get("wm_wallet");
-    if(!target)return;
-    const wm=manager(),m=ensureModal();
-    if(!wm)return;
-    showModal(m);
-    const notice=m.querySelector("#buyerWalletNotice");
-    if(notice)notice.textContent="Wallet opened. Waiting for its secure connection…";
-    try{await wm.refreshWalletProviders?.()}catch(e){}
-    for(let i=0;i<40;i++){
-      const provider=wm.getDetected(target);
-      if(provider){await connect({provider:provider},target,m);return}
-      await sleep(250);
-    }
-    if(notice)notice.textContent=target+" opened, but the wallet provider was not detected. Tap the wallet option again inside its browser.";
-  }
   function bind(){
     document.querySelectorAll("#walletBtn,.wallet-card .btn.full").forEach(b=>{
       if(b.dataset.walletModalBound)return;
@@ -140,6 +124,6 @@
     });
     refresh();
   }
-  async function boot(){await loadManager();if(!manager())return;installCloseGuard();bind();await manager().refreshWalletProviders?.();autoConnect();new MutationObserver(bind).observe(document.documentElement,{childList:true,subtree:true})}
+  async function boot(){await loadManager();if(!manager())return;installCloseGuard();bind();new MutationObserver(bind).observe(document.documentElement,{childList:true,subtree:true})}
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 })();
