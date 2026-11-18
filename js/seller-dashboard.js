@@ -14,14 +14,18 @@
     let user=null;
     for(let i=0;i<20&&!user;i++){try{user=(await sb.auth.getSession())?.data?.session?.user||null;}catch(e){} if(!user){try{await window.Web3MarketSupabaseRestoreSession?.();}catch(e){}} if(!user)await sleep(200);}
     if(!user){error("لم يتم العثور على جلسة دخول فعالة. يرجى تسجيل الدخول مرة أخرى.");return;}
-    const pr=await sb.from("profiles").select("id,display_name,email,bio,wallet_address,wallet_verified,wallet_verified_at,role").eq("id",user.id).maybeSingle();
-    if(pr.error||!pr.data){error("تعذر تحميل بيانات حساب البائع.");return;}
+    let pr=await sb.from("profiles").select("id,display_name,email,bio,wallet_address,wallet_verified,wallet_verified_at,role").eq("id",user.id).maybeSingle();
+    if(pr.error){pr=await sb.from("profiles").select("id,display_name,email,wallet_address,wallet_verified,role").eq("id",user.id).maybeSingle();}
+    if(pr.error||!pr.data){console.error("Seller profile query failed:",pr.error);error("تعذر تحميل بيانات حساب البائع. يرجى إعادة تسجيل الدخول أو التواصل مع الدعم.");return;}
     const profile=pr.data;
     if(String(profile.role||"").toLowerCase()!=="seller"){error("هذا الحساب ليس حساب بائع.");return;}
-    const pq=await sb.from("projects").select("id,title,status,project_status,admin_notes,ai_status,asking_price,currency,created_at").eq("owner_id",user.id).order("created_at",{ascending:false});
-    if(pq.error){error("تعذر تحميل مشاريعك.");return;}
+    let pq=await sb.from("projects").select("id,title,status,project_status,admin_notes,ai_status,asking_price,currency,created_at").eq("owner_id",user.id).order("created_at",{ascending:false});
+    if(pq.error){console.warn("Optional project review fields unavailable; retrying core project fields:",pq.error);pq=await sb.from("projects").select("id,title,status,asking_price,currency,created_at").eq("owner_id",user.id).order("created_at",{ascending:false});}
+    if(pq.error){console.error("Seller projects query failed:",pq.error);error("تعذر تحميل مشاريعك حاليًا. بيانات الحساب لم تتغير؛ يرجى إعادة المحاولة.");return;}
     const projects=pq.data||[];
-    const dq=await sb.from("deals").select("id,project_id,buyer_id,seller_id,amount,currency,status,created_at,platform_fee_percent,platform_fee_amount,seller_net_amount,payment_tx_hash").eq("seller_id",user.id).order("created_at",{ascending:false});
+    let dq=await sb.from("deals").select("id,project_id,buyer_id,seller_id,amount,currency,status,created_at,platform_fee_percent,platform_fee_amount,seller_net_amount,payment_tx_hash").eq("seller_id",user.id).order("created_at",{ascending:false});
+    if(dq.error){console.warn("Optional deal accounting fields unavailable; retrying core deal fields:",dq.error);dq=await sb.from("deals").select("id,project_id,buyer_id,seller_id,amount,currency,status,created_at").eq("seller_id",user.id).order("created_at",{ascending:false});}
+    if(dq.error)console.error("Seller deals query failed:",dq.error);
     const deals=dq.data||[];
     const esc=v=>String(v??"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
     const money=(v,c)=>`${Number(v||0).toLocaleString(undefined,{maximumFractionDigits:2})} ${c||"USD"}`;
