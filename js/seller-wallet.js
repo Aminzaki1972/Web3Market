@@ -8,11 +8,11 @@
     button.disabled=false;button.removeAttribute("disabled");
     button.style.pointerEvents="auto";button.style.touchAction="manipulation";
     button.style.position="relative";button.style.zIndex="2";
-    button.addEventListener("click",function(e){
-      e.preventDefault();e.stopPropagation();
-      if(e.isTrusted===false)return;
-      action(e);
-    },{capture:true,passive:false});
+    button.onclick=function(e){
+      if(e){e.preventDefault();e.stopPropagation();if(e.isTrusted===false)return;}
+      try{action(e)}catch(err){console.error("Seller wallet action failed",err);const n=document.getElementById("walletNotice");if(n)n.textContent=err&&err.message?err.message:"Wallet action failed."}
+      return false;
+    };
   }
   let managerLoadPromise=null;
   async function ensureManager(){
@@ -98,12 +98,17 @@
     if(!target||!wm)return;
     const notice=document.getElementById("walletNotice"),modal=document.getElementById("walletModal");
     if(modal){modal.hidden=false;modal.style.setProperty("display","grid","important")}
+    try{await wm.refreshWalletProviders?.()}catch(e){}
     for(let i=0;i<40;i++){
       const provider=wm.getDetected(target);
-      if(provider){await connect(provider,target);return}
+      if(provider){
+        if(notice)notice.textContent=target+" is ready. Tap the "+target+" button below to connect and approve the free ownership signature.";
+        renderModal();
+        return;
+      }
       await sleep(250)
     }
-    if(notice)notice.textContent=`${target} opened, but its wallet provider was not exposed to this page. Tap Connect Wallet inside the wallet browser.`;
+    if(notice)notice.textContent=target+" opened, but its wallet provider was not detected. Open this page in the wallet browser, then tap Connect Wallet.";
   }
   async function loadWalletState(){
     try{
@@ -164,7 +169,7 @@
   }
   function bind(){
     const b=document.getElementById("connectSellerWallet");
-    if(b&&!b.dataset.bound){b.dataset.bound="1";b.addEventListener("click",e=>{e.preventDefault();renderModal()})}
+    if(b&&!b.dataset.bound){b.dataset.bound="1";b.disabled=false;b.removeAttribute("disabled");b.style.pointerEvents="auto";b.style.cursor="pointer";b.onclick=e=>{if(e){e.preventDefault();e.stopPropagation()}renderModal();return false}}
     const c=document.getElementById("walletModalClose");
     if(c&&!c.dataset.bound){c.dataset.bound="1";activate(c,closeModal)}
     const m=document.getElementById("walletModal");
