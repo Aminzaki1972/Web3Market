@@ -24,7 +24,7 @@
         let script=document.getElementById("web3market-wallet-manager-dynamic");
         if(!script){
           script=document.createElement("script");script.id="web3market-wallet-manager-dynamic";
-          script.src="/js/wallet-manager.js?v=20261118-wallet-deeplink-v1";script.async=true;
+          script.src="/js/wallet-manager.js?v=20261118-wallet-autoconnect-v2";script.async=true;
           const loaded=new Promise((resolve,reject)=>{script.addEventListener("load",resolve,{once:true});script.addEventListener("error",()=>reject(new Error("Wallet manager script failed to load.")),{once:true})});
           document.head.appendChild(script);await loaded;
         }
@@ -81,6 +81,7 @@
       if(button){button.disabled=true;button.textContent="Connecting…"}
       const result=await wm.connectAndVerify(provider,walletName,{role:"seller",purpose:"seller_wallet_ownership",setNotice:v=>{if(notice)notice.textContent=v}});
       const addressEl=document.getElementById("sellerWalletAddress"),statusEl=document.getElementById("sellerWalletStatus");
+      closeModal();
       if(addressEl)addressEl.textContent=wm.short(result.address);
       if(statusEl)statusEl.textContent="Connected & verified ✓";
       if(notice)notice.textContent="Wallet verified and saved to your seller profile.";
@@ -98,17 +99,19 @@
     if(!target||!wm)return;
     const notice=document.getElementById("walletNotice"),modal=document.getElementById("walletModal");
     if(modal){modal.hidden=false;modal.style.setProperty("display","grid","important")}
+    if(notice)notice.textContent="Returning to "+target+"… detecting the wallet and preparing your free ownership signature.";
     try{await wm.refreshWalletProviders?.()}catch(e){}
     for(let i=0;i<40;i++){
       const provider=wm.getDetected(target);
       if(provider){
-        if(notice)notice.textContent=target+" is ready. Tap the "+target+" button below to connect and approve the free ownership signature.";
-        renderModal();
+        if(notice)notice.textContent=target+" detected. Requesting wallet connection now; approve the connection and free ownership signature in your wallet.";
+        await connect(provider,target);
         return;
       }
       await sleep(250)
     }
-    if(notice)notice.textContent=target+" opened, but its wallet provider was not detected. Open this page in the wallet browser, then tap Connect Wallet.";
+    if(notice)notice.textContent=target+" opened, but its provider was not detected. Open this page inside the wallet browser, then tap Connect Wallet.";
+    renderModal();
   }
   async function loadWalletState(){
     try{
