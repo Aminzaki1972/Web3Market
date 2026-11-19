@@ -89,6 +89,7 @@
       history.replaceState({},"",location.pathname);
       window.dispatchEvent(new CustomEvent("web3market:seller-wallet-connected",{detail:{address:result.address,walletName}}));
     }catch(err){
+      try{const u=new URL(location.href);u.searchParams.delete("wm_wallet");history.replaceState({},"",u.pathname+u.search+u.hash)}catch(_){}
       console.warn("Web3Market seller wallet connection failed",err);
       if(notice)notice.textContent=err?.message||"Wallet connection failed.";
       if(button){button.disabled=false;button.textContent="Connect Wallet"}
