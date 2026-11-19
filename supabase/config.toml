@@ -31,3 +31,10 @@ import_map = "./functions/ai-review-project/import_map.json"
 # migration history. Keep local Edge Function smoke tests isolated from partial migrations.
 [db.migrations]
 enabled = false
+
+# GitHub App installation handshake: authenticated intent creation and public GitHub setup callback.
+[functions.github-app-install-start]
+verify_jwt = true
+
+[functions.github-app-setup]
+verify_jwt = false
