@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://web3market.xyz/">
-    <img src="https://img.shields.io/badge/W3M_AI_CODE_AUDIT-80.35%2F100-brightgreen?style=for-the-badge&labelColor=101828" alt="W3M AI Code Audit: 80.35 out of 100" />
+    <img src="https://img.shields.io/badge/W3M_AI_CODE_AUDIT-86.45%2F100-brightgreen?style=for-the-badge&labelColor=101828" alt="W3M AI Code Audit: 86.45 out of 100" />
   </a>
   <img src="https://img.shields.io/badge/RISK-LOW-brightgreen?style=for-the-badge&labelColor=101828" alt="Audit risk rating: Low" />
 </p>
@@ -17,14 +17,32 @@
 
 ## Latest repository audit
 
-- **Score:** 80.35/100 — **LOW RISK**
-- **Audit engine:** `w3m-code-audit-1.0`
-- **Audited commit:** [`cd1cbd4e72edef81ad2cded7c8e9c8614ae4159e`](https://github.com/Aminzaki1972/Web3Market/commit/cd1cbd4e72edef81ad2cded7c8e9c8614ae4159e)
-- **Coverage:** 188 of 188 eligible files (100%)
-- **Findings:** 0 critical, 0 high, 4 medium, 11 low, 10 informational
-- **Audit record:** `56187276-909c-4bd9-947b-94d7f5db4a07`
+- **Score:** 86.45/100 — **LOW RISK**
+- **Audit engine:** `w3m-code-audit-2.0`
+- **Audit date:** 2026-11-20 00:02:42 (UTC+02:00)
+- **Audited commit:** [`4b994cb51a4475ba85055f3ea0cdddddbb1bac8f`](https://github.com/Aminzaki1972/Web3Market/commit/4b994cb51a4475ba85055f3ea0cdddddbb1bac8f)
+- **Coverage:** 485 of 485 eligible files (100%); 66,883 lines scanned
+- **Processing:** 5 resumable file batches; no fixed total-file cap; no eligible files over 1 MB and no fetch failures
+- **Findings:** 0 critical, 0 high, 6 medium, 16 low, 18 informational (40 total)
+- **Audit record:** `5cc41d8f-fcf5-4d2a-9685-b5d87eece49a`
 
-> **Important:** This badge reflects an AI-assisted repository scan for the exact commit listed above. It is not a formal security certification, independent penetration test, smart-contract audit, guarantee of safety, or investment advice. The score may become outdated as the code changes; review the audit details and re-run the audit for newer commits.
+### Executive scores
+
+| Area | Score |
+|---|---:|
+| Security | 90/100 |
+| Architecture | 88/100 |
+| Code Quality | 88/100 |
+| Dependencies | 85/100 |
+| Testing | 74/100 |
+| Documentation | 77/100 |
+| Web3 | 89/100 |
+| Scalability (static estimate) | 83/100 |
+| AI Fit (evidence-based) | 13/100 |
+
+**Interpretation notes:** Scalability is a static estimate based on scanned code, not a load or production-performance test. AI Fit is an evidence-based estimate from repository content; it does not establish that an AI feature works or delivers value. The low AI Fit score should not be interpreted as proof that the platform has no AI functionality, particularly where AI services are called through backend endpoints.
+
+> **Important:** This is an AI-assisted scan of public repository data for the exact commit listed above. It is not a formal penetration test, independent smart-contract audit, security certification, guarantee of safety, or investment advice. Private infrastructure, runtime behavior, and private repositories were not tested. Findings require engineering verification; confidence and status are evidence indicators, not proof of exploitability. A later commit requires a new audit.
 
 ## About Web3Market
 
