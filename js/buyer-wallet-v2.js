@@ -5,7 +5,7 @@
     if(window.Web3MarketWalletManager)return Promise.resolve();
     return new Promise(resolve=>{
       const id="wm-wallet-manager-loader";let s=document.getElementById(id);
-      if(!s){s=document.createElement("script");s.id=id;s.src="js/wallet-manager.js?v=20261118-wallet-signature-fix3";s.async=false;s.onload=resolve;s.onerror=resolve;document.head.appendChild(s)}else s.addEventListener("load",resolve,{once:true});
+      if(!s){s=document.createElement("script");s.id=id;s.src="js/wallet-manager.js?v=20261118-wallet-signature-autoconnect-v4";s.async=false;s.onload=resolve;s.onerror=resolve;document.head.appendChild(s)}else s.addEventListener("load",resolve,{once:true});
       setTimeout(resolve,2500);
     });
   }
@@ -154,17 +154,19 @@
     if(!wm)return;
     showModal(m);
     const notice=m.querySelector("#buyerWalletNotice");
+    if(notice)notice.textContent="Returning to "+target+"… detecting the wallet and preparing your free ownership signature.";
     try{await wm.refreshWalletProviders?.()}catch(e){}
     for(let i=0;i<40;i++){
       const provider=wm.getDetected(target);
       if(provider){
-        if(notice)notice.textContent=target+" is ready. Tap the "+target+" button below to connect, then approve the free ownership signature.";
-        open();
+        if(notice)notice.textContent=target+" detected. Requesting wallet connection now; approve the connection and free ownership signature in your wallet.";
+        await connect({provider},target,m);
         return;
       }
       await sleep(250);
     }
-    if(notice)notice.textContent=target+" opened, but its provider was not detected. Open Web3Market inside the wallet browser, then tap the wallet option.";
+    if(notice)notice.textContent=target+" opened, but its provider was not detected. Open this page inside the wallet browser, then choose the detected wallet below.";
+    open();
   }
   function bind(){
     document.querySelectorAll("#walletBtn,.wallet-card .btn.full").forEach(b=>{
