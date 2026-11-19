@@ -84,7 +84,7 @@
       if(card){const a=card.querySelector(".wallet-address"),t=card.querySelector(".wallet-text");if(a)a.textContent=wm.short(result.address);if(t)t.textContent="Connected and ownership verified."}
       if(button){button.textContent="Disconnect";button.disabled=false}
       window.dispatchEvent(new CustomEvent("web3market:buyer-wallet-connected",{detail:{address:result.address,walletName:name}}));
-    }catch(e){console.error("Web3Market buyer wallet connect:",e);notice.textContent=e?.message||"Wallet connection failed.";if(button){button.disabled=false;button.removeAttribute("disabled");button.style.pointerEvents="auto";button.style.cursor="pointer";button.textContent="Connect Wallet"}}
+    }catch(e){try{const u=new URL(location.href);u.searchParams.delete("wm_wallet");history.replaceState({},"",u.pathname+u.search+u.hash)}catch(_){}console.error("Web3Market buyer wallet connect:",e);notice.textContent=e?.message||"Wallet connection failed.";if(button){button.disabled=false;button.removeAttribute("disabled");button.style.pointerEvents="auto";button.style.cursor="pointer";button.textContent="Connect Wallet"}}
   }
   function ensureBuyerWalletStyles(){
     if(document.getElementById("w3m-buyer-wallet-premium-style"))return;
