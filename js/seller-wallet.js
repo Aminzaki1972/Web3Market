@@ -184,9 +184,10 @@
     if(!wm){const n=document.getElementById("walletNotice");if(n)n.textContent="Wallet connection engine could not load. Please refresh the page."; const b=document.getElementById("connectSellerWallet"); if(b){b.disabled=false;b.removeAttribute("disabled");b.style.pointerEvents="auto";b.style.cursor="pointer";} return}
     bind();
     await wm.refreshWalletProviders?.();
-    autoConnect();
-    // Auto-connect only when returning from a wallet app with wm_wallet in the URL.
-    loadWalletState();
+    // Load the account's saved wallet state before handling an explicit wallet return.
+    await loadWalletState();
+    // A wm_wallet return parameter is an explicit request to resume connection.
+    await autoConnect();
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 })();
