@@ -55,15 +55,31 @@ Deno.serve(async (req) => {
     if (existingInstallation && existingInstallation.user_id !== intent.user_id) {
       throw new Error("This GitHub installation is already linked to a different Web3Market user.");
     }
-    const { error: installError } = await sb.from("w3m_github_app_installations").upsert({
-      user_id: intent.user_id,
-      installation_id: installationId,
-      account_id: accountId,
-      account_login: accountLogin,
-      account_type: accountType,
-      updated_at: now,
-    }, { onConflict: "installation_id" });
-    if (installError) throw new Error("Unable to save GitHub installation ownership.");
+    if (existingInstallation) {
+      const { error: updateError } = await sb.from("w3m_github_app_installations")
+        .update({ account_id: accountId, account_login: accountLogin, account_type: accountType, updated_at: now })
+        .eq("installation_id", installationId)
+        .eq("user_id", intent.user_id);
+      if (updateError) throw new Error("Unable to refresh GitHub installation ownership.");
+    } else {
+      const { error: insertError } = await sb.from("w3m_github_app_installations").insert({
+        user_id: intent.user_id,
+        installation_id: installationId,
+        account_id: accountId,
+        account_login: accountLogin,
+        account_type: accountType,
+        updated_at: now,
+      });
+      if (insertError) {
+        const { data: racedInstallation, error: raceReadError } = await sb.from("w3m_github_app_installations")
+          .select("user_id")
+          .eq("installation_id", installationId)
+          .maybeSingle();
+        if (raceReadError || !racedInstallation || racedInstallation.user_id !== intent.user_id) {
+          throw new Error("This GitHub installation could not be safely linked to this Web3Market user.");
+        }
+      }
+    }
     const { error: clearError } = await sb.from("w3m_github_app_installation_repositories").delete().eq("installation_id", installationId);
     if (clearError) throw new Error("Unable to refresh installed repository permissions.");
     const rows = repositories.map((repo: any) => ({
