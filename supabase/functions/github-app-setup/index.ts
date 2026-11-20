@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
   const state = params.get("state") || "";
   const installationId = Number(params.get("installation_id"));
   const setupAction = params.get("setup_action") || "";
-  if (!state || !Number.isSafeInteger(installationId) || installationId <= 0 || !["install", "update"].includes(setupAction)) return redirect("invalid");
+  if (!/^[A-Za-z0-9_-]{43}$/.test(state) || !Number.isSafeInteger(installationId) || installationId <= 0 || !["install", "update"].includes(setupAction)) return redirect("invalid");
   const url = Deno.env.get("SUPABASE_URL"), service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const appId = Deno.env.get("W3M_GITHUB_APP_ID"), privateKey = Deno.env.get("W3M_GITHUB_APP_PRIVATE_KEY");
   if (!url || !service || !appId || !privateKey) return redirect("not_configured");
