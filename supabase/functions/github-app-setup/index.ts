@@ -41,6 +41,10 @@ Deno.serve(async (req) => {
     const accountLogin = String(account?.login || "");
     const accountType = String(account?.type || "");
     if (!accountId || !accountLogin || !["User", "Organization"].includes(accountType)) throw new Error("GitHub installation account data is invalid.");
+    const granted = installation?.permissions || {};
+    if (granted.contents !== "write" || granted.pull_requests !== "write") {
+      throw new Error("The GitHub App installation does not have the required repository permissions.");
+    }
     const repositories = await fetchInstallationRepositories(jwt, installationId);
     if (!repositories.length) throw new Error("No repositories were granted to this GitHub App installation.");
     const { data: existingInstallation, error: existingError } = await sb.from("w3m_github_app_installations")
