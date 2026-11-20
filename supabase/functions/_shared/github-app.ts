@@ -56,7 +56,10 @@ export async function createGitHubAppJwt(appId: string, privateKeyPem: string, n
   const header = base64Url(new TextEncoder().encode(JSON.stringify({ alg: "RS256", typ: "JWT" })));
   const claims = base64Url(new TextEncoder().encode(JSON.stringify(buildAppJwtClaims(appId, nowSeconds))));
   const signingInput = header + "." + claims;
-  const key = await crypto.subtle.importKey("pkcs8", toPkcs8(privateKeyPem), { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+  const pkcs8 = toPkcs8(privateKeyPem);
+  const keyData = new ArrayBuffer(pkcs8.byteLength);
+  new Uint8Array(keyData).set(pkcs8);
+  const key = await crypto.subtle.importKey("pkcs8", keyData, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
   const signature = new Uint8Array(await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(signingInput)));
   return signingInput + "." + base64Url(signature);
 }
