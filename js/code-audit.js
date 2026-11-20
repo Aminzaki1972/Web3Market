@@ -6,7 +6,7 @@
  const SUPABASE_KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
  let localClient=null;
  const client=()=>localClient||window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase;
- const ensureClient=async()=>{let c=client();if(c)return c;if(window.supabase?.createClient){localClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});return localClient}throw Error("Supabase client library failed to load.");};
+ const ensureClient=async()=>{let c=client();if(c)return c;if(window.supabase?.createClient){localClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:"web3market-auth"}});return localClient}throw Error("Supabase client library failed to load.");};
  async function refreshGitHubConnectionStatus(){
    const buttons=[...document.querySelectorAll("#connectGitHubApp")];
    if(!buttons.length)return;
