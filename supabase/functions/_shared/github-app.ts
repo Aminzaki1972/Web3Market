@@ -109,6 +109,7 @@ export async function fetchInstallationRepositories(appJwt: string, installation
     appJwt,
     "/app/installations/" + installationId + "/access_tokens",
     "POST",
+    { permissions: { metadata: "read" } },
   );
   if (!installation.token) throw new Error("Unable to obtain a GitHub installation token.");
   const repositories: any[] = [];
