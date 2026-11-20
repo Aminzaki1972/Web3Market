@@ -48,7 +48,7 @@ function toPkcs8(pem: string): Uint8Array {
 }
 
 export function buildAppJwtClaims(appId: string, nowSeconds: number) {
-  if (!/^\\d+$/.test(appId)) throw new Error("GitHub App ID must be numeric.");
+  if (!/^\d+$/.test(appId)) throw new Error("GitHub App ID must be numeric.");
   return { iat: nowSeconds - 60, exp: nowSeconds + 540, iss: appId };
 }
 
