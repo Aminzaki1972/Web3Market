@@ -8,7 +8,7 @@ function cors(req: Request) {
   if (!trusted) {
     try {
       const parsed = new URL(origin);
-      trusted = parsed.protocol === "https:" && /^(?:[a-z0-9-]+\\.)*web3market\\.pages\\.dev$/i.test(parsed.hostname);
+      trusted = parsed.protocol === "https:" && /^(?:[a-z0-9-]+\.)*web3market\.pages\.dev$/i.test(parsed.hostname);
     } catch (_) { trusted = false; }
   }
   const headers: Record<string, string> = {
