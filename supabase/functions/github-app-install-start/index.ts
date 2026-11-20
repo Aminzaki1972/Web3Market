@@ -36,6 +36,7 @@ Deno.serve(async (req) => {
   const state = base64Url(random);
   const stateHash = await sha256(state);
   const sb = createClient(url, service);
+  await sb.from("w3m_github_app_install_intents").delete().lt("expires_at", new Date().toISOString());
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
   const { error: insertError } = await sb.from("w3m_github_app_install_intents").insert({ user_id: user.id, state_hash: stateHash, expires_at: expiresAt });
   if (insertError) {
