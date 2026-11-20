@@ -43,9 +43,9 @@ alter table public.w3m_github_app_install_intents enable row level security;
 alter table public.w3m_github_app_installations enable row level security;
 alter table public.w3m_github_app_installation_repositories enable row level security;
 
-revoke all on public.w3m_github_app_install_intents from anon, authenticated;
-revoke all on public.w3m_github_app_installations from anon, authenticated;
-revoke all on public.w3m_github_app_installation_repositories from anon, authenticated;
+revoke all on public.w3m_github_app_install_intents from public, anon, authenticated;
+revoke all on public.w3m_github_app_installations from public, anon, authenticated;
+revoke all on public.w3m_github_app_installation_repositories from public, anon, authenticated;
 
 grant all on public.w3m_github_app_install_intents to service_role;
 grant all on public.w3m_github_app_installations to service_role;
