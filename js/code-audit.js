@@ -27,6 +27,27 @@
  }
  function counts(list){const c={critical:0,high:0,medium:0,low:0,info:0};(list||[]).forEach(f=>{if(c[f.severity]!=null)c[f.severity]++});return c;}
  async function getAudit(c,aid){const r=await c.from("code_audits").select("*").eq("id",aid).maybeSingle();if(r.error)throw r.error;return r.data;}
+ window.W3MConnectGitHubApp=async()=>{
+   const button=document.getElementById("connectGitHubApp"),message=document.getElementById("autoFixPRMessage");
+   if(!button||!message)return;
+   button.disabled=true;button.textContent="Connecting to GitHub…";
+   message.textContent="Preparing a secure, one-time GitHub App installation link…";
+   try{
+     const c=await ensureClient();
+     const auth=await c.auth.getSession();
+     if(!auth?.data?.session?.user)throw Error("Sign in to Web3Market before connecting GitHub.");
+     const result=await c.functions.invoke("github-app-install-start",{body:{}});
+     if(result.error)throw Error(result.data?.error||result.error.message||"Unable to start GitHub connection.");
+     const installUrl=String(result.data?.install_url||"");
+     const parsed=new URL(installUrl);
+     if(parsed.origin!=="https://github.com"||parsed.pathname!=="/apps/web3market-aminzaki1972/installations/new"||!parsed.searchParams.get("state"))throw Error("The server returned an invalid GitHub installation link.");
+     message.textContent="Opening GitHub. Choose only the repositories you want Web3Market to access.";
+     location.assign(parsed.toString());
+   }catch(error){
+     message.textContent=error?.message||"GitHub connection could not be started.";
+     button.disabled=false;button.textContent="Connect GitHub";
+   }
+ };
  window.W3MCreateAutoFixPR=async(audit)=>{
    const button=document.getElementById("createAutoFixPR"),message=document.getElementById("autoFixPRMessage");
    if(!button||!message||!audit?.id)return;
