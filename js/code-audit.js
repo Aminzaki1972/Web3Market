@@ -7,6 +7,29 @@
  let localClient=null;
  const client=()=>localClient||window.Web3MarketSupabase?.getClient?.()||window.supabaseClient||window.web3marketSupabase;
  const ensureClient=async()=>{let c=client();if(c)return c;if(window.supabase?.createClient){localClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});return localClient}throw Error("Supabase client library failed to load.");};
+ async function refreshGitHubConnectionStatus(){
+   const buttons=[...document.querySelectorAll("#connectGitHubApp")];
+   if(!buttons.length)return;
+   try{
+     const c=await ensureClient();
+     const auth=await c.auth.getSession();
+     if(!auth?.data?.session?.user)return;
+     const result=await c.functions.invoke("github-app-status",{body:{}});
+     if(result.error||!result.data?.connected)return;
+     const account=String(result.data.account_login||"GitHub");
+     const count=Number(result.data.repository_count||0);
+     const repositoryLabel=count===1?"repository":"repositories";
+     buttons.forEach(button=>{
+       button.textContent="GitHub Connected";
+       button.disabled=true;
+       button.setAttribute("aria-label","GitHub connected as "+account);
+       button.title="Connected as @"+account+" · "+count+" selected "+repositoryLabel;
+     });
+     const message=document.getElementById("autoFixPRMessage");
+     if(message&&!message.textContent.trim())message.textContent="Connected to @"+account+" · "+count+" selected "+repositoryLabel+".";
+   }catch(_){}
+ }
+
  const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
  const id=new URLSearchParams(location.search).get("id");
  let autoFollow=true;
@@ -87,6 +110,7 @@
    const githubStatus=new URLSearchParams(location.search).get("github_app");
    const githubMessages={connected:"GitHub App connected. The selected repositories are now available for Auto-Fix PRs.",expired_or_used:"The GitHub connection link expired or was already used. Start the connection again.",not_configured:"GitHub App server credentials are not configured yet.",failed:"GitHub connection could not be completed. Check the App setup and server configuration.",invalid:"GitHub returned an invalid installation response."};
    if(githubStatus&&githubMessages[githubStatus]){const notice=document.getElementById("autoFixPRMessage");if(notice)notice.textContent=githubMessages[githubStatus];const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete("github_app");history.replaceState(null,"",cleanUrl.toString());}
+   refreshGitHubConnectionStatus();
  }
  window.W3MResumeAudit=async()=>{
    try{
@@ -431,4 +455,5 @@ if(a.status==="failed"){root.innerHTML='<div class="audit-status"><h2>Audit coul
    await load();
  }
  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>loadAuditHistory(),{once:true});else loadAuditHistory();
+ refreshGitHubConnectionStatus();
 })();

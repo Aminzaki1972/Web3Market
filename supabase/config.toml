@@ -36,5 +36,8 @@ enabled = false
 [functions.github-app-install-start]
 verify_jwt = true
 
+[functions.github-app-status]
+verify_jwt = true
+
 [functions.github-app-setup]
 verify_jwt = false
