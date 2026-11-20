@@ -4,11 +4,11 @@ const API_VERSION = "2022-11-28";
 function base64Url(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/=/g, "").replace(/\\+/g, "-").replace(/\\//g, "_");
+  return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 
 function decodePem(pem: string): Uint8Array {
-  const body = pem.replace(/-----BEGIN [^-]+-----/g, "").replace(/-----END [^-]+-----/g, "").replace(/\\s+/g, "");
+  const body = pem.replace(/-----BEGIN [^-]+-----/g, "").replace(/-----END [^-]+-----/g, "").replace(/\s+/g, "");
   if (!body || !/^[A-Za-z0-9+/]+={0,2}$/.test(body)) throw new Error("GitHub App private key is not valid PEM.");
   return Uint8Array.from(atob(body), (char) => char.charCodeAt(0));
 }
