@@ -43,6 +43,14 @@ Deno.serve(async (req) => {
     if (!accountId || !accountLogin || !["User", "Organization"].includes(accountType)) throw new Error("GitHub installation account data is invalid.");
     const repositories = await fetchInstallationRepositories(jwt, installationId);
     if (!repositories.length) throw new Error("No repositories were granted to this GitHub App installation.");
+    const { data: existingInstallation, error: existingError } = await sb.from("w3m_github_app_installations")
+      .select("user_id")
+      .eq("installation_id", installationId)
+      .maybeSingle();
+    if (existingError) throw new Error("Unable to verify existing GitHub installation ownership.");
+    if (existingInstallation && existingInstallation.user_id !== intent.user_id) {
+      throw new Error("This GitHub installation is already linked to a different Web3Market user.");
+    }
     const { error: installError } = await sb.from("w3m_github_app_installations").upsert({
       user_id: intent.user_id,
       installation_id: installationId,
