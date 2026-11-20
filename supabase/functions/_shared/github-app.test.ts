@@ -23,8 +23,8 @@ Deno.test("GitHub App JWT is signed with RS256 and carries the expected claims",
   const pkcs8 = new Uint8Array(await crypto.subtle.exportKey("pkcs8", pair.privateKey));
   let binary = "";
   for (const byte of pkcs8) binary += String.fromCharCode(byte);
-  const encoded = btoa(binary).match(/.{1,64}/g)?.join("\\n") || "";
-  const pem = "-----BEGIN PRIVATE KEY-----\\n" + encoded + "\\n-----END PRIVATE KEY-----";
+  const encoded = btoa(binary).match(/.{1,64}/g)?.join("\n") || "";
+  const pem = "-----BEGIN PRIVATE KEY-----\n" + encoded + "\n-----END PRIVATE KEY-----";
   const now = 1_800_000_000;
   const token = await (await import("./github-app.ts")).createGitHubAppJwt("5840629", pem, now);
   const parts = token.split(".");
