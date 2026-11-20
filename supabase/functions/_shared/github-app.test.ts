@@ -36,4 +36,30 @@ Deno.test("GitHub App JWT is signed with RS256 and carries the expected claims",
   const signature = Uint8Array.from(atob(parts[2].replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - parts[2].length % 4) % 4)), (c) => c.charCodeAt(0));
   const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", pair.publicKey, signature, new TextEncoder().encode(parts[0] + "." + parts[1]));
   if (!valid) throw new Error("JWT signature did not verify.");
+
+  const readTlv = (bytes: Uint8Array, offset: number) => {
+    const tag = bytes[offset];
+    let length = bytes[offset + 1];
+    let cursor = offset + 2;
+    if (length & 0x80) {
+      const count = length & 0x7f;
+      length = 0;
+      for (let index = 0; index < count; index++) length = (length << 8) | bytes[cursor++];
+    }
+    return { tag, start: cursor, end: cursor + length, next: cursor + length };
+  };
+  const outer = readTlv(pkcs8, 0);
+  const versionTlv = readTlv(pkcs8, outer.start);
+  const algorithmTlv = readTlv(pkcs8, versionTlv.next);
+  const privateOctets = readTlv(pkcs8, algorithmTlv.next);
+  if (outer.tag !== 0x30 || privateOctets.tag !== 0x04) throw new Error("Unexpected PKCS8 test-key structure.");
+  const pkcs1 = pkcs8.slice(privateOctets.start, privateOctets.end);
+  let rsaBinary = "";
+  for (const byte of pkcs1) rsaBinary += String.fromCharCode(byte);
+  const rsaPem = "-----BEGIN RSA PRIVATE KEY-----\n" + (btoa(rsaBinary).match(/.{1,64}/g)?.join("\n") || "") + "\n-----END RSA PRIVATE KEY-----";
+  const rsaToken = await (await import("./github-app.ts")).createGitHubAppJwt("5840629", rsaPem, now);
+  const rsaParts = rsaToken.split(".");
+  const rsaSignature = Uint8Array.from(atob(rsaParts[2].replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - rsaParts[2].length % 4) % 4)), (value) => value.charCodeAt(0));
+  const rsaValid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", pair.publicKey, rsaSignature, new TextEncoder().encode(rsaParts[0] + "." + rsaParts[1]));
+  if (!rsaValid) throw new Error("PKCS1 GitHub private key conversion did not verify.");
 });
