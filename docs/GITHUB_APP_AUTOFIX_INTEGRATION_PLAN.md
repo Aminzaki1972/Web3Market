@@ -1,6 +1,6 @@
 # GitHub App Integration Plan — Auto-Fix PR
 
-**Status:** Design proposal only; no runtime implementation is authorized by this document.
+**Status:** Initial implementation is under review in PR #209; no production runtime changes are authorized by this document.
 **Date:** 2026-11-20
 **Target:** Web3Market Auto-Fix PR workflow (w3m-audit-autofix-pr)
 **GitHub App:** Web3Market-Aminzaki1972 (App ID: 5840629)
@@ -89,12 +89,13 @@ Do not add or rotate production secrets in this design-only phase. Do not delete
 
 ## 8. Rollout stages and acceptance criteria
 
-### Stage A — implementation in an isolated branch
+### Stage A — isolated implementation (PR #209)
 
-- Add server-side App JWT creation and installation-token exchange.
-- Add a secure, authenticated installation setup callback and one-time intent validation.
-- Add minimal persistence for verified installation-to-user and repository-ID associations only after a separate schema proposal/review.
-- Update Auto-Fix to resolve the exact installation and mint a repository-scoped token.
+- [x] Add server-side App JWT creation and repository-scoped installation-token exchange.
+- [x] Add an authenticated installation-start endpoint and one-time setup callback.
+- [x] Add a service-role-only migration for verified installation-to-user and repository-ID associations; the migration is not applied to production.
+- [x] Update Auto-Fix to resolve the exact installation and mint a repository-scoped token.
+- [ ] Complete CI, security review, and manual diff review.
 - Do not deploy Edge Functions or change production secrets.
 
 ### Stage B — automated and security tests
