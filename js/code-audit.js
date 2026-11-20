@@ -27,6 +27,27 @@
  }
  function counts(list){const c={critical:0,high:0,medium:0,low:0,info:0};(list||[]).forEach(f=>{if(c[f.severity]!=null)c[f.severity]++});return c;}
  async function getAudit(c,aid){const r=await c.from("code_audits").select("*").eq("id",aid).maybeSingle();if(r.error)throw r.error;return r.data;}
+ window.W3MConnectGitHubApp=async()=>{
+   const button=document.getElementById("connectGitHubApp"),message=document.getElementById("autoFixPRMessage");
+   if(!button||!message)return;
+   button.disabled=true;button.textContent="Connecting to GitHub…";
+   message.textContent="Preparing a secure, one-time GitHub App installation link…";
+   try{
+     const c=await ensureClient();
+     const auth=await c.auth.getSession();
+     if(!auth?.data?.session?.user)throw Error("Sign in to Web3Market before connecting GitHub.");
+     const result=await c.functions.invoke("github-app-install-start",{body:{}});
+     if(result.error)throw Error(result.data?.error||result.error.message||"Unable to start GitHub connection.");
+     const installUrl=String(result.data?.install_url||"");
+     const parsed=new URL(installUrl);
+     if(parsed.origin!=="https://github.com"||parsed.pathname!=="/apps/web3market-aminzaki1972/installations/new"||!parsed.searchParams.get("state"))throw Error("The server returned an invalid GitHub installation link.");
+     message.textContent="Opening GitHub. Choose only the repositories you want Web3Market to access.";
+     location.assign(parsed.toString());
+   }catch(error){
+     message.textContent=error?.message||"GitHub connection could not be started.";
+     button.disabled=false;button.textContent="Connect GitHub";
+   }
+ };
  window.W3MCreateAutoFixPR=async(audit)=>{
    const button=document.getElementById("createAutoFixPR"),message=document.getElementById("autoFixPRMessage");
    if(!button||!message||!audit?.id)return;
@@ -54,7 +75,7 @@
    const date=a.completed_at||a.created_at||new Date().toISOString();
    window.W3MCurrentAudit=a;
    root.innerHTML='<div class="audit-head"><div><div class="audit-kicker">W3M AI CODE AUDIT</div><h1>Repository Technical Due Diligence</h1><p class="muted">'+esc(a.repo_owner||"")+" / "+esc(a.repo_name||"")+' · '+esc(a.commit_sha||"snapshot")+'</p></div><div><div class="audit-score">'+(score==null?"—":esc(score)+"/100")+'</div><div class="audit-risk">'+esc(risk.toUpperCase())+'</div></div></div>'+
-   '<div class="audit-actions"><button class="btn btn-primary" type="button" onclick="window.print()">Print / Save PDF</button>'+ (a.status==="completed"?'<button id="createAutoFixPR" class="btn btn-primary" type="button" onclick="window.W3MCreateAutoFixPR&&window.W3MCreateAutoFixPR(window.W3MCurrentAudit)">Generate Auto-Fix PR</button>':"")+'<a class="btn btn-ghost" href="'+(a.project_id?"project.html?id="+encodeURIComponent(a.project_id):"code-audit.html")+'">Back to Project</a><a class="btn btn-primary" href="'+esc(a.repo_url||"#")+'" target="_blank" rel="noopener noreferrer">Open GitHub ↗</a></div>'+
+   '<div class="audit-actions"><button class="btn btn-primary" type="button" onclick="window.print()">Print / Save PDF</button>'+ (a.status==="completed"?'<button id="connectGitHubApp" class="btn btn-ghost" type="button" onclick="window.W3MConnectGitHubApp&&window.W3MConnectGitHubApp()">Connect GitHub</button><button id="createAutoFixPR" class="btn btn-primary" type="button" onclick="window.W3MCreateAutoFixPR&&window.W3MCreateAutoFixPR(window.W3MCurrentAudit)">Generate Auto-Fix PR</button>':"")+'<a class="btn btn-ghost" href="'+(a.project_id?"project.html?id="+encodeURIComponent(a.project_id):"code-audit.html")+'">Back to Project</a><a class="btn btn-primary" href="'+esc(a.repo_url||"#")+'" target="_blank" rel="noopener noreferrer">Open GitHub ↗</a></div>'+
    '<div id="autoFixPRMessage" class="muted" style="margin:8px 0"></div><div class="audit-meta"><div><strong>Audit ID</strong><span class="audit-id">'+esc(a.id)+'</span></div><div><strong>Commit</strong><span class="audit-id">'+esc(a.commit_sha||"—")+'</span></div><div><strong>Audit Date</strong><span>'+esc(new Date(date).toLocaleString())+'</span></div><div><strong>Engine</strong><span>'+esc(a.engine_version||a.model||"W3M AI Code Audit")+'</span></div></div>'+
    '<div class="audit-grid">'+metric("Security",a.security_score)+metric("Architecture",a.architecture_score)+metric("Code Quality",a.code_quality_score)+metric("Dependencies",a.dependency_score)+metric("Testing",a.testing_score)+metric("Documentation",a.documentation_score)+metric("Web3",a.web3_score)+metric("Scalability (static estimate)",a.scalability_score)+metric("AI Fit (evidence-based)",a.ai_fit_score)+'</div>'+
    '<div class="audit-section"><h2>About Executive Scores</h2><p class="muted">Scalability is a static estimate from scanned code, not a load or production performance test. AI Fit is an evidence-based estimate from available repository content; it does not prove that an AI feature works or delivers value. A dash means the metric was not recorded for this audit.</p></div><div class="audit-section"><h2>Audit Summary</h2><p class="audit-summary">'+esc(a.summary||"No summary available yet.")+'</p><p class="muted">Files scanned: '+esc(a.files_scanned||0)+' · Lines scanned: '+esc(a.lines_scanned||0)+' · Scan coverage: '+esc(a.coverage_score||0)+'% · Findings: '+esc(fl.length)+'</p></div>'+
@@ -63,6 +84,9 @@
    '<div class="audit-section"><h2>Repository Snapshot</h2><div class="audit-grid">'+files.slice(0,30).map(x=>'<div class="audit-metric"><strong>'+esc(x.path)+'</strong><span class="muted">'+esc(x.language||"source")+' · '+esc(x.line_count||0)+' lines</span></div>').join("")+'</div>'+(files.length>30?'<p class="muted">Showing the first 30 scanned files in this report.</p>':"")+'</div>'+
    '<div class="audit-certificate"><div class="audit-kicker">W3M AI CODE AUDIT RECORD</div><h2>Audit Analysis Record</h2><p>This report records the analysis result for the repository and commit shown above. It is not a formal penetration test, smart-contract audit, certification, guarantee, or investment advice.</p><p class="audit-id">'+esc(a.id)+'</p><p class="muted">Repository: '+esc(a.repo_owner||"")+"/"+esc(a.repo_name||"")+' · Commit: '+esc(a.commit_sha||"—")+'</p></div>'+
    '<div class="audit-section"><small class="muted">Limitations: public repository data only; no private infrastructure, runtime penetration testing, or private repositories. Line references may be approximate. A later commit requires a new audit.</small></div>';
+   const githubStatus=new URLSearchParams(location.search).get("github_app");
+   const githubMessages={connected:"GitHub App connected. The selected repositories are now available for Auto-Fix PRs.",expired_or_used:"The GitHub connection link expired or was already used. Start the connection again.",not_configured:"GitHub App server credentials are not configured yet.",failed:"GitHub connection could not be completed. Check the App setup and server configuration.",invalid:"GitHub returned an invalid installation response."};
+   if(githubStatus&&githubMessages[githubStatus]){const notice=document.getElementById("autoFixPRMessage");if(notice)notice.textContent=githubMessages[githubStatus];const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete("github_app");history.replaceState(null,"",cleanUrl.toString());}
  }
  window.W3MResumeAudit=async()=>{
    try{

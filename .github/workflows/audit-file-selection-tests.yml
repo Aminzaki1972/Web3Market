@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - "supabase/functions/w3m-code-audit/**"
+      - "supabase/functions/w3m-audit-autofix-pr/**"
+      - "supabase/functions/github-app-install-start/**"
+      - "supabase/functions/github-app-setup/**"
+      - "supabase/functions/_shared/github-app*"
+      - "supabase/migrations/*w3m_github_app_installations.sql"
       - ".github/workflows/audit-file-selection-tests.yml"
   push:
     branches:
@@ -25,6 +30,10 @@ jobs:
           deno check supabase/functions/create-audit-payment-order/index.ts
           deno check supabase/functions/verify-audit-payment/index.ts
           deno check supabase/functions/w3m-audit-autofix-pr/index.ts
+          deno check supabase/functions/github-app-install-start/index.ts
+          deno check supabase/functions/github-app-setup/index.ts
+          deno check supabase/functions/_shared/github-app.ts
+          deno test supabase/functions/_shared/github-app.test.ts
           deno test supabase/functions/w3m-audit-autofix-pr/autofix-utils.test.ts
       - name: Run Solidity static review candidate tests
         run: deno test supabase/functions/w3m-code-audit/contract-analysis.test.ts
