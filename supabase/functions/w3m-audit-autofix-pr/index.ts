@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 const ORIGINS=new Set(["https://web3market.xyz","https://www.web3market.xyz"]);
 import { applyExactReplacement, isAllowedAutoFixPath } from "./autofix-utils.ts";
+import { getGitHubInstallationToken } from "../_shared/github-app.ts";
 function cors(req:Request){const o=req.headers.get("Origin")||"";let trusted=ORIGINS.has(o);if(!trusted){try{const parsed=new URL(o);trusted=parsed.protocol==="https:"&&/^(?:[a-z0-9-]+\.)*web3market\.pages\.dev$/i.test(parsed.hostname);}catch(_){trusted=false;}}const h:Record<string,string>={"Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST,OPTIONS","Vary":"Origin"};if(trusted)h["Access-Control-Allow-Origin"]=o;return h;}
 function json(req:Request,data:unknown,status=200){return new Response(JSON.stringify(data),{status,headers:{...cors(req),"Content-Type":"application/json"}});}
 async function gh(token:string,path:string,method="GET",body?:unknown){const r=await fetch("https://api.github.com"+path,{method,headers:{"Authorization":"Bearer "+token,"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28","Content-Type":"application/json"},body:body===undefined?undefined:JSON.stringify(body)});const t=await r.text();let j:any={};try{j=t?JSON.parse(t):{}}catch(_){j={message:t.slice(0,500)}}if(!r.ok)throw Error("GitHub API "+method+" "+path+" failed ("+r.status+"): "+String(j.message||"unknown error").slice(0,400));return j;}
@@ -9,8 +10,8 @@ async function gemini(key:string,prompt:string){const schema={type:"OBJECT",prop
 Deno.serve(async req=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(req)});
  if(req.method!=="POST")return json(req,{ok:false,error:"POST required."},405);
- const auth=req.headers.get("Authorization")||"",url=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY"),service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),ghToken=Deno.env.get("GITHUB_TOKEN"),geminiKey=Deno.env.get("GEMINI_API_KEY");
- if(!url||!anon||!service||!ghToken||!geminiKey)return json(req,{ok:false,error:"Auto-Fix PR is not configured. Required server secrets: Supabase service role, GITHUB_TOKEN with repository contents and pull-request write access, and GEMINI_API_KEY."},503);
+ const auth=req.headers.get("Authorization")||"",url=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY"),service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),appId=Deno.env.get("W3M_GITHUB_APP_ID"),appPrivateKey=Deno.env.get("W3M_GITHUB_APP_PRIVATE_KEY"),geminiKey=Deno.env.get("GEMINI_API_KEY");
+ if(!url||!anon||!service||!appId||!appPrivateKey||!geminiKey)return json(req,{ok:false,error:"Auto-Fix PR is not configured. Required server secrets: Supabase service role, GitHub App credentials, and GEMINI_API_KEY."},503);
  const userClient=createClient(url,anon,{global:{headers:{Authorization:auth}}});const {data:{user},error:authError}=await userClient.auth.getUser();if(authError||!user)return json(req,{ok:false,error:"Sign in to create an Auto-Fix PR."},401);
  const sb=createClient(url,service);
  try{
@@ -21,7 +22,20 @@ Deno.serve(async req=>{
   const {data:findings,error:fErr}=await sb.from("code_audit_findings").select("id,severity,status,title,file_path,line_start,line_end,evidence,description,recommendation,confidence").eq("audit_id",auditId).in("severity",["critical","high","medium"]).order("confidence",{ascending:false}).limit(12);
   if(fErr)throw Error("Unable to load audit findings.");const eligible=(findings||[]).filter((f:any)=>f.file_path&&isAllowedAutoFixPath(f.file_path));if(!eligible.length)return json(req,{ok:false,error:"No eligible source-code findings were found for a safe patch proposal. Documentation, dependency manifests, secrets, workflows and migration files are excluded."},422);
   const owner=String(a.repo_owner||""),name=String(a.repo_name||"");if(!/^[A-Za-z0-9-]+$/.test(owner)||!/^[A-Za-z0-9_.-]+$/.test(name))return json(req,{ok:false,error:"Audit repository metadata is invalid."},400);
-  const repoPath="/repos/"+owner+"/"+name;const repoInfo=await gh(ghToken,repoPath);if(repoInfo.private)return json(req,{ok:false,error:"Private repositories are not supported."},400);
+  const repositoryFullName=(owner+"/"+name).toLowerCase();
+  const {data:repositoryAccess,error:accessError}=await sb.from("w3m_github_app_installation_repositories")
+    .select("repository_id,installation_id,w3m_github_app_installations!inner(user_id)")
+    .eq("repository_full_name",repositoryFullName)
+    .eq("w3m_github_app_installations.user_id",user.id)
+    .maybeSingle();
+  if(accessError||!repositoryAccess)return json(req,{ok:false,error:"Connect this GitHub repository to your Web3Market account before creating an Auto-Fix PR."},403);
+  const repositoryId=Number(repositoryAccess.repository_id);
+  const installationId=Number(repositoryAccess.installation_id);
+  const ghToken=await getGitHubInstallationToken({appId,privateKey:appPrivateKey,installationId,repositoryId});
+  const repoPath="/repos/"+owner+"/"+name;
+  const repoInfo=await gh(ghToken,repoPath);
+  if(Number(repoInfo.id)!==repositoryId||String(repoInfo.full_name||"").toLowerCase()!==repositoryFullName)return json(req,{ok:false,error:"GitHub repository identity no longer matches the verified installation record."},403);
+  if(repoInfo.private)return json(req,{ok:false,error:"Private repositories are not supported by the current audit pipeline."},400);
   const sourceBranch=String(a.branch||repoInfo.default_branch||"main");const current=await gh(ghToken,repoPath+"/commits/"+encodeURIComponent(sourceBranch));if(String(current.sha).toLowerCase()!==String(a.commit_sha).toLowerCase())return json(req,{ok:false,error:"The repository has changed since this audit. Run a fresh audit before generating fixes; no branch was created."},409);
   const uniquePaths=[...new Set(eligible.map((f:any)=>String(f.file_path)))].slice(0,8);const fileContents:Record<string,string>={};
   for(const path of uniquePaths){const encoded=path.split("/").map(encodeURIComponent).join("/");const raw=await fetch("https://raw.githubusercontent.com/"+owner+"/"+name+"/"+a.commit_sha+"/"+encoded);if(!raw.ok)throw Error("Unable to retrieve audited source file: "+path);const content=await raw.text();if(content.length>60000)continue;fileContents[path]=content;}
