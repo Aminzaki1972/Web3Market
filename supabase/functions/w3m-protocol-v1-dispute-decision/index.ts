@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import type { W3MDisputeDecisionRpcClient } from "../w3m-acquisition-verification/dispute-decision-service.ts";
 import { persistW3MDisputeDecision } from "../w3m-acquisition-verification/dispute-decision-service.ts";
 import { handleW3MDisputeDecisionRequest } from "../w3m-acquisition-verification/dispute-decision-request-handler.ts";
+import { authenticateVerifiedAdminAal2 } from "../w3m-acquisition-verification/verified-admin-aal2.ts";
 
 const ALLOWED_ORIGINS = new Set([
   "https://web3market.xyz",
@@ -44,11 +45,7 @@ Deno.serve(async (request) => {
   };
 
   const response = await handleW3MDisputeDecisionRequest(request, {
-    authenticate: async (token) => {
-      const { data, error } = await supabase.auth.getUser(token);
-      if (error || !data.user?.id) return null;
-      return data.user.id;
-    },
+    authenticate: async (token) => await authenticateVerifiedAdminAal2(supabase, token),
     isAdmin: async (actorId) => {
       const { data, error } = await supabase
         .from("profiles")
