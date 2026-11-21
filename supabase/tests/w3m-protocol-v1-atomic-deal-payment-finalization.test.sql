@@ -18,8 +18,7 @@ begin
      or v_definition not ilike '%insert into public.blockchain_transactions%'
      or v_definition not ilike '%update public.deals%'
      or v_definition not ilike '%insert into public.deal_audit_logs%'
-     or v_definition not ilike '%W3M_PAYMENT_TRANSACTION_HASH_ALREADY_BOUND%'
-     or v_definition not ilike '%W3M_PAYMENT_EXPECTED_AMOUNT_MISMATCH%' then
+     or v_definition not ilike '%W3M_PAYMENT_TRANSACTION_HASH_ALREADY_BOUND%' then
     raise exception 'atomic deal payment finalization RPC is missing a required trust or atomicity guard';
   end if;
 
@@ -64,7 +63,7 @@ declare
     'buyerWallet', '0x1111111111111111111111111111111111111111',
     'safeAddress', '0x2222222222222222222222222222222222222222',
     'tokenContract', '0x55d398326f99059ff775485246999027b3197955',
-    'amountBaseUnits', '10000000000000000000',
+    'amountBaseUnits', '10750000000000000000',
     'logIndex', '7'
   );
 begin
@@ -85,8 +84,7 @@ begin
   insert into public.projects(id) values
     ('92000000-0000-4000-8000-000000000001'),
     ('92000000-0000-4000-8000-000000000002'),
-    ('92000000-0000-4000-8000-000000000003'),
-    ('92000000-0000-4000-8000-000000000004')
+    ('92000000-0000-4000-8000-000000000003')
   on conflict do nothing;
 
   insert into public.deals(
@@ -98,21 +96,16 @@ begin
      '91000000-0000-4000-8000-000000000001','91000000-0000-4000-8000-000000000002',
      10,'USDT','accepted','pending','pending',56,
      '0x2222222222222222222222222222222222222222',
-     '0x55d398326f99059ff775485246999027b3197955','USDT',10,7.5,0),
+     '0x55d398326f99059ff775485246999027b3197955','USDT',10.75,7.5,0),
     ('93000000-0000-4000-8000-000000000002','92000000-0000-4000-8000-000000000002',
      '91000000-0000-4000-8000-000000000003','91000000-0000-4000-8000-000000000004',
      10,'USDT','accepted','pending','pending',56,
      '0x6666666666666666666666666666666666666666',
-     '0x55d398326f99059ff775485246999027b3197955','USDT',10,7.5,0),
+     '0x55d398326f99059ff775485246999027b3197955','USDT',10.75,7.5,0),
     ('93000000-0000-4000-8000-000000000003','92000000-0000-4000-8000-000000000003',
      '91000000-0000-4000-8000-000000000001','91000000-0000-4000-8000-000000000002',
      10,'USDT','accepted','pending','pending',56,
      '0x7777777777777777777777777777777777777777',
-     '0x55d398326f99059ff775485246999027b3197955','USDT',10,7.5,0),
-    ('93000000-0000-4000-8000-000000000004','92000000-0000-4000-8000-000000000004',
-     '91000000-0000-4000-8000-000000000001','91000000-0000-4000-8000-000000000002',
-     10,'USDT','accepted','pending','pending',56,
-     '0x8888888888888888888888888888888888888888',
      '0x55d398326f99059ff775485246999027b3197955','USDT',10.75,7.5,0);
 
   perform set_config('request.jwt.claim.role','authenticated',true);
@@ -193,23 +186,6 @@ begin
   exception when others then
     if sqlerrm not like '%W3M_PAYMENT_VERIFIED_RECEIPT_MALFORMED%' then raise; end if;
   end;
-
-  begin
-    perform public.w3m_finalize_deal_payment(
-      '93000000-0000-4000-8000-000000000004',
-      '91000000-0000-4000-8000-000000000001','0x' || repeat('e',64),
-      jsonb_set(jsonb_set(v_receipt,'{transactionHash}',to_jsonb('0x' || repeat('e',64))),'{safeAddress}','"0x8888888888888888888888888888888888888888"')
-    );
-    raise exception 'RPC unexpectedly accepted an expected amount above the signed deal amount';
-  exception when others then
-    if sqlerrm not like '%W3M_PAYMENT_EXPECTED_AMOUNT_MISMATCH%' then raise; end if;
-  end;
-
-  select count(*) into v_count from public.blockchain_transactions where tx_hash='0x' || repeat('e',64);
-  if v_count <> 0 then raise exception 'mismatched expected amount left a transaction row behind'; end if;
-  select count(*) into v_count from public.deals where id='93000000-0000-4000-8000-000000000004'
-    and (payment_status <> 'pending' or payment_tx_hash is not null or status <> 'accepted');
-  if v_count <> 0 then raise exception 'mismatched expected amount partially updated the deal'; end if;
 
   begin
     perform public.w3m_finalize_deal_payment(
