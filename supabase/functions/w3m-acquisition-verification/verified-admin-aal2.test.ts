@@ -16,5 +16,6 @@ Deno.test("admin authentication requires a Supabase-verified user and AAL2 JWT",
   assertEquals(await authenticateVerifiedAdminAal2(client({ userId: null, aal: "aal2" }), TOKEN), null);
   assertEquals(await authenticateVerifiedAdminAal2(client({ userId: USER, aal: "aal2", userError: true }), TOKEN), null);
   assertEquals(await authenticateVerifiedAdminAal2(client({ userId: USER, aal: "aal2", aalError: true }), TOKEN), null);
-  assertEquals(await authenticateVerifiedAdminAal2(client({ userId: USER, aal: "aal2" }), "short"), null);
+  assertEquals(await authenticateVerifiedAdminAal2(client({ userId: USER, aal: "aal2" }), ""), null);
+  assertEquals(await authenticateVerifiedAdminAal2(client({ userId: USER, aal: "aal2" }), "x".repeat(8193)), null);
 });
