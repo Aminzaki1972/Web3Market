@@ -12,6 +12,7 @@ import { handleBuyerRefundFinalization } from "../w3m-acquisition-verification/b
 import type { BuyerRefundFinalizationContext } from "../w3m-acquisition-verification/buyer-refund-finalization-handler.ts";
 import { finalizeBuyerRefundAtomically } from "../w3m-acquisition-verification/buyer-refund-finalization-persistence-adapter.ts";
 import type { W3MRpcClient } from "../w3m-acquisition-verification/supabase-rpc-adapter.ts";
+import { authenticateVerifiedAdminAal2 } from "../w3m-acquisition-verification/verified-admin-aal2.ts";
 import { parseW3MRefundAmount } from "../w3m-acquisition-verification/buyer-refund-amount-validator.ts";
 
 
@@ -108,10 +109,7 @@ export function createW3MBuyerRefundFinalizeEndpoint(overrides: Partial<W3MRefun
     },
   };
   const response = await deps.handleFinalization(request, {
-    authenticate: async (token) => {
-      const { data, error } = await supabase.auth.getUser(token);
-      return error || !data.user?.id ? null : data.user.id;
-    },
+    authenticate: async (token) => await authenticateVerifiedAdminAal2(supabase, token),
     isAdmin: async (actorId) => {
       const { data, error } = await supabase.from("profiles").select("id,role").eq("id", actorId).maybeSingle();
       if (error) throw new Error("Admin lookup failed");
