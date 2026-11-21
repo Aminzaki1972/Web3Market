@@ -14,7 +14,7 @@ function forbidText(source: string, pattern: RegExp, label: string): void {
 }
 
 Deno.test("buyer refund request entrypoint composes fresh authorization and canonical evidence", () => {
-  requireText(endpoint, /supabase\.auth\.getUser\(token\)/, "Supabase bearer-session authentication");
+  requireText(endpoint, /authenticateVerifiedAdminAal2\(supabase, token\)/, "server-verified AAL2 administrator authentication");
   requireText(endpoint, /from\(["']profiles["']\)\.select\(["']id,role["']\)/, "server-side admin role lookup");
   requireText(endpoint, /readSnapshot:\s*readBuyerRefundRequestSnapshot/, "fresh service-side refund snapshot");
   requireText(endpoint, /verifyAcceptances:\s*verifyBuyerRefundAgreementAcceptances/, "cryptographic buyer and seller agreement acceptances");
@@ -83,7 +83,7 @@ Deno.test("buyer refund SIGN entrypoint verifies participant signature against f
 });
 
 Deno.test("buyer refund FINALIZE entrypoint is admin-gated and receipt-verified before atomic commit", () => {
-  requireText(finalizeEndpoint, /supabase\.auth\.getUser\(/, "authenticated administrator session");
+  requireText(finalizeEndpoint, /authenticateVerifiedAdminAal2\(supabase, token\)/, "server-verified AAL2 administrator session");
   requireText(finalizeEndpoint, /isAdmin:\s*async/, "server-side administrator authorization");
   requireText(finalizeEndpoint, /String\(data\.role \?\? ""\)\.toLowerCase\(\) === "admin"/, "admin role is read from trusted profile row");
   requireText(finalizeEndpoint, /verifyReceipt:\s*verifyBnbSafeBuyerRefundReceipt/, "canonical BNB Safe refund receipt verification");
