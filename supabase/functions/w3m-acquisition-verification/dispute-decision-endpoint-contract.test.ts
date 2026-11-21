@@ -7,5 +7,5 @@ Deno.test("dispute decision Edge Function requires server-verified AAL2 before c
   const authBlock = endpoint.slice(authStart, adminStart);
   if (!authBlock.includes("authenticateVerifiedAdminAal2(supabase, token)")) throw new Error("Dispute decision endpoint must require a Supabase-verified AAL2 session.");
   if (authBlock.includes("getUser(token)")) throw new Error("Dispute decision endpoint must not use user authentication without the AAL2 gate.");
-  if (!endpoint.includes('.from("profiles")') || !endpoint.includes('.select("id,role")')) throw new Error("Dispute decision endpoint must independently verify the administrator profile role.");
+  if (!endpoint.includes('.from("profiles")') || !endpoint.includes('.select("id, role")')) throw new Error("Dispute decision endpoint must independently verify the administrator profile role.");
 });
