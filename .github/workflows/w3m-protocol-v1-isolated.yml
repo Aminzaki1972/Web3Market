@@ -478,6 +478,8 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/dispute-decision-request-handler.test.ts
       - name: Test server-verified administrator AAL2 gate
         run: deno test supabase/functions/w3m-acquisition-verification/verified-admin-aal2.test.ts
+      - name: Test admin dispute page stays read-only in preview
+        run: deno test --allow-read=admin-disputes.html supabase/functions/w3m-acquisition-verification/admin-disputes-page-contract.test.ts
       - name: Test dispute decision Edge Function AAL2 composition
         run: deno test --allow-read=supabase/functions/w3m-protocol-v1-dispute-decision/index.ts supabase/functions/w3m-acquisition-verification/dispute-decision-endpoint-contract.test.ts
       - name: Test server-side deal agreement signing service
