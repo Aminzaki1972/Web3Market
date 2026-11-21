@@ -30,6 +30,7 @@ import { readCanonicalBnbSafeTransactionFactsAtBlock } from "../w3m-acquisition-
 import { readCanonicalBnbUsdtBalance } from "../w3m-acquisition-verification/bnb-safe-usdt-balance-reader.ts";
 import { persistBuyerRefundRequestAtomically } from "../w3m-acquisition-verification/buyer-refund-request-persistence-adapter.ts";
 import type { W3MRpcClient } from "../w3m-acquisition-verification/supabase-rpc-adapter.ts";
+import { authenticateVerifiedAdminAal2 } from "../w3m-acquisition-verification/verified-admin-aal2.ts";
 
 
 type W3MRefundRequestEndpointDependencies = {
@@ -155,10 +156,7 @@ export function createW3MBuyerRefundRequestEndpoint(overrides: Partial<W3MRefund
   };
 
   const response = await deps.handleRequest(request, {
-    authenticate: async (token) => {
-      const { data, error } = await supabase.auth.getUser(token);
-      return error || !data.user?.id ? null : data.user.id;
-    },
+    authenticate: async (token) => await authenticateVerifiedAdminAal2(supabase, token),
     isAdmin: async (actorId) => {
       const { data, error } = await supabase.from("profiles").select("id,role").eq("id", actorId).maybeSingle();
       if (error) throw new Error("Admin lookup failed");
