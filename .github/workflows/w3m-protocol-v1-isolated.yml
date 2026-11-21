@@ -36,6 +36,8 @@ on:
       - "js/w3m-safe-wallet-execution-client.js"
       - "js/release-signing-fix.js"
       - "deal-room.html"
+      - "admin-disputes.html"
+      - "admin-review.html"
       - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
       - "supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql"
       - "supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql"
@@ -476,6 +478,12 @@ jobs:
         run: deno test supabase/functions/w3m-acquisition-verification/dispute-decision.test.ts
       - name: Test authenticated admin-only dispute decision boundary
         run: deno test supabase/functions/w3m-acquisition-verification/dispute-decision-request-handler.test.ts
+      - name: Test server-verified administrator AAL2 gate
+        run: deno test supabase/functions/w3m-acquisition-verification/verified-admin-aal2.test.ts
+      - name: Test admin dispute page stays read-only in preview
+        run: deno test --allow-read=admin-disputes.html supabase/functions/w3m-acquisition-verification/admin-disputes-page-contract.test.ts
+      - name: Test dispute decision Edge Function AAL2 composition
+        run: deno test --allow-read=supabase/functions/w3m-protocol-v1-dispute-decision/index.ts supabase/functions/w3m-acquisition-verification/dispute-decision-endpoint-contract.test.ts
       - name: Test server-side deal agreement signing service
         run: deno test supabase/functions/w3m-acquisition-verification/deal-agreement-service.test.ts
       - name: Test authenticated deal agreement request boundary

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dispute Review | Web3Market</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
+<script src="js/supabase.js"></script>
+<style>
+:root{--bg:#0c0b17;--card:#17152a;--line:#352b55;--text:#f5f2ff;--muted:#aaa3bd;--purple:#a78bfa;--red:#fda4af;--amber:#fcd34d;--green:#86efac}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 10% 0%,#34205d,transparent 28%),linear-gradient(135deg,#090a14,#151027 65%,#0b1222);color:var(--text);font-family:Inter,system-ui,sans-serif;min-height:100vh}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);background:#0c0b19ee}.brand{color:#fff;text-decoration:none;font-weight:900}.mark{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:9px;margin-right:8px;background:linear-gradient(135deg,#7c3aed,#2563eb)}a{color:#c4b5fd}.toplinks{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:12px}
+.wrap{max-width:1200px;margin:auto;padding:24px 14px}.head{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:18px}.eyebrow{font-size:11px;font-weight:900;letter-spacing:2px;color:var(--purple)}h1{font-size:28px;margin:6px 0}.muted{color:var(--muted);font-size:13px;line-height:1.55}
+.grid{display:grid;grid-template-columns:340px minmax(0,1fr);gap:14px}.card{background:linear-gradient(145deg,#1a1730,#121a2b);border:1px solid var(--line);border-radius:15px;padding:16px;min-width:0}.queue{display:flex;flex-direction:column;gap:10px}.case-btn{width:100%;text-align:left;background:#0e0d1b;border:1px solid #33284f;color:var(--text);border-radius:11px;padding:12px;cursor:pointer}.case-btn.active{border-color:#8b5cf6;background:#20183a}.case-title{font-weight:850;font-size:13px;overflow-wrap:anywhere}.meta{font-size:11px;color:var(--muted);margin-top:6px}.pill{display:inline-block;padding:4px 8px;border-radius:20px;background:#7c3aed22;color:#c4b5fd;font-size:10px;font-weight:900}
+.section{margin-top:16px}.section h2{font-size:15px;margin:0 0 9px}.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.detail{background:#0e0d1b;border:1px solid #30264b;border-radius:10px;padding:11px;min-width:0}.detail strong{display:block;color:#aaa3bd;font-size:10px;margin-bottom:5px}.detail span,.detail p{font-size:12px;overflow-wrap:anywhere;white-space:pre-wrap;margin:0;line-height:1.5}
+.evidence{border:1px solid #33294e;border-radius:10px;padding:11px;margin:8px 0;background:#0e0d1b}.evidence-top{display:flex;gap:10px;align-items:flex-start}.evidence input{margin-top:3px}.evidence-body{min-width:0;flex:1}.evidence-body strong{font-size:12px}.evidence-body p{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;margin:6px 0}.evidence-foot{font-size:10px;color:var(--muted);overflow-wrap:anywhere}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}label{display:block;font-size:11px;color:#c4b5fd;font-weight:800;margin-bottom:5px}input,select,textarea{width:100%;border:1px solid #40345f;border-radius:9px;background:#0e0d1b;color:#fff;padding:11px;font:inherit;font-size:13px}textarea{min-height:100px;resize:vertical}.btn{border:1px solid #493969;background:#211a36;color:#eee8f7;border-radius:9px;padding:10px 13px;font-size:12px;font-weight:900;cursor:pointer}.btn:disabled{opacity:.45;cursor:not-allowed}.warn{border:1px solid #8a5a08;background:#8a5a0818;color:var(--amber);border-radius:10px;padding:12px;font-size:12px;line-height:1.5;margin-top:12px}.status{padding:10px;border-radius:9px;background:#111022;border:1px solid #33294e;font-size:12px;margin-bottom:12px}.error{color:var(--red)}.empty{text-align:center;padding:36px;color:var(--muted);font-size:13px}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.mfa-overlay{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;padding:18px;z-index:1000}.mfa-overlay.show{display:flex}.mfa-box{width:min(420px,100%);background:#19162c;border:1px solid #514174;border-radius:16px;padding:22px}.mfa-box h2{margin:0 0 8px}.mfa-box input{font-size:22px;letter-spacing:7px;text-align:center;margin:12px 0}.mfa-actions{display:flex;gap:8px}.mfa-actions button{flex:1}
+@media(max-width:850px){.grid{grid-template-columns:1fr}.detail-grid,.form-grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.toplinks{gap:10px}}
+</style>
+</head>
+<body>
+<header class="top">
+<a class="brand" href="marketplace.html"><span class="mark">W3</span>Web3Market</a>
+<nav class="toplinks"><a href="admin-review.html">Admin Review</a><a href="admin-audit-log.html">Audit Log</a><span class="pill">PRIVATE ADMIN AREA · AAL2</span><button class="btn" id="logout">Sign out</button></nav>
+</header>
+<div class="mfa-overlay" id="mfa-overlay" role="dialog" aria-modal="true">
+ <div class="mfa-box"><h2>Administrator verification</h2><p class="muted">Enter the 6-digit code from your authenticator app.</p><input id="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-label="Authenticator code"><div id="mfa-error" class="error muted"></div><div class="mfa-actions"><button class="btn" id="mfa-cancel">Cancel</button><button class="btn" id="mfa-submit">Verify</button></div></div>
+</div>
+<main class="wrap">
+<section class="head"><div><div class="eyebrow">TRUST & SAFETY · W3M PROTOCOL V1</div><h1>Dispute Review</h1><div class="muted" id="status">Verifying administrator session…</div></div><div class="toolbar"><button class="btn" id="refresh">Refresh queue</button></div></section>
+<div class="status" id="notice">Read-only review preview. No decision, refund request, wallet signature, or blockchain transaction can be submitted from this page.</div>
+<div class="grid">
+ <aside class="card"><h2 style="font-size:15px;margin:0 0 12px">Open disputes <span id="queue-count" class="pill">0</span></h2><div id="queue" class="queue"><div class="empty">Loading…</div></div></aside>
+ <section class="card" id="case-panel"><div class="empty">Choose a dispute to review its record and available evidence.</div></section>
+</div>
+</main>
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const SB_URL="https://hzhqlexnhtukfljcvnyd.supabase.co",SB_KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
+const esc=v=>String(v==null?"":v).replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
+let db=null,session=null,disputes=[],selectedId=null,selectedEvidence=new Set();
+function client(){if(db)return db;if(window.Web3MarketSupabase&&window.Web3MarketSupabase.getClient)db=window.Web3MarketSupabase.getClient();if(!db&&window.supabase&&window.supabase.createClient)db=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:"web3market-auth"}});if(!db)throw new Error("Supabase client unavailable. Refresh the page.");return db}
+function setStatus(message,isError){$("#status").textContent=message;$("#status").className=isError?"muted error":"muted"}
+async function verifyAal2(){
+ const c=client(),a=await c.auth.mfa.getAuthenticatorAssuranceLevel();
+ if(a.error)throw a.error;
+ if(a.data&&a.data.currentLevel==="aal2")return true;
+ const factors=await c.auth.mfa.listFactors();if(factors.error)throw factors.error;
+ const factor=(factors.data&&factors.data.totp||[]).find(x=>x.status==="verified");
+ if(!factor){setStatus("Administrator MFA is required. Set up TOTP first.",true);return false}
+ const overlay=$("#mfa-overlay"),input=$("#mfa-code"),err=$("#mfa-error");overlay.classList.add("show");input.value="";err.textContent="";input.focus();
+ const code=await new Promise(resolve=>{
+  const finish=v=>{overlay.classList.remove("show");$("#mfa-submit").removeEventListener("click",submit);$("#mfa-cancel").removeEventListener("click",cancel);input.removeEventListener("keydown",key);resolve(v)};
+  const submit=()=>{const v=input.value.replace(/\D/g,"").slice(0,6);if(!/^\d{6}$/.test(v)){err.textContent="Enter exactly 6 digits.";return}finish(v)};
+  const cancel=()=>finish(null),key=e=>{if(e.key==="Enter")submit();if(e.key==="Escape")cancel()};
+  $("#mfa-submit").addEventListener("click",submit);$("#mfa-cancel").addEventListener("click",cancel);input.addEventListener("keydown",key);
+ });
+ if(!code)return false;
+ const challenge=await c.auth.mfa.challenge({factorId:factor.id});if(challenge.error)throw challenge.error;
+ const verified=await c.auth.mfa.verify({factorId:factor.id,challengeId:challenge.data.id,code});if(verified.error)throw verified.error;
+ const after=await c.auth.mfa.getAuthenticatorAssuranceLevel();if(after.error)throw after.error;
+ return !!after.data&&after.data.currentLevel==="aal2";
+}
+async function authenticate(){
+ const c=client(),s=await c.auth.getSession();if(s.error)throw s.error;session=s.data.session;
+ if(!session){setStatus("Please sign in with the administrator account.",true);return false}
+ const u=await c.auth.getUser();if(u.error||!u.data.user)throw new Error("Could not verify current user.");
+ const p=await c.from("profiles").select("id,role").eq("id",u.data.user.id).maybeSingle();
+ if(p.error||!p.data||String(p.data.role).toLowerCase()!=="admin")throw new Error("Administrator role is required.");
+ if(!(await verifyAal2()))return false;
+ return true;
+}
+async function loadQueue(){
+ const c=client();setStatus("Loading open disputes…");
+ const q=await c.from("deal_disputes").select("id,deal_id,opened_by,reason,evidence,status,created_at,updated_at").in("status",["open","under_review"]).order("created_at",{ascending:false}).limit(100);
+ if(q.error)throw q.error;disputes=q.data||[];$("#queue-count").textContent=String(disputes.length);
+ if(!disputes.length){$("#queue").innerHTML='<div class="empty">No open disputes are currently waiting for review.</div>';$("#case-panel").innerHTML='<div class="empty">No case selected. New disputes will appear here after they are opened.</div>';setStatus("Administrator verified · AAL2 · Queue is empty.");return}
+ $("#queue").innerHTML=disputes.map(d=>'<button class="case-btn '+(selectedId===d.id?"active":"")+'" data-case="'+esc(d.id)+'"><div class="case-title">Deal '+esc(String(d.deal_id).slice(0,8))+'…</div><div class="meta">'+esc(d.status)+' · '+esc(new Date(d.created_at).toLocaleString())+'</div><div class="meta">'+esc(String(d.reason||"").slice(0,150))+'</div></button>').join("");
+ $("#queue").querySelectorAll("[data-case]").forEach(b=>b.addEventListener("click",()=>openCase(b.getAttribute("data-case"))));
+ setStatus("Administrator verified · AAL2 · "+disputes.length+" open dispute(s).");
+ if(selectedId&&disputes.some(d=>d.id===selectedId))await openCase(selectedId);else await openCase(disputes[0].id);
+}
+function evidenceCard(source,row,title,body,meta){
+ const key=source+":"+row.id,checked=selectedEvidence.has(key)?"checked":"";
+ return '<label class="evidence"><div class="evidence-top"><input type="checkbox" data-evidence="'+esc(key)+'" '+checked+'><div class="evidence-body"><strong>'+esc(title)+'</strong><p>'+esc(body)+'</p><div class="evidence-foot">'+esc(meta||"")+' · '+esc(source)+' · '+esc(row.id)+'</div></div></div></label>';
+}
+async function openCase(id){
+ selectedId=id;selectedEvidence.clear();
+ const d=disputes.find(x=>x.id===id);if(!d)return;
+ $("#queue").querySelectorAll("[data-case]").forEach(b=>b.classList.toggle("active",b.getAttribute("data-case")===id));
+ $("#case-panel").innerHTML='<div class="empty">Loading case evidence…</div>';
+ const c=client(),dealQ=await c.from("deals").select("id,project_id,buyer_id,seller_id,amount,currency,status,dispute_status,payment_status,chain_id,safe_address,payment_tx_hash").eq("id",d.deal_id).maybeSingle();
+ if(dealQ.error||!dealQ.data)throw dealQ.error||new Error("Deal record unavailable.");
+ const deal=dealQ.data;
+ const [projectQ,msgQ,assetQ,auditQ]=await Promise.all([
+  c.from("projects").select("id,title").eq("id",deal.project_id).maybeSingle(),
+  c.from("deal_messages").select("id,sender_id,sender_role,message,created_at").eq("deal_id",d.deal_id).order("created_at",{ascending:true}).limit(200),
+  c.from("deal_assets").select("id,asset_name,status,delivery_url,evidence,delivered_by,delivered_at,accepted_by,accepted_at").eq("deal_id",d.deal_id).order("created_at",{ascending:true}).limit(100),
+  c.from("deal_audit_logs").select("id,actor_id,action,old_status,new_status,metadata,created_at").eq("deal_id",d.deal_id).order("created_at",{ascending:true}).limit(200)
+ ]);
+ const evidenceErrors=[msgQ.error,assetQ.error,auditQ.error].filter(Boolean);
+ const messages=msgQ.data||[],assets=assetQ.data||[],logs=auditQ.data||[];
+ let html='<div class="eyebrow">CASE FILE</div><h2 style="font-size:20px;margin:6px 0 12px">Deal '+esc(d.deal_id)+'</h2>';
+ html+='<div class="detail-grid"><div class="detail"><strong>Project</strong><span>'+esc(projectQ.data?.title||deal.project_id)+'</span></div><div class="detail"><strong>Dispute state</strong><span>'+esc(d.status)+' / '+esc(deal.dispute_status)+'</span></div><div class="detail"><strong>Buyer ID</strong><span>'+esc(deal.buyer_id)+'</span></div><div class="detail"><strong>Seller ID</strong><span>'+esc(deal.seller_id)+'</span></div><div class="detail"><strong>Deal amount</strong><span>'+esc(deal.amount)+' '+esc(deal.currency)+'</span></div><div class="detail"><strong>Payment</strong><span>'+esc(deal.payment_status)+' · chain '+esc(deal.chain_id)+'</span></div><div class="detail"><strong>Safe address</strong><span>'+esc(deal.safe_address||"Not recorded")+'</span></div><div class="detail"><strong>Funding tx</strong><span>'+esc(deal.payment_tx_hash||"Not recorded")+'</span></div></div>';
+ html+='<div class="section"><h2>Dispute submitted</h2><div class="detail"><strong>Opened by '+esc(d.opened_by)+'</strong><p>'+esc(d.reason)+'</p></div><details style="margin-top:8px"><summary class="muted">Original dispute evidence metadata</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px">'+esc(JSON.stringify(d.evidence,null,2))+'</pre></details></div>';
+ html+='<div class="section"><h2>Evidence for review</h2><p class="muted">Select the records that directly support the decision. The server reloads and hashes every selected record before writing the immutable decision.</p>';
+ if(messages.length)html+='<h3 style="font-size:12px;color:#c4b5fd">Deal messages ('+messages.length+')</h3>'+messages.map(m=>evidenceCard("deal_message",m,(m.sender_role||"participant")+" · "+new Date(m.created_at).toLocaleString(),m.message,m.sender_id)).join("");
+ if(assets.length)html+='<h3 style="font-size:12px;color:#c4b5fd">Delivered assets ('+assets.length+')</h3>'+assets.map(a=>evidenceCard("deal_asset",a,a.asset_name+" · "+a.status,[a.evidence,a.delivery_url].filter(Boolean).join("\n"),"Delivered "+(a.delivered_at||"—")+" · Accepted "+(a.accepted_at||"—"))).join("");
+ if(logs.length)html+='<h3 style="font-size:12px;color:#c4b5fd">Audit history ('+logs.length+')</h3>'+logs.map(a=>evidenceCard("deal_audit_log",a,a.action+" · "+new Date(a.created_at).toLocaleString(),JSON.stringify(a.metadata||{}),String(a.old_status||"")+" → "+String(a.new_status||""))).join("");
+ if(!messages.length&&!assets.length&&!logs.length)html+='<div class="empty">No readable evidence records were returned for this case.</div>';
+ if(evidenceErrors.length)html+='<div class="warn">Some evidence sources could not be loaded under the current read policies. Do not decide until the complete evidence record is available.</div>';
+ html+='</div><div class="section"><h2>Proposed decision</h2><div class="form-grid"><div><label for="outcome">Outcome</label><select id="outcome"><option value="buyer_wins">Buyer wins</option><option value="seller_wins">Seller wins</option></select></div><div id="refund-wrap"><label for="refund-amount">Buyer refund amount (USDT)</label><input id="refund-amount" inputmode="decimal" placeholder="Enter exact amount"></div></div><div style="margin-top:10px"><label for="decision-reason">Decision reason (20–5000 characters)</label><textarea id="decision-reason" placeholder="Explain the decision and how the selected evidence supports it."></textarea></div><div class="muted" id="evidence-selected">0 evidence records selected.</div><div class="warn">Decision submission is deliberately disabled in this preview. The production Edge Function has not yet been updated with server-side AAL2 enforcement. No decision or refund request will be sent to production.</div><button class="btn" style="margin-top:12px" disabled>Submit decision · unavailable until separately approved deployment</button></div>';
+ $("#case-panel").innerHTML=html;
+ $("#case-panel").querySelectorAll("[data-evidence]").forEach(el=>el.addEventListener("change",()=>{const k=el.getAttribute("data-evidence");if(el.checked)selectedEvidence.add(k);else selectedEvidence.delete(k);$("#evidence-selected").textContent=selectedEvidence.size+" evidence record(s) selected."}));
+ $("#outcome").addEventListener("change",()=>{$("#refund-wrap").style.display=$("#outcome").value==="buyer_wins"?"block":"none"});
+}
+async function start(){try{if(!(await authenticate()))return;await loadQueue()}catch(e){setStatus(e.message||"Unable to open dispute review.",true);$("#queue").innerHTML='<div class="empty error">Administrator review unavailable.</div>'}}
+$("#refresh").addEventListener("click",()=>loadQueue().catch(e=>setStatus(e.message,true)));
+$("#logout").addEventListener("click",async()=>{try{await client().auth.signOut()}finally{location.href="login.html"}});
+start();
+})();
+</script>
+<script src="/js/brand.js?v=20261007" defer></script>
+</body></html>
