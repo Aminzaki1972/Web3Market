@@ -102,6 +102,7 @@ function fakeSupabase(input: { userId: string; rows?: Record<string, Record<stri
     client: {
       auth: {
         async getUser(_token?: string) { return { data: { user: { id: input.userId } }, error: null }; },
+        mfa: { async getAuthenticatorAssuranceLevel(_token?: string) { return { data: { currentLevel: "aal2" }, error: null }; } },
       },
       from(table: string) { return new QueryMock(table, rows, (trace) => queryCalls.push(trace)); },
       async rpc(name: string, args: Record<string, unknown>) {
