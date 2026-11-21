@@ -36,6 +36,8 @@ on:
       - "js/w3m-safe-wallet-execution-client.js"
       - "js/release-signing-fix.js"
       - "deal-room.html"
+      - "admin-disputes.html"
+      - "admin-review.html"
       - "supabase/migrations/20261105210000_w3m_protocol_v1_evidence_registry.sql"
       - "supabase/migrations/20261105220000_w3m_protocol_v1_trusted_signer_registry.sql"
       - "supabase/migrations/20261107110000_w3m_protocol_v1_append_only_registry.sql"
