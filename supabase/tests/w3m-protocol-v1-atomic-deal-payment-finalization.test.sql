@@ -103,7 +103,7 @@ begin
      '91000000-0000-4000-8000-000000000003','91000000-0000-4000-8000-000000000004',
      10,'USDT','accepted','pending','pending',56,
      '0x6666666666666666666666666666666666666666',
-     '0x55d398326f99059ff775485246999027b3197955','USDT',10.75,7.5,0),
+     '0x55d398326f99059ff775485246999027b3197955','USDT',10,7.5,0),
     ('93000000-0000-4000-8000-000000000003','92000000-0000-4000-8000-000000000003',
      '91000000-0000-4000-8000-000000000001','91000000-0000-4000-8000-000000000002',
      10,'USDT','accepted','pending','pending',56,
@@ -198,7 +198,7 @@ begin
     perform public.w3m_finalize_deal_payment(
       '93000000-0000-4000-8000-000000000004',
       '91000000-0000-4000-8000-000000000001','0x' || repeat('e',64),
-      jsonb_set(jsonb_set(v_receipt,'{transactionHash}',to_jsonb('0x' || repeat('e',64))),'{safeAddress}','\"0x8888888888888888888888888888888888888888\"')
+      jsonb_set(jsonb_set(v_receipt,'{transactionHash}',to_jsonb('0x' || repeat('e',64))),'{safeAddress}','"0x8888888888888888888888888888888888888888"')
     );
     raise exception 'RPC unexpectedly accepted an expected amount above the signed deal amount';
   exception when others then
