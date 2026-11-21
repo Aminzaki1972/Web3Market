@@ -13,7 +13,7 @@ export async function authenticateVerifiedAdminAal2(
   client: W3MAdminAuthClient,
   token: string,
 ): Promise<string | null> {
-  if (typeof token !== "string" || token.length < 20 || token.length > 8192) return null;
+  if (typeof token !== "string" || !token.trim() || token.length > 8192) return null;
   try {
     const [userResult, aalResult] = await Promise.all([
       client.auth.getUser(token),
