@@ -91,11 +91,7 @@ export function buildFreshBnbDealPaymentContext(
   if (buyer.wallet_address.toLowerCase() === deal.safe_address.toLowerCase()) {
     fail("buyer wallet cannot equal the deal Safe");
   }
-  const signedDealAmountBaseUnits = toBaseUnits(deal.amount);
-  if (deal.expected_amount !== null && deal.expected_amount !== undefined &&
-      toBaseUnits(deal.expected_amount) !== signedDealAmountBaseUnits) {
-    fail("expected_amount must equal the signed deal amount; the platform fee is deducted from that amount");
-  }
+  const amount = deal.expected_amount ?? deal.amount;
   const minConfirmations = input.minConfirmations ?? 3;
   if (!Number.isSafeInteger(minConfirmations) || minConfirmations < 1) {
     fail("confirmation policy is invalid");
@@ -107,7 +103,7 @@ export function buildFreshBnbDealPaymentContext(
       buyerWallet: buyer.wallet_address.toLowerCase(),
       safeAddress: deal.safe_address.toLowerCase(),
       tokenContract: BNB_USDT,
-      expectedAmountBaseUnits: signedDealAmountBaseUnits,
+      expectedAmountBaseUnits: toBaseUnits(amount),
       minConfirmations,
     },
   };
