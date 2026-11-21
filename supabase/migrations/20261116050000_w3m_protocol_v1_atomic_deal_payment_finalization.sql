@@ -98,7 +98,12 @@ begin
   end if;
 
   v_block_number := (p_verified_receipt->>'blockNumber')::bigint;
-  v_expected_amount := coalesce(v_deal.expected_amount, v_deal.amount);
+  if v_deal.expected_amount is not null
+     and v_deal.expected_amount is distinct from v_deal.amount then
+    raise exception 'W3M_PAYMENT_EXPECTED_AMOUNT_MISMATCH';
+  end if;
+  -- The signed deal amount is the complete funding amount; the 7.5% platform fee is deducted from it.
+  v_expected_amount := v_deal.amount;
   if v_expected_amount is null or v_expected_amount <= 0
      or v_expected_amount * 1000000000000000000 <> trunc(v_expected_amount * 1000000000000000000) then
     raise exception 'W3M_PAYMENT_EXPECTED_AMOUNT_INVALID';
