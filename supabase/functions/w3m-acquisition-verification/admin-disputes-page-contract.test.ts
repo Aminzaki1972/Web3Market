@@ -10,4 +10,8 @@ Deno.test("admin dispute review page is AAL2-gated and read-only until secure en
   for (const marker of [".insert(", ".update(", ".upsert(", ".delete("]) {
     if (page.includes(marker)) throw new Error("Admin dispute page must not write directly to database tables: " + marker);
   }
+  const scriptStart = page.indexOf("<script>");
+  const scriptEnd = page.indexOf("</script>", scriptStart);
+  if (scriptStart < 0 || scriptEnd <= scriptStart) throw new Error("Admin dispute page inline script is missing.");
+  new Function(page.slice(scriptStart + "<script>".length, scriptEnd));
 });
