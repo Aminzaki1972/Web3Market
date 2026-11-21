@@ -37,9 +37,10 @@
 (function(){
 "use strict";
 const $=s=>document.querySelector(s);
+const SB_URL="https://hzhqlexnhtukfljcvnyd.supabase.co",SB_KEY="sb_publishable_lO7uEsiM0T8oeHB75DMxkA_287VZ9eI";
 const esc=v=>String(v==null?"":v).replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
 let db=null,session=null,disputes=[],selectedId=null,selectedEvidence=new Set();
-function client(){if(db)return db;db=window.Web3MarketSupabase&&window.Web3MarketSupabase.getClient?window.Web3MarketSupabase.getClient():null;if(!db)throw new Error("Supabase client unavailable. Refresh the page.");return db}
+function client(){if(db)return db;if(window.Web3MarketSupabase&&window.Web3MarketSupabase.getClient)db=window.Web3MarketSupabase.getClient();if(!db&&window.supabase&&window.supabase.createClient)db=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:"web3market-auth"}});if(!db)throw new Error("Supabase client unavailable. Refresh the page.");return db}
 function setStatus(message,isError){$("#status").textContent=message;$("#status").className=isError?"muted error":"muted"}
 async function verifyAal2(){
  const c=client(),a=await c.auth.mfa.getAuthenticatorAssuranceLevel();
